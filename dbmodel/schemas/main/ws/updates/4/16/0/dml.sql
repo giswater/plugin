@@ -1,2 +1,0 @@
-INSERT INTO sys_param_user (id, formname, descript, sys_role, label, isenabled, layoutorder, project_type, isparent, "datatype", widgettype, ismandatory, vdefault, layoutname, iseditable, "source")
-VALUES ('inp_report_onlymaxmin_values', 'epaoptions', 'If true, only max/min values will be stored after a Go2Epa process executed with hydraulic engine', 'role_epa', 'Report only max/min values', true, 13, 'ws', false, 'boolean', 'check', true, 'false', 'lyt_general_1', true, 'core');
