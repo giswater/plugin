@@ -508,7 +508,8 @@ def open_help_link(context, uiname, dlg=None):
 def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, hide_config_widgets=False, plugin_dir=lib_vars.plugin_dir, plugin_name=lib_vars.plugin_name):
     """ Open dialog """
     # Check database connection before opening dialog
-    if (dlg_name != 'admin_credentials' and dlg_name != 'admin') and not check_db_connection():
+    if dlg_name not in ('admin_credentials', 'admin', 'load_menu') and not check_db_connection():
+        tools_qgis.show_warning("Database connection is not available")
         return
 
     # Manage translate
@@ -1188,7 +1189,7 @@ def build_network_uri(cfg: dict, encoding: str = "query") -> str:
         - "query": returns a simple key=value&key=value string
         - "qgis": returns a QGIS-encoded URI using QgsDataSourceUri
     :return: URI string
-        
+
     Examples of supported formats:
 
     WMS:
@@ -1385,7 +1386,7 @@ def refresh_categorized_layer_symbology_classes(layer, addparam=None):
 
 def hide_layer_from_toc(layer):
     """Hide layer from the QGIS layer tree view.
-    
+
     Args:
         layer: Layer to hide
     """
@@ -3314,14 +3315,14 @@ def add_combo(field, dialog=None, complet_result=None, ignore_function=False, cl
 
 def add_multiple_option(field, dialog=None, complet_result=None, ignore_function=False, class_info=None):
     """Creates a filtered value relation widget with type-ahead search functionality.
-    
+
     Args:
         field (dict): Field configuration containing widget properties
         dialog (QDialog, optional): Parent dialog. Defaults to None.
         complet_result (dict, optional): Additional completion data. Defaults to None.
         ignore_function (bool, optional): Whether to ignore widget functions. Defaults to False.
         class_info (dict, optional): Class information. Defaults to None.
-        
+
     Returns:
         QWidget: Container widget with search box and filtered list
     """
@@ -3450,7 +3451,7 @@ def get_sequence_next_preview(seq_name: str, schema: str = None) -> int:
 
 def add_item_multiple_option(completer, widget, typeahead):
     """Add selected item from completer popup to QListWidget
-    
+
     Args:
         completer (QCompleter): The completer containing selected item
         widget (QListWidget): The list widget to add item to
@@ -3476,13 +3477,13 @@ def add_item_multiple_option(completer, widget, typeahead):
 
 def fill_multiple_option(widget, field, index_to_show=1, index_to_compare=0):
     """Fills a QListWidget with filtered value relation items.
-    
+
     Args:
         widget (QListWidget): The list widget to populate
         field (dict): Dictionary containing field configuration and data
         index_to_show (int): Index of value to show in widget (default: 1)
         index_to_compare (int): Index to use for comparison (default: 0)
-        
+
     Returns:
         QListWidget: The populated widget
     """
@@ -3619,14 +3620,14 @@ def fill_multiple_checkbox(widget, field, index_to_show=1, index_to_compare=0):
 def set_multiple_option_value(listwidget, value):
     """
     Sets values in a filtered value relation list widget.
-    
+
     Args:
         listwidget (QListWidget): The list widget to populate
         value (list): List of tuples containing (id, display_value) pairs to add
-        
+
     Returns:
         bool: Always returns False
-        
+
     The function takes a list widget and populates it with items from the value parameter.
     Each item shows the display value and stores the ID in the UserRole data.
     """
@@ -3647,11 +3648,11 @@ def set_multiple_option_value(listwidget, value):
 def delete_item_on_doubleclick(listwidget, item):
     """
     Deletes an item from a list widget when double-clicked.
-    
+
     Args:
         listwidget (QListWidget): The list widget containing the item
         item (QListWidgetItem): The item to delete
-        
+
     The function removes the specified item from the list widget if both parameters
     are valid and the item exists in the widget.
     """
@@ -4514,11 +4515,11 @@ def get_config_value(parameter='', columns='value', table='config_param_user', s
 def parse_currency(value_str, currency_config=None):
     """
     Parse a formatted currency string back to a float.
-    
+
     Args:
         value_str: Formatted currency string like "€1.000.000,25" or "$1,000,000.25"
         currency_config: Dict with currency config. If None, fetches from DB.
-    
+
     Returns:
         Float value
     """
@@ -4553,15 +4554,15 @@ def parse_currency(value_str, currency_config=None):
 def format_currency(value, currency_config=None, with_symbol=True):
     """
     Format a number as currency using admin_currency configuration.
-    
+
     Args:
         value: The numeric value to format
         currency_config: Dict with currency config. If None, fetches from DB.
                         Expected keys: symbol, separator, decimals
-    
+
     Returns:
         Formatted string like "₡1,000,000.25" or "€1.000.000,25"
-    
+
     Examples:
         {"symbol":"$", "separator":",", "decimals":true} -> $1,000,000.25
         {"symbol":"€", "separator":".", "decimals":true} -> €1.000.000,25
@@ -5149,9 +5150,9 @@ def _process_map_selection(class_object, selection_mode, field_id):
             # Query database directly for this layer
             fid_str = ','.join(map(str, layer_selected_fids))
             sql = f"""
-                SELECT {field_id}::text 
-                FROM {full_table_name} 
-                WHERE {pk_field} IN ({fid_str}) 
+                SELECT {field_id}::text
+                FROM {full_table_name}
+                WHERE {pk_field} IN ({fid_str})
                 {where_clause}
             """
 
@@ -5607,7 +5608,7 @@ def docker_dialog(dialog, dlg_name=None, title=None):
 
 
 def _check_mincut_state_4_replacement(docker):
-    """ 
+    """
     Check if opening a mincut over another mincut in state 4 ("On Planning").
     If so, ask user for confirmation and cleanup the old mincut if accepted.
     Returns True if the operation should be blocked (user declined).
@@ -6434,8 +6435,8 @@ def check_db_connection():
 
 
 def execute_class_function(dlg_class, func_name: str, kwargs: Optional[dict] = None):
-    """ 
-    Executes a class' function (if the corresponding dialog is open). 
+    """
+    Executes a class' function (if the corresponding dialog is open).
     kwargs can be a dictionary with the arguments to pass to the function.
     If the argument is a string starting with '__self__', it will be replaced with the corresponding attribute of the class_obj.
     (e.g. '__self__.dlg_psector_mng' will be replaced with self.dlg_psector_mng (self is the class_obj))
@@ -6560,9 +6561,9 @@ def set_psector_mode_enabled(enable: Optional[bool] = None, psector_id: Optional
 def _manage_psector_layer_styles(enable: bool) -> None:
     """
     Manage layer styles when psector mode is toggled.
-    
+
     Args:
-        enable (bool): If True, saves current styles and applies psector styles. 
+        enable (bool): If True, saves current styles and applies psector styles.
             If False, restores previously saved styles.
     """
 
@@ -7220,7 +7221,7 @@ def _insert_feature(dialog, relation_id, relation_type, feature_type, ids=None, 
                 audit_toggled = True
                 tools_db.execute_sql(
                     f"""
-                    INSERT INTO config_param_user (parameter, value, cur_user) 
+                    INSERT INTO config_param_user (parameter, value, cur_user)
                     VALUES ('audit_function', 'false', '{cur_user}')
                     ON CONFLICT (parameter, cur_user) DO UPDATE SET value='false';
                     """
