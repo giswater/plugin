@@ -572,17 +572,18 @@ class GwEpaFileManager(GwTask):
             # Call import function
             tools_log.log_info("Import simulation results into database")
             # Create connection
-            dao_db_credentials = tools_db.dao_db_credentials
+            dao_db_credentials = tools_db.dao
             if dao_db_credentials is None:
                 return False
             dao = he.create_pg_connection(
-                host=dao_db_credentials['host'],
-                port=dao_db_credentials['port'],
-                dbname=dao_db_credentials['db'],
-                user=dao_db_credentials['user'],
-                password=dao_db_credentials['password'],
-                schema=dao_db_credentials['schema'],
+                host=dao_db_credentials.host,
+                port=dao_db_credentials.port,
+                dbname=dao_db_credentials.dbname,
+                user=dao_db_credentials.user,
+                password=dao_db_credentials.password,
+                schema=tools_db.lib_vars.schema_name,
             )
+
             # Import results
             status = runner.export_result(
                 to=he.ExportDataSource.DATABASE,
