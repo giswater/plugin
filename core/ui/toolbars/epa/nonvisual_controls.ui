@@ -67,6 +67,20 @@
         </item>
        </layout>
       </item>
+      <item row="2" column="0" colspan="2">
+       <layout class="QGridLayout" name="gridLayout_4">
+        <item row="0" column="0">
+         <widget class="QLabel" name="lbl_observ">
+          <property name="text">
+           <string>Observ</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QTextEdit" name="txt_observ"/>
+        </item>
+       </layout>
+      </item>
      </layout>
     </widget>
    </item>
