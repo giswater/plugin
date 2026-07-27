@@ -305,7 +305,7 @@ BEGIN
 
 		 ELSIF v_dscenario_type = 'LIDS' THEN
 			UPDATE inp_dscenario_lids SET dscenario_id=NEW.dscenario_id, subc_id=NEW.subc_id, lidco_id=NEW.lidco_id,
-			numelem=NEW.numelem, area=NEW.area, width=NEW.width, initsat=NEW.initsat, fromimp=NEW.fromimp, toperv=NEW.toperv, rptfile=NEW.rptfile, descript=NEW.descript
+			numelem=NEW.numelem, area=NEW.area, width=NEW.width, initsat=NEW.initsat, fromimp=NEW.fromimp, toperv=NEW.toperv, rptfile=NEW.rptfile, descript=NEW.descript,
 			observ=NEW.observ
 			WHERE dscenario_id = OLD.dscenario_id AND subc_id=OLD.subc_id;
 
