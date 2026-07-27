@@ -69,6 +69,12 @@ v_querystring text;
 v_debug_vars json;
 v_debug json;
 v_msgerr json;
+v_ui_lang text;
+v_ml_pref jsonb;
+v_ml_project_type text;
+v_i18n_lb text;
+v_i18n_tt text;
+v_schema text;
 
 BEGIN
 
@@ -83,6 +89,16 @@ BEGIN
 
 	--  Get project type
 	SELECT project_type INTO v_project_type FROM sys_version ORDER BY id DESC LIMIT 1;
+
+	-- Resolve multilang UI preference once for all config tabs
+	v_ml_pref := NULL;
+	v_ui_lang := NULL;
+	v_ml_project_type := NULL;
+	IF to_regnamespace('multilang') IS NOT NULL THEN
+		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
+		v_ui_lang := v_ml_pref->>'lang';
+		v_ml_project_type := v_ml_pref->>'project_type';
+	END IF;
 
 	-- Get layers and table names
 	v_layers_name = ((p_data ->> 'data')::json->> 'list_layers_name')::text;
@@ -117,6 +133,7 @@ BEGIN
 					AND formname =',quote_literal(lower(v_formname)),'
 					AND (project_type =''utils'' or project_type=',quote_literal(lower(v_project_type)),')
 					AND isenabled IS TRUE
+					AND (sys_param_user.id <> ''multilang_language'' OR to_regclass(''multilang.cat_language'') IS NOT NULL)
 					AND sys_param_user.id NOT LIKE ''feat_%''
 					UNION
 				SELECT label, sys_param_user.id as widgetname, value , datatype, widgettype, layoutorder, layoutname,
@@ -315,6 +332,43 @@ BEGIN
 
 		END LOOP;
 
+		-- Apply multilang UI translations for sys_param_user
+		IF v_ui_lang IS NOT NULL THEN
+			FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array))
+			LOOP
+				SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
+				FROM multilang.sys_param_user i
+				WHERE i.project_type = v_ml_project_type
+				  AND i.context = 'sys_param_user'
+				  AND i.source = aux_json->>'widgetname'
+				  AND i.lang = v_ui_lang
+				LIMIT 1;
+				IF v_i18n_lb IS NOT NULL THEN
+					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+						fields_array[(aux_json->>'orderby')::INT], 'label', v_i18n_lb);
+				END IF;
+				IF v_i18n_tt IS NOT NULL THEN
+					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+						fields_array[(aux_json->>'orderby')::INT], 'tooltip', v_i18n_tt);
+				END IF;
+			END LOOP;
+
+			SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
+			FROM multilang.config_form_tabs i
+			WHERE i.project_type = v_ml_project_type
+			  AND i.formname = 'config'
+			  AND i.source = rec_tab.tabname
+			  AND i.context = 'config_form_tabs'
+			  AND i.lang = v_ui_lang
+			LIMIT 1;
+			IF v_i18n_lb IS NOT NULL THEN
+				rec_tab.label := v_i18n_lb;
+			END IF;
+			IF v_i18n_tt IS NOT NULL THEN
+				rec_tab.tooltip := v_i18n_tt;
+			END IF;
+		END IF;
+
 		--  Convert to json
 		fields := array_to_json(fields_array);
 		fields := COALESCE(fields, '[]');
@@ -365,6 +419,43 @@ BEGIN
 			v_debug := json_build_object('querystring', v_querystring, 'vars', v_debug_vars, 'funcname', 'gw_fct_getconfig', 'flag', 90);
 			SELECT gw_fct_debugsql(v_debug) INTO v_msgerr;
 			EXECUTE v_querystring INTO fields_array;
+		END IF;
+
+		-- Apply multilang UI translations for config_param_system
+		IF v_ui_lang IS NOT NULL AND fields_array IS NOT NULL THEN
+			FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array))
+			LOOP
+				SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
+				FROM multilang.config_param_system i
+				WHERE i.project_type = v_ml_project_type
+				  AND i.context = 'config_param_system'
+				  AND i.source = aux_json->>'widgetname'
+				  AND i.lang = v_ui_lang
+				LIMIT 1;
+				IF v_i18n_lb IS NOT NULL THEN
+					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+						fields_array[(aux_json->>'orderby')::INT], 'label', v_i18n_lb);
+				END IF;
+				IF v_i18n_tt IS NOT NULL THEN
+					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+						fields_array[(aux_json->>'orderby')::INT], 'tooltip', v_i18n_tt);
+				END IF;
+			END LOOP;
+
+			SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
+			FROM multilang.config_form_tabs i
+			WHERE i.project_type = v_ml_project_type
+			  AND i.formname = 'config'
+			  AND i.source = rec_tab.tabname
+			  AND i.context = 'config_form_tabs'
+			  AND i.lang = v_ui_lang
+			LIMIT 1;
+			IF v_i18n_lb IS NOT NULL THEN
+				rec_tab.label := v_i18n_lb;
+			END IF;
+			IF v_i18n_tt IS NOT NULL THEN
+				rec_tab.tooltip := v_i18n_tt;
+			END IF;
 		END IF;
 
 		-- Convert to json

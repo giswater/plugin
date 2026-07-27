@@ -9,11 +9,11 @@ import os
 import re
 from functools import partial
 
-from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtCore import Qt, QTimer
 from qgis.PyQt.QtGui import QStandardItem, QStandardItemModel
 from qgis.PyQt.QtWidgets import (
     QListWidget, QCompleter, QLineEdit, QVBoxLayout, QWidget,
-    QHeaderView, QSizePolicy, QGroupBox, QScrollArea,
+    QHeaderView, QSizePolicy, QScrollArea,
 )
 
 from ..ui.ui_manager import GwAdminI18NHotUpdateUi
@@ -21,7 +21,10 @@ from ..utils import tools_gw
 from qgis.PyQt.sip import isdeleted
 from ...libs import lib_vars, tools_qt, tools_db, tools_os
 from . import _admin_catalog as admin_catalog
-from .i18n_languages import GwI18NManageLanguagesDialog, _I18N_SCHEMAS
+from .i18n_language_service import I18N_SCHEMAS
+from .i18n_languages import GwI18NManageLanguagesDialog
+from .i18n_multilang_languages import GwI18NMultilangLanguagesDialog
+from .i18n_baseline_seed import build_change_lang_sql, normalize_language_folder
 
 
 _SCHEMA_COLUMNS = ("Schema", "Kind", "Version", "Language", "Created", "Last update")
@@ -46,6 +49,8 @@ _FORM_FIELDS_SQL = frozenset({
     "dbconfig_form_fields_feat.sql",
     "dbconfig_form_fields_json.sql",
 })
+_HOT_UPDATE_TAB_INDEX = 0
+_MULTILANG_TAB_INDEX = 1
 
 
 class GwAdminI18NHotUpdate():
@@ -61,6 +66,8 @@ class GwAdminI18NHotUpdate():
         self.dlg_qm = None
         self._scroll_area = None
         self._scroll_content = None
+        self._tab_heights: dict[int, int] = {}
+        self._last_tab_index: int | None = None
         self.dev_commit = None
 
     def init_dialog(self):
@@ -80,20 +87,29 @@ class GwAdminI18NHotUpdate():
         self._setup_schema_table()
         self._set_signals()
         self._setup_tables_filter()
-        self._populate_language_combo()
+        self._populate_language_combo(mode="hot_update")
         self._refresh_schema_table()
-        self._apply_dialog_height()
+        self._populate_language_combo(mode="multilang")
+        self._last_tab_index = self.dlg_qm.tab_update_type.currentIndex()
         self.admin._manage_schemas_update_system_info = self._update_system_info
         self.dlg_qm.finished.connect(self._clear_admin_callbacks)
         tools_gw.open_dialog(self.dlg_qm, dlg_name='admin_i18n_hot_update')
+        # Fit after show/layout — same as tab change — so sizeHint includes the filter.
+        QTimer.singleShot(0, self._apply_dialog_height)
 
     def _set_signals(self):
         self.dlg_qm.btn_update.clicked.connect(partial(self._run_update))
         self.dlg_qm.btn_close.clicked.connect(partial(tools_gw.close_dialog, self.dlg_qm))
-        self.dlg_qm.btn_manage_language.clicked.connect(partial(self._open_manage_language))
+        self.dlg_qm.btn_manage_language_hot_update.clicked.connect(partial(self._open_manage_language_hot_update))
+        self.dlg_qm.btn_manage_language_multilang.clicked.connect(partial(self._open_manage_language_multilang))
         self.dlg_qm.btn_refresh.clicked.connect(partial(self._refresh_schema_table))
         self.dlg_qm.cmb_connection.currentIndexChanged.connect(partial(self._on_connection_changed))
-        self.dlg_qm.cmb_language.currentIndexChanged.connect(partial(self._save_language_selection))
+        self.dlg_qm.cmb_language_hot_update.currentIndexChanged.connect(partial(self._save_language_selection, 
+                                                                            self.dlg_qm.cmb_language_hot_update))
+        self.dlg_qm.cmb_language_multilang.currentIndexChanged.connect(partial(self._save_language_selection, 
+                                                                            self.dlg_qm.cmb_language_multilang))
+        self.dlg_qm.tab_update_type.currentChanged.connect(partial(self._on_tab_changed))
+        self.dlg_qm.btn_apply.clicked.connect(partial(self._apply_multilang))
 
     def _setup_status_label(self) -> None:
         self.dlg_qm.lbl_info.setWordWrap(False)
@@ -141,6 +157,28 @@ class GwAdminI18NHotUpdate():
 
     def _update_system_info(self) -> None:
         self.dlg_qm.txt_system_info.setPlainText(self._format_system_info())
+
+    def _multilang_schema_exists(self) -> bool:
+        if not tools_db.dao:
+            return False
+        return admin_catalog.schema_exists("multilang")
+
+    def _update_multilang_tab_visibility(self) -> None:
+        """Show Multilang tab only when the multilang schema exists on the connection."""
+        tab_widget = self.dlg_qm.tab_update_type
+        multilang_exists = self._multilang_schema_exists()
+
+        tab_widget.blockSignals(True)
+        try:
+            tab_widget.setTabVisible(_MULTILANG_TAB_INDEX, multilang_exists)
+            tab_widget.tabBar().setVisible(multilang_exists)
+            if not multilang_exists and tab_widget.currentIndex() != _HOT_UPDATE_TAB_INDEX:
+                tab_widget.setCurrentIndex(_HOT_UPDATE_TAB_INDEX)
+                self._last_tab_index = _HOT_UPDATE_TAB_INDEX
+        finally:
+            tab_widget.blockSignals(False)
+
+        self._change_action_buttons_visibility()
 
     def _on_connection_changed(self) -> None:
         connection_name = tools_qt.get_text(
@@ -197,23 +235,154 @@ class GwAdminI18NHotUpdate():
         self._scroll_area = scroll_area
         self._scroll_content = content
 
-    def _apply_dialog_height(self) -> None:
-        margin_top = 14
-        margin_bottom = 38
-        margin_between = 10
+    def _on_tab_changed(self, index: int) -> None:
+        if self._last_tab_index is not None:
+            self._tab_heights[self._last_tab_index] = self.dlg_qm.height()
+        self._last_tab_index = index
+        self._change_action_buttons_visibility()
+        if index == _MULTILANG_TAB_INDEX:
+            self._refresh_lbl_multilang_language()
+        QTimer.singleShot(0, partial(self._apply_dialog_height, prefer_cached=True))
 
-        content_height = margin_top
-        for i, widget in enumerate(self.dlg_qm.findChildren(QGroupBox)):
-            content_height += widget.sizeHint().height()
-            if isinstance(widget, QGroupBox):
-                content_height += margin_between
+    def _apply_tab_heights(self, tab_index: int | None = None) -> None:
+        """Make QTabWidget height follow the active tab content only."""
+        tab_widget = self.dlg_qm.tab_update_type
+        if tab_index is None:
+            tab_index = tab_widget.currentIndex()
+        for index in range(tab_widget.count()):
+            page = tab_widget.widget(index)
+            if index == tab_index:
+                page.setSizePolicy(
+                    QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred,
+                )
+            else:
+                page.setSizePolicy(
+                    QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored,
+                )
+            page.updateGeometry()
+        tab_widget.updateGeometry()
 
-        dialog_height = content_height + margin_bottom
-        dialog_width = self.dlg_qm.width()
-        self.dlg_qm.resize(dialog_width, dialog_height)
-        self.dlg_qm.setMaximumHeight(dialog_height)
+    def _tab_content_height(self, tab_index: int | None = None) -> int:
+        tab_widget = self.dlg_qm.tab_update_type
+        if tab_index is None:
+            tab_index = tab_widget.currentIndex()
+        page = tab_widget.widget(tab_index)
+        self._apply_tab_heights(tab_index)
+        tab_bar_h = 0
+        if tab_widget.tabBar().isVisible():
+            tab_bar_h = tab_widget.tabBar().sizeHint().height()
+        return tab_bar_h + page.sizeHint().height()
 
+    def _content_preferred_height(self, tab_index: int | None = None) -> int:
+        layout = self.dlg_qm.verticalLayout
+        spacing = layout.spacing()
+        return (
+            self.dlg_qm.grb_connection.sizeHint().height()
+            + spacing
+            + self.dlg_qm.grb_schemas.sizeHint().height()
+            + spacing
+            + self._tab_content_height(tab_index)
+        )
+
+    def _fit_dialog_geometry(self, *, prefer_cached: bool = False) -> None:
+        """Resize dialog to fit content; optionally restore a tab's remembered height."""
+        layout = self.dlg_qm.verticalLayout
+        margins = layout.contentsMargins()
+        footer_h = self.dlg_qm.lyt_buttons.sizeHint().height()
+        current = self.dlg_qm.tab_update_type.currentIndex()
+
+        computed = (
+            self._content_preferred_height(current)
+            + footer_h
+            + margins.top()
+            + margins.bottom()
+            + layout.spacing()
+        )
+        computed = max(computed, self.dlg_qm.minimumHeight())
+
+        cached = self._tab_heights.get(current)
+        if prefer_cached and cached is not None:
+            height = cached
+        else:
+            height = computed
+            self._tab_heights[current] = height
+
+        tab_h = self._tab_content_height(current)
+        tab_widget = self.dlg_qm.tab_update_type
+        tab_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        tab_widget.setFixedHeight(tab_h)
+
+        width = self.dlg_qm.width()
+        self.dlg_qm.setMaximumSize(16777215, 16777215)
+        self.dlg_qm.resize(width, height)
+        self.dlg_qm.setMaximumHeight(computed)
+
+    def _apply_dialog_height(self, *, prefer_cached: bool = False) -> None:
         self._ensure_dialog_scroll()
+        self._fit_dialog_geometry(prefer_cached=prefer_cached)
+
+    def _change_action_buttons_visibility(self) -> None:
+        tab_widget = self.dlg_qm.tab_update_type
+        on_multilang_tab = (
+            tab_widget.currentIndex() == _MULTILANG_TAB_INDEX
+            and tab_widget.isTabVisible(_MULTILANG_TAB_INDEX)
+        )
+        self.dlg_qm.btn_apply.setVisible(on_multilang_tab)
+        self.dlg_qm.btn_update.setVisible(not on_multilang_tab)
+
+    def _refresh_lbl_multilang_language(self) -> None:
+        language = self._fetch_multilang_language()
+        msg = "Multilang language currently used: {0}."
+        msg_params = (language.upper(),)
+        if language:
+            tools_qt.set_widget_text(self.dlg_qm, 'lbl_multilang_language', tools_qt.tr(msg, list_params=msg_params))
+        else:
+            tools_qt.set_widget_text(self.dlg_qm, 'lbl_multilang_language', 'Select a schema to see the Multilang language currently used.')
+
+    def _select_language_from_table(self, schema_name: str = "") -> str:
+        """Return the Language column from the selected schema table row."""
+        selection = self.dlg_qm.tbl_schemas.selectionModel()
+        if selection is not None:
+            indexes = selection.selectedRows()
+            if indexes:
+                item = self._schema_model.item(indexes[0].row(), _COL_LANGUAGE)
+                if item and item.text():
+                    return str(item.text())
+        if schema_name:
+            return self._fetch_schema_language(schema_name)
+        return ""
+
+    def _fetch_multilang_language(self) -> str:
+        if not tools_db.dao:
+            return ""
+        schema_name = self._selected_schema_name()
+
+        if not schema_name:
+            return ""
+
+        # Get the default language from the schema table
+        status, cursor = tools_gw.create_sqlite_conn("config")
+        default_language = self._select_language_from_table(schema_name)
+        sql = f"""SELECT name FROM locales WHERE locale = '{default_language}';"""
+        cursor.execute(sql)
+        row = cursor.fetchone()
+        default_language = str(row[0]) if row and row[0] else ''
+
+        schema_value = schema_name.replace("'", "''")
+        cursor = tools_db.dao.get_cursor()
+        sql = f"""SELECT idval
+                FROM multilang.cat_language
+                WHERE id = (
+                    SELECT lower(btrim(value))
+                    FROM {schema_value}.config_param_user
+                    WHERE parameter = 'multilang_language'
+                      AND cur_user = CURRENT_USER
+                      AND value IS NOT NULL
+                      AND lower(btrim(value)) <> 'default'
+                );"""
+        cursor.execute(sql)
+        row = cursor.fetchone()
+        return str(row[0]) if row and row[0] else default_language
 
     def _setup_schema_table(self) -> None:
         self.dlg_qm.tbl_schemas.setModel(self._schema_model)
@@ -262,13 +431,16 @@ class GwAdminI18NHotUpdate():
 
     def _setup_tables_filter(self) -> None:
         widget = QListWidget()
+        list_height = 60
         widget.setObjectName('list_widget')
-        widget.setMaximumHeight(28)
+        widget.setFixedHeight(list_height)
         widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         completer = QCompleter()
         type_ahead = QLineEdit()
-        type_ahead.setPlaceholderText(tools_qt.tr("Type to search..."))
+        msg = "Type to search..."
+        type_ahead.setPlaceholderText(tools_qt.tr(msg))
+        type_ahead.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         model = QStandardItemModel()
         completer.activated.connect(
@@ -281,40 +453,63 @@ class GwAdminI18NHotUpdate():
         widget.itemDoubleClicked.connect(partial(tools_gw.delete_item_on_doubleclick, widget))
         widget.model().rowsInserted.connect(partial(self.update_selected_table_dic))
 
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
-        layout.addWidget(type_ahead)
-        layout.addWidget(widget)
-
-        container = QWidget()
-        container.setLayout(layout)
-        filter_layout = self.dlg_qm.wgt_tables_filter.layout()
+        filter_widget = self.dlg_qm.wgt_tables_filter
+        # Clear any designer min/max height so line edit + list are not clipped.
+        filter_widget.setMinimumHeight(0)
+        filter_widget.setMaximumHeight(16777215)
+        filter_widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed,
+        )
+        filter_layout = filter_widget.layout()
         if filter_layout is None:
-            filter_layout = QVBoxLayout(self.dlg_qm.wgt_tables_filter)
+            filter_layout = QVBoxLayout(filter_widget)
             filter_layout.setContentsMargins(0, 0, 0, 0)
-        filter_layout.addWidget(container)
+            filter_layout.setSpacing(2)
+        filter_layout.addWidget(type_ahead)
+        filter_layout.addWidget(widget)
+        needed_h = (
+            type_ahead.sizeHint().height()
+            + filter_layout.spacing()
+            + list_height
+        )
+        filter_widget.setFixedHeight(needed_h)
+        filter_widget.updateGeometry()
 
-    def _populate_language_combo(self) -> None:
-        self.dlg_qm.cmb_language.clear()
+    def _populate_language_combo(self, *, mode: str) -> None:
+        if mode == "multilang":
+            cmb_language = self.dlg_qm.cmb_language_multilang
+            where_clause = "active_multilang = 1"
+            insert_default = True
+        else:
+            cmb_language = self.dlg_qm.cmb_language_hot_update
+            where_clause = "active = 1"
+            insert_default = False
+
+        cmb_language.clear()
         status, cursor = tools_gw.create_sqlite_conn("config")
         if not status or cursor is None:
-            tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', "Config database file not found")
+            msg = "Config database file not found"
+            tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg)
             return
-        cursor.execute("SELECT locale, name FROM locales WHERE active = 1 ORDER BY name")
+        cursor.execute(
+            f"SELECT locale, name FROM locales WHERE {where_clause} ORDER BY name"
+        )
         rows = [[locale, name] for locale, name in cursor.fetchall()]
         if not rows:
-            tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', "No active locales configured")
+            msg = "No active locales configured"
+            tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg)
             return
-        tools_qt.fill_combo_values(self.dlg_qm.cmb_language, rows)
+        if insert_default:
+            rows.insert(0, ("Default", "Default"))
+        tools_qt.fill_combo_values(cmb_language, rows)
         language = tools_gw.get_config_parser(
             'i18n_generator', 'qm_lang_language', "user", "session", False,
         )
         if language:
-            tools_qt.set_combo_value(self.dlg_qm.cmb_language, language, 0, add_new=False)
-
-    def _save_language_selection(self, *_args) -> None:
-        language = tools_qt.get_combo_value(self.dlg_qm, self.dlg_qm.cmb_language, 0)
+            tools_qt.set_combo_value(cmb_language, language, 0, add_new=False)
+    
+    def _save_language_selection(self, cmb_language, *_args) -> None:
+        language = tools_qt.get_combo_value(self.dlg_qm, cmb_language, 0)
         if language:
             tools_gw.set_config_parser(
                 'i18n_generator', 'qm_lang_language', f"{language}",
@@ -360,6 +555,7 @@ class GwAdminI18NHotUpdate():
                     selection.blockSignals(False)
             self.dlg_qm.tbl_schemas.setSortingEnabled(True)
             self._apply_schema_table_height()
+            self._update_multilang_tab_visibility()
             self._apply_dialog_height()
             if previous_schema:
                 self._select_schema_row(previous_schema)
@@ -419,11 +615,25 @@ class GwAdminI18NHotUpdate():
         if not row:
             return
         kind = str(row.get("kind") or "").lower()
-        if kind in self.dbtables_dic or kind in _I18N_SCHEMAS:
+        if kind in self.dbtables_dic or kind in I18N_SCHEMAS:
             self._ensure_dbtables_dic(kind)
             self._tables_project_type = kind
 
-    def _open_manage_language(self) -> None:
+        index = self.dlg_qm.tab_update_type.currentIndex()
+        if index == _MULTILANG_TAB_INDEX:
+            self._refresh_lbl_multilang_language()
+
+    def _open_manage_language_multilang(self) -> None:
+        dlg = getattr(self, 'dlg_multilang_languages', None)
+        if dlg is not None and not isdeleted(dlg) and dlg.isVisible():
+            tools_gw.focus_open_dialog(dlg)
+            return
+
+        dlg = GwI18NMultilangLanguagesDialog(self)
+        dlg.init_dialog()
+        self.dlg_multilang_languages = dlg
+
+    def _open_manage_language_hot_update(self) -> None:
         dlg = getattr(self, 'dlg_i18n_languages', None)
         if dlg is not None and not isdeleted(dlg) and dlg.isVisible():
             tools_gw.focus_open_dialog(dlg)
@@ -439,6 +649,64 @@ class GwAdminI18NHotUpdate():
             return None
         return admin_catalog.find_inventory_row(self._inventory_rows, schema=schema_name)
 
+    def _apply_multilang(self):
+        if not self._multilang_schema_exists():
+            msg = "Multilang schema is not available on this connection."
+            tools_qt.show_info_box(tools_qt.tr(msg))
+            return
+
+        row = self._selected_schema_row()
+        if not row:
+            msg = "Select a schema"
+            tools_qt.show_info_box(msg)
+            return
+
+        self._save_language_selection(self.dlg_qm.cmb_language_multilang)
+        language = tools_qt.get_combo_value(self.dlg_qm, self.dlg_qm.cmb_language_multilang, 0)
+        if not language:
+            msg = "Select a language"
+            tools_qt.show_info_box(msg)
+            return
+
+        is_default = str(language).strip().lower() == "default"
+
+        kind = str(row.get("kind") or "").upper()
+        schema_name = str(row.get("schema") or "")
+        if kind not in _TRANSLATABLE_KINDS:
+            msg = "{0}: unsupported type {1}"
+            msg_params = (row.get("schema") or "", kind or "?")
+            tools_qt.show_info_box(msg, msg_params=msg_params)
+            return
+
+        msg = "Apply Multilang translation ({0}) to schema ({1})?"
+        title = "Update Multilang translation?"
+        msg_params = (language, schema_name)
+        if not tools_qt.show_question(msg, title, msg_params=msg_params):
+            return
+
+        from .i18n_baseline_seed import build_multilang_user_preference_sql
+
+        query = build_multilang_user_preference_sql(
+            schema_name,
+            language,
+            is_default=is_default,
+        )
+
+        try:
+            cursor = tools_db.dao.get_cursor()
+            cursor.execute(query)
+            tools_db.dao.commit()
+            msg = "{0}: Multilang language preference updated to {1}."
+            msg_params = (schema_name, language)
+        except Exception as e:
+            tools_db.dao.rollback()
+            msg = "{0}: Failed to update Multilang language preference: {1}"
+            msg_params = (schema_name, str(e))
+        finally:
+            tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg, msg_params=msg_params)
+            tools_qt.show_info_box(msg, msg_params=msg_params)
+            self._refresh_schema_table()
+
     def _run_update(self):
         """Apply locally downloaded i18n SQL files to the selected schema."""
 
@@ -448,8 +716,8 @@ class GwAdminI18NHotUpdate():
             tools_qt.show_info_box(msg)
             return
 
-        self._save_language_selection()
-        self.language = tools_qt.get_combo_value(self.dlg_qm, self.dlg_qm.cmb_language, 0)
+        self._save_language_selection(self.dlg_qm.cmb_language_hot_update)
+        self.language = tools_qt.get_combo_value(self.dlg_qm, self.dlg_qm.cmb_language_hot_update, 0)
         if not self.language:
             msg = "Select a language"
             tools_qt.show_info_box(msg)
@@ -484,7 +752,7 @@ class GwAdminI18NHotUpdate():
         try:
             status_cfg_msg, schema_errors = self._apply_local_sql_files()
             if status_cfg_msg is True:
-                self._change_lang()
+                self._change_lang(False)
                 msg = "{0}: Database translation successful to {1}."
                 msg_params = (schema_name, self.language)
             elif status_cfg_msg is False:
@@ -494,8 +762,8 @@ class GwAdminI18NHotUpdate():
                 msg = "{0}: Database translation canceled."
                 msg_params = (schema_name,)
             if schema_errors:
-                msg = f"{tools_qt.tr(msg, list_params=msg_params)} Errors: {', '.join(schema_errors)}"
-                msg_params = None
+                msg_params = (tools_qt.tr(msg, list_params=msg_params), ', '.join(schema_errors))
+                msg = "{0}: Errors: {1}"
         finally:
             self.dlg_qm.setEnabled(True)
 
@@ -527,18 +795,14 @@ class GwAdminI18NHotUpdate():
             completer, model, widget, sorted(display_list, key=lambda x: x["idval"]),
         )
 
-    @staticmethod
-    def _folder_locale(locale: str) -> str:
-        return locale.replace("-", "_")
-
     def _dbmodel_dir(self) -> str:
         return os.path.join(lib_vars.plugin_dir, 'dbmodel')
 
     def _local_i18n_dir(self, kind: str, locale: str) -> str:
-        schema_path = _I18N_SCHEMAS.get(kind)
+        schema_path = I18N_SCHEMAS.get(kind)
         if not schema_path:
             return ""
-        folder = self._folder_locale(locale)
+        folder = normalize_language_folder(locale)
         return os.path.join(self._dbmodel_dir(), schema_path, folder)
 
     def _local_language_files_exist(self, locale: str, kind: str) -> bool:
@@ -546,10 +810,6 @@ class GwAdminI18NHotUpdate():
         if not folder or not os.path.isdir(folder):
             return False
         return any(name.endswith('.sql') for name in os.listdir(folder))
-
-    def _sql_sources_for_kind(self, kind: str) -> list[tuple[str, str]]:
-        """Return (i18n_kind, target_schema) pairs to execute for a project kind."""
-        return [(kind, self.schema)]
 
     def _discover_dbtables(self, kind: str, locale: str) -> list[str]:
         i18n_dir = self._local_i18n_dir(kind, locale)
@@ -564,7 +824,7 @@ class GwAdminI18NHotUpdate():
     def _ensure_dbtables_dic(self, kind: str) -> None:
         if kind in self.dbtables_dic:
             return
-        locale = tools_qt.get_combo_value(self.dlg_qm, self.dlg_qm.cmb_language, 0) or "en_US"
+        locale = tools_qt.get_combo_value(self.dlg_qm, self.dlg_qm.cmb_language_hot_update, 0) or "en_US"
         tables = self._discover_dbtables(kind, locale)
         if tables:
             self.dbtables_dic[kind] = {
@@ -629,28 +889,27 @@ class GwAdminI18NHotUpdate():
             return False, [folder or self.project_type]
 
         messages = []
-        for source_kind, target_schema in self._sql_sources_for_kind(self.project_type):
-            i18n_dir = self._local_i18n_dir(source_kind, self.language)
-            if not i18n_dir or not os.path.isdir(i18n_dir):
-                messages.append(i18n_dir or source_kind)
+        i18n_dir = self._local_i18n_dir(self.project_type, self.language)
+        if not i18n_dir or not os.path.isdir(i18n_dir):
+            messages.append(i18n_dir or self.project_type)
+            return False, messages
+
+        for dbtable in dbtables:
+            sql_path = os.path.join(i18n_dir, f"{dbtable}.sql")
+            if not os.path.isfile(sql_path):
                 continue
 
-            for dbtable in dbtables:
-                sql_path = os.path.join(i18n_dir, f"{dbtable}.sql")
-                if not os.path.isfile(sql_path):
-                    continue
-
-                tools_qt.set_widget_text(
-                    self.dlg_qm, 'lbl_info',
-                    "Updating {0}...",
-                    msg_params=(f"{target_schema}/{dbtable}",),
-                )
-                ok, error = self._execute_local_sql_file(sql_path, target_schema)
-                if not ok:
-                    detail = error or os.path.basename(sql_path)
-                    messages.append(f"{dbtable}.sql: {detail}")
-                    if not tools_os.set_boolean(self.dev_commit, False):
-                        break
+            msg = "Updating {0}..."
+            msg_params = (f"{self.schema}/{dbtable}",)
+            tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg, msg_params=msg_params)
+            ok, error = self._execute_local_sql_file(sql_path, self.schema)
+            if not ok:
+                detail = error or os.path.basename(sql_path)
+                msg = "{0}.sql: {1}"
+                msg_params = (dbtable, detail)
+                messages.append(tools_qt.tr(msg, list_params=[msg_params]))
+                if not tools_os.set_boolean(self.dev_commit, False):
+                    break
 
         if messages:
             return False, messages
@@ -694,15 +953,24 @@ class GwAdminI18NHotUpdate():
         cleaned = re.sub(r",(\s*)\)", r"\1)", cleaned)
         return cleaned
 
-    def _change_lang(self) -> None:
-        lang = self.language.replace("'", "''")
-        schema = self._sql_schema_name(self.schema)
-        query = (
-            f"UPDATE {schema}.sys_version SET language = '{lang}';"
-            f"INSERT INTO {schema}.config_param_user (parameter, value, cur_user) "
-            f"VALUES ('utils_language_ui', NULL,current_user) "
-            f"ON CONFLICT (parameter, cur_user) DO UPDATE "
-            f"SET value = EXCLUDED.value;"
+    def _change_lang(self, multilang_exists: bool | None = None) -> None:
+
+        if multilang_exists is None:
+            multilang_exists = bool(tools_db.check_schema("multilang"))
+
+        project_type = None
+        row = self._selected_schema_row()
+        if row:
+            project_type = str(row.get("kind") or "").strip().lower() or None
+        if not project_type:
+            project_type = str(getattr(self, "project_type", "") or "").strip().lower() or None
+
+        query = build_change_lang_sql(
+            self.schema,
+            self.language,
+            multilang_exists=multilang_exists,
+            project_type=project_type,
+            sql_schema_name=self._sql_schema_name(self.schema),
         )
         try:
             self.cursor_dest.execute(query)

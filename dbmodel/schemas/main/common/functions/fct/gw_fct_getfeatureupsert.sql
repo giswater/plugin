@@ -141,6 +141,12 @@ v_selected_idval text;
 v_errcontext text;
 v_querystring text;
 v_msgerr json;
+v_ui_lang text;
+v_ml_pref jsonb;
+v_ml_project_type text;
+v_i18n_lb text;
+v_i18n_tt text;
+v_i18n_widgetcontrols jsonb;
 v_elevation numeric(12,4);
 v_staticpressure numeric(12,3);
 label_value text;
@@ -760,6 +766,7 @@ BEGIN
 		v_querystring = concat('SELECT array_agg(row_to_json(a)) FROM
 			(SELECT a.attname as label, a.attname as columnname,
 			concat(',quote_literal(v_tabname),',''_'',a.attname) AS widgetname,
+			',quote_literal(v_tabname),' AS tabname,
 			(case when a.atttypid=16 then ''check'' else ''text'' end ) as widgettype,
 			(case when a.atttypid=16 then ''boolean'' else ''string'' end ) as "datatype",
 			''::TEXT AS tooltip,
@@ -1228,6 +1235,80 @@ BEGIN
 	IF (SELECT value::boolean FROM config_param_user WHERE parameter='edit_disable_topocontrol' AND cur_user=current_user) IS TRUE THEN
 	  	v_status = TRUE;
  	END IF;
+
+	-- Apply multilang UI translations for info dialog fields
+	v_ml_pref := NULL;
+	v_ui_lang := NULL;
+	v_ml_project_type := NULL;
+	IF to_regnamespace('multilang') IS NOT NULL THEN
+		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
+		v_ui_lang := v_ml_pref->>'lang';
+		v_ml_project_type := v_ml_pref->>'project_type';
+	END IF;
+	IF v_ui_lang IS NOT NULL AND v_fields_array IS NOT NULL THEN
+		FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(v_fields_array))
+		LOOP
+			SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
+			FROM multilang.config_form_fields i
+			WHERE i.project_type = v_ml_project_type
+			  AND (
+				i.formname = v_formname
+				OR i.formname = replace(v_idname, '_id', '')
+				OR v_formname LIKE i.formname
+			  )
+			  AND i.formtype = 'form_feature'
+			  AND i.tabname = COALESCE(aux_json->>'tabname', v_tabname)
+			  AND i.source = aux_json->>'columnname'
+			  AND i.context = 'config_form_fields'
+			  AND i.lang = v_ui_lang
+			ORDER BY CASE
+				WHEN i.formname = v_formname THEN 0
+				WHEN i.formname = replace(v_idname, '_id', '') THEN 1
+				ELSE 2
+			END
+			LIMIT 1;
+			IF v_i18n_lb IS NOT NULL THEN
+				v_fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+					v_fields_array[(aux_json->>'orderby')::INT], 'label', v_i18n_lb);
+			END IF;
+			IF v_i18n_tt IS NOT NULL THEN
+				v_fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+					v_fields_array[(aux_json->>'orderby')::INT], 'tooltip', v_i18n_tt);
+			END IF;
+
+			SELECT i."text" INTO v_i18n_widgetcontrols
+			FROM multilang.config_form_fields_json i
+			WHERE i.project_type = v_ml_project_type
+			  AND (
+				i.formname = v_formname
+				OR i.formname = replace(v_idname, '_id', '')
+				OR v_formname LIKE i.formname
+			  )
+			  AND i.formtype = 'form_feature'
+			  AND i.tabname = COALESCE(aux_json->>'tabname', v_tabname)
+			  AND i.source = aux_json->>'columnname'
+			  AND i.context = 'config_form_fields'
+			  AND i.hint = 'widgetcontrols'
+			  AND i.lang = v_ui_lang
+			ORDER BY CASE
+				WHEN i.formname = v_formname THEN 0
+				WHEN i.formname = replace(v_idname, '_id', '') THEN 1
+				ELSE 2
+			END
+			LIMIT 1;
+			IF v_i18n_widgetcontrols IS NOT NULL THEN
+				v_fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+					v_fields_array[(aux_json->>'orderby')::INT],
+					'widgetcontrols',
+					(COALESCE((v_fields_array[(aux_json->>'orderby')::INT]->'widgetcontrols')::jsonb, '{}'::jsonb)
+						|| v_i18n_widgetcontrols)::json);
+				IF v_i18n_widgetcontrols ? 'text' THEN
+					v_fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+						v_fields_array[(aux_json->>'orderby')::INT], 'value', v_i18n_widgetcontrols->>'text');
+				END IF;
+			END IF;
+		END LOOP;
+	END IF;
 
 	-- Convert to json
 	v_fields := array_to_json(v_fields_array);

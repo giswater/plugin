@@ -26,7 +26,7 @@ from collections import OrderedDict
 from functools import partial
 from datetime import datetime
 
-from qgis.PyQt.QtCore import Qt, QStringListModel, QVariant, QDate, QSettings, QLocale, QRegularExpression, \
+from qgis.PyQt.QtCore import Qt, QStringListModel, QVariant, QDate, QRegularExpression, \
     QItemSelectionModel, QTimer
 from qgis.PyQt.QtGui import QCursor, QPixmap, QColor, QStandardItemModel, QIcon, QStandardItem, \
     QIntValidator, QDoubleValidator, QRegularExpressionValidator, QPalette
@@ -679,7 +679,7 @@ def create_body(form='', feature='', filter_fields='', extras=None, list_feature
     info_types = {'full': 1}
     plugin_version, message = tools_qgis.get_plugin_version()
     info_type = info_types.get(lib_vars.project_vars['info_type'])
-    lang = QSettings().value('locale/globalLocale', QLocale().name())
+    lang = tools_qgis.get_ui_language_locale()
 
     if body:
         body.setdefault('client', {"device": 4, "lang": lang, "version": f'"{plugin_version}"'})

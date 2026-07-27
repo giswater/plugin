@@ -9,7 +9,9 @@ from functools import partial
 from qgis.PyQt.QtCore import QEvent, Qt
 from qgis.PyQt.QtGui import QStandardItem, QStandardItemModel
 from qgis.core import QgsApplication
-from qgis.PyQt.QtWidgets import QHeaderView, QSizePolicy
+from qgis.PyQt.QtWidgets import (
+    QHeaderView, QSizePolicy, QScrollArea, QWidget, QVBoxLayout,
+)
 
 from ..ui.ui_manager import GwAdminManageSchemasUi
 from ...libs import tools_qt
@@ -22,8 +24,19 @@ _COL_SCHEMA = 0
 _COL_LINKED = 4
 _COL_CREATED = 5
 _COL_UPDATED = 6
-_FIXED_WIDTH = 980
-_FIXED_HEIGHT = 840
+_MAX_VISIBLE_NETWORK_ROWS = 4
+_FIXED_WIDTH = 1120
+_SATELLITE_GROUPS = (
+    "grb_utils", "grb_cibs", "grb_am", "grb_cm", "grb_i18n", "grb_audit",
+)
+_SATELLITE_INFO_LABELS = (
+    "lbl_utils_info",
+    "lbl_cibs_info",
+    "lbl_am_info",
+    "lbl_cm_info",
+    "lbl_audit_info",
+    "lbl_i18n_info",
+)
 
 
 class GwManageSchemasDialog(GwAdminManageSchemasUi):
@@ -35,7 +48,8 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self._selected_network_parent = ""
         self._network_model = QStandardItemModel(0, len(_NETWORK_COLUMNS), self)
         self._network_model.setHorizontalHeaderLabels(list(_NETWORK_COLUMNS))
-        self._satellites_height = 0
+        self._scroll_area = None
+        self._scroll_content = None
 
         self.messageBar().hide()
         self._setup_layout()
@@ -44,34 +58,32 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self._setup_satellite_labels()
         self._setup_cm_actions()
         self._refresh_inventory()
-        self._lock_satellites_height()
         self._connect_signals()
 
     def _setup_satellite_labels(self) -> None:
-        for attr in (
-            "lbl_utils_info",
-            "lbl_cibs_info",
-            "lbl_am_info",
-            "lbl_cm_info",
-            "lbl_audit_info",
-            "lbl_i18n_info",
-        ):
+        for attr in _SATELLITE_INFO_LABELS:
             label = getattr(self, attr, None)
             if label is not None:
                 label.setWordWrap(True)
                 label.setMinimumWidth(0)
+                # Reserve two text lines so panels match AM/CM when dates wrap.
+                label.setMinimumHeight(label.fontMetrics().lineSpacing() * 2)
                 label.setSizePolicy(
                     QSizePolicy.Policy.Preferred,
                     QSizePolicy.Policy.Minimum,
                 )
-        for grb_attr in (
-            "grb_utils", "grb_cibs", "grb_am", "grb_cm", "grb_i18n", "grb_audit",
-        ):
+        for grb_attr in _SATELLITE_GROUPS:
             group = getattr(self, grb_attr, None)
-            layout = group.layout() if group is not None else None
+            if group is None:
+                continue
+            group.setSizePolicy(
+                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred,
+            )
+            layout = group.layout()
             if layout is not None:
                 layout.setContentsMargins(8, 10, 8, 6)
                 if layout.count() >= 3:
+                    # Spacer expands so equal-height boxes keep actions bottom-aligned.
                     layout.setStretch(0, 0)
                     layout.setStretch(1, 1)
                     layout.setStretch(2, 0)
@@ -82,33 +94,127 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
 
     def _setup_layout(self) -> None:
         self.verticalLayout.setStretch(0, 0)
-        self.verticalLayout.setStretch(1, 1)
+        self.verticalLayout.setStretch(1, 0)
         self.verticalLayout.setStretch(2, 0)
         self.verticalLayout.setStretch(3, 0)
-        self.layout_network_root.setStretch(1, 1)
+        self.layout_network_root.setStretch(1, 0)
         self.layout_satellites.setColumnStretch(0, 1)
         self.layout_satellites.setColumnStretch(1, 1)
-        self.wgt_satellites.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Fixed,
+        self.layout_satellites.setRowStretch(0, 1)
+        self.layout_satellites.setRowStretch(1, 1)
+        self.layout_satellites.setRowStretch(2, 1)
+        self.grb_connection.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed,
+        )
+        self.grb_network.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed,
         )
 
-    def apply_fixed_geometry(self) -> None:
-        """Restore fixed size after load_settings may have resized the dialog."""
-        self.setSizeGripEnabled(False)
-        self._lock_satellites_height()
-        self.setFixedSize(_FIXED_WIDTH, _FIXED_HEIGHT)
-
-    def _lock_satellites_height(self) -> None:
-        """Pin satellite panel height once so refresh/label updates do not resize the dialog."""
-        if self._satellites_height > 0:
-            self.wgt_satellites.setFixedHeight(self._satellites_height)
+    def _equalize_satellite_panel_sizes(self) -> None:
+        """Force all satellite group boxes to the tallest panel height (AM/CM)."""
+        groups = [
+            group for attr in _SATELLITE_GROUPS
+            if (group := getattr(self, attr, None)) is not None
+        ]
+        if not groups:
             return
-        self.wgt_satellites.adjustSize()
-        content_h = self.wgt_satellites.sizeHint().height()
-        if content_h > 0:
-            self._satellites_height = content_h
-            self.wgt_satellites.setFixedHeight(self._satellites_height)
+        for group in groups:
+            group.setMinimumHeight(0)
+        self.layout_satellites.activate()
+        target_height = max(group.sizeHint().height() for group in groups)
+        for group in groups:
+            group.setMinimumHeight(target_height)
+
+    def apply_scroll_geometry(self) -> None:
+        """Cap table rows and size the dialog to content (no extra empty space)."""
+        self._apply_network_table_height()
+        self._equalize_satellite_panel_sizes()
+        self._ensure_dialog_scroll()
+        self._fit_dialog_geometry()
+
+    def _ensure_dialog_scroll(self) -> None:
+        if self._scroll_area is not None:
+            return
+
+        main_layout = self.verticalLayout
+        scroll_area = QScrollArea(self)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(main_layout.spacing())
+
+        # Keep footer buttons outside the scroll area.
+        while main_layout.count() > 1:
+            item = main_layout.takeAt(0)
+            if item.widget():
+                content_layout.addWidget(item.widget())
+            elif item.layout():
+                content_layout.addLayout(item.layout())
+            elif item.spacerItem():
+                content_layout.addItem(item.spacerItem())
+
+        scroll_area.setWidget(content)
+        main_layout.insertWidget(0, scroll_area, 1)
+
+        self._scroll_area = scroll_area
+        self._scroll_content = content
+
+    def _content_preferred_height(self) -> int:
+        """Preferred height to show all content without empty stretch space."""
+        spacing = self.verticalLayout.spacing()
+        return (
+            self.grb_connection.sizeHint().height()
+            + spacing
+            + self.grb_network.sizeHint().height()
+            + spacing
+            + self.layout_satellites.sizeHint().height()
+        )
+
+    def _fit_dialog_geometry(self) -> None:
+        """Fix width; set height/max height to the tight content size."""
+        margins = self.verticalLayout.contentsMargins()
+        footer_h = self.lyt_buttons.sizeHint().height()
+        height = (
+            self._content_preferred_height()
+            + footer_h
+            + margins.top()
+            + margins.bottom()
+            + self.verticalLayout.spacing()
+        )
+        height = max(height, self.minimumHeight())
+        width = _FIXED_WIDTH
+
+        # Allow temporary growth while applying the fitted size.
+        self.setMaximumSize(16777215, 16777215)
+        self.setMinimumWidth(width)
+        self.resize(width, height)
+        self.setFixedWidth(width)
+        self.setMaximumHeight(height)
+
+    def _apply_network_table_height(self) -> None:
+        """Cap the network table to four visible rows; scroll when there are more."""
+        table = self.tbl_network
+        row_h = table.verticalHeader().defaultSectionSize()
+        visible_rows = _MAX_VISIBLE_NETWORK_ROWS
+        if self._network_model.rowCount() > 0:
+            visible_rows = min(self._network_model.rowCount(), _MAX_VISIBLE_NETWORK_ROWS)
+            row_h = max(row_h, table.rowHeight(0))
+        header_h = table.horizontalHeader().height()
+        if header_h <= 0:
+            header_h = table.fontMetrics().height() + 10
+        frame = table.frameWidth() * 2
+        height = header_h + row_h * visible_rows + frame
+        table.setFixedHeight(height)
+        table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.grb_network.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed,
+        )
 
     def _setup_connection(self) -> None:
         self.admin._populate_combo_connections()
@@ -225,6 +331,9 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self.tbl_network.setAlternatingRowColors(True)
         self.tbl_network.setSortingEnabled(True)
         self.tbl_network.verticalHeader().setVisible(False)
+        self.tbl_network.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded,
+        )
 
         header = self.tbl_network.horizontalHeader()
         header.setStretchLastSection(False)
@@ -234,6 +343,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         header.setSectionResizeMode(_COL_LINKED, QHeaderView.ResizeMode.ResizeToContents)
         header.setMinimumSectionSize(48)
         self.tbl_network.viewport().installEventFilter(self)
+        self._apply_network_table_height()
 
     def eventFilter(self, watched, event):
         if watched is self.tbl_network.viewport():
@@ -259,6 +369,10 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         previous_parent = self._selected_network_parent
         self.btn_refresh.setEnabled(False)
         try:
+            # Re-read baseline fingerprint so Update reflects file changes on disk.
+            from .i18n_baseline_seed import invalidate_baseline_fingerprint_cache
+            invalidate_baseline_fingerprint_cache(getattr(self.admin, "sql_dir", None))
+
             update_info = getattr(self.admin, "_manage_schemas_update_system_info", None)
             if update_info:
                 update_info()
@@ -270,6 +384,10 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
             self._update_action_state()
         finally:
             self.btn_refresh.setEnabled(True)
+        # Re-equalize after labels/actions change; refit once the dialog is scrolled.
+        self._equalize_satellite_panel_sizes()
+        if self._scroll_area is not None:
+            self._fit_dialog_geometry()
 
     def _populate_network_table(self) -> None:
         self.tbl_network.setSortingEnabled(False)
@@ -300,6 +418,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self.tbl_network.setSortingEnabled(True)
         if self._network_model.rowCount() > 0:
             self.tbl_network.resizeColumnToContents(_COL_LINKED)
+        self._apply_network_table_height()
 
     def _on_network_selection_changed(self, *_args) -> None:
         self._selected_network_parent = self._selected_parent()
@@ -349,7 +468,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         return f"{group_name} · {schema} · {version}"
 
     def _format_satellite_dates(self, row: dict | None) -> str:
-        if not row:
+        if not row or not str(row.get("version") or ""):
             return tools_qt.tr("Not installed")
         parts: list[str] = []
         created = str(row.get("date_created") or "")
@@ -358,7 +477,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
             parts.append(f"{tools_qt.tr('Created')}: {created}")
         if updated:
             parts.append(f"{tools_qt.tr('Last update')}: {updated}")
-        return " · ".join(parts)
+        return " · ".join(parts) if parts else tools_qt.tr("Not installed")
 
     def _format_audit_info(self, row: dict | None) -> str:
         if not row:
@@ -432,6 +551,18 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
             version,
             str(self.admin.plugin_version),
         )
+
+    def _i18n_needs_update(self) -> bool:
+        """True when baseline files changed or seedable schemas are out of sync."""
+        try:
+            if self.admin._multilang_baseline_changed():
+                return True
+            if self.admin._multilang_schemas_out_of_sync(self._inventory_rows):
+                return True
+        except Exception:
+            # Prefer enabling Update so the user can recover from a broken check.
+            return True
+        return False
 
     def _network_has_pending_updates(self, anchor: str) -> bool:
         if not anchor or self._parent_kind(anchor) not in ("WS", "UD"):
@@ -522,10 +653,9 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self.btn_delete_cm.setEnabled(cm_exists)
 
         self.btn_i18n_create.setEnabled(not i18n_exists)
-        self.btn_i18n_update.setEnabled(
-            i18n_exists and self._needs_update(str((i18n_row or {}).get("version") or ""))
-        )
         self.btn_i18n_delete.setEnabled(i18n_exists)
+        self.btn_languages.setEnabled(i18n_exists)
+        self.btn_i18n_update.setEnabled(i18n_exists and self._i18n_needs_update())
 
         self.btn_create_audit.setEnabled(not audit_full)
         self.btn_update_audit.setEnabled(
@@ -546,14 +676,16 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
     def _delete_network_schema(self) -> None:
         parent = self._selected_parent()
         if not parent:
-            tools_qt.show_info_box("Select a WS or UD schema in the table.")
+            msg = "Select a WS or UD schema in the table."
+            tools_qt.show_info_box(msg)
             return
         self.admin._delete_schema(schema_name=parent)
 
     def _rename_network_schema(self) -> None:
         parent = self._selected_parent()
         if not parent:
-            tools_qt.show_info_box("Select a WS or UD schema in the table.")
+            msg = "Select a WS or UD schema in the table."
+            tools_qt.show_info_box(msg)
             return
         row = self._satellite_row(schema=parent)
         version = str((row or {}).get("version") or "")
@@ -562,10 +694,12 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
     def _update_network(self) -> None:
         parent = self._selected_parent()
         if not parent:
-            tools_qt.show_info_box("Select a WS or UD schema in the table.")
+            msg = "Select a WS or UD schema in the table."
+            tools_qt.show_info_box(msg)
             return
         if self._parent_kind(parent) not in ("WS", "UD"):
-            tools_qt.show_info_box("Update network requires a WS or UD anchor.")
+            msg = "Update network requires a WS or UD anchor."
+            tools_qt.show_info_box(msg)
             return
         self.admin._update_network(anchor_schema=parent)
 
@@ -578,7 +712,8 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
     def _integrate_am(self) -> None:
         parent, parent_type = self._parent_context()
         if not parent or parent_type != "WS":
-            tools_qt.show_info_box("Select a WS anchor in the network table.")
+            msg = "Select a WS anchor in the network table."
+            tools_qt.show_info_box(msg)
             return
         self.admin._integrate_am_schema(
             profile="integrate",
@@ -589,7 +724,8 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
     def _integrate_am_sample(self) -> None:
         parent, parent_type = self._parent_context()
         if not parent or parent_type != "WS":
-            tools_qt.show_info_box("Select a WS anchor in the network table.")
+            msg = "Select a WS anchor in the network table."
+            tools_qt.show_info_box(msg)
             return
         self.admin._integrate_am_schema(
             profile="integrate_sample",
@@ -613,7 +749,8 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
     def _integrate_cm(self) -> None:
         parent, parent_type = self._parent_context()
         if not parent:
-            tools_qt.show_info_box("Select a WS or UD anchor in the network table.")
+            msg = "Select a WS or UD anchor in the network table."
+            tools_qt.show_info_box(msg)
             return
         self.admin._integrate_cm(
             parent_schema=parent,
@@ -623,7 +760,8 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
     def _load_cm_sample(self) -> None:
         parent, parent_type = self._parent_context()
         if not parent:
-            tools_qt.show_info_box("Select a WS or UD anchor in the network table.")
+            msg = "Select a WS or UD anchor in the network table."
+            tools_qt.show_info_box(msg)
             return
         self.admin._load_cm_sample(
             parent_schema=parent,
@@ -651,7 +789,8 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
     def _activate_audit(self) -> None:
         parent, parent_type = self._parent_context()
         if not parent:
-            tools_qt.show_info_box("Select a WS/UD anchor in the network table.")
+            msg = "Select a WS/UD anchor in the network table."
+            tools_qt.show_info_box(msg)
             return
         self.admin._activate_audit(
             'audit',
@@ -662,33 +801,38 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
     def _reload_audit_triggers(self) -> None:
         parent = self._selected_parent()
         if not parent:
-            tools_qt.show_info_box("Select a WS/UD anchor in the network table.")
+            msg = "Select a WS/UD anchor in the network table."
+            tools_qt.show_info_box(msg)
             return
         self.admin._reload_audit_triggers(schema_name=parent)
 
     def _integrate_utils(self):
         parent, parent_kind = self._parent_context()
         if not parent:
-            tools_qt.show_info_box("Select a WS or UD anchor in the network table.")
+            msg = "Select a WS or UD anchor in the network table."
+            tools_qt.show_info_box(msg)
             return
         if parent_kind == "WS":
             self.admin._adapt_utils_ws(ws_schema=parent)
         elif parent_kind == "UD":
             self.admin._adapt_utils_ud(ud_schema=parent)
         else:
-            tools_qt.show_info_box("Integrate utils requires a WS or UD anchor.")
+            msg = "Integrate utils requires a WS or UD anchor."
+            tools_qt.show_info_box(msg)
 
     def _integrate_cibs(self):
         parent = self._selected_parent()
         if not parent:
-            tools_qt.show_info_box("Select a network anchor to integrate cibs.")
+            msg = "Select a network anchor to integrate cibs."
+            tools_qt.show_info_box(msg)
             return
         self.admin._adapt_cibs(parent_schema=parent)
 
     def _adapt_cibs_copy(self):
         parent = self._selected_parent()
         if not parent:
-            tools_qt.show_info_box("Select a network anchor to copy cibs data.")
+            msg = "Select a network anchor to copy cibs data."
+            tools_qt.show_info_box(msg)
             return
         self.admin._copy_cibs_data(parent_schema=parent)
 

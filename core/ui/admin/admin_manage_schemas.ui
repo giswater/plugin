@@ -6,29 +6,26 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>980</width>
+    <width>1120</width>
     <height>840</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>980</width>
-    <height>840</height>
+    <width>1120</width>
+    <height>520</height>
    </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>980</width>
-    <height>840</height>
-   </size>
-  </property>
-  <property name="sizeGripEnabled">
-   <bool>false</bool>
   </property>
   <property name="windowTitle">
    <string>Manage schemas</string>
   </property>
+  <property name="sizeGripEnabled">
+   <bool>true</bool>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing">
+    <number>8</number>
+   </property>
    <property name="leftMargin">
     <number>12</number>
    </property>
@@ -40,9 +37,6 @@
    </property>
    <property name="bottomMargin">
     <number>12</number>
-   </property>
-   <property name="spacing">
-    <number>8</number>
    </property>
    <item>
     <widget class="QGroupBox" name="grb_connection">
@@ -105,9 +99,9 @@
    <item>
     <widget class="QGroupBox" name="grb_network">
      <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
        <horstretch>0</horstretch>
-       <verstretch>1</verstretch>
+       <verstretch>0</verstretch>
       </sizepolicy>
      </property>
      <property name="title">
@@ -199,16 +193,19 @@
       <item>
        <widget class="QTableView" name="tbl_network">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
           <horstretch>0</horstretch>
-          <verstretch>1</verstretch>
+          <verstretch>0</verstretch>
          </sizepolicy>
         </property>
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>100</height>
+          <height>0</height>
          </size>
+        </property>
+        <property name="verticalScrollBarPolicy">
+         <enum>Qt::ScrollBarAsNeeded</enum>
         </property>
         <property name="editTriggers">
          <set>QAbstractItemView::NoEditTriggers</set>
@@ -216,11 +213,11 @@
         <property name="alternatingRowColors">
          <bool>true</bool>
         </property>
-        <property name="selectionBehavior">
-         <enum>QAbstractItemView::SelectRows</enum>
-        </property>
         <property name="selectionMode">
          <enum>QAbstractItemView::SingleSelection</enum>
+        </property>
+        <property name="selectionBehavior">
+         <enum>QAbstractItemView::SelectRows</enum>
         </property>
         <property name="sortingEnabled">
          <bool>true</bool>
@@ -237,43 +234,57 @@
     </widget>
    </item>
    <item>
-    <widget class="QWidget" name="wgt_satellites">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
+    <layout class="QGridLayout" name="layout_satellites">
+     <property name="spacing">
+      <number>8</number>
      </property>
-     <layout class="QGridLayout" name="layout_satellites">
-       <property name="horizontalSpacing">
-        <number>8</number>
+     <item row="1" column="0">
+      <widget class="QGroupBox" name="grb_am">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>1</verstretch>
+        </sizepolicy>
        </property>
-       <property name="verticalSpacing">
-        <number>8</number>
+       <property name="title">
+        <string>AM</string>
        </property>
-       <item row="0" column="0">
-        <widget class="QGroupBox" name="grb_utils">
-         <property name="title">
-          <string>Utils</string>
-         </property>
-         <layout class="QVBoxLayout" name="layout_utils">
+       <layout class="QVBoxLayout" name="layout_am">
+        <property name="spacing">
+         <number>4</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="lbl_am_info">
+          <property name="text">
+           <string>Not installed</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_am">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="layout_am_actions">
           <property name="spacing">
-           <number>4</number>
+           <number>6</number>
           </property>
           <item>
-           <widget class="QLabel" name="lbl_utils_info">
-            <property name="wordWrap">
-             <bool>true</bool>
-            </property>
-            <property name="text">
-             <string>Not installed</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <spacer name="verticalSpacer_utils">
+           <spacer name="horizontalSpacer_am">
             <property name="orientation">
-             <enum>Qt::Vertical</enum>
+             <enum>Qt::Horizontal</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
@@ -284,93 +295,144 @@
            </spacer>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="layout_utils_actions">
-            <property name="spacing">
-             <number>6</number>
-            </property>
-            <item>
-             <spacer name="horizontalSpacer_utils_actions">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>0</width>
-                <height>0</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_utils_create">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Create</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_utils_update">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Update</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_utils_integrate">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Link utils to the selected network schema</string>
-              </property>
-              <property name="text">
-               <string>Integrate</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QGroupBox" name="grb_cibs">
-         <property name="title">
-          <string>Cibs</string>
-         </property>
-         <layout class="QVBoxLayout" name="layout_cibs">
-          <property name="spacing">
-           <number>4</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="lbl_cibs_info">
-            <property name="wordWrap">
-             <bool>true</bool>
+           <widget class="QPushButton" name="btn_create_am">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
             </property>
             <property name="text">
-             <string>Not installed</string>
+             <string>Create</string>
             </property>
            </widget>
           </item>
           <item>
-           <spacer name="verticalSpacer_cibs">
+           <widget class="QPushButton" name="btn_create_am_sample">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Create am schema with sample leaks data</string>
+            </property>
+            <property name="text">
+             <string>+ Sample</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_integrate_am">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Wire am into the selected WS network schema</string>
+            </property>
+            <property name="text">
+             <string>Integrate</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_integrate_am_sample">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Integrate am and seed config from parent WS catalogs</string>
+            </property>
+            <property name="text">
+             <string>Int. + Sample</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_update_am">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Update</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_delete_am">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Delete</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QGroupBox" name="grb_utils">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>1</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="title">
+        <string>Utils</string>
+       </property>
+       <layout class="QVBoxLayout" name="layout_utils">
+        <property name="spacing">
+         <number>4</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="lbl_utils_info">
+          <property name="text">
+           <string>Not installed</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_utils">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="layout_utils_actions">
+          <property name="spacing">
+           <number>6</number>
+          </property>
+          <item>
+           <spacer name="horizontalSpacer_utils_actions">
             <property name="orientation">
-             <enum>Qt::Vertical</enum>
+             <enum>Qt::Horizontal</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
@@ -381,106 +443,99 @@
            </spacer>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="layout_cibs_actions">
-            <property name="spacing">
-             <number>6</number>
-            </property>
-            <item>
-             <spacer name="horizontalSpacer_cibs_actions">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>0</width>
-                <height>0</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_cibs_create">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Create</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_cibs_update">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Update</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_cibs_integrate">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Link cibs to the selected network schema</string>
-              </property>
-              <property name="text">
-               <string>Integrate</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_cibs_copy">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Copy data</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QGroupBox" name="grb_am">
-         <property name="title">
-          <string>AM</string>
-         </property>
-         <layout class="QVBoxLayout" name="layout_am">
-          <property name="spacing">
-           <number>4</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="lbl_am_info">
-            <property name="wordWrap">
-             <bool>true</bool>
+           <widget class="QPushButton" name="btn_utils_create">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
             </property>
             <property name="text">
-             <string>Not installed</string>
+             <string>Create</string>
             </property>
            </widget>
           </item>
           <item>
-           <spacer name="verticalSpacer_am">
+           <widget class="QPushButton" name="btn_utils_update">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Update</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_utils_integrate">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Link utils to the selected network schema</string>
+            </property>
+            <property name="text">
+             <string>Integrate</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QGroupBox" name="grb_cm">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>1</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="title">
+        <string>CM</string>
+       </property>
+       <layout class="QVBoxLayout" name="layout_cm">
+        <property name="spacing">
+         <number>4</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="lbl_cm_info">
+          <property name="text">
+           <string>Not installed</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_cm">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="layout_cm_actions">
+          <property name="spacing">
+           <number>6</number>
+          </property>
+          <item>
+           <spacer name="horizontalSpacer_cm">
             <property name="orientation">
-             <enum>Qt::Vertical</enum>
+             <enum>Qt::Horizontal</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
@@ -491,138 +546,144 @@
            </spacer>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="layout_am_actions">
-            <property name="spacing">
-             <number>6</number>
-            </property>
-            <item>
-             <spacer name="horizontalSpacer_am">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>0</width>
-                <height>0</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_create_am">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Create</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_create_am_sample">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Create am schema with sample leaks data</string>
-              </property>
-              <property name="text">
-               <string>+ Sample</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_integrate_am">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Wire am into the selected WS network schema</string>
-              </property>
-              <property name="text">
-               <string>Integrate</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_integrate_am_sample">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Integrate am and seed config from parent WS catalogs</string>
-              </property>
-              <property name="text">
-               <string>Int. + Sample</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_update_am">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Update</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_delete_am">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Delete</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QGroupBox" name="grb_cm">
-         <property name="title">
-          <string>CM</string>
-         </property>
-         <layout class="QVBoxLayout" name="layout_cm">
-          <property name="spacing">
-           <number>4</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="lbl_cm_info">
-            <property name="wordWrap">
-             <bool>true</bool>
+           <widget class="QPushButton" name="btn_create_cm">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
             </property>
             <property name="text">
-             <string>Not installed</string>
+             <string>Create</string>
             </property>
            </widget>
           </item>
           <item>
-           <spacer name="verticalSpacer_cm">
+           <widget class="QPushButton" name="btn_update_cm">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Update</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_cm_integrate">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Link CM to the selected network schema</string>
+            </property>
+            <property name="text">
+             <string>Integrate</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_cm_sample">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Load CM example data for the selected network schema</string>
+            </property>
+            <property name="text">
+             <string>Sample</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_delete_cm">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Delete</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="btn_cm_qgis">
+            <property name="maximumSize">
+             <size>
+              <width>28</width>
+              <height>28</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Create pschema qgis file</string>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QGroupBox" name="grb_cibs">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>1</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="title">
+        <string>Cibs</string>
+       </property>
+       <layout class="QVBoxLayout" name="layout_cibs">
+        <property name="spacing">
+         <number>4</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="lbl_cibs_info">
+          <property name="text">
+           <string>Not installed</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_cibs">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="layout_cibs_actions">
+          <property name="spacing">
+           <number>6</number>
+          </property>
+          <item>
+           <spacer name="horizontalSpacer_cibs_actions">
             <property name="orientation">
-             <enum>Qt::Vertical</enum>
+             <enum>Qt::Horizontal</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
@@ -633,138 +694,112 @@
            </spacer>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="layout_cm_actions">
-            <property name="spacing">
-             <number>6</number>
-            </property>
-            <item>
-             <spacer name="horizontalSpacer_cm">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>0</width>
-                <height>0</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_create_cm">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Create</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_update_cm">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Update</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_cm_integrate">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Link CM to the selected network schema</string>
-              </property>
-              <property name="text">
-               <string>Integrate</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_cm_sample">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Load CM example data for the selected network schema</string>
-              </property>
-              <property name="text">
-               <string>Sample</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_delete_cm">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Delete</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QToolButton" name="btn_cm_qgis">
-              <property name="maximumSize">
-               <size>
-                <width>28</width>
-                <height>28</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Create pschema qgis file</string>
-              </property>
-              <property name="text">
-               <string/>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item row="2" column="0" colspan="2">
-        <widget class="QGroupBox" name="grb_i18n">
-         <property name="title">
-          <string>Multilang</string>
-         </property>
-         <layout class="QVBoxLayout" name="layout_i18n">
-          <property name="spacing">
-           <number>4</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="lbl_i18n_info">
-            <property name="wordWrap">
-             <bool>true</bool>
+           <widget class="QPushButton" name="btn_cibs_create">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
             </property>
             <property name="text">
-             <string>Not installed</string>
+             <string>Create</string>
             </property>
            </widget>
           </item>
           <item>
-           <spacer name="verticalSpacer_i18n">
+           <widget class="QPushButton" name="btn_cibs_update">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Update</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_cibs_integrate">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Link cibs to the selected network schema</string>
+            </property>
+            <property name="text">
+             <string>Integrate</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_cibs_copy">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Copy data</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QGroupBox" name="grb_audit">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>1</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="title">
+        <string>Audit</string>
+       </property>
+       <layout class="QVBoxLayout" name="layout_audit">
+        <property name="spacing">
+         <number>4</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="lbl_audit_info">
+          <property name="text">
+           <string>Not installed</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_audit">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="layout_audit_actions">
+          <property name="spacing">
+           <number>6</number>
+          </property>
+          <item>
+           <spacer name="horizontalSpacer_audit_0">
             <property name="orientation">
-             <enum>Qt::Vertical</enum>
+             <enum>Qt::Horizontal</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
@@ -775,90 +810,128 @@
            </spacer>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="layout_i18n_actions">
-            <property name="spacing">
-             <number>6</number>
-            </property>
-            <item>
-             <spacer name="horizontalSpacer_i18n">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>0</width>
-                <height>0</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_i18n_create">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Create</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_i18n_update">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Update</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_i18n_delete">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Delete</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item row="3" column="0" colspan="2">
-        <widget class="QGroupBox" name="grb_audit">
-         <property name="title">
-          <string>Audit</string>
-         </property>
-         <layout class="QVBoxLayout" name="layout_audit">
-          <property name="spacing">
-           <number>4</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="lbl_audit_info">
-            <property name="wordWrap">
-             <bool>true</bool>
+           <widget class="QPushButton" name="btn_create_audit">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
             </property>
             <property name="text">
-             <string>Not installed</string>
+             <string>Create</string>
             </property>
            </widget>
           </item>
           <item>
-           <spacer name="verticalSpacer_audit">
+           <widget class="QPushButton" name="btn_update_audit">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Update</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_delete_audit">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Delete</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_activate_audit">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Generate a copy of network layers from the anchor schema into audit</string>
+            </property>
+            <property name="text">
+             <string>Activate</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_reload_audit_triggers">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="toolTip">
+             <string>Refresh audit triggers on the anchor schema</string>
+            </property>
+            <property name="text">
+             <string>Triggers</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QGroupBox" name="grb_i18n">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>1</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="title">
+        <string>Multilang</string>
+       </property>
+       <layout class="QVBoxLayout" name="layout_i18n">
+        <property name="spacing">
+         <number>4</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="lbl_i18n_info">
+          <property name="text">
+           <string>Not installed</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_i18n">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="layout_i18n_actions">
+          <property name="spacing">
+           <number>6</number>
+          </property>
+          <item>
+           <spacer name="horizontalSpacer_i18n">
             <property name="orientation">
-             <enum>Qt::Vertical</enum>
+             <enum>Qt::Horizontal</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
@@ -869,112 +942,68 @@
            </spacer>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="layout_audit_actions">
-            <property name="spacing">
-             <number>6</number>
+           <widget class="QPushButton" name="btn_i18n_create">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
             </property>
-            <item>
-             <spacer name="horizontalSpacer_audit_0">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>0</width>
-                <height>0</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_create_audit">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Create</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_update_audit">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Update</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_delete_audit">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Delete</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_activate_audit">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Generate a copy of network layers from the anchor schema into audit</string>
-              </property>
-              <property name="text">
-               <string>Activate</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_reload_audit_triggers">
-              <property name="minimumSize">
-               <size>
-                <width>80</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>Refresh audit triggers on the anchor schema</string>
-              </property>
-              <property name="text">
-               <string>Triggers</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
+            <property name="text">
+             <string>Create</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_languages">
+            <property name="text">
+             <string>Languages</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_i18n_update">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Update</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_i18n_delete">
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Delete</string>
+            </property>
+           </widget>
           </item>
          </layout>
-        </widget>
-       </item>
-     </layout>
-    </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="layout_footer">
-     <item>
+    <layout class="QGridLayout" name="lyt_buttons">
+     <item row="0" column="0">
       <widget class="QLabel" name="lbl_time">
        <property name="text">
         <string/>
        </property>
       </widget>
      </item>
-     <item>
+     <item row="0" column="1">
       <spacer name="horizontalSpacer_footer">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
@@ -987,7 +1016,7 @@
        </property>
       </spacer>
      </item>
-     <item>
+     <item row="0" column="2">
       <widget class="QPushButton" name="btn_close">
        <property name="minimumSize">
         <size>
