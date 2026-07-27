@@ -13,55 +13,56 @@ CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_get_multilang_language(p_schema_na
 RETURNS jsonb AS
 $BODY$
 /*
-Returns jsonb {"lang": "...", "project_type": "..."} from cat_user_lang for the
-given network schema and current_user, or NULL when unset / invalid.
-
-Translations are keyed by project_type; language preference remains per schema.
+Returns jsonb {"lang": "...", "project_type": "..."} from the network schema
+config_param_user preference (multilang_language) and sys_version.project_type,
+or NULL when unset / invalid / default.
 */
 DECLARE
     v_lang text;
     v_project_type text;
     v_schema text;
-    v_prev_search_path text;
 BEGIN
-    v_prev_search_path := current_setting('search_path');
-    PERFORM set_config('search_path', 'multilang,public', true);
-
     v_schema := NULLIF(btrim(p_schema_name), '');
-    IF v_schema IS NULL THEN
-        PERFORM set_config('search_path', v_prev_search_path, true);
+    IF v_schema IS NULL
+       OR to_regnamespace(v_schema) IS NULL
+       OR to_regclass('multilang.cat_language') IS NULL THEN
         RETURN NULL;
     END IF;
 
     BEGIN
-        SELECT
-            lang,
-            project_type
-        INTO v_lang, v_project_type
-        FROM cat_user_lang
-        WHERE schema_name = v_schema
-          AND username = current_user;
-    EXCEPTION WHEN OTHERS THEN
-        PERFORM set_config('search_path', v_prev_search_path, true);
-        RETURN NULL;
+        EXECUTE format(
+            'SELECT lower(btrim(cpu.value)), lower(btrim(sv.project_type))
+             FROM %1$I.sys_version sv
+             LEFT JOIN %1$I.config_param_user cpu
+               ON cpu.parameter = ''multilang_language''
+              AND cpu.cur_user = current_user
+             WHERE lower(btrim(cpu.value)) IS NOT NULL
+               AND lower(btrim(cpu.value)) <> ''default''
+               AND length(lower(btrim(cpu.value))) = 5
+               AND EXISTS (
+                   SELECT 1 FROM multilang.cat_language cl
+                   WHERE cl.id = lower(btrim(cpu.value))
+               )
+             ORDER BY sv.id DESC
+             LIMIT 1',
+            v_schema
+        ) INTO STRICT v_lang, v_project_type;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            RETURN NULL;
+        WHEN OTHERS THEN
+            RETURN NULL;
     END;
 
-    IF v_lang IS NULL OR v_lang = '' OR length(v_lang) != 5 THEN
-        PERFORM set_config('search_path', v_prev_search_path, true);
-        RETURN NULL;
-    END IF;
-
     IF v_project_type IS NULL OR btrim(v_project_type) = '' THEN
-        PERFORM set_config('search_path', v_prev_search_path, true);
         RETURN NULL;
     END IF;
 
-    PERFORM set_config('search_path', v_prev_search_path, true);
     RETURN jsonb_build_object(
-        'lang', lower(v_lang),
-        'project_type', lower(btrim(v_project_type))
+        'lang', v_lang,
+        'project_type', v_project_type
     );
 END;
 $BODY$
-  LANGUAGE plpgsql VOLATILE
+  LANGUAGE plpgsql STABLE
   COST 100;

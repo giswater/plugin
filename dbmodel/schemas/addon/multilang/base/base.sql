@@ -169,21 +169,6 @@ CREATE TABLE sys_table (
     CONSTRAINT sys_table_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
 );
 
-CREATE TABLE cat_user_lang (
-    id serial4 NOT NULL,
-    schema_name text NOT NULL,
-    project_type text NOT NULL,
-    lang text NOT NULL DEFAULT 'en_us',
-    username text NOT NULL,
-    updated_by text DEFAULT CURRENT_USER NULL,
-    updated_on timestamptz DEFAULT now() NULL,
-    CONSTRAINT cat_user_lang_id_uniq UNIQUE (id),
-    CONSTRAINT cat_user_lang_pkey PRIMARY KEY (schema_name, username),
-    CONSTRAINT cat_user_lang_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
-);
-
-CREATE INDEX idx_cat_user_lang_project_type ON cat_user_lang USING btree (project_type);
-
 CREATE INDEX idx_config_form_fields_lang ON config_form_fields USING btree (lang);
 CREATE INDEX idx_config_form_fields_json_lang ON config_form_fields_json USING btree (lang);
 CREATE INDEX idx_config_param_system_lang ON config_param_system USING btree (lang);
