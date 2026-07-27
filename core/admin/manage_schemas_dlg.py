@@ -16,9 +16,6 @@ from qgis.PyQt.QtWidgets import (
 from ..ui.ui_manager import GwAdminManageSchemasUi
 from ...libs import tools_qt
 from . import _admin_catalog as admin_catalog
-from .i18n_multilang_languages import GwI18NMultilangLanguagesDialog
-from qgis.PyQt.sip import isdeleted
-from ..utils import tools_gw
 
 _NETWORK_COLUMNS = (
     "Schema", "Kind", "Version", "Profile", "Linked", "Created", "Last update",

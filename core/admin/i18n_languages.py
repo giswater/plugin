@@ -238,7 +238,7 @@ class GwI18NLocalesTableBase(GwI18NManageLanguagesUi):
                     api_names[locale] = name
                     print(f"locale: {locale}")
                     print(f"name: {name}")
-        except (urllib.error.URLError, urllib.error.HTTPError, OSError, json.JSONDecodeError):
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError, i18n_service.json.JSONDecodeError):
             pass
         
         downloaded_locales = self.load_downloaded_locales(api_names)
