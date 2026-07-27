@@ -644,14 +644,13 @@ BEGIN
 	EXECUTE v_querystring INTO form_tabs;
 
 	-- Apply multilang UI translations for config_form_tabs
+	v_ml_pref := NULL;
 	v_ui_lang := NULL;
 	v_ml_project_type := NULL;
 	IF to_regnamespace('multilang') IS NOT NULL THEN
 		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
-		IF v_ml_pref IS NOT NULL THEN
-			v_ui_lang := v_ml_pref->>'lang';
-			v_ml_project_type := v_ml_pref->>'project_type';
-		END IF;
+		v_ui_lang := v_ml_pref->>'lang';
+		v_ml_project_type := v_ml_pref->>'project_type';
 	END IF;
 	IF v_ui_lang IS NOT NULL AND form_tabs IS NOT NULL THEN
 		FOR v_tab_idx IN 1..array_length(form_tabs, 1) LOOP

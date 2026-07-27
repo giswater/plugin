@@ -541,14 +541,13 @@ BEGIN
 
 	-- Apply multilang UI translations for form fields
 	v_schema := 'SCHEMA_NAME';
+	v_ml_pref := NULL;
 	v_ui_lang := NULL;
 	v_ml_project_type := NULL;
 	IF to_regnamespace('multilang') IS NOT NULL THEN
 		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
-		IF v_ml_pref IS NOT NULL THEN
-			v_ui_lang := v_ml_pref->>'lang';
-			v_ml_project_type := v_ml_pref->>'project_type';
-		END IF;
+		v_ui_lang := v_ml_pref->>'lang';
+		v_ml_project_type := v_ml_pref->>'project_type';
 	END IF;
 	IF v_ui_lang IS NOT NULL AND fields_array IS NOT NULL THEN
 		FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array))

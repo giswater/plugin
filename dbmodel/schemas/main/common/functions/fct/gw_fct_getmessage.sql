@@ -193,14 +193,13 @@ BEGIN
 
 	-- Apply multilang UI translations for sys_message
 	v_schema := 'SCHEMA_NAME';
+	v_ml_pref := NULL;
 	v_ui_lang := NULL;
 	v_ml_project_type := NULL;
 	IF to_regnamespace('multilang') IS NOT NULL THEN
 		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
-		IF v_ml_pref IS NOT NULL THEN
-			v_ui_lang := v_ml_pref->>'lang';
-			v_ml_project_type := v_ml_pref->>'project_type';
-		END IF;
+		v_ui_lang := v_ml_pref->>'lang';
+		v_ml_project_type := v_ml_pref->>'project_type';
 	END IF;
 	IF v_ui_lang IS NOT NULL THEN
 		SELECT i.ms, i.ht INTO v_i18n_ms, v_i18n_ht
