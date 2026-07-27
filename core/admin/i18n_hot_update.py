@@ -357,6 +357,9 @@ class GwAdminI18NHotUpdate():
             return ""
         schema_name = self._selected_schema_name()
 
+        if not schema_name:
+            return ""
+
         # Get the default language from the schema table
         status, cursor = tools_gw.create_sqlite_conn("config")
         default_language = self._select_language_from_table(schema_name)
@@ -365,15 +368,17 @@ class GwAdminI18NHotUpdate():
         row = cursor.fetchone()
         default_language = str(row[0]) if row and row[0] else ''
 
-        # Get the multilang language from the cat_user_lang table
+        schema_value = schema_name.replace("'", "''")
         cursor = tools_db.dao.get_cursor()
-        sql = f"""SELECT idval 
-                FROM multilang.cat_language 
+        sql = f"""SELECT idval
+                FROM multilang.cat_language
                 WHERE id = (
-                    SELECT lang 
-                    FROM multilang.cat_user_lang 
-                    WHERE schema_name = '{schema_name}' 
-                    AND username = CURRENT_USER
+                    SELECT lower(btrim(value))
+                    FROM {schema_value}.config_param_user
+                    WHERE parameter = 'multilang_language'
+                      AND cur_user = CURRENT_USER
+                      AND value IS NOT NULL
+                      AND lower(btrim(value)) <> 'default'
                 );"""
         cursor.execute(sql)
         row = cursor.fetchone()
@@ -679,28 +684,13 @@ class GwAdminI18NHotUpdate():
         if not tools_qt.show_question(msg, title, msg_params=msg_params):
             return
 
-        schema_value = schema_name.replace("'", "''")
-        project_type = str(row.get("kind") or "").strip().lower()
-        if is_default:
-            query = (
-                "DELETE FROM multilang.cat_user_lang "
-                f"WHERE schema_name = '{schema_value}' AND username = CURRENT_USER;"
-            )
-        else:
-            from .i18n_baseline_seed import ensure_cat_language_sql, normalize_language_id
+        from .i18n_baseline_seed import build_multilang_user_preference_sql
 
-            lang_id = normalize_language_id(language).replace("'", "''")
-            pt_value = project_type.replace("'", "''")
-            query = (
-                ensure_cat_language_sql(language)
-                + "INSERT INTO multilang.cat_user_lang "
-                "(schema_name, project_type, username, lang) "
-                f"VALUES ('{schema_value}', '{pt_value}', CURRENT_USER,'{lang_id}') "
-                "ON CONFLICT (schema_name, username) DO UPDATE "
-                "SET lang = EXCLUDED.lang, "
-                "project_type = EXCLUDED.project_type, "
-                "updated_on = now(), updated_by = CURRENT_USER;"
-            )
+        query = build_multilang_user_preference_sql(
+            schema_name,
+            language,
+            is_default=is_default,
+        )
 
         try:
             cursor = tools_db.dao.get_cursor()

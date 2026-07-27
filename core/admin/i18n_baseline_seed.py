@@ -932,6 +932,47 @@ def ensure_cat_language_sql(lang: str, idval: str | None = None) -> str:
     )
 
 
+def build_multilang_user_preference_sql(
+    schema_name: str,
+    language: str,
+    *,
+    sql_schema_name: str | None = None,
+    is_default: bool = False,
+) -> str:
+    """Build SQL to upsert or clear multilang_language in config_param_user."""
+    schema_sql = (sql_schema_name or str(schema_name or "")).strip()
+    if not schema_sql:
+        return ""
+    if is_default or str(language or "").strip().lower() == "default":
+        return (
+            f"DELETE FROM {schema_sql}.config_param_user "
+            "WHERE parameter = 'multilang_language' AND cur_user = current_user;"
+        )
+    lang_id = normalize_language_id(language).replace("'", "''")
+    return (
+        ensure_cat_language_sql(language)
+        + f"INSERT INTO {schema_sql}.config_param_user (parameter, value, cur_user) "
+        f"VALUES ('multilang_language', '{lang_id}', current_user) "
+        "ON CONFLICT (parameter, cur_user) DO UPDATE SET value = EXCLUDED.value;"
+    )
+
+
+def multilang_user_param_provision_sql(
+    *,
+    enable: bool,
+    schema_name: str | None = None,
+) -> str:
+    """Enable or disable multilang_language widgets on network schemas."""
+    schema_arg = "NULL"
+    if schema_name:
+        esc_schema = str(schema_name).replace("'", "''")
+        schema_arg = f"'{esc_schema}'"
+    return (
+        "SELECT multilang.gw_fct_admin_multilang_user_param("
+        f"{'true' if enable else 'false'}, {schema_arg});"
+    )
+
+
 def build_change_lang_sql(
     schema_name: str,
     language: str,
@@ -943,7 +984,7 @@ def build_change_lang_sql(
     """Build SQL to update project language and optional multilang user preference.
 
     When ``multilang_exists`` is False, only ``sys_version.language`` is updated.
-    Preference rows store both schema_name and project_type.
+    Preference is stored in the network schema config_param_user row.
     """
     lang = str(language or "").replace("'", "''")
     schema_sql = (sql_schema_name or str(schema_name or "")).strip()
@@ -951,17 +992,12 @@ def build_change_lang_sql(
     pt = normalize_project_type(project_type) or ""
     statements = [f"UPDATE {schema_sql}.sys_version SET language = '{lang}';"]
     if multilang_exists and schema_value and pt:
-        lang_id = normalize_language_id(language).replace("'", "''")
-        esc_pt = pt.replace("'", "''")
-        statements.append(ensure_cat_language_sql(language))
         statements.append(
-            "INSERT INTO multilang.cat_user_lang "
-            "(schema_name, project_type, username, lang) "
-            f"VALUES ('{schema_value}', '{esc_pt}', current_user, '{lang_id}') "
-            "ON CONFLICT (schema_name, username) DO UPDATE "
-            "SET lang = EXCLUDED.lang, "
-            "project_type = EXCLUDED.project_type, "
-            "updated_on = now(), updated_by = CURRENT_USER;"
+            build_multilang_user_preference_sql(
+                schema_name,
+                language,
+                sql_schema_name=schema_sql,
+            )
         )
     return "".join(statements)
 
