@@ -46,7 +46,7 @@ v_version text;                 -- Giswater version from sys_version table
 v_projectype text;              -- Project type: 'WS' (Water Supply) or 'UD' (Urban Drainage)
 
 -- Input parameters
-v_mode text;                    -- Operation mode: 'Check' (analysis only) or 'Set' (apply changes)
+v_mode text;                    -- Operation mode: 'Check' (analysis only) or 'Set' (apply changes)                -- Buffer distance in meters for finding arcs near nodes (used for T-candidate detection)
 v_campaign_id integer;         -- Campaign ID for filtering nodes/arcs
 v_lot_id integer;              -- Lot ID for filtering nodes/arcs (optional)
 v_lot_id_array integer[];      -- Array of lot IDs for filtering nodes/arcs
@@ -100,6 +100,10 @@ v_arc_type text;
 v_exists boolean;
 v_rec record;
 
+v_arc_child_table text;
+v_arc_insert_cols text;
+v_arc_select_cols text;
+
 BEGIN
 
 	-- Set search path to current schema and public schema
@@ -122,7 +126,7 @@ BEGIN
 	DELETE FROM PARENT_SCHEMA.audit_check_data WHERE cur_user="current_user"() AND fid=3552;
 
 	-- Log function start message
-	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"function":"3552", "fid":"3552", "criticity":"4", "is_process":true, "is_header":"true"}}$$)';
+	EXECUTE 'SELECT PARENT_SCHEMA.gw_fct_getmessage($${"data":{"function":"3552", "fid":"3552", "criticity":"4", "is_process":true, "is_header":"true"}}$$)';
 
 	-- ============================================================================
 	-- CONFIGURATION BASED ON PROJECT TYPE
@@ -156,12 +160,13 @@ BEGIN
 				SELECT DISTINCT a.*, n.the_geom AS campaign_node_geom
 				FROM cm.om_campaign_lot_x_node a 
 				JOIN cm.om_campaign_x_node n ON n.node_id = a.node_id
-				WHERE a.lot_id IN (%s)
-				AND (SELECT COUNT(*) FROM cm.om_campaign_lot_x_arc WHERE node_1 = a.node_id OR node_2 = a.node_id) = 0
+				JOIN PARENT_SCHEMA.cat_feature_node cfn ON cfn.id = n.node_type
+				WHERE cfn.isarcdivide IS TRUE AND a.lot_id IN (%s)
+				AND (SELECT COUNT(*) FROM cm.om_campaign_lot_x_arc WHERE (node_1 = a.node_id OR node_2 = a.node_id) AND ("action" != 3 OR "action" IS NULL)) = 0
 				AND EXISTS (
 					SELECT 1 FROM cm.om_campaign_x_arc arc
 					JOIN cm.om_campaign_lot_x_arc oclxa ON arc.arc_id = oclxa.arc_id
-					WHERE ST_DWithin(arc.the_geom, n.the_geom, 0.01)
+					WHERE ST_DWithin(arc.the_geom, n.the_geom, 0.05)
 					AND (oclxa."action" != 3 OR oclxa."action" IS NULL)
 				)', 
 			array_to_string(v_lot_id_array, ','))
@@ -170,7 +175,9 @@ BEGIN
 			-- This will be used to show where the node could be moved to
 			SELECT arc_id
 			INTO v_closest_arc_id
-			FROM cm.om_campaign_x_arc arc ORDER BY arc.the_geom <-> rec_orphan.campaign_node_geom LIMIT 1;
+			FROM cm.om_campaign_x_arc arc
+			JOIN cm.om_campaign_lot_x_arc larc USING (arc_id)
+			WHERE (action <> 3 OR action IS NULL) ORDER BY arc.the_geom <-> rec_orphan.campaign_node_geom LIMIT 1;
 			RAISE NOTICE 'orphan - v_arc_id: %', rec_orphan.node_id;
 
 			-- If a closest arc is found, add this node to the result set
@@ -179,7 +186,7 @@ BEGIN
 				-- Transform geometry to EPSG:8908 (WGS84) for web display
 				v_array_nodes := v_array_nodes || jsonb_build_array(jsonb_build_object(
 					'type', 'Feature',
-					'geometry', ST_AsGeoJSON(ST_Transform(rec_orphan.campaign_node_geom, 8908))::jsonb,
+					'geometry', ST_Transform(rec_orphan.campaign_node_geom, 4326),
 					'properties', jsonb_build_object(
 						'node_id', rec_orphan.node_id,
 						'descript', 'Nodo huérfano',
@@ -202,33 +209,39 @@ BEGIN
 		--   - Are NOT endpoints of those nearby arcs (creating T-junction potential)
 		FOR rec_tcandidate IN
 			EXECUTE format('
-				SELECT DISTINCT *
+				SELECT  DISTINCT n1.*, cxn.*
 				FROM cm.om_campaign_lot_x_node n1
 				JOIN cm.om_campaign_x_node cxn ON n1.node_id = cxn.node_id
+				JOIN PARENT_SCHEMA.cat_feature_node cfn ON cfn.id = cxn.node_type
 				where
-					n1.lot_id in (%s) and
-					EXISTS (SELECT 1 from cm.om_campaign_x_arc arc WHERE (node_1 = n1.node_id OR node_2 = n1.node_id))
+					cfn.isarcdivide IS TRUE AND
+					n1.lot_id in (%s) AND
+					EXISTS (SELECT 1 from cm.om_campaign_lot_x_arc arc WHERE (node_1 = n1.node_id OR node_2 = n1.node_id) and ("action" != 3 OR "action" IS NULL))
 					AND EXISTS (
-						SELECT 1 FROM cm.om_campaign_x_arc a
+						SELECT * FROM cm.om_campaign_x_arc a
 						JOIN cm.om_campaign_lot_x_arc oclxa ON a.arc_id = oclxa.arc_id
-						WHERE ST_DWithin(a.the_geom, cxn.the_geom, 0.01)
-						AND n1.node_id NOT IN (a.node_1, a.node_2)
+						WHERE ST_DWithin(a.the_geom, cxn.the_geom, 0.05)
+						AND (n1.node_id is distinct from a.node_1 and n1.node_id is distinct from a.node_2)
+						AND n1.lot_id = oclxa.lot_id
 						AND (oclxa."action" != 3 OR oclxa."action" IS NULL)
 					)', array_to_string(v_lot_id_array, ','))
 		LOOP
 
 			SELECT arc_id INTO v_arc_id
-			FROM cm.om_campaign_x_arc 
-			WHERE ST_DWithin(the_geom, rec_tcandidate.the_geom, 0.01)
-			AND rec_tcandidate.node_id NOT IN (node_1, node_2)
-			ORDER BY the_geom <-> rec_tcandidate.the_geom LIMIT 1;
+			FROM cm.om_campaign_x_arc arc
+			JOIN cm.om_campaign_lot_x_arc larc USING (arc_id)
+			WHERE ST_DWithin(the_geom, rec_tcandidate.the_geom, 0.05)
+			AND (rec_tcandidate.node_id is distinct from arc.node_1 and rec_tcandidate.node_id is distinct from arc.node_2)
+			AND larc.lot_id = rec_tcandidate.lot_id
+			AND (action <> 3 OR action IS NULL)
+			ORDER BY arc.the_geom <-> rec_tcandidate.the_geom LIMIT 1;
 			RAISE NOTICE 'tcandidate - v_arc_id: %', rec_tcandidate.node_id;
 
 			-- Add T-candidate node to result set
 			-- Note: arc_id is NULL because we don't know which specific arc yet
 			v_array_nodes := v_array_nodes || jsonb_build_array(jsonb_build_object(
 				'type', 'Feature',
-				'geometry', ST_AsGeoJSON(ST_Transform(rec_tcandidate.the_geom, 8908))::jsonb,
+				'geometry', ST_Transform(rec_tcandidate.the_geom, 4326),
 				'properties', jsonb_build_object(
 					'node_id', rec_tcandidate.node_id,
 					'nodecat_id', rec_tcandidate.nodecat_id,
@@ -253,17 +266,17 @@ BEGIN
 		
 		-- Log message based on whether nodes were found or not
 		IF v_count_orphan > 0 THEN
-			EXECUTE format('SELECT gw_fct_getmessage($${"data":{"message":"4584", "function":"3552", "parameters":{"v_count":"%s"}, "fid":"3552", "fcount":"%s", "is_process":true}}$$)', 
+			EXECUTE format('SELECT PARENT_SCHEMA.gw_fct_getmessage($${"data":{"message":"4584", "function":"3552", "parameters":{"v_count":"%s"}, "fid":"3552", "fcount":"%s", "is_process":true}}$$)', 
 							v_count_orphan, v_count_orphan);
 		ELSE
-			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"3602", "function":"3552", "fid":"3552", "fcount":"0", "is_process":true}}$$)';
+			EXECUTE 'SELECT PARENT_SCHEMA.gw_fct_getmessage($${"data":{"message":"3602", "function":"3552", "fid":"3552", "fcount":"0", "is_process":true}}$$)';
 		END IF;
 
 		IF v_count_tcandidate > 0 THEN
-			EXECUTE format('SELECT gw_fct_getmessage($${"data":{"message":"3612", "function":"3552", "parameters":{"v_count":"%s"}, "fid":"3552", "fcount":"%s", "is_process":true}}$$)', 
+			EXECUTE format('SELECT PARENT_SCHEMA.gw_fct_getmessage($${"data":{"message":"3612", "function":"3552", "parameters":{"v_count":"%s"}, "fid":"3552", "fcount":"%s", "is_process":true}}$$)', 
 						v_count_tcandidate, v_count_tcandidate);
 		ELSE
-			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"3610", "function":"3552", "fid":"3552", "fcount":"0", "is_process":true}}$$)';
+			EXECUTE 'SELECT PARENT_SCHEMA.gw_fct_getmessage($${"data":{"message":"3610", "function":"3552", "fid":"3552", "fcount":"0", "is_process":true}}$$)';
 		END IF;
 
 		-- Get audit messages from audit_check_data table
@@ -290,13 +303,15 @@ BEGIN
 				SELECT DISTINCT a.*, n.the_geom AS campaign_node_geom, n.node_type
 				FROM cm.om_campaign_lot_x_node a 
 				JOIN cm.om_campaign_x_node n ON n.node_id = a.node_id
-				WHERE a.lot_id IN (%s)
-				AND (SELECT COUNT(*) FROM cm.om_campaign_lot_x_arc WHERE node_1 = a.node_id OR node_2 = a.node_id) = 0
+				JOIN PARENT_SCHEMA.cat_feature_node cfn ON cfn.id = n.node_type
+				WHERE cfn.isarcdivide IS TRUE AND a.lot_id IN (%s) AND (a."action" <> 3 OR a."action" IS NULL)
+				AND (SELECT COUNT(*) FROM cm.om_campaign_lot_x_arc WHERE (node_1 = a.node_id OR node_2 = a.node_id) AND ("action" != 3 OR "action" IS NULL)) = 0
 				AND EXISTS (
 					SELECT 1 FROM cm.om_campaign_x_arc arc
 					JOIN cm.om_campaign_lot_x_arc oclxa ON arc.arc_id = oclxa.arc_id
-					WHERE ST_DWithin(arc.the_geom, n.the_geom, 0.01)
-					AND (oclxa."action" <> 3 OR oclxa."action" IS NULL)
+					WHERE ST_DWithin(arc.the_geom, n.the_geom, 0.05)
+					AND a.lot_id = oclxa.lot_id
+					AND (oclxa."action" != 3 OR oclxa."action" IS NULL)
 				)', 
 			array_to_string(v_lot_id_array, ','))
 		LOOP
@@ -326,8 +341,9 @@ BEGIN
 			SELECT arc.arc_id INTO v_arc_id
 			FROM cm.om_campaign_x_arc arc
 			JOIN cm.om_campaign_lot_x_arc larc ON arc.arc_id = larc.arc_id
-			WHERE ST_DWithin(arc.the_geom, v_node_geom, 0.01)
-			AND (larc."action" <> 3 OR larc."action" IS NULL)
+			WHERE ST_DWithin(arc.the_geom, v_node_geom, 0.05)
+			AND larc.lot_id = rec_node.lot_id
+			AND (larc."action" != 3 OR larc."action" IS NULL)
 			ORDER BY the_geom <-> v_node_geom LIMIT 1;
 
 			IF v_arc_id IS NOT NULL THEN
@@ -352,6 +368,14 @@ BEGIN
 				SELECT * INTO rec_arc FROM cm.om_campaign_x_arc WHERE arc_id = v_arc_id;
 				EXECUTE format('SELECT * FROM cm.PARENT_SCHEMA_'||lower(v_arc_type)||' WHERE arc_id = '||v_arc_id) INTO rec_arc_child;
 
+				v_arc_child_table := 'PARENT_SCHEMA_' || lower(v_arc_type);
+				SELECT string_agg(quote_ident(column_name), ', ' ORDER BY ordinal_position)
+				INTO v_arc_insert_cols
+				FROM information_schema.columns
+				WHERE table_schema = 'cm'
+				AND column_name NOT IN ('id')
+				AND table_name = v_arc_child_table;
+
 				IF rec_arc.the_geom IS NOT NULL THEN
 					-- Calculate the closest point on the arc to the node
 					-- This is where the node will be moved to
@@ -366,7 +390,7 @@ BEGIN
 					RAISE NOTICE 'UPDATE cm.PARENT_SCHEMA_% SET the_geom for node_id: %', v_node_type, v_node_id;
 
 					-- Log: node moved (Set mode audit)
-					EXECUTE format('SELECT gw_fct_getmessage($${"data":{"message":"4578", "function":"3552", "parameters":{"node_id": %s, "arc_id": %s}, "fid":"3552", "criticity":"4", "is_process":true}}$$)', v_node_id, v_arc_id);
+					EXECUTE format('SELECT PARENT_SCHEMA.gw_fct_getmessage($${"data":{"message":"4578", "function":"3552", "parameters":{"node_id": %s, "arc_id": %s}, "fid":"3552", "criticity":"4", "is_process":true}}$$)', v_node_id, v_arc_id);
 
 					-- Divide the arc at this node
 					-- This splits the arc into two arcs, with the node as the division point
@@ -388,11 +412,28 @@ BEGIN
 							-- Create first new arc in campaign tables
 							v_new_arc_id1 := nextval('cm.cm_urn_id_seq');
 							v_new_arc_uuid1 := gen_random_uuid();
+					
+							SELECT string_agg(
+								CASE column_name
+									WHEN 'arc_id' THEN v_new_arc_id1::text
+									WHEN 'node_1' THEN quote_nullable(rec_arc.node_1)
+									WHEN 'node_2' THEN v_node_id::text
+									WHEN 'the_geom' THEN '$1'
+									WHEN 'arc_type' THEN quote_literal(v_arc_type)
+									WHEN 'uuid' THEN quote_literal(v_new_arc_uuid1::text)
+									ELSE 's.' || quote_ident(column_name)
+								END,
+								', ' ORDER BY ordinal_position
+							)
+							INTO v_arc_select_cols
+							FROM information_schema.columns
+							WHERE table_schema = 'cm'
+							AND column_name NOT IN ('id')
+							AND table_name = v_arc_child_table;
 
-							v_querytext := 'INSERT INTO cm.PARENT_SCHEMA_'||lower(v_arc_type)||' (lot_id, arc_id, node_1, node_2, the_geom, arc_type, arccat_id, uuid, depth, epa_type, state, state_type,
-							expl_id, muni_id, sector_id, pavcat_id, function_type, district_id, province_id, om_state, conserv_state, is_operative, expl_visibility, builtdate, ownercat_id, observ)
-							VALUES ('||rec_arc_child.lot_id||', '||v_new_arc_id1||', '||quote_nullable(rec_arc.node_1)||', '||v_node_id||', $1, '''||v_arc_type||''', '||quote_nullable(rec_arc_child.arccat_id)||', '''||v_new_arc_uuid1||''', '||quote_nullable(rec_arc_child.depth)||', '||quote_nullable(rec_arc_child.epa_type)||', '||quote_nullable(rec_arc_child.state)||', '||quote_nullable(rec_arc_child.state_type)||',
-							'||quote_nullable(rec_arc_child.expl_id)||', '||quote_nullable(rec_arc_child.muni_id)||', '||quote_nullable(rec_arc_child.sector_id)||', '||quote_nullable(rec_arc_child.pavcat_id)||', '||quote_nullable(rec_arc_child.function_type)||', '||quote_nullable(rec_arc_child.district_id)||', '||quote_nullable(rec_arc_child.province_id)||', '||quote_nullable(rec_arc_child.om_state)||', '||quote_nullable(rec_arc_child.conserv_state)||', '||quote_nullable(rec_arc_child.is_operative)||', '||quote_nullable(rec_arc_child.expl_visibility)||', '||quote_nullable(rec_arc_child.builtdate)||', '||quote_nullable(rec_arc_child.ownercat_id)||', '||quote_nullable(rec_arc_child.observ)||')';
+							v_querytext := 'INSERT INTO cm.' || v_arc_child_table || ' (' || v_arc_insert_cols || ') SELECT ' || v_arc_select_cols ||
+								' FROM cm.' || v_arc_child_table || ' s WHERE s.arc_id = ' || v_arc_id;
+
 							raise notice 'first segment geometry: %', v_line1;
 
 							EXECUTE v_querytext USING v_line1;
@@ -410,14 +451,42 @@ BEGIN
 							FROM cm.om_campaign_lot_x_arc WHERE arc_id = v_arc_id;
 							RAISE NOTICE 'INSERT cm.om_campaign_lot_x_arc arc_id: % (first segment), node_1: %, node_2: %', v_new_arc_id1, rec_arc.node_1, v_node_id;
 							
+							raise notice 'INSERTING INTO DOC_X_ARC: %', (select concat(string_agg(doc_id::text, ','), rec_arc_child.uuid) from cm.doc_x_arc WHERE arc_uuid = rec_arc_child.uuid);
+
+							-- INSERT doc relation into new arc
+							INSERT INTO cm.doc_x_arc (doc_id, arc_id, arc_uuid, featurecat_id)
+							SELECT doc_id, v_new_arc_id1, v_new_arc_uuid1, 'TUBERIA'
+							from cm.doc_x_arc
+							WHERE arc_uuid = rec_arc_child.uuid;
+
+							raise notice 'INSERTING INTO DOC_X_ARC AFTER: %', (select concat(string_agg(doc_id::text, ',')) from cm.doc_x_arc WHERE arc_uuid = v_new_arc_uuid1);
+
+
 							-- Create second new arc in campaign tables
 							v_new_arc_id2 := nextval('cm.cm_urn_id_seq');
 							v_new_arc_uuid2 := gen_random_uuid();
 							-- Insert into child tables
-							v_querytext := 'INSERT INTO cm.PARENT_SCHEMA_'||lower(v_arc_type)||' (lot_id, arc_id, node_1, node_2, the_geom, arc_type, arccat_id, uuid, depth, epa_type, state, state_type,
-							expl_id, muni_id, sector_id, pavcat_id, function_type, district_id, province_id, om_state, conserv_state, is_operative, expl_visibility, builtdate, ownercat_id, observ)
-							VALUES ('||rec_arc_child.lot_id||', '||v_new_arc_id2||', '||v_node_id||', '||quote_nullable(rec_arc.node_2)||', $1, '''||v_arc_type||''', '||quote_nullable(rec_arc_child.arccat_id)||', '''||v_new_arc_uuid2||''', '||quote_nullable(rec_arc_child.depth)||', '||quote_nullable(rec_arc_child.epa_type)||', '||quote_nullable(rec_arc_child.state)||', '||quote_nullable(rec_arc_child.state_type)||',
-							'||quote_nullable(rec_arc_child.expl_id)||', '||quote_nullable(rec_arc_child.muni_id)||', '||quote_nullable(rec_arc_child.sector_id)||', '||quote_nullable(rec_arc_child.pavcat_id)||', '||quote_nullable(rec_arc_child.function_type)||', '||quote_nullable(rec_arc_child.district_id)||', '||quote_nullable(rec_arc_child.province_id)||', '||quote_nullable(rec_arc_child.om_state)||', '||quote_nullable(rec_arc_child.conserv_state)||', '||quote_nullable(rec_arc_child.is_operative)||', '||quote_nullable(rec_arc_child.expl_visibility)||', '||quote_nullable(rec_arc_child.builtdate)||', '||quote_nullable(rec_arc_child.ownercat_id)||', '||quote_nullable(rec_arc_child.observ)||')';
+							SELECT string_agg(
+								CASE column_name
+									WHEN 'arc_id' THEN v_new_arc_id2::text
+									WHEN 'node_1' THEN v_node_id::text
+									WHEN 'node_2' THEN quote_nullable(rec_arc.node_2)
+									WHEN 'the_geom' THEN '$1'
+									WHEN 'arc_type' THEN quote_literal(v_arc_type)
+									WHEN 'uuid' THEN quote_literal(v_new_arc_uuid2::text)
+									ELSE 's.' || quote_ident(column_name)
+								END,
+								', ' ORDER BY ordinal_position
+							)
+							INTO v_arc_select_cols
+							FROM information_schema.columns
+							WHERE table_schema = 'cm'
+							AND column_name NOT IN ('id')
+							AND table_name = v_arc_child_table;
+
+							v_querytext := 'INSERT INTO cm.' || v_arc_child_table || ' (' || v_arc_insert_cols || ') SELECT ' || v_arc_select_cols ||
+								' FROM cm.' || v_arc_child_table || ' s WHERE s.arc_id = ' || v_arc_id;
+
 							raise notice 'second segment geometry: %', v_line2;
 
 							EXECUTE v_querytext USING v_line2;
@@ -435,30 +504,32 @@ BEGIN
 							FROM cm.om_campaign_lot_x_arc WHERE arc_id = v_arc_id;
 							RAISE NOTICE 'INSERT cm.om_campaign_lot_x_arc arc_id: % (second segment), node_1: %, node_2: %', v_new_arc_id2, v_node_id, rec_arc.node_2;
 							
+							-- INSERT doc relation into new arc
+							INSERT INTO cm.doc_x_arc (doc_id, arc_id, arc_uuid, featurecat_id)
+							SELECT doc_id, v_new_arc_id2, v_new_arc_uuid2, 'TUBERIA'
+							from cm.doc_x_arc
+							WHERE arc_uuid = rec_arc_child.uuid;
+							
 							-- Delete original arc from campaign tables
 							IF v_arc_id < 0 THEN
-								DELETE FROM cm.om_campaign_lot_x_arc WHERE arc_id = v_arc_id;
-								DELETE FROM cm.om_campaign_x_arc WHERE arc_id = v_arc_id;
-								EXECUTE format('DELETE FROM "cm".%I WHERE arc_id = %s', concat('PARENT_SCHEMA_', lower(v_arc_type)), v_arc_id);
-								RAISE NOTICE 'DELETE cm.PARENT_SCHEMA_% WHERE arc_id: %', lower(v_arc_type), v_arc_id;
+								EXECUTE format('DELETE FROM "cm".%I WHERE arc_id = %s', concat('ve_ap_lot_', lower(v_arc_type)), v_arc_id);
+								RAISE NOTICE 'DELETE cm.ap_% WHERE arc_id: %', lower(v_arc_type), v_arc_id;
 							ELSE
-								UPDATE cm.om_campaign_lot_x_arc SET action = 3 WHERE arc_id = v_arc_id;
+								EXECUTE format('DELETE FROM "cm".%I WHERE arc_id = %s', concat('ve_PARENT_SCHEMA_lot_', lower(v_arc_type)), v_arc_id);
 								RAISE NOTICE 'UPDATE cm.om_campaign_lot_x_arc action=3 for arc_id: %', v_arc_id;
 							END IF;
 							
 
 							-- Log: arc divided and new arcs created (Set mode audit)
-							EXECUTE format('SELECT gw_fct_getmessage($${"data":{"message":"4580", "function":"3552", "parameters":{"arc_id": %s}, "fid":"3552", "criticity":"4", "is_process":true}}$$)', v_arc_id);
-							EXECUTE format('SELECT gw_fct_getmessage($${"data":{"message":"4582", "function":"3552", "parameters":{"arc_id1": %s, "arc_id2": %s, "arc_id": %s}, "fid":"3552", "criticity":"4", "is_process":true}}$$)', v_new_arc_id1, v_new_arc_id2, v_arc_id);
-							--DELETE FROM cm.om_campaign_lot_x_arc WHERE arc_id = v_arc_id;
-							--DELETE FROM cm.om_campaign_x_arc WHERE arc_id = v_arc_id;
+							EXECUTE format('SELECT PARENT_SCHEMA.gw_fct_getmessage($${"data":{"message":"4580", "function":"3552", "parameters":{"arc_id": %s}, "fid":"3552", "criticity":"4", "is_process":true}}$$)', v_arc_id);
+							EXECUTE format('SELECT PARENT_SCHEMA.gw_fct_getmessage($${"data":{"message":"4582", "function":"3552", "parameters":{"arc_id1": %s, "arc_id2": %s, "arc_id": %s}, "fid":"3552", "criticity":"4", "is_process":true}}$$)', v_new_arc_id1, v_new_arc_id2, v_arc_id);
 						END IF;
 					END IF;
 
 					-- Add processed orphan node to result layer
 					v_array_nodes := v_array_nodes || jsonb_build_array(jsonb_build_object(
 						'type', 'Feature',
-						'geometry', ST_AsGeoJSON(ST_Transform(v_closest_point, 8908))::jsonb,
+						'geometry', ST_Transform(v_closest_point, 4326),
 						'properties', jsonb_build_object(
 							'node_id', v_node_id,
 							'descript', 'Nodo huérfano procesado',
@@ -475,16 +546,18 @@ BEGIN
 		-- ------------------------------------------------------------------------
 		FOR rec_node IN
 			EXECUTE format('
-				SELECT DISTINCT *
+				SELECT DISTINCT n1.*, cxn.*
 				FROM cm.om_campaign_lot_x_node n1
 				JOIN cm.om_campaign_x_node cxn ON n1.node_id = cxn.node_id
-				WHERE n1.lot_id IN (%s)
-				AND EXISTS (SELECT 1 FROM cm.om_campaign_x_arc arc WHERE (node_1 = n1.node_id OR node_2 = n1.node_id))
+				JOIN PARENT_SCHEMA.cat_feature_node cfn ON cfn.id = cxn.node_type
+				WHERE cfn.isarcdivide IS TRUE AND n1.lot_id IN (%s) AND (n1."action" <> 3 OR n1."action" IS NULL)
+				AND EXISTS (SELECT 1 FROM cm.om_campaign_lot_x_arc arc WHERE (node_1 = n1.node_id OR node_2 = n1.node_id) and ("action" != 3 OR "action" IS NULL))
 				AND EXISTS (
 					SELECT 1 FROM cm.om_campaign_x_arc a
 					JOIN cm.om_campaign_lot_x_arc oclxa ON a.arc_id = oclxa.arc_id
-					WHERE ST_DWithin(a.the_geom, cxn.the_geom, 0.01)
-					AND n1.node_id NOT IN (a.node_1, a.node_2)
+					WHERE ST_DWithin(a.the_geom, cxn.the_geom, 0.05)
+					AND (n1.node_id is distinct from a.node_1 and n1.node_id is distinct from a.node_2)
+					AND n1.lot_id = oclxa.lot_id
 					AND (oclxa."action" != 3 OR oclxa."action" IS NULL)
 				)', 
 				array_to_string(v_lot_id_array, ','))
@@ -515,8 +588,9 @@ BEGIN
 			SELECT arc.arc_id INTO v_arc_id
 			FROM cm.om_campaign_x_arc arc
 			JOIN cm.om_campaign_lot_x_arc larc ON arc.arc_id = larc.arc_id
-			WHERE ST_DWithin(arc.the_geom, v_node_geom, 0.01)
-			AND v_node_id NOT IN (arc.node_1, arc.node_2)
+			WHERE ST_DWithin(arc.the_geom, v_node_geom, 0.05)
+			AND (v_node_id is distinct from arc.node_1 and v_node_id is distinct from arc.node_2)
+			AND larc.lot_id = rec_node.lot_id
 			AND (larc."action" <> 3 OR larc."action" IS NULL)
 			ORDER BY arc.the_geom <-> v_node_geom LIMIT 1;
 			RAISE NOTICE 'tcandidate - v_arc_id: %', v_arc_id;
@@ -544,6 +618,14 @@ BEGIN
 				SELECT * INTO rec_arc FROM cm.om_campaign_x_arc WHERE arc_id = v_arc_id;
 				EXECUTE format('SELECT * FROM cm.PARENT_SCHEMA_'||lower(v_arc_type)||' WHERE arc_id = '||v_arc_id) INTO rec_arc_child;
 
+				v_arc_child_table := 'PARENT_SCHEMA_' || lower(v_arc_type);
+				SELECT string_agg(quote_ident(column_name), ', ' ORDER BY ordinal_position)
+				INTO v_arc_insert_cols
+				FROM information_schema.columns
+				WHERE table_schema = 'cm'
+				AND column_name NOT IN ('id')
+				AND table_name = v_arc_child_table;
+
 				IF rec_arc.the_geom IS NOT NULL THEN
 					-- Calculate closest point on arc
 					v_closest_point := ST_ClosestPoint(rec_arc.the_geom, v_node_geom);
@@ -557,20 +639,34 @@ BEGIN
 					RAISE NOTICE 'UPDATE cm.PARENT_SCHEMA_% SET the_geom for node_id: % (tcandidate)', v_node_type, v_node_id;
 
 					-- Log: node moved (Set mode audit)
-					EXECUTE format('SELECT gw_fct_getmessage($${"data":{"message":"4578", "function":"3552", "parameters":{"node_id": %s, "arc_id": %s}, "fid":"3552", "criticity":"4", "is_process":true}}$$)', v_node_id, v_arc_id);
+					EXECUTE format('SELECT PARENT_SCHEMA.gw_fct_getmessage($${"data":{"message":"4578", "function":"3552", "parameters":{"node_id": %s, "arc_id": %s}, "fid":"3552", "criticity":"4", "is_process":true}}$$)', v_node_id, v_arc_id);
 
 					-- Update the geometries of the arcs that were already connected to this node
-					WITH test as (
-						SELECT arc_id, node_1, node_2, n1.the_geom as node_1_geom, n2.the_geom as node_2_geom
-						FROM cm.om_campaign_x_arc
-						JOIN cm.om_campaign_x_node n1 ON n1.node_id = cm.om_campaign_x_arc.node_1
-						JOIN cm.om_campaign_x_node n2 ON n2.node_id = cm.om_campaign_x_arc.node_2
-						WHERE (node_1 = v_node_id OR node_2 = v_node_id)
-						AND arc_id != v_arc_id  -- Don't update the arc we're about to divide
+					WITH connected_arcs AS (
+						SELECT a.arc_id, a.the_geom,
+							n1.the_geom AS node_1_geom, n2.the_geom AS node_2_geom,
+							ST_NPoints(a.the_geom) AS npts
+						FROM cm.om_campaign_x_arc a
+						JOIN cm.om_campaign_x_node n1 ON n1.node_id = a.node_1
+						JOIN cm.om_campaign_x_node n2 ON n2.node_id = a.node_2
+						WHERE (a.node_1 = v_node_id OR a.node_2 = v_node_id)
+						AND a.arc_id != v_arc_id  -- Don't update the arc we're about to divide
+					),
+					arcs_with_new_geom AS (
+						SELECT arc_id,
+							CASE
+								WHEN npts <= 2 THEN ST_MakeLine(node_1_geom, node_2_geom)
+								ELSE ST_MakeLine(
+									ARRAY[node_1_geom]
+									|| (SELECT array_agg(ST_PointN(the_geom, g.i) ORDER BY g.i) FROM generate_series(2, npts - 1) g(i))
+									|| ARRAY[node_2_geom]
+								)
+							END AS new_geom
+						FROM connected_arcs
 					)
-					UPDATE cm.om_campaign_x_arc SET the_geom = ST_MakeLine(node_1_geom, node_2_geom)
-					FROM test
-					WHERE cm.om_campaign_x_arc.arc_id = test.arc_id;
+					UPDATE cm.om_campaign_x_arc SET the_geom = arcs_with_new_geom.new_geom
+					FROM arcs_with_new_geom
+					WHERE cm.om_campaign_x_arc.arc_id = arcs_with_new_geom.arc_id;
 					RAISE NOTICE 'UPDATE cm.om_campaign_x_arc SET the_geom for arcs connected to node_id: %', v_node_id;
 
 					-- Divide the arc at this node to create proper T-junction
@@ -593,10 +689,26 @@ BEGIN
 							v_new_arc_id1 := nextval('cm.cm_urn_id_seq');
 							v_new_arc_uuid1 := gen_random_uuid();
 							-- Insert into child tables
-							v_querytext := 'INSERT INTO cm.PARENT_SCHEMA_'||lower(v_arc_type)||' (lot_id, arc_id, node_1, node_2, the_geom, arc_type, arccat_id, uuid, depth, epa_type, state, state_type,
-							expl_id, muni_id, sector_id, pavcat_id, function_type, district_id, province_id, om_state, conserv_state, is_operative, expl_visibility, builtdate, ownercat_id, observ)
-							VALUES ('||rec_arc_child.lot_id||', '||v_new_arc_id1||', '||quote_nullable(rec_arc.node_1)||', '||v_node_id||', $1, '''||v_arc_type||''', '||quote_nullable(rec_arc_child.arccat_id)||', '''||v_new_arc_uuid1 ||''', '||quote_nullable(rec_arc_child.depth)||', '||quote_nullable(rec_arc_child.epa_type)||', '||quote_nullable(rec_arc_child.state)||', '||quote_nullable(rec_arc_child.state_type)||',
-							'||quote_nullable(rec_arc_child.expl_id)||', '||quote_nullable(rec_arc_child.muni_id)||', '||quote_nullable(rec_arc_child.sector_id)||', '||quote_nullable(rec_arc_child.pavcat_id)||', '||quote_nullable(rec_arc_child.function_type)||', '||quote_nullable(rec_arc_child.district_id)||', '||quote_nullable(rec_arc_child.province_id)||', '||quote_nullable(rec_arc_child.om_state)||', '||quote_nullable(rec_arc_child.conserv_state)||', '||quote_nullable(rec_arc_child.is_operative)||', '||quote_nullable(rec_arc_child.expl_visibility)||', '||quote_nullable(rec_arc_child.builtdate)||', '||quote_nullable(rec_arc_child.ownercat_id)||', '||quote_nullable(rec_arc_child.observ)||')';
+							SELECT string_agg(
+								CASE column_name
+									WHEN 'arc_id' THEN v_new_arc_id1::text
+									WHEN 'node_1' THEN quote_nullable(rec_arc.node_1)
+									WHEN 'node_2' THEN v_node_id::text
+									WHEN 'the_geom' THEN '$1'
+									WHEN 'arc_type' THEN quote_literal(v_arc_type)
+									WHEN 'uuid' THEN quote_literal(v_new_arc_uuid1::text)
+									ELSE 's.' || quote_ident(column_name)
+								END,
+								', ' ORDER BY ordinal_position
+							)
+							INTO v_arc_select_cols
+							FROM information_schema.columns
+							WHERE table_schema = 'cm'
+							AND column_name NOT IN ('id')
+							AND table_name = v_arc_child_table;
+
+							v_querytext := 'INSERT INTO cm.' || v_arc_child_table || ' (' || v_arc_insert_cols || ') SELECT ' || v_arc_select_cols ||
+								' FROM cm.' || v_arc_child_table || ' s WHERE s.arc_id = ' || v_arc_id;
 							EXECUTE v_querytext USING v_line1;
 							RAISE NOTICE 'INSERT cm.PARENT_SCHEMA_% arc_id: % (first segment, tcandidate)', v_arc_type, v_new_arc_id1;
 
@@ -611,15 +723,37 @@ BEGIN
 							SELECT v_new_arc_id1, lot_id, rec_arc.node_1, v_node_id, status, 1
 							FROM cm.om_campaign_lot_x_arc WHERE arc_id = v_arc_id;
 							RAISE NOTICE 'INSERT cm.om_campaign_lot_x_arc arc_id: % (first segment, tcandidate)', v_new_arc_id1;
+
+							-- INSERT doc relation into new arc
+							INSERT INTO cm.doc_x_arc (doc_id, arc_id, arc_uuid, featurecat_id)
+							SELECT doc_id, v_new_arc_id1, v_new_arc_uuid1, 'TUBERIA'
+							from cm.doc_x_arc
+							WHERE arc_uuid = rec_arc_child.uuid;
 							
 							-- Create second new arc in campaign tables
 							v_new_arc_id2 := nextval('cm.cm_urn_id_seq');
 							v_new_arc_uuid2 := gen_random_uuid();
 							-- Insert into child tables
-							v_querytext := 'INSERT INTO cm.PARENT_SCHEMA_'||lower(v_arc_type)||' (lot_id, arc_id, node_1, node_2, the_geom, arc_type, arccat_id, uuid, depth, epa_type, state, state_type,
-							expl_id, muni_id, sector_id, pavcat_id, function_type, district_id, province_id, om_state, conserv_state, is_operative, expl_visibility, builtdate, ownercat_id, observ)
-							VALUES ('||rec_arc_child.lot_id||', '||v_new_arc_id2||', '||v_node_id||', '||quote_nullable(rec_arc.node_2)||', $1, '''||v_arc_type||''', '||quote_nullable(rec_arc_child.arccat_id)||', '''||v_new_arc_uuid2||''', '||quote_nullable(rec_arc_child.depth)||', '||quote_nullable(rec_arc_child.epa_type)||', '||quote_nullable(rec_arc_child.state)||', '||quote_nullable(rec_arc_child.state_type)||',
-							'||quote_nullable(rec_arc_child.expl_id)||', '||quote_nullable(rec_arc_child.muni_id)||', '||quote_nullable(rec_arc_child.sector_id)||', '||quote_nullable(rec_arc_child.pavcat_id)||', '||quote_nullable(rec_arc_child.function_type)||', '||quote_nullable(rec_arc_child.district_id)||', '||quote_nullable(rec_arc_child.province_id)||', '||quote_nullable(rec_arc_child.om_state)||', '||quote_nullable(rec_arc_child.conserv_state)||', '||quote_nullable(rec_arc_child.is_operative)||', '||quote_nullable(rec_arc_child.expl_visibility)||', '||quote_nullable(rec_arc_child.builtdate)||', '||quote_nullable(rec_arc_child.ownercat_id)||', '||quote_nullable(rec_arc_child.observ)||')';
+							SELECT string_agg(
+								CASE column_name
+									WHEN 'arc_id' THEN v_new_arc_id2::text
+									WHEN 'node_1' THEN v_node_id::text
+									WHEN 'node_2' THEN quote_nullable(rec_arc.node_2)
+									WHEN 'the_geom' THEN '$1'
+									WHEN 'arc_type' THEN quote_literal(v_arc_type)
+									WHEN 'uuid' THEN quote_literal(v_new_arc_uuid2::text)
+									ELSE 's.' || quote_ident(column_name)
+								END,
+								', ' ORDER BY ordinal_position
+							)
+							INTO v_arc_select_cols
+							FROM information_schema.columns
+							WHERE table_schema = 'cm'
+							AND column_name NOT IN ('id')
+							AND table_name = v_arc_child_table;
+
+							v_querytext := 'INSERT INTO cm.' || v_arc_child_table || ' (' || v_arc_insert_cols || ') SELECT ' || v_arc_select_cols ||
+								' FROM cm.' || v_arc_child_table || ' s WHERE s.arc_id = ' || v_arc_id;
 							EXECUTE v_querytext USING v_line2;
 							RAISE NOTICE 'INSERT cm.PARENT_SCHEMA_% arc_id: % (second segment, tcandidate)', v_arc_type, v_new_arc_id2;
 
@@ -634,30 +768,32 @@ BEGIN
 							SELECT v_new_arc_id2, lot_id, v_node_id, rec_arc.node_2, status, 1
 							FROM cm.om_campaign_lot_x_arc WHERE arc_id = v_arc_id;
 							RAISE NOTICE 'INSERT cm.om_campaign_lot_x_arc arc_id: % (second segment, tcandidate)', v_new_arc_id2;
+
+							-- INSERT doc relation into new arc
+							INSERT INTO cm.doc_x_arc (doc_id, arc_id, arc_uuid, featurecat_id)
+							SELECT doc_id, v_new_arc_id2, v_new_arc_uuid2, 'TUBERIA'
+							from cm.doc_x_arc
+							WHERE arc_uuid = rec_arc_child.uuid;
 							
 							-- Delete original arc from campaign tables
 							IF v_arc_id < 0 THEN
-								DELETE FROM cm.om_campaign_lot_x_arc WHERE arc_id = v_arc_id;
-								DELETE FROM cm.om_campaign_x_arc WHERE arc_id = v_arc_id;
-								EXECUTE format('DELETE FROM "cm".%I WHERE arc_id = %s', concat('PARENT_SCHEMA_', lower(v_arc_type)), v_arc_id);
+								EXECUTE format('DELETE FROM "cm".%I WHERE arc_id = %s', concat('ve_PARENT_SCHEMA_lot_', lower(v_arc_type)), v_arc_id);
 								RAISE NOTICE 'DELETE cm.PARENT_SCHEMA_% WHERE arc_id: %', lower(v_arc_type), v_arc_id;
 							ELSE
-								UPDATE cm.om_campaign_lot_x_arc SET action = 3 WHERE arc_id = v_arc_id;
+								EXECUTE format('DELETE FROM "cm".%I WHERE arc_id = %s', concat('ve_PARENT_SCHEMA_lot_', lower(v_arc_type)), v_arc_id);
 								RAISE NOTICE 'UPDATE cm.om_campaign_lot_x_arc action=3 for arc_id: %', v_arc_id;
 							END IF;
 
 							-- Log: arc divided and new arcs created (Set mode audit)
-							EXECUTE format('SELECT gw_fct_getmessage($${"data":{"message":"4580", "function":"3552", "parameters":{"arc_id": %s}, "fid":"3552", "criticity":"4", "is_process":true}}$$)', v_arc_id);
-							EXECUTE format('SELECT gw_fct_getmessage($${"data":{"message":"4582", "function":"3552", "parameters":{"arc_id1": %s, "arc_id2": %s, "arc_id": %s}, "fid":"3552", "criticity":"4", "is_process":true}}$$)', v_new_arc_id1, v_new_arc_id2, v_arc_id);
-							--DELETE FROM cm.om_campaign_lot_x_arc WHERE arc_id = v_arc_id;
-							--DELETE FROM cm.om_campaign_x_arc WHERE arc_id = v_arc_id;
+							EXECUTE format('SELECT PARENT_SCHEMA.gw_fct_getmessage($${"data":{"message":"4580", "function":"3552", "parameters":{"arc_id": %s}, "fid":"3552", "criticity":"4", "is_process":true}}$$)', v_arc_id);
+							EXECUTE format('SELECT PARENT_SCHEMA.gw_fct_getmessage($${"data":{"message":"4582", "function":"3552", "parameters":{"arc_id1": %s, "arc_id2": %s, "arc_id": %s}, "fid":"3552", "criticity":"4", "is_process":true}}$$)', v_new_arc_id1, v_new_arc_id2, v_arc_id);
 						END IF;
 					END IF;
 
 					-- Add processed T-candidate node to result layer
 					v_array_nodes := v_array_nodes || jsonb_build_array(jsonb_build_object(
 						'type', 'Feature',
-						'geometry', ST_AsGeoJSON(ST_Transform(v_closest_point, 8908))::jsonb,
+						'geometry', ST_Transform(v_closest_point, 4326),
 						'properties', jsonb_build_object(
 							'node_id', v_node_id,
 							'descript', 'Nodo T candidato procesado',
@@ -677,7 +813,7 @@ BEGIN
 		);
 
 		-- Log completion message with count of processed nodes
-		EXECUTE format('SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+		EXECUTE format('SELECT PARENT_SCHEMA.gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
                        "data":{"message":"3414", "function":"3552", "parameters":{"v_count":"%s"}, "fid":"3552", "is_process":true}}$$)', v_count_total);
 
 		-- Get audit messages from the process
@@ -691,7 +827,7 @@ BEGIN
 	-- ============================================================================
 	ELSE
 		-- Mode is neither 'Check' nor 'Set' - log error message
-		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+		EXECUTE 'SELECT PARENT_SCHEMA.gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
                        "data":{"message":"3044", "function":"3552","parameters":{"mode":"'||v_mode||'"}, "is_process":true}}$$)';
 		v_result_info := '{"values":[]}';
 		v_result_point := '{}';

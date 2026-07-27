@@ -674,6 +674,122 @@ def git_output(root: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def git_output_optional(root: Path, *args: str) -> str | None:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    value = result.stdout.strip()
+    return value or None
+
+
+# Keep in sync with path filters in .github/workflows/test-db.yml.
+DBMODEL_CI_PATHSPECS = (
+    "dbmodel",
+    "giswater_admin",
+    "scripts/gw_e2e",
+    "scripts/gw_bootstrap_network.sh",
+    ".github/workflows/test-db.yml",
+)
+
+
+def dbmodel_unchanged_since_tag(
+    root: Path, since_tag: str, end: str = "HEAD"
+) -> bool:
+    completed = subprocess.run(
+        ["git", "diff", "--quiet", since_tag, end, "--", *DBMODEL_CI_PATHSPECS],
+        cwd=root,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
+def resolve_dbmodel_ci_sha(
+    root: Path,
+    *,
+    since_tag: str,
+    end: str,
+) -> str:
+    """Return the last commit in since_tag..end that can trigger PostgreSQL Tests."""
+    commit = git_output_optional(
+        root,
+        "log",
+        "-1",
+        "--format=%H",
+        f"{since_tag}..{end}",
+        "--",
+        *DBMODEL_CI_PATHSPECS,
+    )
+    if commit:
+        return commit
+    raise ReleaseError(
+        f"dbmodel/ changed since {since_tag} but no commit in that range touches "
+        "dbmodel CI paths; cannot pick a verification commit"
+    )
+
+
+RELEASE_METADATA_FILES = frozenset({"CHANGELOG.md", "metadata.txt"})
+
+
+def is_release_metadata_only_commit(root: Path, sha: str) -> bool:
+    """True when a commit only touches release bookkeeping files."""
+    names = git_output_optional(
+        root,
+        "diff-tree",
+        "--no-commit-id",
+        "--name-only",
+        "-r",
+        sha,
+    )
+    if not names:
+        return True
+    return set(names.splitlines()).issubset(RELEASE_METADATA_FILES)
+
+
+def is_git_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
+    completed = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+        cwd=root,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
+def resolve_dbmodel_ci_verification_sha(
+    root: Path,
+    *,
+    since_tag: str,
+    end: str,
+) -> str:
+    """Return the commit whose push CI validates dbmodel changes.
+
+    GitHub Actions runs on the push tip, not on every commit in a push.
+    Walk back release-metadata-only commits on top of end so we verify
+    the pushed tip that actually ran CI, not an intermediate dbmodel commit.
+    """
+    # Ensure dbmodel changed in the range before picking a verification SHA.
+    resolve_dbmodel_ci_sha(root, since_tag=since_tag, end=end)
+
+    verify_sha = end
+    while verify_sha != since_tag and is_release_metadata_only_commit(
+        root, verify_sha
+    ):
+        parent = git_output_optional(root, "rev-parse", f"{verify_sha}^")
+        if not parent:
+            break
+        if not is_git_ancestor(root, since_tag, parent) or not is_git_ancestor(
+            root, parent, end
+        ):
+            break
+        verify_sha = parent
+    return verify_sha
+
+
 def ensure_dbmodel_ci_green(
     root: Path,
     *,
@@ -681,21 +797,57 @@ def ensure_dbmodel_ci_green(
     cli_release: bool = False,
     sha: str | None = None,
 ) -> None:
-    """Require PostgreSQL Tests workflow checks on the release commit."""
+    """Require PostgreSQL Tests workflow checks before release."""
     script = root / "scripts" / "verify_dbmodel_ci_checks.sh"
     if not script.is_file():
         raise ReleaseError(f"Missing {script}")
 
-    commit = sha or git_output(root, "rev-parse", "HEAD")
-    cmd = ["bash", str(script), "--sha", commit]
+    head = sha or git_output(root, "rev-parse", "HEAD")
     if cli_release:
-        cmd.append("--cli-release")
+        commit = head
+        cmd = ["bash", str(script), "--sha", commit, "--cli-release"]
+        if not execute:
+            print(
+                "Would verify dbmodel CI checks on "
+                f"{commit} (CLI; skip if dbmodel unchanged)"
+            )
+            print(f"$ {' '.join(cmd)}")
+            return
+    else:
+        since_tag = git_output(root, "describe", "--tags", "--abbrev=0", head)
+        if dbmodel_unchanged_since_tag(root, since_tag, head):
+            message = (
+                f"dbmodel/ unchanged since {since_tag}; skipping dbmodel CI verify"
+            )
+            if execute:
+                print(message)
+            else:
+                print(f"Would skip dbmodel CI verify ({message})")
+            return
 
-    if not execute:
-        label = "CLI (skip if dbmodel unchanged)" if cli_release else "plugin"
-        print(f"Would verify dbmodel CI checks on {commit} ({label})")
-        print(f"$ {' '.join(cmd)}")
-        return
+        commit = resolve_dbmodel_ci_verification_sha(
+            root, since_tag=since_tag, end=head
+        )
+        cmd = ["bash", str(script), "--sha", commit]
+        if not execute:
+            if commit != head:
+                print(
+                    "Would verify dbmodel CI checks on "
+                    f"{commit} (push tip; HEAD {head[:12]} is release metadata)"
+                )
+            else:
+                print(
+                    "Would verify dbmodel CI checks on "
+                    f"{commit} (push tip)"
+                )
+            print(f"$ {' '.join(cmd)}")
+            return
+
+        if commit != head:
+            print(
+                f"HEAD {head[:12]} is release metadata; "
+                f"verifying dbmodel CI on push tip {commit[:12]}"
+            )
 
     if shutil.which("gh") is None:
         raise ReleaseError(

@@ -8,7 +8,7 @@ SET search_path = SCHEMA_NAME, public, pg_catalog;
 
 
 -- selector network
-CREATE TABLE selector_network (
+CREATE TABLE IF NOT EXISTS selector_network (
 	network_id int4 NOT NULL,
 	cur_user text DEFAULT CURRENT_USER NOT NULL,
 	CONSTRAINT selector_network_pkey PRIMARY KEY (network_id, cur_user)
@@ -33,5 +33,5 @@ insert into om_typevalue values ('network_type','2','URBAN DRAINAGE');
 INSERT INTO config_param_system ("parameter",value,descript,"label",dv_querytext,dv_filterbyfield,isenabled,layoutorder,project_type,dv_isparent,isautoupdate,"datatype",widgettype,ismandatory,iseditable,dv_orderby_id,dv_isnullvalue,stylesheet,widgetcontrols,placeholder,standardvalue,layoutname) VALUES
 	 ('basic_selector_sectorisexplismuni','false','Variable to configure that explotation and sector has the same code in order to make a direct correlation one each other','Selector variables',NULL,NULL,true,NULL,'utils',NULL,NULL,'boolean',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)
 	 	 on conflict (parameter) do nothing;
-		 
+
 INSERT INTO sys_table (id, descript, sys_role, "source") VALUES('selector_network', 'Selector of the network', 'role_basic', 'core');

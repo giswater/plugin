@@ -38,6 +38,8 @@ DECLARE
 -- Input vars
 v_expl_id text;
 v_action TEXT;
+v_object_1 integer;
+v_object_2 integer;
 
 -- Vars
 rec record;
@@ -51,6 +53,7 @@ v_result_info JSON = '{}';
 v_result_point JSON = '{}';
 
 v_sql TEXT;
+v_error_context text;
 
 BEGIN
 
@@ -60,9 +63,17 @@ BEGIN
 	-- Input data and init params
 	SELECT giswater INTO v_version FROM sys_version ORDER BY id DESC LIMIT 1;
 
-	v_expl_id := p_data ->'data'->'parameters'->>'explId';
-	v_action := p_data ->'data'->'parameters'->>'action';
+	v_expl_id := COALESCE(p_data ->'data'->'parameters'->>'explId', p_data ->'data'->>'explId');
+	v_action := COALESCE(p_data ->'data'->'parameters'->>'action', p_data ->'data'->>'action');
+	v_object_1 := COALESCE((p_data ->'data'->'parameters'->>'object_1')::integer, (p_data ->'data'->>'object_1')::integer);
+	v_object_2 := COALESCE((p_data ->'data'->'parameters'->>'object_2')::integer, (p_data ->'data'->>'object_2')::integer);
 
+	IF v_expl_id IS NULL AND v_object_1 IS NOT NULL AND v_object_2 IS NOT NULL THEN
+		SELECT COALESCE(expl_1, expl_2)::text INTO v_expl_id
+		FROM om_scada_graph
+		WHERE object_1 = v_object_1 AND object_2 = v_object_2
+		ORDER BY edge_id DESC LIMIT 1;
+	END IF;
 
 	IF v_expl_id IS NULL THEN
 	
@@ -99,13 +110,13 @@ BEGIN
 		a.attrib,
 		a.expl_add,
 		a.object_1,
-		b.nodetype_id AS object_type_1,
+		b.node_type AS object_type_1,
 		a.expl_1,
 		a.dma_id_1,
 		e.name AS dma_name_1,
 		a.object_name_1,
 		a.object_2,
-		c.nodetype_id AS object_type_2,
+		c.node_type AS object_type_2,
 		a.expl_2,
 		a.dma_id_2,
 		f.name AS dma_name_2,
@@ -170,9 +181,9 @@ BEGIN
 	LEFT JOIN node c ON a.object_2 = c.node_id::int
 	WHERE b.expl_id IN ('||v_expl_id||') OR c.expl_id IN ('||v_expl_id||')
 	), mec AS (
-		SELECT * FROM temp_om_scada_graph a WHERE object_1::TEXT IN (SELECT node_1 FROM arc UNION ALL SELECT node_2 FROM arc)
+		SELECT * FROM temp_om_scada_graph a WHERE object_1 IN (SELECT node_1 FROM arc UNION ALL SELECT node_2 FROM arc)
 	)
-	SELECT v_fid, ''2'', object_1, objecttype_1, state_1, expl_1, edge_id, geom_1, 
+	SELECT '||v_fid||', ''2'', object_1, objecttype_1, state_1, expl_1, edge_id, geom_1, 
 	concat(''Object_1 from edge_id '', edge_id, '' is orphan.'') FROM temp_om_scada_graph 
 	WHERE object_1 NOT IN (SELECT object_1 FROM mec)';
 
@@ -196,9 +207,9 @@ BEGIN
 	LEFT JOIN node c ON a.object_2 = c.node_id::int
 	WHERE b.expl_id IN ('||v_expl_id||') OR c.expl_id IN ('||v_expl_id||')
 	), mec AS (
-		SELECT * FROM temp_om_scada_graph a WHERE object_2::TEXT IN (SELECT node_1 FROM arc UNION ALL SELECT node_2 FROM arc)
+		SELECT * FROM temp_om_scada_graph a WHERE object_2 IN (SELECT node_1 FROM arc UNION ALL SELECT node_2 FROM arc)
 	)
-	SELECT v_fid, ''2'', object_2, objecttype_2, state_2, expl_2, edge_id, geom_2, 
+	SELECT '||v_fid||', ''2'', object_2, objecttype_2, state_2, expl_2, edge_id, geom_2, 
 	concat(''Object_2 from edge_id '', edge_id, '' is orphan.'') FROM temp_om_scada_graph 
 	WHERE object_2 NOT IN (SELECT object_2 FROM mec)';
 
@@ -208,8 +219,8 @@ BEGIN
 
 	INSERT INTO temp_audit_check_data (error_message)
 	SELECT concat('The edge_id ', edge_id, ' has at least 1 object_id missing in table of nodes') FROM temp_om_scada_graph 
-	WHERE object_1::text NOT IN (SELECT node_id FROM node)
-	OR object_2::text NOT IN (SELECT node_id FROM node);
+	WHERE object_1 NOT IN (SELECT node_id FROM node)
+	OR object_2 NOT IN (SELECT node_id FROM node);
 
 	
 
@@ -297,7 +308,7 @@ BEGIN
 		FOR rec IN 
 		
 			WITH mec AS (
-				SELECT *, concat('man_', lower(b.system_id)) AS sys_man_table FROM om_scada_graph g
+				SELECT *, concat('man_', lower(b.feature_class)) AS sys_man_table FROM om_scada_graph g
 				CROSS JOIN LATERAL (
 								    VALUES 
 								        ('object_1', g.object_1, 'objecttype_1', g.objecttype_1,'object_name_1', g.object_name_1),
@@ -343,9 +354,9 @@ BEGIN
 
 
 	-- Exception handling
-	EXCEPTION WHEN OTHERS THEN 
-	RETURN ('{"status":"Failed","message":{"level":2, "text":' || to_json(SQLERRM) || '}, 
-	"version":"'|| v_version ||'","SQLSTATE":' || to_json(SQLSTATE) || '}')::json;
+	EXCEPTION WHEN OTHERS THEN
+	GET STACKED DIAGNOSTICS v_error_context = pg_exception_context;
+	RETURN gw_fct_exception_others('Failed', SQLERRM, SQLSTATE, SQLERRM, v_error_context);
 
 END;
 $function$

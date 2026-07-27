@@ -746,6 +746,24 @@ class GwSnapshotViewUi(GwDialog, FORM_CLASS):
     CONTEXT = CONTEXT
     UINAME = UINAME
 
+
+UINAME = "profile_interpolation"
+FORM_CLASS = _get_ui_class(f'{UINAME}.ui', f'{CONTEXT}')
+
+
+class GwProfileInterpolationUi(GwDialog, FORM_CLASS):
+    CONTEXT = CONTEXT
+    UINAME = UINAME
+
+
+UINAME = "scada_graph"
+FORM_CLASS = _get_ui_class(f'{UINAME}.ui', f'{CONTEXT}')
+
+
+class GwScadaGraphUi(GwDialog, FORM_CLASS):
+    CONTEXT = CONTEXT
+    UINAME = UINAME
+
 # endregion
 
 

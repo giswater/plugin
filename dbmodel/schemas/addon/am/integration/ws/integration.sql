@@ -15219,9 +15219,14 @@ CREATE RULE v_asset_arc_input_update AS ON UPDATE TO v_asset_arc_input
     strategic = EXCLUDED.strategic,
     rleak = EXCLUDED.rleak;
 
-SELECT am.gw_fct_admin_sys_version_register(json_build_object(
+SELECT "SCHEMA_NAME".gw_fct_admin_sys_version_register(json_build_object(
 	'data', json_build_object(
-		'parentSchema', 'SCHEMA_NAME'
+		'gwVersion', (SELECT giswater FROM sys_version ORDER BY id DESC LIMIT 1),
+		'mergeAddparam', json_build_object(
+			'satellites', json_build_object(
+				'am', json_build_object('enabled', true, 'schema', 'am')
+			)
+		)
 	)
 )::json);
 

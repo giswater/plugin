@@ -1013,13 +1013,21 @@ class AddNewLot:
         msg_params = (len(selected),)
         if not tools_qt.show_question(msg, msg_params=msg_params, title=tools_qt.tr("Delete Lot(s)", context_name="cm")):
             return
-
         deleted = 0
         for index in selected:
             lot_id = index.data()
             if not str(lot_id).isdigit():
                 continue
-
+            for table in ['arc', 'node', 'connec', 'gully', 'link']:
+                # Check if the table exists before executing the update
+                table_name = f"cm.om_campaign_lot_x_{table}"
+                check_table_sql = (
+                    f"SELECT to_regclass('{table_name}') IS NOT NULL AS exists"
+                )
+                res = tools_db.get_row(check_table_sql)
+                if res and (res.get('exists') if isinstance(res, dict) else res[0]):
+                    sql = f"UPDATE {table_name} SET action = 4 WHERE lot_id = {lot_id}"
+                    tools_db.execute_sql(sql)
             sql = f"DELETE FROM cm.om_campaign_lot WHERE lot_id = {lot_id}"
             if tools_db.execute_sql(sql):
                 deleted += 1

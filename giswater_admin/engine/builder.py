@@ -469,7 +469,7 @@ class SchemaBuilder:
         rendered = render(step.source, self._ctx)
         folder = os.path.join(self.params.sql_root, rendered)
         files = self._files_in(folder, step.recursive)
-        if not files and step.fallback_source:
+        if not files and step.fallback_source and self.params.locale != "no_TR":
             fb = os.path.join(self.params.sql_root, render(step.fallback_source, self._ctx))
             files = self._files_in(fb, step.recursive)
         return files
@@ -481,7 +481,7 @@ class SchemaBuilder:
         primary = os.path.join(self.params.sql_root, render(step.source, self._ctx))
         if os.path.isfile(primary):
             return primary
-        if step.fallback_source:
+        if step.fallback_source and self.params.locale != "no_TR":
             fb = os.path.join(self.params.sql_root, render(step.fallback_source, self._ctx))
             if os.path.isfile(fb):
                 return fb

@@ -1,0 +1,1 @@
+- Fix `v_rtc_hydrometer` view name in `config_form_fields` table.

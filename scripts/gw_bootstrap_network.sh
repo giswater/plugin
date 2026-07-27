@@ -13,6 +13,8 @@
 # Schema names (override via env):
 #   WS=ws UD=ud UTILS=utils CIBS=cibs CM=cm AM=am AUDIT=audit
 #
+# Locale for ws/ud schema create (sys_version.language):
+#   LANGUAGE=no_TR
 # Satellites (comma-separated kinds):
 #   SATELLITES=utils,cibs,cm,am,audit
 # Parent create profile for ws/ud:
@@ -30,6 +32,12 @@ AM="${AM:-am}"
 AUDIT="${AUDIT:-audit}"
 PARENT_PROFILE="${PARENT_PROFILE:-empty}"
 SATELLITES="${SATELLITES:-utils,cibs}"
+LANGUAGE="${LANGUAGE:-}"
+
+MAIN_LANG=()
+if [[ -n "$LANGUAGE" ]]; then
+  MAIN_LANG=(--lang "$LANGUAGE")
+fi
 
 CHECK=""
 DROP=""
@@ -119,9 +127,6 @@ create_satellite() {
   local extra=(--name "$name")
 
   case "$kind" in
-    cm)
-      extra+=(--profile bootstrap)
-      ;;
     audit)
       extra+=(--profile empty)
       ;;
@@ -165,9 +170,9 @@ fi
 echo "=== 1. PostgreSQL extensions ==="
 run db init --conn "$CONN"
 
-echo "=== 2. Network schemas (ws + ud) profile=${PARENT_PROFILE} ==="
-run schema main create --type ws --name "$WS" --profile "$PARENT_PROFILE" --conn "$CONN"
-run schema main create --type ud --name "$UD" --profile "$PARENT_PROFILE" --conn "$CONN"
+echo "=== 2. Network schemas (ws + ud) profile=${PARENT_PROFILE} lang=${LANGUAGE:-en_US} ==="
+run schema main create --type ws --name "$WS" --profile "$PARENT_PROFILE" "${MAIN_LANG[@]}" --conn "$CONN"
+run schema main create --type ud --name "$UD" --profile "$PARENT_PROFILE" "${MAIN_LANG[@]}" --conn "$CONN"
 
 echo "=== 3. Satellite schemas (${SATELLITES}) ==="
 for kind in "${SATELLITES_CREATE[@]}"; do

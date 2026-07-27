@@ -875,6 +875,39 @@ DROP TRIGGER IF EXISTS trg_validate_campaign_x_link_feature ON cm.om_campaign_x_
 CREATE TRIGGER trg_validate_campaign_x_link_feature BEFORE INSERT ON cm.om_campaign_x_link
 FOR EACH ROW EXECUTE FUNCTION cm.gw_trg_cm_campaign_x_feature_validate_type('link');
 
+
+DROP TRIGGER IF EXISTS trg_validate_campaign_x_arc_feature_delete ON cm.om_campaign_x_arc;
+CREATE TRIGGER trg_validate_campaign_x_arc_feature_delete AFTER DELETE ON cm.om_campaign_x_arc
+FOR EACH ROW EXECUTE FUNCTION cm.gw_trg_cm_campaign_x_feature_validate_type('arc');
+
+DROP TRIGGER IF EXISTS trg_validate_campaign_x_node_feature_delete ON cm.om_campaign_x_node;
+CREATE TRIGGER trg_validate_campaign_x_node_feature_delete AFTER DELETE ON cm.om_campaign_x_node
+FOR EACH ROW EXECUTE FUNCTION cm.gw_trg_cm_campaign_x_feature_validate_type('node');
+
+DROP TRIGGER IF EXISTS trg_validate_campaign_x_connec_feature_delete ON cm.om_campaign_x_connec;
+CREATE TRIGGER trg_validate_campaign_x_connec_feature_delete AFTER DELETE ON cm.om_campaign_x_connec
+FOR EACH ROW EXECUTE FUNCTION cm.gw_trg_cm_campaign_x_feature_validate_type('connec');
+
+DROP TRIGGER IF EXISTS trg_validate_campaign_x_link_feature_delete ON cm.om_campaign_x_link;
+CREATE TRIGGER trg_validate_campaign_x_link_feature_delete AFTER DELETE ON cm.om_campaign_x_link
+FOR EACH ROW EXECUTE FUNCTION cm.gw_trg_cm_campaign_x_feature_validate_type('link');
+
+DROP TRIGGER IF EXISTS trg_validate_campaign_x_arc_feature_after ON cm.om_campaign_x_arc;
+CREATE TRIGGER trg_validate_campaign_x_arc_feature_after AFTER INSERT ON cm.om_campaign_x_arc
+FOR EACH ROW EXECUTE FUNCTION cm.gw_trg_cm_campaign_x_feature_validate_type('arc');
+
+DROP TRIGGER IF EXISTS trg_validate_campaign_x_node_feature_after ON cm.om_campaign_x_node;
+CREATE TRIGGER trg_validate_campaign_x_node_feature_after AFTER INSERT ON cm.om_campaign_x_node
+FOR EACH ROW EXECUTE FUNCTION cm.gw_trg_cm_campaign_x_feature_validate_type('node');
+
+DROP TRIGGER IF EXISTS trg_validate_campaign_x_connec_feature_after ON cm.om_campaign_x_connec;
+CREATE TRIGGER trg_validate_campaign_x_connec_feature_after AFTER INSERT ON cm.om_campaign_x_connec
+FOR EACH ROW EXECUTE FUNCTION cm.gw_trg_cm_campaign_x_feature_validate_type('connec');
+
+DROP TRIGGER IF EXISTS trg_validate_campaign_x_link_feature_after ON cm.om_campaign_x_link;
+CREATE TRIGGER trg_validate_campaign_x_link_feature_after AFTER INSERT ON cm.om_campaign_x_link
+FOR EACH ROW EXECUTE FUNCTION cm.gw_trg_cm_campaign_x_feature_validate_type('link');
+
 -- Doc view triggers are now created dynamically per-feature in parent_schema/utils/ddlview.sql
 
 DROP TRIGGER IF EXISTS doc_path_prefix ON cm.doc;

@@ -373,39 +373,39 @@ BEGIN
 
 
 	CREATE OR REPLACE TEMP VIEW vi_t_quality AS
-	 SELECT inp_junction.node_id,inp_junction.init_quality FROM inp_junction LEFT JOIN temp_t_node ON inp_junction.node_id::text = temp_t_node.node_id WHERE inp_junction.init_quality IS NOT NULL
+	 SELECT inp_junction.node_id,inp_junction.init_quality FROM inp_junction JOIN temp_t_node ON inp_junction.node_id::text = temp_t_node.node_id WHERE inp_junction.init_quality IS NOT NULL
 	UNION
-	 SELECT inp_dscenario_junction.node_id,inp_dscenario_junction.init_quality FROM inp_dscenario_junction  LEFT JOIN temp_t_node ON inp_dscenario_junction.node_id::text = temp_t_node.node_id WHERE inp_dscenario_junction.init_quality IS NOT NULL
+	 SELECT inp_dscenario_junction.node_id,inp_dscenario_junction.init_quality FROM inp_dscenario_junction JOIN temp_t_node ON inp_dscenario_junction.node_id::text = temp_t_node.node_id WHERE inp_dscenario_junction.init_quality IS NOT NULL
 	UNION
-	 SELECT inp_inlet.node_id, inp_inlet.init_quality FROM inp_inlet LEFT JOIN temp_t_node ON inp_inlet.node_id::text = temp_t_node.node_id WHERE inp_inlet.init_quality IS NOT NULL
+	 SELECT inp_inlet.node_id, inp_inlet.init_quality FROM inp_inlet JOIN temp_t_node ON inp_inlet.node_id::text = temp_t_node.node_id WHERE inp_inlet.init_quality IS NOT NULL
 	 UNION
-	  SELECT inp_dscenario_inlet.node_id, inp_dscenario_inlet.init_quality FROM inp_dscenario_inlet LEFT JOIN temp_t_node ON inp_dscenario_inlet.node_id::text = temp_t_node.node_id WHERE inp_dscenario_inlet.init_quality IS NOT NULL
+	  SELECT inp_dscenario_inlet.node_id, inp_dscenario_inlet.init_quality FROM inp_dscenario_inlet JOIN temp_t_node ON inp_dscenario_inlet.node_id::text = temp_t_node.node_id WHERE inp_dscenario_inlet.init_quality IS NOT NULL
 	UNION
-	 SELECT inp_tank.node_id, inp_tank.init_quality FROM inp_tank LEFT JOIN temp_t_node ON inp_tank.node_id::text = temp_t_node.node_id WHERE inp_tank.init_quality IS NOT NULL
+	 SELECT inp_tank.node_id, inp_tank.init_quality FROM inp_tank JOIN temp_t_node ON inp_tank.node_id::text = temp_t_node.node_id WHERE inp_tank.init_quality IS NOT NULL
 	 UNION
-	 SELECT inp_dscenario_tank.node_id,inp_dscenario_tank.init_quality FROM inp_dscenario_tank LEFT JOIN temp_t_node ON inp_dscenario_tank.node_id::text = temp_t_node.node_id WHERE inp_dscenario_tank.init_quality IS NOT NULL
+	 SELECT inp_dscenario_tank.node_id,inp_dscenario_tank.init_quality FROM inp_dscenario_tank JOIN temp_t_node ON inp_dscenario_tank.node_id::text = temp_t_node.node_id WHERE inp_dscenario_tank.init_quality IS NOT NULL
 	UNION
-	 SELECT inp_reservoir.node_id,inp_reservoir.init_quality FROM inp_reservoir LEFT JOIN temp_t_node ON inp_reservoir.node_id::text = temp_t_node.node_id WHERE inp_reservoir.init_quality IS NOT NULL
+	 SELECT inp_reservoir.node_id,inp_reservoir.init_quality FROM inp_reservoir JOIN temp_t_node ON inp_reservoir.node_id::text = temp_t_node.node_id WHERE inp_reservoir.init_quality IS NOT NULL
 	 UNION
-	 SELECT inp_dscenario_reservoir.node_id, inp_dscenario_reservoir.init_quality FROM inp_dscenario_reservoir LEFT JOIN temp_t_node ON inp_dscenario_reservoir.node_id::text = temp_t_node.node_id WHERE inp_dscenario_reservoir.init_quality IS NOT NULL
+	 SELECT inp_dscenario_reservoir.node_id, inp_dscenario_reservoir.init_quality FROM inp_dscenario_reservoir JOIN temp_t_node ON inp_dscenario_reservoir.node_id::text = temp_t_node.node_id WHERE inp_dscenario_reservoir.init_quality IS NOT NULL
 	UNION
-	 SELECT inp_virtualvalve.arc_id AS node_id, inp_virtualvalve.init_quality FROM inp_virtualvalve LEFT JOIN temp_t_arc ON inp_virtualvalve.arc_id::text = temp_t_arc.arc_id WHERE inp_virtualvalve.init_quality IS NOT NULL
+	 SELECT inp_virtualvalve.arc_id AS node_id, inp_virtualvalve.init_quality FROM inp_virtualvalve JOIN temp_t_arc ON inp_virtualvalve.arc_id::text = temp_t_arc.arc_id WHERE inp_virtualvalve.init_quality IS NOT NULL
 	 UNION
-	  SELECT inp_dscenario_virtualvalve.arc_id AS node_id, inp_dscenario_virtualvalve.init_quality FROM inp_dscenario_virtualvalve LEFT JOIN temp_t_arc ON inp_dscenario_virtualvalve.arc_id::text = temp_t_arc.arc_id WHERE inp_dscenario_virtualvalve.init_quality IS NOT NULL;
+	  SELECT inp_dscenario_virtualvalve.arc_id AS node_id, inp_dscenario_virtualvalve.init_quality FROM inp_dscenario_virtualvalve JOIN temp_t_arc ON inp_dscenario_virtualvalve.arc_id::text = temp_t_arc.arc_id WHERE inp_dscenario_virtualvalve.init_quality IS NOT NULL;
 
 
 	CREATE OR REPLACE TEMP VIEW vi_t_reactions AS
-	 SELECT 'BULK'::text AS param, inp_pipe.arc_id::text, inp_pipe.bulk_coeff::text AS coeff FROM inp_pipe LEFT JOIN temp_arc ON inp_pipe.arc_id::text = temp_arc.arc_id::text WHERE inp_pipe.bulk_coeff IS NOT NULL
+	 SELECT 'BULK'::text AS param, inp_pipe.arc_id::text, inp_pipe.bulk_coeff::text AS coeff FROM inp_pipe JOIN temp_arc ON inp_pipe.arc_id::text = temp_arc.arc_id::text WHERE inp_pipe.bulk_coeff IS NOT NULL
 	UNION
-	 SELECT 'WALL'::text AS param, inp_pipe.arc_id::text, inp_pipe.wall_coeff::text AS coeff FROM inp_pipe LEFT JOIN temp_arc ON inp_pipe.arc_id::text = temp_arc.arc_id::text WHERE inp_pipe.wall_coeff IS NOT NULL
+	 SELECT 'WALL'::text AS param, inp_pipe.arc_id::text, inp_pipe.wall_coeff::text AS coeff FROM inp_pipe JOIN temp_arc ON inp_pipe.arc_id::text = temp_arc.arc_id::text WHERE inp_pipe.wall_coeff IS NOT NULL
 	UNION
-	 SELECT 'BULK'::text AS param, p.arc_id::text, p.bulk_coeff::text AS coeff  FROM inp_dscenario_pipe p LEFT JOIN temp_arc ON p.arc_id::text = temp_arc.arc_id::text WHERE p.bulk_coeff IS NOT NULL
+	 SELECT 'BULK'::text AS param, p.arc_id::text, p.bulk_coeff::text AS coeff  FROM inp_dscenario_pipe p JOIN temp_arc ON p.arc_id::text = temp_arc.arc_id::text WHERE p.bulk_coeff IS NOT NULL
 	 UNION
-	 SELECT 'WALL'::text AS param, p.arc_id::text, p.wall_coeff::text AS coeff  FROM inp_dscenario_pipe p LEFT JOIN temp_arc ON p.arc_id::text = temp_arc.arc_id::text WHERE p.wall_coeff IS NOT NULL
+	 SELECT 'WALL'::text AS param, p.arc_id::text, p.wall_coeff::text AS coeff  FROM inp_dscenario_pipe p JOIN temp_arc ON p.arc_id::text = temp_arc.arc_id::text WHERE p.wall_coeff IS NOT NULL
 	UNION
-	 SELECT 'BULK'::text AS param, p.element_id::text, p.bulk_coeff::text AS coeff  FROM inp_frshortpipe p LEFT JOIN temp_arc ON p.element_id::text = temp_arc.arc_id::text WHERE p.bulk_coeff IS NOT NULL
+	 SELECT 'BULK'::text AS param, p.element_id::text, p.bulk_coeff::text AS coeff  FROM inp_frshortpipe p JOIN temp_arc ON p.element_id::text = temp_arc.arc_id::text WHERE p.bulk_coeff IS NOT NULL
 	 UNION
-	 SELECT 'WALL'::text AS param, p.element_id::text, p.wall_coeff::text AS coeff  FROM inp_frshortpipe p LEFT JOIN temp_arc ON p.element_id::text = temp_arc.arc_id::text WHERE p.wall_coeff IS NOT NULL
+	 SELECT 'WALL'::text AS param, p.element_id::text, p.wall_coeff::text AS coeff  FROM inp_frshortpipe p JOIN temp_arc ON p.element_id::text = temp_arc.arc_id::text WHERE p.wall_coeff IS NOT NULL
 	UNION
 	 SELECT sys_param_user.idval AS param, NULL::character varying AS arc_id, config_param_user.value::character varying AS coeff FROM config_param_user
 	  JOIN sys_param_user ON sys_param_user.id = config_param_user.parameter::text

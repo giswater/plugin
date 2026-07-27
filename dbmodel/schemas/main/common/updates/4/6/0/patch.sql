@@ -116,8 +116,8 @@ AS SELECT om_visit.id,
 -- improve performance of v_anl_* with a CTE instead of a cross join
 CREATE OR REPLACE VIEW v_anl_arc
 AS WITH sel_audit AS (
-    SELECT selector_audit.fid 
-    FROM selector_audit 
+    SELECT selector_audit.fid
+    FROM selector_audit
     WHERE selector_audit.cur_user = CURRENT_USER
 )
 SELECT anl_arc.id,
@@ -133,8 +133,8 @@ SELECT anl_arc.id,
 FROM anl_arc
 JOIN exploitation ON anl_arc.expl_id = exploitation.expl_id
 WHERE EXISTS (
-    SELECT 1 
-    FROM sel_audit 
+    SELECT 1
+    FROM sel_audit
     WHERE sel_audit.fid = anl_arc.fid
 )
 AND anl_arc.cur_user = CURRENT_USER;
@@ -142,8 +142,8 @@ AND anl_arc.cur_user = CURRENT_USER;
 
 CREATE OR REPLACE VIEW v_anl_arc_point
 AS WITH sel_audit AS (
-    SELECT selector_audit.fid 
-    FROM selector_audit 
+    SELECT selector_audit.fid
+    FROM selector_audit
     WHERE selector_audit.cur_user = CURRENT_USER
 )
 SELECT anl_arc.id,
@@ -158,8 +158,8 @@ FROM anl_arc
 JOIN sys_fprocess ON anl_arc.fid = sys_fprocess.fid
 JOIN exploitation ON anl_arc.expl_id = exploitation.expl_id
 WHERE EXISTS (
-    SELECT 1 
-    FROM sel_audit 
+    SELECT 1
+    FROM sel_audit
     WHERE sel_audit.fid = anl_arc.fid
 )
 AND anl_arc.cur_user = CURRENT_USER;
@@ -386,7 +386,7 @@ VALUES (4462,'Commit changes: %v_commit_changes%',0,true,'ud','core','UI');
 UPDATE config_form_fields SET label = 'Sys elev 2:' WHERE label = 'Elevation of the selected node 2:';
 
 -- When updating y1, elev1, or custom_elev1, also refresh node_2 fields
-UPDATE config_form_fields 
+UPDATE config_form_fields
 SET widgetcontrols = '{"autoupdateReloadFields":["node_1", "y1", "custom_elev1", "sys_y1", "sys_elev1", "z1", "r1", "node_2", "y2", "custom_elev2", "sys_y2", "sys_elev2", "z2", "r2", "slope"]}'::json
 WHERE columnname IN ('y1', 'elev1', 'custom_elev1')
 AND formname LIKE 've_arc_%'
@@ -394,7 +394,7 @@ AND formtype = 'form_feature'
 AND widgetcontrols::text LIKE '%autoupdateReloadFields%';
 
 -- When updating y2, elev2, or custom_elev2, also refresh node_1 fields
-UPDATE config_form_fields 
+UPDATE config_form_fields
 SET widgetcontrols = '{"autoupdateReloadFields":["node_1", "y1", "custom_elev1", "sys_y1", "sys_elev1", "z1", "r1", "node_2", "y2", "custom_elev2", "sys_y2", "sys_elev2", "z2", "r2", "slope"]}'::json
 WHERE columnname IN ('y2', 'elev2', 'custom_elev2')
 AND formname LIKE 've_arc_%'
@@ -417,23 +417,23 @@ END;
 $$;
 
 
-UPDATE sys_fprocess SET query_text='SELECT a.node_id, a.nodecat_id, a.expl_id, a.the_geom FROM t_node a 
+UPDATE sys_fprocess SET query_text='SELECT a.node_id, a.nodecat_id, a.expl_id, a.the_geom FROM t_node a
 JOIN cat_node b ON a.nodecat_id = b.id
 JOIN cat_feature_node c ON c.id = b.node_type
 JOIN dma d ON d.dma_id = a.dma_id
 WHERE d.active IS FALSE
 AND ''DMA'' = ANY(c.graph_delimiter)' WHERE fid=636;
 
-UPDATE sys_fprocess SET query_text='SELECT a.node_id, a.nodecat_id, a.expl_id, a.the_geom FROM node a 
+UPDATE sys_fprocess SET query_text='SELECT a.node_id, a.nodecat_id, a.expl_id, a.the_geom FROM node a
 JOIN cat_node b ON a.nodecat_id = b.id
 JOIN cat_feature_node c ON c.id = b.node_type
 JOIN presszone d ON d.presszone_id = a.presszone_id
 WHERE d.active IS FALSE
 AND ''PRESSZONE'' = ANY(c.graph_delimiter)' WHERE fid=182;
 
-UPDATE sys_fprocess SET except_msg = 'arcs with length shorter than value set as node proximity. Please, check your data before continue.', 
+UPDATE sys_fprocess SET except_msg = 'arcs with length shorter than value set as node proximity. Please, check your data before continue.',
 query_text='SELECT arc_id,arccat_id,st_length(the_geom), the_geom, expl_id
-FROM t_arc, config_param_system where parameter = ''edit_node_proximity'' 
+FROM t_arc, config_param_system where parameter = ''edit_node_proximity''
 and  st_length(the_geom) < json_extract_path_text(value::json,''value'')::numeric ' WHERE fid=391;
 
 UPDATE config_param_system
@@ -453,14 +453,14 @@ DECLARE
     table_records RECORD;
 BEGIN
     -- Store and disable the config control trigger
-    SELECT value::boolean INTO v_admin_control_trigger 
-    FROM config_param_system 
+    SELECT value::boolean INTO v_admin_control_trigger
+    FROM config_param_system
     WHERE parameter = 'admin_config_control_trigger';
-    
-    UPDATE config_param_system 
-    SET value = 'FALSE' 
+
+    UPDATE config_param_system
+    SET value = 'FALSE'
     WHERE parameter = 'admin_config_control_trigger';
-    
+
     -- Perform the replacements
     FOR table_records IN SELECT formname, formtype, columnname, tabname, label, tooltip FROM config_form_fields WHERE label LIKE '%ID%' OR tooltip LIKE '%ID%' LOOP
         UPDATE config_form_fields
@@ -480,11 +480,11 @@ BEGIN
                 AND columnname = table_records.columnname
                 AND tabname = table_records.tabname;
     END LOOP;
-    
+
     -- Restore the original trigger setting
     IF v_admin_control_trigger IS NOT NULL THEN
-        UPDATE config_param_system 
-        SET value = v_admin_control_trigger::text 
+        UPDATE config_param_system
+        SET value = v_admin_control_trigger::text
         WHERE parameter = 'admin_config_control_trigger';
     END IF;
 END;
@@ -550,7 +550,7 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",
 INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source")
 VALUES (4464, 'The selected catalog is not available for the feature type selected', 'Select another catalog', 2, true, 'utils', 'core');
 
-ALTER TABLE sys_fprocess 
+ALTER TABLE sys_fprocess
 ALTER COLUMN fprocess_name TYPE VARCHAR(250);
 
 DO $$
@@ -572,7 +572,7 @@ BEGIN
             VALUES ('ext_municipality','form_feature','tab_none','sector_id','string','multiple_option','Secotr id:','sector_id - Sector id',false,false,true,false,'select sector_id AS id, name AS idval from ve_sector where sector_id > 0','{"setMultiline": false, "valueRelation":{"nullValue":false, "layer": "ve_sector", "activated": true, "keyColumn": "sector_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::json,false);
         INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,dv_querytext,widgetcontrols,hidden)
             VALUES ('ext_municipality','form_feature','tab_none','expl_id','string','multiple_option','Exploitation id:','expl_id - Exploitation id',false,false,true,false,'select expl_id AS id, name AS idval from ve_exploitation where expl_id > 0','{"setMultiline": false, "valueRelation":{"nullValue":false, "layer": "ve_exploitation", "activated": true, "keyColumn": "expl_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::json,false);
-    
+
         -- ve_sector
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select expl_id AS id, name AS idval from ve_exploitation where expl_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_exploitation", "activated": true, "keyColumn": "expl_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_sector' AND columnname = 'expl_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select muni_id AS id, name AS idval from utils.ext_municipality where muni_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "utils.ext_municipality", "activated": true, "keyColumn": "muni_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_sector' AND columnname = 'muni_id';
@@ -581,24 +581,24 @@ BEGIN
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select expl_id AS id, name AS idval from ve_exploitation where expl_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_exploitation", "activated": true, "keyColumn": "expl_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_dma' AND columnname = 'expl_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select muni_id AS id, name AS idval from utils.ext_municipality where muni_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "utils.ext_municipality", "activated": true, "keyColumn": "muni_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_dma' AND columnname = 'muni_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select sector_id AS id, name AS idval from ve_sector where sector_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_sector", "activated": true, "keyColumn": "sector_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_dma' AND columnname = 'sector_id';
-        
+
         -- ve_presszone
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select expl_id AS id, name AS idval from ve_exploitation where expl_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_exploitation", "activated": true, "keyColumn": "expl_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_presszone' AND columnname = 'expl_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select muni_id AS id, name AS idval from utils.ext_municipality where muni_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "utils.ext_municipality", "activated": true, "keyColumn": "muni_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_presszone' AND columnname = 'muni_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select sector_id AS id, name AS idval from ve_sector where sector_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_sector", "activated": true, "keyColumn": "sector_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_presszone' AND columnname = 'sector_id';
-        
+
         -- ve_dqa
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select expl_id AS id, name AS idval from ve_exploitation where expl_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_exploitation", "activated": true, "keyColumn": "expl_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_dqa' AND columnname = 'expl_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select muni_id AS id, name AS idval from utils.ext_municipality where muni_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "utils.ext_municipality", "activated": true, "keyColumn": "muni_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_dqa' AND columnname = 'muni_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select sector_id AS id, name AS idval from ve_sector where sector_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_sector", "activated": true, "keyColumn": "sector_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_dqa' AND columnname = 'sector_id';
-        
-    ELSE 
+
+    ELSE
         -- ve_exploitation
         INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,dv_querytext,widgetcontrols,hidden)
             VALUES ('ve_exploitation','form_feature','tab_none','sector_id','string','multiple_option','Secotr id:','sector_id - Sector id',false,false,true,false,'select sector_id AS id, name AS idval from ve_sector where sector_id > 0','{"setMultiline": false, "valueRelation":{"nullValue":false, "layer": "ve_sector", "activated": true, "keyColumn": "sector_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::json,false);
         INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,dv_querytext,widgetcontrols,hidden)
             VALUES ('ve_exploitation','form_feature','tab_none','muni_id','string','multiple_option','Municipality id','muni_id -Municipality id',false,false,true,false,'select muni_id AS id, name AS idval from v_ext_municipality where muni_id > 0','{"setMultiline": false, "valueRelation":{"nullValue":false, "layer": "v_ext_municipality", "activated": true, "keyColumn": "muni_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::json,false);
-        
+
         -- v_ext_municipality
         INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,dv_querytext,widgetcontrols,hidden)
             VALUES ('v_ext_municipality','form_feature','tab_none','sector_id','string','multiple_option','Secotr id:','sector_id - Sector id',false,false,true,false,'select sector_id AS id, name AS idval from ve_sector where sector_id > 0','{"setMultiline": false, "valueRelation":{"nullValue":false, "layer": "ve_sector", "activated": true, "keyColumn": "sector_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::json,false);
@@ -613,17 +613,17 @@ BEGIN
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select expl_id AS id, name AS idval from ve_exploitation where expl_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_exploitation", "activated": true, "keyColumn": "expl_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_dma' AND columnname = 'expl_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select muni_id AS id, name AS idval from v_ext_municipality where muni_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "v_ext_municipality", "activated": true, "keyColumn": "muni_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_dma' AND columnname = 'muni_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select sector_id AS id, name AS idval from ve_sector where sector_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_sector", "activated": true, "keyColumn": "sector_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_dma' AND columnname = 'sector_id';
-        
+
         -- ve_presszone
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select expl_id AS id, name AS idval from ve_exploitation where expl_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_exploitation", "activated": true, "keyColumn": "expl_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_presszone' AND columnname = 'expl_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select muni_id AS id, name AS idval from v_ext_municipality where muni_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "v_ext_municipality", "activated": true, "keyColumn": "muni_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_presszone' AND columnname = 'muni_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select sector_id AS id, name AS idval from ve_sector where sector_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_sector", "activated": true, "keyColumn": "sector_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_presszone' AND columnname = 'sector_id';
-        
+
         -- ve_dqa
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select expl_id AS id, name AS idval from ve_exploitation where expl_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_exploitation", "activated": true, "keyColumn": "expl_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_dqa' AND columnname = 'expl_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select muni_id AS id, name AS idval from v_ext_municipality where muni_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "v_ext_municipality", "activated": true, "keyColumn": "muni_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_dqa' AND columnname = 'muni_id';
         UPDATE config_form_fields SET widgettype = 'multiple_option', dv_querytext = 'select sector_id AS id, name AS idval from ve_sector where sector_id > 0', widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"valueRelation":{"nullValue":false, "layer": "ve_sector", "activated": true, "keyColumn": "sector_id", "valueColumn": "name", "nofColumns": 2, "filterExpression": null, "allowMulti": true}}'::jsonb)::json WHERE formname = 've_dqa' AND columnname = 'sector_id';
-        
+
     END IF;
 END;
 $$;
@@ -658,20 +658,20 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,
 	VALUES ('ve_man_frelem','form_feature','tab_data','sector_id','lyt_bot_1',1,'integer','combo','Sector id:','Sector id',false,false,true,false,'SELECT sector_id as id,name as idval FROM sector WHERE sector_id IS NOT NULL AND active IS TRUE ',true,false,'{"label":"color:blue; font-weight:bold;"}'::json,'{"setMultiline": false, "labelPosition": "top"}'::json,false,2);
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,layoutorder,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,dv_querytext,dv_orderby_id,dv_isnullvalue,widgetcontrols,hidden,web_layoutorder)
 	VALUES ('ve_man_frelem','form_feature','tab_data','state','lyt_bot_1',2,'integer','combo','State:','State',false,false,true,false,'WITH psector_value AS (
-  		SELECT value::integer AS psector_value 
-  		FROM config_param_user 
+  		SELECT value::integer AS psector_value
+  		FROM config_param_user
   		WHERE parameter = ''plan_psector_current'' AND cur_user = current_user),
 	 tg_op_value AS (
-  		SELECT value::text AS tg_op_value 
-  		FROM config_param_user 
-  		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
+  		SELECT value::text AS tg_op_value
+  		FROM config_param_user
+  		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)
 SELECT id::integer as id, name as idval
-FROM value_state 
-WHERE id IS NOT NULL 
-AND CASE 
+FROM value_state
+WHERE id IS NOT NULL
+AND CASE
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
-  WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
-  ELSE id < 2 
+  WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2
+  ELSE id < 2
 END',true,false,'{"setMultiline": false, "labelPosition": "top"}'::json,false,3);
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,layoutorder,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,dv_querytext,dv_orderby_id,dv_isnullvalue,widgetcontrols,hidden,web_layoutorder)
 	VALUES ('ve_man_frelem','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',false,false,true,false,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,'{"setMultiline": false, "labelPosition": "top"}'::json,false,4);
@@ -717,20 +717,20 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,
 	VALUES ('ve_man_genelem','form_feature','tab_data','sector_id','lyt_bot_1',1,'integer','combo','Sector id:','Sector id',false,false,true,false,'SELECT sector_id as id,name as idval FROM sector WHERE sector_id IS NOT NULL AND active IS TRUE ',true,false,'{"label":"color:blue; font-weight:bold;"}'::json,'{"setMultiline": false, "labelPosition": "top"}'::json,false,2);
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,layoutorder,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,dv_querytext,dv_orderby_id,dv_isnullvalue,widgetcontrols,hidden,web_layoutorder)
 	VALUES ('ve_man_genelem','form_feature','tab_data','state','lyt_bot_1',2,'integer','combo','State:','State',false,false,true,false,'WITH psector_value AS (
-  		SELECT value::integer AS psector_value 
-  		FROM config_param_user 
+  		SELECT value::integer AS psector_value
+  		FROM config_param_user
   		WHERE parameter = ''plan_psector_current'' AND cur_user = current_user),
 	 tg_op_value AS (
-  		SELECT value::text AS tg_op_value 
-  		FROM config_param_user 
-  		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
+  		SELECT value::text AS tg_op_value
+  		FROM config_param_user
+  		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)
 SELECT id::integer as id, name as idval
-FROM value_state 
-WHERE id IS NOT NULL 
-AND CASE 
+FROM value_state
+WHERE id IS NOT NULL
+AND CASE
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
-  WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
-  ELSE id < 2 
+  WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2
+  ELSE id < 2
 END',true,false,'{"setMultiline": false, "labelPosition": "top"}'::json,false,3);
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,layoutorder,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,dv_querytext,dv_orderby_id,dv_isnullvalue,widgetcontrols,hidden,web_layoutorder)
 	VALUES ('ve_man_genelem','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',false,false,true,false,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,'{"setMultiline": false, "labelPosition": "top"}'::json,false,4);
@@ -882,20 +882,20 @@ UPDATE config_param_system
     SET value = jsonb_set(value::jsonb, '{hasCustomOrderBy}', 'true'::jsonb, true)
     WHERE "parameter" = 'basic_selector_tab_psector';
 
-ALTER TABLE node ADD CONSTRAINT node_sys_code_unique UNIQUE (sys_code);
-ALTER TABLE arc ADD CONSTRAINT arc_sys_code_unique UNIQUE (sys_code);
-ALTER TABLE connec ADD CONSTRAINT connec_sys_code_unique UNIQUE (sys_code);
-ALTER TABLE "element" ADD CONSTRAINT element_sys_code_unique UNIQUE (sys_code);
-ALTER TABLE link ADD CONSTRAINT link_sys_code_unique UNIQUE (sys_code);
+-- ALTER TABLE node ADD CONSTRAINT node_sys_code_unique UNIQUE (sys_code);
+-- ALTER TABLE arc ADD CONSTRAINT arc_sys_code_unique UNIQUE (sys_code);
+-- ALTER TABLE connec ADD CONSTRAINT connec_sys_code_unique UNIQUE (sys_code);
+-- ALTER TABLE "element" ADD CONSTRAINT element_sys_code_unique UNIQUE (sys_code);
+-- ALTER TABLE link ADD CONSTRAINT link_sys_code_unique UNIQUE (sys_code);
 
-CREATE TRIGGER gw_trg_edit_exploitation INSTEAD OF INSERT OR DELETE OR UPDATE ON ve_exploitation 
+CREATE TRIGGER gw_trg_edit_exploitation INSTEAD OF INSERT OR DELETE OR UPDATE ON ve_exploitation
 FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_exploitation();
 
-CREATE TRIGGER gw_trg_ui_visit INSTEAD OF DELETE ON v_ui_om_visit 
+CREATE TRIGGER gw_trg_ui_visit INSTEAD OF DELETE ON v_ui_om_visit
 FOR EACH ROW EXECUTE FUNCTION gw_trg_ui_visit();
 
-CREATE TRIGGER gw_trg_v_edit_macrosector INSTEAD OF INSERT OR DELETE OR UPDATE ON ve_macrosector 
+CREATE TRIGGER gw_trg_v_edit_macrosector INSTEAD OF INSERT OR DELETE OR UPDATE ON ve_macrosector
 FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_macrosector('EDIT');
 
-CREATE TRIGGER gw_trg_v_edit_macroomzone INSTEAD OF INSERT OR DELETE OR UPDATE ON ve_macroomzone 
+CREATE TRIGGER gw_trg_v_edit_macroomzone INSTEAD OF INSERT OR DELETE OR UPDATE ON ve_macroomzone
 FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_macroomzone('EDIT');

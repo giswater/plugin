@@ -44,7 +44,7 @@ BEGIN
 		v_gwversion := v_prev.giswater;
 	END IF;
 	IF v_isnew IS NOT TRUE AND v_prev IS NOT NULL THEN
-		v_language := COALESCE(v_language, v_prev.language);
+		v_language := COALESCE(v_prev.language, v_language);
 		v_epsg := COALESCE(v_epsg, v_prev.epsg);
 		v_projecttype := COALESCE(v_projecttype, v_prev.project_type);
 		v_creation_profile := COALESCE(v_creation_profile, v_prev.addparam -> 'environment' ->> 'creation_profile');

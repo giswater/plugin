@@ -1,4 +1,4 @@
-name: Generate i18n
+name: "🗂️ I18N: Generate ZIP files"
 
 on:
   workflow_dispatch:
@@ -23,10 +23,11 @@ on:
         description: "Plugin version X.Y.Z — only used when publish_mode=release (empty = metadata.txt)"
         required: false
         default: ""
-  schedule:
-    - cron: "0 2 * * *"
-  release:
-    types: [published]
+      source_event:
+        description: "Original trigger of Update i18n (schedule, release, workflow_dispatch). Auto-set when chained."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -34,7 +35,16 @@ permissions:
 jobs:
   generate-i18n:
     runs-on: ubuntu-latest
+    env:
+      SOURCE_EVENT: ${{ github.event.inputs.source_event || github.event_name }}
+      PUBLISH_MODE: ${{ github.event.inputs.publish_mode || (github.event_name == 'release' && 'release' || 'latest') }}
     steps:
+      - name: Log trigger context
+        run: |
+          echo "source_event=${SOURCE_EVENT}"
+          echo "publish_mode=${PUBLISH_MODE}"
+          echo "github.event_name=${{ github.event_name }}"
+
       - name: Validate required secrets
         env:
           TRANSLATIONS_API_URL: ${{ secrets.TRANSLATIONS_API_URL }}
@@ -79,7 +89,7 @@ jobs:
         run: |
           set -euo pipefail
           pip install requests
-          python3 scripts/export_i18n_zips.py \
+          python3 scripts/i18n_export_zips.py \
             --base-url "$TRANSLATIONS_API_URL" \
             --user "$TRANSLATIONS_API_USER" \
             --password "$TRANSLATIONS_API_PASSWORD" \
@@ -121,8 +131,8 @@ jobs:
           BOT_NAME: ${{ steps.app-bot.outputs.name }}
           BOT_EMAIL: ${{ steps.app-bot.outputs.email }}
           GH_TOKEN: ${{ steps.translations-app-token.outputs.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          PUBLISH_MODE: ${{ github.event.inputs.publish_mode || 'latest' }}
+          SOURCE_EVENT: ${{ env.SOURCE_EVENT }}
+          PUBLISH_MODE: ${{ env.PUBLISH_MODE }}
           VERSION_INPUT: ${{ github.event.inputs.version || '' }}
           RELEASE_TAG: ${{ github.event.release.tag_name || '' }}
         run: |
@@ -141,7 +151,7 @@ jobs:
           fi
 
           PUBLISH_RELEASE=false
-          if [ "$EVENT_NAME" = "release" ] || [ "$PUBLISH_MODE" = "release" ]; then
+          if [ "$SOURCE_EVENT" = "release" ] || [ "$PUBLISH_MODE" = "release" ]; then
             PUBLISH_RELEASE=true
           fi
 
@@ -153,7 +163,7 @@ jobs:
 
           if [ "$PUBLISH_RELEASE" = "true" ]; then
             VERSION="$VERSION_INPUT"
-            if [ -z "$VERSION" ] && [ "$EVENT_NAME" = "release" ]; then
+            if [ -z "$VERSION" ] && [ "$SOURCE_EVENT" = "release" ]; then
               VERSION="${RELEASE_TAG#v}"
             fi
             if [ -z "$VERSION" ]; then
@@ -196,7 +206,7 @@ jobs:
             GIT_PATHS=(versions.json "$VERSION_PATH" latest)
             COMMIT_MSG="chore(i18n): update translation ZIPs for v${VERSION}"
           else
-            echo "${EVENT_NAME} trigger (publish_mode=${PUBLISH_MODE}): updating latest/ only."
+            echo "${SOURCE_EVENT} trigger (publish_mode=${PUBLISH_MODE}): updating latest/ only."
           fi
 
           cd "$TARGET_REPO"

@@ -65,6 +65,7 @@ v_node_id text;
 v_selection_mode text;
 v_id text;
 v_querytext text;
+v_error_context text;
 
 BEGIN
 
@@ -226,6 +227,12 @@ EXECUTE 'SELECT gw_fct_getmessage($${"data":{"function":"2118", "fid":"116", "cr
 		     ',"data":{ "info":'||v_result_info||','||
 				'"point":'||v_result_point||'}}'||
 	    '}')::json, 2118, null, null, null);
+
+	-- Exception handling
+	EXCEPTION WHEN OTHERS THEN
+	GET STACKED DIAGNOSTICS v_error_context = PG_EXCEPTION_CONTEXT;
+	RETURN gw_fct_exception_others('Failed', SQLERRM, SQLSTATE, SQLERRM, v_error_context);
+
 
 END;
 $BODY$

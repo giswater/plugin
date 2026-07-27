@@ -23,7 +23,7 @@ gw_e2e_setup_gw "${REPO}"
 gw_e2e_resolve_versions
 export GW_E2E_DBMODEL="${GW_E2E_DBMODEL:-${REPO}/dbmodel}"
 
-export WS UD SATELLITES PARENT_PROFILE TARGET_VER
+export WS UD SATELLITES PARENT_PROFILE TARGET_VER LANGUAGE
 unset PLUGIN_VER
 
 run_drop=true

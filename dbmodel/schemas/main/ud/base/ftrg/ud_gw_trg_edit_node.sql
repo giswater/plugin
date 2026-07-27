@@ -88,6 +88,8 @@ v_dist_sign numeric;
 v_label_dist numeric;
 v_sys_code_autofill text;
 
+v_district_ids _int4;
+
 BEGIN
 
 	EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
@@ -360,8 +362,23 @@ BEGIN
 			END IF;
 		END IF;
 
+		-- District
+		IF (NEW.district_id IS NULL) THEN
+			-- getting value from geometry of mapzone
+			v_district_ids = (SELECT array_agg(district_id) FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001));
+			IF cardinality(v_district_ids) = 1 THEN
+				NEW.district_id := v_district_ids[1];
+			ELSIF cardinality(v_district_ids) > 1 THEN
+				NEW.district_id := (SELECT district_id FROM ve_arc WHERE district_id = ANY(v_district_ids) ORDER BY ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
+			END IF;
+		END IF;
+
 		-- Municipality
 		IF (NEW.muni_id IS NULL) THEN
+
+			IF NEW.district_id IS NOT NULL THEN
+				NEW.muni_id := (SELECT muni_id FROM v_municipality WHERE district_id = NEW.district_id AND active IS TRUE LIMIT 1);
+			END IF;
 
 			-- getting value default
 			IF (NEW.muni_id IS NULL) THEN
@@ -389,20 +406,8 @@ BEGIN
 			END IF;
 		END IF;
 
-		-- District
-		IF (NEW.district_id IS NULL) THEN
 
-			-- getting value from geometry of mapzone
-			IF (NEW.district_id IS NULL) THEN
-				SELECT count(*) INTO v_count FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001);
-				IF v_count = 1 THEN
-					NEW.district_id = (SELECT district_id FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001) LIMIT 1);
-				ELSIF v_count > 1 THEN
-					NEW.district_id =(SELECT district_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
-					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
-				END IF;
-			END IF;
-		END IF;
+
 
 		-- Verified
 		IF (NEW.verified IS NULL) THEN
@@ -466,6 +471,10 @@ BEGIN
 			IF NEW.code IS NULL AND v_code_autofill_bool THEN
 				NEW.code := NEW.node_id;
 			END IF;
+		END IF;
+
+		IF NEW.sys_code IS NOT NULL AND v_sys_code_autofill NOT IN ('false', 'none') THEN
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4678", "function":"1220"}}$$);';
 		END IF;
 
 		--Sys_code (uuid | code | none)
@@ -652,9 +661,9 @@ BEGIN
 
 		-- set and get id for polygonFse
 		IF (v_doublegeometry IS TRUE) THEN
-			INSERT INTO polygon(sys_type, the_geom, featurecat_id, feature_id )
+			INSERT INTO polygon(sys_type, the_geom, featurecat_id, feature_id, state)
 			VALUES (v_feature_class, (SELECT ST_Multi(ST_Envelope(ST_Buffer(node.the_geom,v_doublegeom_buffer)))
-			from node where node_id=NEW.node_id), NEW.node_type, NEW.node_id);
+			from node where node_id=NEW.node_id), NEW.node_type, NEW.node_id, NEW.state);
 		END IF;
 
 
@@ -755,7 +764,7 @@ BEGIN
 		ELSIF (NEW.epa_type = 'STORAGE') THEN
 			INSERT INTO inp_storage (node_id, storage_type) VALUES (NEW.node_id, 'TABULAR');
 		ELSIF (NEW.epa_type = 'NETGULLY') THEN
-			INSERT INTO inp_netgully (node_id, y0, ysur, apond, outlet_type, method, weir_cd, orifice_cd, efficiency)
+			INSERT INTO inp_netgully (node_id, y0, ysur, apond, outlet_type, gully_method, weir_cd, orifice_cd, efficiency)
 			VALUES (NEW.node_id, 0, 0, 0, v_gully_outlet_type, v_gully_method, v_gully_weir_cd, v_gully_orifice_cd, v_gully_efficiency);
 		ELSIF (NEW.epa_type = 'INLET') THEN
 			INSERT INTO inp_inlet (node_id, y0, ysur, apond, inlet_type, outlet_type, gully_method, custom_top_elev, custom_depth, inlet_length, inlet_width, cd1, cd2, efficiency)
@@ -810,7 +819,7 @@ BEGIN
 				EXECUTE v_sql;
 
 				IF (NEW.epa_type = 'NETGULLY') THEN
-					UPDATE inp_netgully SET outlet_type = v_gully_outlet_type, method = v_gully_method, weir_cd = v_gully_weir_cd,
+					UPDATE inp_netgully SET outlet_type = v_gully_outlet_type, gully_method = v_gully_method, weir_cd = v_gully_weir_cd,
 					orifice_cd = v_gully_orifice_cd, efficiency = v_gully_efficiency
 					WHERE node_id = OLD.node_id;
 

@@ -33,16 +33,39 @@ v_json_result_nodes json;
 v_json_result_links json;
 v_json_result_return json;
 v_expl_id integer;
+v_object_1 integer;
+v_object_2 integer;
 v_result JSON;
 v_Result_info JSON;
+v_error_context text;
 BEGIN
 
 	-- Search path
 	SET search_path = "SCHEMA_NAME", public;
 	-- Input params
 	SELECT "date" INTO v_schema_date FROM sys_version ORDER BY giswater DESC LIMIT 1;
-	v_expl_id = (SELECT ((p_data::json->>'data')::json->>'parameters')::json->>'explId')::integer;
-	
+	v_expl_id := COALESCE(
+		(p_data -> 'data' -> 'parameters' ->> 'explId')::integer,
+		(p_data -> 'data' ->> 'explId')::integer
+	);
+	v_object_1 := COALESCE((p_data -> 'data' -> 'parameters' ->> 'object_1')::integer, (p_data -> 'data' ->> 'object_1')::integer);
+	v_object_2 := COALESCE((p_data -> 'data' -> 'parameters' ->> 'object_2')::integer, (p_data -> 'data' ->> 'object_2')::integer);
+
+	IF v_expl_id IS NULL AND v_object_1 IS NOT NULL AND v_object_2 IS NOT NULL THEN
+		SELECT COALESCE(expl_1, expl_2) INTO v_expl_id
+		FROM om_scada_graph
+		WHERE object_1 = v_object_1 AND object_2 = v_object_2
+		ORDER BY edge_id DESC LIMIT 1;
+	END IF;
+
+	IF v_expl_id IS NULL THEN
+		SELECT COALESCE(expl_1, expl_2) INTO v_expl_id FROM om_scada_graph ORDER BY edge_id DESC LIMIT 1;
+	END IF;
+
+	IF v_expl_id IS NULL THEN
+		RETURN gw_fct_json_create_return(('{"status":"Failed", "message":{"level":2, "text":"explId could not be resolved from om_scada_graph"}, "version":""'||
+			',"body":{"form":{},"data":{}}}')::json, 3546, null, null, null);
+	END IF;
 
 	-- Build Network info:
 	SELECT json_build_object(
@@ -105,7 +128,10 @@ BEGIN
 				',"data":{  "info":'||v_result_info||', "result":'||v_json_result_return||'}}'||
 			'}')::json, 3546, null, null, null);
 
-	
+EXCEPTION WHEN OTHERS THEN
+	GET STACKED DIAGNOSTICS v_error_context = pg_exception_context;
+	RETURN gw_fct_exception_others('Failed', SQLERRM, SQLSTATE, SQLERRM, v_error_context);
+
 END;
 
 $function$

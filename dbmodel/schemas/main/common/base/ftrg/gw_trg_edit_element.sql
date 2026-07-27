@@ -249,8 +249,8 @@ BEGIN
 				-- get element dimensions to generate CIRCULARE geometry
 				v_pol_id:= (SELECT nextval('urn_id_seq'));
 
-				INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id)
-				VALUES ('ELEMENT', St_Multi(ST_buffer(NEW.the_geom, v_length*0.01*v_unitsfactor/2)),v_pol_id, v_element_type, NEW.element_id);
+				INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id, state)
+				VALUES ('ELEMENT', St_Multi(ST_buffer(NEW.the_geom, v_length*0.01*v_unitsfactor/2)),v_pol_id, v_element_type, NEW.element_id, NEW.state);
 
 			ELSIF v_length*v_width != 0 THEN
 
@@ -288,8 +288,8 @@ BEGIN
 
 				v_pol_id:= (SELECT nextval('urn_id_seq'));
 
-				INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id)
-				VALUES ('ELEMENT', v_the_geom_pol, v_pol_id, v_element_type, NEW.element_id);
+				INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id, state)
+				VALUES ('ELEMENT', v_the_geom_pol, v_pol_id, v_element_type, NEW.element_id, NEW.state);
 			END IF;
 		END IF;
 
@@ -595,8 +595,8 @@ BEGIN
 
 				-- get element dimensions to generate CIRCULARE geometry
 				IF (SELECT pol_id FROM element WHERE element_id = NEW.element_id) IS NULL THEN
-					INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id)
-					VALUES ('ELEMENT', St_multi(ST_buffer(NEW.the_geom, v_length*0.01*v_unitsfactor/2)),v_pol_id, v_element_type, NEW.element_id);
+					INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id, state)
+					VALUES ('ELEMENT', St_multi(ST_buffer(NEW.the_geom, v_length*0.01*v_unitsfactor/2)),v_pol_id, v_element_type, NEW.element_id, NEW.state);
 				ELSE
 					SELECT trace_featuregeom INTO v_trace_featuregeom FROM polygon WHERE feature_id=OLD.element_id;
 					IF v_trace_featuregeom IS TRUE THEN
@@ -641,8 +641,8 @@ BEGIN
 				v_pol_id:= (SELECT nextval('urn_id_seq'));
 
 				IF (SELECT pol_id FROM element WHERE element_id = NEW.element_id) IS NULL THEN
-					INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id)
-					VALUES ('ELEMENT', v_the_geom_pol, v_pol_id, v_element_type, NEW.element_id);
+					INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id, state)
+					VALUES ('ELEMENT', v_the_geom_pol, v_pol_id, v_element_type, NEW.element_id, NEW.state);
 
 				ELSE
 					SELECT trace_featuregeom INTO v_trace_featuregeom FROM polygon WHERE feature_id=OLD.element_id;

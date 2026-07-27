@@ -79,62 +79,78 @@ BEGIN
 		UPDATE rpt_arc SET time='0:00' where time ='null' and result_id = v_result;
 
 		-- insert into values in table of stats values to enhance performance for big systems
-		INSERT INTO rpt_arc_stats
-		   SELECT arc.arc_id,
-		    selector_rpt_main.result_id,
-		    arc.arc_type,
-		    arc.sector_id,
-		    arc.arccat_id,
-		    max(rpt_arc.flow) AS flow_max,
-		    min(rpt_arc.flow) AS flow_min,
-		    avg(rpt_arc.flow)::numeric(12,2) AS flow_avg,
-		    max(rpt_arc.vel) AS vel_max,
-		    min(rpt_arc.vel) AS vel_min,
-		    avg(rpt_arc.vel)::numeric(12,2) AS vel_avg,
-		    max(rpt_arc.headloss) AS headloss_max,
-		    min(rpt_arc.headloss) AS headloss_min,
-		    max(rpt_arc.setting) AS setting_max,
-		    min(rpt_arc.setting) AS setting_min,
-		    max(rpt_arc.reaction) AS reaction_max,
-		    min(rpt_arc.reaction) AS reaction_min,
-		    max(rpt_arc.ffactor) AS ffactor_max,
-		    min(rpt_arc.ffactor) AS ffactor_min,
+		INSERT INTO rpt_arc_stats (
+			arc_id, result_id, arc_type, sector_id, arccat_id,
+			flow_max, flow_min, flow_avg,
+			vel_max, vel_min, vel_avg,
+			headloss_max, headloss_min,
+			setting_max, setting_min,
+			reaction_max, reaction_min,
+			ffactor_max, ffactor_min,
+			length, tot_headloss_max, tot_headloss_min, the_geom
+		)
+		SELECT arc.arc_id,
+			selector_rpt_main.result_id,
+			arc.arc_type,
+			arc.sector_id,
+			arc.arccat_id,
+			max(rpt_arc.flow) AS flow_max,
+			min(rpt_arc.flow) AS flow_min,
+			avg(rpt_arc.flow)::numeric(12,2) AS flow_avg,
+			max(rpt_arc.vel) AS vel_max,
+			min(rpt_arc.vel) AS vel_min,
+			avg(rpt_arc.vel)::numeric(12,2) AS vel_avg,
+			max(rpt_arc.headloss) AS headloss_max,
+			min(rpt_arc.headloss) AS headloss_min,
+			max(rpt_arc.setting) AS setting_max,
+			min(rpt_arc.setting) AS setting_min,
+			max(rpt_arc.reaction) AS reaction_max,
+			min(rpt_arc.reaction) AS reaction_min,
+			max(rpt_arc.ffactor) AS ffactor_max,
+			min(rpt_arc.ffactor) AS ffactor_min,
 			rpt_arc.length,
 			max(rpt_arc.headloss * rpt_arc.length / 1000)::numeric(12, 2) AS tot_headloss_max,
 			min(rpt_arc.headloss * rpt_arc.length / 1000)::numeric(12, 2) AS tot_headloss_min,
-		    arc.the_geom
-		   FROM selector_rpt_main,
-		   rpt_inp_arc arc
-		   JOIN rpt_arc ON rpt_arc.arc_id::text = arc.arc_id::text
-		   WHERE rpt_arc.result_id::text = selector_rpt_main.result_id::text AND selector_rpt_main.cur_user = "current_user"()::text AND arc.result_id::text = selector_rpt_main.result_id::text
-		   GROUP BY arc.arc_id, arc.arc_type, arc.sector_id, arc.arccat_id, selector_rpt_main.result_id, arc.the_geom, rpt_arc.length
-		   ORDER BY arc.arc_id;
+			arc.the_geom
+		FROM selector_rpt_main,
+			rpt_inp_arc arc
+			JOIN rpt_arc ON rpt_arc.arc_id::text = arc.arc_id::text
+		WHERE rpt_arc.result_id::text = selector_rpt_main.result_id::text AND selector_rpt_main.cur_user = "current_user"()::text AND arc.result_id::text = selector_rpt_main.result_id::text
+		GROUP BY arc.arc_id, arc.arc_type, arc.sector_id, arc.arccat_id, selector_rpt_main.result_id, arc.the_geom, rpt_arc.length
+		ORDER BY arc.arc_id;
 
-		INSERT INTO rpt_node_stats
+		INSERT INTO rpt_node_stats (
+			node_id, result_id, node_type, sector_id, nodecat_id, top_elev,
+			demand_max, demand_min, demand_avg,
+			head_max, head_min, head_avg,
+			press_max, press_min, press_avg,
+			quality_max, quality_min, quality_avg,
+			the_geom
+		)
 		SELECT node.node_id,
-		    selector_rpt_main.result_id,
-		    node.node_type,
-		    node.sector_id,
-		    node.nodecat_id,
-		    max(rpt_node.top_elev) AS top_elev,
-		    max(rpt_node.demand) AS demand_max,
-		    min(rpt_node.demand) AS demand_min,
-		    avg(rpt_node.demand)::numeric(12,2) AS demand_avg,
-		    max(rpt_node.head) AS head_max,
-		    min(rpt_node.head) AS head_min,
-		    avg(rpt_node.head)::numeric(12,2) AS head_avg,
-		    max(rpt_node.press) AS press_max,
-		    min(rpt_node.press) AS press_min,
-		    avg(rpt_node.press)::numeric(12,2) AS press_avg,
-		    max(rpt_node.quality) AS quality_max,
-		    min(rpt_node.quality) AS quality_min,
-		    avg(rpt_node.quality)::numeric(12,2) AS quality_avg,
-		    node.the_geom
-		   FROM selector_rpt_main, rpt_inp_node node
-		   JOIN rpt_node ON rpt_node.node_id::text = node.node_id::text
-		   WHERE rpt_node.result_id::text = selector_rpt_main.result_id::text AND selector_rpt_main.cur_user = "current_user"()::text AND node.result_id::text = selector_rpt_main.result_id::text
-		   GROUP BY node.node_id, node.node_type, node.sector_id, node.nodecat_id, selector_rpt_main.result_id, node.the_geom
-		   ORDER BY node.node_id;
+			selector_rpt_main.result_id,
+			node.node_type,
+			node.sector_id,
+			node.nodecat_id,
+			max(rpt_node.top_elev) AS top_elev,
+			max(rpt_node.demand) AS demand_max,
+			min(rpt_node.demand) AS demand_min,
+			avg(rpt_node.demand)::numeric(12,2) AS demand_avg,
+			max(rpt_node.head) AS head_max,
+			min(rpt_node.head) AS head_min,
+			avg(rpt_node.head)::numeric(12,2) AS head_avg,
+			max(rpt_node.press) AS press_max,
+			min(rpt_node.press) AS press_min,
+			avg(rpt_node.press)::numeric(12,2) AS press_avg,
+			max(rpt_node.quality) AS quality_max,
+			min(rpt_node.quality) AS quality_min,
+			avg(rpt_node.quality)::numeric(12,2) AS quality_avg,
+			node.the_geom
+		FROM selector_rpt_main, rpt_inp_node node
+			JOIN rpt_node ON rpt_node.node_id::text = node.node_id::text
+		WHERE rpt_node.result_id::text = selector_rpt_main.result_id::text AND selector_rpt_main.cur_user = "current_user"()::text AND node.result_id::text = selector_rpt_main.result_id::text
+		GROUP BY node.node_id, node.node_type, node.sector_id, node.nodecat_id, selector_rpt_main.result_id, node.the_geom
+		ORDER BY node.node_id;
 
 		-- create log message
 		RETURN gw_fct_rpt2pg_log(v_result, v_import);

@@ -92,16 +92,42 @@ class GwEpaFileManager(GwTask):
             tools_log.log_info(msg, msg_params=msg_params)
             status = self._export_inp()
 
+        # Try to import hydraulic engine
+        try:
+            from importlib.util import find_spec
+            from hydraulic_engine.utils import tools_log as he_tools_log
+            has_hydraulic_engine = find_spec("hydraulic_engine") is not None
+            # Set logger for hydraulic engine
+            he_tools_log.set_logger("hydraulic_engine", min_log_level=10)
+        except ImportError:
+            has_hydraulic_engine = False
+
+        if has_hydraulic_engine and global_vars.project_type == 'ws':
+            tools_log.log_info("Hydraulic engine imported successfully")
+        elif global_vars.project_type == 'ud':
+            tools_log.log_info("Hydraulic engine not compatible with project type 'ud'. Using default EPA software.")
+        else:
+            tools_log.log_info("Hydraulic engine not imported. Using default EPA software.")
+
         if status and self.go2epa_execute_epa:
-            msg_params = ("_execute_epa",)
-            tools_log.log_info(msg, msg_params=msg_params)
-            status = self._execute_epa()
+            if not has_hydraulic_engine or global_vars.project_type == 'ud':
+                msg_params = ("_execute_epa",)
+                tools_log.log_info(msg, msg_params=msg_params)
+                status = self._execute_epa()
+            elif has_hydraulic_engine and global_vars.project_type == 'ws':
+                runner = self._execute_epa_with_hydraulic_engine()
+                if runner is None:
+                    status = False
 
         if status and self.go2epa_import_result:
-            msg_params = ("_import_rpt",)
-            tools_log.log_info(msg, msg_params=msg_params)
-            self.function_name = 'gw_fct_rpt2pg_main'
-            status = self._import_rpt()
+            tools_log.log_info("Task 'Go2Epa' execute function 'def _import_rpt'")
+            if not has_hydraulic_engine or global_vars.project_type == 'ud':
+                msg_params = ("_import_rpt",)
+                tools_log.log_info(msg, msg_params=msg_params)
+                self.function_name = 'gw_fct_rpt2pg_main'
+                status = self._import_rpt()
+            elif has_hydraulic_engine and global_vars.project_type == 'ws':
+                status = self._import_rpt_with_hydraulic_engine(runner)
 
         return status
 
@@ -410,6 +436,49 @@ class GwEpaFileManager(GwTask):
 
         return True
 
+    def _execute_epa_with_hydraulic_engine(self):
+
+        import hydraulic_engine as he
+
+        if self.isCanceled():
+            return None
+
+        tools_log.log_info("Execute EPA software")
+
+        if self.file_rpt == "null":
+            message = "You have to set this parameter"
+            self.error_msg = f"{message}: RPT file"
+            return None
+
+        msg = "INP file not found"
+        if self.file_inp is not None:
+            if not os.path.exists(self.file_inp):
+                self.error_msg = f"{msg}: {self.file_inp}"
+                return None
+        else:
+            self.error_msg = f"{msg}: {self.file_inp}"
+            return None
+
+        try:
+            # Execute EPA with hydraulic engine
+            runner = he.epanet.EpanetRunner(self.file_inp, self.file_rpt)
+            results = runner.run()
+            if results is None:
+                self.error_msg = "Error executing EPA software"
+                self.error_msg_params = (results,)
+                return None
+            if results.status == he.utils.enums.RunStatus.ERROR:
+                detail = "; ".join(results.errors) if results.errors else "unknown error"
+                self.error_msg = f"Error executing EPA software: {detail}"
+                return None
+        except Exception as e:
+            self.error_msg = f"Error executing EPA software: {e}"
+            return None
+
+        self.common_msg += "EPA model finished. "
+
+        return runner
+
     def _load_epa_layers(self):
         """ Load EPA layers if they are not already loaded """
 
@@ -480,6 +549,63 @@ class GwEpaFileManager(GwTask):
             tools_log.log_info(msg, msg_params=msg_params)
             status = self._exec_import_function()
             self.active_epa_layers = True
+        except Exception as e:
+            self.error_msg = str(e)
+        finally:
+            return status
+
+    def _import_rpt_with_hydraulic_engine(self, runner):
+        """ Import result file with hydraulic engine """
+
+        import hydraulic_engine as he
+
+        tools_log.log_info(f"Import simulation results........: {self.file_rpt}")
+
+        status = False
+        try:
+            row = tools_gw.get_config_value("inp_report_onlymaxmin_values")
+            if row is not None and row[0] == 'true':
+                only_extrema = True
+            else:
+                only_extrema = False
+
+            # Call import function
+            tools_log.log_info("Import simulation results into database")
+            # Create connection
+            dao_db_credentials = tools_db.dao
+            if dao_db_credentials is None:
+                return False
+            dao = he.create_pg_connection(
+                host=dao_db_credentials.host,
+                port=dao_db_credentials.port,
+                dbname=dao_db_credentials.dbname,
+                user=dao_db_credentials.user,
+                password=dao_db_credentials.password,
+                schema=tools_db.lib_vars.schema_name,
+            )
+
+            # Import results
+            status = runner.export_result(
+                to=he.ExportDataSource.DATABASE,
+                result_id=self.result_name,
+                client=dao,
+                only_extrema=only_extrema,
+            )
+            tools_log.log_info("Import simulation results finished")
+
+            # Build result JSON
+            try:
+                # gw_fct_rpt2pg_log expects temp_audit_check_data to exist;
+                # normally created by gw_fct_rpt2pg_main, which the hydraulic engine path bypasses
+                parameters = f"'{self.result_name}', " + " '" + '{"status":"Accepted"}' + "'::json"
+                rows = tools_gw.execute_procedure('gw_fct_rpt2pg_log', parameters=parameters, is_thread=True)
+                self.rpt_result = rows
+                self.message = self.rpt_result.get("message", {}).get("text")
+            except Exception as e:
+                self.error_msg = str(e)
+                return False
+            self.active_epa_layers = True
+            return True
         except Exception as e:
             self.error_msg = str(e)
         finally:

@@ -163,7 +163,7 @@ BEGIN
                         SELECT 1
                         FROM selector_expl se
                         WHERE se.cur_user = current_user
-                          AND se.expl_id = ANY(array_append(a.expl_visibility::integer[], a.expl_id))
+                          AND (se.expl_id = a.expl_id OR se.expl_id = ANY (a.expl_visibility))
                     )';
 
             CREATE TEMP TABLE IF NOT EXISTS temp_exploitation (
@@ -229,10 +229,13 @@ BEGIN
             IF v_project_type = 'WS' THEN
                 CREATE TEMP TABLE IF NOT EXISTS temp_t_mincut (
                     id int4 NOT NULL,
+                    work_order varchar(50) NULL,
                     expl_id int4 NULL,
                     macroexpl_id int4 NULL,
                     muni_id int4 NULL,
                     minsector_id int4 NULL,
+                    forecast_start timestamp NULL,
+                    forecast_end timestamp NULL,
                     CONSTRAINT temp_t_mincut_pkey PRIMARY KEY (id)
                 );
             END IF;
@@ -404,18 +407,30 @@ BEGIN
 
         IF 'OMCHECK' = ANY(v_group_array) THEN
 			EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_element AS SELECT * FROM element'||v_filter;
+            CREATE INDEX IF NOT EXISTS idx_t_element_the_geom ON t_element USING gist (the_geom);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_t_element_element_id ON t_element USING btree (element_id);
 			IF v_verifiedExceptions THEN
                 v_filter = ' WHERE (verified IS NULL OR verified IN (0,1)) AND sector_id > 0';
             ELSE
                 v_filter = ' WHERE state IS NOT NULL AND sector_id > 0';
             END IF;
             EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_arc AS SELECT * FROM ve_arc'||v_filter;
+            CREATE INDEX IF NOT EXISTS idx_t_arc_the_geom ON t_arc USING gist (the_geom);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_t_arc_arc_id ON t_arc USING btree (arc_id);
             EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_node AS SELECT * FROM ve_node'||v_filter;
+            CREATE INDEX IF NOT EXISTS idx_t_node_the_geom ON t_node USING gist (the_geom);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_t_node_node_id ON t_node USING btree (node_id);
             EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_connec AS SELECT * FROM ve_connec'||v_filter;
+            CREATE INDEX IF NOT EXISTS idx_t_connec_the_geom ON t_connec USING gist (the_geom);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_t_connec_connec_id ON t_connec USING btree (connec_id);
             EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_link AS SELECT * FROM ve_link'; -- TODO: add filter
+            CREATE INDEX IF NOT EXISTS idx_t_link_the_geom ON t_link USING gist (the_geom);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_t_link_link_id ON t_link USING btree (link_id);
 
             IF v_project_type = 'UD' THEN
                 EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_gully AS SELECT * FROM ve_gully'||v_filter;
+                CREATE INDEX IF NOT EXISTS idx_t_gully_the_geom ON t_gully USING gist (the_geom);
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_t_gully_gully_id ON t_gully USING btree (gully_id);
             END IF;
         END IF;
         -- return message:: 'Log tables created' or 'Anl tables created' ...

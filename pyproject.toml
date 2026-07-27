@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "giswater-cli"
-version = "0.3.1"
+version = "0.4.1"
 description = "Headless CLI for Giswater database schema lifecycle (create, update, drop)"
 readme = "giswater_admin/README.md"
 requires-python = ">=3.9"

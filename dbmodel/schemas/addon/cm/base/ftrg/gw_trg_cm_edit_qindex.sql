@@ -20,7 +20,7 @@ DECLARE
 BEGIN
 
 	-- transaction-local search_path to target schema, parent, public
-	PERFORM set_config('search_path', format('%I, ap, public', TG_TABLE_SCHEMA), true);
+	PERFORM set_config('search_path', format('%I, PARENT_SCHEMA, public', TG_TABLE_SCHEMA), true);
 
 	IF TG_OP = 'INSERT' THEN -- add new param_names is available
 

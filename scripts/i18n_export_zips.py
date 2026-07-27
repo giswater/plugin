@@ -5,10 +5,11 @@ Authentication uses a cookie session obtained from::
 
   POST {base_url}/api/auth/sign-in/username
   {"username": "...", "password": "..."}
+  POST {base_url}/api/auth/log-out
 
 Example::
 
-  python scripts/export_i18n_zips.py \\
+  python scripts/i18n_export_zips.py \\
     --base-url "$TRANSLATIONS_API_URL" \\
     --user "$TRANSLATIONS_API_USER" \\
     --password "$TRANSLATIONS_API_PASSWORD" \\
@@ -24,100 +25,18 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import urllib.parse
 from pathlib import Path
-from typing import Any
 
-import requests
+from i18n_api_client import TranslationsApiClient, resolve_setting
 
 DEFAULT_TS_NAME = "giswater"
-SIGN_IN_PATH = "/api/auth/sign-in/username"
 ZIP_MAGIC = b"PK"
 
 
-def resolve_setting(cli_value: str | None, env_name: str, default: str | None = None) -> str | None:
-    if cli_value is not None and cli_value != "":
-        return cli_value
-    env_value = os.environ.get(env_name)
-    if env_value is not None and env_value != "":
-        return env_value
-    return default
-
-
-class ApiSession:
-    """Authenticated HTTP session for the translations API."""
-
-    def __init__(
-        self,
-        base_url: str,
-        username: str,
-        password: str,
-        *,
-        timeout: float = 120,
-    ) -> None:
-        if not username or not password:
-            raise ValueError(
-                "API credentials are required. Set TRANSLATIONS_API_USER and "
-                "TRANSLATIONS_API_PASSWORD (or pass --user / --password)."
-            )
-
-        self.base_url = base_url.rstrip("/")
-        self.timeout = timeout
-        self._session = requests.Session()
-        self._sign_in(username, password)
-
-    def _sign_in(self, username: str, password: str) -> None:
-        url = f"{self.base_url}{SIGN_IN_PATH}"
-        try:
-            response = self._session.post(
-                url,
-                json={"username": username, "password": password},
-                timeout=self.timeout,
-            )
-        except requests.RequestException as exc:
-            raise RuntimeError(f"Failed to reach auth API at {url}: {exc}") from exc
-
-        if response.status_code >= 400:
-            raise RuntimeError(
-                f"Login failed (HTTP {response.status_code}) for {url}: {response.text}"
-            )
-
-    def get_bytes(self, path: str, *, accept: str) -> bytes:
-        url = f"{self.base_url}{path}" if path.startswith("/") else path
-        headers = {"Accept": accept, "Connection": "close"}
-
-        try:
-            response = self._session.get(url, headers=headers, timeout=self.timeout)
-        except requests.RequestException as exc:
-            raise RuntimeError(f"Failed to reach {url}: {exc}") from exc
-
-        if response.status_code >= 400:
-            raise RuntimeError(f"HTTP {response.status_code} for {url}: {response.text}")
-
-        body = response.content
-        if not body:
-            raise RuntimeError(f"Empty response from {url}")
-        return body
-
-    def close(self) -> None:
-        self._session.close()
-
-    def __enter__(self) -> ApiSession:
-        return self
-
-    def __exit__(self, *_args: Any) -> None:
-        self.close()
-
-
-def fetch_languages_dict(api: ApiSession) -> dict[str, str]:
-    body = api.get_bytes("/api/languages", accept="application/json")
-    try:
-        payload = json.loads(body.decode("utf-8"))
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("Invalid JSON from /api/languages") from exc
-
+def fetch_languages_dict(api: TranslationsApiClient) -> dict[str, str]:
+    payload = api.get_json("/api/languages")
     if not isinstance(payload, dict):
         raise RuntimeError("Unexpected languages payload from /api/languages: expected object")
 
@@ -145,7 +64,7 @@ def build_export_path(lang: str, ts_name: str) -> str:
 
 
 def download_zip(
-    api: ApiSession,
+    api: TranslationsApiClient,
     lang: str,
     ts_name: str,
     output_dir: Path,
@@ -217,7 +136,7 @@ def main() -> int:
         return 1
 
     try:
-        with ApiSession(base_url, user, password) as api:
+        with TranslationsApiClient(base_url, user, password) as api:
             languages = parse_languages(languages_raw)
             languages_dict: dict[str, str] | None = None
             if languages is None or args.languages_json_out:
@@ -249,9 +168,11 @@ def main() -> int:
             if downloaded:
                 print(f"Downloaded {len(downloaded)} ZIP file(s) to {output_dir.resolve()}")
 
-            if failures:
+            if failures > 0:
                 print(f"Failed to export {failures} language(s).", file=sys.stderr)
                 return 1
+
+            api.log_out()
         return 0
     except (RuntimeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)

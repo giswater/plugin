@@ -45,7 +45,7 @@ v_result_point json;
 
 BEGIN
 
-    SET search_path = "ap","cm", public;
+    SET search_path = "PARENT_SCHEMA","cm", public;
 
 	-- Init params
 	SELECT giswater, epsg INTO v_version, v_srid FROM sys_version ORDER BY id DESC LIMIT 1;

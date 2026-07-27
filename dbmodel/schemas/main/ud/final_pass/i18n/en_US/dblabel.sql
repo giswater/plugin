@@ -35,6 +35,6 @@ UPDATE sys_label AS t SET idval = v.idval FROM (
     (3010, 'CHECK SYSTEM'),
     (3011, 'CHECK DB DATA'),
     (3012, 'DETAILS'),
-    (3013, 'To check CRITICAL ERRORS or WARNINGS, execute a query FROM anl_table WHERE fid=error number AND current_user. For example:  SELECT * FROM MySchema.anl_arc WHERE fid = Myfid AND cur_user=current_user;  Only the errors with anl_table next to the number can be checked this way. Using Giswater Toolbox it''s also posible to check these errors.')
+    (3013, E'To check CRITICAL ERRORS or WARNINGS, execute a query FROM anl_table WHERE fid=error number AND current_user. For example:\n\nSELECT * FROM MySchema.anl_arc WHERE fid = Myfid AND cur_user=current_user;\n\nOnly the errors with anl_table next to the number can be checked this way. Using Giswater Toolbox it''s also posible to check these errors.')
 ) AS v(id, idval)
 WHERE t.id = v.id;

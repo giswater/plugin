@@ -94,6 +94,7 @@ v_dma_value integer;
 v_fluidtype_autoupdate boolean;
 v_dma_autoupdate boolean;
 v_forceendpoint boolean = false;
+v_force_reconnect boolean = false;
 v_geom_point public.geometry;
 v_linktype text;
 
@@ -137,6 +138,7 @@ BEGIN
 	v_forcedarcs = (p_data->>'data')::json->>'forcedArcs';
 	v_ispsector = (p_data->>'data')::json->>'isPsector';
 	v_forceendpoint = (p_data->>'data')::json->>'forceEndPoint';
+	v_force_reconnect = (p_data->>'data')::json->>'forceReconnect';
 	v_isarcdivide = (p_data->>'data')::json->>'isArcDivide';
 	v_link_id = (p_data->>'data')::json->>'linkId';
 	v_linkcat_id = (p_data->>'data')::json->>'linkcatId';
@@ -150,6 +152,7 @@ BEGIN
 
 	--profilactic values
 	IF v_forceendpoint IS NULL THEN v_forceendpoint = FALSE; END IF;
+	IF v_force_reconnect IS NULL THEN v_force_reconnect = FALSE; END IF;
 
 	--control v_check status and value and distance
 	IF v_check_maxdistance IS NULL THEN v_check_maxdistance = 9999; END IF;
@@ -322,8 +325,8 @@ BEGIN
 			-- exception control. It is not possible to create a link for connec over arc
 			SELECT * INTO v_arc FROM ve_arc WHERE ST_DWithin(v_connect.the_geom, ve_arc.the_geom, 0.001);
 
-			-- Use connect.arc_id as forced arcs in case of exists
-			IF v_connect.arc_id IS NOT NULL AND v_connect.arc_id <> v_old_arc_id AND v_isforcedarcs is False THEN
+			-- Use connect.arc_id as forced arcs in case of exists (skip when forceReconnect re-searches)
+			IF v_force_reconnect IS FALSE AND v_connect.arc_id IS NOT NULL AND v_connect.arc_id <> v_old_arc_id AND v_isforcedarcs is False THEN
 				v_forcedarcs = concat (' AND arc_id::integer = ',v_connect.arc_id,' ');
 
 				-- check if forced arc diameter is smaller than configured
@@ -346,7 +349,7 @@ BEGIN
 				ELSE v_checkeddiam = '';
 				END IF;
 
-				IF v_link.the_geom IS NULL THEN -- looking for closest arc from connect
+				IF v_link.the_geom IS NULL OR v_force_reconnect THEN -- looking for closest arc from connect
 					EXECUTE format(
 					'WITH knn AS MATERIALIZED (
                             SELECT a.arc_id, a.arccat_id, ST_Distance(a.the_geom, %L::geometry) AS distance
@@ -390,17 +393,26 @@ BEGIN
 					v_link.the_geom::text, v_check_maxdistance, v_checkeddiam)
 					INTO v_connect.arc_id;
 
-					IF v_connect.arc_id IS NULL and v_forcedarcs is not null THEN -- looking for closest arc from connect
+					IF v_connect.arc_id IS NULL AND v_isforcedarcs THEN -- looking for closest arc from connect within forced set
 						EXECUTE format(
-						'SELECT q.arc_id FROM (
-						SELECT a.arc_id, ST_Distance(a.the_geom, %L::geometry) AS distance
-						FROM arc a
-						WHERE a.state > 0 %s
-						ORDER BY a.the_geom <-> %L::geometry
-						LIMIT 1) q
-						WHERE q.distance < %s',
+						'WITH knn AS MATERIALIZED (
+                            SELECT a.arc_id, a.arccat_id, ST_Distance(a.the_geom, %L::geometry) AS distance
+                            FROM arc a
+                            WHERE a.state > 0
+                            %s
+                            ORDER BY a.the_geom <-> %L::geometry
+                            LIMIT 200
+                        )
+                        SELECT k.arc_id
+                        FROM knn k
+                        JOIN cat_arc ca ON ca.id = k.arccat_id
+                        JOIN vf_arc va ON va.arc_id = k.arc_id
+                        WHERE k.distance < %s
+                        %s
+                        ORDER BY k.distance
+                        LIMIT 1',
 						v_connect.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id'),
-						v_connect.the_geom::text, v_check_maxdistance)
+						v_connect.the_geom::text, v_check_maxdistance, v_checkeddiam)
 						INTO v_connect.arc_id;
 					END IF;
 
@@ -419,8 +431,15 @@ BEGIN
 						"data":{"message":"3050", "function":"2124","fid": 217, "parameters":null, "is_process":true}}$$);' INTO v_audit_result;
 					END IF;
 
-					-- get endfeature attributes
-					IF v_link.exit_type='NODE' THEN
+					-- get endfeature attributes (forceReconnect always targets closest ARC)
+					IF v_force_reconnect THEN
+						v_pjointtype='ARC';
+						v_endfeature_geom = v_arc.the_geom;
+						v_link.exit_type = 'ARC';
+						v_link.exit_id = v_arc.arc_id;
+						v_pjointid = v_arc.arc_id;
+
+					ELSIF v_link.exit_type='NODE' THEN
 						SELECT node_id, the_geom INTO v_pjointid, v_endfeature_geom FROM node WHERE node_id=v_link.exit_id;
 						v_pjointtype='NODE';
 						v_link.exit_type = 'NODE';

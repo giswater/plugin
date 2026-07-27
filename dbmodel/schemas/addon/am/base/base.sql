@@ -386,8 +386,6 @@ AS SELECT o.arc_id,
 --
 SET search_path = am, public;
 
-INSERT INTO sys_version (id, giswater, project_type, postgres, postgis, "date", "language", epsg) VALUES(2, '4.0.001', 'AM', 'PostgreSQL 16.1, compiled by Visual C++ build 1937, 64-bit', '3.4 USE_GEOS=1 USE_PROJ=1 USE_STATS=1', '2025-04-16 10:48:31.383', 'en_US', SCHEMA_SRID);
-
 INSERT INTO config_engine_def VALUES ('bratemain0', '0.05', 'SH', NULL, NULL, true, 'lyt_engine_1', 1, 'Break rate coefficient', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO config_engine_def VALUES ('drate', '0.05', 'SH', NULL, NULL, true, 'lyt_engine_1', 2, 'Discount rate (%)', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO config_engine_def VALUES ('rleak_1', '0.2', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Real breaks', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);

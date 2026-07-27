@@ -66,6 +66,7 @@ from ..toolbars.epa import go2epa_selector_btn  # noqa: F401
 from ..shared import psector  # noqa: F401
 from ..shared import audit  # noqa: F401
 from ..toolbars.utilities import snapshot_view  # noqa: F401
+from ..shared import profile as profile_interpolation, scada_graph  # noqa: F401
 from ..toolbars.edit import connect_link_btn  # noqa: F401
 from ..toolbars.cm import lot, campaign  # noqa: F401
 from ..toolbars.toc.layerstyle_change_btn import apply_styles_to_layers
@@ -396,9 +397,11 @@ def set_config_parser(section: str, parameter: str, value: str = None, config_ty
                 value += f" #{comment}"
             # If the previous value had an inline comment, don't remove it
             else:
-                prev = get_config_parser(section, parameter, config_type, file_name, False, True, False)
-                if prev is not None and "#" in prev:
-                    value += f" #{prev.split('#')[1]}"
+                # get_none=True: keep "None #comment" so inline comments survive rewrites
+                prev = get_config_parser(section, parameter, config_type, file_name, False, True, False,
+                                         get_none=True)
+                if prev is not None and "#" in str(prev):
+                    value += f" #{str(prev).split('#', 1)[1]}"
             parser.set(section, parameter, value)
             # Check if the parameter exists in the inventory, if not creates it
             if chk_user_params and config_type in "user":
@@ -505,7 +508,8 @@ def open_help_link(context, uiname, dlg=None):
 def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, hide_config_widgets=False, plugin_dir=lib_vars.plugin_dir, plugin_name=lib_vars.plugin_name):
     """ Open dialog """
     # Check database connection before opening dialog
-    if (dlg_name != 'admin_credentials' and dlg_name != 'admin') and not check_db_connection():
+    if dlg_name not in ('admin_credentials', 'admin', 'load_menu') and not check_db_connection():
+        tools_qgis.show_warning("Database connection is not available")
         return
 
     # Manage translate
@@ -1185,7 +1189,7 @@ def build_network_uri(cfg: dict, encoding: str = "query") -> str:
         - "query": returns a simple key=value&key=value string
         - "qgis": returns a QGIS-encoded URI using QgsDataSourceUri
     :return: URI string
-        
+
     Examples of supported formats:
 
     WMS:
@@ -1382,7 +1386,7 @@ def refresh_categorized_layer_symbology_classes(layer, addparam=None):
 
 def hide_layer_from_toc(layer):
     """Hide layer from the QGIS layer tree view.
-    
+
     Args:
         layer: Layer to hide
     """
@@ -3311,14 +3315,14 @@ def add_combo(field, dialog=None, complet_result=None, ignore_function=False, cl
 
 def add_multiple_option(field, dialog=None, complet_result=None, ignore_function=False, class_info=None):
     """Creates a filtered value relation widget with type-ahead search functionality.
-    
+
     Args:
         field (dict): Field configuration containing widget properties
         dialog (QDialog, optional): Parent dialog. Defaults to None.
         complet_result (dict, optional): Additional completion data. Defaults to None.
         ignore_function (bool, optional): Whether to ignore widget functions. Defaults to False.
         class_info (dict, optional): Class information. Defaults to None.
-        
+
     Returns:
         QWidget: Container widget with search box and filtered list
     """
@@ -3447,7 +3451,7 @@ def get_sequence_next_preview(seq_name: str, schema: str = None) -> int:
 
 def add_item_multiple_option(completer, widget, typeahead):
     """Add selected item from completer popup to QListWidget
-    
+
     Args:
         completer (QCompleter): The completer containing selected item
         widget (QListWidget): The list widget to add item to
@@ -3473,13 +3477,13 @@ def add_item_multiple_option(completer, widget, typeahead):
 
 def fill_multiple_option(widget, field, index_to_show=1, index_to_compare=0):
     """Fills a QListWidget with filtered value relation items.
-    
+
     Args:
         widget (QListWidget): The list widget to populate
         field (dict): Dictionary containing field configuration and data
         index_to_show (int): Index of value to show in widget (default: 1)
         index_to_compare (int): Index to use for comparison (default: 0)
-        
+
     Returns:
         QListWidget: The populated widget
     """
@@ -3616,14 +3620,14 @@ def fill_multiple_checkbox(widget, field, index_to_show=1, index_to_compare=0):
 def set_multiple_option_value(listwidget, value):
     """
     Sets values in a filtered value relation list widget.
-    
+
     Args:
         listwidget (QListWidget): The list widget to populate
         value (list): List of tuples containing (id, display_value) pairs to add
-        
+
     Returns:
         bool: Always returns False
-        
+
     The function takes a list widget and populates it with items from the value parameter.
     Each item shows the display value and stores the ID in the UserRole data.
     """
@@ -3644,11 +3648,11 @@ def set_multiple_option_value(listwidget, value):
 def delete_item_on_doubleclick(listwidget, item):
     """
     Deletes an item from a list widget when double-clicked.
-    
+
     Args:
         listwidget (QListWidget): The list widget containing the item
         item (QListWidgetItem): The item to delete
-        
+
     The function removes the specified item from the list widget if both parameters
     are valid and the item exists in the widget.
     """
@@ -4402,8 +4406,13 @@ def get_project_info(schemaname=None, order_direction="DESC"):
         tools_qgis.show_warning(msg, parameter=tablename)
         return None
 
+    has_addparam = tools_db.check_column(tablename, 'addparam', schemaname)
+    creation_profile_sql = (
+        "addparam -> 'environment' ->> 'creation_profile'"
+        if has_addparam else "NULL"
+    )
     sql = (f"SELECT lower(project_type), epsg, giswater, language, date, "
-           f"addparam -> 'environment' ->> 'creation_profile' "
+           f"{creation_profile_sql} "
            f"FROM {schemaname}.{tablename} "
            f"ORDER BY id {order_direction} LIMIT 1")
     row = tools_db.get_row(sql)
@@ -4506,11 +4515,11 @@ def get_config_value(parameter='', columns='value', table='config_param_user', s
 def parse_currency(value_str, currency_config=None):
     """
     Parse a formatted currency string back to a float.
-    
+
     Args:
         value_str: Formatted currency string like "€1.000.000,25" or "$1,000,000.25"
         currency_config: Dict with currency config. If None, fetches from DB.
-    
+
     Returns:
         Float value
     """
@@ -4545,15 +4554,15 @@ def parse_currency(value_str, currency_config=None):
 def format_currency(value, currency_config=None, with_symbol=True):
     """
     Format a number as currency using admin_currency configuration.
-    
+
     Args:
         value: The numeric value to format
         currency_config: Dict with currency config. If None, fetches from DB.
                         Expected keys: symbol, separator, decimals
-    
+
     Returns:
         Formatted string like "₡1,000,000.25" or "€1.000.000,25"
-    
+
     Examples:
         {"symbol":"$", "separator":",", "decimals":true} -> $1,000,000.25
         {"symbol":"€", "separator":".", "decimals":true} -> €1.000.000,25
@@ -5141,9 +5150,9 @@ def _process_map_selection(class_object, selection_mode, field_id):
             # Query database directly for this layer
             fid_str = ','.join(map(str, layer_selected_fids))
             sql = f"""
-                SELECT {field_id}::text 
-                FROM {full_table_name} 
-                WHERE {pk_field} IN ({fid_str}) 
+                SELECT {field_id}::text
+                FROM {full_table_name}
+                WHERE {pk_field} IN ({fid_str})
                 {where_clause}
             """
 
@@ -5599,7 +5608,7 @@ def docker_dialog(dialog, dlg_name=None, title=None):
 
 
 def _check_mincut_state_4_replacement(docker):
-    """ 
+    """
     Check if opening a mincut over another mincut in state 4 ("On Planning").
     If so, ask user for confirmation and cleanup the old mincut if accepted.
     Returns True if the operation should be blocked (user declined).
@@ -6426,8 +6435,8 @@ def check_db_connection():
 
 
 def execute_class_function(dlg_class, func_name: str, kwargs: Optional[dict] = None):
-    """ 
-    Executes a class' function (if the corresponding dialog is open). 
+    """
+    Executes a class' function (if the corresponding dialog is open).
     kwargs can be a dictionary with the arguments to pass to the function.
     If the argument is a string starting with '__self__', it will be replaced with the corresponding attribute of the class_obj.
     (e.g. '__self__.dlg_psector_mng' will be replaced with self.dlg_psector_mng (self is the class_obj))
@@ -6552,9 +6561,9 @@ def set_psector_mode_enabled(enable: Optional[bool] = None, psector_id: Optional
 def _manage_psector_layer_styles(enable: bool) -> None:
     """
     Manage layer styles when psector mode is toggled.
-    
+
     Args:
-        enable (bool): If True, saves current styles and applies psector styles. 
+        enable (bool): If True, saves current styles and applies psector styles.
             If False, restores previously saved styles.
     """
 
@@ -6837,6 +6846,15 @@ def _try_read_config_path(filepath):
 
 def _write_config_parser(path, parser):
     """ Write parser to disk. For user_params, validate round-trip before persisting. """
+    # Never mutate the plugin-bundled user_params template (GwDevMode reads from plugin_dir)
+    if (global_vars.gw_dev_mode and path and lib_vars.plugin_dir
+            and path.endswith(f"{os.sep}user_params.config")
+            and os.path.normpath(path).startswith(os.path.normpath(lib_vars.plugin_dir))):
+        msg = "{0}: Refusing to write plugin user_params.config while GwDevMode is enabled"
+        msg_params = ("_write_config_parser",)
+        tools_log.log_warning(msg, msg_params=msg_params)
+        return False
+
     buffer = io.StringIO()
     parser.write(buffer)
     content = buffer.getvalue()
@@ -7203,7 +7221,7 @@ def _insert_feature(dialog, relation_id, relation_type, feature_type, ids=None, 
                 audit_toggled = True
                 tools_db.execute_sql(
                     f"""
-                    INSERT INTO config_param_user (parameter, value, cur_user) 
+                    INSERT INTO config_param_user (parameter, value, cur_user)
                     VALUES ('audit_function', 'false', '{cur_user}')
                     ON CONFLICT (parameter, cur_user) DO UPDATE SET value='false';
                     """
@@ -7434,6 +7452,13 @@ def _delete_feature_lot(dialog, feature_type, list_id, lot_id, state=None):
     widget = tools_qt.get_widget(dialog, f"tbl_campaign_lot_x_{feature_type}")
     tablename = widget.property('tablename') or f"cm.om_campaign_lot_x_{feature_type}"
 
+    # Set action=4 so BEFORE DELETE trigger allows hard delete (vs soft-delete to action=3)
+    sql = (f"UPDATE {tablename} SET action = 4 "
+           f"WHERE {feature_type}_id IN ({list_id}) AND lot_id = '{lot_id}'")
+    if state is not None:
+        sql += f""" AND "state" = '{state}'"""
+    tools_db.execute_sql(sql)
+
     sql = (f"DELETE FROM {tablename} "
            f"WHERE {feature_type}_id IN ({list_id}) AND lot_id = '{lot_id}'")
     # Add state if needed
@@ -7466,7 +7491,11 @@ def _delete_feature_psector(dialog, feature_type, list_id, state=None):
 
 
 def _check_user_params(section, parameter, file_name, prefix=False):
-    """ Ensure parameter exists in user_params.config inventory; create it with None if missing. """
+    """ Ensure parameter exists in user_params.config inventory; create it with None if missing.
+
+    In GwDevMode the inventory is the plugin template — never auto-create keys there
+    (would dirty the git checkout). Only seed missing keys in the user-folder copy.
+    """
 
     if section == "i18n_generator" or parameter == "dev_commit":
         return
@@ -7474,17 +7503,20 @@ def _check_user_params(section, parameter, file_name, prefix=False):
     inv_key = _inventory_key_for_user_param(parameter, prefix)
     inv_section = f"{file_name}.{section}"
 
+    # get_none=True so "None #comment" is not treated as missing
     check_value = get_config_parser(inv_section, inv_key, "project", "user_params", False,
-                                    get_comment=True, chk_user_params=False)
+                                    get_comment=True, chk_user_params=False, get_none=True)
 
     if check_value is None:
         for typed_key in (f"ws_{inv_key.lstrip('_')}", f"ud_{inv_key.lstrip('_')}"):
             check_value = get_config_parser(inv_section, typed_key, "project", "user_params", False,
-                                            get_comment=True, chk_user_params=False)
+                                            get_comment=True, chk_user_params=False, get_none=True)
             if check_value is not None:
                 break
 
     if check_value is None:
+        if global_vars.gw_dev_mode:
+            return None
         set_config_parser(inv_section, inv_key, None, "project", "user_params", prefix=False,
                           chk_user_params=False)
     else:

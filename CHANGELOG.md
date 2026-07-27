@@ -7,10 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.16.0] - 2026-07-24
+
+### Added
+
+- Add force reconnect parameter to `gw_fct_setlinktonetwork` function.
+- Integrate `hydraulic_engine` in Go2Epa for WS (EPANET) execute and result import; UD and missing package keep the classic EPA path.
+- Allow Execute EPA on Linux for WS when `hydraulic_engine` is installed; keep it Windows-only for UD.
+- Require Execute EPA when Import results is selected in Go2Epa.
+- Add `inp_report_onlymaxmin_values` EPA option to store only max/min results when importing with hydraulic_engine.
+- Add `hydraulic_engine` dependency to `requirements.txt`.
+
+### Fixed
+
+- Fix blank multilingual projects: respect locale `cat_feature.active` and keep MULTI-CREATE `config_form_fields` (skip sample CFF wipe in empty profile).
+- Fix `gw_fct_mincut_minsector` and `gw_fct_setmincut` functions to count hydrometers correctly.
+- Fix selector performance on large projects: optimize `vf_node`/`vf_arc`/`vf_connec`/`vf_element`/`vf_link` filters and stop probing `ve_node` inside `gw_fct_setselectors` (check-all exploitations was multi-second).
+- Fix `vf_element` view to use `COALESCE(pp.state, e.state)` instead of `e.state` with plan_psector_x_node.
+- Fix `admin_catalog` to check if audit schema is fully installed.
+- Fix `update` to use the correct language from `sys_version` table.
+- Fix `gw_fct_create_querytables` and `gw_fct_manage_temp_tables` functions to create indexes on the geometry columns.
+
+## [4.15.4] - 2026-07-21
+
+### Fixed
+
+- Fix admin dialog: refresh Project Schema list after a connection error.
+- Fix admin dialog: list all WS/UD schemas on the active connection.
+
+## [4.15.3] - 2026-07-17
+
+### Fixed
+
+- Fix `tools_db.ensure_service_auth` to get correct credentials from `pg_service.conf`.
+- Fix config_form_fields `dv_querytext` to use `vf_hydrometer` and `hydro_customer_code` instead of `v_rtc_hydrometer` and `hydrometer_customer_code`.
+
+## [4.15.2] - 2026-07-16
+
+### Fixed
+
+- Fix `gw_fct_setnodefromarc` function to return the correct error message with `gw_fct_exception_others` function.
+- Fix admin dialog: do not show ghost schemas in parentheses when switching connections or after delete; restore selection only if the schema exists on the current connection.
+- Fix admin dialog: persist last selected schema per connection instead of globally.
+- Fix admin dialog: refresh schema list and project info when switching connections (ignore stale async load results).
+- Fix admin dialog: avoid `TypeError` and missing-table warnings when a deleted or invalid schema is still selected.
+- Fix admin dialog: show PostgreSQL/PostGIS/pgRouting versions for the active connection even when the server version is incompatible.
+- Fix admin dialog: pg_service connections without user/password in `pg_service.conf` now prompt credentials via QGIS (same as Browser) instead of failing with `fe_sendauth`.
+
+## [4.15.1] - 2026-07-15
+
+### Fixed
+
+- Fix `gw_trg_edit_inp_gully` trigger to use `gully_method` instead of `method`.
+- Fix `gw_trg_edit_inp_node` trigger to use `gully_method` instead of `method`.
+- Fix `gw_trg_edit_node` trigger to use `gully_method` instead of `method`.
+- Fix `gw_fct_setmincut` use DISTINCT ON to avoid duplicate records in `om_mincut_valve`.
+- Fix check if column `addparam` exists in `sys_version` table.
+
+### Changed
+- Refactor `v_om_mincut_initpoint`: now uses a JOIN instead of a LEFT JOIN with `selector_mincut_result` and removes the check for `id > 0`.
+
+## [4.15.0] - 2026-07-13
+
 ### Added
 
 - Add unique index on `link` table to enforce feature_id and feature_type uniqueness when state is 1 and feature_id is not null.
 - New validation message for invalid or missing QGIS project CRS (EPSG) on pg2epa INP export.
+- New validation message for `sys_code` not null and `sys_code_autofill` activated.
 
 ### Changed
 
@@ -24,6 +87,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix `gw_fct_settoarc` so setting `to_arc` no longer auto-adds the node to mapzone's `graphconfig`, it only updates `toArc` when the node is already configured as `nodeParent` (avoids duplicate mapzone delimiters after arc divide). 
 - Fix `dqaId` parameter parsing (`dqaId` was incorrectly read from `presszoneId`).
 - Fix `gw_fct_setsearch` function to improve `sys_query_text_add` functionality.
+- Fix `gw_fct_setnodefromarc` function to return the correct error message.
+- Fix `gw_trg_edit_<feature>` triggers to set the correct state in the polygon table.
+- Fix `gw_trg_edit_psector` trigger to set the correct state in the polygon table.
 
 ## [4.14.5] - 2026-06-25
 
@@ -482,7 +548,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.14.5...main
+[unreleased]: https://github.com/giswater/plugin/compare/v4.16.0...main
+[4.16.0]: https://github.com/giswater/plugin/compare/v4.15.4...v4.16.0
+[4.15.4]: https://github.com/giswater/plugin/compare/v4.15.3...v4.15.4
+[4.15.3]: https://github.com/giswater/plugin/compare/v4.15.2...v4.15.3
+[4.15.2]: https://github.com/giswater/plugin/compare/v4.15.1...v4.15.2
+[4.15.1]: https://github.com/giswater/plugin/compare/v4.15.0...v4.15.1
+[4.15.0]: https://github.com/giswater/plugin/compare/v4.14.5...v4.15.0
 [4.14.5]: https://github.com/giswater/plugin/compare/v4.14.4...v4.14.5
 [4.14.4]: https://github.com/giswater/plugin/compare/v4.14.3...v4.14.4
 [4.14.3]: https://github.com/giswater/plugin/compare/v4.14.2...v4.14.3

@@ -72,6 +72,7 @@ class GwToolBoxButton(GwAction):
             return False
         sql = f"SELECT alias FROM config_toolbox WHERE id = {func_id}"
         self.function_selected = f"{tools_db.get_row(sql)[0]}"
+        self.last_process_data = json_result['body']['data']
         status = self._populate_functions_dlg(self.dlg_functions, json_result['body']['data'])
         if not status:
             msg = "Function not found"
@@ -267,6 +268,8 @@ class GwToolBoxButton(GwAction):
             self.dlg_reports.setWindowTitle(f"{function_name}")
 
         elif self.TRV_PROCESSES.lower() in index.parent().parent().data().lower():
+            function_id = index.sibling(index.row(), 2).data()
+
             self.dlg_functions = GwToolboxManagerUi(self)
             tools_gw.load_settings(self.dlg_functions)
             self.dlg_functions.progressBar.setVisible(False)
@@ -280,7 +283,6 @@ class GwToolBoxButton(GwAction):
             self.dlg_functions.rbt_layer.toggled.connect(partial(self._rbt_state, self.dlg_functions.rbt_layer))
             self.dlg_functions.rbt_layer.setChecked(True)
 
-            function_id = index.sibling(index.row(), 2).data()
             extras = f'"functionId":"{function_id}"'
             body = tools_gw.create_body(extras=extras)
             json_result = tools_gw.execute_procedure('gw_fct_getprocess', body)
@@ -764,6 +766,8 @@ class GwToolBoxButton(GwAction):
         # Section Processes
         section_processes = QStandardItem('{}'.format(self.TRV_PROCESSES))
         for group, functions in result['processes']['fields'].items():
+            if not functions:
+                continue
             parent1 = QStandardItem(f'{group} [{len(functions)}]')
             self.no_clickable_items.append(f'{group} [{len(functions)}]')
             functions.sort(key=self._sort_list, reverse=False)

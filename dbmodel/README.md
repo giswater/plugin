@@ -55,6 +55,7 @@ Each **main** project folder (`ws/`, `ud/`) typically contains:
 | `base/` | Bootstrap SQL: `fct/`, `ftrg/`, `schema_model/` (common also has `init.sql`) |
 | `updates/` | Semver patches (`M/m/p/patch.sql`) |
 | `sample/` | Optional seed data (`user/`, `inv/`, `dev/`) |
+| `catalog/` | Locale-specific feature catalog (`<locale>/cat_feature.sql`) |
 | `final_pass/` | Form fields + i18n (locale folders) |
 
 Each **addon** kind follows a similar pattern: `base/`, `integration/` (parent-link SQL), `updates/`, and optional `sample/` or `i18n/`.
@@ -93,6 +94,7 @@ Example **ws** pipeline ([`manifests/ws.yaml`](./manifests/ws.yaml)):
 |-------|------|-----------|
 | `load_base` | `sql_dir` | `common/base/init.sql`, `common/base/fct`, `common/base/ftrg`, then `ws/base/fct`, `ws/base/ftrg`, `ws/base/schema_model` |
 | `updates` | `version_walk` | For each version ≤ `--plugin-version`: **common** patches, then **ws** patches |
+| `load_catalog` | `sql_dir` | `catalog/{{ locale }}` (fallback `en_US`) — feature naming conventions |
 | `lastprocess` | `sql_function` | `gw_fct_admin_schema_lastprocess` (child views, permissions, metadata) |
 | `load_sample` | `sql_dir` (optional) | `schemas/main/ws/sample/user` |
 | `final_pass` | `sql_dir` | Form fields + i18n (`{{ locale }}`, fallback `en_US`) |

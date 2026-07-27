@@ -126,13 +126,13 @@ BEGIN
 			a.attrib,
 			a.expl_add,
 			a.object_1,
-			b.nodetype_id AS object_type_1,
+			b.node_type AS object_type_1,
 			a.expl_1,
 			a.dma_id_1,
 			e.name AS dma_name_1,
 			a.object_name_1,
 			a.object_2,
-			c.nodetype_id AS object_type_2,
+			c.node_type AS object_type_2,
 			a.expl_2,
 			a.dma_id_2,
 			f.name AS dma_name_2,
@@ -173,7 +173,7 @@ BEGIN
 			v_sql = '
 			SELECT v.object_id_col, v.object_id_val, v.object_type_col, v.object_type_val, v.object_name_col,
 				concat(''man_node_'', lower(v.object_type_val)) AS man_addf_table, 
-				concat(''man_'', lower(b.system_id)) AS man_table
+				concat(''man_'', lower(b.feature_class)) AS man_table
 				FROM om_scada_graph g
 				CROSS JOIN LATERAL (
 				    VALUES 
@@ -189,7 +189,7 @@ BEGIN
 				-- find column "name" in addfields
 				EXECUTE FORMAT('SELECT %L, column_name 
 				FROM information_schema.COLUMNS 
-				WHERE table_schema = ''ws'' 
+				WHERE table_schema = ''SCHEMA_NAME'' 
 				AND table_name = %L
 				AND column_name = ''name''',
 				rec.man_addf_table,
@@ -211,7 +211,7 @@ BEGIN
 						
 					EXECUTE FORMAT('SELECT %L, column_name 
 					FROM information_schema.COLUMNS 
-					WHERE table_schema = ''ws'' 
+					WHERE table_schema = ''SCHEMA_NAME'' 
 					AND table_name = %L
 					AND column_name = ''name''',
 					rec.man_table,

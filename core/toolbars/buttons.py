@@ -52,7 +52,7 @@ from .plan.psector_btn import GwPsectorButton  # noqa: F401
 from .plan.psector_manager_btn import GwPsectorManagerButton  # noqa: F401
 from .plan.netscenario_manager_btn import GwNetscenarioManagerButton  # noqa: F401
 
-# Utilities: 61, 62, 63, 64, 65, 66, 67, 68
+# Utilities: 61, 62, 63, 64, 65, 66, 67, 68, 69
 from .utilities.utils_manager_btn import GwUtilsManagerButton  # noqa: F401
 from .utilities.config_btn import GwConfigButton  # noqa: F401
 from .utilities.toolbox_btn import GwToolBoxButton  # noqa: F401
@@ -60,6 +60,7 @@ from .utilities.utilities_manager.workspace_manager import GwWorkspaceManagerBut
 from .utilities.print_btn import GwPrintButton  # noqa: F401
 from .utilities.file_transfer_btn import GwFileTransferButton  # noqa: F401
 from .utilities.project_check_btn import GwProjectCheckButton  # noqa: F401
+from .utilities.network_utilities import GwNetworkUtilitiesButton  # noqa: F401
 from .utilities.snapshot_view import GwSnapshotViewButton  # noqa: F401
 
 # ToC: 71, 72

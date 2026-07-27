@@ -71,6 +71,8 @@ v_schemaname text;
 v_featureclass text;
 v_sys_code_autofill text;
 
+v_district_ids _int4;
+
 BEGIN
 
     EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
@@ -274,8 +276,23 @@ BEGIN
 		END IF;
 
 
+		-- District
+		IF (NEW.district_id IS NULL) THEN
+			-- getting value from geometry of mapzone
+			v_district_ids = (SELECT array_agg(district_id) FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001));
+			IF cardinality(v_district_ids) = 1 THEN
+				NEW.district_id := v_district_ids[1];
+			ELSIF cardinality(v_district_ids) > 1 THEN
+				NEW.district_id := (SELECT district_id FROM ve_arc WHERE district_id = ANY(v_district_ids) ORDER BY ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
+			END IF;
+		END IF;
+
 		-- Municipality
 		IF (NEW.muni_id IS NULL) THEN
+
+			IF NEW.district_id IS NOT NULL THEN
+				NEW.muni_id := (SELECT muni_id FROM v_municipality WHERE district_id = NEW.district_id AND active IS TRUE LIMIT 1);
+			END IF;
 
 			-- getting value default
 			IF (NEW.muni_id IS NULL) THEN
@@ -290,21 +307,6 @@ BEGIN
 					AND active IS TRUE LIMIT 1);
 				ELSE
 					NEW.muni_id =(SELECT muni_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
-					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
-				END IF;
-			END IF;
-		END IF;
-
-		-- District
-		IF (NEW.district_id IS NULL) THEN
-
-			-- getting value from geometry of mapzone
-			IF (NEW.district_id IS NULL) THEN
-				SELECT count(*) INTO v_count FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001);
-				IF v_count = 1 THEN
-					NEW.district_id = (SELECT district_id FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001) LIMIT 1);
-				ELSIF v_count > 1 THEN
-					NEW.district_id =(SELECT district_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
 					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
 				END IF;
 			END IF;
@@ -422,6 +424,10 @@ BEGIN
 			IF NEW.code IS NULL AND v_code_autofill_bool THEN
 				NEW.code := NEW.gully_id;
 			END IF;
+		END IF;
+
+		IF NEW.sys_code IS NOT NULL AND v_sys_code_autofill NOT IN ('false', 'none') THEN
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4678", "function":"1206"}}$$);';
 		END IF;
 
 		--Sys_code (uuid | code | none)
@@ -575,8 +581,8 @@ BEGIN
 					p22x ||' '|| p22y || ',' || p02x || ' ' || p02y || ','|| p01x ||' '|| p01y || ',' || p21x ||' '|| p21y || ')''),'||v_srid||')))'
 					INTO v_the_geom_pol;
 
-				INSERT INTO polygon(sys_type, the_geom, featurecat_id,feature_id )
-				VALUES (v_featureclass, v_the_geom_pol, NEW.gully_type, NEW.gully_id);
+				INSERT INTO polygon(sys_type, the_geom, featurecat_id, feature_id, state)
+				VALUES (v_featureclass, v_the_geom_pol, NEW.gully_type, NEW.gully_id, NEW.state);
 			END IF;
 		END IF;
 
@@ -922,8 +928,8 @@ BEGIN
 						INTO v_the_geom_pol;
 
 					IF (SELECT pol_id FROM polygon WHERE feature_id = NEW.gully_id) IS NULL THEN
-						INSERT INTO polygon(sys_type, the_geom, featurecat_id,feature_id )
-						VALUES (v_featureclass, v_the_geom_pol, NEW.gully_type, NEW.gully_id);
+						INSERT INTO polygon(sys_type, the_geom, featurecat_id, feature_id, state)
+						VALUES (v_featureclass, v_the_geom_pol, NEW.gully_type, NEW.gully_id, NEW.state);
 					ELSE
 						UPDATE polygon SET the_geom = v_the_geom_pol WHERE feature_id =NEW.gully_id;
 					END IF;

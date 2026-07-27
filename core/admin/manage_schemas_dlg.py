@@ -309,23 +309,22 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self.btn_integrate_am.clicked.connect(partial(self._integrate_am))
         self.btn_integrate_am_sample.clicked.connect(partial(self._integrate_am_sample))
         self.btn_update_am.clicked.connect(partial(self._update_am))
-        self.btn_delete_am.clicked.connect(partial(self.admin._delete_other_schema, 'am'))
+        self.btn_delete_am.clicked.connect(partial(self._delete_other_schema, 'am'))
         self.btn_create_cm.clicked.connect(partial(self._create_cm))
         self.btn_update_cm.clicked.connect(partial(self._update_cm))
         self.btn_cm_integrate.clicked.connect(partial(self._integrate_cm))
         self.btn_cm_sample.clicked.connect(partial(self._load_cm_sample))
         self.btn_cm_qgis.clicked.connect(partial(self._create_cm_qgis))
         self.btn_delete_cm.clicked.connect(partial(self._delete_cm))
-        self.btn_i18n_create.clicked.connect(partial(self._create_i18n))
-        self.btn_i18n_update.clicked.connect(partial(self._update_i18n))
-        self.btn_i18n_delete.clicked.connect(partial(self._delete_i18n))
+        self.btn_i18n_create.clicked.connect(partial(self.admin._create_i18n))
+        self.btn_i18n_update.clicked.connect(partial(self.admin._update_i18n))
+        self.btn_i18n_delete.clicked.connect(partial(self._delete_other_schema, 'multilang'))
         self.btn_create_audit.clicked.connect(partial(self._create_audit))
         self.btn_update_audit.clicked.connect(partial(self.admin._update_audit))
         self.btn_activate_audit.clicked.connect(partial(self._activate_audit))
         self.btn_reload_audit_triggers.clicked.connect(partial(self._reload_audit_triggers))
-        self.btn_delete_audit.clicked.connect(partial(self.admin._delete_other_schema, 'audit'))
-        self.btn_languages.clicked.connect(partial(self._open_multilang_languages))
-        self.btn_close.clicked.connect(partial(tools_gw.close_dialog, self))
+        self.btn_delete_audit.clicked.connect(partial(self._delete_other_schema, 'audit'))
+        self.btn_close.clicked.connect(self.close)
         selection = self.tbl_network.selectionModel()
         if selection is not None:
             selection.selectionChanged.connect(partial(self._on_network_selection_changed))
@@ -483,6 +482,13 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
             parts.append(f"{tools_qt.tr('Last update')}: {updated}")
         return " · ".join(parts) if parts else tools_qt.tr("Not installed")
 
+    def _format_audit_info(self, row: dict | None) -> str:
+        if not row:
+            return tools_qt.tr("Not installed")
+        if admin_catalog.is_audit_stub():
+            return tools_qt.tr("Partial (required by CM)")
+        return self._format_satellite_dates(row)
+
     def _update_satellite_panel(
         self,
         group_attr: str,
@@ -494,7 +500,10 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         group = getattr(self, group_attr, None)
         if group is not None:
             group.setTitle(self._satellite_group_title(group_name, row, default_schema))
-        self._set_info_label(label_attr, self._format_satellite_dates(row))
+        if group_attr == "grb_audit":
+            self._set_info_label(label_attr, self._format_audit_info(row))
+        else:
+            self._set_info_label(label_attr, self._format_satellite_dates(row))
 
     def _satellite_row(self, *, kind: str | None = None, schema: str | None = None) -> dict | None:
         return admin_catalog.find_inventory_row(
@@ -579,7 +588,8 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         cibs_exists = cibs_row is not None
         am_exists = am_row is not None
         cm_exists = cm_row is not None
-        audit_exists = audit_row is not None
+        audit_namespace = audit_row is not None
+        audit_full = admin_catalog.is_audit_fully_installed()
         i18n_exists = i18n_row is not None
 
         self.btn_utils_create.setEnabled(not utils_exists)
@@ -650,13 +660,13 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self.btn_languages.setEnabled(i18n_exists)
         self.btn_i18n_update.setEnabled(i18n_exists and self._i18n_needs_update())
 
-        self.btn_create_audit.setEnabled(not audit_exists)
+        self.btn_create_audit.setEnabled(not audit_full)
         self.btn_update_audit.setEnabled(
-            audit_exists and self._needs_update(str((audit_row or {}).get("version") or ""))
+            audit_full and self._needs_update(str((audit_row or {}).get("version") or ""))
         )
-        self.btn_activate_audit.setEnabled(audit_exists and has_network_parent)
-        self.btn_reload_audit_triggers.setEnabled(audit_exists and has_network_parent)
-        self.btn_delete_audit.setEnabled(audit_exists)
+        self.btn_activate_audit.setEnabled(audit_full and has_network_parent)
+        self.btn_reload_audit_triggers.setEnabled(audit_full and has_network_parent)
+        self.btn_delete_audit.setEnabled(audit_namespace)
 
         self.btn_update_network.setEnabled(self._network_has_pending_updates(parent))
         has_selection = bool(parent) and parent_kind in ("WS", "UD")
@@ -777,7 +787,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
     def _delete_cm(self) -> None:
         cm_row = self._satellite_row(kind="CM")
         schema_name = str((cm_row or {}).get("schema") or admin_catalog.find_cm_schema() or "cm")
-        self.admin._delete_other_schema(schema_name)
+        self._delete_other_schema(schema_name)
 
     def _activate_audit(self) -> None:
         parent, parent_type = self._parent_context()
@@ -829,48 +839,6 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
             return
         self.admin._copy_cibs_data(parent_schema=parent)
 
-    def _create_i18n(self) -> None:
-        """Create multilang schema asynchronously and refresh when done."""
-        self.setEnabled(False)
-        try:
-            if not self.admin._create_i18n(manage_schemas_dlg=self):
-                self.setEnabled(True)
-        except Exception:
-            self.setEnabled(True)
-            raise
-
-    def _update_i18n(self) -> None:
-        """Update multilang schema and re-apply baseline translations."""
-        self.setEnabled(False)
-        try:
-            self.admin._update_i18n(manage_schemas_dlg=self)
-        except Exception:
-            self.setEnabled(True)
-            raise
-
-    def _delete_i18n(self) -> None:
-        """Delete multilang schema only and refresh inventory."""
-        dlg = getattr(self, "dlg_multilang_languages", None)
-        if dlg is not None and not isdeleted(dlg):
-            try:
-                dlg.close()
-            except Exception:
-                pass
-            self.dlg_multilang_languages = None
-        self.admin._delete_other_schema("multilang")
-
-    def _open_multilang_languages(self) -> None:
-        i18n_row = self._satellite_row(kind="MULTILANG") or self._satellite_row(schema="multilang")
-        if i18n_row is None:
-            msg = "Create the multilang schema before managing languages."
-            tools_qt.show_info_box(msg)
-            return
-
-        dlg = getattr(self, 'dlg_multilang_languages', None)
-        if dlg is not None and not isdeleted(dlg) and dlg.isVisible():
-            tools_gw.focus_open_dialog(dlg)
-            return
-
-        dlg = GwI18NMultilangLanguagesDialog(self)
-        dlg.init_dialog()
-        self.dlg_multilang_languages = dlg
+    def _delete_other_schema(self, schema_name: str):
+        self.admin._delete_other_schema(schema_name)
+        self._refresh_inventory()

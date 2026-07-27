@@ -72,7 +72,7 @@ UPDATE config_param_system AS t SET label = v.label, descript = v.descript FROM 
     ('basic_search_visit', 'Search visit:', 'Search configuration parameteres'),
     ('basic_search_workcat', 'Search workcat:', 'Search configuration parameteres'),
     ('basic_selector_explfrommuni', 'Selector variables:', 'Variable to configura all options related to search for the specificic tab'),
-    ('basic_selector_mapzone_relation', 'Selector variables:', 'If sectorfromexpl is true, sector selector is set automatically set to the sector which geometry overlaps the selected exploitation. If explfromsector is true, exploitation selector is set automatically set to the exploitation which geometry overlaps the selected sector.'),
+    ('basic_selector_mapzone_relation', 'Selector variables:', E'If sectorfromexpl is true, sector selector is set automatically set to the sector which geometry overlaps the selected exploitation.\nIf explfromsector is true, exploitation selector is set automatically set to the exploitation which geometry overlaps the selected sector.'),
     ('basic_selector_options', 'Selector variables:', 'Options variables for selector'),
     ('basic_selector_sectorisexplismuni', 'Selector variables:', 'Variable to configure that explotation and sector has the same code in order to make a direct correlation one each other'),
     ('basic_selector_tab_campaign', 'Selector variables:', 'Variable to configura all options related to search for the specificic tab'),
@@ -111,7 +111,7 @@ UPDATE config_param_system AS t SET label = v.label, descript = v.descript FROM 
     ('edit_hydro_link_absolute_path', 'Hydrometer link absolute path:', 'The hyperlink in the hydrometer info to an url or a file is made up of two parts. A common part to all hydrometers, and a specific part for each hydrometer. The common part to all is the value of this variable'),
     ('edit_inventory_sysvdefault', 'Inventory system value default:', 'System default value for inventory'),
     ('edit_link_autoupdate_connect_length', NULL, 'Enable the automatic update for connect (connec & gully) length when link is inserted or geometry of link is updated'),
-    ('edit_link_update_connecrotation', 'Automatic rotation for connec labels and vnodes:', 'If true, connec''s label and symbol will be rotated using the angle of link.  Label must be configured with ''CASE WHEN label_x = ''R'' THEN ''    '' ||  ''connec_id'' ELSE  ''connec_id''  || ''    ''  END'' as ''Expression'', label_x as ''Position priotiry'' and label_rotation as ''Rotation'''),
+    ('edit_link_update_connecrotation', 'Automatic rotation for connec labels and vnodes:', E'If true, connec''s label and symbol will be rotated using the angle of link. \nLabel must be configured with "CASE WHEN label_x = ''R'' THEN ''    '' ||  "connec_id" ELSE  "connec_id"  || ''    ''  END" as ''Expression'', label_x as ''Position priotiry'' and label_rotation as ''Rotation'''),
     ('edit_mapzones_set_lastupdate', 'Set lastupdate on mapzone process:', 'If true, value of lastupdate is updated on node, arc, connec features and set to the date of executing the algorithm.'),
     ('edit_node_proximity', 'Node topology:', 'Enable/disable control of inserting duplicated nodes.Minimum accepted distance between two nodes'),
     ('edit_node_reduction_auto_d1d2', 'Edit node reduction auto d1d2:', 'If true, when inserting a new reduction, diam1 and diam2 values are capturated from dnom and dint from cat_node (WS)'),
@@ -141,13 +141,13 @@ UPDATE config_param_system AS t SET label = v.label, descript = v.descript FROM 
     ('plan_node_replace_code', 'Plan node replace code:', 'If true, when a node replace in planification is performed, new arcs will have the same code as the replaced one. Otherwise, new arcs will have the same code as its arc_id.'),
     ('plan_psector_status_action', 'Psector execute state_type:', 'Psector statetype assigned to features after executing or canceling planification'),
     ('plan_statetype_vdefault', 'Plan state_type vdefault:', 'Default state_type when using planified features'),
-    ('qgis_form_element_hidewidgets', 'Element form hide widgets:', 'Variable to customize widgets from element form. Available widggets and format example: [''element_id'', ''code'', ''element_type'', ''elementcat_id'', ''num_elements'', ''state'', ''state_type'', ''expl_id'', ''ownercat_id'', ''location_type'', ''buildercat_id'', ''builtdate'', ''workcat_id'', ''workcat_id_end'', ''comment'', ''observ'', ''link'', ''verified'', ''rotation'', ''undelete'', ''btn_add_geom'']'),
+    ('qgis_form_element_hidewidgets', 'Element form hide widgets:', E'Variable to customize widgets from element form. Available widggets and format example:\n["element_id", "code", "element_type", "elementcat_id", "num_elements", "state", "state_type", "expl_id", "ownercat_id", "location_type", "buildercat_id", "builtdate", "workcat_id", "workcat_id_end", "comment", "observ", "link", "verified", "rotation", "undelete", "btn_add_geom"]'),
     ('qgis_form_selector_stylesheet', 'Selectors stylesheet:', 'Variable to customize the look of the selectors dialog'),
     ('qgis_layers_symbology', 'Layers symbology:', 'Variable to configure parameters related with layer symbology tool'),
     ('utils_graphanalytics_lrs_feature', 'Updated fields when calculating lrs:', 'List of fields updated during the process of calculating linear reference'),
     ('utils_graphanalytics_lrs_graph', 'Config of headers for calculating lrs:', 'Configuration of starting points(headers) and arc which indicate direction of calculating linear reference'),
     ('utils_graphanalytics_status', 'Dynamic mapzones:', 'Dynamic mapzones'),
-    ('utils_graphanalytics_style', 'Mapzones style config:', 'There are 3 ''mode'' to symbolize mapzones when the project is loaded or mapzones are recalculated:  - Disabled: do nothing with the style - Random: use ''column'' data to categorize and set random colors to every mapzone - Stylesheet: use ''column'' data to categorize and set the configured color to every mapzone from mapzone table stylesheet column'),
+    ('utils_graphanalytics_style', 'Mapzones style config:', E'There are 3 "mode" to symbolize mapzones when the project is loaded or mapzones are recalculated: \n- Disabled: do nothing with the style\n- Random: use "column" data to categorize and set random colors to every mapzone\n- Stylesheet: use "column" data to categorize and set the configured color to every mapzone from mapzone table stylesheet column'),
     ('utils_graphanalytics_vdefault', 'Default values for geometry of mapzones algorithm:', 'Automatic values for geometry trigger mapzone algorithm')
 ) AS v(parameter, label, descript)
 WHERE t.parameter = v.parameter;

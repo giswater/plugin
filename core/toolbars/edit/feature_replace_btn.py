@@ -96,7 +96,7 @@ class GwFeatureReplaceButton(GwMaptool):
 
         # Show help message when action is activated
         if self.show_help:
-            msg = "Click on feature to replace it with a new one. You can select other layer to snapp diferent feature type."
+            msg = "Click on feature to replace it with a new one. You can select other layer to snap a different feature type."
             tools_qgis.show_info(msg)
 
     def canvasMoveEvent(self, event):

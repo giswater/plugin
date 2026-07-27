@@ -47,8 +47,8 @@ BEGIN
                 NEW.outlet_type := (SELECT "value" FROM config_param_user WHERE "parameter"='epa_gully_outlet_type_vdefault' AND "cur_user"="current_user"() LIMIT 1);
         END IF;
 
-        IF (NEW.method IS NULL) THEN
-                NEW.method := (SELECT "value" FROM config_param_user WHERE "parameter"='epa_gully_method_vdefault' AND "cur_user"="current_user"() LIMIT 1);
+        IF (NEW.gully_method IS NULL) THEN
+                NEW.gully_method := (SELECT "value" FROM config_param_user WHERE "parameter"='epa_gully_method_vdefault' AND "cur_user"="current_user"() LIMIT 1);
         END IF;
 
         IF NEW.weir_cd IS NULL AND NEW.outlet_type='W_0' THEN
@@ -67,7 +67,7 @@ BEGIN
         UPDATE inp_gully
         SET custom_length=NEW.custom_length, efficiency=NEW.efficiency,
         outlet_type=NEW.outlet_type, custom_top_elev=NEW.custom_top_elev, custom_width=NEW.custom_width,
-        custom_depth=NEW.custom_depth, method=NEW.method, weir_cd=NEW.weir_cd, orifice_cd=NEW.orifice_cd,
+        custom_depth=NEW.custom_depth, gully_method=NEW.gully_method, weir_cd=NEW.weir_cd, orifice_cd=NEW.orifice_cd,
         custom_a_param=NEW.custom_a_param, custom_b_param=NEW.custom_b_param
         WHERE gully_id=NEW.gully_id;
 

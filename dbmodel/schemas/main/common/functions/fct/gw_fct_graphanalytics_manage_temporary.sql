@@ -307,7 +307,7 @@ BEGIN
             END IF;
         END IF;
 
-        IF v_fct_name <> 'MINCUT' THEN
+        IF v_fct_name NOT IN ('MINCUT', 'MINSECTOR') THEN
             v_query_text_exploitation := 'AND array_append(t.expl_visibility, t.expl_id) && (SELECT array_agg(expl_id) FROM vf_exploitation)';
         END IF;
 

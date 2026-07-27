@@ -3,7 +3,7 @@
 #
 # Usage:
 #   verify_dbmodel_ci_checks.sh --sha abc123
-#   verify_dbmodel_ci_checks.sh --tag v4.15.0
+#   verify_dbmodel_ci_checks.sh --tag v4.15.0 --wait
 #   verify_dbmodel_ci_checks.sh --tag cli-v0.2.0 --cli-release
 #
 # Requires: gh (authenticated) or GITHUB_TOKEN + git for --tag resolution.
@@ -11,6 +11,9 @@ set -euo pipefail
 
 REPO="${GITHUB_REPOSITORY:-giswater/plugin}"
 CLI_RELEASE=false
+WAIT=false
+TIMEOUT_SECONDS=1200
+POLL_SECONDS=15
 SHA=""
 TAG=""
 
@@ -24,6 +27,9 @@ while [[ $# -gt 0 ]]; do
     --sha) SHA="${2:?}"; shift 2 ;;
     --tag) TAG="${2:?}"; shift 2 ;;
     --cli-release) CLI_RELEASE=true; shift ;;
+    --wait) WAIT=true; shift ;;
+    --timeout-seconds) TIMEOUT_SECONDS="${2:?}"; shift 2 ;;
+    --poll-seconds) POLL_SECONDS="${2:?}"; shift 2 ;;
     -h|--help) usage ;;
     *) echo "unknown arg: $1" >&2; usage ;;
   esac
@@ -31,6 +37,10 @@ done
 
 if [[ -z "${SHA}" && -z "${TAG}" ]]; then
   echo "error: pass --sha or --tag" >&2
+  exit 1
+fi
+if ! [[ "${TIMEOUT_SECONDS}" =~ ^[0-9]+$ && "${POLL_SECONDS}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "error: timeout must be non-negative and poll interval must be positive" >&2
   exit 1
 fi
 
@@ -84,39 +94,73 @@ REQUIRED_CHECKS=(
   "pgTAP network (PG 18)"
 )
 
-mapfile -t CHECK_LINES < <(
-  gh api "repos/${REPO}/commits/${SHA}/check-runs?per_page=100" --paginate \
-    --jq '.check_runs[] | "\(.name)\t\(.conclusion // .status)"'
-)
+started_at="${SECONDS}"
 
-missing=0
-failed=0
+while true; do
+  CHECK_LINES=()
+  while IFS= read -r line; do
+    CHECK_LINES+=("${line}")
+  done < <(
+    gh api "repos/${REPO}/commits/${SHA}/check-runs?per_page=100" --paginate \
+      --jq '.check_runs[] | "\(.name)\t\(.status)\t\(.conclusion // "")"'
+  )
 
-for required in "${REQUIRED_CHECKS[@]}"; do
-  conclusion=""
-  for line in "${CHECK_LINES[@]}"; do
-    name="${line%%$'\t'*}"
-    if [[ "${name}" == "${required}" ]]; then
-      conclusion="${line#*$'\t'}"
-      break
+  succeeded=0
+  pending=0
+  missing=0
+  failed=0
+  PROBLEM_LINES=()
+
+  for required in "${REQUIRED_CHECKS[@]}"; do
+    found=false
+    has_success=false
+    has_pending=false
+    terminal_conclusions=""
+
+    for line in "${CHECK_LINES[@]}"; do
+      IFS=$'\t' read -r name status conclusion <<< "${line}"
+      [[ "${name}" == "${required}" ]] || continue
+      found=true
+
+      if [[ "${status}" == "completed" && "${conclusion}" == "success" ]]; then
+        has_success=true
+      elif [[ "${status}" != "completed" ]]; then
+        has_pending=true
+      else
+        terminal_conclusions="${terminal_conclusions:+${terminal_conclusions},}${conclusion:-unknown}"
+      fi
+    done
+
+    if [[ "${has_success}" == true ]]; then
+      succeeded=$((succeeded + 1))
+    elif [[ "${has_pending}" == true ]]; then
+      pending=$((pending + 1))
+      PROBLEM_LINES+=("PENDING: ${required}")
+    elif [[ "${found}" == false ]]; then
+      missing=$((missing + 1))
+      PROBLEM_LINES+=("MISSING: ${required}")
+    else
+      failed=$((failed + 1))
+      PROBLEM_LINES+=("FAILED:  ${required} (${terminal_conclusions})")
     fi
   done
-  if [[ -z "${conclusion}" ]]; then
-    echo "MISSING: ${required}"
-    missing=$((missing + 1))
-  elif [[ "${conclusion}" != "success" ]]; then
-    echo "FAILED:  ${required} (${conclusion})"
-    failed=$((failed + 1))
-  else
-    echo "OK:      ${required}"
+
+  if [[ "${succeeded}" -eq "${#REQUIRED_CHECKS[@]}" ]]; then
+    echo "All ${#REQUIRED_CHECKS[@]} dbmodel CI checks passed on ${SHA}."
+    exit 0
   fi
+
+  elapsed=$((SECONDS - started_at))
+  if [[ "${failed}" -gt 0 || "${WAIT}" != true || "${elapsed}" -ge "${TIMEOUT_SECONDS}" ]]; then
+    printf '%s\n' "${PROBLEM_LINES[@]}"
+    echo ""
+    if [[ "${elapsed}" -ge "${TIMEOUT_SECONDS}" && "${WAIT}" == true ]]; then
+      echo "error: timed out waiting for dbmodel CI checks after ${elapsed}s" >&2
+    fi
+    echo "error: dbmodel CI checks not green (success=${succeeded}, pending=${pending}, missing=${missing}, failed=${failed})" >&2
+    exit 1
+  fi
+
+  echo "Waiting for dbmodel CI checks: success=${succeeded}, pending=${pending}, missing=${missing} (elapsed=${elapsed}s)"
+  sleep "${POLL_SECONDS}"
 done
-
-if [[ "${missing}" -gt 0 || "${failed}" -gt 0 ]]; then
-  echo ""
-  echo "error: dbmodel CI checks not green (missing=${missing}, failed=${failed})" >&2
-  exit 1
-fi
-
-echo ""
-echo "All ${#REQUIRED_CHECKS[@]} dbmodel CI checks passed on ${SHA}."

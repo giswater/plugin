@@ -435,6 +435,7 @@ Exit codes: **0** success, **1** failure (parse, I/O, PostgreSQL, SQL, invalid p
 gw db init
 gw schema main   create | update | drop
 gw schema addon  create | integrate | update | drop
+gw project       create
 gw network       show | update
 ```
 
@@ -580,6 +581,33 @@ Read-only inventory of schemas with `sys_version`. No superuser required.
 gw schema list --conn "$CONN"
 gw schema list --conn "$CONN" --tier main
 gw schema list --conn "$CONN" --tier addon --type cibs --json
+```
+
+---
+
+### `project create`
+
+Creates a `.qgs` file from the layer metadata and styles stored in an existing
+ws/ud schema. This command requires a QGIS installation with PyQGIS. The CLI
+auto-detects the QGIS Python on macOS, Linux and Windows; set `QGIS_PYTHON`
+only when detection fails or you need a specific install.
+
+| Option | Description |
+|--------|-------------|
+| `--schema` | **Required.** Existing main schema. |
+| `--type` | **Required.** `ws` \| `ud`; must match `sys_version.project_type`. |
+| `--out` | **Required.** Output directory. |
+| `--name` | Filename without `.qgs` (default: schema name). |
+| `--export-passwd` | Store the database password in layer URIs. |
+| `--force` | Overwrite an existing file. |
+| `--conn` / `--config` | Connection. |
+
+```bash
+# Optional override when auto-detect is wrong:
+#   macOS:   export QGIS_PYTHON=/Applications/QGIS-LTR.app/Contents/MacOS/python
+#   Linux:   export QGIS_PYTHON=/usr/bin/python3   # needs python3-qgis
+#   Windows: set QGIS_PYTHON=C:\OSGeo4W\bin\python-qgis.bat
+gw project create --schema ws --type ws --out ./qgs --force --conn "$CONN"
 ```
 
 ---

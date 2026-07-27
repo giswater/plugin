@@ -96,6 +96,20 @@ def test_locale_fallback_used_when_locale_folder_missing(tmp_path: Path):
     assert any("en_US" in fx.path for fx in fp.files)
 
 
+def test_no_tr_skips_locale_fallback(tmp_path: Path):
+    _seed(tmp_path)
+    conn = _RecConn()
+    params = BuildParams(
+        schema_name="ws_demo", sql_root=str(tmp_path),
+        plugin_version="4.9.0", profile="empty",
+        locale="no_TR",
+    )
+    result = SchemaBuilder(conn, _manifest(), params).run()
+    assert result.ok
+    fp = next(pr for pr in result.phases if pr.phase_id == "final_pass")
+    assert fp.files == []
+
+
 def test_stops_on_first_failure(tmp_path: Path):
     _seed(tmp_path)
     conn = _RecConn(fail_on="01.sql")

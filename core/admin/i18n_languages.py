@@ -173,6 +173,83 @@ class GwI18NLocalesTableBase(GwI18NManageLanguagesUi):
                         return True
         return super().eventFilter(watched, event)
 
+    @staticmethod
+    def fetch_languages() -> dict:
+        endpoint = f"{i18n_service.TRANSLATIONS_REPO_URL.rstrip('/')}/latest/languages.json"
+        request = urllib.request.Request(endpoint, method="GET")
+        request.add_header("Accept", "application/json")
+
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = i18n_service.json.loads(response.read().decode())
+        if not isinstance(payload, dict):
+            raise ValueError(f"Unexpected languages payload from {endpoint}")
+        return payload
+
+    def load_downloaded_locales(self, locales: dict[str, str]) -> dict[str, tuple[str, str | None]]:
+        downloaded_locales: dict[str, tuple[str, str | None]] = {}
+        status, cursor = tools_gw.create_sqlite_conn("config")
+        if not status or cursor is None:
+            msg = "Config database file not found"
+            tools_qt.show_info_box(msg)
+            return {}
+
+        cursor.execute("SELECT locale, name, active, version FROM locales")
+        db_locales = {
+            locale: (name, active, version)
+            for locale, name, active, version in cursor.fetchall()
+        }
+
+        dirty = False
+        for locale, name in locales.items():
+            if self._language_files_exist(locale):
+                db_name, db_active, version = db_locales.get(locale, (name, 0, None))
+                downloaded_locales[locale] = (db_name or name, version)
+                if locale in db_locales:
+                    if db_active == 0:
+                        cursor.execute("UPDATE locales SET active = 1 WHERE locale = ?", (locale,))
+                        dirty = True
+                else:
+                    cursor.execute(
+                        "INSERT INTO locales (locale, name, active, version) VALUES (?, ?, 1, ?)",
+                        (locale, name, version),
+                    )
+                    dirty = True
+            elif locale in db_locales and db_locales[locale][1]:
+                cursor.execute(
+                    "UPDATE locales SET active = 0, version = NULL WHERE locale = ?",
+                    (locale,),
+                )
+                dirty = True
+        if dirty:
+            cursor.connection.commit()
+            self._manager._populate_language_combo()
+        return downloaded_locales
+
+    def load_locales(self) -> None:
+        self.possible_locales = []
+
+        api_names: dict[str, str] = {}
+        try:
+            languages = self.fetch_languages()
+            if isinstance(languages, dict):
+                for locale, name in languages.items():
+                    locale_parts = str(locale).split("_")
+                    locale = locale_parts[0].lower() + "_" + locale_parts[1].upper()
+                    api_names[locale] = name
+                    print(f"locale: {locale}")
+                    print(f"name: {name}")
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError, json.JSONDecodeError):
+            pass
+        
+        downloaded_locales = self.load_downloaded_locales(api_names)
+        
+        for locale, (name, version) in downloaded_locales.items():
+            self.possible_locales.append((locale, name, True, version))
+        
+        for locale, name in api_names.items():
+            if locale not in downloaded_locales.keys():
+                self.possible_locales.append((locale, name, False, None))
+
     def _apply_filter(self, *_args) -> None:
         needle = tools_qt.get_text(self, self.txt_filter, return_string_null=False).strip().lower()
         self._locales_model.removeRows(0, self._locales_model.rowCount())

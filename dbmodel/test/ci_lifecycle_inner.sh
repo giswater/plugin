@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # CI lifecycle lanes (profiles smoke, updates, satellite pgTAP, network pgTAP).
-# Usage: ci_lifecycle_inner.sh profiles-smoke|update-isolated|pgtap-satellites|pgtap-network
+# Usage: ci_lifecycle_inner.sh profiles-smoke|i18n-bootstrap|update-isolated|pgtap-satellites|pgtap-network
 set -euo pipefail
 
-MODE="${1:?Usage: ci_lifecycle_inner.sh profiles-smoke|update-isolated|pgtap-satellites|pgtap-network}"
+MODE="${1:?Usage: ci_lifecycle_inner.sh profiles-smoke|i18n-bootstrap|update-isolated|pgtap-satellites|pgtap-network}"
 
 _TEST_ROOT="${GW_TEST_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 # shellcheck source=_env_inner.sh
@@ -54,6 +54,17 @@ case "${MODE}" in
       done
     done
     echo "profiles-smoke done."
+    ;;
+
+  i18n-bootstrap)
+    export PARENT_PROFILE="${GW_PARENT_PROFILE:-sample}"
+    export SATELLITES="${GW_SATELLITES:-}"
+    export WS="${WS:-ws}"
+    export UD="${UD:-ud}"
+    export LANGUAGE="${LANGUAGE:-no_TR}"
+    echo "=== i18n bootstrap (ws+ud profile=${PARENT_PROFILE}, satellites=${SATELLITES}, language=${LANGUAGE}) ==="
+    bash "${REPO_ROOT}/scripts/gw_e2e_addons_integrate.sh"
+    echo "i18n-bootstrap done."
     ;;
 
   update-isolated)

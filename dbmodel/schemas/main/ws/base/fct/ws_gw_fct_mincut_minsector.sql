@@ -221,18 +221,13 @@ BEGIN
 	FROM (SELECT the_geom FROM temp_om_mincut_arc UNION SELECT the_geom FROM temp_om_mincut_valve) a;
 
 	-- priority hydrometers
-	v_priority = 	(SELECT (array_to_json(array_agg((b)))) FROM (SELECT concat('{"category":"',category_id,'","number":"', count(hydrometer_id), '"}')::json as b FROM
-				(SELECT h.hydrometer_id, h.category_id
-				FROM vf_hydrometer h
-				JOIN temp_om_mincut_connec ON h.feature_id=temp_om_mincut_connec.connec_id
-				WHERE h.feature_type = 'CONNEC'
-				union
-				SELECT h.hydrometer_id, h.category_id
-				FROM vf_hydrometer h
-				JOIN temp_om_mincut_node ON h.feature_id=temp_om_mincut_node.node_id
-				WHERE h.feature_type = 'NODE'
-				)a
-				GROUP BY category_id ORDER BY category_id)a)b;
+	v_priority = 	(SELECT (array_to_json(array_agg((b)))) FROM
+	(SELECT concat('{"category":"',hc.observ,'","number":"', count(omh.hydrometer_id), '"}')::json as b
+			FROM temp_om_mincut_hydrometer omh
+			JOIN vf_hydrometer h ON h.hydrometer_id = omh.hydrometer_id
+			LEFT JOIN v_cat_hydrometer_category hc ON hc.id::text = h.category_id::text
+			WHERE omh.result_id = p_mincut_id
+			GROUP BY hc.observ ORDER BY hc.observ)a);
 
 	IF v_priority IS NULL THEN v_priority='{}'; END IF;
 

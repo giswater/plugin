@@ -8,30 +8,28 @@ or (at your option) any later version.
 import json
 import math
 import os
+import copy
 from collections import OrderedDict
-from datetime import timedelta
 from decimal import Decimal
 from functools import partial
-from time import time
 
-from qgis.PyQt.QtCore import QDate, QTimer
-from qgis.PyQt.QtWidgets import QCheckBox, QComboBox, QLineEdit, QRadioButton, QWidget, QLabel
+from qgis.PyQt.QtWidgets import QComboBox, QLineEdit, QWidget
 from qgis.PyQt.sip import isdeleted
-from qgis.core import QgsApplication, QgsProject, QgsTask, Qgis
+from qgis.core import Qgis
+from qgis.gui import QgsMapToolEmitPoint
 
-from ..utils import tools_gw, tools_backend_calls
-from ..ui.ui_manager import GwToolboxManagerUi
-from ..threads.toolbox_execute import GwToolBoxTask
+from ..ui.ui_manager import GwProfileInterpolationUi
+from ..utils import tools_gw
+from ..utils.snap_manager import GwSnapManager
 from ... import global_vars
-from ...libs import lib_vars, tools_qt, tools_os, tools_qgis, tools_log
+from ...libs import lib_vars, tools_qt, tools_os, tools_qgis, tools_db, tools_log
 
-_NODE_INTERPOLATE_FUNCTION_ID = 3248
+_INTERP_SIGNAL_GROUP = 'profile_interpolation'
 _INTERP_CONFIG_SECTION = 'btn_network_utilities'
-
-# GwProfile: draw/show longitudinal profiles.
-# GwProfileInterpolation: FLOWEXIT node interpolate (3248), then show profile.
-# TODO: replace GwToolboxManagerUi with a dedicated profile-interpolation dialog.
-#       Function 3248 will be removed/hidden from the main toolbox catalog.
+_INTERP_FUNCTION_NAME = 'gw_fct_node_interpolate_massive'
+_INTERP_PARAM_FIELDS = (
+    'node1', 'node2', 'minYmax', 'maxYmax', 'minSlope', 'maxSlope', 'profileMode', 'smoothFactor',
+)
 
 
 class GwNodeData:
@@ -1100,255 +1098,242 @@ class GwProfile:
 
 
 class GwProfileInterpolation:
-    """FLOWEXIT node interpolation (function 3248) then show profile.
 
-    Entry point: Network utilities menu only (not the main toolbox tree).
-    UI: temporary reuse of GwToolboxManagerUi until a dedicated dialog is added.
-    """
-
-    def __init__(self, parent_widget):
+    def __init__(self, parent_widget=None):
         self.parent_widget = parent_widget
-        self.rbt_checked = {}
-        self.function_list = []
-        self.temp_layers_added = []
-        self.ignore_widgets = ['qt_spinbox_lineedit', 'qt_calendar_yearedit']
-        self.interp_task = None
-        self._interp_process_data = None
-        self._interp_function_name = None
-        self._interp_task_handler = None
-        self._interp_timer = None
+        self.iface = global_vars.iface
+        self.canvas = global_vars.canvas
+        self.dlg = None
+        self.snapper_manager = None
+        self.vertex_marker = None
+        self.emit_point = None
+        self.layer_node = None
+        self._pick_target = None
+        self._node_widgets = {}
         self._profile = GwProfile()
 
     def run(self):
-        dlg = self._open_dialog()
-        if not dlg:
+        """ Open profile interpolation dialog """
+
+        if self.dlg is not None and not isdeleted(self.dlg):
+            self.dlg.show()
+            self.dlg.raise_()
+            self.dlg.activateWindow()
             return
-        type_combo = dlg.findChild(QComboBox, 'type')
-        if type_combo:
-            tools_qt.set_combo_value(type_combo, 'FLOWEXIT', 0)
-            type_combo.setVisible(False)
-        profile_mode = dlg.findChild(QComboBox, 'profileMode')
-        if profile_mode:
-            tools_qt.set_combo_value(profile_mode, 'SMOOTH', 0)
-        try:
-            dlg.btn_run.clicked.disconnect()
-        except TypeError:
-            pass
-        dlg.btn_run.clicked.connect(partial(self._execute_and_profile, dlg))
 
-    def _open_dialog(self):
-        """Open the interpolate process form (3248). TODO: dedicated UI, not toolbox_tool."""
-        dlg = GwToolboxManagerUi(self.parent_widget)
-        tools_gw.load_settings(dlg)
-        dlg.progressBar.setVisible(False)
-        dlg.btn_cancel.hide()
-        dlg.btn_close.show()
-        dlg.btn_cancel.clicked.connect(self._cancel_task)
-        dlg.cmb_layers.currentIndexChanged.connect(partial(self.set_selected_layer, dlg, dlg.cmb_layers))
-        dlg.rbt_previous.toggled.connect(partial(self._rbt_state, dlg.rbt_previous))
-        dlg.rbt_layer.toggled.connect(partial(self._rbt_state, dlg.rbt_layer))
-        dlg.rbt_layer.setChecked(True)
-        extras = f'"functionId":{_NODE_INTERPOLATE_FUNCTION_ID}'
-        body = tools_gw.create_body(extras=extras)
-        json_result = tools_gw.execute_procedure('gw_fct_getprocess', body)
-        if not json_result or json_result['status'] == 'Failed':
-            return None
-        self._interp_process_data = json_result['body']['data']
-        self._interp_function_name = self._interp_process_data['functionname']
-        if not self._populate_dialog(dlg, self._interp_process_data):
-            tools_qgis.show_message("Function not found", parameter=self._interp_function_name)
-            return None
-        tools_gw.disable_tab_log(dlg)
-        dlg.mainTab.currentChanged.connect(partial(self._manage_btn_run, dlg))
-        dlg.btn_close.clicked.connect(partial(tools_gw.close_dialog, dlg))
-        dlg.rejected.connect(partial(tools_gw.close_dialog, dlg))
-        dlg.btn_cancel.clicked.connect(partial(self.remove_layers))
-        tools_gw.open_dialog(dlg, dlg_name='toolbox')
-        dlg.setWindowTitle(self._interp_process_data.get('alias', self._interp_function_name))
-        return dlg
+        form = {"formName": "profile_interpolation", "formType": "profile_interpolation"}
+        body = {"client": {"cur_user": tools_db.current_user}, "form": form}
+        json_result = tools_gw.execute_procedure('gw_fct_get_dialog', body)
+        if not json_result or json_result.get('status') != 'Accepted':
+            tools_qgis.show_warning("Failed to load profile interpolation dialog.")
+            return
 
-    def _populate_dialog(self, dialog, result, module=tools_backend_calls):
-        if not result or result['functionparams'].get('featureType'):
-            return False
-        dialog.setWindowTitle(result['alias'])
-        dialog.txt_info.setText(str(result['descript']))
-        dialog.grb_input_layer.setVisible(False)
-        dialog.grb_selection_type.setVisible(False)
-        tools_gw.build_dialog_options(dialog, result, 0, self.function_list, self.temp_layers_added, module)
-        self._load_parametric_values(dialog, result)
-        for field in result.get('fields') or []:
-            signal = field.get('signal')
-            if signal:
-                getattr(module, signal)(dialog)
-        return True
+        self.dlg = GwProfileInterpolationUi(self.parent_widget)
+        tools_gw.load_settings(self.dlg)
+        tools_gw.manage_dlg_widgets(self, self.dlg, self._prepare_dialog_json(json_result))
+        self._cache_node_widgets()
+        self._load_saved_values()
+        self._init_snapping()
+        self.dlg.rejected.connect(partial(self._on_dialog_closed, self.dlg))
+        tools_gw.open_dialog(self.dlg, dlg_name='profile_interpolation',
+                             title=tools_qt.tr('Profile interpolation'))
 
-    def _execute_and_profile(self, dlg):
-        node1_widget = dlg.findChild(QLineEdit, 'node1')
-        node2_widget = dlg.findChild(QLineEdit, 'node2')
-        node1 = tools_qt.get_text(dlg, node1_widget, False, False) if node1_widget else None
-        node2 = tools_qt.get_text(dlg, node2_widget, False, False) if node2_widget else None
+    def _prepare_dialog_json(self, json_result):
+        result = copy.deepcopy(json_result)
+        for field in result.get('body', {}).get('data', {}).get('fields') or []:
+            if not field or field.get('hidden') or field.get('widgettype') != 'button':
+                continue
+            stylesheet = field.get('stylesheet') or {}
+            widgetcontrols = field.get('widgetcontrols') or {}
+            if widgetcontrols.get('icon') and not stylesheet.get('icon'):
+                field['stylesheet'] = {'icon': widgetcontrols['icon']}
+            if not field.get('value') and not (field.get('stylesheet') or {}).get('icon'):
+                fallback = widgetcontrols.get('text') or field.get('label') or ''
+                if fallback:
+                    field['value'] = fallback
+        return result
+
+    def _cache_node_widgets(self):
+        self._node_widgets = {}
+        for name in ('node1', 'node2'):
+            widget = self._find_lineedit(self.dlg, name)
+            if widget is not None:
+                self._node_widgets[name] = widget
+
+    def _init_snapping(self):
+        self.snapper_manager = GwSnapManager(self.iface)
+        self.vertex_marker = self.snapper_manager.vertex_marker
+        self.layer_node = tools_qgis.get_layer_by_tablename('ve_node', show_warning_=False)
+
+    def _find_widget(self, dialog, name):
+        widget = dialog.findChild(QWidget, name)
+        if widget is None:
+            widget = dialog.findChild(QWidget, f'tab_none_{name}')
+        return widget
+
+    def _find_lineedit(self, dialog, name):
+        for wname in (f'tab_none_{name}', name):
+            widget = dialog.findChild(QLineEdit, wname)
+            if widget is not None:
+                return widget
+        return None
+
+    def _load_saved_values(self):
+        """ Restore last parameters from session config """
+
+        for name in _INTERP_PARAM_FIELDS:
+            widget = self._find_widget(self.dlg, name)
+            if widget is None:
+                continue
+            value = tools_gw.get_config_parser(
+                _INTERP_CONFIG_SECTION, f"{_INTERP_FUNCTION_NAME}_{name}", "user", "session")
+            if value in (None, 'None', ''):
+                continue
+            if isinstance(widget, QComboBox):
+                tools_qt.set_combo_value(widget, value, 0)
+            elif isinstance(widget, QLineEdit):
+                tools_qt.set_widget_text(self.dlg, widget, value)
+
+    def _save_values(self, dialog):
+        """ Persist parameters to session config """
+
+        for name in _INTERP_PARAM_FIELDS:
+            widget = self._find_widget(dialog, name)
+            if widget is None:
+                continue
+            values = tools_gw.get_values(dialog, widget, ignore_editability=True)
+            if not values or name not in values:
+                continue
+            tools_gw.set_config_parser(
+                _INTERP_CONFIG_SECTION, f"{_INTERP_FUNCTION_NAME}_{name}", f"{values[name]}")
+
+    def _collect_parameters(self, dialog):
+        params = {'type': 'FLOWEXIT'}
+        for name in _INTERP_PARAM_FIELDS:
+            widget = self._find_widget(dialog, name)
+            if widget is None:
+                continue
+            values = tools_gw.get_values(dialog, widget, ignore_editability=True)
+            if not values or name not in values or values[name] in (None, ''):
+                continue
+            if name == 'smoothFactor':
+                params['smoothAlpha'] = values[name]
+            else:
+                params[name] = values[name]
+        return params
+
+    def execute_interpolation_and_profile(self, dialog):
+        """ Run gw_fct_node_interpolate_massive and show profile """
+
+        parameters = self._collect_parameters(dialog)
+        node1 = (parameters.get('node1') or '').strip()
+        node2 = (parameters.get('node2') or '').strip()
         if not node1 or not node2:
-            tools_qt.show_info_box("node1 and node2 are required for profile interpolation.")
+            tools_qt.show_info_box(tools_qt.tr('node1 and node2 are required for profile interpolation.'))
             return
-        self._disconnect_task_handler()
-        self._interp_task_handler = partial(self._on_task_completed, node1, node2)
-        QgsApplication.taskManager().taskCompleted.connect(self._interp_task_handler)
-        self._execute(dlg, self._interp_process_data, aux_params="null", use_aux_conn=False)
 
-    def _execute(self, dialog, result, aux_params="null", use_aux_conn=True):
-        if self.interp_task is not None:
-            try:
-                if self.interp_task.isActive():
-                    tools_qgis.show_warning("Toolbox task is already active!")
-                    return
-            except RuntimeError:
-                pass
-        dialog.btn_cancel.show()
-        dialog.btn_close.hide()
-        dialog.progressBar.setRange(0, 0)
-        dialog.progressBar.setVisible(True)
-        dialog.progressBar.setStyleSheet(
-            "QProgressBar {border: 0px solid #000000; border-radius: 5px; background-color: #E0E0E0;}"
-            "QProgressBar::chunk {background-color:#0bd82c; width: 10 px; margin: 0.5px;}")
-        t0 = time()
-        self._interp_timer = QTimer()
-        self._interp_timer.timeout.connect(partial(self._update_elapsed_time, dialog, t0))
-        self._interp_timer.start(1000)
-        self.interp_task = GwToolBoxTask(
-            self, self._interp_function_name, dialog, dialog.cmb_layers, result,
-            timer=self._interp_timer, aux_params=aux_params)
-        self.interp_task.use_aux_conn = use_aux_conn
-        QgsApplication.taskManager().addTask(self.interp_task)
-        QgsApplication.taskManager().triggerTask(self.interp_task)
+        extras = f'"parameters":{json.dumps(parameters)}'
+        body = tools_gw.create_body(extras=extras)
+        json_result = tools_gw.execute_procedure('gw_fct_node_interpolate_massive', body)
+        if not json_result or json_result.get('status') != 'Accepted':
+            return
 
-    def _disconnect_task_handler(self):
-        if self._interp_task_handler is not None:
-            try:
-                QgsApplication.taskManager().taskCompleted.disconnect(self._interp_task_handler)
-            except TypeError:
-                pass
-            self._interp_task_handler = None
-
-    def _on_task_completed(self, node1, node2, task):
-        if task != self.interp_task:
-            return
-        self._disconnect_task_handler()
-        if task.status() != QgsTask.TaskStatus.Complete:
-            return
-        json_result = getattr(self.interp_task, 'json_result', None)
-        if not json_result or json_result.get('status') == 'Failed':
-            return
+        self._save_values(dialog)
         self._profile.show_profile(node1, node2)
 
-    def _cancel_task(self):
-        if self.interp_task is not None:
-            self.interp_task.cancel()
-
-    def _manage_btn_run(self, dialog, index):
-        if index == 1:
-            dialog.btn_run.setEnabled(False)
-        elif self.interp_task is not None:
-            try:
-                dialog.btn_run.setEnabled(not self.interp_task.isActive())
-            except RuntimeError:
-                dialog.btn_run.setEnabled(True)
-        else:
-            dialog.btn_run.setEnabled(True)
-
-    def _update_elapsed_time(self, dialog, t0):
-        if isdeleted(dialog):
-            if self._interp_timer:
-                self._interp_timer.stop()
+    def _set_picked_node(self, target, node_id):
+        text = str(node_id).strip()
+        if not text or text.upper() == 'NULL':
             return
-        elapsed = timedelta(seconds=round(time() - t0))
-        lbl_time = dialog.findChild(QLabel, 'lbl_time')
-        if lbl_time:
-            lbl_time.setText(f"Exec. time: {elapsed}")
-
-    def _rbt_state(self, rbt, state):
-        if rbt.objectName() == 'rbt_previous' and state is True:
-            self.rbt_checked['widget'] = 'previousSelection'
-        elif rbt.objectName() == 'rbt_layer' and state is True:
-            self.rbt_checked['widget'] = 'wholeSelection'
-        self.rbt_checked['value'] = state
-
-    def _load_parametric_values(self, dialog, function):
-        function_name = function['functionname']
-        layout = dialog.findChild(QWidget, 'grb_parameters')
-        if not layout:
+        widget = self._find_node_widget(target)
+        if widget is None:
             return
-        for widget in layout.findChildren(QWidget):
-            if type(widget) in (QCheckBox, QRadioButton) and widget.property('value') in (None, ''):
-                value = tools_gw.get_config_parser(
-                    _INTERP_CONFIG_SECTION, f"{function_name}_{widget.objectName()}", "user", "session")
-                if value not in (None, 'None'):
-                    tools_qt.set_checked(dialog, widget, value)
-            elif isinstance(widget, QComboBox) and widget.property('selectedId') in (None, ''):
-                value = tools_gw.get_config_parser(
-                    _INTERP_CONFIG_SECTION, f"{function_name}_{widget.objectName()}", "user", "session")
-                if value in (None, '', 'NULL') and widget.property('selectedId') not in (None, '', 'NULL'):
-                    value = widget.property('selectedId')
-                tools_qt.set_combo_value(widget, value, 0)
-            elif isinstance(widget, QLineEdit) and widget.property('value') in (None, ''):
-                value = tools_gw.get_config_parser(
-                    _INTERP_CONFIG_SECTION, f"{function_name}_{widget.objectName()}", "user", "session")
-                tools_qt.set_widget_text(dialog, widget, value)
-            elif isinstance(widget, tools_gw.CustomQgsDateTimeEdit) and widget.property('value') in (None, ''):
-                value = tools_gw.get_config_parser(
-                    _INTERP_CONFIG_SECTION, f"{function_name}_{widget.objectName()}", "user", "session")
-                date = QDate.fromString(value, lib_vars.date_format)
-                tools_qt.set_calendar(dialog, widget, date)
+        widget.blockSignals(True)
+        widget.setText(text)
+        widget.blockSignals(False)
+        widget.update()
+        self.dlg.raise_()
+        self.dlg.activateWindow()
 
-    def save_parametric_values(self, dialog, function_name):
-        layout = dialog.findChild(QWidget, 'grb_parameters')
-        if not layout:
+    def _find_node_widget(self, name):
+        widget = self._node_widgets.get(name)
+        if widget is not None and not isdeleted(widget):
+            return widget
+        widget = self._find_lineedit(self.dlg, name)
+        if widget is not None:
+            self._node_widgets[name] = widget
+        return widget
+
+    def activate_snapping(self, target, dialog):
+        if self.layer_node is None:
+            tools_qgis.show_warning(tools_qt.tr('Node layer not found in the project.'))
             return
-        for widget in layout.findChildren(QWidget):
-            if widget.objectName() in self.ignore_widgets:
-                continue
-            key = f"{function_name}_{widget.objectName()}"
-            if isinstance(widget, QCheckBox):
-                tools_gw.set_config_parser(_INTERP_CONFIG_SECTION, key, f"{widget.isChecked()}")
-            elif isinstance(widget, QComboBox):
-                value = tools_qt.get_combo_value(dialog, widget, 0)
-                tools_gw.set_config_parser(_INTERP_CONFIG_SECTION, key, f"{value}")
-            elif isinstance(widget, QLineEdit):
-                value = tools_qt.get_text(dialog, widget, False, False)
-                tools_gw.set_config_parser(_INTERP_CONFIG_SECTION, key, f"{value}")
-            elif isinstance(widget, tools_gw.CustomQgsDateTimeEdit):
-                value = tools_qt.get_calendar_date(dialog, widget, date_format=lib_vars.date_format)
-                tools_gw.set_config_parser(_INTERP_CONFIG_SECTION, key, f"{value}")
+        self._disconnect_snapping()
+        self._pick_target = target
+        self.snapper_manager.set_vertex_marker(self.vertex_marker, icon_type=4)
+        self.emit_point = QgsMapToolEmitPoint(self.canvas)
+        self.canvas.setMapTool(self.emit_point)
+        self.iface.setActiveLayer(self.layer_node)
+        tools_gw.connect_signal(self.canvas.xyCoordinates, self._mouse_move,
+                                _INTERP_SIGNAL_GROUP, 'xyCoordinates_mouse_move')
+        tools_gw.connect_signal(self.emit_point.canvasClicked, self._snapping_node,
+                                _INTERP_SIGNAL_GROUP, 'canvasClicked_snapping_node')
+        self.emit_point.canvasReleaseEvent = lambda e: self.iface.actionPan().trigger()
 
-    def save_settings_values(self, dialog, function_name):
-        feature_type = tools_qt.get_combo_value(dialog, dialog.cmb_feature_type, 0)
-        tools_gw.set_config_parser(_INTERP_CONFIG_SECTION, f"{function_name}_cmb_feature_type", f"{feature_type}")
-        layer = tools_qt.get_combo_value(dialog, dialog.cmb_layers, 0)
-        tools_gw.set_config_parser(_INTERP_CONFIG_SECTION, f"{function_name}_cmb_layers", f"{layer}")
-        tools_gw.set_config_parser(
-            _INTERP_CONFIG_SECTION, f"{function_name}_rbt_previous", f"{dialog.rbt_previous.isChecked()}")
+    def _mouse_move(self, point):
+        event_point = self.snapper_manager.get_event_point(point=point)
+        result = self.snapper_manager.snap_to_current_layer(event_point)
+        if result.isValid() and self.snapper_manager.get_snapped_layer(result) == self.layer_node:
+            self.snapper_manager.add_marker(result, self.vertex_marker)
+            return
+        self.vertex_marker.hide()
 
-    def set_selected_layer(self, dialog, combo):
-        layer_name = tools_qt.get_combo_value(dialog, combo, 1)
-        layer = tools_qgis.get_layer_by_tablename(layer_name)
-        if layer is None:
-            tools_qgis.show_warning("Layer not found", parameter=layer_name)
-            return None
-        global_vars.iface.setActiveLayer(layer)
-        return layer
+    def _snapping_node(self, point, button=None):
+        if button is not None and button != 1:
+            return
+        event_point = self.snapper_manager.get_event_point(point=point)
+        result = self.snapper_manager.snap_to_current_layer(event_point)
+        if not result.isValid() or self.snapper_manager.get_snapped_layer(result) != self.layer_node:
+            return
+        if not self._pick_target:
+            return
+        node_id = self.snapper_manager.get_snapped_feature(result).attribute('node_id')
+        self._set_picked_node(self._pick_target, node_id)
+        tools_qgis.show_info(tools_qt.tr('Node selected'), parameter=str(node_id))
+        self._disconnect_snapping()
 
-    def remove_layers(self):
-        root = QgsProject.instance().layerTreeRoot()
-        for layer in reversed(self.temp_layers_added):
-            self.temp_layers_added.remove(layer)
-            try:
-                dem_raster = root.findLayer(layer.id())
-            except RuntimeError:
-                continue
-            parent_group = dem_raster.parent()
-            try:
-                QgsProject.instance().removeMapLayer(layer.id())
-            except Exception:
-                pass
-            if len(parent_group.findLayers()) == 0:
-                root.removeChildNode(parent_group)
-        global_vars.iface.mapCanvas().refresh()
+    def _disconnect_snapping(self):
+        if self.emit_point is not None:
+            tools_qgis.disconnect_snapping(False, self.emit_point, self.vertex_marker)
+        tools_gw.disconnect_signal(_INTERP_SIGNAL_GROUP)
+        self._pick_target = None
+
+    def _on_dialog_closed(self, dlg):
+        self._disconnect_snapping()
+        tools_gw.save_settings(dlg)
+        self.dlg = None
+
+
+def pick_node(**kwargs):
+    func_params = kwargs.get('func_params') or {}
+    if isinstance(func_params, str):
+        try:
+            func_params = json.loads(func_params.replace("'", '"'))
+        except (json.JSONDecodeError, TypeError):
+            func_params = {}
+    target = func_params.get('target')
+    if not target:
+        return
+    kwargs['class'].activate_snapping(target, kwargs['dialog'])
+
+
+def run(**kwargs):
+    kwargs['class'].execute_interpolation_and_profile(kwargs['dialog'])
+
+
+def close(**kwargs):
+    class_obj = kwargs['class']
+    class_obj._disconnect_snapping()
+    tools_gw.save_settings(kwargs['dialog'])
+    tools_gw.close_dialog(kwargs['dialog'])
+    class_obj.dlg = None
