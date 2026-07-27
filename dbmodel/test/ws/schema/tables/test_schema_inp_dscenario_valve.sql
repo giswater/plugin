@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'node_id', 'valve_type', 'setting', 'curve_id', 'minorloss',
         'status', 'add_settings', 'init_quality', 'to_arc', 'head', 'pattern_id',
-        'demand', 'demand_pattern_id', 'emitter_coeff'
+        'demand', 'demand_pattern_id', 'emitter_coeff', 'observ'
     ],
     'Table inp_dscenario_valve should have the correct columns'
 );
@@ -44,6 +44,7 @@ SELECT col_type_is('inp_dscenario_valve', 'pattern_id', 'varchar(16)', 'Column p
 SELECT col_type_is('inp_dscenario_valve', 'demand', 'numeric(12,6)', 'Column demand should be numeric(12,6)');
 SELECT col_type_is('inp_dscenario_valve', 'demand_pattern_id', 'varchar(16)', 'Column demand_pattern_id should be varchar(16)');
 SELECT col_type_is('inp_dscenario_valve', 'emitter_coeff', 'float8', 'Column emitter_coeff should be float8');
+SELECT col_type_is('inp_dscenario_valve', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_valve', 'Table inp_dscenario_valve should have foreign keys');

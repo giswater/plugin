@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_pipe',
     ARRAY[
         'dscenario_id', 'arc_id', 'minorloss', 'status', 'roughness', 'dint',
-        'bulk_coeff', 'wall_coeff'
+        'bulk_coeff', 'wall_coeff', 'observ'
     ],
     'Table inp_dscenario_pipe should have the correct columns'
 );
@@ -36,6 +36,7 @@ SELECT col_type_is('inp_dscenario_pipe', 'roughness', 'numeric(12,4)', 'Column r
 SELECT col_type_is('inp_dscenario_pipe', 'dint', 'numeric(12,3)', 'Column dint should be numeric(12,3)');
 SELECT col_type_is('inp_dscenario_pipe', 'bulk_coeff', 'float8', 'Column bulk_coeff should be float8');
 SELECT col_type_is('inp_dscenario_pipe', 'wall_coeff', 'float8', 'Column wall_coeff should be float8');
+SELECT col_type_is('inp_dscenario_pipe', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_pipe', 'Table inp_dscenario_pipe should have foreign keys');

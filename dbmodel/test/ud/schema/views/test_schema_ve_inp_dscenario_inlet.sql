@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'node_id', 'y0', 'ysur', 'apond', 'inlet_type',
         'outlet_type', 'gully_method', 'custom_top_elev', 'custom_depth', 'inlet_length', 'inlet_width',
-        'cd1', 'cd2', 'efficiency', 'the_geom'
+        'cd1', 'cd2', 'efficiency', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_inlet should have the correct columns'
 );
@@ -45,6 +45,7 @@ SELECT col_type_is('ve_inp_dscenario_inlet', 'cd1', 'float8', 'Column cd1 should
 SELECT col_type_is('ve_inp_dscenario_inlet', 'cd2', 'float8', 'Column cd2 should be float8');
 SELECT col_type_is('ve_inp_dscenario_inlet', 'efficiency', 'float8', 'Column efficiency should be float8');
 SELECT col_type_is('ve_inp_dscenario_inlet', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_inlet', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

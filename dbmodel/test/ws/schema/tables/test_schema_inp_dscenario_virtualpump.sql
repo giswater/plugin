@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_virtualpump',
     ARRAY[
         'dscenario_id', 'arc_id', 'power', 'curve_id', 'speed', 'pattern_id',
-        'status', 'effic_curve_id', 'energy_price', 'energy_pattern_id', 'pump_type'
+        'status', 'effic_curve_id', 'energy_price', 'energy_pattern_id', 'pump_type', 'observ'
     ],
     'Table inp_dscenario_virtualpump should have the correct columns'
 );
@@ -39,6 +39,7 @@ SELECT col_type_is('inp_dscenario_virtualpump', 'effic_curve_id', 'varchar(18)',
 SELECT col_type_is('inp_dscenario_virtualpump', 'energy_price', 'float8', 'Column energy_price should be float8');
 SELECT col_type_is('inp_dscenario_virtualpump', 'energy_pattern_id', 'varchar(18)', 'Column energy_pattern_id should be varchar(18)');
 SELECT col_type_is('inp_dscenario_virtualpump', 'pump_type', 'varchar(16)', 'Column pump_type should be varchar(16)');
+SELECT col_type_is('inp_dscenario_virtualpump', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_virtualpump', 'Table inp_dscenario_virtualpump should have foreign keys');

@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_frorifice',
     ARRAY[
         'dscenario_id', 'element_id', 'orifice_type', 'offsetval', 'cd', 'orate',
-        'flap', 'shape', 'geom1', 'geom2', 'geom3', 'geom4'
+        'flap', 'shape', 'geom1', 'geom2', 'geom3', 'geom4', 'observ'
     ],
     'Table inp_dscenario_frorifice should have the correct columns'
 );
@@ -40,6 +40,7 @@ SELECT col_type_is('inp_dscenario_frorifice', 'geom1', 'numeric(12,4)', 'Column 
 SELECT col_type_is('inp_dscenario_frorifice', 'geom2', 'numeric(12,4)', 'Column geom2 should be numeric(12,4)');
 SELECT col_type_is('inp_dscenario_frorifice', 'geom3', 'numeric(12,4)', 'Column geom3 should be numeric(12,4)');
 SELECT col_type_is('inp_dscenario_frorifice', 'geom4', 'numeric(12,4)', 'Column geom4 should be numeric(12,4)');
+SELECT col_type_is('inp_dscenario_frorifice', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_frorifice', 'Table inp_dscenario_frorifice should have foreign keys');

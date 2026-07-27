@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_dscenario_junction',
     ARRAY[
         'dscenario_id', 'node_id', 'elev', 'ymax', 'y0', 'ysur',
-        'apond', 'outfallparam', 'the_geom'
+        'apond', 'outfallparam', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_junction should have the correct columns'
 );
@@ -37,6 +37,7 @@ SELECT col_type_is('ve_inp_dscenario_junction', 'ysur', 'numeric(12,4)', 'Column
 SELECT col_type_is('ve_inp_dscenario_junction', 'apond', 'numeric(12,4)', 'Column apond should be numeric(12,4)');
 SELECT col_type_is('ve_inp_dscenario_junction', 'outfallparam', 'json', 'Column outfallparam should be json');
 SELECT col_type_is('ve_inp_dscenario_junction', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_junction', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

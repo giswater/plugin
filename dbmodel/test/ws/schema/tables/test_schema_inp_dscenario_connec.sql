@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'connec_id', 'demand', 'pattern_id', 'peak_factor', 'status',
         'minorloss', 'custom_roughness', 'custom_length', 'custom_dint', 'emitter_coeff', 'init_quality',
-        'source_type', 'source_quality', 'source_pattern_id'
+        'source_type', 'source_quality', 'source_pattern_id', 'observ'
     ],
     'Table inp_dscenario_connec should have the correct columns'
 );
@@ -44,6 +44,7 @@ SELECT col_type_is('inp_dscenario_connec', 'init_quality', 'float8', 'Column ini
 SELECT col_type_is('inp_dscenario_connec', 'source_type', 'varchar(18)', 'Column source_type should be varchar(18)');
 SELECT col_type_is('inp_dscenario_connec', 'source_quality', 'float8', 'Column source_quality should be float8');
 SELECT col_type_is('inp_dscenario_connec', 'source_pattern_id', 'varchar(16)', 'Column source_pattern_id should be varchar(16)');
+SELECT col_type_is('inp_dscenario_connec', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_connec', 'Table inp_dscenario_connec should have foreign keys');

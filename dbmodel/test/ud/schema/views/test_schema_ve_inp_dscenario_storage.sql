@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'node_id', 'elev', 'ymax', 'storage_type', 'curve_id',
         'a1', 'a2', 'a0', 'fevap', 'sh', 'hc',
-        'imd', 'y0', 'ysur', 'the_geom'
+        'imd', 'y0', 'ysur', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_storage should have the correct columns'
 );
@@ -45,6 +45,7 @@ SELECT col_type_is('ve_inp_dscenario_storage', 'imd', 'numeric(12,4)', 'Column i
 SELECT col_type_is('ve_inp_dscenario_storage', 'y0', 'numeric(12,4)', 'Column y0 should be numeric(12,4)');
 SELECT col_type_is('ve_inp_dscenario_storage', 'ysur', 'numeric(12,4)', 'Column ysur should be numeric(12,4)');
 SELECT col_type_is('ve_inp_dscenario_storage', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_storage', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

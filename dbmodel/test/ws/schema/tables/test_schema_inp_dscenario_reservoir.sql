@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_reservoir',
     ARRAY[
         'dscenario_id', 'node_id', 'pattern_id', 'head', 'init_quality', 'source_type',
-        'source_quality', 'source_pattern_id'
+        'source_quality', 'source_pattern_id', 'observ'
     ],
     'Table inp_dscenario_reservoir should have the correct columns'
 );
@@ -36,6 +36,7 @@ SELECT col_type_is('inp_dscenario_reservoir', 'init_quality', 'float8', 'Column 
 SELECT col_type_is('inp_dscenario_reservoir', 'source_type', 'varchar(18)', 'Column source_type should be varchar(18)');
 SELECT col_type_is('inp_dscenario_reservoir', 'source_quality', 'float8', 'Column source_quality should be float8');
 SELECT col_type_is('inp_dscenario_reservoir', 'source_pattern_id', 'varchar(16)', 'Column source_pattern_id should be varchar(16)');
+SELECT col_type_is('inp_dscenario_reservoir', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_reservoir', 'Table inp_dscenario_reservoir should have foreign keys');

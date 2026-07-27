@@ -21,7 +21,7 @@ SELECT has_table('inp_dscenario_frpump'::name, 'Table inp_dscenario_frpump shoul
 SELECT columns_are(
     'inp_dscenario_frpump',
     ARRAY[
-        'dscenario_id', 'element_id', 'curve_id', 'status', 'startup', 'shutoff'
+        'dscenario_id', 'element_id', 'curve_id', 'status', 'startup', 'shutoff', 'observ'
     ],
     'Table inp_dscenario_frpump should have the correct columns'
 );
@@ -33,6 +33,7 @@ SELECT col_type_is('inp_dscenario_frpump', 'curve_id', 'varchar(16)', 'Column cu
 SELECT col_type_is('inp_dscenario_frpump', 'status', 'varchar(3)', 'Column status should be varchar(3)');
 SELECT col_type_is('inp_dscenario_frpump', 'startup', 'numeric(12,4)', 'Column startup should be numeric(12,4)');
 SELECT col_type_is('inp_dscenario_frpump', 'shutoff', 'numeric(12,4)', 'Column shutoff should be numeric(12,4)');
+SELECT col_type_is('inp_dscenario_frpump', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_frpump', 'Table inp_dscenario_frpump should have foreign keys');

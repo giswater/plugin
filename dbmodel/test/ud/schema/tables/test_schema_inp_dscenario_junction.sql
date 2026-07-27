@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_junction',
     ARRAY[
         'dscenario_id', 'node_id', 'y0', 'ysur', 'apond', 'outfallparam',
-        'elev', 'ymax'
+        'elev', 'ymax', 'observ'
     ],
     'Table inp_dscenario_junction should have the correct columns'
 );
@@ -36,7 +36,7 @@ SELECT col_type_is('inp_dscenario_junction', 'apond', 'numeric(12,4)', 'Column a
 SELECT col_type_is('inp_dscenario_junction', 'outfallparam', 'json', 'Column outfallparam should be json');
 SELECT col_type_is('inp_dscenario_junction', 'elev', 'float8', 'Column elev should be float8');
 SELECT col_type_is('inp_dscenario_junction', 'ymax', 'float8', 'Column ymax should be float8');
-
+SELECT col_type_is('inp_dscenario_junction', 'observ', 'text', 'Column observ should be text');
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_junction', 'Table inp_dscenario_junction should have foreign keys');
 

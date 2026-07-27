@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_lids',
     ARRAY[
         'dscenario_id', 'subc_id', 'lidco_id', 'numelem', 'area', 'width',
-        'initsat', 'fromimp', 'toperv', 'rptfile', 'descript'
+        'initsat', 'fromimp', 'toperv', 'rptfile', 'descript', 'observ'
     ],
     'Table inp_dscenario_lids should have the correct columns'
 );
@@ -39,7 +39,7 @@ SELECT col_type_is('inp_dscenario_lids', 'fromimp', 'numeric(12,4)', 'Column fro
 SELECT col_type_is('inp_dscenario_lids', 'toperv', 'int2', 'Column toperv should be int2');
 SELECT col_type_is('inp_dscenario_lids', 'rptfile', 'varchar(10)', 'Column rptfile should be varchar(10)');
 SELECT col_type_is('inp_dscenario_lids', 'descript', 'text', 'Column descript should be text');
-
+SELECT col_type_is('inp_dscenario_lids', 'observ', 'text', 'Column observ should be text');
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_lids', 'Table inp_dscenario_lids should have foreign keys');
 

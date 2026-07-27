@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'node_id', 'elev', 'ymax', 'storage_type', 'curve_id',
         'a1', 'a2', 'a0', 'fevap', 'sh', 'hc',
-        'imd', 'y0', 'ysur'
+        'imd', 'y0', 'ysur', 'observ'
     ],
     'Table inp_dscenario_storage should have the correct columns'
 );
@@ -44,7 +44,7 @@ SELECT col_type_is('inp_dscenario_storage', 'hc', 'numeric(12,4)', 'Column hc sh
 SELECT col_type_is('inp_dscenario_storage', 'imd', 'numeric(12,4)', 'Column imd should be numeric(12,4)');
 SELECT col_type_is('inp_dscenario_storage', 'y0', 'numeric(12,4)', 'Column y0 should be numeric(12,4)');
 SELECT col_type_is('inp_dscenario_storage', 'ysur', 'numeric(12,4)', 'Column ysur should be numeric(12,4)');
-
+SELECT col_type_is('inp_dscenario_storage', 'observ', 'text', 'Column observ should be text');
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_storage', 'Table inp_dscenario_storage should have foreign keys');
 

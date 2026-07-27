@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'node_id', 'initlevel', 'minlevel', 'maxlevel', 'diameter',
         'minvol', 'curve_id', 'overflow', 'mixing_model', 'mixing_fraction', 'reaction_coeff',
-        'init_quality', 'source_type', 'source_quality', 'source_pattern_id', 'the_geom'
+        'init_quality', 'source_type', 'source_quality', 'source_pattern_id', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_tank should have the correct columns'
 );
@@ -46,6 +46,7 @@ SELECT col_type_is('ve_inp_dscenario_tank', 'source_type', 'varchar(18)', 'Colum
 SELECT col_type_is('ve_inp_dscenario_tank', 'source_quality', 'float8', 'Column source_quality should be float8');
 SELECT col_type_is('ve_inp_dscenario_tank', 'source_pattern_id', 'varchar(16)', 'Column source_pattern_id should be varchar(16)');
 SELECT col_type_is('ve_inp_dscenario_tank', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_tank', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 
