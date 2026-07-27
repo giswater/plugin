@@ -62,6 +62,8 @@ class GwConfigButton(GwAction):
         if not self.json_result or self.json_result['status'] == 'Failed':
             return False
 
+        self._initial_ui_locale = tools_qgis.get_ui_language_locale()
+
         # Get widget controls
         self._get_widget_controls()
 
@@ -191,6 +193,10 @@ class GwConfigButton(GwAction):
         json_result = tools_gw.execute_procedure('gw_fct_setconfig', body)
         if not json_result or json_result['status'] == 'Failed':
             return False
+
+        new_locale = tools_qgis.get_ui_language_locale()
+        if new_locale != getattr(self, '_initial_ui_locale', None):
+            tools_qt._add_translator(True)
 
         msg = "Values has been updated"
         tools_qgis.show_info(msg)
