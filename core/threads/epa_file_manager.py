@@ -23,6 +23,12 @@ from .task import GwTask
 class GwEpaFileManager(GwTask):
     """ This shows how to subclass QgsTask """
 
+    # Relative weights for active phases (scaled to 0-100 at runtime)
+    WEIGHT_PG2EPA = 20
+    WEIGHT_EXPORT = 5
+    WEIGHT_EPA = 55
+    WEIGHT_IMPORT = 20
+
     fake_progress = pyqtSignal()
     step_completed = pyqtSignal(dict, str)
 
@@ -77,6 +83,8 @@ class GwEpaFileManager(GwTask):
         return status
 
     def main_process(self) -> bool:
+        self._init_progress_ranges()
+
         status = True
         msg = "Task 'Go2Epa' execute function '{0}'"
         if self.go2epa_export_inp or self.go2epa_execute_epa:
@@ -249,6 +257,8 @@ class GwEpaFileManager(GwTask):
         self._close_file()
         super().cancel()
 
+    # region private functions
+
     def _close_file(self, file=None):
 
         if file is None:
@@ -261,13 +271,42 @@ class GwEpaFileManager(GwTask):
         except Exception:
             pass
 
-    # region private functions
+    def _init_progress_ranges(self):
+        """Build 0-100 ranges from active phases, keeping relative weights."""
+        phases = []
+        if self.go2epa_export_inp or self.go2epa_execute_epa:
+            phases.append(('pg2epa', self.WEIGHT_PG2EPA))
+        if self.go2epa_export_inp:
+            phases.append(('export', self.WEIGHT_EXPORT))
+        if self.go2epa_execute_epa:
+            phases.append(('epa', self.WEIGHT_EPA))
+        if self.go2epa_import_result:
+            phases.append(('import', self.WEIGHT_IMPORT))
+
+        total = sum(weight for _, weight in phases) or 1
+        cursor = 0.0
+        ranges = {}
+        for name, weight in phases:
+            span = 100.0 * weight / total
+            ranges[name] = (cursor, cursor + span)
+            cursor += span
+
+        # Instance ranges used by existing _set_progress calls
+        self.PG2EPA_START, self.PG2EPA_END = ranges.get('pg2epa', (0, 0))
+        self.EXPORT_START, self.EXPORT_END = ranges.get('export', (0, 0))
+        self.EPA_START, self.EPA_END = ranges.get('epa', (0, 0))
+        self.IMPORT_START, self.IMPORT_END = ranges.get('import', (0, 0))
+
+    def _set_progress(self, start, end, local_percent=100):
+        """Map a phase-local percent (0-100) into the global task progress bar."""
+        local_percent = max(0, min(100, float(local_percent)))
+        self.setProgress(start + (end - start) * local_percent / 100.0)
 
     def _exec_function_pg2epa(self):
 
         self.json_result = None
         status = False
-        self.setProgress(0)
+        self._set_progress(self.PG2EPA_START, self.PG2EPA_END, 0)
 
         extras = f'"resultId":"{self.result_name}"'
         if global_vars.project_type == 'ud':
@@ -287,6 +326,7 @@ class GwEpaFileManager(GwTask):
             if self.isCanceled() or json_result is None:
                 return False
             self.step_completed.emit(json_result, "\n")
+            self._set_progress(self.PG2EPA_START, self.PG2EPA_END, step / 7 * 100)
             if json_result.get('status') == 'Failed':
                 tools_log.log_warning(json_result)
                 self.function_failed = True
@@ -328,6 +368,7 @@ class GwEpaFileManager(GwTask):
         self.message = self.complet_result['message']['text']
         self.common_msg += "Export INP finished. "
 
+        self._set_progress(self.EXPORT_START, self.EXPORT_END)
         return True
 
     def _fill_inp_file(self, folder_path=None, all_rows=None):
@@ -431,10 +472,22 @@ class GwEpaFileManager(GwTask):
             return False
 
         subprocess.call([opener, self.file_inp, self.file_rpt], shell=False)
+        self._set_progress(self.EPA_START, self.EPA_END)
         self.common_msg += "EPA model finished. "
         self.step_completed.emit({"message": {"level": 1, "text": "EPA model finished."}}, "\n")
 
         return True
+
+    def _on_epa_progress(self, progress: int, message: str):
+        self._set_progress(self.EPA_START, self.EPA_END, progress)
+        self.step_completed.emit(
+            {"message": {"level": 1, "text": f"EPA [{progress}%] {message}"}},
+            "\n",
+        )
+
+    def _on_epa_step(self, _en_data, _step_count):
+        """Continue hydraulic steps unless the QgsTask was canceled."""
+        return not self.isCanceled()
 
     def _execute_epa_with_hydraulic_engine(self):
 
@@ -461,8 +514,17 @@ class GwEpaFileManager(GwTask):
 
         try:
             # Execute EPA with hydraulic engine
-            runner = he.epanet.EpanetRunner(self.file_inp, self.file_rpt)
-            results = runner.run()
+            runner = he.epanet.EpanetRunner(
+                self.file_inp,
+                self.file_rpt,
+                progress_callback=self._on_epa_progress,
+            )
+            results = runner.run(step_callback=self._on_epa_step)
+            if self.isCanceled() or (
+                results is not None
+                and results.status == he.utils.enums.RunStatus.CANCELLED
+            ):
+                return None
             if results is None:
                 self.error_msg = "Error executing EPA software"
                 self.error_msg_params = (results,)
@@ -585,6 +647,7 @@ class GwEpaFileManager(GwTask):
             )
 
             # Import results
+            self._set_progress(self.IMPORT_START, self.IMPORT_END, 0)
             status = runner.export_result(
                 to=he.ExportDataSource.DATABASE,
                 result_id=self.result_name,
@@ -605,6 +668,7 @@ class GwEpaFileManager(GwTask):
                 self.error_msg = str(e)
                 return False
             self.active_epa_layers = True
+            self._set_progress(self.IMPORT_START, self.IMPORT_END)
             return True
         except Exception as e:
             self.error_msg = str(e)
@@ -772,7 +836,11 @@ class GwEpaFileManager(GwTask):
 
             # Update progress bar every ~1000 lines
             if progress % 1000 == 0:
-                self.setProgress((line_number * 100) / row_count)
+                self._set_progress(
+                    self.IMPORT_START,
+                    self.IMPORT_END,
+                    (line_number * 100) / row_count,
+                )
 
         # Manage JSON
         # Finalize the JSON array string (strip the trailing comma+space added during the loop)
@@ -806,6 +874,7 @@ class GwEpaFileManager(GwTask):
             self.step_completed.emit(self.json_result, "\n")
         # final message
         self.common_msg += "Import RPT file finished."
+        self._set_progress(self.IMPORT_START, self.IMPORT_END)
 
         return True
 
