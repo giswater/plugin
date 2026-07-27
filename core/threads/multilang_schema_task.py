@@ -40,6 +40,7 @@ from ..admin.i18n_baseline_seed import (
     fetch_seeded_project_types_from_multilang,
     invalidate_baseline_fingerprint_cache,
     language_baselines_exist,
+    multilang_user_param_provision_sql,
     normalize_language_folder,
     normalize_language_id,
     seed_sql_for_project_types,
@@ -176,6 +177,11 @@ class GwMultilangSchemaTask(GwTask):
 
     def _run_seed_language_only(self) -> bool:
         """Insert/update baseline rows for one locale; do not create/upgrade schema."""
+        if not self._provision_network_user_param(enable=True):
+            if self._adapter is not None:
+                self._adapter.rollback()
+            return False
+
         sql_root = self.params.sql_root or ""
         if not language_baselines_exist(sql_root, self.locale or self.lang_folder):
             self._set_task_error(
@@ -269,9 +275,17 @@ class GwMultilangSchemaTask(GwTask):
                 self._adapter.rollback()
             return False
 
+        if not self._provision_network_user_param(enable=True):
+            if self._adapter is not None:
+                self._adapter.rollback()
+            return False
+
         if self._adapter is not None:
             self._adapter.commit()
         return True
+
+    def _provision_network_user_param(self, *, enable: bool) -> bool:
+        return self._execute_sql(multilang_user_param_provision_sql(enable=enable))
 
     def _seed_project_types(
         self,

@@ -367,6 +367,15 @@ class GwAdminButton:
         if not result.ok:
             self.error_count += 1
         self.manage_process_result(project_name_schema, project_type, is_test=is_test)
+        if result.ok and admin_catalog.schema_exists("multilang"):
+            from .i18n_baseline_seed import multilang_user_param_provision_sql
+
+            tools_db.execute_sql(
+                multilang_user_param_provision_sql(
+                    enable=True,
+                    schema_name=project_name_schema,
+                )
+            )
 
     def create_process(self, process_name="", parent_schema=None, parent_type=None):
         """
@@ -3140,6 +3149,10 @@ class GwAdminButton:
         msg_params = (schema,)
         result = tools_qt.show_question(msg, "Info", force_action=True, msg_params=msg_params)
         if result:
+            if schema == "multilang":
+                from .i18n_baseline_seed import multilang_user_param_provision_sql
+
+                tools_db.execute_sql(multilang_user_param_provision_sql(enable=False))
             fx = engine_drop_schema(QtDbAdapter(), schema, cascade=True, commit=True)
             if fx.ok:
                 msg = "Process finished successfully: Delete schema"
