@@ -90,6 +90,16 @@ BEGIN
 	--  Get project type
 	SELECT project_type INTO v_project_type FROM sys_version ORDER BY id DESC LIMIT 1;
 
+	-- Resolve multilang UI preference once for all config tabs
+	v_ml_pref := NULL;
+	v_ui_lang := NULL;
+	v_ml_project_type := NULL;
+	IF to_regnamespace('multilang') IS NOT NULL THEN
+		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
+		v_ui_lang := v_ml_pref->>'lang';
+		v_ml_project_type := v_ml_pref->>'project_type';
+	END IF;
+
 	-- Get layers and table names
 	v_layers_name = ((p_data ->> 'data')::json->> 'list_layers_name')::text;
 	v_layers_table = ((p_data ->> 'data')::json->> 'list_tables_name')::text;
@@ -123,6 +133,7 @@ BEGIN
 					AND formname =',quote_literal(lower(v_formname)),'
 					AND (project_type =''utils'' or project_type=',quote_literal(lower(v_project_type)),')
 					AND isenabled IS TRUE
+					AND (sys_param_user.id <> ''multilang_language'' OR to_regclass(''multilang.cat_language'') IS NOT NULL)
 					AND sys_param_user.id NOT LIKE ''feat_%''
 					UNION
 				SELECT label, sys_param_user.id as widgetname, value , datatype, widgettype, layoutorder, layoutname,
@@ -322,16 +333,6 @@ BEGIN
 		END LOOP;
 
 		-- Apply multilang UI translations for sys_param_user
-		v_schema := 'SCHEMA_NAME';
-		v_ui_lang := NULL;
-		v_ml_project_type := NULL;
-		IF to_regnamespace('multilang') IS NOT NULL THEN
-			v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
-			IF v_ml_pref IS NOT NULL THEN
-				v_ui_lang := v_ml_pref->>'lang';
-				v_ml_project_type := v_ml_pref->>'project_type';
-			END IF;
-		END IF;
 		IF v_ui_lang IS NOT NULL THEN
 			FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array))
 			LOOP
@@ -418,16 +419,6 @@ BEGIN
 		END IF;
 
 		-- Apply multilang UI translations for config_param_system
-		v_schema := 'SCHEMA_NAME';
-		v_ui_lang := NULL;
-		v_ml_project_type := NULL;
-		IF to_regnamespace('multilang') IS NOT NULL THEN
-			v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
-			IF v_ml_pref IS NOT NULL THEN
-				v_ui_lang := v_ml_pref->>'lang';
-				v_ml_project_type := v_ml_pref->>'project_type';
-			END IF;
-		END IF;
 		IF v_ui_lang IS NOT NULL AND fields_array IS NOT NULL THEN
 			FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array))
 			LOOP
