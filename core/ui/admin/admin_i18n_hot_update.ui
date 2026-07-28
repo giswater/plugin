@@ -196,7 +196,7 @@
           <item>
            <widget class="QPushButton" name="btn_manage_language_hot_update">
             <property name="text">
-             <string>Manage language</string>
+             <string>Languages</string>
             </property>
            </widget>
           </item>
@@ -280,7 +280,7 @@
           <item row="0" column="1">
            <widget class="QPushButton" name="btn_manage_language_multilang">
             <property name="text">
-             <string>Manage Languages</string>
+             <string>Languages</string>
             </property>
            </widget>
           </item>
