@@ -297,6 +297,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
     def init_dialog(self):
         """Constructor."""
         tools_gw.load_settings(self)
+        self._offline = False
         self._setup_table()
         self._setup_download_options()
         self.load_locales()
@@ -360,6 +361,12 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
         msg_params = (language,)
         self.lbl_language.setText(tools_qt.tr(msg, list_params=msg_params))
 
+        if getattr(self, "_offline", False):
+            self.btn_download.setVisible(False)
+            self.btn_update.setVisible(False)
+            self.btn_delete.setVisible(False)
+            return
+
         if locale.lower() == "en_us":
             self.btn_download.setVisible(False)
             self.btn_update.setVisible(True)
@@ -415,6 +422,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
 
     def load_locales(self) -> None:
         self.possible_locales = []
+        self._offline = False
 
         api_names: dict[str, str] = {}
         try:
@@ -426,7 +434,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
                         locale = locale_parts[0].lower() + "_" + locale_parts[1].upper()
                     api_names[locale] = name
         except (urllib.error.URLError, urllib.error.HTTPError, OSError, ValueError):
-            pass
+            self._offline = True
 
         downloaded_locales = i18n_service.reconcile_downloaded_locales(api_names)
         if downloaded_locales is None:
@@ -440,6 +448,10 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
         for locale, name in api_names.items():
             if locale not in downloaded_locales:
                 self.possible_locales.append((locale, name, False, None))
+
+        if self._offline:
+            msg = "Could not reach the translations server. Showing downloaded languages only."
+            tools_qt.show_warning_box(msg)
 
     def _set_locale_active(
         self,

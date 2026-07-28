@@ -744,5 +744,15 @@ def reconcile_downloaded_locales(
                 "UPDATE locales SET active = 0, version = NULL WHERE locale = ?",
                 (locale,),
             )
+
+    # Offline / partial catalog: keep showing packages already on disk.
+    for locale, (name, active, version) in db_locales.items():
+        if locale in downloaded_locales:
+            continue
+        if not language_files_exist(locale):
+            continue
+        if active:
+            downloaded_locales[locale] = (name or locale, version)
+
     cursor.connection.commit()
     return downloaded_locales
