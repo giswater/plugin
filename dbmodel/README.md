@@ -292,7 +292,10 @@ On every PR/push touching `dbmodel/**`, GitHub Actions runs **21 checks** (6 lan
 | pgTAP satellites | utils + cibs standalone |
 | pgTAP network | integrated sample + network pgTAP |
 
-Release (`prepare_*_release.py --execute`) calls `scripts/verify_dbmodel_ci_checks.sh` before tagging. Plugin release also runs network lockstep via Actions.
+Plugin release (`prepare_release.py --execute` / `vX.Y.Z` Actions) calls
+`scripts/verify_dbmodel_ci_checks.sh` before tagging/publishing. CLI/PyPI
+(`cli-v*`) does not — the wheel ships `giswater_admin` only. Plugin release
+also runs network lockstep via Actions.
 
 ### Network E2E (manual)
 
