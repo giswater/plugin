@@ -46,7 +46,6 @@ class GwI18NMultilangLanguagesDialog(GwI18NLocalesTableBase):
         self._update_action_buttons()
         tools_gw.open_dialog(self, dlg_name='admin_i18n_multilang_languages')
         self.btn_download.setText(tools_qt.tr("Apply to Multilang"))
-   
 
     def _set_signals(self) -> None:
         self.txt_filter.textChanged.connect(partial(self._apply_filter))
