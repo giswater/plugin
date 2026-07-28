@@ -187,7 +187,7 @@ class GwI18NLocalesTableBase(GwI18NManageLanguagesUi):
 
     def load_downloaded_locales(self, locales: dict[str, str]) -> dict[str, tuple[str, str | None]]:
         downloaded_locales: dict[str, tuple[str, str | None]] = {}
-        status, cursor = tools_gw.create_sqlite_conn("config")
+        status, cursor = tools_gw.create_sqlite_conn("locales")
         if not status or cursor is None:
             msg = "Config database file not found"
             tools_qt.show_info_box(msg)

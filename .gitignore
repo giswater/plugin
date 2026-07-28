@@ -23,4 +23,3 @@ i18n/giswater_*.ts
 !i18n/giswater_en_US.ts
 
 # Ignore config.sqlite file in resources/gis
-resources/gis/config.sqlite

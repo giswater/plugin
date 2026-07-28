@@ -447,7 +447,7 @@ def get_installed_locale_meta(locale: str) -> tuple[bool, str | None]:
     """Return (active, version) from the config SQLite ``locales`` table."""
     from ..utils import tools_gw
 
-    status, cursor = tools_gw.create_sqlite_conn("config")
+    status, cursor = tools_gw.create_sqlite_conn("locales")
     if not status or cursor is None:
         return False, None
     cursor.execute(
@@ -478,7 +478,7 @@ def set_locale_active(
 ) -> bool:
     from ..utils import tools_gw
 
-    status, cursor = tools_gw.create_sqlite_conn("config")
+    status, cursor = tools_gw.create_sqlite_conn("locales")
     if not status or cursor is None:
         return False
     folder = normalize_language_folder(locale)
@@ -705,12 +705,13 @@ def reconcile_downloaded_locales(
 ) -> dict[str, tuple[str, str | None]] | None:
     """Sync SQLite ``locales.active`` with on-disk packages; return installed map.
 
-    Returns ``None`` when the config database is unavailable.
+    When ``locales`` is empty (e.g. offline), still returns packages present on disk
+    and recorded in SQLite. Returns ``None`` when the config database is unavailable.
     """
     from ..utils import tools_gw
 
     downloaded_locales: dict[str, tuple[str, str | None]] = {}
-    status, cursor = tools_gw.create_sqlite_conn("config")
+    status, cursor = tools_gw.create_sqlite_conn("locales")
     if not status or cursor is None:
         return None
 

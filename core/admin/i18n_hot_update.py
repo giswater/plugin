@@ -361,7 +361,7 @@ class GwAdminI18NHotUpdate():
             return ""
 
         # Get the default language from the schema table
-        status, cursor = tools_gw.create_sqlite_conn("config")
+        status, cursor = tools_gw.create_sqlite_conn("locales")
         default_language = self._select_language_from_table(schema_name)
         sql = f"""SELECT name FROM locales WHERE locale = '{default_language}';"""
         cursor.execute(sql)
@@ -486,7 +486,7 @@ class GwAdminI18NHotUpdate():
             insert_default = False
 
         cmb_language.clear()
-        status, cursor = tools_gw.create_sqlite_conn("config")
+        status, cursor = tools_gw.create_sqlite_conn("locales")
         if not status or cursor is None:
             msg = "Config database file not found"
             tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg)

@@ -1306,7 +1306,7 @@ class GwAdminButton:
         self.cmb_locale = self.dlg_readsql_create_project.findChild(QComboBox, 'cmb_locale')
 
         # Populate combo with all locales
-        status, sqlite_cur = tools_gw.create_sqlite_conn("config")
+        status, sqlite_cur = tools_gw.create_sqlite_conn("locales")
         list_locale = self._select_active_locales(sqlite_cur)
         if global_vars.gw_dev_mode is True:
             list_locale.append(["no_TR", "Hardcoded (No translation)"])
