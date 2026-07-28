@@ -194,7 +194,7 @@ SELECT col_type_is('ve_node_flowmeter', 'name', 'text', 'Column name should be t
 SELECT col_type_is('ve_node_flowmeter', 'nominal_flowrate', 'numeric(12,3)', 'Column nominal_flowrate should be numeric(12,3)');
 
 SELECT col_type_is('ve_node_flowmeter', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_flowmeter', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_flowmeter', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

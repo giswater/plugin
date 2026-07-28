@@ -195,7 +195,7 @@ SELECT col_type_is('ve_node_pump', 'pump_type', 'int4', 'Column pump_type should
 SELECT col_type_is('ve_node_pump', 'engine_type', 'int4', 'Column engine_type should be int4');
 
 SELECT col_type_is('ve_node_pump', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_pump', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_pump', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

@@ -180,7 +180,7 @@ SELECT col_type_is('ve_arc_pipe', 'uuid', 'uuid', 'Column uuid should be uuid');
 SELECT col_type_is('ve_arc_pipe', 'uncertain', 'bool', 'Column uncertain should be bool');
 SELECT col_type_is('ve_arc_pipe', 'pipe_param_1', 'text', 'Column pipe_param_1 should be text');
 SELECT col_type_is('ve_arc_pipe', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_arc_pipe', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_arc_pipe', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

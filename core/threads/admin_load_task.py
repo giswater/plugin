@@ -59,15 +59,26 @@ class GwAdminLoadTask(QgsTask):
         self._admin_ref = admin_ref
 
     def run(self) -> bool:
+        if self.isCanceled():
+            return False
+
         timeout = tools_db.get_db_connect_timeout()
         conn_string = tools_db._credentials_conn_string(self.credentials, connect_timeout=timeout)
         conn = None
         try:
             conn = psycopg2.connect(conn_string)
+            if self.isCanceled():
+                return False
+
             fetcher = make_psycopg2_fetcher(conn)
 
             self.result.sys_version_schemas = fetch_sys_version_schemas(fetcher=fetcher)
+            if self.isCanceled():
+                return False
+
             self.result.aux_flags = fetch_aux_schema_flags(fetcher=fetcher)
+            if self.isCanceled():
+                return False
 
             row = fetcher("SELECT current_setting('server_version_num')", None)
             if row:
@@ -80,6 +91,9 @@ class GwAdminLoadTask(QgsTask):
             installed = {str(r[0]) for r in ext_rows} if ext_rows else set()
             self.result.extensions_present = {name: name in installed for name in _READ_EXTENSIONS}
 
+            if self.isCanceled():
+                return False
+
             if self.result.extensions_present.get("postgis"):
                 row = fetcher("SELECT postgis_lib_version()", None)
                 if row:
@@ -89,6 +103,9 @@ class GwAdminLoadTask(QgsTask):
                 row = fetcher("SELECT pgr_version()", None)
                 if row:
                     self.result.pgrouting_version = str(row[0][0])
+
+            if self.isCanceled():
+                return False
 
             self.result.ok = True
             return True
@@ -110,3 +127,4 @@ class GwAdminLoadTask(QgsTask):
             self._admin_ref._on_admin_load_finished(self.result, task_result)
         except Exception as e:
             tools_log.log_warning(f"GwAdminLoadTask finished handler: {e}")
+            self._admin_ref._admin_loading = False

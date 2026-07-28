@@ -12,8 +12,9 @@ phases:
     type: sql_dir
     description: "Build the audit schema DDL + base functions."
     steps:
-      - { source: "schemas/addon/audit/base/base.sql", recursive: false }
+      - { source: "schemas/addon/audit/base/init.sql", recursive: false }
       - { source: "schemas/addon/audit/base/fct", recursive: false }
+      - { source: "schemas/addon/audit/base/base.sql", recursive: false }
 
   - id: load_activate
     type: sql_dir

@@ -137,7 +137,7 @@ class GwToolBoxTask(GwTask):
                         extras += f'"{param_name}":"{value}", '
 
         if widget_is_void:
-            msg = "This param is mandatory. Please, set a value"
+            msg = "This parameter is mandatory. Please, set a value"
             tools_log.log_info(msg, parameter='')
             return False
 

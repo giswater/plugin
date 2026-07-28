@@ -200,7 +200,7 @@ SELECT col_type_is('ve_connec_fountain', 'arq_patrimony', 'bool', 'Column arq_pa
 SELECT col_type_is('ve_connec_fountain', 'name', 'varchar(254)', 'Column name should be varchar(254)');
 
 SELECT col_type_is('ve_connec_fountain', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_connec_fountain', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_connec_fountain', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

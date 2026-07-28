@@ -179,7 +179,7 @@ SELECT col_type_is('ve_arc', 'p_state', 'int2', 'Column p_state should be int2')
 SELECT col_type_is('ve_arc', 'uuid', 'uuid', 'Column uuid should be uuid');
 SELECT col_type_is('ve_arc', 'uncertain', 'bool', 'Column uncertain should be bool');
 SELECT col_type_is('ve_arc', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_arc', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_arc', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

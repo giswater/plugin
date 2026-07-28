@@ -21,7 +21,7 @@ SELECT has_table('inp_dscenario_treatment'::name, 'Table inp_dscenario_treatment
 SELECT columns_are(
     'inp_dscenario_treatment',
     ARRAY[
-        'dscenario_id', 'node_id', 'poll_id', 'function'
+        'dscenario_id', 'node_id', 'poll_id', 'function', 'observ'
     ],
     'Table inp_dscenario_treatment should have the correct columns'
 );
@@ -31,6 +31,7 @@ SELECT col_type_is('inp_dscenario_treatment', 'dscenario_id', 'int4', 'Column ds
 SELECT col_type_is('inp_dscenario_treatment', 'node_id', 'int4', 'Column node_id should be int4');
 SELECT col_type_is('inp_dscenario_treatment', 'poll_id', 'varchar(16)', 'Column poll_id should be varchar(16)');
 SELECT col_type_is('inp_dscenario_treatment', 'function', 'varchar(100)', 'Column function should be varchar(100)');
+SELECT col_type_is('inp_dscenario_treatment', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_treatment', 'Table inp_dscenario_treatment should have foreign keys');

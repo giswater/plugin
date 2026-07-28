@@ -6,15 +6,12 @@ or (at your option) any later version.
 */
 BEGIN;
 
--- Suppress NOTICE messages
 SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 1 test
-SELECT plan(1);
+SELECT plan(2);
 
--- Create roles for testing
 CREATE USER plan_user;
 GRANT role_plan to plan_user;
 
@@ -30,16 +27,44 @@ GRANT role_om to om_user;
 CREATE USER basic_user;
 GRANT role_basic to basic_user;
 
--- Extract and test the "status" field from the function's JSON response
-SELECT is (
-    (gw_fct_settoarc($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
-    "feature":{"featureType":"JUNCTION", "id":"1076"}, "data":{"filterFields":{}, "pageInfo":{},
-    "arcId":"2086", "dmaId":"2", "presszoneId":"3", "sectorId":"3", "dqaId":"1"}}$$)::JSON)->>'status',
-    'Accepted',
-    'Check if gw_fct_settoarc returns status "Accepted"'
+UPDATE presszone
+SET graphconfig = '{"use":[{"nodeParent":"1106", "toArc":[2095]}], "ignore":[], "forceClosed":[]}'::json
+WHERE presszone_id = '4';
+
+SELECT gw_fct_settoarc($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+"feature":{"featureType":"PR_REDUC_VALVE", "id":"1083"}, "data":{"filterFields":{}, "pageInfo":{},
+"arcId":"2089", "dmaId":"2", "presszoneId":"4", "sectorId":"3", "dqaId":"1"}}$$);
+
+SELECT ok(
+    NOT EXISTS (
+        SELECT 1
+        FROM presszone p
+        CROSS JOIN json_array_elements((p.graphconfig->>'use')::json) elem
+        WHERE p.presszone_id = '4'
+          AND (elem->>'nodeParent')::int4 = 1083
+    ),
+    'gw_fct_settoarc does not append nodeParent to presszone graphconfig when absent'
 );
 
--- Finish the test
+UPDATE presszone
+SET graphconfig = '{"use":[{"nodeParent":"1083", "toArc":[2095]}], "ignore":[], "forceClosed":[]}'::json
+WHERE presszone_id = '4';
+
+SELECT gw_fct_settoarc($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+"feature":{"featureType":"PR_REDUC_VALVE", "id":"1083"}, "data":{"filterFields":{}, "pageInfo":{},
+"arcId":"2089", "dmaId":"2", "presszoneId":"4", "sectorId":"3", "dqaId":"1"}}$$);
+
+SELECT is (
+    (SELECT json_array_elements_text((elem->>'toArc')::json)
+     FROM presszone p
+     CROSS JOIN json_array_elements((p.graphconfig->>'use')::json) elem
+     WHERE p.presszone_id = '4'
+       AND (elem->>'nodeParent')::int4 = 1083
+     LIMIT 1),
+    '2089',
+    'gw_fct_settoarc updates toArc in presszone graphconfig when nodeParent already exists'
+);
+
 SELECT finish();
 
 ROLLBACK;

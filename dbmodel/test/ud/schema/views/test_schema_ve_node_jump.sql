@@ -175,7 +175,7 @@ SELECT col_type_is('ve_node_jump', 'name', 'varchar(255)', 'Column name should b
 SELECT col_type_is('ve_node_jump', 'wjump_code', 'text', 'Column wjump_code should be text');
 SELECT col_type_is('ve_node_jump', 'has_access', 'bool', 'Column has_access should be bool');
 SELECT col_type_is('ve_node_jump', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_jump', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_jump', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

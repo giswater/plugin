@@ -48,6 +48,13 @@ BEGIN
 		END IF;
 
 		SELECT max(macrodqa_id::integer)+1 INTO v_macrodqa_id FROM macrodqa WHERE macrodqa_id::text ~ '^[0-9]+$';
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'MACRODQA', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		IF NEW.code IS NULL THEN
 			NEW.code := v_macrodqa_id::text;
 		END IF;
@@ -67,6 +74,13 @@ BEGIN
 
     ELSIF TG_OP = 'UPDATE' THEN
 
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF v_view_name = 'EDIT' AND NEW.the_geom IS NOT NULL AND NEW.code IS NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'MACRODQA', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		UPDATE macrodqa
 		SET macrodqa_id=NEW.macrodqa_id, code=NEW.code, "name"=NEW.name, descript=NEW.descript, active=NEW.active, expl_id=NEW.expl_id, sector_id=NEW.sector_id, 
 		muni_id=NEW.muni_id, stylesheet=NEW.stylesheet::json, link=NEW.link, lock_level=NEW.lock_level, addparam=NEW.addparam::json, updated_at=now(), updated_by = current_user

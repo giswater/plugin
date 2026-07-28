@@ -49,7 +49,6 @@ UPDATE edit_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
     ('combo2', 'sewstorage_param_1', 'combo2', NULL),
     ('combo3', 'sewstorage_param_1', 'combo3', NULL),
     ('combo4', 'sewstorage_param_1', 'combo4', NULL),
-    ('0', 'nullvalue', NULL, NULL),
     ('0', 'value_boolean', 'UNKNOWN', NULL),
     ('0', 'value_datasource', 'UNKNOWN', NULL),
     ('0', 'value_lock_level', 'ALLOW EVERYTHING', NULL),
@@ -404,4 +403,3 @@ UPDATE plan_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
     ('u', 'price_units', 'u', NULL)
 ) AS v(id, typevalue, idval, descript)
 WHERE t.id = v.id AND t.typevalue = v.typevalue;
-

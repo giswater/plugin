@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_frshortpipe',
     ARRAY[
         'dscenario_id', 'element_id', 'minorloss', 'status', 'custom_dint', 'bulk_coeff',
-        'wall_coeff'
+        'wall_coeff', 'observ'
     ],
     'Table inp_dscenario_frshortpipe should have the correct columns'
 );
@@ -35,6 +35,7 @@ SELECT col_type_is('inp_dscenario_frshortpipe', 'status', 'varchar(12)', 'Column
 SELECT col_type_is('inp_dscenario_frshortpipe', 'custom_dint', 'int4', 'Column custom_dint should be int4');
 SELECT col_type_is('inp_dscenario_frshortpipe', 'bulk_coeff', 'float8', 'Column bulk_coeff should be float8');
 SELECT col_type_is('inp_dscenario_frshortpipe', 'wall_coeff', 'float8', 'Column wall_coeff should be float8');
+SELECT col_type_is('inp_dscenario_frshortpipe', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_frshortpipe', 'Table inp_dscenario_frshortpipe should have foreign keys');

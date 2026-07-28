@@ -14,4 +14,3 @@ UPDATE sys_fprocess AS t SET except_msg = v.except_msg, info_msg = v.info_msg, f
     (203, 'nodes duplicated with state 1.', 'There are no nodes duplicated with state 1', 'Check duplicated nodes')
 ) AS v(fid, except_msg, info_msg, fprocess_name)
 WHERE t.fid = v.fid;
-

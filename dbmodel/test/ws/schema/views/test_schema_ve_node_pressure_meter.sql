@@ -196,7 +196,7 @@ SELECT col_type_is('ve_node_pressure_meter', 'pressmeter_param_1', 'text', 'Colu
 SELECT col_type_is('ve_node_pressure_meter', 'pressmeter_param_2', 'date', 'Column pressmeter_param_2 should be date');
 
 SELECT col_type_is('ve_node_pressure_meter', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_pressure_meter', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_pressure_meter', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

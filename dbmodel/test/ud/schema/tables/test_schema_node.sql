@@ -133,7 +133,7 @@ SELECT col_type_is('node', 'uuid', 'uuid', 'Column uuid should be uuid');
 SELECT col_type_is('node', 'has_access', 'bool', 'Column has_access should be bool');
 
 SELECT col_type_is('node', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('node', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('node', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 -- Check foreign keys
 SELECT has_fk('node', 'Table node should have foreign keys');

@@ -185,7 +185,7 @@ SELECT col_type_is('ve_node_manhole', 'muni_visibility', 'int4[]', 'Column muni_
 SELECT col_type_is('ve_node_manhole', 'name', 'varchar(50)', 'Column name should be varchar(50)');
 
 SELECT col_type_is('ve_node_manhole', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_manhole', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_manhole', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

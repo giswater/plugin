@@ -7,8 +7,7 @@ The program is free software: you can redistribute it and/or modify it under the
 SET search_path = SCHEMA_NAME, public, pg_catalog;
 UPDATE edit_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
 	VALUES
-	('0', 'nullvalue', NULL, NULL),
-    ('0', 'value_boolean', 'UNKNOWN', NULL),
+	('0', 'value_boolean', 'UNKNOWN', NULL),
     ('0', 'value_datasource', 'UNKNOWN', NULL),
     ('0', 'value_lock_level', 'ALLOW EVERYTHING', NULL),
     ('0', 'value_review_status', 'No changes', 'There are no changes above or below the tolerance values'),
@@ -236,7 +235,6 @@ UPDATE inp_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
     ('MLD', 'inp_value_opti_units', 'MLD', NULL),
     ('NO', 'inp_value_yesnofull', 'NO', NULL),
     ('NONE', 'inp_value_noneall', 'NONE', NULL),
-    ('NONE', 'inp_value_opti_hyd', NULL, NULL),
     ('NONE', 'inp_value_opti_qual', 'NONE', NULL),
     ('NONE', 'inp_value_times', 'NONE', NULL),
     ('OPEN', 'inp_value_status_pipe', 'OPEN', NULL),
@@ -366,4 +364,3 @@ UPDATE plan_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
     ('PRESSZONE', 'netscenario_type', 'PRESSZONE', NULL)
 ) AS v(id, typevalue, idval, descript)
 WHERE t.id = v.id AND t.typevalue = v.typevalue;
-

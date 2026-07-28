@@ -420,4 +420,3 @@ UPDATE config_typevalue AS t SET idval = v.idval FROM (
     ('vspacer', 'widgettype_typevalue', 'vspacer')
 ) AS v(source, formname, idval)
 WHERE t.id = v.source AND t.typevalue = v.formname;
-

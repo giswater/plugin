@@ -207,7 +207,7 @@ BEGIN
             EXECUTE 'SELECT the_geom FROM (' || v_sql || ') _geo_check LIMIT 0';
         EXCEPTION WHEN undefined_column THEN
             EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
-            "data":{"message":"4640", "function":"3484","parameters":{"tableName":"'||COALESCE(v_tablename, '')||'"}}}$$);';
+            "data":{"message":"4680", "function":"3484","parameters":{"tableName":"'||COALESCE(v_tablename, '')||'"}}}$$);';
         END;
     END IF;
 

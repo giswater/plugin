@@ -1,0 +1,1 @@
+- Reject geographic QGIS project CRS on pg2epa INP export (step 1 fail-fast in `gw_fct_pg2epa_main`, defensive checks in `gw_fct_pg2epa_export_inp` and `gw_fct_pg2epa_dump_subcatch`).

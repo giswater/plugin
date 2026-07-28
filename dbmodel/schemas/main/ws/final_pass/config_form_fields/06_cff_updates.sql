@@ -16,6 +16,8 @@ UPDATE config_form_fields SET dv_querytext = replace(dv_querytext, 'ext_region',
 UPDATE config_form_fields SET dv_querytext = replace(dv_querytext, 'ext_province', 'v_province') WHERE dv_querytext LIKE '%ext_province%';
 UPDATE config_form_fields SET dv_querytext = replace(dv_querytext, 'ext_district', 'v_district') WHERE dv_querytext LIKE '%ext_district%';
 UPDATE config_form_fields SET dv_querytext = replace(dv_querytext, 'ext_type_street', 'v_type_street') WHERE dv_querytext LIKE '%ext_type_street%';
+UPDATE config_form_fields SET dv_querytext = REPLACE(dv_querytext, 'v_rtc_hydrometer', 'vf_hydrometer') WHERE dv_querytext ILIKE '%v_rtc_hydrometer%';
+UPDATE config_form_fields SET dv_querytext = REPLACE(dv_querytext, 'hydrometer_customer_code', 'hydro_customer_code') WHERE dv_querytext ILIKE '%hydrometer_customer_code%';
 
 UPDATE config_form_fields SET widgetcontrols = replace(widgetcontrols::text, 'v_ext_municipality', 've_municipality')::json WHERE widgetcontrols::text LIKE '%v_ext_municipality%';
 UPDATE config_form_fields SET widgetcontrols = replace(widgetcontrols::text, 'v_ext_streetaxis', 've_streetaxis')::json WHERE widgetcontrols::text LIKE '%v_ext_streetaxis%';

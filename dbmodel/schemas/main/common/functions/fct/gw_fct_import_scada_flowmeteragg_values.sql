@@ -86,7 +86,7 @@ BEGIN
 	END LOOP;
 
 	-- mapping values on table
-	INSERT INTO ext_scada_x_data SELECT log_message, feature_id, date_value::date, float_value, int_value, text_value  FROM temp_data;
+	INSERT INTO ext_rtc_scada_x_data SELECT log_message, feature_id, date_value::date, float_value, int_value, text_value  FROM temp_data;
 
 	-- couting
 	SELECT count(*) INTO v_count FROM (SELECT DISTINCT csv1 FROM temp_csv WHERE cur_user=current_user AND fid = v_fid)a;

@@ -55,9 +55,6 @@ v_force_delete boolean;
 v_feature_class text;
 v_psector integer;
 v_trace_featuregeom boolean;
-v_seq_name text;
-v_seq_code text;
-v_code_prefix text;
 
 v_gully_outlet_type text;
 v_gully_method text;
@@ -89,7 +86,9 @@ v_cur_quadrant TEXT;
 v_new_lab_position public.geometry;
 v_dist_sign numeric;
 v_label_dist numeric;
-v_sys_code_autofill boolean;
+v_sys_code_autofill text;
+
+v_district_ids _int4;
 
 BEGIN
 
@@ -363,8 +362,23 @@ BEGIN
 			END IF;
 		END IF;
 
+		-- District
+		IF (NEW.district_id IS NULL) THEN
+			-- getting value from geometry of mapzone
+			v_district_ids = (SELECT array_agg(district_id) FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001));
+			IF cardinality(v_district_ids) = 1 THEN
+				NEW.district_id := v_district_ids[1];
+			ELSIF cardinality(v_district_ids) > 1 THEN
+				NEW.district_id := (SELECT district_id FROM ve_arc WHERE district_id = ANY(v_district_ids) ORDER BY ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
+			END IF;
+		END IF;
+
 		-- Municipality
 		IF (NEW.muni_id IS NULL) THEN
+
+			IF NEW.district_id IS NOT NULL THEN
+				NEW.muni_id := (SELECT muni_id FROM v_municipality WHERE district_id = NEW.district_id AND active IS TRUE LIMIT 1);
+			END IF;
 
 			-- getting value default
 			IF (NEW.muni_id IS NULL) THEN
@@ -392,20 +406,8 @@ BEGIN
 			END IF;
 		END IF;
 
-		-- District
-		IF (NEW.district_id IS NULL) THEN
 
-			-- getting value from geometry of mapzone
-			IF (NEW.district_id IS NULL) THEN
-				SELECT count(*) INTO v_count FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001);
-				IF v_count = 1 THEN
-					NEW.district_id = (SELECT district_id FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001) LIMIT 1);
-				ELSIF v_count > 1 THEN
-					NEW.district_id =(SELECT district_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
-					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
-				END IF;
-			END IF;
-		END IF;
+
 
 		-- Verified
 		IF (NEW.verified IS NULL) THEN
@@ -455,29 +457,31 @@ BEGIN
 		END IF;
 
 		-- Code
-		SELECT code_autofill, cat_feature.id, addparam::json->>'code_prefix' INTO v_code_autofill_bool, v_featurecat, v_code_prefix
-		FROM cat_feature WHERE id=NEW.node_type;
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
 
-		IF v_featurecat IS NOT NULL THEN
-			-- use specific sequence for code when its name matches featurecat_code_seq
-			EXECUTE 'SELECT concat('||quote_literal(lower(v_featurecat))||',''_code_seq'');' INTO v_seq_name;
-			EXECUTE 'SELECT relname FROM pg_catalog.pg_class WHERE relname='||quote_literal(v_seq_name)||'
-            AND relkind = ''S'' AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = '||quote_literal(v_schemaname)||');' INTO v_sql;
+		SELECT code_autofill, cat_feature.id
+		INTO v_code_autofill_bool, v_featurecat
+		FROM cat_feature WHERE id = NEW.node_type;
 
-			IF v_sql IS NOT NULL AND NEW.code IS NULL THEN
-				EXECUTE 'SELECT nextval('||quote_literal(v_seq_name)||');' INTO v_seq_code;
-					NEW.code=concat(v_code_prefix,v_seq_code);
-			END IF;
+		IF NEW.code IS NULL THEN
+			NEW.code := gw_fct_generate_code('feature', NEW.node_type, json_strip_nulls(row_to_json(NEW)::json));
 
-			--Copy id to code field
-			IF (v_code_autofill_bool IS TRUE) AND NEW.code IS NULL THEN
-				NEW.code=NEW.node_id;
+			IF NEW.code IS NULL AND v_code_autofill_bool THEN
+				NEW.code := NEW.node_id;
 			END IF;
 		END IF;
 
-		--Sys_code
-		IF v_sys_code_autofill IS TRUE THEN
-			NEW.sys_code=gen_random_uuid();
+		IF NEW.sys_code IS NOT NULL AND v_sys_code_autofill NOT IN ('false', 'none') THEN
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4678", "function":"1220"}}$$);';
+		END IF;
+
+		--Sys_code (uuid | code | none)
+		IF v_sys_code_autofill IN ('uuid', 'true') THEN
+			NEW.sys_code := gen_random_uuid();
+		ELSIF v_sys_code_autofill = 'code' THEN
+			NEW.sys_code := NEW.code;
 		END IF;
 
 		-- Workcat_id
@@ -599,14 +603,18 @@ BEGIN
 			NEW.uuid = gen_random_uuid();
 		END IF;
 
-		-- feature insert
+		IF NEW.has_access IS NULL THEN
+			NEW.has_access = (select isprofilesurface from cat_feature_node where id=NEW.node_type);
+		END IF;
+
+		-- feature insert  
 		IF v_matfromcat THEN
 			INSERT INTO node (node_id, code, sys_code, top_elev, custom_top_elev, ymax, elev, custom_elev, node_type,nodecat_id,epa_type,sector_id,"state", state_type, annotation,observ,"comment",
 			omzone_id,soilcat_id, function_type, category_type,fluid_type,location_type,workcat_id, workcat_id_end, workcat_id_plan, builtdate, enddate, ownercat_id, conserv_state,
 			muni_id, streetaxis_id, postcode, district_id, streetaxis2_id,postnumber, postnumber2, postcomplement, postcomplement2, descript,rotation,link,verified,
 			label_x,label_y,label_rotation,the_geom, expl_id, publish, inventory, uncertain, xyz_date, unconnected, num_value, updated_at, updated_by,
 			asset_id, parent_id, arc_id, expl_visibility, adate, adescript, placement_type, label_quadrant, access_type, brand_id, model_id, serial_number, lock_level, is_scadamap, pavcat_id, hemisphere,
-			drainzone_outfall, dwfzone_outfall, dma_id, omunit_id, uuid, treatment_type, has_treatment, dataquality, dataquality_obs)
+			drainzone_outfall, dwfzone_outfall, dma_id, omunit_id, uuid, treatment_type, has_treatment, has_access, dataquality, dataquality_obs)
 			VALUES (NEW.node_id, NEW.code, NEW.sys_code, NEW.top_elev,NEW.custom_top_elev, NEW.ymax, NEW. elev, NEW. custom_elev, NEW.node_type,NEW.nodecat_id,NEW.epa_type,COALESCE(NEW.sector_id, 0),
 			NEW.state, NEW.state_type, NEW.annotation,NEW.observ, NEW.comment,COALESCE(NEW.omzone_id, 0),NEW.soilcat_id, NEW. function_type, NEW.category_type,COALESCE(NEW.fluid_type, 0),NEW.location_type,
 			NEW.workcat_id, NEW.workcat_id_end, NEW.workcat_id_plan,NEW.builtdate, NEW.enddate, NEW.ownercat_id, NEW.conserv_state,
@@ -615,14 +623,14 @@ BEGIN
 			COALESCE(NEW.expl_id, 0), NEW.publish, NEW.inventory, NEW.uncertain, NEW.xyz_date, NEW.unconnected, NEW.num_value, NEW.updated_at, NEW.updated_by,
 			NEW.asset_id,  NEW.parent_id, NEW.arc_id, NEW.expl_visibility, NEW.adate, NEW.adescript, NEW.placement_type, NEW.label_quadrant,
 			NEW.access_type, NEW.brand_id, NEW.model_id, NEW.serial_number, NEW.lock_level, NEW.is_scadamap, NEW.pavcat_id, NEW.hemisphere,
-			NEW.drainzone_outfall, NEW.dwfzone_outfall, COALESCE(NEW.dma_id, 0), COALESCE(NEW.omunit_id, 0), NEW.uuid, COALESCE(NEW.treatment_type, 0), NEW.has_treatment, NEW.dataquality, NEW.dataquality_obs);
+			NEW.drainzone_outfall, NEW.dwfzone_outfall, COALESCE(NEW.dma_id, 0), COALESCE(NEW.omunit_id, 0), NEW.uuid, COALESCE(NEW.treatment_type, 0), NEW.has_treatment, NEW.has_access, NEW.dataquality, NEW.dataquality_obs);
 		ELSE
 			INSERT INTO node (node_id, code, sys_code, top_elev, custom_top_elev, ymax, elev, custom_elev, node_type,nodecat_id,epa_type,sector_id,"state", state_type, annotation,observ,"comment",
 			omzone_id,soilcat_id, function_type, category_type,fluid_type,location_type,workcat_id, workcat_id_end, workcat_id_plan, builtdate, enddate, ownercat_id, conserv_state,
 			muni_id, streetaxis_id, postcode, district_id, streetaxis2_id,postnumber, postnumber2, postcomplement, postcomplement2, descript,rotation,link,verified,
 			label_x,label_y,label_rotation,the_geom, expl_id, publish, inventory, uncertain, xyz_date, unconnected, num_value, updated_at, updated_by, matcat_id,
 			asset_id, parent_id, arc_id, expl_visibility, adate, adescript, placement_type, label_quadrant, access_type, brand_id, model_id, serial_number, lock_level, is_scadamap, pavcat_id, hemisphere,
-			drainzone_outfall, dwfzone_outfall, dma_id, omunit_id, uuid, treatment_type, has_treatment, dataquality, dataquality_obs)
+			drainzone_outfall, dwfzone_outfall, dma_id, omunit_id, uuid, treatment_type, has_treatment, has_access, dataquality, dataquality_obs)
 			VALUES (NEW.node_id, NEW.code, NEW.sys_code, NEW.top_elev,NEW.custom_top_elev, NEW.ymax, NEW. elev, NEW. custom_elev, NEW.node_type,NEW.nodecat_id,NEW.epa_type,COALESCE(NEW.sector_id, 0),
 			NEW.state, NEW.state_type, NEW.annotation,NEW.observ, NEW.comment,COALESCE(NEW.omzone_id, 0),NEW.soilcat_id, NEW. function_type, NEW.category_type,COALESCE(NEW.fluid_type, 0),NEW.location_type,
 			NEW.workcat_id, NEW.workcat_id_end, NEW.workcat_id_plan,NEW.builtdate, NEW.enddate, NEW.ownercat_id, NEW.conserv_state,
@@ -631,7 +639,7 @@ BEGIN
 			COALESCE(NEW.expl_id, 0), NEW.publish, NEW.inventory, NEW.uncertain, NEW.xyz_date, NEW.unconnected, NEW.num_value,  NEW.updated_at, NEW.updated_by,NEW.matcat_id,
 			NEW.asset_id,  NEW.parent_id, NEW.arc_id, NEW.expl_visibility, NEW.adate, NEW.adescript, NEW.placement_type,
 			NEW.label_quadrant, NEW.access_type, NEW.brand_id, NEW.model_id, NEW.serial_number, NEW.lock_level, NEW.is_scadamap, NEW.pavcat_id, NEW.hemisphere,
-			NEW.drainzone_outfall, NEW.dwfzone_outfall, COALESCE(NEW.dma_id, 0), COALESCE(NEW.omunit_id, 0), NEW.uuid, COALESCE(NEW.treatment_type, 0), NEW.has_treatment, NEW.dataquality, NEW.dataquality_obs);
+			NEW.drainzone_outfall, NEW.dwfzone_outfall, COALESCE(NEW.dma_id, 0), COALESCE(NEW.omunit_id, 0), NEW.uuid, COALESCE(NEW.treatment_type, 0), NEW.has_treatment, NEW.has_access, NEW.dataquality, NEW.dataquality_obs);
 		END IF;
 
 		-- insert into node_add
@@ -653,9 +661,9 @@ BEGIN
 
 		-- set and get id for polygonFse
 		IF (v_doublegeometry IS TRUE) THEN
-			INSERT INTO polygon(sys_type, the_geom, featurecat_id, feature_id )
+			INSERT INTO polygon(sys_type, the_geom, featurecat_id, feature_id, state)
 			VALUES (v_feature_class, (SELECT ST_Multi(ST_Envelope(ST_Buffer(node.the_geom,v_doublegeom_buffer)))
-			from node where node_id=NEW.node_id), NEW.node_type, NEW.node_id);
+			from node where node_id=NEW.node_id), NEW.node_type, NEW.node_id, NEW.state);
 		END IF;
 
 
@@ -756,7 +764,7 @@ BEGIN
 		ELSIF (NEW.epa_type = 'STORAGE') THEN
 			INSERT INTO inp_storage (node_id, storage_type) VALUES (NEW.node_id, 'TABULAR');
 		ELSIF (NEW.epa_type = 'NETGULLY') THEN
-			INSERT INTO inp_netgully (node_id, y0, ysur, apond, outlet_type, method, weir_cd, orifice_cd, efficiency)
+			INSERT INTO inp_netgully (node_id, y0, ysur, apond, outlet_type, gully_method, weir_cd, orifice_cd, efficiency)
 			VALUES (NEW.node_id, 0, 0, 0, v_gully_outlet_type, v_gully_method, v_gully_weir_cd, v_gully_orifice_cd, v_gully_efficiency);
 		ELSIF (NEW.epa_type = 'INLET') THEN
 			INSERT INTO inp_inlet (node_id, y0, ysur, apond, inlet_type, outlet_type, gully_method, custom_top_elev, custom_depth, inlet_length, inlet_width, cd1, cd2, efficiency)
@@ -811,7 +819,7 @@ BEGIN
 				EXECUTE v_sql;
 
 				IF (NEW.epa_type = 'NETGULLY') THEN
-					UPDATE inp_netgully SET outlet_type = v_gully_outlet_type, method = v_gully_method, weir_cd = v_gully_weir_cd,
+					UPDATE inp_netgully SET outlet_type = v_gully_outlet_type, gully_method = v_gully_method, weir_cd = v_gully_weir_cd,
 					orifice_cd = v_gully_orifice_cd, efficiency = v_gully_efficiency
 					WHERE node_id = OLD.node_id;
 
@@ -933,7 +941,8 @@ BEGIN
 			asset_id=NEW.asset_id, parent_id=NEW.parent_id, arc_id = NEW.arc_id, expl_visibility=NEW.expl_visibility, adate=NEW.adate, adescript=NEW.adescript,
 			placement_type=NEW.placement_type, label_quadrant=NEW.label_quadrant,
 			access_type=NEW.access_type, brand_id=NEW.brand_id, model_id=NEW.model_id, serial_number=NEW.serial_number, lock_level=NEW.lock_level, is_scadamap=NEW.is_scadamap,
-			pavcat_id=NEW.pavcat_id, drainzone_outfall=NEW.drainzone_outfall, dwfzone_outfall=NEW.dwfzone_outfall, dma_id=NEW.dma_id, omunit_id=NEW.omunit_id, has_treatment=NEW.has_treatment, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
+			pavcat_id=NEW.pavcat_id, drainzone_outfall=NEW.drainzone_outfall, dwfzone_outfall=NEW.dwfzone_outfall, dma_id=NEW.dma_id, omunit_id=NEW.omunit_id, has_treatment=NEW.has_treatment,
+			has_access=NEW.has_access, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
 			WHERE node_id = OLD.node_id;
 		ELSE
 			UPDATE node
@@ -947,7 +956,8 @@ BEGIN
 			xyz_date=NEW.xyz_date, unconnected=NEW.unconnected, expl_id=NEW.expl_id, num_value=NEW.num_value, updated_at=now(), updated_by=current_user, matcat_id = NEW.matcat_id,
 			asset_id=NEW.asset_id, parent_id=NEW.parent_id, arc_id = NEW.arc_id, expl_visibility=NEW.expl_visibility, adate=NEW.adate, adescript=NEW.adescript,
 			placement_type=NEW.placement_type, label_quadrant=NEW.label_quadrant, access_type=NEW.access_type, brand_id=NEW.brand_id, model_id=NEW.model_id, serial_number=NEW.serial_number,
-			lock_level=NEW.lock_level, is_scadamap=NEW.is_scadamap, pavcat_id=NEW.pavcat_id, drainzone_outfall=NEW.drainzone_outfall, dwfzone_outfall=NEW.dwfzone_outfall, dma_id=NEW.dma_id, omunit_id=NEW.omunit_id, has_treatment=NEW.has_treatment, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
+			lock_level=NEW.lock_level, is_scadamap=NEW.is_scadamap, pavcat_id=NEW.pavcat_id, drainzone_outfall=NEW.drainzone_outfall, dwfzone_outfall=NEW.dwfzone_outfall, dma_id=NEW.dma_id, omunit_id=NEW.omunit_id, has_treatment=NEW.has_treatment,
+			has_access=NEW.has_access, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
 			WHERE node_id = OLD.node_id;
 		END IF;
 
@@ -998,7 +1008,7 @@ BEGIN
 			WHERE node_id=OLD.node_id;
 
 		ELSIF v_man_table='man_valve' THEN
-			UPDATE man_valve SET name=NEW.name, flowsetting=NEW.flowsetting
+			UPDATE man_valve SET name=NEW.name, flowsetting=NEW.flowsetting, turns_count=NEW.turns_count
 			WHERE node_id=OLD.node_id;
 
 		ELSIF v_man_table='man_chamber' THEN

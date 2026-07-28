@@ -1660,6 +1660,8 @@ class GwInfo(QObject):
     def _manage_accept(self, dialog, action_edit, new_feature, my_json, close_dlg, generic=False):
 
         self._get_last_value(dialog, generic)
+        if not self._merge_epa_type_on_accept(dialog, my_json, new_feature):
+            return False
         status = self._accept(dialog, self.complet_result, my_json, close_dlg=close_dlg, new_feature=new_feature, generic=generic)
         if status:  # Commit succesfull and dialog keep opened
             tools_qt.set_action_checked(action_edit, False)
@@ -1810,10 +1812,11 @@ class GwInfo(QObject):
         id_name = complet_result['body']['feature']['idName']
         newfeature_id = complet_result['body']['feature']['id']
         list_mandatory = []
+        skip_mandatory = bool(_json) and set(_json.keys()) == {'epa_type'}
         # Manage autoupdate and mandatory widgets
         fields_reload = self._manage_autoupdate_and_mandatory_widgets(dialog, complet_result, p_widget, list_mandatory)
 
-        if list_mandatory:
+        if list_mandatory and not skip_mandatory:
             msg = "Some mandatory values are missing. Please check the widgets marked in red."
             tools_qgis.show_warning(msg, dialog=dialog)
             tools_qt.set_action_checked("actionEdit", True, dialog)
@@ -1866,8 +1869,10 @@ class GwInfo(QObject):
                 if 'closed' not in _json:
                     thread = False
             epa_type_changed = False
+            new_epa_type_value = None
             if 'epa_type' in _json:
                 epa_type_changed = True
+                new_epa_type_value = _json.get('epa_type')
 
             json_result = tools_gw.execute_procedure('gw_fct_setfields', body)
             if not json_result:
@@ -1898,6 +1903,7 @@ class GwInfo(QObject):
                 tools_qgis.show_message(msg, message_level=msg_level, dialog=dialog)
                 self._reload_fields(dialog, json_result, p_widget)
                 if epa_type_changed:
+                    self.epa_type = str(new_epa_type_value)
                     self._reload_epa_tab(dialog)
 
                 # Update geometry field (if user have selected a point)
@@ -2129,6 +2135,55 @@ class GwInfo(QObject):
 
         return widget
 
+    def _confirm_epa_type_change(self, dialog, new_feature=None):
+        """ Ask permission and confirmation before changing epa_type """
+
+        if new_feature is not None:
+            return True
+
+        can_edit = tools_os.set_boolean(tools_db.check_role_user('role_epa'))
+        if not can_edit:
+            message = "You are not enabled to modify this {0} widget"
+            msg_params = ("epa_type",)
+            title = "Change epa_type"
+            tools_qt.show_info_box(message, title, msg_params=msg_params)
+            return False
+
+        msg = ("You are going to change the epa_type. With this operation you will lose information about "
+               "current epa_type values of this object. Would you like to continue?")
+        title = "Change epa_type"
+        if tools_qt.show_question(msg, title):
+            return True
+
+        widget_epatype = dialog.findChild(QComboBox, 'tab_data_epa_type')
+        if widget_epatype:
+            widget_epatype.blockSignals(True)
+            tools_qt.set_combo_value(widget_epatype, self.epa_type, 1)
+            widget_epatype.blockSignals(False)
+        return False
+
+    def _merge_epa_type_on_accept(self, dialog, my_json, new_feature=None):
+        """ Include pending epa_type combo value when Accept is used """
+
+        if 'epa_type' in my_json:
+            return True
+
+        widget = dialog.findChild(QComboBox, 'tab_data_epa_type')
+        if widget is None:
+            return True
+
+        pending = {}
+        tools_gw.get_values(dialog, widget, pending, ignore_editability=True)
+        new_value = pending.get('epa_type')
+        if new_value in (None, '') or str(new_value).lower() == str(self.epa_type or '').lower():
+            return True
+
+        if not self._confirm_epa_type_change(dialog, new_feature):
+            return False
+
+        my_json['epa_type'] = str(new_value)
+        return True
+
     def _accept_auto_update(self, dialog, complet_result, _json, p_widget=None, clear_json=False, close_dlg=True, new_feature=None, generic=False):
         """
         :param dialog:
@@ -2140,30 +2195,11 @@ class GwInfo(QObject):
         :return: (boolean)
         """
 
-        # Manage change epa_type message
-        if _json.get('epa_type'):
-            if new_feature is None:
-                can_edit = tools_os.set_boolean(tools_db.check_role_user('role_epa'))
-                if not can_edit:
-                    message = "You are not enabled to modify this {0} widget"
-                    msg_params = ("epa_type",)
-                    title = "Change epa_type"
-                    tools_qt.show_info_box(message, title, msg_params=msg_params)
-                    return
-                widget_epatype = dialog.findChild(QComboBox, 'tab_data_epa_type')
-                msg = ("You are going to change the epa_type. With this operation you will lose information about "
-                            "current epa_type values of this object. Would you like to continue?")
-                title = "Change epa_type"
-                answer = tools_qt.show_question(msg, title)
-                if not answer:
-                    widget_epatype.blockSignals(True)
-                    tools_qt.set_combo_value(widget_epatype, self.epa_type, 1)
-                    widget_epatype.blockSignals(False)
-                    return
-            self.epa_type = _json.get('epa_type')
+        if _json.get('epa_type') and not self._confirm_epa_type_change(dialog, new_feature):
+            return False
 
         # Call accept fct
-        self._accept(dialog, complet_result, _json, p_widget, clear_json, close_dlg, new_feature, generic)
+        return self._accept(dialog, complet_result, _json, p_widget, clear_json, close_dlg, new_feature, generic)
 
     def _set_auto_update_textarea(self, field, dialog, widget, new_feature):
 

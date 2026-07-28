@@ -185,7 +185,7 @@ SELECT col_type_is('ve_node_chamber', 'chamber_param_2', 'date', 'Column chamber
 SELECT col_type_is('ve_node_chamber', 'has_access', 'bool', 'Column has_access should be bool');
 
 SELECT col_type_is('ve_node_chamber', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_chamber', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_chamber', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

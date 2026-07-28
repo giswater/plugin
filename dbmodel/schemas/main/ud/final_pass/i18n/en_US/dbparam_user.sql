@@ -292,4 +292,3 @@ UPDATE sys_param_user AS t SET label = v.label, descript = v.descript FROM (
     ('virtual_polygon_vdefault', NULL, 'Default name of polygon virtual layer')
 ) AS v(id, label, descript)
 WHERE t.id = v.id;
-

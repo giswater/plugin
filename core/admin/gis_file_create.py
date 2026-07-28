@@ -23,7 +23,8 @@ class GwGisFileCreate:
         self.srid = None
 
     def gis_project_database(self, folder_path=None, filename=None, project_type='ws', schema='ws_sample',
-                             export_passwd=False, roletype='admin', layer_source=None, layer_project_type=None, is_cm=False):
+                             export_passwd=False, roletype='admin', layer_source=None, layer_project_type=None,
+                             is_cm=False, force_overwrite=False, headless=False):
 
         # Get locale of QGIS application
         locale = tools_qgis.get_locale()
@@ -41,7 +42,7 @@ class GwGisFileCreate:
             filename = schema
 
         if not os.path.exists(folder_path):
-            os.mkdir(folder_path)
+            os.makedirs(folder_path)
 
         # Get database parameters from layer source
         self.layer_source = layer_source
@@ -52,7 +53,7 @@ class GwGisFileCreate:
 
         # Set QGS file path
         qgs_path = folder_path + os.sep + filename + "." + gis_extension
-        if os.path.exists(qgs_path):
+        if os.path.exists(qgs_path) and not force_overwrite:
             msg = "Do you want to overwrite file?"
             title = "Overwrite file"
             answer = tools_qt.show_question(msg, title, force_action=True)
@@ -121,14 +122,19 @@ class GwGisFileCreate:
                             create_project=True, force_create_group=False, properties=properties)
 
         # Hide hidden group
-        tools_gw.hide_group_from_toc('HIDDEN')
-        root.findGroup('HIDDEN').setItemVisibilityChecked(False)
+        hidden_group = root.findGroup('HIDDEN')
+        if hidden_group is not None:
+            if not headless:
+                tools_gw.hide_group_from_toc('HIDDEN')
+            hidden_group.setItemVisibilityChecked(False)
 
         # Set project CRS
         project.setCrs(QgsCoordinateReferenceSystem(auth_id))
 
         # Set project variables
-        project = self._set_project_vars(project, export_passwd)
+        project = self._set_project_vars(
+            project, export_passwd, schema=schema, project_type=project_type, roletype=roletype
+        )
 
         # Collapse all layers
         layers = root.findLayers()
@@ -143,20 +149,27 @@ class GwGisFileCreate:
                 group.setExpanded(False)
 
         # Set default project snapping settings
-        tools_qgis.set_project_snapping_settings()
+        if headless:
+            self._set_project_snapping_settings(project)
+        else:
+            tools_qgis.set_project_snapping_settings()
 
         # Set camera position on ve_node
-        global_vars.iface.mapCanvas().setExtent(tools_gw._get_extent_parameters(schema))
+        if not headless and global_vars.iface is not None:
+            global_vars.iface.mapCanvas().setExtent(tools_gw._get_extent_parameters(schema))
 
         # Save project
         try:
-            project.write(qgs_path)
+            if not project.write(qgs_path):
+                raise IOError("QgsProject.write returned false")
             msg = "GIS file generated successfully"
-            tools_qgis.show_info(msg, parameter=qgs_path)
+            if not headless:
+                tools_qgis.show_info(msg, parameter=qgs_path)
             return True, qgs_path
         except IOError:
             msg = "File cannot be created. Check if it is already opened"
-            tools_qgis.show_warning(msg, parameter=qgs_path)
+            if not headless:
+                tools_qgis.show_warning(msg, parameter=qgs_path)
             return False, qgs_path
 
     # region private functions
@@ -185,12 +198,34 @@ class GwGisFileCreate:
 
         return None
 
-    def _set_project_vars(self, project, export_passwd):
+    def _set_project_vars(self, project, export_passwd, schema=None, project_type=None, roletype='admin'):
 
-        project_type = tools_gw.get_project_type()
-        project.setCustomVariables({'gwAddSchema': '', 'gwInfoType': 'full', 'gwMainSchema': '', 'gwProjectRole': 'role_admin', 'gwProjectType': project_type,
-                                     'gwStoreCredentials': f"{export_passwd}", 'svg_path': 'C:/Users/usuario/AppData/Roaming/QGIS/QGIS3/profiles/default/python/plugins/giswater/svg'})
+        project_type = project_type or tools_gw.get_project_type(schema)
+        project_role = roletype if str(roletype).startswith('role_') else f'role_{roletype}'
+        project.setCustomVariables({
+            'gwAddSchema': '',
+            'gwInfoType': 'full',
+            'gwMainSchema': schema or '',
+            'gwProjectRole': project_role,
+            'gwProjectType': project_type,
+            'gwStoreCredentials': f"{export_passwd}",
+            'svg_path': os.path.join(self.plugin_dir, 'svg'),
+        })
 
         return project
+
+    @staticmethod
+    def _set_project_snapping_settings(project):
+        """Set the defaults without requiring a QGIS map canvas."""
+        from qgis.core import Qgis, QgsSnappingConfig, QgsTolerance
+
+        cfg = project.snappingConfig()
+        cfg.setEnabled(True)
+        cfg.setMode(QgsSnappingConfig.SnappingMode.AllLayers)
+        cfg.setTolerance(15.0)
+        cfg.setUnits(QgsTolerance.UnitType.Pixels)
+        types = Qgis.SnappingType.Vertex | Qgis.SnappingType.Segment
+        cfg.setTypeFlag(Qgis.SnappingTypes(types))
+        project.setSnappingConfig(cfg)
 
     # endregion

@@ -210,7 +210,7 @@ SELECT col_type_is('ve_node_gen_purp_valve', 'connection_type', 'int4', 'Column 
 SELECT col_type_is('ve_node_gen_purp_valve', 'flowsetting', 'numeric(12,3)', 'Column flowsetting should be numeric(12,3)');
 
 SELECT col_type_is('ve_node_gen_purp_valve', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_gen_purp_valve', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_gen_purp_valve', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 SELECT col_type_is('ve_node_gen_purp_valve', 'turns_count', 'numeric(12,4)', 'Column turns_count should be numeric(12,4)');
 
 SELECT * FROM finish();

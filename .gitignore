@@ -12,3 +12,15 @@ test/log/
 __pycache__
 config/dev.config
 venv/
+# Ignore all .sql files in any final_pass/i18n/* folder
+**/final_pass/i18n/*/*.sql
+!**/final_pass/i18n/en_US/*.sql
+
+# Ignore all qm and ts files in i18n except for giswater_en_US.qm and giswater_en_US.ts
+i18n/giswater_*.qm
+!i18n/giswater_en_US.qm
+i18n/giswater_*.ts
+!i18n/giswater_en_US.ts
+
+# Ignore config.sqlite file in resources/gis
+resources/gis/locales.sqlite

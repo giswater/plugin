@@ -88,7 +88,7 @@ SELECT col_type_is('ve_element_eorifice', 'to_arc', 'int4', 'Column to_arc shoul
 SELECT col_type_is('ve_element_eorifice', 'flwreg_length', 'numeric', 'Column flwreg_length should be numeric');
 
 SELECT col_type_is('ve_element_eorifice', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_element_eorifice', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_element_eorifice', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

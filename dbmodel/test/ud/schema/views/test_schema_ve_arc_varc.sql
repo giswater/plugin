@@ -195,7 +195,7 @@ SELECT col_type_is('ve_arc_varc', 'uuid', 'uuid', 'Column uuid should be uuid');
 SELECT col_type_is('ve_arc_varc', 'treatment_type', 'int4', 'Column treatment_type should be int4');
 
 SELECT col_type_is('ve_arc_varc', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_arc_varc', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_arc_varc', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

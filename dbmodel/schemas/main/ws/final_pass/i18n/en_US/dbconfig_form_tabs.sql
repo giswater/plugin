@@ -154,4 +154,3 @@ UPDATE config_form_tabs AS t SET label = v.label, tooltip = v.tooltip FROM (
     ('visit_link_leak', 'tab_file', 'Files', 'Files')
 ) AS v(formname, tabname, label, tooltip)
 WHERE t.formname = v.formname AND t.tabname = v.tabname;
-

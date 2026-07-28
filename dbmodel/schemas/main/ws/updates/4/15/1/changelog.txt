@@ -1,0 +1,2 @@
+- Fix `v_om_mincut_initpoint` join current user in `selector_mincut_result`.
+- Fix `gw_fct_setmincut` use DISTINCT ON to avoid duplicate records in `om_mincut_valve`.

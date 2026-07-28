@@ -164,7 +164,7 @@ SELECT col_type_is('ve_gully_vgully', 'xyz_date', 'date', 'Column xyz_date shoul
 SELECT col_type_is('ve_gully_vgully', 'has_treatment', 'bool', 'Column has_treatment should be bool');
 
 SELECT col_type_is('ve_gully_vgully', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_gully_vgully', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_gully_vgully', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

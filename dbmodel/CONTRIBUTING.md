@@ -2,11 +2,11 @@
 	<h1>Contributing to Giswater DB Model</h1>
 </div>
 
-Thank you for investing your time in contributing to our project! Any contribution you make will be reflected on https://github.com/Giswater/ repos. As well as License is GNU-GPL3 the contributions need to be made under same License, it means that it applies the inbound=outbound approach.
+Thank you for investing your time in contributing to our project! Any contribution you make will be reflected on https://github.com/giswater/ repos. As well as License is GNU-GPL3 the contributions need to be made under same License, it means that it applies the inbound=outbound approach.
 
 In this guide you will get an overview of the contribution workflow from opening an issue, creating a PR, reviewing, and merging the PR.
 
-You can find more information about our code of conduct on: https://github.com/Giswater/docs/blob/master/github/pdf/code_of_conduct.pdf
+You can find more information about our code of conduct on: https://github.com/giswater/docs/blob/master/github/pdf/code_of_conduct.pdf
 
 As well as Giswater is developed in Python (qgis plugin) and PL/SQL(PostgreSQL database) there are three main repositories to manage it (QGIS-PLUGIN, DB-MODEL and DOCS). Right now this is the repository for the DB-MODEL.
 
@@ -63,10 +63,10 @@ To get an overview of the project, read the README. Here are some resources to h
 ### Choose te repo:
 
 To make new code you need to choose what repo are you looking for:
-Use the https://github.com/Giswater/docs repository to work with DOCS
-Use the https://github.com/Giswater/giswater_qgis_plugin repository to work with PYTHON QGIS PLUGIN.
+Use the https://github.com/giswater/docs repository to work with DOCS
+Use the https://github.com/giswater/plugin repository to work with PYTHON QGIS PLUGIN.
 
-Use the https://github.com/Giswater/giswater_dbmodel repository to work with DATABASE MODEL.
+Use the https://github.com/giswater/giswater_dbmodel repository to work with DATABASE MODEL.
 Rest of repositories are no significant. Some of them they are deprecated or some of them are not used yet.
 
 ### Make changes locally:
@@ -146,6 +146,6 @@ Claudia Dragoste, Aigües de Manresa, SA.<br>
 
 ## Commiters
 
-<a href="https://github.com/Giswater/giswater_dbmodel/graphs/contributors">
+<a href="https://github.com/giswater/giswater_dbmodel/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=Giswater/giswater_dbmodel" />
 </a>

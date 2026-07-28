@@ -23,6 +23,7 @@ DECLARE
 object_rec record;
 
 v_version text;
+v_function_id integer = 3110;
 v_result json;
 v_result_info json;
 v_name text;
@@ -212,18 +213,12 @@ BEGIN
 	DELETE FROM audit_check_data WHERE cur_user="current_user"() AND fid=v_fid;	
 
 	-- create log
-	INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 4, concat('CREATE DSCENARIO FROM CRM'));
-	INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 4, '--------------------------------------------------');
+	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"function":"'||v_function_id||'", "fid":"'||v_fid||'", "criticity":"4", "is_process":true, "is_header":"true"}}$$)';
+	INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 4, concat(''));
 
-	INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 3, concat(''));
-	INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 3, 'ERRORS');
-	INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 3, '--------');
-	
-	INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 2, 'WARNINGS');
-	INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 2, '---------');
-
-	INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 1, 'INFO');
-	INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 1, '---------');
+	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"function":"'||v_function_id||'", "fid":"'||v_fid||'", "criticity":"3", "is_process":true, "is_header":"true", "label_id":"3003", "separator_id":"2008"}}$$)';
+	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"function":"'||v_function_id||'", "fid":"'||v_fid||'", "criticity":"2", "is_process":true, "is_header":"true", "label_id":"3002", "separator_id":"2009"}}$$)';
+	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"function":"'||v_function_id||'", "fid":"'||v_fid||'", "criticity":"1", "is_process":true, "is_header":"true", "label_id":"3001", "separator_id":"2009"}}$$)';
 
 	-- inserting on catalog table
 	PERFORM setval('SCHEMA_NAME.cat_dscenario_dscenario_id_seq'::regclass,(SELECT max(dscenario_id) FROM cat_dscenario) ,true);
@@ -377,21 +372,19 @@ BEGIN
 
 	IF v_scenarioid IS NULL THEN
 		SELECT dscenario_id INTO v_scenarioid FROM cat_dscenario where name = v_name;
-		INSERT INTO audit_check_data (fid, result_id, criticity, error_message)	
-		VALUES (v_fid, null, 3, concat('ERROR: The dscenario ( ',v_scenarioid,' ) already exists with proposed name ',v_name ,'. Please try another one.'));
+		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"3696", "function":"'||v_function_id||'", "parameters":{"v_scenarioid":"'||v_scenarioid||'", "v_name":"'||v_name||'"}, "fid":"'||v_fid||'", "criticity":"3", "is_process":true}}$$)';
 		
 	ELSE
 
-		INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 4, concat('New scenario: ',v_name, ' ( ',v_scenarioid,' )'));
-		INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 4, concat('Copy from CRM period: ',v_crm_name));
-		INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 4, concat('Source pattern: ',v_pattern));
-		INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 4, concat('Demand units: ',v_demandunits));
-		INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 4, concat('Period seconds: ',abs(v_periodseconds)));
+		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4644", "function":"'||v_function_id||'", "parameters":{"v_name":"'||v_name||'", "v_scenarioid":"'||v_scenarioid||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
+		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4646", "function":"'||v_function_id||'", "parameters":{"v_crm_name":"'||v_crm_name||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
+		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4648", "function":"'||v_function_id||'", "parameters":{"v_pattern":"'||v_pattern||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
+		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4650", "function":"'||v_function_id||'", "parameters":{"v_demandunits":"'||v_demandunits||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
+		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4652", "function":"'||v_function_id||'", "parameters":{"v_periodseconds":"'||abs(v_periodseconds)||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
 	
 		IF (SELECT period_seconds FROM v_cat_period WHERE id  = v_period) IS NULL THEN
 			SELECT dscenario_id INTO v_scenarioid FROM cat_dscenario where name = v_name;
-			INSERT INTO audit_check_data (fid, result_id, criticity, error_message)	
-			VALUES (v_fid, null, 2, concat('WARNING: The period has not data on period_seconds columns. The system default value have been used ( ',v_periodseconds,' ) '));
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4654", "function":"'||v_function_id||'", "parameters":{"v_periodseconds":"'||v_periodseconds||'"}, "fid":"'||v_fid||'", "criticity":"2", "is_process":true}}$$)';
 		END IF;
 
 		-- this factor is calculated assuming period value is on M3
@@ -403,11 +396,9 @@ BEGIN
 
 		EXECUTE 'SELECT sum("billed_volume") FROM ('||v_querytext||')' INTO v_total_vol;
 
-		INSERT INTO audit_check_data (fid, result_id, criticity, error_message)
-		VALUES (v_fid, v_result_id, 1, concat('There are ', v_total_hydro, ' hydrometers with data for this period and this exploitation.'));
+		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4656", "function":"'||v_function_id||'", "parameters":{"v_total_hydro":"'||COALESCE(v_total_hydro, 0)||'"}, "fid":"'||v_fid||'", "criticity":"1", "is_process":true}}$$)';
 
-		INSERT INTO audit_check_data (fid, result_id, criticity, error_message)	
-		VALUES (v_fid, v_result_id, 1, concat('The total volume (m3) for all the hydrometers is ', v_total_vol,'.'));
+		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4658", "function":"'||v_function_id||'", "parameters":{"v_total_vol":"'||COALESCE(v_total_vol, 0)||'"}, "fid":"'||v_fid||'", "criticity":"1", "is_process":true}}$$)';
 
 		IF v_dma_weight_factor is true then
 			EXECUTE 'INSERT INTO inp_dscenario_demand (feature_type, dscenario_id, feature_id, demand, source, pattern_id)
@@ -426,17 +417,37 @@ BEGIN
 			FROM aux order by 2';
 		END IF;
 
-		-- real volume inserted
-		SELECT sum(demand)/v_factor INTO v_count2 FROM inp_dscenario_demand WHERE dscenario_id = v_scenarioid;
+		IF v_dma_weight_factor IS TRUE THEN
+			SELECT count(*) INTO v_count2
+			FROM (
+				SELECT dma_id, sum(demand) AS dma_demand
+				FROM (
+					SELECT d.demand, c.dma_id
+					FROM inp_dscenario_demand d
+					JOIN connec c ON c.connec_id = d.feature_id
+					WHERE d.dscenario_id = v_scenarioid AND d.feature_type = 'CONNEC'
+					UNION ALL
+					SELECT d.demand, n.dma_id
+					FROM inp_dscenario_demand d
+					JOIN node n ON n.node_id = d.feature_id
+					WHERE d.dscenario_id = v_scenarioid AND d.feature_type = 'NODE'
+				) aux
+				GROUP BY dma_id
+				HAVING round(sum(demand)::numeric, 4) <> 1
+			) invalid_dmas;
 
-		--log
-		INSERT INTO audit_check_data (fid, result_id, criticity, error_message)
-		VALUES (v_fid, v_result_id, 1, concat('The volume water inserted is ',v_count2,', wich it means that lossed water percentatge due leak of data have been ',
-		(100-100*v_count2::float/v_total_vol::float)::numeric(12,2),' %.'));
+			IF v_count2 = 0 THEN
+				EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4676", "function":"'||v_function_id||'", "fid":"'||v_fid||'"}}$$)';
+			END IF;
+		ELSE
+			-- real volume inserted
+			SELECT sum(demand)/v_factor INTO v_count2 FROM inp_dscenario_demand WHERE dscenario_id = v_scenarioid;
 
-		INSERT INTO audit_check_data (fid, result_id, criticity, error_message)
-		VALUES (v_fid, v_result_id, 1, concat('The water loss could be motivated by current connecs with state = 0 which they was operative for that period with some hydrometer linked'));
-	
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4640", "function":"'||v_function_id||'", "fid":"'||v_fid||'", "parameters":{"volume":"'||COALESCE(v_count2, 0)||'", "percentage":"'||COALESCE((100-100*v_count2::float/v_total_vol::float)::numeric(12,2), 0)||'"}}}$$)';
+
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4642", "function":"'||v_function_id||'", "fid":"'||v_fid||'"}}$$)';
+		END IF;
+
 		-- update patterns  (1 -> none)
 		IF v_dma_weight_factor IS FALSE THEN
 			IF v_pattern = 2 THEN -- sector default
@@ -491,23 +502,16 @@ BEGIN
 		IF v_pattern > 1 THEN
 
 			GET DIAGNOSTICS v_count2 = row_count;	
-			INSERT INTO audit_check_data (fid, result_id, criticity, error_message)	
-			VALUES (v_fid, v_result_id, 1, concat(v_count2, ' rows have been update with pattern value.'));
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4660", "function":"'||v_function_id||'", "parameters":{"v_count2":"'||COALESCE(v_count2, 0)||'"}, "fid":"'||v_fid||'", "criticity":"1", "is_process":true}}$$)';
 		
 			IF v_count > v_count2 THEN
 
-				INSERT INTO audit_check_data (fid, result_id, criticity, error_message)	
-				VALUES (v_fid, v_result_id, 2, concat('WARNING-403: ',v_count-v_count2,' rows have not been updated. This may be for missed data from source pattern table.'));
-				INSERT INTO audit_check_data (fid, result_id, criticity, error_message)	
-				VALUES (v_fid, v_result_id, 2, concat('SECTOR DEFAULT: sector table.'));
-				INSERT INTO audit_check_data (fid, result_id, criticity, error_message)	
-				VALUES (v_fid, v_result_id, 2, concat('DMA DEFAULT: dma table.'));
-				INSERT INTO audit_check_data (fid, result_id, criticity, error_message)	
-				VALUES (v_fid, v_result_id, 2, concat('DMA PERIOD: ext_rtc_dma_period table.'));
-				INSERT INTO audit_check_data (fid, result_id, criticity, error_message)	
-				VALUES (v_fid, v_result_id, 2, concat('HYDROMETER CATEGORY: hydrometer_category table.'));
-				INSERT INTO audit_check_data (fid, result_id, criticity, error_message)	
-				VALUES (v_fid, v_result_id, 2, concat('FEATURE PATTERN: inp_junction & inp_connec tables.'));
+				EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4662", "function":"'||v_function_id||'", "parameters":{"v_count":"'||COALESCE((v_count-v_count2), 0)||'"}, "fid":"'||v_fid||'", "criticity":"2", "prefix_id":"1006", "is_process":true}}$$)';
+				EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4664", "function":"'||v_function_id||'", "fid":"'||v_fid||'", "criticity":"2", "is_process":true}}$$)';
+				EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4666", "function":"'||v_function_id||'", "fid":"'||v_fid||'", "criticity":"2", "is_process":true}}$$)';
+				EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4668", "function":"'||v_function_id||'", "fid":"'||v_fid||'", "criticity":"2", "is_process":true}}$$)';
+				EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4670", "function":"'||v_function_id||'", "fid":"'||v_fid||'", "criticity":"2", "is_process":true}}$$)';
+				EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4672", "function":"'||v_function_id||'", "fid":"'||v_fid||'", "criticity":"2", "is_process":true}}$$)';
 			END IF;
 		END IF;
 				
@@ -524,10 +528,7 @@ BEGIN
 		INTO v_rec_hydro;
 
 
-		INSERT INTO audit_check_data (fid, result_id, criticity, error_message)
-		VALUES (v_fid, v_result_id, 1,
-		concat('INFO: There are ', v_rec_hydro.hydro_no_llegits, ' non-read hydrometers from ', v_rec_hydro.hydro_total, ' hydrometers in total (', v_rec_hydro.percentage, '% of the hydrometers)')
-		);
+		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4674", "function":"'||v_function_id||'", "parameters":{"v_hydro_no_llegits":"'||COALESCE(v_rec_hydro.hydro_no_llegits, 0)||'", "v_hydro_total":"'||COALESCE(v_rec_hydro.hydro_total, 0)||'", "v_percentage":"'||COALESCE(v_rec_hydro.percentage, 0)||'"}, "fid":"'||v_fid||'", "criticity":"1", "is_process":true}}$$)';
 
 		-- set selector
 		INSERT INTO selector_inp_dscenario (dscenario_id,cur_user) VALUES (v_scenarioid, current_user) ON CONFLICT (dscenario_id,cur_user) DO NOTHING;

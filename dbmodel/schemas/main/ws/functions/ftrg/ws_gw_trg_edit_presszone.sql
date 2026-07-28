@@ -60,6 +60,13 @@ BEGIN
 			NEW.presszone_id:= (SELECT nextval('urn_id_seq'));
 		END IF;
 
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'PRESSZONE', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		IF NEW.code IS NULL THEN
 			NEW.code := NEW.presszone_id::text;
 		END IF;
@@ -88,6 +95,13 @@ BEGIN
 
 	ELSIF TG_OP = 'UPDATE' THEN
 
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF v_view_name = 'EDIT' AND NEW.the_geom IS NOT NULL AND NEW.code IS NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'PRESSZONE', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		UPDATE presszone
 		SET presszone_id=NEW.presszone_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, presszone_type=NEW.presszone_type, expl_id=NEW.expl_id, 
 		muni_id = NEW.muni_id, sector_id = NEW.sector_id, avg_press=NEW.avg_press, head = NEW.head, graphconfig=NEW.graphconfig::json, stylesheet=NEW.stylesheet::json,

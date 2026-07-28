@@ -66,6 +66,13 @@ BEGIN
 			NEW.dma_id:= (SELECT nextval('urn_id_seq'));
 		END IF;
 		
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'DMA', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		IF NEW.code IS NULL THEN
 			NEW.code := NEW.dma_id::text;
 		END IF;
@@ -113,12 +120,21 @@ BEGIN
 
 	ELSIF TG_OP = 'UPDATE' THEN
 
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
 		IF v_view_name = 'EDIT' THEN
+			IF NEW.the_geom IS NOT NULL THEN
+				IF NEW.code IS NULL THEN
+					NEW.code := gw_fct_generate_code('mapzone', 'DMA', json_strip_nulls(row_to_json(NEW)::json));
+				END IF;
+			END IF;
+			IF NEW.macrodma_id IS NULL THEN NEW.macrodma_id := 0; END IF;
 			v_mapzone_id = NEW.macrodma_id;
 		ELSIF v_view_name = 'UI' THEN
 			SELECT macrodma_id INTO v_mapzone_id FROM macrodma WHERE name = NEW.macrodma;
 		END IF;
-
 		UPDATE dma
 		SET dma_id=NEW.dma_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, dma_type=NEW.dma_type, macrodma_id=v_mapzone_id, expl_id=NEW.expl_id,
 		muni_id=NEW.muni_id, sector_id=NEW.sector_id, avg_press=NEW.avg_press, pattern_id=NEW.pattern_id, effc=NEW.effc, graphconfig=NEW.graphconfig::json,

@@ -55,6 +55,13 @@ BEGIN
 		END IF;
 
 		SELECT max(dqa_id::integer)+1 INTO v_dqa_id FROM dqa WHERE dqa_id::text ~ '^[0-9]+$';
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'DQA', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		IF NEW.code IS NULL THEN
 			NEW.code := v_dqa_id::text;
 		END IF;
@@ -87,12 +94,20 @@ BEGIN
 
 	ELSIF TG_OP = 'UPDATE' THEN
 
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
 		IF v_view_name = 'EDIT' THEN
+			IF NEW.the_geom IS NOT NULL THEN
+				IF NEW.code IS NULL THEN
+					NEW.code := gw_fct_generate_code('mapzone', 'DQA', json_strip_nulls(row_to_json(NEW)::json));
+				END IF;
+			END IF;
 			v_mapzone_id = NEW.macrodqa_id;
 		ELSIF v_view_name = 'UI' THEN
 			SELECT macrodqa_id INTO v_mapzone_id FROM macrodqa WHERE name = NEW.macrodqa;
 		END IF;
-
 		UPDATE dqa
 		SET dqa_id=NEW.dqa_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, dqa_type=NEW.dqa_type, macrodqa_id=v_mapzone_id, expl_id=NEW.expl_id,
 		sector_id=NEW.sector_id, muni_id=NEW.muni_id, avg_press=NEW.avg_press, pattern_id=NEW.pattern_id, graphconfig=NEW.graphconfig::json,

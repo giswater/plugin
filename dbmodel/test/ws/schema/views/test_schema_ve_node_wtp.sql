@@ -202,7 +202,7 @@ SELECT col_type_is('ve_node_wtp', 'sludgeman', 'int4', 'Column sludgeman should 
 SELECT col_type_is('ve_node_wtp', 'inlet_arc', 'int4[]', 'Column inlet_arc should be int4[]');
 
 SELECT col_type_is('ve_node_wtp', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_wtp', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_wtp', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

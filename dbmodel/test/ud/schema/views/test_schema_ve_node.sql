@@ -168,7 +168,7 @@ SELECT col_type_is('ve_node', 'muni_visibility', 'int4[]', 'Column muni_visibili
 SELECT col_type_is('ve_node', 'has_access', 'bool', 'Column has_access should be bool');
 
 SELECT col_type_is('ve_node', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

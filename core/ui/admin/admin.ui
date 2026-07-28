@@ -59,8 +59,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>598</width>
-             <height>799</height>
+             <width>606</width>
+             <height>812</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_11">
@@ -315,8 +315,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>502</width>
-             <height>700</height>
+             <width>606</width>
+             <height>812</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_12">
@@ -382,13 +382,13 @@
             <item row="7" column="0" colspan="2">
              <widget class="QGroupBox" name="grp_i18n_update">
               <property name="title">
-               <string>Schema i18n update</string>
+               <string>Schema multilang update</string>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_2">
                <item>
-                <widget class="QPushButton" name="btn_update_translation">
+                <widget class="QPushButton" name="btn_manage_languages">
                  <property name="text">
-                  <string>Instant update i18n</string>
+                  <string>Manage Languages</string>
                  </property>
                 </widget>
                </item>
@@ -682,8 +682,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>598</width>
-             <height>799</height>
+             <width>192</width>
+             <height>480</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_20">
@@ -766,13 +766,13 @@
             <item row="5" column="0">
              <widget class="QGroupBox" name="grb_i18n">
               <property name="title">
-               <string>i18n</string>
+               <string>Multilang</string>
               </property>
               <layout class="QGridLayout" name="gridLayout_13">
                <item row="0" column="0">
                 <widget class="QPushButton" name="btn_i18n">
                  <property name="text">
-                  <string>i18n manager</string>
+                  <string>Multilang manager</string>
                  </property>
                 </widget>
                </item>

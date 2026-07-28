@@ -189,7 +189,7 @@ SELECT col_type_is('ve_node_register', 'max_volume', 'numeric(12,3)', 'Column ma
 SELECT col_type_is('ve_node_register', 'util_volume', 'numeric(12,3)', 'Column util_volume should be numeric(12,3)');
 
 SELECT col_type_is('ve_node_register', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_register', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_register', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

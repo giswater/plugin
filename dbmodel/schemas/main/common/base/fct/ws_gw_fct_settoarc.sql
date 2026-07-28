@@ -34,7 +34,6 @@ v_arc_id integer;
 v_feature_class text;
 v_epatype text;
 v_graphdelim text[];
-v_config json;
 v_mapzone_id text;
 v_dma_id text;
 v_dqa_id text;
@@ -63,7 +62,7 @@ BEGIN
 	v_arc_id:= json_extract_path_text (p_data,'data','arcId')::integer;
 	v_dma_id:= json_extract_path_text (p_data,'data','dmaId')::text;
 	v_presszone_id:= json_extract_path_text (p_data,'data','presszoneId')::text;
-	v_dqa_id:= json_extract_path_text (p_data,'data','presszoneId')::text;
+	v_dqa_id:= json_extract_path_text (p_data,'data','dqaId')::text;
 
 	SELECT upper(feature_class), ARRAY(SELECT upper(unnest(graph_delimiter))) INTO v_feature_class, v_graphdelim
 	FROM cat_feature_node
@@ -149,24 +148,15 @@ BEGIN
 			EXECUTE 'SELECT graphconfig FROM '||rec||' WHERE '||rec||'_id::text = '||quote_literal(v_mapzone_id)||'::text'
 			INTO v_check_graphconfig;
 
-			IF v_check_graphconfig IS NULL OR v_check_graphconfig = '{"use":[{"nodeParent":"", "toArc":[]}], "ignore":[], "forceClosed":[]}' THEN
-			--Define graphconfig in case when its null
-
-			    EXECUTE 'SELECT jsonb_build_object(''use'',ARRAY[a.feature], ''ignore'',''{}''::text[], ''forceClosed'',''{}''::text[]) FROM (
-			    SELECT jsonb_build_object(
-			    ''nodeParent'','||v_feature_id||',
-			    ''toArc'',   ARRAY['||v_arc_id||'] ) AS feature)a'
-			    INTO v_config;
-
-			    EXECUTE'UPDATE '||rec||' SET graphconfig = '||quote_literal(v_config)||' WHERE '||rec||'_id::text = '||quote_literal(v_mapzone_id)||'::text;';
-			ELSE
+			IF v_check_graphconfig IS NOT NULL
+			   AND v_check_graphconfig <> '{"use":[{"nodeParent":"", "toArc":[]}], "ignore":[], "forceClosed":[]}' THEN
 
 			    EXECUTE  'SELECT 1 FROM '||rec||' CROSS JOIN json_array_elements((graphconfig->>''use'')::json) elem 
 			    WHERE (elem->>''nodeParent'')::int4 = '||v_feature_id||' AND '||rec||'_id = '||v_mapzone_id||' LIMIT 1'
 			    INTO v_check_graphconfig;
 
 			    IF v_check_graphconfig = '1'  THEN
-				--Define graphconfig in case when there is definition for mapzone and node is already defined there
+				-- update toArc only when nodeParent is already configured on the mapzone
 
 				EXECUTE 'UPDATE '||rec||' set graphconfig = replace(graphconfig::text,a.toarc,'||v_arc_id||'::text)::json FROM (
 				select json_array_elements_text((elem->>''toArc'')::json) as toarc, elem->>''nodeParent'' as elem
@@ -175,21 +165,6 @@ BEGIN
 				where (elem->>''nodeParent'')::int4 = '||v_feature_id||' AND '||rec||'_id = '||v_mapzone_id||')a 
 				WHERE '||rec||'_id ='||v_mapzone_id||'';
 
-			    ELSE
-				--Define graphconfig in case when there is definition for mapzone and node is not defined there
-				EXECUTE 'SELECT jsonb_build_object(
-				''nodeParent'','||v_feature_id||',
-				''toArc'',   ARRAY['||v_arc_id||'] ) AS feature'
-				INTO v_config;
-
-
-				EXECUTE 'SELECT jsonb_build_object(''use'',b.feature, ''ignore'',(graphconfig->>''ignore'')::json) FROM '||rec||',( 
-				SELECT jsonb_agg(a.use) || '''||v_config||'''::jsonb as feature   FROM (
-				select '||rec||'_id, json_array_elements((graphconfig->>''use'')::json) as use, graphconfig
-				from '||rec||' where '||rec||'_id::text ='||quote_literal(v_mapzone_id)||'::text)a)b where '||rec||'_id::text ='||quote_literal(v_mapzone_id)||'::text'
-				INTO v_config;
-
-				EXECUTE'UPDATE '||rec||' SET graphconfig = '||quote_literal(v_config)||' WHERE '||rec||'_id::text = '||quote_literal(v_mapzone_id)||'::text;';
 			    END IF;
 			END IF;
 		   END IF;

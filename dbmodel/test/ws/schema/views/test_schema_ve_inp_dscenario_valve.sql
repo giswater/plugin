@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'node_id', 'nodarc_id', 'valve_type', 'setting', 'curve_id',
         'minorloss', 'status', 'add_settings', 'init_quality', 'to_arc', 'head',
-        'pattern_id', 'demand', 'demand_pattern_id', 'emitter_coeff', 'the_geom'
+        'pattern_id', 'demand', 'demand_pattern_id', 'emitter_coeff', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_valve should have the correct columns'
 );
@@ -46,6 +46,7 @@ SELECT col_type_is('ve_inp_dscenario_valve', 'demand', 'numeric(12,6)', 'Column 
 SELECT col_type_is('ve_inp_dscenario_valve', 'demand_pattern_id', 'varchar(16)', 'Column demand_pattern_id should be varchar(16)');
 SELECT col_type_is('ve_inp_dscenario_valve', 'emitter_coeff', 'float8', 'Column emitter_coeff should be float8');
 SELECT col_type_is('ve_inp_dscenario_valve', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_valve', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

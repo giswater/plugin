@@ -67,18 +67,40 @@ BEGIN
 
 	-- create query tables for om
 	DROP TABLE IF EXISTS t_arc;	EXECUTE 'CREATE TEMP TABLE t_arc AS SELECT * FROM ve_arc'||v_filter;
+	CREATE INDEX IF NOT EXISTS idx_t_arc_the_geom ON t_arc USING gist (the_geom);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_t_arc_arc_id ON t_arc USING btree (arc_id);
 	DROP TABLE IF EXISTS t_node;EXECUTE 'CREATE TEMP TABLE  t_node AS SELECT * FROM ve_node'||v_filter;
+	CREATE INDEX IF NOT EXISTS idx_t_node_the_geom ON t_node USING gist (the_geom);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_t_node_node_id ON t_node USING btree (node_id);
 	DROP TABLE IF EXISTS t_connec;EXECUTE 'CREATE TEMP TABLE t_connec AS SELECT * FROM ve_connec'||v_filter;
+	CREATE INDEX IF NOT EXISTS idx_t_connec_the_geom ON t_connec USING gist (the_geom);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_t_connec_connec_id ON t_connec USING btree (connec_id);
 	DROP TABLE IF EXISTS t_element;	EXECUTE 'CREATE TEMP TABLE t_element AS SELECT * FROM element'||v_filter;
+	CREATE INDEX IF NOT EXISTS idx_t_element_the_geom ON t_element USING gist (the_geom);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_t_element_element_id ON t_element USING btree (element_id);
 	DROP TABLE IF EXISTS t_link;EXECUTE 'CREATE TEMP TABLE t_link AS SELECT * FROM ve_link';
+	CREATE INDEX IF NOT EXISTS idx_t_link_the_geom ON t_link USING gist (the_geom);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_t_link_link_id ON t_link USING btree (link_id);
 	DROP TABLE IF EXISTS t_dma;	CREATE TEMP TABLE t_dma AS SELECT * FROM ve_dma;
+	CREATE INDEX IF NOT EXISTS idx_t_dma_the_geom ON t_dma USING gist (the_geom);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_t_dma_dma_id ON t_dma USING btree (dma_id);
 	IF v_project_type = 'WS' THEN
 		DROP TABLE IF EXISTS t_dqa;	CREATE TEMP TABLE t_dqa AS SELECT * FROM ve_dqa;
+		CREATE INDEX IF NOT EXISTS idx_t_dqa_the_geom ON t_dqa USING gist (the_geom);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_t_dqa_dqa_id ON t_dqa USING btree (dqa_id);
 		DROP TABLE IF EXISTS t_presszone; CREATE TEMP TABLE t_presszone AS SELECT * FROM ve_presszone;
+		CREATE INDEX IF NOT EXISTS idx_t_presszone_the_geom ON t_presszone USING gist (the_geom);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_t_presszone_presszone_id ON t_presszone USING btree (presszone_id);
 		DROP TABLE IF EXISTS t_sector; CREATE TEMP TABLE t_sector AS SELECT * FROM ve_sector;
+		CREATE INDEX IF NOT EXISTS idx_t_sector_the_geom ON t_sector USING gist (the_geom);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_t_sector_sector_id ON t_sector USING btree (sector_id);
 	ELSIF v_project_type  = 'UD' THEN
 		DROP TABLE IF EXISTS t_gully;EXECUTE 'CREATE TEMP TABLE t_gully AS SELECT * FROM ve_gully'||v_filter;
+		CREATE INDEX IF NOT EXISTS idx_t_gully_the_geom ON t_gully USING gist (the_geom);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_t_gully_gully_id ON t_gully USING btree (gully_id);
 		DROP TABLE IF EXISTS t_drainzone; CREATE TEMP TABLE t_drainzone AS SELECT * FROM ve_drainzone;
+		CREATE INDEX IF NOT EXISTS idx_t_drainzone_the_geom ON t_drainzone USING gist (the_geom);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_t_drainzone_drainzone_id ON t_drainzone USING btree (drainzone_id);
 	END IF;
 
 

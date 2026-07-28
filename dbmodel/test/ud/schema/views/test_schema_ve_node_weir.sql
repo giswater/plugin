@@ -184,7 +184,7 @@ SELECT col_type_is('ve_node_weir', 'weir_param_1', 'int4', 'Column weir_param_1 
 SELECT col_type_is('ve_node_weir', 'weir_param_2', 'text', 'Column weir_param_2 should be text');
 SELECT col_type_is('ve_node_weir', 'has_access', 'bool', 'Column has_access should be bool');
 SELECT col_type_is('ve_node_weir', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_weir', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_weir', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

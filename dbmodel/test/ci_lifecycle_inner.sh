@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # CI lifecycle lanes (profiles smoke, updates, satellite pgTAP, network pgTAP).
-# Usage: ci_lifecycle_inner.sh profiles-smoke|update-isolated|pgtap-satellites|pgtap-network
+# Usage: ci_lifecycle_inner.sh profiles-smoke|i18n-bootstrap|update-isolated|pgtap-satellites|pgtap-network
 set -euo pipefail
 
-MODE="${1:?Usage: ci_lifecycle_inner.sh profiles-smoke|update-isolated|pgtap-satellites|pgtap-network}"
+MODE="${1:?Usage: ci_lifecycle_inner.sh profiles-smoke|i18n-bootstrap|update-isolated|pgtap-satellites|pgtap-network}"
 
 _TEST_ROOT="${GW_TEST_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 # shellcheck source=_env_inner.sh
@@ -23,7 +23,7 @@ gw() {
     ${GW_ADMIN_FLAGS[@]+"${GW_ADMIN_FLAGS[@]}"}
 }
 
-TARGET_VER="$(python3 "${_TEST_ROOT}/plugin_version.py")"
+eval "$(python3 "${_TEST_ROOT}/e2e_versions.py")"
 
 create_main_profile() {
   local ptype="$1"
@@ -42,7 +42,6 @@ create_main_profile() {
     --version "$TARGET_VER" \
     --conn "$CONN"
   gw_e2e_assert_sys_version "$schema" "$TARGET_VER"
-  gw schema main drop --name "$schema" --yes --cascade --conn "$CONN"
 }
 
 case "${MODE}" in
@@ -55,6 +54,17 @@ case "${MODE}" in
       done
     done
     echo "profiles-smoke done."
+    ;;
+
+  i18n-bootstrap)
+    export PARENT_PROFILE="${GW_PARENT_PROFILE:-sample}"
+    export SATELLITES="${GW_SATELLITES:-}"
+    export WS="${WS:-ws}"
+    export UD="${UD:-ud}"
+    export LANGUAGE="${LANGUAGE:-no_TR}"
+    echo "=== i18n bootstrap (ws+ud profile=${PARENT_PROFILE}, satellites=${SATELLITES}, language=${LANGUAGE}) ==="
+    bash "${REPO_ROOT}/scripts/gw_e2e_addons_integrate.sh"
+    echo "i18n-bootstrap done."
     ;;
 
   update-isolated)

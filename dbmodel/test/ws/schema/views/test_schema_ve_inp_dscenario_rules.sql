@@ -21,7 +21,7 @@ SELECT has_view('ve_inp_dscenario_rules'::name, 'View ve_inp_dscenario_rules sho
 SELECT columns_are(
     've_inp_dscenario_rules',
     ARRAY[
-        'id', 'dscenario_id', 'sector_id', 'text', 'active'
+        'id', 'dscenario_id', 'sector_id', 'text', 'active', 'observ'
     ],
     'View ve_inp_dscenario_rules should have the correct columns'
 );
@@ -32,6 +32,7 @@ SELECT col_type_is('ve_inp_dscenario_rules', 'dscenario_id', 'int4', 'Column dsc
 SELECT col_type_is('ve_inp_dscenario_rules', 'sector_id', 'int4', 'Column sector_id should be int4');
 SELECT col_type_is('ve_inp_dscenario_rules', 'text', 'text', 'Column text should be text');
 SELECT col_type_is('ve_inp_dscenario_rules', 'active', 'bool', 'Column active should be bool');
+SELECT col_type_is('ve_inp_dscenario_rules', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

@@ -12,11 +12,11 @@ As Giswater works on two environments (QGIS and PostgreSQL) two variables have t
 On the other hand, Giswater works with QGIS templates (composers and project files), Python and PL-SQL languages environment and for this reason
     source and target keys to translate are stored in source code in on:
 
-	1 - QGIS templates: https://github.com/Giswater/giswater_qgis_plugin/resources/templates/
-	2 - Python messages and dialogs: https://github.com/Giswater/giswater_qgis_plugin/i18n/ *_ts files
-	3 - PL-SQL messages and dialogs: https://github.com/Giswater/giswater_db_model/updates/  i18n folders (each new version on new i18n folder)
+	1 - QGIS templates: https://github.com/giswater/plugin/resources/templates/
+	2 - Python messages and dialogs: https://github.com/giswater/plugin/i18n/ *_ts files
+	3 - PL-SQL messages and dialogs: https://github.com/giswater/giswater_db_model/updates/  i18n folders (each new version on new i18n folder)
 	
-	Regarding the QGIS templates (https://github.com/Giswater/giswater_qgis_plugin/resources/templates) you may known that in order to optimize your work, 
+	Regarding the QGIS templates (https://github.com/giswater/plugin/resources/templates) you may known that in order to optimize your work, 
 	we recommend only translate ud_admin_sample & ws_admin_sample. 
 	Rest of QGIS templates must be translated after, only deleting layers from the translated ones  (ud_admin_sample, ws_admin_sample)
 		
@@ -55,7 +55,7 @@ After that, inside the PostgreSQL database you will find six tables:
 					dbmessage table
 	
 	with columns related to your language. As well as pydialog and dbdialog tables has lots of rows, to update both, 
-	you can use SQL scripts stored on giswater_qgis_plugin/resources/i18n/:
+	you can use SQL scripts stored on plugin/resources/i18n/:
 		- help4dbdialog.sql
 		- help4pydialog.sql
 		

@@ -120,6 +120,8 @@ def fetch_schema_inventory_entry(
 
     columns = _sys_version_columns_by_schema([schema_name], fetcher).get(schema_name, set())
     version_col = _version_column_for_schema(schema_name, columns)
+    if not version_col:
+        return None
     select_cols = ["project_type", version_col]
     if "epsg" in columns:
         select_cols.append("epsg")
@@ -318,16 +320,34 @@ def fetch_schema_names_with_sys_version(fetcher: RowFetcher) -> list[str]:
 
 def _version_column_for_schema(schema_name: str, columns: set[str]) -> str:
     if schema_name.lower() not in _NETWORK_KINDS:
-        if "version" in columns:
-            return "version"
-        if "giswater" in columns:
-            return "giswater"
+        for col in ("version", "giswater"):
+            if col in columns:
+                return col
     else:
-        if "giswater" in columns:
-            return "giswater"
-        if "version" in columns:
-            return "version"
-    return "giswater"
+        for col in ("giswater", "version"):
+            if col in columns:
+                return col
+    return ""
+
+
+def _fetch_sys_version_addparam(
+    schema_name: str,
+    fetcher: RowFetcher,
+    *,
+    columns: set[str] | None = None,
+) -> dict[str, Any]:
+    if columns is None:
+        columns = _sys_version_columns_by_schema([schema_name], fetcher).get(schema_name, set())
+    if "addparam" not in columns:
+        return {}
+    row = fetcher(
+        f"SELECT addparam FROM {_quote_ident(schema_name)}.sys_version "
+        "ORDER BY id DESC LIMIT 1",
+        None,
+    )
+    if not row or not row[0]:
+        return {}
+    return _parse_addparam(row[0][0])
 
 
 def _sys_version_columns_by_schema(
@@ -368,6 +388,8 @@ def fetch_schema_sys_version_entry(
 
     columns = _sys_version_columns_by_schema([schema_name], fetcher).get(schema_name, set())
     version_col = _version_column_for_schema(schema_name, columns)
+    if not version_col:
+        return {"schema": schema_name, "kind": "", "version": "", "addparam": {}}
     select_cols = ["project_type", version_col]
     if "addparam" in columns:
         select_cols.append("addparam")

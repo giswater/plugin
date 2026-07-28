@@ -250,7 +250,7 @@ class GwLoadProject(QObject):
         majorPgVersion = tools_qgis.get_plugin_metadata('majorPgVersion', '11.99', lib_vars.plugin_dir).replace('.', '')
         minorPgrVersion = tools_qgis.get_plugin_metadata('minorPgrVersion', '3.8.0', lib_vars.plugin_dir).replace('.', '')
 
-        url_wiki = "https://github.com/Giswater/giswater_dbmodel/wiki/Version-compatibility"
+        url_wiki = "https://github.com/giswater/plugin/wiki/Version-compatibility"
         if postgresql_version is not None and minorPgVersion is not None and majorPgVersion is not None:
             if int(postgresql_version) < int(minorPgVersion) or int(postgresql_version) > int(majorPgVersion):
                 msg = "PostgreSQL version is not compatible with Giswater. Please check wiki"
@@ -410,9 +410,7 @@ class GwLoadProject(QObject):
             tools_log.log_info(msg, msg_params=msg_params)
             return
 
-        toolbars_order = tools_gw.get_config_parser('toolbars_position', 'toolbars_order', 'user', 'init')
-        if toolbars_order in (None, 'None'):
-            toolbars_order = tools_gw.get_config_parser('toolbars_position', '_toolbars_order', 'user', 'init')
+        toolbars_order = tools_gw.get_user_config_or_default('init', 'toolbars_position', 'toolbars_order')
 
         if toolbars_order in (None, 'None'):
             msg = "Parameter '{0}' is None"

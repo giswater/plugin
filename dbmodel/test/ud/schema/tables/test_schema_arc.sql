@@ -147,7 +147,7 @@ SELECT col_type_is('arc', 'node_custom_top_elev_2', 'numeric(12,3)', 'Column nod
 SELECT col_type_is('arc', 'node_custom_elev_2', 'numeric(12,3)', 'Column node_custom_elev_2 should be numeric(12,3)');
 
 SELECT col_type_is('arc', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('arc', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('arc', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 -- Check foreign keys
 SELECT has_fk('arc', 'Table arc should have foreign keys');

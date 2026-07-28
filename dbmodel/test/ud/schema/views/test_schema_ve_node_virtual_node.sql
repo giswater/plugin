@@ -167,7 +167,7 @@ SELECT col_type_is('ve_node_virtual_node', 'sector_visibility', 'int4[]', 'Colum
 SELECT col_type_is('ve_node_virtual_node', 'muni_visibility', 'int4[]', 'Column muni_visibility should be int4[]');
 SELECT col_type_is('ve_node_virtual_node', 'has_access', 'bool', 'Column has_access should be bool');
 SELECT col_type_is('ve_node_virtual_node', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_virtual_node', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_virtual_node', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

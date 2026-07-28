@@ -181,7 +181,7 @@ SELECT col_type_is('ve_node_pump_station', 'slope', 'numeric', 'Column slope sho
 SELECT col_type_is('ve_node_pump_station', 'height', 'numeric(12,4)', 'Column height should be numeric(12,4)');
 SELECT col_type_is('ve_node_pump_station', 'has_access', 'bool', 'Column has_access should be bool');
 SELECT col_type_is('ve_node_pump_station', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_pump_station', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_pump_station', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

@@ -21,7 +21,7 @@ SELECT has_table('inp_dscenario_rules'::name, 'Table inp_dscenario_rules should 
 SELECT columns_are(
     'inp_dscenario_rules',
     ARRAY[
-        'id', 'dscenario_id', 'sector_id', 'text', 'active'
+        'id', 'dscenario_id', 'sector_id', 'text', 'active', 'observ'
     ],
     'Table inp_dscenario_rules should have the correct columns'
 );
@@ -32,6 +32,7 @@ SELECT col_type_is('inp_dscenario_rules', 'dscenario_id', 'int4', 'Column dscena
 SELECT col_type_is('inp_dscenario_rules', 'sector_id', 'int4', 'Column sector_id should be int4');
 SELECT col_type_is('inp_dscenario_rules', 'text', 'text', 'Column text should be text');
 SELECT col_type_is('inp_dscenario_rules', 'active', 'bool', 'Column active should be bool');
+SELECT col_type_is('inp_dscenario_rules', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_rules', 'Table inp_dscenario_rules should have foreign keys');

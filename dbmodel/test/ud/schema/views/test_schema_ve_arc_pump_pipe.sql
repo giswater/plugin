@@ -200,7 +200,7 @@ SELECT col_type_is('ve_arc_pump_pipe', 'pumpipe_param_1', 'bool', 'Column pumpip
 SELECT col_type_is('ve_arc_pump_pipe', 'pumpipe_param_2', 'text', 'Column pumpipe_param_2 should be text');
 
 SELECT col_type_is('ve_arc_pump_pipe', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_arc_pump_pipe', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_arc_pump_pipe', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

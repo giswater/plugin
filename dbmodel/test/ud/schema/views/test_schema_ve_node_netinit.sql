@@ -177,7 +177,7 @@ SELECT col_type_is('ve_node_netinit', 'sander_depth', 'numeric(12,3)', 'Column s
 SELECT col_type_is('ve_node_netinit', 'inlet_medium', 'int4', 'Column inlet_medium should be int4');
 SELECT col_type_is('ve_node_netinit', 'has_access', 'bool', 'Column has_access should be bool');
 SELECT col_type_is('ve_node_netinit', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_netinit', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_netinit', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

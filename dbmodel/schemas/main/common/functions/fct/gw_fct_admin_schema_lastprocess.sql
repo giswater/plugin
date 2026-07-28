@@ -337,10 +337,13 @@ BEGIN
 			UPDATE sys_param_user SET vdefault = 'true', ismandatory = true WHERE id ='qgis_form_docker';
 
 			-- force all cat feature not active in order to increase step-by-step
-			IF v_projecttype = 'WS' THEN
-				UPDATE cat_feature SET active = false WHERE feature_class NOT IN ('VALVE', 'WJOIN', 'JUNCTION', 'TANK', 'PIPE', 'FRELEM', 'VLINK', 'PIPELINK'); -- ws projects
-			ELSE
-				UPDATE cat_feature SET active = false WHERE feature_class NOT IN ('CONDUIT', 'JUNCTION', 'CONNEC', 'GULLY', 'OUTFALL', 'FRELEM', 'VLINK', 'CONDUITLINK'); -- ud projects
+			-- Skip for empty projects: locale catalogs define active on purpose.
+			IF COALESCE(NULLIF(v_creation_profile, ''), 'empty') <> 'empty' THEN
+				IF v_projecttype = 'WS' THEN
+					UPDATE cat_feature SET active = false WHERE feature_class NOT IN ('VALVE', 'WJOIN', 'JUNCTION', 'TANK', 'PIPE', 'FRELEM', 'VLINK', 'PIPELINK'); -- ws projects
+				ELSE
+					UPDATE cat_feature SET active = false WHERE feature_class NOT IN ('CONDUIT', 'JUNCTION', 'CJOIN', 'GINLET', 'OUTFALL', 'FRELEM', 'VLINK', 'CONDUITLINK'); -- ud projects
+				END IF;
 			END IF;
 
 			-- hidden lastupdate and lastupdate_user columns

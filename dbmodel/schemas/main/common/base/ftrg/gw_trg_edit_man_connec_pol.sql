@@ -29,8 +29,8 @@ BEGIN
 		END IF;
 
 		-- Insert into polygon table
-		INSERT INTO polygon (sys_type, the_geom, feature_id, featurecat_id) 
-		SELECT sys_type, NEW.the_geom, NEW.feature_id, connec_type
+		INSERT INTO polygon (sys_type, the_geom, feature_id, featurecat_id, state) 
+		SELECT sys_type, NEW.the_geom, NEW.feature_id, connec_type, state
 		FROM ve_connec WHERE connec_id=NEW.feature_id
 		ON CONFLICT (feature_id) DO UPDATE SET the_geom=NEW.the_geom;
 		

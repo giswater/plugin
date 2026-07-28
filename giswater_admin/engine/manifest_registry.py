@@ -19,6 +19,7 @@ MAIN_KINDS = frozenset({"ws", "ud"})
 
 # Lockstep network update order (lower runs first). Unknown addons use ``_UNKNOWN_ADDON_ORDER``.
 _DEFAULT_UPDATE_ORDER: dict[str, int] = {
+    "multilang": 5,
     "utils": 10,
     "cibs": 20,
     "ws": 30,

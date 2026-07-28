@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "giswater-cli"
-version = "0.3.1"
+version = "0.4.1"
 description = "Headless CLI for Giswater database schema lifecycle (create, update, drop)"
 readme = "giswater_admin/README.md"
 requires-python = ">=3.9"
@@ -34,8 +34,8 @@ gw = "giswater_admin.cli:main"
 
 [project.urls]
 Homepage = "https://www.giswater.org"
-Repository = "https://github.com/giswater/giswater_qgis_plugin"
-Documentation = "https://github.com/giswater/giswater_qgis_plugin/blob/main/giswater_admin/README.md"
+Repository = "https://github.com/giswater/plugin"
+Documentation = "https://github.com/giswater/plugin/blob/main/giswater_admin/README.md"
 
 [tool.setuptools.packages.find]
 include = ["giswater_admin*"]

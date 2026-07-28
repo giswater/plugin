@@ -413,4 +413,3 @@ UPDATE config_typevalue AS t SET idval = v.idval FROM (
     ('tab_virtualvalve', 'tabname_typevalue', 'tab_virtualvalve')
 ) AS v(source, formname, idval)
 WHERE t.id = v.source AND t.typevalue = v.formname;
-

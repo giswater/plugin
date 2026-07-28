@@ -1,10 +1,10 @@
 # Welcome to Giswater Contributors Guide - QGIS Plugin
 
-Thank you for investing your time in contributing to our project! Any contribution you make will be reflected on [Giswater GitHub repositories](https://github.com/Giswater/). Contributions follow the GNU-GPL3 License, meaning the inbound=outbound approach applies.
+Thank you for investing your time in contributing to our project! Any contribution you make will be reflected on [Giswater GitHub repositories](https://github.com/giswater/). Contributions follow the GNU-GPL3 License, meaning the inbound=outbound approach applies.
 
 In this guide, you will get an overview of the contribution workflow, from opening an issue, creating a PR, reviewing, and merging it.
 
-For more information, refer to our [Code of Conduct](https://github.com/Giswater/docs/blob/master/github/pdf/code_of_conduct.pdf).
+For more information, refer to our [Code of Conduct](https://github.com/giswater/docs/blob/master/github/pdf/code_of_conduct.pdf).
 
 Giswater is developed in Python (QGIS plugin) and PL/SQL (PostgreSQL database), with three main repositories: QGIS-PLUGIN, DB-MODEL, and DOCS. This guide applies to the QGIS-PLUGIN repository.
 
@@ -45,15 +45,14 @@ To understand the project, start with the README. Here are some resources to get
 - Set up Git.
 - Follow GitHub flow.
 - Collaborate with pull requests.
-- Review [working in the docs repository](https://github.com/Giswater/docs) for navigating our codebase.
+- Review [working in the docs repository](https://github.com/giswater/docs) for navigating our codebase.
 
 ### Choose the Repository
 
 To make a new code contribution, select the appropriate repository:
 
-- For documentation, use the [Docs repository](https://github.com/Giswater/docs).
-- For the Python QGIS Plugin, use the [QGIS Plugin repository](https://github.com/Giswater/giswater_qgis_plugin).
-- For database models, use the [Database Model repository](https://github.com/Giswater/giswater_dbmodel).
+- For documentation, use the [Docs repository](https://github.com/giswater/docs).
+- For the Python QGIS Plugin, use the [QGIS Plugin repository](https://github.com/giswater/plugin).
 
 ### Make Changes Locally
 
@@ -120,6 +119,6 @@ Marc Vilaseca, Aigües de Vic, SA.<br>
 
 ## Commiters
 
-<a href="https://github.com/Giswater/giswater_qgis_plugin/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Giswater/giswater_qgis_plugin" />
+<a href="https://github.com/giswater/plugin/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=giswater/plugin" />
 </a>

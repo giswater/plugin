@@ -736,4 +736,3 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4426, 'Conflict Interval: %interval%', NULL)
 ) AS v(id, error_message, hint_message)
 WHERE t.id = v.id;
-

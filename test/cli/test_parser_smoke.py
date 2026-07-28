@@ -14,6 +14,7 @@ def test_build_parser_has_core_subcommands() -> None:
         "config",
         "dbmodel",
         "schema",
+        "project",
         "network",
         "db",
         "manifest",
@@ -38,6 +39,26 @@ def test_schema_list_parses() -> None:
     )
     assert args.tier == "main"
     assert args.schema_types == ["ws", "ud"]
+
+
+def test_project_create_parses() -> None:
+    args = build_parser().parse_args(
+        [
+            "project",
+            "create",
+            "--schema",
+            "ws_sample",
+            "--type",
+            "ws",
+            "--out",
+            "/tmp/qgs",
+            "--force",
+        ]
+    )
+    assert args.schema == "ws_sample"
+    assert args.type == "ws"
+    assert args.out == "/tmp/qgs"
+    assert args.force is True
 
 
 def test_network_update_parses() -> None:

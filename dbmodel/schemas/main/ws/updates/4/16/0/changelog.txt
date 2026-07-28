@@ -1,0 +1,2 @@
+- Add scada graph dynamic form.
+- Optimize `vf_link` selector filters for large selector sets (same pattern as common `vf_*` views).

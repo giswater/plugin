@@ -22,7 +22,7 @@ SELECT columns_are(
     'cat_feature',
     ARRAY[
         'id', 'feature_class', 'feature_type', 'shortcut_key', 'parent_layer', 'child_layer',
-        'descript', 'link_path', 'code_autofill', 'active', 'addparam', 'inventory_vdefault'
+        'descript', 'link_path', 'code_autofill', 'active', 'addparam', 'inventory_vdefault', 'abrevation'
     ],
     'Table cat_feature should have the correct columns'
 );
@@ -40,6 +40,7 @@ SELECT col_type_is('cat_feature', 'code_autofill', 'bool', 'Column code_autofill
 SELECT col_type_is('cat_feature', 'active', 'bool', 'Column active should be bool');
 SELECT col_type_is('cat_feature', 'addparam', 'json', 'Column addparam should be json');
 SELECT col_type_is('cat_feature', 'inventory_vdefault', 'bool', 'Column inventory_vdefault should be bool');
+SELECT col_type_is('cat_feature', 'abrevation', 'varchar(30)', 'Column abrevation should be varchar(30)');
 
 -- Check foreign keys
 SELECT has_fk('cat_feature', 'Table cat_feature should have foreign keys');

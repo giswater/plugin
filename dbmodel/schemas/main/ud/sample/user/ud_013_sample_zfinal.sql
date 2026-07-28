@@ -60,7 +60,7 @@ DELETE FROM node WHERE node_id  = '250';
 UPDATE config_param_user SET value ='PARTIAL' WHERE parameter = 'inp_options_inertial_damping';
 
 -- add example for specific sequence on circ_manhole
-UPDATE cat_feature SET addparam='{"code_prefix":"CM_"}' WHERE id='CIRC_MANHOLE';
+UPDATE cat_feature SET abrevation='CM_' WHERE id='CIRC_MANHOLE';
 
 CREATE SEQUENCE circ_manhole_code_seq
 	INCREMENT BY 1

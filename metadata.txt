@@ -4,15 +4,15 @@ qgisMinimumVersion=3.34.5
 qgisMaximumVersion=4.0
 description=Plugin to manage water networks (water supply, sewerage and urban drainage) using QGIS and PostGIS-PostgreSQL
 about=Disclaimer: This plugin is released using the open source GNU-GPL3 license. Although a reasonable effort has been made to assure that the results obtained are correct,  some of the capabilities provided by Giswater are experimental, therefore the development team and the Giswater Association are not responsible and assume no liability whatsoever for any results or any use made of the results obtained from the program, nor for any damages or litigation that result from the use of these programs for any purpose. Third-Party Libraries: WNTR, swmm-api, tqdm, PyPDF2. More information on their licenses can be found on the repository README file.
-version=4.15.0
+version=4.17.0
 author=David Erill, Natasa Cica, Nestor Ibañez, Barbara Rzepka, Sergi Muñoz, Josep Lluís Sala, Edgar Fusté, Albert Bofill, Sergi Maspons, Lia Bertran, Abel García Juanes, Maria Guzmán, Jordi Blanch, Xavier Torret, Daniel Marín, Ferran Martínez, Nico Pérez, Pablo Marques, Arnau Torret, Namrata Karki, Arnau Urgeles, Oscar Pueyo
 
-Changelog=Version 4.15.0
+Changelog=Version 4.17.0
 
 tags= giswater, water networks, sewerage, urban drainage, EPANET, SWMM
 homepage=https://www.giswater.org
-repository=https://github.com/giswater/giswater_qgis_plugin
-tracker=https://github.com/giswater/giswater_qgis_plugin/issues
+repository=https://github.com/giswater/plugin
+tracker=https://github.com/giswater/plugin/issues
 category=Plugins
 icon=icons/dialogs/136.png
 experimental=False

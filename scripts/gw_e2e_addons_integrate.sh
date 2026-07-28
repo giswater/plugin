@@ -23,7 +23,8 @@ gw_e2e_setup_gw "${REPO}"
 gw_e2e_resolve_versions
 export GW_E2E_DBMODEL="${GW_E2E_DBMODEL:-${REPO}/dbmodel}"
 
-export WS UD SATELLITES PARENT_PROFILE
+export WS UD SATELLITES PARENT_PROFILE TARGET_VER LANGUAGE
+unset PLUGIN_VER
 
 run_drop=true
 for arg in "$@"; do
@@ -59,7 +60,7 @@ for kind in "${KINDS[@]}"; do
   esac
   psql "$CONN" -v ON_ERROR_STOP=1 -c \
     "SELECT 1 FROM information_schema.schemata WHERE schema_name = '${schema}'" | grep -q 1
-  gw_e2e_assert_sys_version "$schema" "${PLUGIN_VER}"
+  gw_e2e_assert_sys_version "$schema" "${TARGET_VER}"
 done
 
 echo "=== Post-steps (cibs flags + role permissions) ==="

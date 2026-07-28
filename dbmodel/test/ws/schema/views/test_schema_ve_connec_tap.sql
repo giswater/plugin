@@ -196,7 +196,7 @@ SELECT col_type_is('ve_connec_tap', 'arq_patrimony', 'bool', 'Column arq_patrimo
 SELECT col_type_is('ve_connec_tap', 'com_state', 'varchar(254)', 'Column com_state should be varchar(254)');
 
 SELECT col_type_is('ve_connec_tap', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_connec_tap', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_connec_tap', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

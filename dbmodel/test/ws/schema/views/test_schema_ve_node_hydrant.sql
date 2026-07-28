@@ -195,7 +195,7 @@ SELECT col_type_is('ve_node_hydrant', 'hydrant_param_1', 'text', 'Column hydrant
 SELECT col_type_is('ve_node_hydrant', 'hydrant_param_2', 'int4', 'Column hydrant_param_2 should be int4');
 
 SELECT col_type_is('ve_node_hydrant', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_hydrant', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_hydrant', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

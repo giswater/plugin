@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_dscenario_froutlet',
     ARRAY[
         'dscenario_id', 'element_id', 'node_id', 'outlet_type', 'offsetval', 'curve_id',
-        'cd1', 'cd2', 'flap', 'the_geom'
+        'cd1', 'cd2', 'flap', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_froutlet should have the correct columns'
 );
@@ -38,6 +38,7 @@ SELECT col_type_is('ve_inp_dscenario_froutlet', 'cd1', 'numeric(12,4)', 'Column 
 SELECT col_type_is('ve_inp_dscenario_froutlet', 'cd2', 'numeric(12,4)', 'Column cd2 should be numeric(12,4)');
 SELECT col_type_is('ve_inp_dscenario_froutlet', 'flap', 'varchar(3)', 'Column flap should be varchar(3)');
 SELECT col_type_is('ve_inp_dscenario_froutlet', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_froutlet', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

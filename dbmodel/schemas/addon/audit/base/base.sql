@@ -7,7 +7,7 @@ or (at your option) any later version.
 
 SET search_path = audit, public, pg_catalog;
 
-CREATE TABLE log (
+CREATE TABLE IF NOT EXISTS log (
     id serial8 PRIMARY KEY,
     tstamp timestamp default now(),
     table_name text,
@@ -22,7 +22,7 @@ CREATE TABLE log (
     schema text
 );
 
-CREATE TABLE sys_version (
+CREATE TABLE IF NOT EXISTS sys_version (
 	id serial4 NOT NULL,
 	giswater varchar(16) NOT NULL,
 	project_type varchar(16) NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE sys_version (
 	CONSTRAINT sys_version_pkey PRIMARY KEY (id)
 );
 
-CREATE TABLE audit_fid_log
+CREATE TABLE IF NOT EXISTS audit_fid_log
 (
   id bigserial NOT NULL PRIMARY KEY,
   fid smallint,
@@ -47,7 +47,7 @@ CREATE TABLE audit_fid_log
   source json
 );
 
-CREATE TABLE anl_arc
+CREATE TABLE IF NOT EXISTS anl_arc
 (
   id bigserial NOT NULL PRIMARY KEY,
   arc_id character varying(16) NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE anl_arc
   source json
 );
 
-CREATE TABLE anl_node
+CREATE TABLE IF NOT EXISTS anl_node
 (
   id bigserial NOT NULL PRIMARY KEY,
   node_id character varying(16) NOT NULL,

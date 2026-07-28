@@ -34,7 +34,7 @@ class GwSchemaI18NManager:
         self.primary_keys_no_project_type_org = []
         self.values_en_us = []
         self.conflict_project_type = []
-        self.schema_i18n = "i18n"
+        self.schema_i18n = "multilang"
         self.delete_old_keys = False
         self.schemas = []
         self.all_schemas_org = []
@@ -368,7 +368,7 @@ class GwSchemaI18NManager:
         # Get the rows to update
         diff_rows, columns_i18n, rows_org = self._rows_to_update(table_i18n, table_org)
 
-        if not diff_rows and table_i18n != "i18n.dbstyle":
+        if not diff_rows and table_i18n != "multilang.dbstyle":
             return ""
 
         # Get the columns to insert
@@ -402,7 +402,7 @@ class GwSchemaI18NManager:
                 query_insert += f"""INSERT INTO {table_i18n} ({columns_to_insert}) VALUES ({values_str})
                                 ON CONFLICT ({pk_columns_str}) DO UPDATE SET {update_values_str};\n"""
 
-        if table_i18n == "i18n.dbstyle":
+        if table_i18n == "multilang.dbstyle":
             pk_column_org = ["styleconfig_id", "layername"]
             pk_column_i18n = ["source", "layername"]
 
@@ -540,7 +540,7 @@ class GwSchemaI18NManager:
         columns_i18n, columns_org = self._get_columns_to_compare(table_i18n, table_org)
         rows_i18n, rows_org = self._get_rows_to_compare(table_i18n, columns_i18n, columns_org, table_org)
 
-        if table_i18n == "i18n.dbstyle":
+        if table_i18n == "multilang.dbstyle":
             rows_org = self._get_dbstyle_rows(rows_org)
             self.values_en_us.extend(["org_text"])  # Important because we extract the en_us values from the org_text, so it is needed to control a correct behaivor
             columns_org.extend(["hint", "lb_en_us"])

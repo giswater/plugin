@@ -184,7 +184,7 @@ SELECT col_type_is('ve_node_endline', 'sector_visibility', 'int4[]', 'Column sec
 SELECT col_type_is('ve_node_endline', 'muni_visibility', 'int4[]', 'Column muni_visibility should be int4[]');
 
 SELECT col_type_is('ve_node_endline', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_endline', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_endline', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

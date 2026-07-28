@@ -187,7 +187,7 @@ SELECT col_type_is('ve_node_water_connection', 'top_floor', 'int4', 'Column top_
 SELECT col_type_is('ve_node_water_connection', 'wjoin_type', 'text', 'Column wjoin_type should be text');
 
 SELECT col_type_is('ve_node_water_connection', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_water_connection', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_water_connection', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

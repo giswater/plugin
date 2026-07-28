@@ -183,7 +183,7 @@ BEGIN
 	INSERT INTO temp_om_mincut_hydrometer (result_id, hydrometer_id)
 	SELECT p_mincut_id, erh.hydrometer_id
 	FROM v_hydrometer erh
-	JOIN connec c ON erh.customer_code = c.customer_code
+	JOIN connec c ON erh.feature_customer_code = c.customer_code
 	JOIN temp_om_mincut_connec ON c.connec_id=temp_om_mincut_connec.connec_id
 	JOIN value_state_type v ON state_type = v.id
 	WHERE result_id=p_mincut_id AND v.is_operative=TRUE AND c.connec_id=temp_om_mincut_connec.connec_id;
@@ -192,7 +192,7 @@ BEGIN
 	INSERT INTO temp_om_mincut_hydrometer (result_id, hydrometer_id)
 	SELECT p_mincut_id,erh.hydrometer_id
 	FROM v_hydrometer erh
-	JOIN man_netwjoin mn ON mn.customer_code = erh.customer_code
+	JOIN man_netwjoin mn ON mn.customer_code = erh.feature_customer_code
 	JOIN node n ON n.node_id = mn.node_id
 	JOIN temp_om_mincut_node ON n.node_id=temp_om_mincut_node.node_id
 	JOIN value_state_type v ON state_type = v.id
@@ -221,18 +221,13 @@ BEGIN
 	FROM (SELECT the_geom FROM temp_om_mincut_arc UNION SELECT the_geom FROM temp_om_mincut_valve) a;
 
 	-- priority hydrometers
-	v_priority = 	(SELECT (array_to_json(array_agg((b)))) FROM (SELECT concat('{"category":"',category_id,'","number":"', count(hydrometer_id), '"}')::json as b FROM
-				(SELECT h.hydrometer_id, h.category_id
-				FROM vf_hydrometer h
-				JOIN temp_om_mincut_connec ON h.feature_id=temp_om_mincut_connec.connec_id
-				WHERE h.feature_type = 'CONNEC'
-				union
-				SELECT h.hydrometer_id, h.category_id
-				FROM vf_hydrometer h
-				JOIN temp_om_mincut_node ON h.feature_id=temp_om_mincut_node.node_id
-				WHERE h.feature_type = 'NODE'
-				)a
-				GROUP BY category_id ORDER BY category_id)a)b;
+	v_priority = 	(SELECT (array_to_json(array_agg((b)))) FROM
+	(SELECT concat('{"category":"',hc.observ,'","number":"', count(omh.hydrometer_id), '"}')::json as b
+			FROM temp_om_mincut_hydrometer omh
+			JOIN vf_hydrometer h ON h.hydrometer_id = omh.hydrometer_id
+			LEFT JOIN v_cat_hydrometer_category hc ON hc.id::text = h.category_id::text
+			WHERE omh.result_id = p_mincut_id
+			GROUP BY hc.observ ORDER BY hc.observ)a);
 
 	IF v_priority IS NULL THEN v_priority='{}'; END IF;
 

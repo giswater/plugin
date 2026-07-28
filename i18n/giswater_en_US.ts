@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.0" language="en_US">
-	<!-- TOOLBARS AND ACTIONS -->
+<TS version="2.0" language="en_us">
+<!-- TOOLBARS AND ACTIONS -->
 	<context>
 		<name>giswater</name>
 		<message>
@@ -552,7 +552,10 @@
 			<source>Workcat manager</source>
 			<translation>Workcat manager</translation>
 		</message>
-		<!-- PYTHON MESSAGES -->
+	</context>
+<!-- PYTHON MESSAGES -->
+	<context>
+		<name>giswater</name>
 		<message>
 			<source></source>
 			<translation></translation>
@@ -6586,8 +6589,7 @@
 			<translation>Zoom unavailable. Doesn&apos;t exist the geometry for the street</translation>
 		</message>
 	</context>
-
-	<!-- UI TRANSLATION -->
+<!-- UI TRANSLATION -->
 	<context>
 		<name>add_campaign</name>
 		<message>
@@ -25144,4 +25146,3 @@
 		</message>
 	</context>
 </TS>
-

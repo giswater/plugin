@@ -314,7 +314,7 @@ def fill_txt_info(self_cls, dialog):
         info_str += f'''{tools_qt.tr('If you chose to import the flow regulators as flwreg objects, the sixth tab is where you can select the catalog for each flow regulator (pumps, weirs, orifices, outlets) on the network.')}<br>{tools_qt.tr('If not, you can ignore the tab.')}<br><br>'''
     info_str += f'''{tools_qt.tr("Once you have configured all the necessary catalogs, you can click on the 'Accept' button to start the import process.")}<br>{tools_qt.tr('It will then show the log of the process in the last tab.')}<br><br>'''
     info_str += f'''{tools_qt.tr('You can save the current configuration to a file and load it later, or load the last saved configuration.')}<br><br>'''
-    info_str += f'''{tools_qt.tr('If you have any questions, please contact the Giswater team via')}<a href='https://github.com/Giswater/giswater_qgis_plugin/issues'>{tools_qt.tr('GitHub Issues')}</a> {tools_qt.tr('or')}<a href='https://giswater.org/contact/'>{tools_qt.tr('our website')}</a>.<br>'''
+    info_str += f'''{tools_qt.tr('If you have any questions, please contact the Giswater team via')}<a href='https://github.com/giswater/plugin/issues'>{tools_qt.tr('GitHub Issues')}</a> {tools_qt.tr('or')}<a href='https://giswater.org/contact/'>{tools_qt.tr('our website')}</a>.<br>'''
     info_str += "</p>"
     tools_qt.set_widget_text(dialog, 'txt_info', info_str)
 

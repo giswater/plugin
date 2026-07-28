@@ -15,4 +15,3 @@ UPDATE config_report AS t SET alias = v.alias, descript = v.descript FROM (
     (104, 'Total Losses & NRW by Dma', NULL)
 ) AS v(id, alias, descript)
 WHERE t.id = v.id;
-

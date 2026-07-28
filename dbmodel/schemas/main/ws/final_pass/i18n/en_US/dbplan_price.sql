@@ -105,4 +105,3 @@ UPDATE plan_price AS t SET descript = v.descript, text = v.text, price = REPLACE
     ('S_TRANS', 'Transport of waste to authorized waste management facility, with 12 t truck and waiting time for loa', 'Transport of waste to authorized waste management facility, with 12 t truck and waiting time for loading, with a route of more than 15 and up to 20 km', '8.1164')
 ) AS v(id, descript, text, price)
 WHERE t.id = v.id;
-

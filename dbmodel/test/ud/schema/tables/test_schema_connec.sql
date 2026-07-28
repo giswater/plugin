@@ -133,7 +133,7 @@ SELECT col_type_is('connec', 'uuid', 'uuid', 'Column uuid should be uuid');
 SELECT col_type_is('connec', 'xyz_date', 'date', 'Column xyz_date should be date');
 
 SELECT col_type_is('connec', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('connec', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('connec', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 -- Check foreign keys
 SELECT has_fk('connec', 'Table connec should have foreign keys');

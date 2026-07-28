@@ -1528,7 +1528,7 @@ class GwVisit(QObject):
             return
 
         elif len(selected_list) > 1:
-            msg = "More then one event selected. Select just one"
+            msg = "More than one event selected. Select just one"
             tools_qgis.show_warning(msg, dialog=self.dlg_add_visit)
             return
 

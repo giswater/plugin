@@ -17,12 +17,15 @@ DECLARE
 	v_parent_schema text;
 	v_merge jsonb;
 	v_prev record;
+	v_parent record;
+	v_has_prev boolean := false;
 	v_environment jsonb;
 	v_addparam jsonb;
 	v_parent_arr jsonb;
 BEGIN
 	SET search_path = am, public;
-	v_gwversion := (p_data -> 'data') ->> 'gwVersion';
+
+	v_gwversion := NULLIF(btrim((p_data -> 'data') ->> 'gwVersion'), '');
 	v_language := COALESCE((p_data -> 'client') ->> 'lang', 'en_US');
 	v_projecttype := (p_data -> 'data') ->> 'projectType';
 	v_epsg := NULLIF((p_data -> 'data') ->> 'epsg', '')::integer;
@@ -30,18 +33,43 @@ BEGIN
 	v_parent_schema := NULLIF((p_data -> 'data') ->> 'parentSchema', '');
 	v_merge := COALESCE((p_data -> 'data') -> 'mergeAddparam', '{}'::json)::jsonb;
 	v_environment := jsonb_build_object('postgres', version(), 'postgis', postgis_version());
+
 	SELECT * INTO v_prev FROM am.sys_version ORDER BY id DESC LIMIT 1;
-	IF v_gwversion IS NULL AND v_prev IS NOT NULL THEN
-		v_gwversion := v_prev.giswater;
+	v_has_prev := FOUND;
+
+	IF v_parent_schema IS NOT NULL AND to_regnamespace(v_parent_schema) IS NOT NULL THEN
+		EXECUTE format(
+			'SELECT giswater, language, epsg, project_type, addparam
+			   FROM %I.sys_version
+			  ORDER BY id DESC
+			  LIMIT 1',
+			v_parent_schema
+		) INTO v_parent;
+
+		IF v_gwversion IS NULL THEN
+			v_gwversion := NULLIF(btrim(v_parent.giswater), '');
+		END IF;
+		IF v_epsg IS NULL THEN
+			v_epsg := v_parent.epsg;
+		END IF;
+		IF v_isnew IS TRUE THEN
+			v_language := COALESCE(v_language, v_parent.language);
+		END IF;
 	END IF;
-	IF v_isnew IS NOT TRUE AND v_prev IS NOT NULL THEN
-		v_language := COALESCE(v_language, v_prev.language);
+
+	IF v_gwversion IS NULL AND v_has_prev THEN
+		v_gwversion := NULLIF(btrim(v_prev.giswater), '');
+	END IF;
+
+	IF v_isnew IS NOT TRUE AND v_has_prev THEN
+		v_language := COALESCE(v_prev.language, v_language);
 		v_epsg := COALESCE(v_epsg, v_prev.epsg);
 		v_projecttype := COALESCE(v_projecttype, v_prev.project_type);
 	ELSIF v_isnew IS TRUE AND v_epsg IS NULL THEN
 		v_epsg := 25831;
 	END IF;
-	IF v_prev IS NOT NULL THEN
+
+	IF v_has_prev THEN
 		v_addparam := COALESCE(v_prev.addparam, '{}'::jsonb);
 	ELSE
 		v_addparam := '{}'::jsonb;

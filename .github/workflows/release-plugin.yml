@@ -20,7 +20,7 @@ jobs:
       - name: Verify dbmodel CI checks on release commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash scripts/verify_dbmodel_ci_checks.sh --tag "${{ github.event.release.tag_name }}"
+        run: bash scripts/verify_dbmodel_ci_checks.sh --tag "${{ github.event.release.tag_name }}" --wait
 
   network-lockstep:
     if: startsWith(github.event.release.tag_name, 'v')

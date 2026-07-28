@@ -67,6 +67,13 @@ v_fcount integer;
 v_table_id text;
 v_column_id text;
 v_cur_user text;
+v_ui_lang text;
+v_ml_pref jsonb;
+v_ml_project_type text;
+v_i18n_ms text;
+v_i18n_ht text;
+v_i18n_ds text;
+v_schema text;
 
 BEGIN
 
@@ -184,12 +191,51 @@ BEGIN
 		RETURN json_build_object('status', 'Failed', 'message', json_build_object('level', 1, 'text', 'The process has returned an error code, but this error code is not present on the sys_message table. Please contact with your system administrator in order to update your sys_message table'))::json;
 	END IF;
 
+	-- Apply multilang UI translations for sys_message
+	v_schema := 'SCHEMA_NAME';
+	v_ml_pref := NULL;
+	v_ui_lang := NULL;
+	v_ml_project_type := NULL;
+	IF to_regnamespace('multilang') IS NOT NULL THEN
+		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
+		v_ui_lang := v_ml_pref->>'lang';
+		v_ml_project_type := v_ml_pref->>'project_type';
+	END IF;
+	IF v_ui_lang IS NOT NULL THEN
+		SELECT i.ms, i.ht INTO v_i18n_ms, v_i18n_ht
+		FROM multilang.sys_message i
+		WHERE i.project_type = v_ml_project_type
+		  AND i.context = 'sys_message'
+		  AND i.source = v_message_id::text
+		  AND i.lang = v_ui_lang
+		LIMIT 1;
+		IF v_i18n_ms IS NOT NULL THEN
+			rec_cat_error.error_message = v_i18n_ms;
+		END IF;
+		IF v_i18n_ht IS NOT NULL THEN
+			rec_cat_error.hint_message = v_i18n_ht;
+		END IF;
+	END IF;
+
 	IF rec_cat_error.message_type != 'UI' OR rec_cat_error.message_type IS NULL THEN
 		SELECT * INTO rec_function
 		FROM sys_function WHERE sys_function.id=v_function_id;
 
 		IF rec_function IS NULL THEN
 			RETURN json_build_object('status', 'Failed', 'message', json_build_object('level', 1, 'text', 'Function does not exist'))::json;
+		END IF;
+
+		IF v_ui_lang IS NOT NULL THEN
+			SELECT i.ds INTO v_i18n_ds
+			FROM multilang.sys_function i
+			WHERE i.project_type = v_ml_project_type
+			  AND i.context = 'sys_function'
+			  AND i.source = v_function_id::text
+			  AND i.lang = v_ui_lang
+			LIMIT 1;
+			IF v_i18n_ds IS NOT NULL THEN
+				rec_function.descript = v_i18n_ds;
+			END IF;
 		END IF;
 	END IF;
 

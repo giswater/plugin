@@ -177,7 +177,7 @@ BEGIN
 		INTO v_geometry;
 	elsif v_section = 'basic_search_v2_tab_address' and v_search_add = 'true' then
 
-		EXECUTE 'SELECT row_to_json(row) FROM (SELECT st_x (a.the_geom) as xcoord, st_y (a.the_geom) as  ycoord, St_AsText(a.the_geom) FROM ve_streetaxis s join v_municipality m using(muni_id) join ve_address a on s.id = a.streetaxis_id
+		EXECUTE 'SELECT row_to_json(row) FROM (SELECT st_x (a.the_geom) as xcoord, st_y (a.the_geom) as  ycoord, St_AsText(a.the_geom) FROM ve_streetaxis s join v_municipality m using(muni_id) left join ve_address a on s.id = a.streetaxis_id
 		 WHERE concat(s.name, '', '', m.name, '', '', a.postnumber) = ('||quote_nullable(v_filter_value)||'))row'
 		INTO v_geometry;
 

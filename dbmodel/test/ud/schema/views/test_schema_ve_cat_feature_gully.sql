@@ -22,7 +22,7 @@ SELECT columns_are(
     've_cat_feature_gully',
     ARRAY[
         'id', 'system_id', 'epa_default', 'code_autofill', 'double_geom', 'shortcut_key',
-        'link_path', 'descript', 'active'
+        'link_path', 'descript', 'active', 'abrevation'
     ],
     'View ve_cat_feature_gully should have the correct columns'
 );
@@ -37,6 +37,7 @@ SELECT col_type_is('ve_cat_feature_gully', 'shortcut_key', 'varchar(100)', 'Colu
 SELECT col_type_is('ve_cat_feature_gully', 'link_path', 'text', 'Column link_path should be text');
 SELECT col_type_is('ve_cat_feature_gully', 'descript', 'text', 'Column descript should be text');
 SELECT col_type_is('ve_cat_feature_gully', 'active', 'bool', 'Column active should be bool');
+SELECT col_type_is('ve_cat_feature_gully', 'abrevation', 'varchar(30)', 'Column abrevation should be varchar(30)');
 
 SELECT * FROM finish();
 

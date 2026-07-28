@@ -46,6 +46,9 @@ updates/
     patch.sql      All SQL for that version bump (single file per scope)
     changelog.txt
 sample/            Optional seed data (user/, inv/, dev/)
+catalog/           Locale-specific feature catalog (empty projects)
+  <locale>/
+    cat_feature.sql
 final_pass/
   config_form_fields/
   i18n/            Locale folders (en_US, es_ES, ca_ES, …)
@@ -116,21 +119,25 @@ Satellite schemas walk a single updates/ tree:
    Same as above: patch.sql in the correct scope folder.
    For inserts on system tables prefer ON CONFLICT (pk_field) DO NOTHING.
 
-5) I18N:
+5) CATALOG (locale feature naming):
+   Network (ws/ud): schemas/main/{ws,ud}/catalog/<locale>/cat_feature.sql
+   Loaded in manifest phase load_catalog (before lastprocess).
+
+6) I18N:
    Network (ws/ud): schemas/main/{ws,ud}/final_pass/i18n/<locale>/
    CM: schemas/addon/cm/final_pass/i18n/<locale>/
    AM: schemas/addon/am/final_pass/i18n/<locale>/
    Do not edit en_US base strings in place for version bumps; add/update via patch.sql or
    locale files as appropriate for the manifest final_pass / load_locale phase.
 
-6) NEW VERSION BUMP (network):
+7) NEW VERSION BUMP (network):
    Create folders as needed:
      schemas/main/common/updates/M/m/p/patch.sql + changelog.txt   (if shared)
      schemas/main/ws/updates/M/m/p/patch.sql + changelog.txt         (ws-only)
      schemas/main/ud/updates/M/m/p/patch.sql + changelog.txt         (ud-only)
    Use a single patch.sql per scope (no separate ddl.sql, dml.sql, ddlview.sql, trg.sql for new bumps).
 
-7) CORPORATE / CUSTOM:
+8) CORPORATE / CUSTOM:
    SQL under corporate/ is outside standard manifests.
    Keep corporate overlays separate from schemas/main and schemas/addon.
 

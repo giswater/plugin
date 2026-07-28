@@ -31,7 +31,10 @@ class _SqlCaptureConn:
 
 def _seed(root: Path) -> None:
     (root / "base").mkdir(parents=True)
-    (root / "base" / "init.sql").write_text("-- init", encoding="utf-8")
+    (root / "base" / "init.sql").write_text(
+        "RESET ROLE;\n-- init\nSET ROLE role_system;\n",
+        encoding="utf-8",
+    )
     (root / "reload").mkdir(parents=True)
     (root / "reload" / "fn.sql").write_text("-- reload fn", encoding="utf-8")
     (root / "updates" / "4" / "15" / "0" / "ws").mkdir(parents=True)
@@ -85,9 +88,9 @@ def test_load_base_runs_as_installer_init_sql_sets_role(tmp_path: Path):
     init_pos = joined.index("-- init")
     reload_pos = joined.index("-- reload fn")
     assert joined.count("SET ROLE role_system") == 1
-    # load_base ends with SET ROLE in init.sql → RESET after load_base; reload_fct_ftrg resets again.
+    # init.sql opens with RESET; load_base ends with another RESET after init's SET ROLE.
     assert joined.count("RESET ROLE") == 2
-    # load_base runs as installer; role_system wrap only applies to reload_fct_ftrg.
+    # load_base runs as installer then role_system via init.sql; reload_fct_ftrg runs as installer.
     assert init_pos < joined.index("SET ROLE role_system") < reload_pos
     # updates/load_sample need superuser (DISABLE TRIGGER ALL in legacy patches)
     assert "-- update patch" in joined

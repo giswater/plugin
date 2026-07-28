@@ -57,6 +57,12 @@ SELECT * FROM cibs.cat_period;
 
 SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE", "batchId":1}}$$);
 
+SELECT cibs.gw_fct_admin_sys_version_register(json_build_object(
+	'data', json_build_object(
+		'parentSchema', 'SCHEMA_NAME'
+	)
+)::json);
+
 SELECT "SCHEMA_NAME".gw_fct_admin_sys_version_register(json_build_object(
 	'data', json_build_object(
 		'gwVersion', (SELECT giswater FROM sys_version ORDER BY id DESC LIMIT 1),

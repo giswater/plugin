@@ -489,4 +489,3 @@ UPDATE sys_fprocess AS t SET except_msg = v.except_msg, info_msg = v.info_msg, f
     (636, 'nodes with ''DMA''  is on cat_feature_node.graph_delimiter array configured for unactive mapzone.', 'All nodes with cat_feature_node.graph_delimiter=''DMA'' are defined as nodeParent on dma.graphconfig', 'dma-nodeparent acording with graph_delimiter (unactive dma)')
 ) AS v(fid, except_msg, info_msg, fprocess_name)
 WHERE t.fid = v.fid;
-

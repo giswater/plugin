@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'id', 'dscenario_id', 'feature_id', 'feature_type', 'demand', 'pattern_id',
         'demand_type', 'source', 'sector_id', 'expl_id', 'presszone_id', 'dma_id',
-        'the_geom'
+        'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_demand should have the correct columns'
 );
@@ -42,6 +42,7 @@ SELECT col_type_is('ve_inp_dscenario_demand', 'expl_id', 'int4', 'Column expl_id
 SELECT col_type_is('ve_inp_dscenario_demand', 'presszone_id', 'int4', 'Column presszone_id should be int4');
 SELECT col_type_is('ve_inp_dscenario_demand', 'dma_id', 'int4', 'Column dma_id should be int4');
 SELECT col_type_is('ve_inp_dscenario_demand', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_demand', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

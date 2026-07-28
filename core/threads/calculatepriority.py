@@ -172,7 +172,7 @@ class GwCalculatePriority(GwTask):
             residual_useful_life = builtdate + arc["total_expected_useful_life"] - year
             multiplier = residual_useful_life / arc["total_expected_useful_life"]
             result = (arc["cost_constr"] * multiplier) if multiplier > 0 else 0
-            current_value += result 
+            current_value += result
 
         return current_value
 
@@ -198,7 +198,7 @@ class GwCalculatePriority(GwTask):
                 a.matcat_id,
                 a.dnom,
                 st_length(a.the_geom) length,
-                coalesce(ai.rleak, 0) rleak, 
+                coalesce(ai.rleak, 0) rleak,
                 a.expl_id,
                 a.presszone_id,
                 ai.strategic
@@ -236,7 +236,7 @@ class GwCalculatePriority(GwTask):
         if columns != "":
             sql = f"""
                 select {columns}
-                from am.ext_arc_asset a 
+                from am.ext_arc_asset a
                 left join am.arc_input ai using (arc_id)
                 {filters}
             """
@@ -334,6 +334,43 @@ class GwCalculatePriority(GwTask):
     def _replacement_cost(self, arcs):
         return sum(arc["cost_constr"] for arc in arcs)
 
+    def _yearly_replacement_report(self, output_arcs):
+        # output_arcs: [arc_id, cost_repmain, cost_constr, bratemain, year, ...]
+        by_year = {}
+        for arc in output_arcs:
+            year = arc[4]
+            cost = arc[2]
+            if year is None:
+                continue
+            if year not in by_year:
+                by_year[year] = {"n_arcs": 0, "cost": 0.0}
+            by_year[year]["n_arcs"] += 1
+            by_year[year]["cost"] += cost
+
+        if not by_year:
+            return ""
+
+        title = tools_qt.tr("REPLACEMENTS PER YEAR")
+        year_h = tools_qt.tr("Year")
+        arcs_h = tools_qt.tr("Arcs")
+        cost_h = tools_qt.tr("Cost (€)")
+
+        columns = [[year_h], [arcs_h], [cost_h]]
+        for year in sorted(by_year):
+            columns[0].append(str(year))
+            columns[1].append(str(by_year[year]["n_arcs"]))
+            columns[2].append(f"{by_year[year]['cost']:.2f}")
+
+        for column in columns:
+            length = max(len(x) for x in column)
+            for i, s in enumerate(column):
+                column[i] = s.ljust(length)
+
+        txt = f"{title}:\n"
+        for line in zip(*columns):
+            txt += "  ".join(line) + "\n"
+        return txt.strip()
+
     def _run_sh(self):
         self._emit_report(tools_qt.tr("Getting auxiliary data from DB") + " (1/5)...")
         self.setProgress(0)
@@ -425,6 +462,10 @@ class GwCalculatePriority(GwTask):
                         discount_rate / 100,
                     )
                 )
+
+            if year is not None and year > self.target_year:
+                continue
+
             output_arcs.append(
                 [
                     arc_id,
@@ -473,6 +514,7 @@ class GwCalculatePriority(GwTask):
             filter(
                 lambda x: x,
                 [
+                    self._yearly_replacement_report(output_arcs),
                     self._invalid_diameter_report(invalid_diameter),
                     self._invalid_material_report(invalid_material),
                 ],
@@ -516,7 +558,7 @@ class GwCalculatePriority(GwTask):
                     strategic,
                     year_order,
                     val
-                ) values 
+                ) values
             """
             for i in range(1000):
                 try:
@@ -626,7 +668,7 @@ class GwCalculatePriority(GwTask):
         rows = tools_db.get_rows(
             """
             with lengths AS (
-                select a.dma_id, sum(st_length(a.the_geom)) as length 
+                select a.dma_id, sum(st_length(a.the_geom)) as length
                 from am.ext_arc_asset a
                 group by dma_id
             )
@@ -970,7 +1012,7 @@ class GwCalculatePriority(GwTask):
                     compliance,
                     val_first,
                     val
-                ) values 
+                ) values
             """
             for i in range(1000):
                 try:
@@ -1030,7 +1072,7 @@ class GwCalculatePriority(GwTask):
                     total,
                     length,
                     cum_length
-                ) values 
+                ) values
             """
             for i in range(1000):
                 try:
@@ -1108,8 +1150,8 @@ class GwCalculatePriority(GwTask):
         str_material_id = f"'{self.material}'" if self.material else "NULL"
         tools_db.execute_sql(
             f"""
-            insert into am.cat_result (result_name, 
-                result_type, 
+            insert into am.cat_result (result_name,
+                result_type,
                 descript,
                 status,
                 features,
@@ -1137,7 +1179,7 @@ class GwCalculatePriority(GwTask):
                 current_user,
                 now())
             on conflict (result_name) do update
-            set result_type = EXCLUDED.result_type, 
+            set result_type = EXCLUDED.result_type,
                 descript = EXCLUDED.descript,
                 status = EXCLUDED.status,
                 features = EXCLUDED.features,
@@ -1169,7 +1211,7 @@ class GwCalculatePriority(GwTask):
         ivi_header = tools_qt.tr("IVI (Horizon year):")
         replacement_rate_header = tools_qt.tr("Replacement rate (%/year):")
         current_cost = sum(arc["current_cost_constr"] for arc in arcs)
-        
+
         replacement_cost = self._replacement_cost(arcs)
         ivi_target_year = self._calculate_ivi(arcs, self.target_year, True)
         replacement_rate = self.result_budget / replacement_cost * 100 if replacement_cost > 0 else 0

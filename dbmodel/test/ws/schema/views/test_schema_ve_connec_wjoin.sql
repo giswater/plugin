@@ -191,7 +191,7 @@ SELECT col_type_is('ve_connec_wjoin', 'top_floor', 'int4', 'Column top_floor sho
 SELECT col_type_is('ve_connec_wjoin', 'wjoin_type', 'text', 'Column wjoin_type should be text');
 
 SELECT col_type_is('ve_connec_wjoin', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_connec_wjoin', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_connec_wjoin', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

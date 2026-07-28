@@ -62,9 +62,13 @@ def fetch_schema_names_with_sys_version(fetcher: RowFetcher = _tools_db_fetch) -
 
 def fetch_sys_version_schemas(
     project_type: Optional[str] = None,
-    fetcher: RowFetcher = _tools_db_fetch,
+    fetcher: RowFetcher = _tools_db_fetch_per_schema,
 ) -> list[tuple[str, str]]:
-    """Return [(schema_name, project_type), ...] for accessible ws/ud-like schemas."""
+    """Return [(schema_name, project_type), ...] for accessible ws/ud-like schemas.
+
+    Always probe project_type via @fetcher (same connection as the schema list).
+    Default fetcher suppresses per-schema permission errors on the main dao.
+    """
     schema_names = fetch_schema_names_with_sys_version(fetcher)
     if not schema_names:
         return []
@@ -73,8 +77,9 @@ def fetch_sys_version_schemas(
     for schema_name in schema_names:
         if schema_name in _SATELLITE_SCHEMAS:
             continue
-        rows = _tools_db_fetch_per_schema(
+        rows = fetcher(
             f"SELECT project_type FROM {_quote_ident(schema_name)}.sys_version LIMIT 1",
+            None,
         )
         if rows and rows[0] and rows[0][0] is not None:
             result.append((str(schema_name), str(rows[0][0])))
@@ -99,6 +104,17 @@ def fetch_aux_schema_flags(fetcher: RowFetcher = _tools_db_fetch) -> dict[str, b
 def schema_exists(name: str, fetcher: RowFetcher = _tools_db_fetch) -> bool:
     row = fetcher("SELECT to_regnamespace(%s) IS NOT NULL", [name])
     return bool(row and row[0] and row[0][0])
+
+
+def is_audit_fully_installed(fetcher: RowFetcher = _tools_db_fetch) -> bool:
+    """True when full audit DDL is present (not just the CM dependency stub)."""
+    row = fetcher("SELECT to_regclass('audit.log') IS NOT NULL", None)
+    return bool(row and row[0] and row[0][0])
+
+
+def is_audit_stub(fetcher: RowFetcher = _tools_db_fetch) -> bool:
+    """True when audit namespace exists but full audit structure was never loaded."""
+    return schema_exists("audit", fetcher) and not is_audit_fully_installed(fetcher)
 
 
 def schema_names_matching(pattern: str, fetcher: RowFetcher = _tools_db_fetch) -> list[str]:
@@ -167,7 +183,7 @@ def project_type_for_schema(
     return None
 
 
-_SATELLITE_SCHEMAS = frozenset({"utils", "cibs", "am", "cm", "audit"})
+_SATELLITE_SCHEMAS = frozenset({"multilang", "utils", "cibs", "am", "cm", "audit"})
 
 _SYS_VERSION_COLUMNS = """
 SELECT n.nspname, a.attname
@@ -177,7 +193,7 @@ JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid
 WHERE c.relname = 'sys_version'
   AND c.relkind IN ('r', 'p')
   AND n.nspname = ANY(%s::text[])
-  AND a.attname = ANY(ARRAY['giswater', 'version', 'addparam', 'date'])
+  AND a.attname = ANY(ARRAY['giswater', 'version', 'addparam', 'date', 'language', 'project_type'])
   AND a.attnum > 0
   AND NOT a.attisdropped
 """
@@ -219,16 +235,35 @@ def _sys_version_columns_by_schema(
 
 def _version_column_for_schema(schema_name: str, columns: set[str]) -> str:
     if schema_name in _SATELLITE_SCHEMAS:
-        if "version" in columns:
-            return "version"
-        if "giswater" in columns:
-            return "giswater"
+        for col in ("version", "giswater"):
+            if col in columns:
+                return col
     else:
-        if "giswater" in columns:
-            return "giswater"
-        if "version" in columns:
-            return "version"
-    return "giswater"
+        for col in ("giswater", "version"):
+            if col in columns:
+                return col
+    return ""
+
+
+def _fetch_sys_version_addparam(
+    schema_name: str,
+    fetcher: RowFetcher,
+    *,
+    columns: set[str] | None = None,
+) -> dict[str, Any]:
+    """Return parsed addparam when the column exists; {} otherwise."""
+    if columns is None:
+        columns = _sys_version_columns_by_schema([schema_name], fetcher).get(schema_name, set())
+    if "addparam" not in columns:
+        return {}
+    row = fetcher(
+        f"SELECT addparam FROM {_quote_ident(schema_name)}.sys_version "
+        "ORDER BY id DESC LIMIT 1",
+        None,
+    )
+    if not row or not row[0]:
+        return {}
+    return _parse_addparam(row[0][0])
 
 
 def _parse_addparam(addparam: Any) -> dict[str, Any]:
@@ -390,6 +425,9 @@ def fetch_schema_inventory(fetcher: RowFetcher = _tools_db_fetch) -> list[dict[s
         }
         columns = columns_by_schema.get(schema_name, set())
         version_col = _version_column_for_schema(schema_name, columns)
+        if not version_col:
+            inventory.append(empty_entry)
+            continue
         select_cols = ["project_type", version_col]
         if "addparam" in columns:
             select_cols.append("addparam")
@@ -435,11 +473,7 @@ def get_utils_network_parents(fetcher: RowFetcher = _tools_db_fetch) -> dict[str
     if not schema_exists("utils", fetcher):
         return result
 
-    row = fetcher(
-        "SELECT addparam FROM utils.sys_version ORDER BY id DESC LIMIT 1",
-        None,
-    )
-    ap = _parse_addparam(row[0][0] if row and row[0] else None)
+    ap = _fetch_sys_version_addparam("utils", fetcher)
     network = ap.get("network_parents") or {}
     if isinstance(network, dict):
         for kind in ("ws", "ud"):
@@ -473,7 +507,7 @@ def get_utils_network_parents(fetcher: RowFetcher = _tools_db_fetch) -> dict[str
     return result
 
 
-_NETWORK_SATELLITE_ORDER = ("utils", "cibs", "am", "cm", "audit")
+_NETWORK_SATELLITE_ORDER = ("multilang", "utils", "cibs", "am", "cm", "audit")
 
 
 def _version_tuple(version: Any) -> tuple:
@@ -499,6 +533,8 @@ def _fetch_schema_sys_version_entry(
     columns_by_schema = _sys_version_columns_by_schema([schema_name], fetcher)
     columns = columns_by_schema.get(schema_name, set())
     version_col = _version_column_for_schema(schema_name, columns)
+    if not version_col:
+        return {"schema": schema_name, "kind": "", "version": "", "addparam": {}}
     select_cols = ["project_type", version_col]
     if "addparam" in columns:
         select_cols.append("addparam")
@@ -674,3 +710,87 @@ def find_inventory_row(
         if want_kind and str(row.get("kind") or "").upper() == want_kind:
             return row
     return None
+
+
+_TRANSLATABLE_KINDS = frozenset({"ws", "ud", "am", "cm"})
+
+
+def fetch_schema_translation_info(
+    fetcher: RowFetcher = _tools_db_fetch,
+    *,
+    kinds: frozenset[str] | set[str] | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Return [{schema, kind, version, language}, ...] for Giswater schemas that
+    expose ``sys_version``. Missing/legacy columns are tolerated (empty strings).
+    """
+    wanted = {str(k).lower() for k in (kinds or _TRANSLATABLE_KINDS)}
+    names = fetch_schema_names_with_sys_version(fetcher)
+    if not names:
+        return []
+
+    columns_by_schema = _sys_version_columns_by_schema(names, fetcher)
+    result: list[dict[str, Any]] = []
+
+    for schema_name in sorted(names):
+        columns = columns_by_schema.get(schema_name, set())
+        version_col = _version_column_for_schema(schema_name, columns)
+        if not version_col:
+            continue
+
+        select_cols = ["project_type", version_col]
+        has_language = "language" in columns
+        if has_language:
+            select_cols.append("language")
+
+        row = fetcher(
+            f"SELECT {', '.join(select_cols)} "
+            f"FROM {_quote_ident(schema_name)}.sys_version "
+            "ORDER BY id DESC LIMIT 1",
+            None,
+        )
+        if not row or not row[0]:
+            continue
+
+        values = row[0]
+        kind = str(values[0] or "").strip().lower()
+        if not kind or kind not in wanted:
+            continue
+
+        version = str(values[1] or "") if len(values) > 1 else ""
+        language = ""
+        if has_language and len(values) > 2:
+            language = str(values[2] or "")
+
+        result.append({
+            "schema": schema_name,
+            "kind": kind,
+            "version": version,
+            "language": language,
+        })
+    return result
+
+
+def fetch_multilang_operative_languages(
+    fetcher: RowFetcher = _tools_db_fetch,
+) -> set[str]:
+    """
+    Return operative multilang language ids (folder form) when the multilang
+    schema exists. Missing schema/tables return an empty set (non-fatal).
+    """
+    try:
+        if not schema_exists("multilang", fetcher):
+            return set()
+    except Exception:
+        return set()
+
+    try:
+        from .i18n_baseline_seed import (
+            fetch_seeded_language_ids,
+            normalize_language_folder,
+        )
+        ids = fetch_seeded_language_ids(fetcher)
+    except Exception:
+        return set()
+
+    return {normalize_language_folder(lang) for lang in ids if lang}

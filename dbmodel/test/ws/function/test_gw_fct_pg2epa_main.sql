@@ -11,8 +11,8 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 7 test
-SELECT plan(35);
+-- Plan for 36 test
+SELECT plan(36);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -306,6 +306,18 @@ SELECT is(
     "data":{"filterFields":{}, "pageInfo":{}, "resultId":"testing", "dumpSubcatch":"False", "step": 7}}$$)::JSON)->>'status',
     'Accepted',
     'Check if gw_fct_pg2epa_main: dumpSubcatch=False | step=7 returns status "Accepted"'
+);
+
+-- BASIC NETWORK WITH INVALID CRS
+
+UPDATE config_param_user SET value = '2' WHERE parameter = 'inp_options_networkmode' AND cur_user = current_user;
+
+-- Extract and test the "status" field from the function's JSON response
+SELECT is(
+    (gw_fct_pg2epa_main($${"client":{"device":4, "lang":"", "infoType":1, "epsg":4326}, "form":{}, "feature":{},
+    "data":{"filterFields":{}, "pageInfo":{}, "resultId":"testing", "dumpSubcatch":"False", "step": 1}}$$)::JSON)->>'status',
+    'Failed',
+    'Check if gw_fct_pg2epa_main: dumpSubcatch=False | step=1 returns status "Failed" with invalid CRS'
 );
 
 -- Finish the test

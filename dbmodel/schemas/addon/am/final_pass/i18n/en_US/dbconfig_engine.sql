@@ -28,4 +28,3 @@ UPDATE config_engine_def AS t SET label = v.label, descript = v.descript, placeh
     ('strategic_2', 'WM', 'Strategic', NULL, NULL)
 ) AS v(parameter, method, label, descript, placeholder)
 WHERE t.parameter = v.parameter AND t.method = v.method;
-

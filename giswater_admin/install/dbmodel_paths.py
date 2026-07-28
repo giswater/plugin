@@ -99,7 +99,7 @@ def _bootstrap_message() -> str:
     return (
         "No dbmodel found. Run one of:\n"
         "  gw dbmodel install latest\n"
-        "  gw dbmodel use dev --root /path/to/giswater_qgis_plugin\n"
+        "  gw dbmodel use dev --root /path/to/plugin\n"
         "  gw schema main create ... --dbmodel-path /path/to/dbmodel\n"
         f"Or set {ENV_DBMODEL} to a dbmodel directory."
     )

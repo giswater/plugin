@@ -186,7 +186,7 @@ SELECT col_type_is('ve_node_reduction', 'diam1', 'numeric(12,3)', 'Column diam1 
 SELECT col_type_is('ve_node_reduction', 'diam2', 'numeric(12,3)', 'Column diam2 should be numeric(12,3)');
 
 SELECT col_type_is('ve_node_reduction', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_reduction', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_reduction', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

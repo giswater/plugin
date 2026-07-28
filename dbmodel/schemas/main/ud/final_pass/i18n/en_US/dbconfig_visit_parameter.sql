@@ -29,4 +29,3 @@ UPDATE config_visit_parameter AS t SET descript = v.descript FROM (
     ('sediments_node', 'Sediments in node')
 ) AS v(id, descript)
 WHERE t.id = v.id;
-

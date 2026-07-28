@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'element_id', 'weir_type', 'offsetval', 'cd', 'ec',
         'cd2', 'flap', 'geom1', 'geom2', 'geom3', 'geom4',
-        'surcharge', 'road_width', 'road_surf', 'coef_curve'
+        'surcharge', 'road_width', 'road_surf', 'coef_curve', 'observ'
     ],
     'Table inp_dscenario_frweir should have the correct columns'
 );
@@ -45,6 +45,7 @@ SELECT col_type_is('inp_dscenario_frweir', 'surcharge', 'varchar(3)', 'Column su
 SELECT col_type_is('inp_dscenario_frweir', 'road_width', 'float8', 'Column road_width should be float8');
 SELECT col_type_is('inp_dscenario_frweir', 'road_surf', 'varchar(16)', 'Column road_surf should be varchar(16)');
 SELECT col_type_is('inp_dscenario_frweir', 'coef_curve', 'float8', 'Column coef_curve should be float8');
+SELECT col_type_is('inp_dscenario_frweir', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_frweir', 'Table inp_dscenario_frweir should have foreign keys');

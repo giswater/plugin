@@ -27,6 +27,11 @@ DECLARE
     v_user_role_name TEXT;
     v_field_role_name TEXT := 'role_cm_field';
     v_prev_search_path text;
+	v_isqfield BOOLEAN;
+	v_campaign_id TEXT;
+	v_rec RECORD;
+	v_exists BOOLEAN;
+	v_arc_type text;
 BEGIN
     -- Save and set search_path transaction-locally
     v_prev_search_path := current_setting('search_path');
@@ -34,6 +39,7 @@ BEGIN
 
     -- Part 1: Logic for BEFORE trigger. Sets 'action' before the row is saved.
     IF TG_WHEN = 'BEFORE' THEN
+		v_feature_id_column := v_feature_type || '_id';
         IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
             -- Get the role for the current user
             SELECT rolname INTO v_user_role_name 
@@ -42,16 +48,64 @@ BEGIN
             WHERE u.usename = current_user and rolname = 'role_cm_field';
 
             -- Only proceed if the user's role is 'role_cm_field'
-            IF v_user_role_name = v_field_role_name THEN
+            --IF v_user_role_name = v_field_role_name THEN
+				EXECUTE format('SELECT ($1).%I < 0', v_feature_id_column)
+			        INTO v_isqfield
+			        USING NEW;
                 IF TG_OP = 'INSERT' THEN
-                    NEW.action = 1;
+				    IF v_isqfield is false THEN
+				        NEW.action := NULL;
+				    ELSE
+				        NEW.action := 1;
+				    END IF;
                 ELSIF TG_OP = 'UPDATE' AND NEW IS DISTINCT FROM OLD THEN
-                    NEW.action = 2;
+					IF NEW.action IS DISTINCT FROM 3 AND NEW.action IS DISTINCT FROM 4 THEN
+						IF v_isqfield is false THEN
+	                    	NEW.action = 2;
+						ELSE
+							NEW.action = 1;
+						END IF;
+					END IF;
                 END IF;
-            END IF;
-        END IF;
-        PERFORM set_config('search_path', v_prev_search_path, true);
-        RETURN NEW; -- Return the (potentially modified) row
+            --END IF;
+
+			PERFORM set_config('search_path', v_prev_search_path, true);
+	        RETURN NEW; -- Return the (potentially modified) row
+        
+		ELSIF TG_OP = 'DELETE' THEN
+
+			v_lot_id := OLD.lot_id;
+			EXECUTE format('SELECT ($1).%I', v_feature_id_column) INTO v_feature_id_value USING OLD;
+			EXECUTE format('SELECT ($1).%I < 0', v_feature_id_column)
+			        INTO v_isqfield
+			        USING OLD;
+			
+			PERFORM set_config('search_path', v_prev_search_path, true);
+			IF v_isqfield is true then
+				v_querytext := format('DELETE FROM cm.%I WHERE campaign_id = $1::int AND %I = $2::int', concat('om_campaign_x_', v_feature_type), v_feature_id_column);
+				EXECUTE 'SELECT campaign_id FROM cm.om_campaign_lot WHERE lot_id = $1' INTO v_campaign_id USING v_lot_id;
+				EXECUTE v_querytext USING v_campaign_id, v_feature_id_value;
+				RETURN OLD;
+			ELSE
+				IF OLD.action = 4 THEN
+					FOR v_rec IN SELECT t.table_name, c.column_name AS id_column FROM information_schema.tables t
+								JOIN information_schema.columns c ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+								WHERE t.table_type = 'BASE TABLE' AND t.table_name LIKE 'PARENT_SCHEMA_%' AND t.table_schema = 'cm' AND c.ordinal_position = 3
+					LOOP
+						EXECUTE format('select 1 FROM cm.%I WHERE %I = $1.%I', v_rec.table_name, v_rec.id_column, v_feature_id_column) USING OLD INTO v_exists;
+	
+						IF v_exists IS NOT NULL THEN
+							v_arc_type = v_rec.table_name;
+							exit;
+						END IF;
+					END LOOP;
+					RETURN OLD;
+				END IF;
+				EXECUTE format('UPDATE cm.om_campaign_lot_x_%s SET "action" = 3 where %I = $1', v_feature_type, v_feature_id_column) USING v_feature_id_value;
+				RETURN NULL;
+			END IF;
+		END IF;
+        
     END IF;
 
     -- Part 2: Logic for AFTER trigger. Copies/deletes data after the row is saved.
@@ -61,9 +115,6 @@ BEGIN
         IF TG_OP = 'INSERT' THEN
             v_lot_id := NEW.lot_id;
             EXECUTE format('SELECT ($1).%I', v_feature_id_column) INTO v_feature_id_value USING NEW;
-        ELSIF TG_OP = 'DELETE' THEN
-            v_lot_id := OLD.lot_id;
-            EXECUTE format('SELECT ($1).%I', v_feature_id_column) INTO v_feature_id_value USING OLD;
         END IF;
 		
 		-- set status ON GOING when the first object is reviewed
@@ -75,7 +126,7 @@ BEGIN
 		  WHERE lot_id = NEW.lot_id;
 		END IF;
 
-        IF TG_OP = 'INSERT' OR TG_OP = 'DELETE' THEN
+        IF TG_OP = 'INSERT' THEN
             v_querytext := format(
                 'SELECT c.%s_type ' ||
                 'FROM PARENT_SCHEMA.%s p ' ||
@@ -103,16 +154,10 @@ BEGIN
                         );
                         EXECUTE v_querytext USING v_lot_id, v_feature_id_value;
                     END IF;
-                ELSIF TG_OP = 'DELETE' THEN
-                    v_querytext := format('DELETE FROM cm.%I WHERE lot_id = $1 AND %I = $2', v_dest_table_name, v_feature_id_column);
-                    EXECUTE v_querytext USING v_lot_id, v_feature_id_value;
                 END IF;
             END IF;
         END IF;
-        IF TG_OP = 'DELETE' THEN 
-            PERFORM set_config('search_path', v_prev_search_path, true);
-            RETURN OLD; 
-        ELSE 
+        IF TG_OP = 'INSERT' THEN 
             PERFORM set_config('search_path', v_prev_search_path, true);
             RETURN NEW; 
         END IF;

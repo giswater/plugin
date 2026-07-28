@@ -12,4 +12,3 @@ UPDATE config_report AS t SET alias = v.alias, descript = v.descript FROM (
     (105, 'Nodes by exploitation and type', NULL)
 ) AS v(id, alias, descript)
 WHERE t.id = v.id;
-

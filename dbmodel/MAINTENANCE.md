@@ -227,7 +227,7 @@ Example chain:
 | storage-api | (storage backend only) | `STORAGE_API_MIN_VERSION` |
 
 `gw_plus_plugin` has **two independent gates**: the plus-api peer check for plus features, and the base
-`giswater_qgis_plugin` tier-1 DB handshake for everything else. Both must pass for plus features to load.
+`plugin` tier-1 DB handshake for everything else. Both must pass for plus features to load.
 
 **Out of scope here** (own maintenance docs, not dbmodel CI): FROST / IoT ingest, ts-engine, scada, grafana alerts,
 the `twin` model, calibrador, crone internals, the `audit` schema, the `gis` DB beyond ws/ud, and file formats like `.dat`.

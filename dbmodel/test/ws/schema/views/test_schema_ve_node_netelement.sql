@@ -186,7 +186,7 @@ SELECT col_type_is('ve_node_netelement', 'automated', 'bool', 'Column automated 
 SELECT col_type_is('ve_node_netelement', 'fence_type', 'int4', 'Column fence_type should be int4');
 
 SELECT col_type_is('ve_node_netelement', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_netelement', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_netelement', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

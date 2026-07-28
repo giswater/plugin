@@ -181,7 +181,7 @@ SELECT col_type_is('ve_node_rect_manhole', 'recmanhole_param_1', 'text', 'Column
 SELECT col_type_is('ve_node_rect_manhole', 'recmanhole_param_2', 'text', 'Column recmanhole_param_2 should be text');
 SELECT col_type_is('ve_node_rect_manhole', 'has_access', 'bool', 'Column has_access should be bool');
 SELECT col_type_is('ve_node_rect_manhole', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_rect_manhole', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_rect_manhole', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

@@ -898,4 +898,3 @@ UPDATE config_form_tableview AS t SET alias = v.alias FROM (
     ('ve_inp_rules', 'text', 'Text')
 ) AS v(objectname, columnname, alias)
 WHERE t.objectname = v.objectname AND t.columnname = v.columnname;
-

@@ -94,7 +94,7 @@ SELECT col_type_is('link', 'omunit_id', 'int4', 'Column omunit_id should be int4
 SELECT col_type_is('link', 'treatment_type', 'int4', 'Column treatment_type should be int4');
 
 SELECT col_type_is('link', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('link', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('link', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 -- Check foreign keys
 SELECT has_fk('link', 'Table link should have foreign keys');

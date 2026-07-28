@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'id', 'system_id', 'epa_default', 'isarcdivide', 'isprofilesurface', 'code_autofill',
         'choose_hemisphere', 'double_geom', 'num_arcs', 'isexitupperintro', 'shortcut_key', 'link_path',
-        'descript', 'active'
+        'descript', 'active', 'abrevation'
     ],
     'View ve_cat_feature_node should have the correct columns'
 );
@@ -43,6 +43,7 @@ SELECT col_type_is('ve_cat_feature_node', 'shortcut_key', 'varchar(100)', 'Colum
 SELECT col_type_is('ve_cat_feature_node', 'link_path', 'text', 'Column link_path should be text');
 SELECT col_type_is('ve_cat_feature_node', 'descript', 'text', 'Column descript should be text');
 SELECT col_type_is('ve_cat_feature_node', 'active', 'bool', 'Column active should be bool');
+SELECT col_type_is('ve_cat_feature_node', 'abrevation', 'varchar(30)', 'Column abrevation should be varchar(30)');
 
 SELECT * FROM finish();
 

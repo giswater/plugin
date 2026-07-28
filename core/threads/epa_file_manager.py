@@ -23,6 +23,12 @@ from .task import GwTask
 class GwEpaFileManager(GwTask):
     """ This shows how to subclass QgsTask """
 
+    # Relative weights for active phases (scaled to 0-100 at runtime)
+    WEIGHT_PG2EPA = 20
+    WEIGHT_EXPORT = 5
+    WEIGHT_EPA = 55
+    WEIGHT_IMPORT = 20
+
     fake_progress = pyqtSignal()
     step_completed = pyqtSignal(dict, str)
 
@@ -77,6 +83,8 @@ class GwEpaFileManager(GwTask):
         return status
 
     def main_process(self) -> bool:
+        self._init_progress_ranges()
+
         status = True
         msg = "Task 'Go2Epa' execute function '{0}'"
         if self.go2epa_export_inp or self.go2epa_execute_epa:
@@ -92,16 +100,42 @@ class GwEpaFileManager(GwTask):
             tools_log.log_info(msg, msg_params=msg_params)
             status = self._export_inp()
 
+        # Try to import hydraulic engine
+        try:
+            from importlib.util import find_spec
+            from hydraulic_engine.utils import tools_log as he_tools_log
+            has_hydraulic_engine = find_spec("hydraulic_engine") is not None
+            # Set logger for hydraulic engine
+            he_tools_log.set_logger("hydraulic_engine", min_log_level=10)
+        except ImportError:
+            has_hydraulic_engine = False
+
+        if has_hydraulic_engine and global_vars.project_type == 'ws':
+            tools_log.log_info("Hydraulic engine imported successfully")
+        elif global_vars.project_type == 'ud':
+            tools_log.log_info("Hydraulic engine not compatible with project type 'ud'. Using default EPA software.")
+        else:
+            tools_log.log_info("Hydraulic engine not imported. Using default EPA software.")
+
         if status and self.go2epa_execute_epa:
-            msg_params = ("_execute_epa",)
-            tools_log.log_info(msg, msg_params=msg_params)
-            status = self._execute_epa()
+            if not has_hydraulic_engine or global_vars.project_type == 'ud':
+                msg_params = ("_execute_epa",)
+                tools_log.log_info(msg, msg_params=msg_params)
+                status = self._execute_epa()
+            elif has_hydraulic_engine and global_vars.project_type == 'ws':
+                runner = self._execute_epa_with_hydraulic_engine()
+                if runner is None:
+                    status = False
 
         if status and self.go2epa_import_result:
-            msg_params = ("_import_rpt",)
-            tools_log.log_info(msg, msg_params=msg_params)
-            self.function_name = 'gw_fct_rpt2pg_main'
-            status = self._import_rpt()
+            tools_log.log_info("Task 'Go2Epa' execute function 'def _import_rpt'")
+            if not has_hydraulic_engine or global_vars.project_type == 'ud':
+                msg_params = ("_import_rpt",)
+                tools_log.log_info(msg, msg_params=msg_params)
+                self.function_name = 'gw_fct_rpt2pg_main'
+                status = self._import_rpt()
+            elif has_hydraulic_engine and global_vars.project_type == 'ws':
+                status = self._import_rpt_with_hydraulic_engine(runner)
 
         return status
 
@@ -223,6 +257,8 @@ class GwEpaFileManager(GwTask):
         self._close_file()
         super().cancel()
 
+    # region private functions
+
     def _close_file(self, file=None):
 
         if file is None:
@@ -235,13 +271,42 @@ class GwEpaFileManager(GwTask):
         except Exception:
             pass
 
-    # region private functions
+    def _init_progress_ranges(self):
+        """Build 0-100 ranges from active phases, keeping relative weights."""
+        phases = []
+        if self.go2epa_export_inp or self.go2epa_execute_epa:
+            phases.append(('pg2epa', self.WEIGHT_PG2EPA))
+        if self.go2epa_export_inp:
+            phases.append(('export', self.WEIGHT_EXPORT))
+        if self.go2epa_execute_epa:
+            phases.append(('epa', self.WEIGHT_EPA))
+        if self.go2epa_import_result:
+            phases.append(('import', self.WEIGHT_IMPORT))
+
+        total = sum(weight for _, weight in phases) or 1
+        cursor = 0.0
+        ranges = {}
+        for name, weight in phases:
+            span = 100.0 * weight / total
+            ranges[name] = (cursor, cursor + span)
+            cursor += span
+
+        # Instance ranges used by existing _set_progress calls
+        self.PG2EPA_START, self.PG2EPA_END = ranges.get('pg2epa', (0, 0))
+        self.EXPORT_START, self.EXPORT_END = ranges.get('export', (0, 0))
+        self.EPA_START, self.EPA_END = ranges.get('epa', (0, 0))
+        self.IMPORT_START, self.IMPORT_END = ranges.get('import', (0, 0))
+
+    def _set_progress(self, start, end, local_percent=100):
+        """Map a phase-local percent (0-100) into the global task progress bar."""
+        local_percent = max(0, min(100, float(local_percent)))
+        self.setProgress(start + (end - start) * local_percent / 100.0)
 
     def _exec_function_pg2epa(self):
 
         self.json_result = None
         status = False
-        self.setProgress(0)
+        self._set_progress(self.PG2EPA_START, self.PG2EPA_END, 0)
 
         extras = f'"resultId":"{self.result_name}"'
         if global_vars.project_type == 'ud':
@@ -261,6 +326,7 @@ class GwEpaFileManager(GwTask):
             if self.isCanceled() or json_result is None:
                 return False
             self.step_completed.emit(json_result, "\n")
+            self._set_progress(self.PG2EPA_START, self.PG2EPA_END, step / 7 * 100)
             if json_result.get('status') == 'Failed':
                 tools_log.log_warning(json_result)
                 self.function_failed = True
@@ -302,6 +368,7 @@ class GwEpaFileManager(GwTask):
         self.message = self.complet_result['message']['text']
         self.common_msg += "Export INP finished. "
 
+        self._set_progress(self.EXPORT_START, self.EXPORT_END)
         return True
 
     def _fill_inp_file(self, folder_path=None, all_rows=None):
@@ -405,10 +472,74 @@ class GwEpaFileManager(GwTask):
             return False
 
         subprocess.call([opener, self.file_inp, self.file_rpt], shell=False)
+        self._set_progress(self.EPA_START, self.EPA_END)
         self.common_msg += "EPA model finished. "
         self.step_completed.emit({"message": {"level": 1, "text": "EPA model finished."}}, "\n")
 
         return True
+
+    def _on_epa_progress(self, progress: int, message: str):
+        self._set_progress(self.EPA_START, self.EPA_END, progress)
+        self.step_completed.emit(
+            {"message": {"level": 1, "text": f"EPA [{progress}%] {message}"}},
+            "\n",
+        )
+
+    def _on_epa_step(self, _en_data, _step_count):
+        """Continue hydraulic steps unless the QgsTask was canceled."""
+        return not self.isCanceled()
+
+    def _execute_epa_with_hydraulic_engine(self):
+
+        import hydraulic_engine as he
+
+        if self.isCanceled():
+            return None
+
+        tools_log.log_info("Execute EPA software")
+
+        if self.file_rpt == "null":
+            message = "You have to set this parameter"
+            self.error_msg = f"{message}: RPT file"
+            return None
+
+        msg = "INP file not found"
+        if self.file_inp is not None:
+            if not os.path.exists(self.file_inp):
+                self.error_msg = f"{msg}: {self.file_inp}"
+                return None
+        else:
+            self.error_msg = f"{msg}: {self.file_inp}"
+            return None
+
+        try:
+            # Execute EPA with hydraulic engine
+            runner = he.epanet.EpanetRunner(
+                self.file_inp,
+                self.file_rpt,
+                progress_callback=self._on_epa_progress,
+            )
+            results = runner.run(step_callback=self._on_epa_step)
+            if self.isCanceled() or (
+                results is not None
+                and results.status == he.utils.enums.RunStatus.CANCELLED
+            ):
+                return None
+            if results is None:
+                self.error_msg = "Error executing EPA software"
+                self.error_msg_params = (results,)
+                return None
+            if results.status == he.utils.enums.RunStatus.ERROR:
+                detail = "; ".join(results.errors) if results.errors else "unknown error"
+                self.error_msg = f"Error executing EPA software: {detail}"
+                return None
+        except Exception as e:
+            self.error_msg = f"Error executing EPA software: {e}"
+            return None
+
+        self.common_msg += "EPA model finished. "
+
+        return runner
 
     def _load_epa_layers(self):
         """ Load EPA layers if they are not already loaded """
@@ -480,6 +611,65 @@ class GwEpaFileManager(GwTask):
             tools_log.log_info(msg, msg_params=msg_params)
             status = self._exec_import_function()
             self.active_epa_layers = True
+        except Exception as e:
+            self.error_msg = str(e)
+        finally:
+            return status
+
+    def _import_rpt_with_hydraulic_engine(self, runner):
+        """ Import result file with hydraulic engine """
+
+        import hydraulic_engine as he
+
+        tools_log.log_info(f"Import simulation results........: {self.file_rpt}")
+
+        status = False
+        try:
+            row = tools_gw.get_config_value("inp_report_onlymaxmin_values")
+            if row is not None and row[0] == 'true':
+                only_extrema = True
+            else:
+                only_extrema = False
+
+            # Call import function
+            tools_log.log_info("Import simulation results into database")
+            # Create connection
+            dao_db_credentials = tools_db.dao
+            if dao_db_credentials is None:
+                return False
+            dao = he.create_pg_connection(
+                host=dao_db_credentials.host,
+                port=dao_db_credentials.port,
+                dbname=dao_db_credentials.dbname,
+                user=dao_db_credentials.user,
+                password=dao_db_credentials.password,
+                schema=tools_db.lib_vars.schema_name,
+            )
+
+            # Import results
+            self._set_progress(self.IMPORT_START, self.IMPORT_END, 0)
+            status = runner.export_result(
+                to=he.ExportDataSource.DATABASE,
+                result_id=self.result_name,
+                client=dao,
+                only_extrema=only_extrema,
+            )
+            tools_log.log_info("Import simulation results finished")
+
+            # Build result JSON
+            try:
+                # gw_fct_rpt2pg_log expects temp_audit_check_data to exist;
+                # normally created by gw_fct_rpt2pg_main, which the hydraulic engine path bypasses
+                parameters = f"'{self.result_name}', " + " '" + '{"status":"Accepted"}' + "'::json"
+                rows = tools_gw.execute_procedure('gw_fct_rpt2pg_log', parameters=parameters, is_thread=True)
+                self.rpt_result = rows
+                self.message = self.rpt_result.get("message", {}).get("text")
+            except Exception as e:
+                self.error_msg = str(e)
+                return False
+            self.active_epa_layers = True
+            self._set_progress(self.IMPORT_START, self.IMPORT_END)
+            return True
         except Exception as e:
             self.error_msg = str(e)
         finally:
@@ -646,7 +836,11 @@ class GwEpaFileManager(GwTask):
 
             # Update progress bar every ~1000 lines
             if progress % 1000 == 0:
-                self.setProgress((line_number * 100) / row_count)
+                self._set_progress(
+                    self.IMPORT_START,
+                    self.IMPORT_END,
+                    (line_number * 100) / row_count,
+                )
 
         # Manage JSON
         # Finalize the JSON array string (strip the trailing comma+space added during the loop)
@@ -680,6 +874,7 @@ class GwEpaFileManager(GwTask):
             self.step_completed.emit(self.json_result, "\n")
         # final message
         self.common_msg += "Import RPT file finished."
+        self._set_progress(self.IMPORT_START, self.IMPORT_END)
 
         return True
 

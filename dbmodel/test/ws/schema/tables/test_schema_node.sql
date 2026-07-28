@@ -123,7 +123,7 @@ SELECT col_type_is('node', 'uncertain', 'bool', 'Column uncertain should be bool
 SELECT col_type_is('node', 'xyz_date', 'date', 'Column xyz_date should be date');
 
 SELECT col_type_is('node', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('node', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('node', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 -- Check foreign keys
 SELECT has_fk('node', 'Table node should have foreign keys');

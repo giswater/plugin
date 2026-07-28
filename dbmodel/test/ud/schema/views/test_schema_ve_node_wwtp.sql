@@ -179,7 +179,7 @@ SELECT col_type_is('ve_node_wwtp', 'sludge_disposition', 'bool', 'Column sludge_
 SELECT col_type_is('ve_node_wwtp', 'sludge_treatment', 'bool', 'Column sludge_treatment should be bool');
 SELECT col_type_is('ve_node_wwtp', 'has_access', 'bool', 'Column has_access should be bool');
 SELECT col_type_is('ve_node_wwtp', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_wwtp', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_wwtp', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

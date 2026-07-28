@@ -82,4 +82,3 @@ UPDATE plan_price AS t SET descript = v.descript, text = v.text, price = REPLACE
     ('VIRTUAL_U', 'Null price for unitary virtual elements', 'Null price for unitary virtual elements', '0.0000')
 ) AS v(id, descript, text, price)
 WHERE t.id = v.id;
-

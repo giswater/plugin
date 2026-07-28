@@ -1,0 +1,181 @@
+name: "🖲️ i18n: Update i18n DB"
+
+on:
+  workflow_dispatch: # for testing
+  schedule:
+    - cron: "0 22 * * *"
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  pgtap-main:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [ws, ud]
+        pg_version: [18]
+    name: pgTAP ${{ matrix.project }} (PG ${{ matrix.pg_version }})
+    env:
+      PG_MAJOR: ${{ matrix.pg_version }}
+      POSTGIS_VERSION: ${{ matrix.pg_version == '18' && '3.6' || '3.5' }}
+      TEST_GROUPS: all
+      GW_VERBOSE: "1"
+      GW_TIMING: "1"
+      GW_SCHEMA_DUMP: /workspace/dbmodel/gw-schema-pg${{ matrix.pg_version }}-${{ matrix.project }}.dump
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Build Docker images
+        working-directory: dbmodel
+        run: docker compose -f docker-compose.test.yml build --quiet postgres runner
+
+      - name: Start Postgres
+        working-directory: dbmodel
+        run: docker compose -f docker-compose.test.yml up -d postgres --wait
+
+      - name: Bootstrap, dump, and pgTAP
+        working-directory: dbmodel
+        run: |
+          chmod +x test/*.sh ../scripts/gw_*.sh ../scripts/gw_bootstrap_network.sh ../scripts/verify_dbmodel_ci_checks.sh 2>/dev/null || chmod +x test/*.sh
+          docker compose -f docker-compose.test.yml run --rm -T runner \
+            bash /workspace/dbmodel/test/pgtap_main_inner.sh ${{ matrix.project }}
+
+      - name: Upload schema dump artifact
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gw-schema-pg${{ matrix.pg_version }}-${{ matrix.project }}
+          path: dbmodel/gw-schema-pg${{ matrix.pg_version }}-${{ matrix.project }}.dump
+          retention-days: 2
+
+      - name: Stop Postgres
+        if: always()
+        working-directory: dbmodel
+        run: docker compose -f docker-compose.test.yml down
+
+  run-i18n-searcher:
+    needs: pgtap-main
+    runs-on: ubuntu-latest
+    name: Run i18n searcher
+    env:
+      PG_MAJOR: 18
+      POSTGIS_VERSION: "3.6"
+      GW_VERBOSE: "1"
+      GW_TIMING: "1"
+      LANGUAGE: no_TR
+    steps:
+      - name: Validate required secrets
+        env:
+          TRANSLATIONS_API_URL: ${{ secrets.TRANSLATIONS_API_URL }}
+          TRANSLATIONS_API_USER: ${{ secrets.TRANSLATIONS_API_USER }}
+          TRANSLATIONS_API_PASSWORD: ${{ secrets.TRANSLATIONS_API_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=()
+          required_secrets=(
+            TRANSLATIONS_API_URL
+            TRANSLATIONS_API_USER
+            TRANSLATIONS_API_PASSWORD
+          )
+
+          for secret in "${required_secrets[@]}"; do
+            [ -z "${!secret}" ] && missing+=("$secret")
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Checkout plugin repository
+        uses: actions/checkout@v6
+        with:
+          repository: giswater/plugin
+          ref: ${{ github.ref }}
+          path: plugin
+
+      - name: Bootstrap sample network (ws, ud) with language no_TR
+        working-directory: plugin/dbmodel
+        run: |
+          set -euo pipefail
+          chmod +x test/*.sh ../scripts/gw_*.sh ../scripts/gw_bootstrap_network.sh ../scripts/verify_dbmodel_ci_checks.sh 2>/dev/null || chmod +x test/*.sh
+          docker compose -f docker-compose.test.yml build --quiet postgres runner
+          docker compose -f docker-compose.test.yml up -d postgres --wait
+          docker compose -f docker-compose.test.yml run --rm -T \
+            -e WS=ws_trans \
+            -e UD=ud_trans \
+            -e LANGUAGE=no_TR \
+            -e GW_PARENT_PROFILE=sample \
+            -e GW_SATELLITES= \
+            runner \
+            bash /workspace/dbmodel/test/ci_lifecycle_inner.sh i18n-bootstrap
+          docker compose -f docker-compose.test.yml run --rm -T runner \
+            bash /workspace/dbmodel/test/i18n_assert_language_inner.sh
+
+      - name: Run i18n searcher
+        working-directory: plugin/dbmodel
+        env:
+          TRANSLATIONS_API_URL: ${{ secrets.TRANSLATIONS_API_URL }}
+          TRANSLATIONS_API_USER: ${{ secrets.TRANSLATIONS_API_USER }}
+          TRANSLATIONS_API_PASSWORD: ${{ secrets.TRANSLATIONS_API_PASSWORD }}
+        run: |
+          set -euo pipefail
+          VERSION=""
+          SOURCE_EVENT="${{ github.event_name }}"
+          if [ "$SOURCE_EVENT" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION="$(awk -F= '/^version=/{print $2; exit}' ../metadata.txt)"
+          fi
+
+          docker compose -f docker-compose.test.yml run --rm -T \
+            -e TRANSLATIONS_API_URL \
+            -e TRANSLATIONS_API_USER \
+            -e TRANSLATIONS_API_PASSWORD \
+            -e I18N_VERSION="${VERSION}" \
+            runner \
+            bash /workspace/dbmodel/test/i18n_searcher_inner.sh
+
+      - name: Stop Postgres
+        if: always()
+        working-directory: plugin/dbmodel
+        run: docker compose -f docker-compose.test.yml down
+
+  trigger-generate-i18n:
+    needs: run-i18n-searcher
+    runs-on: ubuntu-latest
+    name: Trigger Generate i18n
+    steps:
+      - name: Dispatch Generate i18n with upstream context
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SOURCE_EVENT="${{ github.event_name }}"
+          PUBLISH_MODE="latest"
+          VERSION=""
+          REF="${{ github.ref }}"
+
+          if [ "$SOURCE_EVENT" = "release" ]; then
+            PUBLISH_MODE="release"
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          fi
+
+          gh workflow run "i18n_generate.yml" \
+            --repo "${{ github.repository }}" \
+            --ref "${{ github.ref_name }}" \
+            -f "source_event=${SOURCE_EVENT}" \
+            -f "publish_mode=${PUBLISH_MODE}" \
+            -f "ref=${REF}" \
+            -f "version=${VERSION}" \
+            -f "languages="

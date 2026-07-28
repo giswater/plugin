@@ -77,6 +77,13 @@ v_currency text;
 v_filter_widgets text = '';
 v_user_roles TEXT[];
 v_min_role TEXT;
+v_ui_lang text;
+v_ml_pref jsonb;
+v_ml_project_type text;
+v_i18n_lb text;
+v_i18n_tt text;
+v_i18n_widgetcontrols jsonb;
+v_schema text;
 
 BEGIN
 
@@ -531,6 +538,81 @@ BEGIN
 
 	-- Convert to json
 	fields := array_to_json(fields_array);
+
+	-- Apply multilang UI translations for form fields
+	v_schema := 'SCHEMA_NAME';
+	v_ml_pref := NULL;
+	v_ui_lang := NULL;
+	v_ml_project_type := NULL;
+	IF to_regnamespace('multilang') IS NOT NULL THEN
+		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
+		v_ui_lang := v_ml_pref->>'lang';
+		v_ml_project_type := v_ml_pref->>'project_type';
+	END IF;
+	IF v_ui_lang IS NOT NULL AND fields_array IS NOT NULL THEN
+		FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array))
+		LOOP
+			SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
+			FROM multilang.config_form_fields i
+			WHERE i.project_type = v_ml_project_type
+			  AND (
+				i.formname = p_formname
+				OR i.formname = replace(p_idname, '_id', '')
+				OR p_formname LIKE i.formname
+			  )
+			  AND i.formtype = p_formtype
+			  AND i.tabname = aux_json->>'tabname'
+			  AND i.source = aux_json->>'columnname'
+			  AND i.context = 'config_form_fields'
+			  AND i.lang = v_ui_lang
+			ORDER BY CASE
+				WHEN i.formname = p_formname THEN 0
+				WHEN i.formname = replace(p_idname, '_id', '') THEN 1
+				ELSE 2
+			END
+			LIMIT 1;
+			IF v_i18n_lb IS NOT NULL THEN
+				fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+					fields_array[(aux_json->>'orderby')::INT], 'label', v_i18n_lb);
+			END IF;
+			IF v_i18n_tt IS NOT NULL THEN
+				fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+					fields_array[(aux_json->>'orderby')::INT], 'tooltip', v_i18n_tt);
+			END IF;
+
+			SELECT i."text" INTO v_i18n_widgetcontrols
+			FROM multilang.config_form_fields_json i
+			WHERE i.project_type = v_ml_project_type
+			  AND (
+				i.formname = p_formname
+				OR i.formname = replace(p_idname, '_id', '')
+				OR p_formname LIKE i.formname
+			  )
+			  AND i.formtype = p_formtype
+			  AND i.tabname = aux_json->>'tabname'
+			  AND i.source = aux_json->>'columnname'
+			  AND i.context = 'config_form_fields'
+			  AND i.hint = 'widgetcontrols'
+			  AND i.lang = v_ui_lang
+			ORDER BY CASE
+				WHEN i.formname = p_formname THEN 0
+				WHEN i.formname = replace(p_idname, '_id', '') THEN 1
+				ELSE 2
+			END
+			LIMIT 1;
+			IF v_i18n_widgetcontrols IS NOT NULL THEN
+				fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+					fields_array[(aux_json->>'orderby')::INT],
+					'widgetcontrols',
+					(COALESCE((fields_array[(aux_json->>'orderby')::INT]->'widgetcontrols')::jsonb, '{}'::jsonb)
+						|| v_i18n_widgetcontrols)::json);
+				IF v_i18n_widgetcontrols ? 'text' THEN
+					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+						fields_array[(aux_json->>'orderby')::INT], 'value', v_i18n_widgetcontrols->>'text');
+				END IF;
+			END IF;
+		END LOOP;
+	END IF;
 
 	PERFORM gw_fct_debug(concat('{"data":{"msg":"<---- OUTPUT FOR gw_fct_getformfields: ", "variables":""}}')::json);
 

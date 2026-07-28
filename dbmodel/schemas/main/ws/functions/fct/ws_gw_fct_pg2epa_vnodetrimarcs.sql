@@ -86,11 +86,12 @@ BEGIN
 	SELECT arc_id, concat('VN', merged_vnode_id) as vnode_id, locate, elevation
 	FROM merged_vnodes;
 
-	-- Store the mapping for later use in demand assignment
-	WITH vnode_data AS (
-		SELECT DISTINCT ON (vnode_id)
+	-- Store the mapping for later use in demand assignment (one row per link_id)
+	WITH link_vnode_data AS (
+		SELECT
+			l.link_id,
 			a.arc_id,
-			vnode_id,
+			l.vnode_id,
 			case
 				when st_linelocatepoint (a.the_geom , l.the_geom_endpoint) > 0.9999 then 0.9999
 				when st_linelocatepoint (a.the_geom , l.the_geom_endpoint) < 0.0001 then 0.0001
@@ -101,23 +102,22 @@ BEGIN
 		WHERE st_dwithin ( a.the_geom, l.the_geom_endpoint, 0.01) AND l.state > 0
 		AND a.arc_type NOT IN ('NODE2ARC', 'LINK') AND a.state > 0
 		AND c.epa_type = 'JUNCTION' AND l.vnode_type = 'ARC'
-		ORDER BY vnode_id
 	),
 	merged_vnodes AS (
 		SELECT DISTINCT ON (arc_id, locate)
 			arc_id,
 			vnode_id as merged_vnode_id,
 			locate
-		FROM vnode_data
+		FROM link_vnode_data
 		ORDER BY arc_id, locate, vnode_id
 	)
 	INSERT INTO temp_vnode_mapping (original_vnode_id, merged_vnode_id, arc_id, locate)
 	SELECT
-		concat('VN', v.vnode_id) as original_vnode_id,
+		concat('VN', v.link_id) as original_vnode_id,
 		concat('VN', m.merged_vnode_id) as merged_vnode_id,
 		v.arc_id,
 		v.locate
-	FROM vnode_data v
+	FROM link_vnode_data v
 	JOIN merged_vnodes m ON v.arc_id = m.arc_id AND v.locate = m.locate;
 
 
@@ -199,6 +199,20 @@ BEGIN
 	WHERE node_type = 'CONNEC' AND st_dwithin ( temp_t_arc.the_geom, vnode.the_geom, 0.01)
 	AND vnode.state > 0 AND temp_t_arc.arc_type NOT IN ('NODE2ARC', 'LINK');
 
+	RAISE NOTICE 'vnodetrimarcs 7b - deduplicate vnodes on same arc';
+	-- Same vnode at multiple locates (link harmonization) creates EPANET pipes with node_1 = node_2
+	DELETE FROM t_t_go2epa t
+	USING t_t_go2epa t2
+	WHERE t.arc_id = t2.arc_id
+	  AND t.vnode_id = t2.vnode_id
+	  AND (t.locate > t2.locate OR (t.locate = t2.locate AND t.id > t2.id));
+
+	-- Different vnodes at the same locate (link + breakpipe overlap)
+	DELETE FROM t_t_go2epa t
+	USING t_t_go2epa t2
+	WHERE t.arc_id = t2.arc_id
+	  AND t.locate = t2.locate
+	  AND t.id > t2.id;
 
 	RAISE NOTICE 'vnodetrimarcs 8 - insert previous data into data on temp_table';
 	INSERT INTO temp_t_go2epa (arc_id, vnode_id, locate, elevation, depth)
@@ -305,6 +319,7 @@ BEGIN
 		FROM a
 		JOIN temp_t_arc USING (arc_id)
 		WHERE (a.node_1 ilike 'VN%' OR a.node_2 ilike 'VN%' OR a.node_1 ilike 'VC%' or a.node_2 ilike 'VC%')
+		AND a.node_1 IS DISTINCT FROM a.node_2
 		ORDER BY temp_t_arc.arc_id, a.id;
 
 

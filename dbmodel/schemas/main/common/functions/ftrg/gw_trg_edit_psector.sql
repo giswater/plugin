@@ -235,6 +235,21 @@ BEGIN
 			END LOOP;
 		END LOOP;
 
+			-- update polygon state from planified (2) to on service (1)
+			UPDATE polygon pol SET state = 1
+			FROM plan_psector_x_node p
+			WHERE pol.feature_id = p.node_id AND p.state = 1 AND p.psector_id = OLD.psector_id AND pol.state = 2;
+
+			UPDATE polygon pol SET state = 1
+			FROM plan_psector_x_connec p
+			WHERE pol.feature_id = p.connec_id AND p.state = 1 AND p.psector_id = OLD.psector_id AND pol.state = 2;
+
+			IF v_projectype = 'UD' THEN
+				UPDATE polygon pol SET state = 1
+				FROM plan_psector_x_gully p
+				WHERE pol.feature_id = p.gully_id AND p.state = 1 AND p.psector_id = OLD.psector_id AND pol.state = 2;
+			END IF;
+
 			--reset downgrade link variable
 			IF v_auto_downgrade_link IS NULL THEN
 				DELETE FROM config_param_user WHERE parameter='edit_connect_downgrade_link' AND cur_user=current_user;

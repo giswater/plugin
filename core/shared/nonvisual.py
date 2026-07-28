@@ -1988,6 +1988,11 @@ class GwNonVisual:
         # Populate sector id combobox
         self._populate_cmb_sector_id(self.dialog, self.dialog.cmb_sector_id)
 
+        # observ only exists on inp_dscenario_controls
+        if dscenario_id is None:
+            self.dialog.lbl_observ.hide()
+            self.dialog.txt_observ.hide()
+
         if control_id is not None:
             self._populate_controls_widgets(control_id, dscenario_id)
         else:
@@ -2008,6 +2013,7 @@ class GwNonVisual:
         cmb_sector_id = self.dialog.cmb_sector_id
         chk_active = self.dialog.chk_active
         txt_text = self.dialog.txt_text
+        txt_observ = self.dialog.txt_observ
 
         if dscenario_id is not None:
             sql = f"SELECT * FROM inp_dscenario_controls WHERE id = '{control_id}'"
@@ -2021,6 +2027,8 @@ class GwNonVisual:
         tools_qt.set_combo_value(cmb_sector_id, str(row['sector_id']), 0)
         tools_qt.set_checked(self.dialog, chk_active, row['active'])
         tools_qt.set_widget_text(self.dialog, txt_text, row['text'])
+        if dscenario_id is not None:
+            tools_qt.set_widget_text(self.dialog, txt_observ, row['observ'])
 
     def _load_controls_widgets(self, dialog):
         """ Load values from session.config """
@@ -2059,11 +2067,13 @@ class GwNonVisual:
         cmb_sector_id = dialog.cmb_sector_id
         chk_active = dialog.chk_active
         txt_text = dialog.txt_text
+        txt_observ = dialog.txt_observ
 
         # Get widget values
         sector_id = tools_qt.get_combo_value(dialog, cmb_sector_id)
         active = tools_qt.is_checked(dialog, chk_active)
         text = tools_qt.get_text(dialog, txt_text, add_quote=True)
+        observ = tools_qt.get_text(dialog, txt_observ, add_quote=True)
 
         if is_new:
             # Check that there are no empty fields
@@ -2074,8 +2084,8 @@ class GwNonVisual:
 
             # Insert inp_dscenario_controls
             if dscenario_id is not None:
-                sql = f"INSERT INTO inp_dscenario_controls (dscenario_id, sector_id,text,active)" \
-                      f"VALUES({dscenario_id}, {sector_id}, {text}, {active})"
+                sql = f"INSERT INTO inp_dscenario_controls (dscenario_id, sector_id, text, active, observ)" \
+                      f"VALUES({dscenario_id}, {sector_id}, {text}, {active}, {observ})"
             # Insert inp_controls
             else:
                 sql = f"INSERT INTO inp_controls (sector_id,text,active)" \
@@ -2099,6 +2109,9 @@ class GwNonVisual:
             fields = f"""{{"sector_id": {sector_id}, "active": "{active}", "text": "{text}"}}"""
             if dscenario_id is not None:
                 table_name = "inp_dscenario_controls"
+                observ = observ.strip("'")
+                observ = observ.replace("\n", "\\n")
+                fields = f"""{{"sector_id": {sector_id}, "active": "{active}", "text": "{text}", "observ": "{observ}"}}"""
 
             result = self._setfields(control_id, table_name, fields)
             if not result:
@@ -2124,6 +2137,11 @@ class GwNonVisual:
         # Populate sector id combobox
         self._populate_cmb_sector_id(self.dialog, self.dialog.cmb_sector_id)
 
+        # observ only exists on inp_dscenario_rules
+        if dscenario_id is None:
+            self.dialog.lbl_observ.hide()
+            self.dialog.txt_observ.hide()
+
         if rule_id is not None:
             self._populate_rules_widgets(rule_id, dscenario_id)
         else:
@@ -2144,6 +2162,7 @@ class GwNonVisual:
         cmb_sector_id = self.dialog.cmb_sector_id
         chk_active = self.dialog.chk_active
         txt_text = self.dialog.txt_text
+        txt_observ = self.dialog.txt_observ
 
         if dscenario_id is not None:
             sql = f"SELECT * FROM inp_dscenario_rules WHERE dscenario_id = '{dscenario_id}' AND id = '{rule_id}'"
@@ -2157,6 +2176,8 @@ class GwNonVisual:
         tools_qt.set_combo_value(cmb_sector_id, str(row['sector_id']), 0)
         tools_qt.set_checked(self.dialog, chk_active, row['active'])
         tools_qt.set_widget_text(self.dialog, txt_text, row['text'])
+        if dscenario_id is not None:
+            tools_qt.set_widget_text(self.dialog, txt_observ, row['observ'])
 
     def _load_rules_widgets(self, dialog):
         """ Load values from session.config """
@@ -2195,11 +2216,13 @@ class GwNonVisual:
         cmb_sector_id = dialog.cmb_sector_id
         chk_active = dialog.chk_active
         txt_text = dialog.txt_text
+        txt_observ = dialog.txt_observ
 
         # Get widget values
         sector_id = tools_qt.get_combo_value(dialog, cmb_sector_id)
         active = tools_qt.is_checked(dialog, chk_active)
         text = tools_qt.get_text(dialog, txt_text, add_quote=True)
+        observ = tools_qt.get_text(dialog, txt_observ, add_quote=True)
 
         if is_new:
             # Check that there are no empty fields
@@ -2210,8 +2233,8 @@ class GwNonVisual:
 
             # Insert inp_dscenario_rules
             if dscenario_id is not None:
-                sql = f"INSERT INTO inp_dscenario_rules (dscenario_id, sector_id, text, active)" \
-                      f"VALUES({dscenario_id}, {sector_id}, {text}, {active})"
+                sql = f"INSERT INTO inp_dscenario_rules (dscenario_id, sector_id, text, active, observ)" \
+                      f"VALUES({dscenario_id}, {sector_id}, {text}, {active}, {observ})"
             # Insert inp_rules
             else:
                 sql = f"INSERT INTO inp_rules (sector_id, text, active)" \
@@ -2235,6 +2258,9 @@ class GwNonVisual:
             fields = f""" "sector_id": {sector_id}, "active": "{active}", "text": "{text}" """
             if dscenario_id is not None:
                 table_name = 'inp_dscenario_rules'
+                observ = observ.strip("'")
+                observ = observ.replace("\n", "\\n")
+                fields = f""" "sector_id": {sector_id}, "active": "{active}", "text": "{text}", "observ": "{observ}" """
             fields = f"""{{{fields}}}"""
 
             result = self._setfields(rule_id, table_name, fields)
@@ -3085,6 +3111,7 @@ class GwNonVisual:
         else:
             tools_qt.set_widget_enabled(dialog, 'chk_active', False)
             tools_qt.set_widget_enabled(dialog, 'txt_text', False)
+            tools_qt.set_widget_enabled(dialog, 'txt_observ', False)
             tools_qt.set_widget_enabled(dialog, 'btn_accept', False)
 
     def _create_plot_widget(self, dialog):

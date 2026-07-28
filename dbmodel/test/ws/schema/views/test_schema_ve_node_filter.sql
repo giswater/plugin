@@ -186,7 +186,7 @@ SELECT col_type_is('ve_node_filter', 'filter_param_1', 'int4', 'Column filter_pa
 SELECT col_type_is('ve_node_filter', 'filter_param_2', 'text', 'Column filter_param_2 should be text');
 
 SELECT col_type_is('ve_node_filter', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_filter', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_filter', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

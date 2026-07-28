@@ -124,7 +124,7 @@ SELECT col_type_is('ve_link_vlink', 'p_state', 'int2', 'Column p_state should be
 SELECT col_type_is('ve_link_vlink', 'uuid', 'uuid', 'Column uuid should be uuid');
 
 SELECT col_type_is('ve_link_vlink', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_link_vlink', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_link_vlink', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

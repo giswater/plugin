@@ -161,7 +161,7 @@ SELECT col_type_is('ve_connec_samplepoint', 'place_name', 'varchar(254)', 'Colum
 SELECT col_type_is('ve_connec_samplepoint', 'cabinet', 'varchar(150)', 'Column cabinet should be varchar(150)');
 
 SELECT col_type_is('ve_connec_samplepoint', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_connec_samplepoint', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_connec_samplepoint', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

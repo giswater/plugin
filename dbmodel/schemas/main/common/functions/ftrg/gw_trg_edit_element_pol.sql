@@ -33,8 +33,8 @@ BEGIN
 		END IF;
 
 		-- Insert into polygon table
-		INSERT INTO polygon (pol_id, sys_type, the_geom, featurecat_id, feature_id)
-		SELECT NEW.pol_id, feature_class, NEW.the_geom, element_type, NEW.element_id
+		INSERT INTO polygon (pol_id, sys_type, the_geom, featurecat_id, feature_id, state)
+		SELECT NEW.pol_id, feature_class, NEW.the_geom, element_type, NEW.element_id, e.state
 		FROM element e
 		JOIN cat_element ce ON ce.id = e.elementcat_id
 		JOIN cat_feature_element cfe ON cfe.id = ce.element_type

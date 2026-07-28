@@ -62,5 +62,4 @@ UPDATE config_form_fields AS t SET widgetcontrols = v.text::json FROM (
     ('btn_cancel', 'node', 'form_feature', 'tab_none', '{"text":"Cancel"}')
 ) AS v(columnname, formname, formtype, tabname, text)
 WHERE t.columnname = v.columnname AND t.formname = v.formname AND t.formtype = v.formtype AND t.tabname = v.tabname;
-
 UPDATE config_param_system SET value = TRUE WHERE parameter = 'admin_config_control_trigger';

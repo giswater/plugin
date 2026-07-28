@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_outfall',
     ARRAY[
         'dscenario_id', 'node_id', 'elev', 'ymax', 'outfall_type', 'stage',
-        'curve_id', 'timser_id', 'gate', 'route_to'
+        'curve_id', 'timser_id', 'gate', 'route_to', 'observ'
     ],
     'Table inp_dscenario_outfall should have the correct columns'
 );
@@ -38,7 +38,7 @@ SELECT col_type_is('inp_dscenario_outfall', 'curve_id', 'varchar(16)', 'Column c
 SELECT col_type_is('inp_dscenario_outfall', 'timser_id', 'varchar(16)', 'Column timser_id should be varchar(16)');
 SELECT col_type_is('inp_dscenario_outfall', 'gate', 'varchar(3)', 'Column gate should be varchar(3)');
 SELECT col_type_is('inp_dscenario_outfall', 'route_to', 'varchar(16)', 'Column route_to should be varchar(16)');
-
+SELECT col_type_is('inp_dscenario_outfall', 'observ', 'text', 'Column observ should be text');
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_outfall', 'Table inp_dscenario_outfall should have foreign keys');
 

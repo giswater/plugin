@@ -41,6 +41,13 @@ BEGIN
 		END IF;
 
 		SELECT max(drainzone_id::integer)+1 INTO v_drainzone_id FROM drainzone WHERE drainzone_id::text ~ '^[0-9]+$';
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'DRAINZONE', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		IF NEW.code IS NULL THEN
 			NEW.code := v_drainzone_id::text;
 		END IF;
@@ -57,6 +64,13 @@ BEGIN
 
 	ELSIF TG_OP = 'UPDATE' THEN
 
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF v_view_name = 'EDIT' AND NEW.the_geom IS NOT NULL AND NEW.code IS NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'DRAINZONE', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		UPDATE drainzone
 		SET drainzone_id=NEW.drainzone_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, drainzone_type=NEW.drainzone_type, expl_id=NEW.expl_id,
 		sector_id=NEW.sector_id, muni_id=NEW.muni_id, graphconfig=NEW.graphconfig::json, stylesheet=NEW.stylesheet::json,

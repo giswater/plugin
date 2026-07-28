@@ -299,4 +299,3 @@ UPDATE sys_param_user AS t SET label = v.label, descript = v.descript FROM (
     ('plan_psector_auto_insert_connec', 'Automatic connec insertion:', 'Automatic insertion of connected connecs when inserting an arc')
 ) AS v(id, label, descript)
 WHERE t.id = v.id;
-

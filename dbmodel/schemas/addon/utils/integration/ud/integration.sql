@@ -259,3 +259,10 @@ dwfzone FOR EACH ROW EXECUTE FUNCTION gw_trg_array_fk_array_table('muni_id', 'ut
 CREATE TRIGGER gw_trg_fk_array_array_table_muni AFTER INSERT
 OR UPDATE OF muni_id ON
 drainzone FOR EACH ROW EXECUTE FUNCTION gw_trg_array_fk_array_table('muni_id', 'utils.municipality', 'muni_id');
+
+SELECT utils.gw_fct_admin_sys_version_register(json_build_object(
+	'data', json_build_object(
+		'parentSchema', 'SCHEMA_NAME',
+		'parentKind', 'ud'
+	)
+)::json);

@@ -8,7 +8,7 @@
 	<a href="https://qgis.org/"><img src="https://img.shields.io/badge/qgis-3.34%20(LTR)%20-blue.svg?style=for-the-badge&logo=qgis&logoColor=white"></a>
   	<a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.9-blue.svg?style=for-the-badge&logo=python&logoColor=white"></a>
 	<a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/postgresql-9.5|16-blue.svg?style=for-the-badge&logo=postgresql&logoColor=white"></a>
-	<a href="./LICENSE"><img alt="LICENSE" src="https://img.shields.io/github/license/giswater/giswater_qgis_plugin?style=for-the-badge"></a>
+	<a href="./LICENSE"><img alt="LICENSE" src="https://img.shields.io/github/license/giswater/plugin?style=for-the-badge"></a>
 </div>
 
 ## Welcome to the Giswater Project - QGIS Plugin
@@ -202,24 +202,24 @@ Ensure you have the permissions to connect to PostgreSQL and that your user has 
 ### Project Setup
 
 - Define catalogs with at least the mandatory categories ([materials, node, arc]) and create map zones ([macroexploitation, exploitation, municipality, sector, dma]).
-- To get started, refer to [Start from Scratch](https://github.com/Giswater/giswater_dbmodel/wiki/Start-from-Scratch:-Installing-Giswater-and-steps-to-create-an-empty-project) for guidance.
+- To get started, refer to [Start from Scratch](https://github.com/giswater/plugin/wiki/Start-from-Scratch:-Installing-Giswater-and-steps-to-create-an-empty-project) for guidance.
 - **Tip**: Once map zones and catalogs are defined, you can begin adding network nodes and arcs.
 
-For more configuration options, see the [Giswater configuration guide](https://github.com/Giswater/giswater_dbmodel/wiki/Config).
+For more configuration options, see the [Giswater configuration guide](https://github.com/giswater/plugin/wiki/Config).
 
 ## Wiki
 
-Explore additional documentation on the [Giswater Wiki](https://github.com/Giswater/giswater_dbmodel/wiki).
+Explore additional documentation on the [Giswater Wiki](https://github.com/giswater/plugin/wiki).
 
 ## FAQs
 
-Find answers to common questions in the [Giswater FAQs](https://github.com/Giswater/giswater_dbmodel/wiki/FAQs).
+Find answers to common questions in the [Giswater FAQs](https://github.com/giswater/plugin/wiki/FAQs).
 
 ## Code Repositories
 
-- **Docs**: [Documentation repository](https://github.com/Giswater/docs)
-- **QGIS Plugin**: [QGIS Plugin repository](https://github.com/Giswater/giswater_qgis_plugin)
-- **Database Model**: [Database Model repository](https://github.com/Giswater/giswater_dbmodel) — in this repo: [dbmodel/](dbmodel/) ([schema layout](dbmodel/README.md#schema-architecture), [local tests](dbmodel/README.md#testing))
+- **Docs**: [Documentation repository](https://github.com/giswater/docs)
+- **QGIS Plugin**: [QGIS Plugin repository](https://github.com/giswater/plugin)
+- **Database Model**: [Database Model repository](https://github.com/giswater/giswater_dbmodel) — in this repo: [dbmodel/](dbmodel/) ([schema layout](dbmodel/README.md#schema-architecture), [local tests](dbmodel/README.md#testing))
 - **Headless schema CLI**: [giswater_admin/](giswater_admin/) ([full reference](giswater_admin/README.md))
 
 Other repositories may exist but are either deprecated or inactive.

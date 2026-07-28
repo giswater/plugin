@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # E2E: isolated ws and ud schema upgrades (no linked network).
 #
+# Create @ PLUGIN_VER uses the published release dbmodel (gw dbmodel install),
+# not dev checkout + --version (which only caps updates/ but still loads dev
+# functions and sample SQL). Upgrade -> TARGET_VER uses dev dbmodel from the repo.
+#
 # Usage:
 #   export CONN='postgresql://...'
 #   ./scripts/gw_e2e_update_isolated.sh
@@ -20,30 +24,32 @@ REPO="$(gw_e2e_repo_root)"
 gw_e2e_setup_gw "${REPO}"
 gw_e2e_resolve_versions
 
+gw_e2e_install_release_dbmodel "${PLUGIN_VER}"
+PLUGIN_DBMODEL="$(gw_e2e_release_dbmodel_path "${PLUGIN_VER}")"
+
 echo "=== db init ==="
 gw db init --conn "$CONN"
 echo "=== upgrade path ${PLUGIN_VER} -> ${TARGET_VER} ==="
+echo "create dbmodel: ${PLUGIN_DBMODEL}"
+echo "update dbmodel: ${GW_E2E_DBMODEL}"
 
 IFS=',' read -ra TYPES <<< "${E2E_TYPES}"
 for ptype in "${TYPES[@]}"; do
   schema="e2e_upd_${ptype}"
   echo ""
-  echo "=== ${ptype}: create @ ${PLUGIN_VER} ==="
-  gw schema main drop --name "$schema" --yes --cascade --conn "$CONN" >/dev/null 2>&1 || true
-  gw schema main create \
+  echo "=== ${ptype}: create @ ${PLUGIN_VER} (release dbmodel) ==="
+  gw_e2e_gw_dbmodel "${PLUGIN_DBMODEL}" schema main drop --name "$schema" --yes --cascade >/dev/null 2>&1 || true
+  gw_e2e_gw_dbmodel "${PLUGIN_DBMODEL}" schema main create \
     --type "$ptype" \
     --name "$schema" \
     --profile "$E2E_UPDATE_PROFILE" \
-    --version "$PLUGIN_VER" \
-    --conn "$CONN"
+    --version "$PLUGIN_VER"
 
   gw_e2e_assert_sys_version "$schema" "$PLUGIN_VER"
 
-  echo "=== ${ptype}: update -> ${TARGET_VER} ==="
+  echo "=== ${ptype}: update -> ${TARGET_VER} (dev dbmodel) ==="
   gw schema main update --name "$schema" --version "$TARGET_VER" --conn "$CONN"
   gw_e2e_assert_sys_version "$schema" "$TARGET_VER"
-
-  gw schema main drop --name "$schema" --yes --cascade --conn "$CONN"
 done
 
 echo ""

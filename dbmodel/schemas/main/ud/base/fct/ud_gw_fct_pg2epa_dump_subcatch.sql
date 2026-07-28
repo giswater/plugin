@@ -30,6 +30,7 @@ index_point integer;
 point_aux public.geometry;
 v_client_epsg integer;
 v_fid integer = 117;
+v_message text;
 
 BEGIN
 
@@ -37,7 +38,18 @@ BEGIN
 	SET search_path = "SCHEMA_NAME", public;
 
 	-- get input parameters
-	v_client_epsg = (p_data->>'client')::json->>'epsg'; 
+	v_client_epsg = (p_data->>'client')::json->>'epsg';
+
+	-- validate QGIS project CRS for INP export (projected CRS required)
+	IF v_client_epsg IS NULL OR NOT EXISTS (SELECT 1 FROM spatial_ref_sys WHERE srid = v_client_epsg) THEN
+		SELECT error_message INTO v_message FROM sys_message WHERE id = 4370;
+		RAISE EXCEPTION '%', v_message;
+	END IF;
+
+	IF gw_fct_is_geographic_srid(v_client_epsg) IS TRUE THEN
+		SELECT error_message INTO v_message FROM sys_message WHERE id = 4371;
+		RAISE EXCEPTION '%', v_message;
+	END IF;
 
 	DELETE FROM temp_t_table WHERE fid = v_fid;
 

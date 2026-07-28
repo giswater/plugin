@@ -21,13 +21,14 @@ SELECT has_view('vf_element'::name, 'View vf_element should exist');
 SELECT columns_are(
     'vf_element',
     ARRAY[
-        'element_id'
+        'element_id', 'p_state'
     ],
     'View vf_element should have the correct columns'
 );
 
 -- Check column types
 SELECT col_type_is('vf_element', 'element_id', 'int4', 'Column element_id should be int4');
+SELECT col_type_is('vf_element', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

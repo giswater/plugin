@@ -202,7 +202,7 @@ SELECT col_type_is('ve_arc_waccel', 'name', 'varchar(255)', 'Column name should 
 SELECT col_type_is('ve_arc_waccel', 'waccel_code', 'text', 'Column waccel_code should be text');
 
 SELECT col_type_is('ve_arc_waccel', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_arc_waccel', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_arc_waccel', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

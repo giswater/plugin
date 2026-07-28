@@ -9,6 +9,7 @@ from .global_ import global_parent
 from .manifest import register as register_manifest
 from .meta import register as register_meta
 from .network import register as register_network
+from .project import register as register_project
 from .schema_group import register as register_schema
 
 
@@ -25,6 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     register_meta(sub)
     register_schema(sub, parent)
+    register_project(sub, parent)
     register_network(sub, parent)
     register_db(sub, parent)
     register_manifest(sub, parent)

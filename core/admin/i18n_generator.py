@@ -44,7 +44,7 @@ from qgis.PyQt.QtWidgets import QApplication
 # 1. CONSTANTS
 # =============================================================================
 
-SCHEMA_I18N = "i18n"
+SCHEMA_I18N = "multilang"
 PYDIALOG_ORDER_BY = "dialog_name, source, toolbar_name, id"
 
 ROW_SORT_COLUMNS = (

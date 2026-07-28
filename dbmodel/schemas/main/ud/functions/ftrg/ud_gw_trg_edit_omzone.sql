@@ -31,6 +31,13 @@ BEGIN
 			NEW.omzone_id:= (SELECT nextval('urn_id_seq'));
 		END IF;
 
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'OMZONE', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		IF NEW.code IS NULL THEN
 			NEW.code := NEW.omzone_id::text;
 		END IF;
@@ -58,6 +65,18 @@ BEGIN
 		RETURN NEW;
 
 	ELSIF TG_OP = 'UPDATE' THEN
+
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF v_view_name = 'EDIT' THEN
+			IF NEW.the_geom IS NOT NULL THEN
+				IF NEW.code IS NULL THEN
+					NEW.code := gw_fct_generate_code('mapzone', 'OMZONE', json_strip_nulls(row_to_json(NEW)::json));
+				END IF;
+			END IF;
+		END IF;
 
 		UPDATE omzone
 		SET omzone_id=NEW.omzone_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, macroomzone_id = NEW.macroomzone_id, expl_id=NEW.expl_id,

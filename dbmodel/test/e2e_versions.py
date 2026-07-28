@@ -3,60 +3,71 @@
 
 from __future__ import annotations
 
-import os
 import sys
+from pathlib import Path
 
 
-def _collect_versions(root: str) -> list[tuple[int, int, int]]:
-    found: list[tuple[int, int, int]] = []
-    if not os.path.isdir(root):
-        return found
-    for major_name in os.listdir(root):
-        major_path = os.path.join(root, major_name)
-        if not (major_name.isdigit() and os.path.isdir(major_path)):
-            continue
-        for minor_name in os.listdir(major_path):
-            minor_path = os.path.join(major_path, minor_name)
-            if not (minor_name.isdigit() and os.path.isdir(minor_path)):
-                continue
-            for patch_name in os.listdir(minor_path):
-                patch_path = os.path.join(minor_path, patch_name)
-                if not (patch_name.isdigit() and os.path.isdir(patch_path)):
-                    continue
-                patch_sql = os.path.join(patch_path, "patch.sql")
-                if os.path.isfile(patch_sql):
-                    found.append((int(major_name), int(minor_name), int(patch_name)))
-    return found
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
 
 
-def _fmt(v: tuple[int, int, int]) -> str:
-    return f"{v[0]}.{v[1]}.{v[2]}"
+def _ensure_import_paths() -> Path:
+    root = _repo_root()
+    for path in (root, root / "scripts"):
+        text = str(path)
+        if text not in sys.path:
+            sys.path.insert(0, text)
+    return root
+
+
+def resolve_e2e_versions(repo_root: Path | None = None) -> tuple[str, str]:
+    """Return (plugin_ver, target_ver) for isolated upgrade E2E tests."""
+    from giswater_admin.install.config import read_metadata_version
+    from release_lib import ReleaseError, parse_version, release_versions_from_headings
+
+    root = repo_root or _repo_root()
+    target = read_metadata_version(root)
+    if not target:
+        raise ReleaseError(f"metadata.txt has no version= under {root}")
+
+    changelog_path = root / "CHANGELOG.md"
+    if not changelog_path.is_file():
+        raise ReleaseError(f"CHANGELOG.md not found under {root}")
+
+    released = release_versions_from_headings(
+        changelog_path.read_text(encoding="utf-8")
+    )
+    if not released:
+        raise ReleaseError("CHANGELOG.md has no released versions")
+
+    target_v = parse_version(target)
+    latest_v = released[0]
+    target_key = (target_v.major, target_v.minor, target_v.patch)
+    latest_key = (latest_v.major, latest_v.minor, latest_v.patch)
+
+    if target_key > latest_key:
+        plugin = latest_v.text
+    else:
+        if len(released) < 2:
+            raise ReleaseError(
+                "CHANGELOG.md needs at least two released versions when "
+                f"metadata ({target}) is not ahead of latest release ({latest_v.text})"
+            )
+        plugin = released[1].text
+
+    return plugin, target
 
 
 def main() -> int:
-    test_dir = os.path.dirname(os.path.abspath(__file__))
-    dbmodel = os.path.join(test_dir, "..")
-    roots = [
-        os.path.join(dbmodel, "schemas", "main", "common", "updates"),
-        os.path.join(dbmodel, "schemas", "main", "ws", "updates"),
-        os.path.join(dbmodel, "schemas", "main", "ud", "updates"),
-    ]
-    versions: set[tuple[int, int, int]] = set()
-    for root in roots:
-        for item in _collect_versions(root):
-            versions.add(item)
-    ordered = sorted(versions)
-    if len(ordered) < 2:
-        print(
-            "error: need at least two semver patches under main/*/updates for E2E upgrades",
-            file=sys.stderr,
-        )
+    try:
+        _ensure_import_paths()
+        plugin, target = resolve_e2e_versions()
+    except Exception as exc:  # noqa: BLE001 - CLI entrypoint
+        print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    target = ordered[-1]
-    source = ordered[-2]
-    print(f"TARGET_VER={_fmt(target)}")
-    print(f"PLUGIN_VER={_fmt(source)}")
+    print(f"TARGET_VER={target}")
+    print(f"PLUGIN_VER={plugin}")
     return 0
 
 

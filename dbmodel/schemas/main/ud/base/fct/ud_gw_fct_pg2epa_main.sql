@@ -47,6 +47,7 @@ v_sector_0 boolean = false;
 v_expl_id integer[];
 v_sector_id integer[];
 v_network_type integer;
+v_client_epsg integer;
 
 
 
@@ -57,7 +58,7 @@ BEGIN
 
 	-- get input data
 	v_result =  (p_data->>'data')::json->>'resultId';
-	v_dumpsubcatch =  (p_data->>'data')::json->>'dumpSubcatch';
+	v_dumpsubcatch = NULLIF((p_data->>'data')::json->>'dumpSubcatch', '')::boolean;
 	v_step = (p_data->>'data')::json->>'step';
 	v_input = concat('{"data":{"parameters":{"isEmbebed":true, "resultId":"',v_result,'", "dumpSubcatch":"',v_dumpsubcatch,'", "fid":227}}}')::json;
 
@@ -73,6 +74,19 @@ BEGIN
 
 	-- step 1: pre-process
 	IF v_step = 1 THEN
+
+		-- validate QGIS project CRS for INP export (projected CRS required)
+		v_client_epsg := (p_data->'client'->>'epsg')::integer;
+
+		IF v_client_epsg IS NULL OR NOT EXISTS (SELECT 1 FROM spatial_ref_sys WHERE srid = v_client_epsg) THEN
+			SELECT error_message INTO v_message FROM sys_message WHERE id = 4370;
+			RETURN ('{"status":"Failed","message":{"level":1, "text":"'||v_message||'"}}')::json;
+		END IF;
+
+		IF gw_fct_is_geographic_srid(v_client_epsg) IS TRUE THEN
+			SELECT error_message INTO v_message FROM sys_message WHERE id = 4371;
+			RETURN ('{"status":"Failed","message":{"level":1, "text":"'||v_message||'"}}')::json;
+		END IF;
 
 		-- drop profilactic temp table of polygon
 		DROP TABLE IF EXISTS temp_anl_polygon;

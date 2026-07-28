@@ -65,9 +65,9 @@ DECLARE
 BEGIN
 	-- Set search path transaction-locally
 	--v_prev_search_path := current_setting('search_path');
-	--PERFORM set_config('search_path', 'cm, ap, public', true);
+	--PERFORM set_config('search_path', 'cm, PARENT_SCHEMA, public', true);
 
-	SET search_path = "cm","SCHEMA_NAME", public; 
+	SET search_path = "cm","PARENT_SCHEMA", public; 
 
 	-- Get version
 	SELECT giswater, project_type into v_version, v_project_type from cm.sys_version order by id limit 1;

@@ -489,4 +489,3 @@ UPDATE sys_fprocess AS t SET except_msg = v.except_msg, info_msg = v.info_msg, f
     (638, 'arc which id is not an integer. Please, check your data before continue.', 'All arcs features with id integer.', 'Arc which id is not an integer')
 ) AS v(fid, except_msg, info_msg, fprocess_name)
 WHERE t.fid = v.fid;
-

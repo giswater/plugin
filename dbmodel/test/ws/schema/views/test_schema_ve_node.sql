@@ -184,7 +184,7 @@ SELECT col_type_is('ve_node', 'sector_visibility', 'int4[]', 'Column sector_visi
 SELECT col_type_is('ve_node', 'muni_visibility', 'int4[]', 'Column muni_visibility should be int4[]');
 
 SELECT col_type_is('ve_node', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

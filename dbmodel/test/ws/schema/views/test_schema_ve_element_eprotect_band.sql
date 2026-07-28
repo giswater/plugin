@@ -84,7 +84,7 @@ SELECT col_type_is('ve_element_eprotect_band', 'sector_visibility', 'int4[]', 'C
 SELECT col_type_is('ve_element_eprotect_band', 'muni_visibility', 'int4[]', 'Column muni_visibility should be int4[]');
 
 SELECT col_type_is('ve_element_eprotect_band', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_element_eprotect_band', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_element_eprotect_band', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

@@ -440,8 +440,6 @@ INSERT INTO cat_users VALUES ('user2','user2');
 INSERT INTO cat_users VALUES ('user3','user3');
 INSERT INTO cat_users VALUES ('user4','user4');
 
-INSERT INTO cat_manager (idval, expl_id, rolename, active) VALUES ('general manager', '{1,2}', '{role_plan}', true);
-
 UPDATE config_param_user SET value='false' WHERE "parameter"='edit_plan_order_control' AND cur_user=current_user;
 
 TRUNCATE plan_psector_x_node;
@@ -489,9 +487,9 @@ INSERT INTO plan_psector_x_arc VALUES (11, '178', 1, 0, false, NULL, NULL);
 INSERT INTO plan_psector_x_arc VALUES (13, '179', 1, 0, false, NULL, NULL);
 INSERT INTO plan_psector_x_arc VALUES (12, '339', 1, 0, false, NULL, NULL);
 
-INSERT INTO doc (code, "name", doc_type, "path", observ, "date", user_name, tstamp, the_geom) VALUES('Demo document 1', 'Demo document 1', 'OTHER', 'https://github.com/Giswater/docs/blob/master/user/manual_usuario_giswater3.doc', NULL, '2018-03-11 19:40:20.449', current_user, '2018-03-11 19:40:20.449', NULL);
-INSERT INTO doc (code, "name", doc_type, "path", observ, "date", user_name, tstamp, the_geom) VALUES('Demo document 3', 'Demo document 2', 'OTHER', 'https://github.com/Giswater/giswater/blob/master-2.1/legal/Licensing.txt', NULL, '2018-03-14 17:09:59.762', current_user, '2018-03-14 17:09:59.762', NULL);
-INSERT INTO doc (code, "name", doc_type, "path", observ, "date", user_name, tstamp, the_geom) VALUES('Demo document 2', 'Demo document 3', 'OTHER', 'https://github.com/Giswater/giswater/blob/master-2.1/legal/Readme.txt', NULL, '2018-03-14 17:09:19.852', current_user, '2018-03-14 17:09:19.852', NULL);
+INSERT INTO doc (code, "name", doc_type, "path", observ, "date", user_name, tstamp, the_geom) VALUES('Demo document 1', 'Demo document 1', 'OTHER', 'https://github.com/giswater/docs/blob/master/user/manual_usuario_giswater3.doc', NULL, '2018-03-11 19:40:20.449', current_user, '2018-03-11 19:40:20.449', NULL);
+INSERT INTO doc (code, "name", doc_type, "path", observ, "date", user_name, tstamp, the_geom) VALUES('Demo document 3', 'Demo document 2', 'OTHER', 'https://github.com/giswater/giswater/blob/master-2.1/legal/Licensing.txt', NULL, '2018-03-14 17:09:59.762', current_user, '2018-03-14 17:09:59.762', NULL);
+INSERT INTO doc (code, "name", doc_type, "path", observ, "date", user_name, tstamp, the_geom) VALUES('Demo document 2', 'Demo document 3', 'OTHER', 'https://github.com/giswater/giswater/blob/master-2.1/legal/Readme.txt', NULL, '2018-03-14 17:09:19.852', current_user, '2018-03-14 17:09:19.852', NULL);
 
 -- rotate vnodes and connec labels
 INSERT INTO config_param_user (parameter, value, cur_user) VALUES ('edit_link_connecrotation_update', TRUE, current_user);

@@ -18,6 +18,29 @@ gw_e2e_resolve_versions() {
   export PLUGIN_VER TARGET_VER
 }
 
+# Cached release tree: ~/.config/giswater-cli/.../<version>/dbmodel
+gw_e2e_release_dbmodel_path() {
+  local version="${1:?version required}"
+  python3 -c "from giswater_admin.install.config import release_dbmodel_dir; print(release_dbmodel_dir('${version}'))"
+}
+
+gw_e2e_install_release_dbmodel() {
+  local version="${1:?version required}"
+  echo "=== install release dbmodel ${version} ==="
+  python3 -m giswater_admin dbmodel install "${version}" \
+    ${GW_ADMIN_FLAGS[@]+"${GW_ADMIN_FLAGS[@]}"}
+}
+
+# Run gw with an explicit dbmodel root (create @ PLUGIN_VER uses release cache, not dev).
+gw_e2e_gw_dbmodel() {
+  local dbmodel_path="${1:?dbmodel path required}"
+  shift
+  python3 -m giswater_admin "$@" \
+    --dbmodel-path "${dbmodel_path}" \
+    --conn "${CONN}" \
+    ${GW_ADMIN_FLAGS[@]+"${GW_ADMIN_FLAGS[@]}"}
+}
+
 gw_e2e_setup_gw() {
   local repo="${1:?}"
   export GW_E2E_REPO="${repo}"
@@ -29,6 +52,7 @@ gw_e2e_setup_gw() {
   gw() {
     python3 -m giswater_admin "$@" \
       --dbmodel-path "${GW_E2E_DBMODEL}" \
+      --conn "${CONN}" \
       ${GW_ADMIN_FLAGS[@]+"${GW_ADMIN_FLAGS[@]}"}
   }
 }

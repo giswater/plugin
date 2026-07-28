@@ -19,4 +19,3 @@ UPDATE config_visit_parameter AS t SET descript = v.descript FROM (
     ('leak_link', 'minor leak on link')
 ) AS v(id, descript)
 WHERE t.id = v.id;
-

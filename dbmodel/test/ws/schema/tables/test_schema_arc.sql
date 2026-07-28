@@ -123,7 +123,7 @@ SELECT col_type_is('arc', 'uuid', 'uuid', 'Column uuid should be uuid');
 SELECT col_type_is('arc', 'uncertain', 'bool', 'Column uncertain should be bool');
 
 SELECT col_type_is('arc', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('arc', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('arc', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 -- Check foreign keys
 SELECT has_fk('arc', 'Table arc should have foreign keys');

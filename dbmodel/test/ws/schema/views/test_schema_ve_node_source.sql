@@ -196,7 +196,7 @@ SELECT col_type_is('ve_node_source', 'subbasin_id', 'int4', 'Column subbasin_id 
 SELECT col_type_is('ve_node_source', 'inlet_arc', 'int4[]', 'Column inlet_arc should be int4[]');
 
 SELECT col_type_is('ve_node_source', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_source', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_source', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

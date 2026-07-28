@@ -84,13 +84,13 @@ BEGIN
 				LEFT JOIN inp_dscenario_valve d2 ON d2.node_id::text = a.node_id WHERE v.to_arc is not null
 				AND EXISTS (SELECT 1 FROM t_numarcs WHERE t_numarcs.node_id=v.node_id::text AND t_numarcs.numarcs > 1)
 				UNION  
-				SELECT a.*, m.to_arc FROM temp_t_node a JOIN man_pump m ON a.node_id=m.node_id::text WHERE to_arc is not null
+				SELECT a.*, m.to_arc FROM temp_t_node a JOIN man_pump m ON a.node_id=m.node_id::text JOIN inp_pump p ON p.node_id=m.node_id WHERE to_arc is not null
 				UNION
-				SELECT a.*, v.to_arc FROM temp_t_node a  JOIN ve_inp_frvalve v ON a.node_id=v.node_id::text WHERE to_arc is not null
+				SELECT a.*, v.to_arc FROM temp_t_node a JOIN ve_inp_frvalve v ON a.node_id=v.node_id::text WHERE to_arc is not null
 				UNION
-				SELECT a.*, v.to_arc FROM temp_t_node a  JOIN ve_inp_frpump v ON a.node_id=v.node_id::text WHERE to_arc is not null
+				SELECT a.*, v.to_arc FROM temp_t_node a JOIN ve_inp_frpump v ON a.node_id=v.node_id::text WHERE to_arc is not null
 				UNION
-				SELECT a.*, v.to_arc FROM temp_t_node a  JOIN ve_inp_frshortpipe v ON a.node_id=v.node_id::text WHERE to_arc is not null';
+				SELECT a.*, v.to_arc FROM temp_t_node a JOIN ve_inp_frshortpipe v ON a.node_id=v.node_id::text WHERE to_arc is not null';
 
 
 	v_querytext = concat (' INSERT INTO t_anl_node (num_arcs, arc_id, node_id, top_elev, elev, nodecat_id, sector_id, state, state_type, descript, arc_distance, the_geom, fid, cur_user, 

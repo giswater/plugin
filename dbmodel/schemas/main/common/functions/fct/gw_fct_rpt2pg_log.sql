@@ -32,13 +32,19 @@ v_stats json;
 v_error_context text;
 v_status text = 'Accepted';
 
+v_only_minmax boolean;
+
 BEGIN
 
 	--  Search path
 	SET search_path = "SCHEMA_NAME", public;
 
+	CREATE TEMP TABLE IF NOT EXISTS temp_audit_check_data (LIKE SCHEMA_NAME.audit_check_data INCLUDING ALL);
+
 	-- select config values
 	SELECT project_type, giswater  INTO v_project_type, v_version FROM sys_version ORDER BY id DESC LIMIT 1;
+
+	SELECT value::boolean INTO v_only_minmax FROM config_param_user WHERE parameter = 'inp_report_onlymaxmin_values' AND cur_user = current_user;
 
 	-- Header
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 4, concat('IMPORT RPT FILE LOG'));
@@ -49,45 +55,80 @@ BEGIN
 
 	IF v_project_type = 'WS' THEN
 
-		IF (SELECT count(*) FROM rpt_arc WHERE result_id = p_result) < 1 THEN
+		IF v_only_minmax THEN
+			IF (SELECT count(*) FROM rpt_arc_stats WHERE result_id = p_result) < 1 THEN
 
-			-- errors
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 4, '------------------------------------------------------------------');
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
-			VALUES (114, p_result, 3, UPPER('CRITICAL ERROR: The import file have been failed.'));
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 3, '');
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
-			VALUES (114, p_result, 3, 'HINT: Take a look on the RPT file OR Export INP file again without ''Execute EPA software'' & ''Import Results'' in order to check and fix errors.');
+				-- errors
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 4, '------------------------------------------------------------------');
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+				VALUES (114, p_result, 3, UPPER('CRITICAL ERROR: The import file have been failed.'));
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 3, '');
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+				VALUES (114, p_result, 3, 'HINT: Take a look on the RPT file OR Export INP file again without ''Execute EPA software'' & ''Import Results'' in order to check and fix errors.');
 
-			UPDATE rpt_cat_result SET status = 4 WHERE result_id = p_result;
+				UPDATE rpt_cat_result SET status = 4 WHERE result_id = p_result;
 
-			v_status = 'Failed';
+				v_status = 'Failed';
+			ELSE
+
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 4, 'ONLY MAX AND MIN VALUES ARE REPORTED');
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 4, '--------------------------------');
+
+				-- basic statistics
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 1, 'BASIC STATISTICS');
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 1, '-----------------------');
+
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+				SELECT 114, 'stats', 1, concat ('FLOW : Max.(',max(flow_max)::numeric(12,3), ') , Min.(', min(flow_min)::numeric(12,3),').') FROM rpt_arc_stats WHERE result_id = p_result;
+
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+				SELECT 114, 'stats', 1, concat ('VELOCITY : Max.(',max(vel_max)::numeric(12,3), ') , Min.(', min(vel_min)::numeric(12,3),').') FROM rpt_arc_stats WHERE result_id = p_result;
+
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+				SELECT 114, 'stats', 1, concat ('PRESSURE : Max.(',max(press_max)::numeric(12,3), ') , Min.(', min(press_min)::numeric(12,3),').') FROM rpt_node_stats WHERE result_id = p_result;
+
+			END IF;
 		ELSE
+			IF (SELECT count(*) FROM rpt_arc WHERE result_id = p_result) < 1 THEN
 
-			-- basic statistics
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 1, 'BASIC STATISTICS');
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 1, '-----------------------');
+				-- errors
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 4, '------------------------------------------------------------------');
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+				VALUES (114, p_result, 3, UPPER('CRITICAL ERROR: The import file have been failed.'));
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 3, '');
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+				VALUES (114, p_result, 3, 'HINT: Take a look on the RPT file OR Export INP file again without ''Execute EPA software'' & ''Import Results'' in order to check and fix errors.');
 
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
-			SELECT 114, 'stats', 1, concat ('FLOW : Max.(',max(flow)::numeric(12,3), ') , Avg.(', avg(flow)::numeric(12,3), ') , Standard dev.(', stddev(flow)::numeric(12,3)
-			, ') , Min.(', min (flow)::numeric(12,3),').') FROM rpt_arc WHERE result_id = p_result;
+				UPDATE rpt_cat_result SET status = 4 WHERE result_id = p_result;
 
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
-			SELECT 114, 'stats', 1, concat ('VELOCITY : Max.(',max(vel)::numeric(12,3), ') , Avg.(', avg(vel)::numeric(12,3), ') , Standard dev.(', stddev(vel)::numeric(12,3)
-			, ') , Min.(', min (vel)::numeric(12,3),').') FROM rpt_arc WHERE result_id = p_result;
+				v_status = 'Failed';
+			ELSE
 
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
-			SELECT 114, 'stats', 1, concat ('PRESSURE : Max.(',max(press)::numeric(12,3), ') , Avg.(', avg(press)::numeric(12,3), ') , Standard dev.(', stddev(press)::numeric(12,3)
-			, ') , Min.(', min (press)::numeric(12,3),').') FROM rpt_node WHERE result_id = p_result;
+				-- basic statistics
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 1, 'BASIC STATISTICS');
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 1, '-----------------------');
 
-			-- warnings
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 2, '');
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 2, 'WARNINGS');
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 2, '--------------');
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
-			SELECT 114, p_result, 2, concat (time, ' ', text) FROM rpt_hydraulic_status WHERE result_id = p_result AND time = 'WARNING:';
-			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 2, '');
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+				SELECT 114, 'stats', 1, concat ('FLOW : Max.(',max(flow)::numeric(12,3), ') , Avg.(', avg(flow)::numeric(12,3), ') , Standard dev.(', stddev(flow)::numeric(12,3)
+				, ') , Min.(', min (flow)::numeric(12,3),').') FROM rpt_arc WHERE result_id = p_result;
 
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+				SELECT 114, 'stats', 1, concat ('VELOCITY : Max.(',max(vel)::numeric(12,3), ') , Avg.(', avg(vel)::numeric(12,3), ') , Standard dev.(', stddev(vel)::numeric(12,3)
+				, ') , Min.(', min (vel)::numeric(12,3),').') FROM rpt_arc WHERE result_id = p_result;
+
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+				SELECT 114, 'stats', 1, concat ('PRESSURE : Max.(',max(press)::numeric(12,3), ') , Avg.(', avg(press)::numeric(12,3), ') , Standard dev.(', stddev(press)::numeric(12,3)
+				, ') , Min.(', min (press)::numeric(12,3),').') FROM rpt_node WHERE result_id = p_result;
+
+				-- warnings
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 2, '');
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 2, 'WARNINGS');
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 2, '--------------');
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+				SELECT 114, p_result, 2, concat (time, ' ', text) FROM rpt_hydraulic_status WHERE result_id = p_result AND time = 'WARNING:';
+				INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 2, '');
+
+			END IF;
 		END IF;
 
 	ELSIF v_project_type = 'UD' THEN

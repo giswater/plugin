@@ -198,7 +198,7 @@ SELECT col_type_is('ve_arc_conduit', 'bottom_mat', 'text', 'Column bottom_mat sh
 SELECT col_type_is('ve_arc_conduit', 'conduit_code', 'text', 'Column conduit_code should be text');
 
 SELECT col_type_is('ve_arc_conduit', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_arc_conduit', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_arc_conduit', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

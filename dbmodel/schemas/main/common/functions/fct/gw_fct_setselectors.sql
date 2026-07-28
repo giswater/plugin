@@ -819,7 +819,7 @@ BEGIN
     END IF;
 
 	-- get envelope
-	v_count = (SELECT 1 FROM ve_node LIMIT 1);
+	v_count = (SELECT 1 FROM vf_node LIMIT 1);
 
 	IF v_tab_name IN ('tab_sector', 'tab_macrosector','tab_exploitation', 'tab_macroexploitation', 'tab_municipality') THEN
 		SELECT row_to_json (a)

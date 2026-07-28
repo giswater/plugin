@@ -1,6 +1,6 @@
 <div align="center">
 	<h1>Giswater DB Model</h1>
-	<a href="https://github.com/Giswater/giswater_dbmodel"><img alt="Giswater Dbmodel Badge" src="https://img.shields.io/badge/GISWATER-DBMODEL-blue?style=for-the-badge&logo=postgresql&logoColor=ffffff"></a>
+	<a href="https://github.com/giswater/giswater_dbmodel"><img alt="Giswater Dbmodel Badge" src="https://img.shields.io/badge/GISWATER-DBMODEL-blue?style=for-the-badge&logo=postgresql&logoColor=ffffff"></a>
 	<a href="./LICENSE"><img alt="LICENSE" src="https://img.shields.io/github/license/giswater/giswater_dbmodel?style=for-the-badge"></a>
 </div>
 
@@ -55,6 +55,7 @@ Each **main** project folder (`ws/`, `ud/`) typically contains:
 | `base/` | Bootstrap SQL: `fct/`, `ftrg/`, `schema_model/` (common also has `init.sql`) |
 | `updates/` | Semver patches (`M/m/p/patch.sql`) |
 | `sample/` | Optional seed data (`user/`, `inv/`, `dev/`) |
+| `catalog/` | Locale-specific feature catalog (`<locale>/cat_feature.sql`) |
 | `final_pass/` | Form fields + i18n (locale folders) |
 
 Each **addon** kind follows a similar pattern: `base/`, `integration/` (parent-link SQL), `updates/`, and optional `sample/` or `i18n/`.
@@ -93,6 +94,7 @@ Example **ws** pipeline ([`manifests/ws.yaml`](./manifests/ws.yaml)):
 |-------|------|-----------|
 | `load_base` | `sql_dir` | `common/base/init.sql`, `common/base/fct`, `common/base/ftrg`, then `ws/base/fct`, `ws/base/ftrg`, `ws/base/schema_model` |
 | `updates` | `version_walk` | For each version ≤ `--plugin-version`: **common** patches, then **ws** patches |
+| `load_catalog` | `sql_dir` | `catalog/{{ locale }}` (fallback `en_US`) — feature naming conventions |
 | `lastprocess` | `sql_function` | `gw_fct_admin_schema_lastprocess` (child views, permissions, metadata) |
 | `load_sample` | `sql_dir` (optional) | `schemas/main/ws/sample/user` |
 | `final_pass` | `sql_dir` | Form fields + i18n (`{{ locale }}`, fallback `en_US`) |
@@ -290,7 +292,10 @@ On every PR/push touching `dbmodel/**`, GitHub Actions runs **21 checks** (6 lan
 | pgTAP satellites | utils + cibs standalone |
 | pgTAP network | integrated sample + network pgTAP |
 
-Release (`prepare_*_release.py --execute`) calls `scripts/verify_dbmodel_ci_checks.sh` before tagging. Plugin release also runs network lockstep via Actions.
+Plugin release (`prepare_release.py --execute` / `vX.Y.Z` Actions) calls
+`scripts/verify_dbmodel_ci_checks.sh` before tagging/publishing. CLI/PyPI
+(`cli-v*`) does not — the wheel ships `giswater_admin` only. Plugin release
+also runs network lockstep via Actions.
 
 ### Network E2E (manual)
 
@@ -386,7 +391,7 @@ flowchart LR
 |-----|--------|-------|
 | `pgtap-main` | `ws/ud` × PG 16/17/18 (6) | bootstrap sample → pgTAP all groups → dump → artifact |
 | `profiles-smoke` | PG 16/17/18 (3) | empty + inventory create ws/ud |
-| `update-isolated` | PG 16/17/18 (3) | isolated ws/ud upgrade |
+| `update-isolated` | PG 16/17/18 (3) | isolated ws/ud upgrade (`latest released → metadata.txt`) |
 | `pgtap-satellites` | PG 16/17/18 (3) | **after main lanes** — ws_40+ud_40 then utils/cibs pgTAP |
 | `pgtap-network` | PG 16/17/18 (3) | **after satellites** — integrated sample network pgTAP |
 | `publish-gw-db` | ws/ud × PG (6, main/tags) | Build `ghcr.io/giswater/gw-db:…` from pgtap-main dump |
@@ -409,10 +414,19 @@ flowchart LR
 | [`test/prove_inner.sh`](./test/prove_inner.sh) | One `TEST_GROUPS`; `-j 1` for function/data |
 | [`test/dump_schema.sh`](./test/dump_schema.sh) | `pg_dump -n {schema}` |
 | [`test/replace_vars.py`](./test/replace_vars.py) | Staging copy for pgTAP |
-| [`test/plugin_version.py`](./test/plugin_version.py) | Max semver from `schemas/main/*/updates/` |
+| [`test/e2e_versions.py`](./test/e2e_versions.py) | E2E upgrade path: `PLUGIN_VER` (CHANGELOG latest release) → `TARGET_VER` (`metadata.txt`) |
+| [`test/plugin_version.py`](./test/plugin_version.py) | Max semver folder under `schemas/main/*/updates/` (pgTAP bootstrap) |
 | [`test/diagnose_db.sh`](./test/diagnose_db.sh) | Optional host `psql` via debug compose |
 
-Plugin version helper:
+E2E upgrade versions (same semantics as `gw schema main update` without `--version`):
+
+```bash
+python3 dbmodel/test/e2e_versions.py
+# TARGET_VER=4.15.0
+# PLUGIN_VER=4.14.4
+```
+
+Max update folder semver (pgTAP bootstrap):
 
 ```bash
 python3 dbmodel/test/plugin_version.py
@@ -448,28 +462,28 @@ Published images: `ghcr.io/giswater/gw-db:main-pg16-ws` (and `ud`, PG 17/18).
 - Catalogs: materials, node, arc.
 - Map zones: macroexploitation, municipality, sector, dma, etc.
 
-- [Start from scratch](https://github.com/Giswater/giswater_dbmodel/wiki/Start-from-Scratch:-Installing-Giswater-and-steps-to-create-an-empty-project)
-- [Configuration guide](https://github.com/Giswater/giswater_dbmodel/wiki/Config)
+- [Start from scratch](https://github.com/giswater/plugin/wiki/Start-from-Scratch:-Installing-Giswater-and-steps-to-create-an-empty-project)
+- [Configuration guide](https://github.com/giswater/plugin/wiki/Config)
 
 ---
 
 ## Wiki
 
-[ Giswater Wiki](https://github.com/Giswater/giswater_dbmodel/wiki)
+[ Giswater Wiki](https://github.com/giswater/plugin/wiki)
 
 ---
 
 ## FAQs
 
-[FAQs](https://github.com/Giswater/giswater_dbmodel/wiki/FAQs)
+[FAQs](https://github.com/giswater/plugin/wiki/FAQs)
 
 ---
 
 ## Repositories
 
-- **Docs**: [Giswater Docs](https://github.com/Giswater/docs)
-- **QGIS Plugin**: [Giswater QGIS Plugin](https://github.com/Giswater/giswater_qgis_plugin)
-- **Database Model**: [Giswater DB Model](https://github.com/Giswater/giswater_dbmodel)
+- **Docs**: [Giswater Docs](https://github.com/giswater/docs)
+- **QGIS Plugin**: [Giswater QGIS Plugin](https://github.com/giswater/plugin)
+- **Database Model**: [Giswater DB Model](https://github.com/giswater/giswater_dbmodel)
 - **CLI (in plugin repo)**: [giswater_admin/README.md](../giswater_admin/README.md)
 
 ---

@@ -198,7 +198,7 @@ SELECT col_type_is('ve_arc_siphon', 'name', 'varchar(255)', 'Column name should 
 SELECT col_type_is('ve_arc_siphon', 'siphon_code', 'text', 'Column siphon_code should be text');
 
 SELECT col_type_is('ve_arc_siphon', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_arc_siphon', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_arc_siphon', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

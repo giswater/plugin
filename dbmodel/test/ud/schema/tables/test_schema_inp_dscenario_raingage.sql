@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_raingage',
     ARRAY[
         'dscenario_id', 'rg_id', 'form_type', 'intvl', 'scf', 'rgage_type',
-        'timser_id', 'fname', 'sta', 'units'
+        'timser_id', 'fname', 'sta', 'units', 'observ'
     ],
     'Table inp_dscenario_raingage should have the correct columns'
 );
@@ -38,7 +38,7 @@ SELECT col_type_is('inp_dscenario_raingage', 'timser_id', 'varchar(16)', 'Column
 SELECT col_type_is('inp_dscenario_raingage', 'fname', 'varchar(254)', 'Column fname should be varchar(254)');
 SELECT col_type_is('inp_dscenario_raingage', 'sta', 'varchar(12)', 'Column sta should be varchar(12)');
 SELECT col_type_is('inp_dscenario_raingage', 'units', 'varchar(3)', 'Column units should be varchar(3)');
-
+SELECT col_type_is('inp_dscenario_raingage', 'observ', 'text', 'Column observ should be text');
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_raingage', 'Table inp_dscenario_raingage should have foreign keys');
 

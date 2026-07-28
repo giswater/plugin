@@ -69,6 +69,7 @@ v_dma_id integer[];
 v_flow_units text;
 v_quality_units text;
 v_userscenario integer[];
+v_client_epsg integer;
 
 BEGIN
 
@@ -89,6 +90,19 @@ BEGIN
 
 	-- step 1: preprocess
 	IF v_step = 1 THEN
+
+		-- validate QGIS project CRS for INP export (projected CRS required)
+		v_client_epsg := (p_data->'client'->>'epsg')::integer;
+
+		IF v_client_epsg IS NULL OR NOT EXISTS (SELECT 1 FROM spatial_ref_sys WHERE srid = v_client_epsg) THEN
+			SELECT error_message INTO v_message FROM sys_message WHERE id = 4370;
+			RETURN ('{"status":"Failed","message":{"level":1, "text":"'||v_message||'"}}')::json;
+		END IF;
+
+		IF gw_fct_is_geographic_srid(v_client_epsg) IS TRUE THEN
+			SELECT error_message INTO v_message FROM sys_message WHERE id = 4371;
+			RETURN ('{"status":"Failed","message":{"level":1, "text":"'||v_message||'"}}')::json;
+		END IF;
 
 		-- check sector selector
 		SELECT count(*) INTO v_count FROM selector_sector WHERE cur_user = current_user;

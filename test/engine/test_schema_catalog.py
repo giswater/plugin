@@ -289,3 +289,23 @@ def test_list_schemas_filters_by_kind(monkeypatch) -> None:
         filter=SchemaListFilter(kinds=frozenset({"ws", "cibs"})),
     )
     assert [item.schema for item in items] == ["ws", "cibs"]
+
+
+def test_version_column_requires_existing_column():
+    from giswater_admin.engine import schema_catalog as catalog
+
+    assert catalog._version_column_for_schema("ws_40", {"version"}) == "version"
+    assert catalog._version_column_for_schema("ws_40", {"giswater"}) == "giswater"
+    assert catalog._version_column_for_schema("ws_40", set()) == ""
+    assert catalog._version_column_for_schema("utils", {"version"}) == "version"
+
+
+def test_fetch_sys_version_addparam_skips_missing_column():
+    from giswater_admin.engine import schema_catalog as catalog
+
+    def fetcher(sql: str, params=None):
+        if "pg_attribute" in sql:
+            return [("utils", "giswater")]
+        raise AssertionError(f"unexpected query: {sql}")
+
+    assert catalog._fetch_sys_version_addparam("utils", fetcher) == {}

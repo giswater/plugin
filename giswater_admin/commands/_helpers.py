@@ -263,6 +263,23 @@ def detect_am_linked_parent(conn: Any, schema: str = "am") -> str:
     try:
         with conn.raw.cursor() as cur:  # type: ignore[attr-defined]
             cur.execute(
+                """
+                SELECT 1
+                FROM pg_catalog.pg_attribute a
+                JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+                JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = %s
+                  AND c.relname = 'sys_version'
+                  AND a.attname = 'addparam'
+                  AND a.attnum > 0
+                  AND NOT a.attisdropped
+                LIMIT 1
+                """,
+                [schema],
+            )
+            if cur.fetchone() is None:
+                return ""
+            cur.execute(
                 f'SELECT addparam FROM "{schema}".sys_version '
                 "ORDER BY id DESC LIMIT 1"
             )

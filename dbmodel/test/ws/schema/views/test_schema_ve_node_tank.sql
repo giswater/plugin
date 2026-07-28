@@ -203,7 +203,7 @@ SELECT col_type_is('ve_node_tank', 'tank_param_2', 'date', 'Column tank_param_2 
 
 SELECT col_type_is('ve_node_tank', 'vnom', 'numeric(12,3)', 'Column vnom should be numeric(12,3)');
 SELECT col_type_is('ve_node_tank', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_tank', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_tank', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

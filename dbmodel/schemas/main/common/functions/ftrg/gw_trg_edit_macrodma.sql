@@ -55,6 +55,13 @@ BEGIN
 		END IF;
 
 		SELECT max(macrodma_id::integer)+1 INTO v_macrodma_id FROM macrodma WHERE macrodma_id::text ~ '^[0-9]+$';
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'MACRODMA', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		IF NEW.code IS NULL THEN
 			NEW.code := v_macrodma_id::text;
 		END IF;
@@ -70,6 +77,14 @@ BEGIN
 		RETURN NEW;
 
     ELSIF TG_OP = 'UPDATE' THEN
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF v_view_name = 'EDIT' AND NEW.the_geom IS NOT NULL AND NEW.code IS NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'MACRODMA', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
+
 		UPDATE macrodma
 		SET macrodma_id=NEW.macrodma_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, expl_id=NEW.expl_id, sector_id=NEW.sector_id, 
 		muni_id=NEW.muni_id, stylesheet=NEW.stylesheet::json, link=NEW.link, lock_level=NEW.lock_level, addparam=NEW.addparam::json, updated_at=now(), updated_by = current_user

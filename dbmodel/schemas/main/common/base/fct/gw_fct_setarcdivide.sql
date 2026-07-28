@@ -114,9 +114,6 @@ v_arc_type text;
 v_fid integer = 212;
 v_result_id text= 'arc divide';
 
-v_seq_name text;
-v_seq_code text;
-v_code_prefix text;
 
 BEGIN
 
@@ -245,21 +242,14 @@ BEGIN
 					SELECT * INTO rec_aux2 FROM arc WHERE arc_id = v_arc_id;
 
 
-					-- use specific sequence for code when its name matches featurecat_code_seq
-					SELECT addparam::json->>'code_prefix' INTO v_code_prefix FROM cat_feature WHERE id=v_arc_type;
-					EXECUTE 'SELECT concat('||quote_literal(lower(v_arc_type))||',''_code_seq'');' INTO v_seq_name;
-					EXECUTE 'SELECT relname FROM pg_catalog.pg_class WHERE relname='||quote_literal(v_seq_name)||';' INTO v_sql;
-
 					-- Update values of new arc_id (1)
 					rec_aux1.arc_id := nextval('SCHEMA_NAME.urn_id_seq');
 
 					--code
-					IF v_sql IS NOT NULL THEN
-						EXECUTE 'SELECT nextval('||quote_literal(v_seq_name)||');' INTO v_seq_code;
-							rec_aux1.code=concat(v_code_prefix,v_seq_code);
-					ELSIF v_set_old_code IS TRUE THEN
+					rec_aux1.code := gw_fct_generate_code('feature', v_arc_type, json_strip_nulls(to_json(rec_aux1)::json));
+					IF rec_aux1.code IS NULL AND v_set_old_code IS TRUE THEN
 						rec_aux1.code := v_code;
-					ELSE
+					ELSIF rec_aux1.code IS NULL THEN
 						rec_aux1.code := rec_aux1.arc_id;
 					END IF;
 
@@ -272,12 +262,10 @@ BEGIN
 					rec_aux2.uuid := gen_random_uuid();
 
 					-- code
-					IF v_sql IS NOT NULL THEN
-						EXECUTE 'SELECT nextval('||quote_literal(v_seq_name)||');' INTO v_seq_code;
-							rec_aux2.code=concat(v_code_prefix,v_seq_code);
-					ELSIF v_set_old_code IS TRUE THEN
+					rec_aux2.code := gw_fct_generate_code('feature', v_arc_type, json_strip_nulls(to_json(rec_aux2)::json));
+					IF rec_aux2.code IS NULL AND v_set_old_code IS TRUE THEN
 						rec_aux2.code := v_code;
-					ELSE
+					ELSIF rec_aux2.code IS NULL THEN
 						rec_aux2.code := rec_aux2.arc_id;
 					END IF;
 

@@ -17,4 +17,3 @@ UPDATE sys_table AS t SET alias = v.alias, descript = v.descript FROM (
     ('%_lot_node', NULL, 've_ws44_1709_lot_node')
 ) AS v(id, alias, descript)
 WHERE t.id = v.id;
-

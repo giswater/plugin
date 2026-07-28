@@ -48,12 +48,10 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip FROM (
     ('visitclass_id', 'campaign_visit', 'form_feature', 'tab_data', 'Visitclass:', 'Visitclass'),
     ('campaign', 'generic', 'check_project_cm', 'tab_data', 'Campaign:', 'Campaign'),
     ('lot', 'generic', 'check_project_cm', 'tab_data', 'Lot:', 'Lot'),
-    ('txt_info', 'generic', 'check_project_cm', 'tab_data', NULL, NULL),
-    ('txt_infolog', 'generic', 'check_project_cm', 'tab_log', NULL, NULL),
-    ('active', 'generic', 'team_create', 'tab_none', 'Active:', 'Active:'),
-    ('code', 'generic', 'team_create', 'tab_none', 'Code:', 'Code:'),
-    ('descript', 'generic', 'team_create', 'tab_none', 'Description:', 'Description:'),
-    ('name', 'generic', 'team_create', 'tab_none', 'Name:', 'Name:'),
+    ('active', 'generic', 'team_create', 'tab_none', 'Active:', NULL),
+    ('code', 'generic', 'team_create', 'tab_none', 'Code:', NULL),
+    ('descript', 'generic', 'team_create', 'tab_none', 'Description:', NULL),
+    ('name', 'generic', 'team_create', 'tab_none', 'Name:', NULL),
     ('active', 'lot', 'form_feature', 'tab_data', 'Active:', 'Active'),
     ('campaign_id', 'lot', 'form_feature', 'tab_data', 'Campaign id:', 'Campaign id'),
     ('descript', 'lot', 'form_feature', 'tab_data', 'Description:', 'Description'),
@@ -81,5 +79,3 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip FROM (
     ('workorder_type', 'workorder', 'form_feature', 'tab_data', 'Workorder type:', 'Workorder type')
 ) AS v(columnname, formname, formtype, tabname, label, tooltip)
 WHERE t.columnname = v.columnname AND t.formname = v.formname AND t.formtype = v.formtype AND t.tabname = v.tabname;
-
-UPDATE config_param_system SET value = TRUE WHERE parameter = 'admin_config_control_trigger';

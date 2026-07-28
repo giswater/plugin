@@ -170,7 +170,7 @@ SELECT col_type_is('ve_node_register', 'register_param_1', 'text', 'Column regis
 SELECT col_type_is('ve_node_register', 'register_param_2', 'text', 'Column register_param_2 should be text');
 SELECT col_type_is('ve_node_register', 'has_access', 'bool', 'Column has_access should be bool');
 SELECT col_type_is('ve_node_register', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_register', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_register', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

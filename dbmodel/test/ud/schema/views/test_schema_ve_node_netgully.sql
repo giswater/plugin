@@ -178,7 +178,7 @@ SELECT col_type_is('ve_node_netgully', 'groove_length', 'float8', 'Column groove
 SELECT col_type_is('ve_node_netgully', 'units_placement', 'varchar(16)', 'Column units_placement should be varchar(16)');
 SELECT col_type_is('ve_node_netgully', 'has_access', 'bool', 'Column has_access should be bool');
 SELECT col_type_is('ve_node_netgully', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_netgully', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_netgully', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

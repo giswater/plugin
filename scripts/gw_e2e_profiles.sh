@@ -19,7 +19,7 @@ source "${SCRIPT_DIR}/gw_e2e_common.sh"
 REPO="$(gw_e2e_repo_root)"
 gw_e2e_setup_gw "${REPO}"
 
-TARGET_VER="$(python3 "${REPO}/dbmodel/test/plugin_version.py")"
+eval "$(python3 "${REPO}/dbmodel/test/e2e_versions.py")"
 
 IFS=',' read -ra TYPES <<< "${E2E_TYPES}"
 IFS=',' read -ra PROFILES <<< "${E2E_PROFILES}"
@@ -61,8 +61,6 @@ for ptype in "${TYPES[@]}"; do
         exit 1
         ;;
     esac
-
-    gw schema main drop --name "$schema" --yes --cascade --conn "$CONN"
   done
 done
 

@@ -16,6 +16,7 @@ $BODY$
 DECLARE
 
 v_code_autofill_bool boolean;
+v_featurecat text;
 v_doublegeometry boolean;
 v_insert_double_geom boolean;
 v_length float;
@@ -248,8 +249,8 @@ BEGIN
 				-- get element dimensions to generate CIRCULARE geometry
 				v_pol_id:= (SELECT nextval('urn_id_seq'));
 
-				INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id)
-				VALUES ('ELEMENT', St_Multi(ST_buffer(NEW.the_geom, v_length*0.01*v_unitsfactor/2)),v_pol_id, v_element_type, NEW.element_id);
+				INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id, state)
+				VALUES ('ELEMENT', St_Multi(ST_buffer(NEW.the_geom, v_length*0.01*v_unitsfactor/2)),v_pol_id, v_element_type, NEW.element_id, NEW.state);
 
 			ELSIF v_length*v_width != 0 THEN
 
@@ -287,13 +288,29 @@ BEGIN
 
 				v_pol_id:= (SELECT nextval('urn_id_seq'));
 
-				INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id)
-				VALUES ('ELEMENT', v_the_geom_pol, v_pol_id, v_element_type, NEW.element_id);
+				INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id, state)
+				VALUES ('ELEMENT', v_the_geom_pol, v_pol_id, v_element_type, NEW.element_id, NEW.state);
 			END IF;
 		END IF;
 
 		IF v_man_table = 'man_frelem' THEN
 			NEW.the_geom = NULL;
+		END IF;
+
+		v_featurecat := COALESCE(v_customfeature, v_element_type);
+
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND v_featurecat IS NOT NULL THEN
+			SELECT code_autofill INTO v_code_autofill_bool FROM cat_feature WHERE id = v_featurecat;
+
+			NEW.code := gw_fct_generate_code('feature', v_featurecat, json_strip_nulls(row_to_json(NEW)::json));
+
+			IF NEW.code IS NULL AND v_code_autofill_bool THEN
+				NEW.code := NEW.element_id::text;
+			END IF;
 		END IF;
 
 		INSERT INTO "element" (element_id, code, sys_code, elementcat_id, serial_number, num_elements, state, state_type, observ, "comment", function_type, category_type,
@@ -409,7 +426,16 @@ BEGIN
 
 	-- UPDATE
 	ELSIF TG_OP = 'UPDATE' THEN
-		-- epa type
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		v_featurecat := COALESCE(v_customfeature, v_element_type);
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL AND v_featurecat IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('feature', v_featurecat, json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
+
+				-- epa type
 		IF (NEW.epa_type != OLD.epa_type) THEN
 			IF (OLD.epa_type = 'FRPUMP') THEN
 				v_inp_table:= 'inp_frpump';
@@ -569,8 +595,8 @@ BEGIN
 
 				-- get element dimensions to generate CIRCULARE geometry
 				IF (SELECT pol_id FROM element WHERE element_id = NEW.element_id) IS NULL THEN
-					INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id)
-					VALUES ('ELEMENT', St_multi(ST_buffer(NEW.the_geom, v_length*0.01*v_unitsfactor/2)),v_pol_id, v_element_type, NEW.element_id);
+					INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id, state)
+					VALUES ('ELEMENT', St_multi(ST_buffer(NEW.the_geom, v_length*0.01*v_unitsfactor/2)),v_pol_id, v_element_type, NEW.element_id, NEW.state);
 				ELSE
 					SELECT trace_featuregeom INTO v_trace_featuregeom FROM polygon WHERE feature_id=OLD.element_id;
 					IF v_trace_featuregeom IS TRUE THEN
@@ -615,8 +641,8 @@ BEGIN
 				v_pol_id:= (SELECT nextval('urn_id_seq'));
 
 				IF (SELECT pol_id FROM element WHERE element_id = NEW.element_id) IS NULL THEN
-					INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id)
-					VALUES ('ELEMENT', v_the_geom_pol, v_pol_id, v_element_type, NEW.element_id);
+					INSERT INTO polygon(sys_type, the_geom, pol_id, featurecat_id, feature_id, state)
+					VALUES ('ELEMENT', v_the_geom_pol, v_pol_id, v_element_type, NEW.element_id, NEW.state);
 
 				ELSE
 					SELECT trace_featuregeom INTO v_trace_featuregeom FROM polygon WHERE feature_id=OLD.element_id;

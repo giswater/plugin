@@ -188,7 +188,7 @@ SELECT col_type_is('ve_connec', 'uncertain', 'bool', 'Column uncertain should be
 SELECT col_type_is('ve_connec', 'xyz_date', 'date', 'Column xyz_date should be date');
 
 SELECT col_type_is('ve_connec', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_connec', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_connec', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

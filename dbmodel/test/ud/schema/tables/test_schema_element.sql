@@ -83,7 +83,7 @@ SELECT col_type_is('element', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column
 SELECT col_type_is('element', 'uuid', 'uuid', 'Column uuid should be uuid');
 
 SELECT col_type_is('element', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('element', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('element', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 -- Check foreign keys
 SELECT has_fk('element', 'Table element should have foreign keys');

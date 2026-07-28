@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'arc_id', 'arccat_id', 'matcat_id', 'elev1', 'elev2',
         'custom_n', 'barrels', 'culvert', 'kentry', 'kexit', 'kavg',
-        'flap', 'q0', 'qmax', 'seepage', 'the_geom'
+        'flap', 'q0', 'qmax', 'seepage', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_conduit should have the correct columns'
 );
@@ -46,6 +46,7 @@ SELECT col_type_is('ve_inp_dscenario_conduit', 'q0', 'numeric(12,4)', 'Column q0
 SELECT col_type_is('ve_inp_dscenario_conduit', 'qmax', 'numeric(12,4)', 'Column qmax should be numeric(12,4)');
 SELECT col_type_is('ve_inp_dscenario_conduit', 'seepage', 'numeric(12,4)', 'Column seepage should be numeric(12,4)');
 SELECT col_type_is('ve_inp_dscenario_conduit', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_conduit', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

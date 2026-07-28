@@ -44,6 +44,13 @@ BEGIN
 			NEW.dwfzone_id:= (SELECT nextval('urn_id_seq'));
 		END IF;
 
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'DWFZONE', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		IF NEW.code IS NULL THEN
 			NEW.code := NEW.dwfzone_id::text;
 		END IF;
@@ -60,6 +67,13 @@ BEGIN
 
 	ELSIF TG_OP = 'UPDATE' THEN
 
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF v_view_name = 'EDIT' AND NEW.the_geom IS NOT NULL AND NEW.code IS NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'DWFZONE', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		UPDATE dwfzone
 		SET dwfzone_id=NEW.dwfzone_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, dwfzone_type=NEW.dwfzone_type, drainzone_id=NEW.drainzone_id, 
 		expl_id=NEW.expl_id, sector_id=NEW.sector_id, muni_id=NEW.muni_id, graphconfig=NEW.graphconfig::json, stylesheet=NEW.stylesheet::json,
@@ -114,6 +128,13 @@ BEGIN
 			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4468", "function":"3178","parameters":{"mapzone_name":"DWFzone", "mapzone_id":'||OLD.dwfzone_id||'}}}$$);';
 		END IF;
 
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF v_view_name = 'EDIT' AND NEW.the_geom IS NOT NULL AND NEW.code IS NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'DWFZONE', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		UPDATE node SET dwfzone_id = 0 WHERE dwfzone_id = OLD.dwfzone_id;
 		UPDATE arc SET dwfzone_id = 0 WHERE dwfzone_id = OLD.dwfzone_id;
 		UPDATE connec SET dwfzone_id = 0 WHERE dwfzone_id = OLD.dwfzone_id;

@@ -179,7 +179,7 @@ SELECT col_type_is('ve_node_sandbox', 'height', 'numeric(12,4)', 'Column height 
 SELECT col_type_is('ve_node_sandbox', 'manhole_code', 'text', 'Column manhole_code should be text');
 SELECT col_type_is('ve_node_sandbox', 'has_access', 'bool', 'Column has_access should be bool');
 SELECT col_type_is('ve_node_sandbox', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_sandbox', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_sandbox', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

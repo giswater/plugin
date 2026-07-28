@@ -28,7 +28,9 @@ ProgressCb = Callable[[int, int, str, Optional[sql_runner.FileExec]], None]
 # on the database) and ends with SET ROLE role_system for the rest of the phase.
 # updates/load_sample are excluded: legacy patches use DISABLE TRIGGER ALL, which
 # requires superuser to touch RI_ConstraintTrigger system triggers.
-_ROLE_SYSTEM_PHASES = frozenset({"reload_fct_ftrg"})
+# reload_fct_ftrg is excluded: upgrade patches applied as superuser may re-own
+# functions; only the installer can CREATE OR REPLACE them on the next upgrade.
+_ROLE_SYSTEM_PHASES = frozenset()
 # init.sql ends with SET ROLE role_system; restore installer before superuser phases.
 _RESET_ROLE_AFTER_PHASES = frozenset({"load_base"})
 
@@ -467,7 +469,7 @@ class SchemaBuilder:
         rendered = render(step.source, self._ctx)
         folder = os.path.join(self.params.sql_root, rendered)
         files = self._files_in(folder, step.recursive)
-        if not files and step.fallback_source:
+        if not files and step.fallback_source and self.params.locale != "no_TR":
             fb = os.path.join(self.params.sql_root, render(step.fallback_source, self._ctx))
             files = self._files_in(fb, step.recursive)
         return files
@@ -479,7 +481,7 @@ class SchemaBuilder:
         primary = os.path.join(self.params.sql_root, render(step.source, self._ctx))
         if os.path.isfile(primary):
             return primary
-        if step.fallback_source:
+        if step.fallback_source and self.params.locale != "no_TR":
             fb = os.path.join(self.params.sql_root, render(step.fallback_source, self._ctx))
             if os.path.isfile(fb):
                 return fb

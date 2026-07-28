@@ -82,6 +82,8 @@ v_check_arcdnom integer;
 v_sql varchar;
 
 v_linkcat_id text;
+v_code_autofill_bool boolean;
+v_featurecat text;
 
 BEGIN
 
@@ -669,6 +671,31 @@ BEGIN
 		IF v_expl is null then v_expl = NEW.expl_id; END IF;
 		IF NEW.state IS NULL THEN NEW.state =  1; END IF;
 
+		v_featurecat := COALESCE(v_customfeature, NEW.link_type);
+
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL AND v_featurecat IS NOT NULL THEN
+			SELECT code_autofill INTO v_code_autofill_bool FROM cat_feature WHERE id = v_featurecat;
+
+			NEW.code := gw_fct_generate_code('feature', v_featurecat, json_strip_nulls(
+				(row_to_json(NEW)::jsonb || jsonb_strip_nulls(jsonb_build_object(
+					'sector_id', v_sector,
+					'dma_id', v_dma,
+					'omzone_id', v_omzone,
+					'presszone_id', v_presszone,
+					'dqa_id', v_dqa,
+					'minsector_id', v_minsector
+				)))::json
+			));
+
+			IF NEW.code IS NULL AND v_code_autofill_bool THEN
+				NEW.code := NEW.link_id;
+			END IF;
+		END IF;
+
 		-- insert into link table
 		IF v_projectype = 'WS' THEN
 			IF NEW.linkcat_id IS NULL THEN
@@ -788,7 +815,16 @@ BEGIN
 
 	ELSIF TG_OP = 'UPDATE' THEN
 
-		IF NEW.state = 0 AND OLD.state = 1 THEN
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		v_featurecat := COALESCE(v_customfeature, NEW.link_type);
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL AND v_featurecat IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('feature', v_featurecat, json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
+
+				IF NEW.state = 0 AND OLD.state = 1 THEN
 
 			-- delete reconnection on connecs
 			IF NEW.feature_type = 'CONNEC' THEN

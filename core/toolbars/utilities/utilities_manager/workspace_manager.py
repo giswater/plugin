@@ -64,6 +64,7 @@ class GwWorkspaceManagerButton(GwAction):
         self.dlg_workspace_manager.btn_update.clicked.connect(partial(self._open_update_workspace_dlg))
         selection_model = self.dlg_workspace_manager.tbl_wrkspcm.selectionModel()
         selection_model.selectionChanged.connect(partial(self._fill_info))
+        self.tbl_wrkspcm.doubleClicked.connect(partial(self._open_update_workspace_dlg))
         self.dlg_workspace_manager.btn_delete.clicked.connect(partial(self._delete_workspace))
 
         self.dlg_workspace_manager.btn_cancel.clicked.connect(partial(tools_gw.close_dialog, self.dlg_workspace_manager))
@@ -72,7 +73,7 @@ class GwWorkspaceManagerButton(GwAction):
         # Open dialog
         tools_gw.open_dialog(self.dlg_workspace_manager, 'workspace_manager')
 
-    def _open_update_workspace_dlg(self):
+    def _open_update_workspace_dlg(self, index=None):
 
         # Create workspace dialog
         self.dlg_create_workspace = GwCreateWorkspaceUi(self)

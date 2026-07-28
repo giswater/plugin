@@ -186,7 +186,7 @@ SELECT col_type_is('ve_node_waterwell', 'name', 'varchar(50)', 'Column name shou
 SELECT col_type_is('ve_node_waterwell', 'inlet_arc', 'int4[]', 'Column inlet_arc should be int4[]');
 
 SELECT col_type_is('ve_node_waterwell', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_node_waterwell', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_node_waterwell', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

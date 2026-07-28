@@ -12,7 +12,6 @@ $BODY$
 
 DECLARE
 	v_view_name TEXT;
-	v_dma_id INTEGER;
 	v_count INTEGER;
 BEGIN
 
@@ -32,6 +31,13 @@ BEGIN
 			NEW.dma_id:= (SELECT nextval('urn_id_seq'));
 		END IF;
 		
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'DMA', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		IF NEW.code IS NULL THEN
 			NEW.code := NEW.dma_id::text;
 		END IF;
@@ -50,7 +56,7 @@ BEGIN
 		END IF;
 
 		INSERT INTO dma (dma_id, code, name, descript, active, dma_type, expl_id, sector_id, muni_id, avg_press, pattern_id, effc, graphconfig, stylesheet, link, lock_level, addparam, created_at, created_by, updated_at, updated_by)
-		VALUES (v_dma_id, NEW.code, NEW.name, NEW.descript, NEW.active, NEW.dma_type, NEW.expl_id, NEW.sector_id, NEW.muni_id, NEW.avg_press, NEW.pattern_id,
+		VALUES (NEW.dma_id, NEW.code, NEW.name, NEW.descript, NEW.active, NEW.dma_type, NEW.expl_id, NEW.sector_id, NEW.muni_id, NEW.avg_press, NEW.pattern_id,
 		NEW.effc, NEW.graphconfig::json, NEW.stylesheet::json, NEW.link, NEW.lock_level, NEW.addparam::json, now(), current_user, now(), current_user);
 
 		IF v_view_name = 'EDIT' THEN
@@ -61,7 +67,17 @@ BEGIN
 
 	ELSIF TG_OP = 'UPDATE' THEN
 
-		UPDATE dma
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF v_view_name = 'EDIT' THEN
+			IF NEW.the_geom IS NOT NULL AND NEW.code IS NULL THEN
+				NEW.code := gw_fct_generate_code('mapzone', 'DMA', json_strip_nulls(row_to_json(NEW)::json));
+			END IF;
+		END IF;
+
+				UPDATE dma
 		SET dma_id=NEW.dma_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, dma_type=NEW.dma_type, expl_id=NEW.expl_id,
 		muni_id=NEW.muni_id, sector_id=NEW.sector_id, avg_press=NEW.avg_press, pattern_id=NEW.pattern_id, effc=NEW.effc, graphconfig=NEW.graphconfig::json, 
 		stylesheet=NEW.stylesheet::json, link=NEW.link, lock_level=NEW.lock_level, addparam=NEW.addparam::json, updated_at=now(), updated_by = current_user

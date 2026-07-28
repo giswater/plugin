@@ -166,7 +166,7 @@ SELECT col_type_is('ve_gully_pgully', 'grate_param_1', 'text', 'Column grate_par
 SELECT col_type_is('ve_gully_pgully', 'grate_param_2', 'bool', 'Column grate_param_2 should be bool');
 
 SELECT col_type_is('ve_gully_pgully', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_gully_pgully', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_gully_pgully', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

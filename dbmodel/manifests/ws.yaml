@@ -40,6 +40,14 @@ phases:
     range:
       mode: "{{ run_mode }}"
 
+  - id: load_catalog
+    type: sql_dir
+    description: "Locale-specific feature catalog (cat_feature + cat_*)."
+    steps:
+      - source: "schemas/main/ws/catalog/{{ locale }}"
+        fallback_source: "schemas/main/ws/catalog/en_US"
+        recursive: false
+
   - id: lastprocess
     type: sql_function
     description: "Server-side bookkeeping; requires fct/ftrg loaded."
@@ -114,13 +122,25 @@ phases:
     steps:
       - source: "schemas/main/ws/final_pass/config_form_fields"
         recursive: false
+      - source: "schemas/main/ws/final_pass/config_form_tableview"
+        recursive: false
+      - source: "schemas/main/ws/final_pass/i18n/{{ locale }}"
+        fallback_source: "schemas/main/ws/final_pass/i18n/en_US"
+        recursive: false
+
+  - id: final_pass_empty
+    type: sql_dir
+    description: "Empty projects: keep MULTI-CREATE child CFF; apply tableview + i18n only."
+    steps:
+      - source: "schemas/main/ws/final_pass/config_form_tableview"
+        recursive: false
       - source: "schemas/main/ws/final_pass/i18n/{{ locale }}"
         fallback_source: "schemas/main/ws/final_pass/i18n/en_US"
         recursive: false
 
 profiles:
   empty:
-    phases: [load_base, updates, lastprocess, final_pass]
+    phases: [load_base, updates, load_catalog, lastprocess, final_pass_empty]
   sample_full:
     phases: [load_base, updates, lastprocess, load_sample, final_pass]
   sample_inv:

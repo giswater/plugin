@@ -18,16 +18,18 @@ BEGIN
 
 	EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 
-	IF (SELECT value::boolean FROM config_param_user WHERE parameter = 'edit_disable_update_nodevalues' and cur_user = current_user) IS NOT FALSE THEN
+	IF COALESCE((SELECT value::boolean FROM config_param_user WHERE parameter = 'edit_disable_update_nodevalues' AND cur_user = current_user), FALSE) = FALSE THEN
 		
-		UPDATE arc a SET nodetype_1 = node_type, node_top_elev_1 = top_elev, node_custom_top_elev_1 = custom_top_elev,
+		UPDATE arc a SET nodetype_1 = cn.node_type, node_top_elev_1 = top_elev, node_custom_top_elev_1 = custom_top_elev,
 		node_elev_1 = elev, node_custom_elev_1 = custom_elev
-		FROM ve_node
+		FROM node n
+		JOIN cat_node cn ON cn.id::text = n.nodecat_id::text
 		WHERE a.arc_id = NEW.arc_id AND node_id = node_1;
 
-		UPDATE arc a SET nodetype_2 = node_type ,node_top_elev_2 = top_elev, node_custom_top_elev_2 = custom_top_elev,
+		UPDATE arc a SET nodetype_2 = cn.node_type ,node_top_elev_2 = top_elev, node_custom_top_elev_2 = custom_top_elev,
 		node_elev_2 = elev, node_custom_elev_2 = custom_elev
-		FROM ve_node
+		FROM node n
+		JOIN cat_node cn ON cn.id::text = n.nodecat_id::text
 		WHERE a.arc_id = NEW.arc_id AND node_id = node_2;
 		
 	END IF;

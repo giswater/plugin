@@ -22,7 +22,7 @@ SELECT columns_are(
     've_cat_feature_arc',
     ARRAY[
         'id', 'system_id', 'epa_default', 'code_autofill', 'shortcut_key', 'link_path',
-        'descript', 'active'
+        'descript', 'active', 'abrevation'
     ],
     'View ve_cat_feature_arc should have the correct columns'
 );
@@ -36,6 +36,7 @@ SELECT col_type_is('ve_cat_feature_arc', 'shortcut_key', 'varchar(100)', 'Column
 SELECT col_type_is('ve_cat_feature_arc', 'link_path', 'text', 'Column link_path should be text');
 SELECT col_type_is('ve_cat_feature_arc', 'descript', 'text', 'Column descript should be text');
 SELECT col_type_is('ve_cat_feature_arc', 'active', 'bool', 'Column active should be bool');
+SELECT col_type_is('ve_cat_feature_arc', 'abrevation', 'varchar(30)', 'Column abrevation should be varchar(30)');
 
 SELECT * FROM finish();
 

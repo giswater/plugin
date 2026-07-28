@@ -33,15 +33,14 @@ v_force_delete boolean;
 v_autoupdate_fluid boolean;
 v_psector integer;
 v_auto_sander boolean;
-v_seq_name text;
-v_seq_code text;
-v_code_prefix text;
 v_arc_id text;
 v_childtable_name text;
 v_schemaname text;
 rec_param_link record;
 v_connecs text;
-v_sys_code_autofill boolean;
+v_sys_code_autofill text;
+
+v_district_ids _int4;
 
 BEGIN
 	EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
@@ -235,8 +234,23 @@ BEGIN
 		END IF;
 
 
+		-- District
+		IF (NEW.district_id IS NULL) THEN
+			-- getting value from geometry of mapzone
+			v_district_ids = (SELECT array_agg(district_id) FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001));
+			IF cardinality(v_district_ids) = 1 THEN
+				NEW.district_id := v_district_ids[1];
+			ELSIF cardinality(v_district_ids) > 1 THEN
+				NEW.district_id := (SELECT district_id FROM ve_arc WHERE district_id = ANY(v_district_ids) ORDER BY ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
+			END IF;
+		END IF;
+
 		-- Municipality
 		IF (NEW.muni_id IS NULL) THEN
+
+			IF NEW.district_id IS NOT NULL THEN
+				NEW.muni_id := (SELECT muni_id FROM v_municipality WHERE district_id = NEW.district_id AND active IS TRUE LIMIT 1);
+			END IF;
 
 			-- getting value default
 			IF (NEW.muni_id IS NULL) THEN
@@ -251,21 +265,6 @@ BEGIN
 						AND active IS TRUE LIMIT 1);
 				ELSE
 					NEW.muni_id =(SELECT muni_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
-					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
-				END IF;
-			END IF;
-		END IF;
-
-		-- District
-		IF (NEW.district_id IS NULL) THEN
-
-			-- getting value from geometry of mapzone
-			IF (NEW.district_id IS NULL) THEN
-				SELECT count(*) INTO v_count FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001);
-				IF v_count = 1 THEN
-					NEW.district_id = (SELECT district_id FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001) LIMIT 1);
-				ELSIF v_count > 1 THEN
-					NEW.district_id =(SELECT district_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
 					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
 				END IF;
 			END IF;
@@ -342,28 +341,31 @@ BEGIN
 		END IF;
 
 		-- Code
-		SELECT code_autofill, cat_feature.id, addparam::json->>'code_prefix' INTO v_code_autofill_bool, v_featurecat, v_code_prefix
-		FROM cat_feature WHERE id=NEW.arc_type;
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
 
-		IF v_featurecat IS NOT NULL THEN
-			-- use specific sequence for code when its name matches featurecat_code_seq
-			EXECUTE 'SELECT concat('||quote_literal(lower(v_featurecat))||',''_code_seq'');' INTO v_seq_name;
-			EXECUTE 'SELECT relname FROM pg_catalog.pg_class WHERE relname='||quote_literal(v_seq_name)||' 
-            AND relkind = ''S'' AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = '||quote_literal(v_schemaname)||');' INTO v_sql;
+		SELECT code_autofill, cat_feature.id
+		INTO v_code_autofill_bool, v_featurecat
+		FROM cat_feature WHERE id = NEW.arc_type;
 
-			IF v_sql IS NOT NULL AND NEW.code IS NULL THEN
-				EXECUTE 'SELECT nextval('||quote_literal(v_seq_name)||');' INTO v_seq_code;
-					NEW.code=concat(v_code_prefix,v_seq_code);
-			END IF;
+		IF NEW.code IS NULL THEN
+			NEW.code := gw_fct_generate_code('feature', NEW.arc_type, json_strip_nulls(row_to_json(NEW)::json));
 
-			IF (v_code_autofill_bool IS TRUE) AND NEW.code IS NULL THEN
-				NEW.code=NEW.arc_id;
+			IF NEW.code IS NULL AND v_code_autofill_bool THEN
+				NEW.code := NEW.arc_id;
 			END IF;
 		END IF;
 
-		--Sys_code
-		IF v_sys_code_autofill IS TRUE THEN
-			NEW.sys_code=gen_random_uuid();
+		IF NEW.sys_code IS NOT NULL AND v_sys_code_autofill NOT IN ('false', 'none') THEN
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4678", "function":"1202", "is_process":true}}$$);';
+		END IF;
+
+		--Sys_code (uuid | code | none)
+		IF v_sys_code_autofill IN ('uuid', 'true') THEN
+			NEW.sys_code := gen_random_uuid();
+		ELSIF v_sys_code_autofill = 'code' THEN
+			NEW.sys_code := NEW.code;
 		END IF;
 
 		-- LINK
@@ -572,7 +574,15 @@ BEGIN
 
 	ELSIF TG_OP = 'UPDATE' THEN
 
-		-- this overwrites triger topocontrol arc values (triggered before insertion) just in that moment: In order to make more profilactic this issue only will be overwrited in case of NEW.node_* not nulls
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('feature', NEW.arc_type, json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
+
+				-- this overwrites triger topocontrol arc values (triggered before insertion) just in that moment: In order to make more profilactic this issue only will be overwrited in case of NEW.node_* not nulls
 		IF ve_enable_arc_nodes_update IS TRUE THEN
 			IF NEW.node_1 IS NOT NULL THEN
 				UPDATE arc SET node_1=NEW.node_1 WHERE arc_id=NEW.arc_id;

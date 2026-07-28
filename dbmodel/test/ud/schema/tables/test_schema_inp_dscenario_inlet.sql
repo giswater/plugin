@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'node_id', 'elev', 'ymax', 'y0', 'ysur',
         'apond', 'inlet_type', 'outlet_type', 'gully_method', 'custom_top_elev', 'custom_depth',
-        'inlet_length', 'inlet_width', 'cd1', 'cd2', 'efficiency'
+        'inlet_length', 'inlet_width', 'cd1', 'cd2', 'efficiency', 'observ'
     ],
     'Table inp_dscenario_inlet should have the correct columns'
 );
@@ -46,7 +46,7 @@ SELECT col_type_is('inp_dscenario_inlet', 'inlet_width', 'float8', 'Column inlet
 SELECT col_type_is('inp_dscenario_inlet', 'cd1', 'float8', 'Column cd1 should be float8');
 SELECT col_type_is('inp_dscenario_inlet', 'cd2', 'float8', 'Column cd2 should be float8');
 SELECT col_type_is('inp_dscenario_inlet', 'efficiency', 'float8', 'Column efficiency should be float8');
-
+SELECT col_type_is('inp_dscenario_inlet', 'observ', 'text', 'Column observ should be text');
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_inlet', 'Table inp_dscenario_inlet should have foreign keys');
 

@@ -12,4 +12,3 @@ UPDATE config_param_system AS t SET label = v.label, descript = v.descript FROM 
     ('basic_selector_tab_lot', 'Selector variables', 'Variable to configura all options related to search for the specificic tab')
 ) AS v(parameter, label, descript)
 WHERE t.parameter = v.parameter;
-

@@ -158,7 +158,7 @@ SELECT col_type_is('ve_connec', 'xyz_date', 'date', 'Column xyz_date should be d
 SELECT col_type_is('ve_connec', 'has_treatment', 'bool', 'Column has_treatment should be bool');
 
 SELECT col_type_is('ve_connec', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_connec', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_connec', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

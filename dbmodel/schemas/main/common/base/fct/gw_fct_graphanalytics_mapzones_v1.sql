@@ -168,20 +168,7 @@ BEGIN
 		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4542", "function":"3508", "parameters":null}}$$);';
 	END IF;
 
-	IF v_class = 'PRESSZONE' THEN
-		v_fid := 146;
-	ELSIF v_class = 'DMA' THEN
-		v_fid := 145;
-	ELSIF v_class = 'DQA' THEN
-		v_fid := 144;
-	ELSIF v_class = 'SECTOR' THEN
-		v_fid := 130;
-	ELSIF v_class = 'DWFZONE' THEN
-		-- dwfzone and drainzone are calculated in the same process
-		v_fid := 481;
-	ELSIF v_class = 'SUPPLYZONE' THEN
-		v_fid := 712;
-	ELSE
+	IF v_class NOT IN ('PRESSZONE', 'DMA', 'DQA', 'SECTOR', 'DWFZONE', 'SUPPLYZONE') THEN
 		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
 		"data":{"message":"3090", "function":"3508","parameters":null, "is_process":true}}$$);' INTO v_audit_result;
 	END IF;
@@ -190,6 +177,7 @@ BEGIN
 	v_mapzone_table := LOWER(v_class);
 	v_mapzone_graph_table := 'mapzone_graph';
 	v_mapzone_field := v_mapzone_table || '_id';
+	SELECT fid INTO v_fid FROM config_mapzones WHERE id = v_class;
 	IF v_netscenario IS NOT NULL THEN
 		v_mapzone_table := 'plan_netscenario_' || v_mapzone_table;
 		v_mapzone_graph_table := 'plan_netscenario_' || v_mapzone_graph_table;
@@ -2365,10 +2353,12 @@ BEGIN
 				-- insert the new mapzones
 				EXECUTE format($sql$
 				INSERT INTO %I (%I, code, name, expl_id, muni_id, the_geom, addparam, graphconfig, created_at , created_by)
-				SELECT t.mapzone_ids[1], t.mapzone_ids[1], t.name, t.expl_id, t.muni_id, t.the_geom, t.addparam, t.graphconfig, t.created_at , t.created_by
+				SELECT t.mapzone_ids[1],
+					COALESCE(gw_fct_generate_code('mapzone', %L, json_strip_nulls(json_build_object(%I, t.mapzone_ids[1], 'the_geom', ST_AsGeoJSON(t.the_geom)::json))), t.mapzone_ids[1]::text),
+					t.name, t.expl_id, t.muni_id, t.the_geom, t.addparam, t.graphconfig, t.created_at , t.created_by
 				FROM temp_pgr_mapzone t
 				WHERE t.mapzone_id <> 0
-				$sql$, v_mapzone_table, v_mapzone_field);
+				$sql$, v_mapzone_table, v_mapzone_field, v_class, v_mapzone_field);
 
 			ELSE
 				EXECUTE format($sql$

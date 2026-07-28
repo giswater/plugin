@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_dscenario_pipe',
     ARRAY[
         'dscenario_id', 'arc_id', 'minorloss', 'status', 'roughness', 'dint',
-        'bulk_coeff', 'wall_coeff', 'the_geom'
+        'bulk_coeff', 'wall_coeff', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_pipe should have the correct columns'
 );
@@ -37,6 +37,7 @@ SELECT col_type_is('ve_inp_dscenario_pipe', 'dint', 'numeric(12,3)', 'Column din
 SELECT col_type_is('ve_inp_dscenario_pipe', 'bulk_coeff', 'float8', 'Column bulk_coeff should be float8');
 SELECT col_type_is('ve_inp_dscenario_pipe', 'wall_coeff', 'float8', 'Column wall_coeff should be float8');
 SELECT col_type_is('ve_inp_dscenario_pipe', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_pipe', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

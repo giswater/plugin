@@ -31,6 +31,13 @@ BEGIN
 			NEW.dma_id:= (SELECT nextval('urn_id_seq'));
 		END IF;
 		
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('mapzone', 'DMA', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
 		IF NEW.code IS NULL THEN
 			NEW.code := NEW.dma_id::text;
 		END IF;
@@ -60,7 +67,17 @@ BEGIN
 
 	ELSIF TG_OP = 'UPDATE' THEN
 
-		UPDATE dma
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF v_view_name = 'EDIT' THEN
+			IF NEW.the_geom IS NOT NULL AND NEW.code IS NULL THEN
+				NEW.code := gw_fct_generate_code('mapzone', 'DMA', json_strip_nulls(row_to_json(NEW)::json));
+			END IF;
+		END IF;
+
+				UPDATE dma
 		SET dma_id=NEW.dma_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, dma_type=NEW.dma_type, expl_id=NEW.expl_id,
 		muni_id=NEW.muni_id, sector_id=NEW.sector_id, avg_press=NEW.avg_press, pattern_id=NEW.pattern_id, effc=NEW.effc, graphconfig=NEW.graphconfig::json, 
 		stylesheet=NEW.stylesheet::json, link=NEW.link, lock_level=NEW.lock_level, addparam=NEW.addparam::json, updated_at=now(), updated_by = current_user

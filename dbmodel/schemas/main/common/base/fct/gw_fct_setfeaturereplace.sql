@@ -108,9 +108,6 @@ v_presszone_id integer;
 v_feature_childtable_name_old text;
 v_feature_childtable_name_new text;
 v_schemaname text;
-v_seq_name text;
-v_seq_code text;
-v_code_prefix text;
 v_code_autofill_bool boolean;
 v_link text;
 v_nodetype text;
@@ -272,28 +269,26 @@ BEGIN
 
 		-- Code
 		IF v_project_type='WS' then
-			EXECUTE 'SELECT code_autofill, addparam::json->>''code_prefix'' FROM cat_feature 
+			EXECUTE 'SELECT code_autofill FROM cat_feature 
 			JOIN cat_'||v_feature_type||' a ON cat_feature.id=a.'||v_feature_type||'_type 
-			WHERE a.id='||quote_literal(v_featurecat_id_new)||';' INTO v_code_autofill_bool, v_code_prefix;
+			WHERE a.id='||quote_literal(v_featurecat_id_new)||';' INTO v_code_autofill_bool;
 		ELSE
-			EXECUTE 'SELECT code_autofill, addparam::json->>''code_prefix'' FROM cat_feature 
-			WHERE id='||quote_literal(v_feature_type_new)||';' INTO v_code_autofill_bool, v_code_prefix;
+			EXECUTE 'SELECT code_autofill FROM cat_feature 
+			WHERE id='||quote_literal(v_feature_type_new)||';' INTO v_code_autofill_bool;
 		END IF;
 
-		-- use specific sequence for code when its name matches featurecat_code_seq
-		EXECUTE 'SELECT concat('||quote_literal(lower(v_feature_type_new))||',''_code_seq'');' INTO v_seq_name;
-
-		SELECT c.relname
-		FROM pg_catalog.pg_class c
-			JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-		WHERE c.relname = v_seq_name
-			AND n.nspname = 'SCHEMA_NAME'
-		INTO v_sql;
-
-		IF v_sql IS NOT NULL THEN
-			SELECT nextval(v_seq_name) INTO v_seq_code;
-			v_code=concat(v_code_prefix,v_seq_code);
-		END IF;
+		v_code := gw_fct_generate_code('feature', v_feature_type_new, json_strip_nulls(json_build_object(
+			v_id_column, v_id,
+			v_type_column, v_feature_type_new,
+			'the_geom', CASE WHEN v_the_geom IS NOT NULL THEN ST_AsGeoJSON(v_the_geom)::json END,
+			'sector_id', v_sector_id,
+			'dma_id', v_dma_id,
+			'omzone_id', v_omzone_id,
+			'dqa_id', v_dqa_id,
+			'presszone_id', v_presszone_id,
+			'dwfzone_id', v_dwfzone_id,
+			'minsector_id', v_minsector_id
+		)));
 
 		--Copy id to code field
 		IF (v_code_autofill_bool IS TRUE) AND v_code IS NULL THEN

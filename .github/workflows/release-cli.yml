@@ -4,26 +4,11 @@ on:
   release:
     types: [published]
 
+# PyPI wheel ships giswater_admin only (no dbmodel/). Schema CI belongs on
+# plugin releases (vX.Y.Z) and PRs touching dbmodel/** — not cli-v* tags.
+
 jobs:
-  verify-dbmodel-ci:
-    if: startsWith(github.event.release.tag_name, 'cli-v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout tag
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.release.tag_name }}
-
-      - name: Verify dbmodel CI checks on release commit
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash scripts/verify_dbmodel_ci_checks.sh --tag "${{ github.event.release.tag_name }}" --cli-release
-
   publish:
-    needs: [verify-dbmodel-ci]
     runs-on: ubuntu-latest
     if: startsWith(github.event.release.tag_name, 'cli-v')
     environment: pypi

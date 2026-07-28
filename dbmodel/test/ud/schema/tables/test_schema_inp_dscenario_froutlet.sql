@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_froutlet',
     ARRAY[
         'dscenario_id', 'element_id', 'outlet_type', 'offsetval', 'curve_id', 'cd1',
-        'cd2', 'flap'
+        'cd2', 'flap', 'observ'
     ],
     'Table inp_dscenario_froutlet should have the correct columns'
 );
@@ -36,6 +36,7 @@ SELECT col_type_is('inp_dscenario_froutlet', 'curve_id', 'varchar(16)', 'Column 
 SELECT col_type_is('inp_dscenario_froutlet', 'cd1', 'numeric(12,4)', 'Column cd1 should be numeric(12,4)');
 SELECT col_type_is('inp_dscenario_froutlet', 'cd2', 'numeric(12,4)', 'Column cd2 should be numeric(12,4)');
 SELECT col_type_is('inp_dscenario_froutlet', 'flap', 'varchar(3)', 'Column flap should be varchar(3)');
+SELECT col_type_is('inp_dscenario_froutlet', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_froutlet', 'Table inp_dscenario_froutlet should have foreign keys');

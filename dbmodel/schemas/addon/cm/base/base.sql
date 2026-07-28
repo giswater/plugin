@@ -751,8 +751,19 @@ CREATE SEQUENCE cm.cm_urn_id_seq
     CACHE 1
     NO CYCLE;
 
--- CM AUDIT TABLES (in audit schema):
-CREATE SCHEMA IF NOT EXISTS audit;
+-- CM AUDIT TABLES (audit schema is created in init.sql as installer)
+CREATE TABLE IF NOT EXISTS audit.sys_version (
+	id serial4 NOT NULL,
+	giswater varchar(16) NOT NULL,
+	project_type varchar(16) NOT NULL,
+	postgres varchar(512) NOT NULL,
+	postgis varchar(512) NOT NULL,
+	"date" timestamp(6) DEFAULT now() NOT NULL,
+	"language" varchar(50) NOT NULL,
+	epsg int4 NOT NULL,
+	CONSTRAINT sys_version_pkey PRIMARY KEY (id)
+);
+
 CREATE TABLE IF NOT EXISTS audit.cm_log (
 	table_name text NOT NULL,
   mission_type text NOT NULL,
@@ -1343,3 +1354,4 @@ WHERE b.node_type IN (SELECT id FROM ap.cat_feature WHERE feature_class IN (''PU
 GROUP BY a.node_id,  b.campaign_id, c.lot_id, b.the_geom, b.node_type HAVING count(*)>2', 
 'No hay nodarcos con inconsistencia topológica', '[gw_fct_cm_check_project]', true)
 ON CONFLICT DO NOTHING;
+

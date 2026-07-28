@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'node_id', 'minorloss', 'status', 'bulk_coeff', 'wall_coeff',
         'to_arc', 'head', 'pattern_id', 'demand', 'demand_pattern_id', 'emitter_coeff',
-        'the_geom'
+        'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_shortpipe should have the correct columns'
 );
@@ -42,6 +42,7 @@ SELECT col_type_is('ve_inp_dscenario_shortpipe', 'demand', 'numeric(12,6)', 'Col
 SELECT col_type_is('ve_inp_dscenario_shortpipe', 'demand_pattern_id', 'varchar(16)', 'Column demand_pattern_id should be varchar(16)');
 SELECT col_type_is('ve_inp_dscenario_shortpipe', 'emitter_coeff', 'float8', 'Column emitter_coeff should be float8');
 SELECT col_type_is('ve_inp_dscenario_shortpipe', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_shortpipe', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

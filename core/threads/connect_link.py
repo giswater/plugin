@@ -95,12 +95,16 @@ class GwConnectLink(GwTask):
             pipe_diameter = 'null' if not self.connect_link_class.pipe_diameter.text() else f'"{self.connect_link_class.pipe_diameter.text()}"'
             max_distance = 'null' if not self.connect_link_class.max_distance.text() else f'"{self.connect_link_class.max_distance.text()}"'
             linkcat_id = tools_qt.get_combo_value(self.connect_link_class.dlg_connect_link, "tab_none_linkcat")
+            force_reconnect = 'true' if tools_qt.is_checked(
+                self.connect_link_class.dlg_connect_link, "tab_none_force_reconnect"
+            ) else 'false'
 
             extras = (
                 f'"feature_type":"{feature_type.upper()}",'
                 f'"pipeDiameter":{pipe_diameter},'
                 f'"maxDistance":{max_distance},'
-                f'"linkcatId":"{linkcat_id}"'
+                f'"linkcatId":"{linkcat_id}",'
+                f'"forceReconnect":{force_reconnect}'
             )
 
             if selected_arcs:
@@ -144,12 +148,16 @@ class GwConnectLink(GwTask):
         pipe_diameter = 'null' if not self.connect_link_class.pipe_diameter.text() else f'"{self.connect_link_class.pipe_diameter.text()}"'
         max_distance = 'null' if not self.connect_link_class.max_distance.text() else f'"{self.connect_link_class.max_distance.text()}"'
         linkcat_id = tools_qt.get_combo_value(self.connect_link_class.dlg_connect_link, "tab_none_linkcat")
+        force_reconnect = 'true' if tools_qt.is_checked(
+            self.connect_link_class.dlg_connect_link, "tab_none_force_reconnect"
+        ) else 'false'
 
         extras = (
             f'"feature_type":"{feature_type.upper()}",'
             f'"pipeDiameter":{pipe_diameter},'
             f'"maxDistance":{max_distance},'
-            f'"linkcatId":"{linkcat_id}"'
+            f'"linkcatId":"{linkcat_id}",'
+            f'"forceReconnect":{force_reconnect}'
         )
 
         if selected_arcs:

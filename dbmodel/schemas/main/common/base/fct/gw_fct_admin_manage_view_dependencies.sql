@@ -36,6 +36,10 @@ SAVE-DROP OPTIONS
     but dependent views/matviews are not dropped. Use this to snapshot definitions before
     manual changes or to prepare a RESTORE batch while keeping objects online.
     dropRoots (default true): when false, root views/matviews are not dropped either.
+    saveRoots (default false): when true with dropRoots, root view/matview definitions are
+    saved at depth 0 and recreated on RESTORE before dependents. Use for table/view column
+    type changes where the saved SQL stays valid. Keep false when you will CREATE OR REPLACE
+    the root view with a new definition before RESTORE.
 
 NOT SUPPORTED (manual intervention required)
     - Removing columns from a parent view when dependents still reference them.
@@ -76,6 +80,11 @@ SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"SAVE-DROP","ro
 -- CREATE OR REPLACE VIEW ve_node AS ...
 SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE"}}$$);
 
+-- Alter base-table column type; roots are saved and restored automatically
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"SAVE-DROP","rootViews":["ve_node"],"saveRoots":true,"batchId":1}}$$);
+ALTER TABLE node ALTER COLUMN dataquality_obs TYPE text[] USING (dataquality_obs::text)::text[];
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE","batchId":1}}$$);
+
 -- Discard a saved batch
 SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"CLEAN"}}$$);
 
@@ -88,6 +97,7 @@ DECLARE
     v_batch_id integer;
     v_drop_roots boolean;
     v_drop_dependents boolean;
+    v_save_roots boolean;
     v_root_views text[];
     v_root_views_json text;
     v_replacements_json text;
@@ -125,6 +135,7 @@ BEGIN
     );
     v_drop_roots := COALESCE(json_extract_path_text(p_data, 'data', 'dropRoots')::boolean, true);
     v_drop_dependents := COALESCE(json_extract_path_text(p_data, 'data', 'dropDependents')::boolean, true);
+    v_save_roots := COALESCE(json_extract_path_text(p_data, 'data', 'saveRoots')::boolean, false);
 
     IF v_action IS NULL THEN
         RAISE EXCEPTION 'Parameter action is mandatory (LIST, SAVE-DROP, RESTORE, CLEAN)';
@@ -298,6 +309,82 @@ BEGIN
             v_count := v_count + 1;
         END LOOP;
 
+        IF v_save_roots IS TRUE AND v_drop_roots IS TRUE THEN
+            FOR rec IN
+                SELECT n.nspname AS view_schema,
+                       c.relname AS view_name,
+                       c.relkind
+                FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = v_schemaname
+                  AND c.relname = ANY(v_root_views)
+                  AND c.relkind IN ('v', 'm')
+                ORDER BY c.relname
+            LOOP
+                v_def := pg_get_viewdef(format('%I.%I', rec.view_schema, rec.view_name)::regclass, true);
+
+                v_trg := NULL;
+                IF rec.relkind = 'v' THEN
+                    FOR rec_trg IN
+                        SELECT trigger_name,
+                               action_timing,
+                               action_statement,
+                               string_agg(event_manipulation, ',' ORDER BY event_manipulation) AS events
+                        FROM information_schema.triggers
+                        WHERE event_object_schema = rec.view_schema
+                          AND event_object_table = rec.view_name
+                        GROUP BY trigger_name, action_timing, action_statement
+                    LOOP
+                        SELECT replace(rec_trg.events, ',', ' OR ') INTO v_replace;
+
+                        SELECT string_agg(event_object_column, ',') INTO v_trg_cols
+                        FROM information_schema.triggered_update_columns
+                        WHERE event_object_schema = rec.view_schema
+                          AND event_object_table = rec.view_name
+                          AND trigger_name = rec_trg.trigger_name;
+
+                        IF v_trg_cols IS NOT NULL THEN
+                            v_replace := replace(v_replace, 'UPDATE', 'UPDATE OF ' || v_trg_cols);
+                        END IF;
+
+                        v_trg := concat(
+                            COALESCE(v_trg || E'\n', ''),
+                            format(
+                                'DROP TRIGGER IF EXISTS %I ON %I.%I;',
+                                rec_trg.trigger_name,
+                                rec.view_schema,
+                                rec.view_name
+                            ),
+                            E'\n',
+                            format(
+                                'CREATE TRIGGER %I %s %s ON %I.%I FOR EACH ROW %s;',
+                                rec_trg.trigger_name,
+                                rec_trg.action_timing,
+                                v_replace,
+                                rec.view_schema,
+                                rec.view_name,
+                                rec_trg.action_statement
+                            )
+                        );
+                    END LOOP;
+                END IF;
+
+                INSERT INTO temp_view_dependencies (
+                    batch_id, view_schema, view_name, relkind, view_depth, view_definition, trigger_definition
+                )
+                VALUES (
+                    v_batch_id, rec.view_schema, rec.view_name, rec.relkind, 0, v_def, v_trg
+                )
+                ON CONFLICT (batch_id, view_schema, view_name) DO UPDATE SET
+                    relkind = EXCLUDED.relkind,
+                    view_depth = EXCLUDED.view_depth,
+                    view_definition = EXCLUDED.view_definition,
+                    trigger_definition = EXCLUDED.trigger_definition;
+
+                v_count := v_count + 1;
+            END LOOP;
+        END IF;
+
         IF v_drop_dependents IS TRUE THEN
             FOR rec IN
                 SELECT view_schema, view_name, relkind
@@ -333,9 +420,9 @@ BEGIN
         v_status := 'Accepted';
         v_level := 3;
         IF v_drop_dependents IS TRUE THEN
-            v_message := concat('Saved and dropped ', v_count, ' dependent object(s)');
+            v_message := concat('Saved and dropped ', v_count, ' object(s)');
         ELSE
-            v_message := concat('Saved ', v_count, ' dependent object(s)');
+            v_message := concat('Saved ', v_count, ' object(s)');
         END IF;
 
     ELSIF v_action = 'RESTORE' THEN
@@ -419,7 +506,7 @@ BEGIN
 
         v_status := 'Accepted';
         v_level := 3;
-        v_message := concat('Restored ', v_count, ' dependent object(s)');
+        v_message := concat('Restored ', v_count, ' object(s)');
 
     ELSIF v_action = 'CLEAN' THEN
 

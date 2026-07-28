@@ -110,64 +110,64 @@ BEGIN
 
     v_relations_table_prefix = v_table_name||'_x_';
 
-    -- Delete existing relations not in arrays
-    IF v_data->>'arc' IS NOT NULL THEN
+    -- Delete existing relations not in arrays (skip null or empty arrays)
+    IF v_data->>'arc' IS NOT NULL AND v_data->>'arc' != '[]' THEN
         v_querytext = format('DELETE FROM %I WHERE %I::text = $1 AND %I NOT IN (SELECT jsonb_array_elements_text($2::jsonb)::int)',
             v_relations_table_prefix||'arc', v_table_name||'_id', 'arc_id');
 
         EXECUTE v_querytext USING v_object_id, v_data->>'arc';
     END IF;
 
-    IF v_data->>'node' IS NOT NULL THEN
+    IF v_data->>'node' IS NOT NULL AND v_data->>'node' != '[]' THEN
         v_querytext = format('DELETE FROM %I WHERE %I::text = $1 AND %I NOT IN (SELECT jsonb_array_elements_text($2::jsonb)::int)',
             v_relations_table_prefix||'node', v_table_name||'_id', 'node_id');
 
         EXECUTE v_querytext USING v_object_id, v_data->>'node';
     END IF;
 
-    IF v_data->>'connec' IS NOT NULL THEN
+    IF v_data->>'connec' IS NOT NULL AND v_data->>'connec' != '[]' THEN
         v_querytext = format('DELETE FROM %I WHERE %I::text = $1 AND %I NOT IN (SELECT jsonb_array_elements_text($2::jsonb)::int)',
             v_relations_table_prefix||'connec', v_table_name||'_id', 'connec_id');
 
         EXECUTE v_querytext USING v_object_id, v_data->>'connec';
     END IF;
 
-    IF v_data->>'link' IS NOT NULL THEN
+    IF v_data->>'link' IS NOT NULL AND v_data->>'link' != '[]' THEN
         v_querytext = format('DELETE FROM %I WHERE %I::text = $1 AND %I NOT IN (SELECT jsonb_array_elements_text($2::jsonb)::int)',
             v_relations_table_prefix||'link', v_table_name||'_id', 'link_id');
 
         EXECUTE v_querytext USING v_object_id, v_data->>'link';
     END IF;
 
-    IF v_project_type = 'UD' AND v_data->>'gully' IS NOT NULL THEN
+    IF v_project_type = 'UD' AND v_data->>'gully' IS NOT NULL AND v_data->>'gully' != '[]' THEN
         v_querytext = format('DELETE FROM %I WHERE %I::text = $1 AND %I NOT IN (SELECT jsonb_array_elements_text($2::jsonb)::int)',
             v_relations_table_prefix||'gully', v_table_name||'_id', 'gully_id');
 
         EXECUTE v_querytext USING v_object_id, v_data->>'gully';
     END IF;
 
-    IF v_data->>'psector' IS NOT NULL THEN
+    IF v_data->>'psector' IS NOT NULL AND v_data->>'psector' != '[]' THEN
         v_querytext = format('DELETE FROM %I WHERE %I::text = $1 AND %I NOT IN (SELECT jsonb_array_elements_text($2::jsonb)::int)',
             v_relations_table_prefix||'psector', v_table_name||'_id', 'psector_id');
 
         EXECUTE v_querytext USING v_object_id, v_data->>'psector';
     END IF;
 
-    IF v_data->>'visit' IS NOT NULL THEN
+    IF v_data->>'visit' IS NOT NULL AND v_data->>'visit' != '[]' THEN
         v_querytext = format('DELETE FROM %I WHERE %I::text = $1 AND %I NOT IN (SELECT jsonb_array_elements_text($2::jsonb)::int)',
             v_relations_table_prefix||'visit', v_table_name||'_id', 'visit_id');
 
         EXECUTE v_querytext USING v_object_id, v_data->>'visit';
     END IF;
 
-    IF v_data->>'workcat' IS NOT NULL THEN
+    IF v_data->>'workcat' IS NOT NULL AND v_data->>'workcat' != '[]' THEN
         v_querytext = format('DELETE FROM %I WHERE %I::text = $1 AND %I NOT IN (SELECT jsonb_array_elements_text($2::jsonb))',
             v_relations_table_prefix||'workcat', v_table_name||'_id', 'workcat_id');
 
         EXECUTE v_querytext USING v_object_id, v_data->>'workcat';
     END IF;
 
-    IF v_data->>'element' IS NOT NULL THEN
+    IF v_data->>'element' IS NOT NULL AND v_data->>'element' != '[]' THEN
         v_querytext = format('DELETE FROM %I WHERE %I::text = $1 AND %I NOT IN (SELECT jsonb_array_elements_text($2::jsonb)::int)',
             v_relations_table_prefix||'element', v_table_name||'_id', 'element_id');
 

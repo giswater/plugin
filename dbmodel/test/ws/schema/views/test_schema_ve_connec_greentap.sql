@@ -191,7 +191,7 @@ SELECT col_type_is('ve_connec_greentap', 'linked_connec', 'int4', 'Column linked
 SELECT col_type_is('ve_connec_greentap', 'greentap_type', 'text', 'Column greentap_type should be text');
 
 SELECT col_type_is('ve_connec_greentap', 'dataquality', 'int4', 'Column dataquality should be int4');
-SELECT col_type_is('ve_connec_greentap', 'dataquality_obs', 'int4[]', 'Column dataquality_obs should be int4[]');
+SELECT col_type_is('ve_connec_greentap', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
 
 SELECT * FROM finish();
 

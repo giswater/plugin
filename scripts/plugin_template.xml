@@ -19,8 +19,8 @@
         <icon>giswater.png</icon>    
         <tags>giswater, water, hydraulic, model, water supply, urban drainage</tags>       
         <homepage>https://www.giswater.org</homepage>
-        <repository>https://github.com/giswater/giswater_qgis_plugin</repository>
-        <tracker>https://github.com/giswater/giswater_qgis_plugin/issues</tracker>      
+        <repository>https://github.com/giswater/plugin</repository>
+        <tracker>https://github.com/giswater/plugin/issues</tracker>      
         <experimental>False</experimental>    
     </pyqgis_plugin>
 </plugins>

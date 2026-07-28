@@ -11,4 +11,3 @@ UPDATE config_form_tabs AS t SET label = v.label, tooltip = v.tooltip FROM (
     ('selector_campaign', 'tab_lot', 'Lot', 'Lot')
 ) AS v(formname, tabname, label, tooltip)
 WHERE t.formname = v.formname AND t.tabname = v.tabname;
-

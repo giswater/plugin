@@ -66,4 +66,3 @@ UPDATE config_toolbox AS t SET alias = v.alias, observ = v.observ FROM (
     (3482, 'Macromapzones analysis', NULL)
 ) AS v(id, alias, observ)
 WHERE t.id = v.id;
-
