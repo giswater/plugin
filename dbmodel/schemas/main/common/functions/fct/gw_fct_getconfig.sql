@@ -364,6 +364,9 @@ BEGIN
 			IF v_i18n_lb IS NOT NULL THEN
 				rec_tab.label := v_i18n_lb;
 			END IF;
+			IF v_i18n_tt IS NOT NULL THEN
+				rec_tab.tooltip := v_i18n_tt;
+			END IF;
 		END IF;
 
 		--  Convert to json
@@ -449,6 +452,9 @@ BEGIN
 			LIMIT 1;
 			IF v_i18n_lb IS NOT NULL THEN
 				rec_tab.label := v_i18n_lb;
+			END IF;
+			IF v_i18n_tt IS NOT NULL THEN
+				rec_tab.tooltip := v_i18n_tt;
 			END IF;
 		END IF;
 

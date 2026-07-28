@@ -58,7 +58,7 @@ BEGIN
 
 	-- get input data
 	v_result =  (p_data->>'data')::json->>'resultId';
-	v_dumpsubcatch =  (p_data->>'data')::json->>'dumpSubcatch';
+	v_dumpsubcatch = NULLIF((p_data->>'data')::json->>'dumpSubcatch', '')::boolean;
 	v_step = (p_data->>'data')::json->>'step';
 	v_input = concat('{"data":{"parameters":{"isEmbebed":true, "resultId":"',v_result,'", "dumpSubcatch":"',v_dumpsubcatch,'", "fid":227}}}')::json;
 
@@ -218,7 +218,6 @@ BEGIN
 
 	-- step 7: post-proces
 	ELSIF v_step=7 THEN
-
 
 		-- move arcs data
 		INSERT INTO rpt_inp_arc (result_id, arc_id, node_1, node_2, elevmax1, elevmax2, arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation,

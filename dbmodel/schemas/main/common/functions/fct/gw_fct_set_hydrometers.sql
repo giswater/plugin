@@ -134,7 +134,7 @@ BEGIN
 		-- Extract fields from JSON
 		v_code := v_hydrometer->>'code';
 		v_hydro_number := v_hydrometer->>'hydro_number';
-		v_customer_code := (v_hydrometer->>'customer_code');
+		v_customer_code := (v_hydrometer->>'feature_customer_code');
 		v_link := v_hydrometer->>'link';
 		v_state_id := (v_hydrometer->>'state_id')::integer;
 		v_catalog_id := (v_hydrometer->>'catalog_id')::integer;
@@ -202,7 +202,7 @@ BEGIN
 				update_date,
 				shutdown_date,
 				link,
-				customer_code
+				feature_customer_code
 			) VALUES (
 				v_code,
 				v_hydro_number,
@@ -275,7 +275,7 @@ BEGIN
 			END IF;
 
 			IF v_customer_code IS NOT NULL THEN
-				v_query := concat(v_query, 'customer_code = ', v_customer_code, ', ');
+				v_query := concat(v_query, 'feature_customer_code = ', v_customer_code, ', ');
 			END IF;
 
 			-- Remove trailing comma and space

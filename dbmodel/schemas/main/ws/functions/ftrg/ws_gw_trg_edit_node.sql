@@ -82,6 +82,7 @@ v_sys_code_autofill text;
 v_district_ids _int4;
 
 
+
 BEGIN
 
 	EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';

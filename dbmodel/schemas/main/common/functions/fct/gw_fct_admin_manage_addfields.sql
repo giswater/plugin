@@ -265,7 +265,14 @@ BEGIN
             INSERT INTO audit_check_data (fid, result_id, criticity, error_message)
             VALUES (218, null, 4, 'Insert parameter definition into sys_addfields.');
 
-            IF (SELECT EXISTS ( SELECT 1 FROM   information_schema.tables WHERE  table_schema = v_schemaname AND table_name = v_feature_childtable_name)) IS TRUE THEN
+            IF (SELECT EXISTS (
+                SELECT 1
+                FROM pg_catalog.pg_class c
+                JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = v_schemaname
+                  AND c.relname = v_feature_childtable_name
+                  AND c.relkind IN ('r', 'p')
+            )) IS TRUE THEN
                 -- add new addfield columname
                 EXECUTE 'ALTER TABLE ' || v_feature_childtable_name || ' ADD COLUMN ' || v_param_name || ' '||v_config_datatype||'';
 
@@ -397,7 +404,14 @@ BEGIN
             EXECUTE 'DELETE FROM sys_addfields WHERE param_name='''||v_param_name||''' AND cat_feature_id='''||v_cat_feature||''';';
 
             EXECUTE  'DROP VIEW IF EXISTS '||v_schemaname||'.'||v_viewname||';';
-            IF (SELECT EXISTS ( SELECT 1 FROM   information_schema.tables WHERE  table_schema = v_schemaname AND table_name = v_feature_childtable_name)) IS TRUE THEN
+            IF (SELECT EXISTS (
+                SELECT 1
+                FROM pg_catalog.pg_class c
+                JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = v_schemaname
+                  AND c.relname = v_feature_childtable_name
+                  AND c.relkind IN ('r', 'p')
+            )) IS TRUE THEN
                 EXECUTE 'ALTER TABLE ' || v_feature_childtable_name || ' DROP COLUMN ' || v_param_name || '';
             END IF;
 
@@ -549,7 +563,14 @@ BEGIN
                 DELETE FROM config_form_fields WHERE formname=v_viewname AND columnname=v_param_name;
 
                 EXECUTE  'DROP VIEW IF EXISTS '||v_schemaname||'.'||v_viewname||';';
-                IF (SELECT EXISTS ( SELECT 1 FROM   information_schema.tables WHERE  table_schema = v_schemaname AND table_name = v_feature_childtable_name)) IS TRUE THEN
+                IF (SELECT EXISTS (
+                    SELECT 1
+                    FROM pg_catalog.pg_class c
+                    JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = v_schemaname
+                      AND c.relname = v_feature_childtable_name
+                      AND c.relkind IN ('r', 'p')
+                )) IS TRUE THEN
                     EXECUTE 'ALTER TABLE ' || v_feature_childtable_name || ' DROP COLUMN ' || v_param_name || '';
                 END IF;
 
@@ -565,7 +586,14 @@ BEGIN
             END IF;
 
             IF v_action = 'CREATE' THEN
-                IF (SELECT EXISTS ( SELECT 1 FROM information_schema.tables WHERE  table_schema = v_schemaname AND table_name = v_feature_childtable_name)) IS TRUE THEN
+                IF (SELECT EXISTS (
+                    SELECT 1
+                    FROM pg_catalog.pg_class c
+                    JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = v_schemaname
+                      AND c.relname = v_feature_childtable_name
+                      AND c.relkind IN ('r', 'p')
+                )) IS TRUE THEN
                 -- add new addfield columname
                     EXECUTE 'ALTER TABLE ' || v_feature_childtable_name || ' ADD COLUMN ' || v_param_name || ' '||v_config_datatype||'';
 

@@ -49,7 +49,7 @@ BEGIN
 	FOR v_addfields IN SELECT * FROM temp_csv WHERE cur_user=current_user AND fid = v_fid
 	LOOP
 		i = i+1;
-		INSERT INTO ext_cat_period (id, start_date, end_date, period_seconds, code) VALUES
+		INSERT INTO v_cat_period (id, start_date, end_date, period_seconds, code) VALUES
 		(v_addfields.csv1, v_addfields.csv2::date, v_addfields.csv3::date, v_addfields.csv4::integer, v_addfields.csv5);			
 	END LOOP;
 

@@ -68,7 +68,6 @@ BEGIN
 	v_object_1 := COALESCE((p_data ->'data'->'parameters'->>'object_1')::integer, (p_data ->'data'->>'object_1')::integer);
 	v_object_2 := COALESCE((p_data ->'data'->'parameters'->>'object_2')::integer, (p_data ->'data'->>'object_2')::integer);
 
-	-- expl_id optional: resolve from om_scada_graph edge (trigger sets expl_1/expl_2 on insert)
 	IF v_expl_id IS NULL AND v_object_1 IS NOT NULL AND v_object_2 IS NOT NULL THEN
 		SELECT COALESCE(expl_1, expl_2)::text INTO v_expl_id
 		FROM om_scada_graph

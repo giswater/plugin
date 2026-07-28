@@ -726,7 +726,7 @@ BEGIN
 			asset_id=NEW.asset_id, pavcat_id=NEW.pavcat_id, parent_id=NEW.parent_id, expl_visibility=NEW.expl_visibility, adate=NEW.adate, adescript=NEW.adescript,
 			visitability=NEW.visitability, label_quadrant=NEW.label_quadrant, brand_id=NEW.brand_id, model_id=NEW.model_id, serial_number=NEW.serial_number,
 			initoverflowpath=NEW.initoverflowpath, lock_level=NEW.lock_level, is_scadamap=NEW.is_scadamap, registration_date=NEW.registration_date,
-			meandering=NEW.meandering, conserv_state=NEW.conserv_state, om_state=NEW.om_state, last_visitdate=NEW.last_visitdate, negative_offset=NEW.negative_offset, drainzone_outfall=NEW.drainzone_outfall, dwfzone_outfall=NEW.dwfzone_outfall, omunit_id=NEW.omunit_id, dma_id=NEW.dma_id
+			meandering=NEW.meandering, conserv_state=NEW.conserv_state, om_state=NEW.om_state, last_visitdate=NEW.last_visitdate, negative_offset=NEW.negative_offset, drainzone_outfall=NEW.drainzone_outfall, dwfzone_outfall=NEW.dwfzone_outfall, omunit_id=NEW.omunit_id, dma_id=NEW.dma_id, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
 			WHERE arc_id=OLD.arc_id;
 		ELSE
 			UPDATE arc
@@ -741,7 +741,7 @@ BEGIN
 			asset_id=NEW.asset_id, pavcat_id=NEW.pavcat_id, parent_id=NEW.parent_id, expl_visibility=NEW.expl_visibility, adate=NEW.adate, adescript=NEW.adescript,
 			visitability=NEW.visitability, label_quadrant=NEW.label_quadrant, brand_id=NEW.brand_id, model_id=NEW.model_id, serial_number=NEW.serial_number,
 			initoverflowpath=NEW.initoverflowpath, lock_level=NEW.lock_level, is_scadamap=NEW.is_scadamap, registration_date=NEW.registration_date,
-			meandering=NEW.meandering, conserv_state=NEW.conserv_state, om_state=NEW.om_state, last_visitdate=NEW.last_visitdate, negative_offset=NEW.negative_offset, drainzone_outfall=NEW.drainzone_outfall, dwfzone_outfall=NEW.dwfzone_outfall, omunit_id=NEW.omunit_id, dma_id=NEW.dma_id
+			meandering=NEW.meandering, conserv_state=NEW.conserv_state, om_state=NEW.om_state, last_visitdate=NEW.last_visitdate, negative_offset=NEW.negative_offset, drainzone_outfall=NEW.drainzone_outfall, dwfzone_outfall=NEW.dwfzone_outfall, omunit_id=NEW.omunit_id, dma_id=NEW.dma_id, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
 			WHERE arc_id=OLD.arc_id;
 		END IF;
 

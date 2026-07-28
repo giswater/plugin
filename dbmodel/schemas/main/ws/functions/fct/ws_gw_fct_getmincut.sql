@@ -63,6 +63,8 @@ DECLARE
     aux_muni_name text[];
     aux_cp text[];
     v_error_context text;
+    v_mincut_conflict_group_id uuid;
+    v_mincut_conflict_state integer := 5; -- Conflict mincut state
 
 BEGIN
     -- Set search path to local schema
@@ -96,7 +98,28 @@ BEGIN
 
         -- Update table 'selector_mincut_result'
         DELETE FROM selector_mincut_result WHERE cur_user = current_user;
-        INSERT INTO selector_mincut_result (cur_user, result_id) VALUES (current_user,v_mincutid::int);
+        INSERT INTO selector_mincut_result (result_id, cur_user, result_type)
+        VALUES (v_mincutid::int, current_user, 'current') ON CONFLICT (result_id, cur_user) DO NOTHING;
+
+        SELECT id INTO v_mincut_conflict_group_id FROM om_mincut_conflict WHERE mincut_id = v_mincutid::int;
+
+        INSERT INTO selector_mincut_result (result_id, cur_user, result_type)
+        SELECT omc.mincut_id, current_user, 'conflict'
+        FROM om_mincut_conflict omc
+        JOIN om_mincut om ON om.id = omc.mincut_id
+        WHERE omc.id = v_mincut_conflict_group_id
+        AND omc.mincut_id <> v_mincutid::int
+        AND om.mincut_state  <> v_mincut_conflict_state
+        ON CONFLICT (result_id, cur_user) DO NOTHING;
+
+        INSERT INTO selector_mincut_result (result_id, cur_user, result_type)
+        SELECT omc.mincut_id, current_user, 'affected'
+        FROM om_mincut_conflict omc
+        JOIN om_mincut om ON om.id = omc.mincut_id
+        WHERE omc.id = v_mincut_conflict_group_id
+        AND omc.mincut_id <> v_mincutid::int
+        AND om.mincut_state = v_mincut_conflict_state
+        ON CONFLICT (result_id, cur_user) DO NOTHING;
 
         --Get location combos searching the address
         v_point_geom = (SELECT anl_the_geom FROM om_mincut WHERE id::text = v_mincutid::text);

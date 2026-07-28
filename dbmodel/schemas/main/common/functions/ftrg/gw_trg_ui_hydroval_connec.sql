@@ -24,7 +24,7 @@ BEGIN
 
     ELSIF TG_OP = 'UPDATE' THEN
 
-        UPDATE v_hydrometer_data 
+        UPDATE v_hydrometer_period 
         SET billed_volume=NEW.billed_volume
         WHERE id=OLD.id;
         -- PERFORM gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
