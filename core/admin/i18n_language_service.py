@@ -327,7 +327,7 @@ def delete_language_files(locale: str) -> tuple[bool, str | None]:
         if remaining:
             msg = "could not remove: {0}"
             msg_params = (', '.join(remaining),)
-            return False, tools_qt.tr(msg, msg_params=msg_params)
+            return False, tools_qt.tr(msg, list_params=msg_params)
         if not removed:
             return False, "no local language folders found"
         return True, None
@@ -376,13 +376,13 @@ def fetch_language_zip(
         if not body.startswith(b"PK"):
             msg = "Response from {0} is not a ZIP archive"
             msg_params = (url,)
-            return None, tools_qt.tr(msg, msg_params=msg_params)
+            return None, tools_qt.tr(msg, list_params=msg_params)
         return body, None
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             msg = "Not found: {0}"
             msg_params = (url,)
-            return None, tools_qt.tr(msg, msg_params=msg_params)
+            return None, tools_qt.tr(msg, list_params=msg_params)
         detail = exc.read().decode(errors="replace")
         return None, f"HTTP {exc.code}: {detail}"
     except (urllib.error.URLError, OSError) as exc:
@@ -403,7 +403,7 @@ def extract_language_zip(zip_data: bytes) -> tuple[bool, str | None]:
                     if not str(target).startswith(str(target_root)):
                         msg = "Unsafe path in ZIP archive: {0}"
                         msg_params = (member,)
-                        return False, tools_qt.tr(msg, msg_params=msg_params)
+                        return False, tools_qt.tr(msg, list_params=msg_params)
                 archive.extractall(target_root)
     except (zipfile.BadZipFile, OSError) as exc:
         return False, str(exc)
@@ -415,7 +415,7 @@ def extract_language_zip(zip_data: bytes) -> tuple[bool, str | None]:
         except OSError as exc:
             msg = "Could not delete manifest.json: {0}"
             msg_params = (str(exc),)
-            return False, tools_qt.tr(msg, msg_params=msg_params)
+            return False, tools_qt.tr(msg, list_params=msg_params)
     return True, None
 
 
