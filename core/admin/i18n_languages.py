@@ -503,6 +503,16 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
 
     def _action_delete(self, locale: str, force: bool = False) -> None:
         def _delete() -> None:
+            if not force:
+                usages = i18n_service.find_locale_usages(locale)
+                if usages:
+                    msg = (
+                        "Language ({0}) is in use and cannot be deleted. "
+                        "Used by: {1}"
+                    )
+                    msg_params = (locale, ", ".join(usages))
+                    tools_qt.show_warning_box(msg, msg_params=msg_params)
+                    return
             msg = "Delete local language files for ({0})?"
             msg_params = (locale,)
             title = "Delete language files"
@@ -532,8 +542,8 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
         self.setEnabled(True)
 
         if not ok:
-            msg = "Could not download language files ({0}, {1}): {2}"
-            msg_params = (locale, schema, error or "unknown error")
+            msg = "Could not download language files ({0}): {1}"
+            msg_params = (locale, error or "unknown error")
             tools_qt.show_info_box(msg, msg_params=msg_params)
             return
 

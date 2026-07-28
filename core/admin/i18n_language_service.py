@@ -335,6 +335,44 @@ def delete_language_files(locale: str) -> tuple[bool, str | None]:
         return False, str(exc)
 
 
+def find_locale_usages(
+    locale: str,
+    *,
+    include_multilang: bool = True,
+) -> list[str]:
+    """
+    Return labels for database sources currently using this locale.
+
+    Includes project schemas whose ``sys_version.language`` matches, and
+    optionally the multilang schema when that language is seeded.
+    Returns an empty list when unused or when the DB catalog is unavailable.
+    """
+    key = normalize_language_id(locale)
+    if not key or is_no_translation_locale(key):
+        return []
+
+    usages: list[str] = []
+    try:
+        from . import _admin_catalog as admin_catalog
+
+        for row in admin_catalog.fetch_schema_translation_info():
+            language = str(row.get("language") or "")
+            if normalize_language_id(language) != key:
+                continue
+            schema = str(row.get("schema") or "?")
+            kind = str(row.get("kind") or "").strip()
+            usages.append(f"{schema} ({kind})" if kind else schema)
+
+        if include_multilang:
+            for lang in admin_catalog.fetch_multilang_operative_languages():
+                if normalize_language_id(lang) == key:
+                    usages.append("multilang")
+                    break
+    except Exception:
+        return usages
+    return usages
+
+
 def translation_zip_url(
     locale: str,
     *,

@@ -20,6 +20,7 @@ from .i18n_baseline_seed import (
     normalize_language_id,
 )
 from .i18n_languages import GwI18NLocalesTableBase
+from . import i18n_language_service as i18n_service
 
 
 class GwI18NMultilangLanguagesDialog(GwI18NLocalesTableBase):
@@ -309,6 +310,17 @@ class GwI18NMultilangLanguagesDialog(GwI18NLocalesTableBase):
             msg = "The base language (en_US) cannot be deleted."
             tools_qt.show_info_box(msg)
             return
+
+        if not force:
+            usages = i18n_service.find_locale_usages(locale, include_multilang=False)
+            if usages:
+                msg = (
+                    "Language ({0}) is in use and cannot be deleted. "
+                    "Used by: {1}"
+                )
+                msg_params = (locale, ", ".join(usages))
+                tools_qt.show_warning_box(msg, msg_params=msg_params)
+                return
 
         msg = "Delete multilang translations for ({0})?"
         title = "Delete multilang translations"
