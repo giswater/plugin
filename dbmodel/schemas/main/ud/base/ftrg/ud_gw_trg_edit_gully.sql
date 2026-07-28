@@ -43,6 +43,7 @@ dx float;
 dy float;
 v_x float;
 v_y float;
+v_codeautofill boolean;
 v_srid integer;
 v_featurecat text;
 v_psector_vdefault integer;
@@ -426,7 +427,7 @@ BEGIN
 		END IF;
 
 		IF NEW.sys_code IS NOT NULL AND v_sys_code_autofill NOT IN ('false', 'none') THEN
-			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4678", "function":"1206"}}$$);';	
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4678", "function":"1206"}}$$);';
 		END IF;
 
 		--Sys_code (uuid | code | none)
@@ -955,7 +956,7 @@ BEGIN
 			asset_id=NEW.asset_id, epa_type=NEW.epa_type, units_placement=NEW.units_placement, groove_height=NEW.groove_height,
 			groove_length=NEW.groove_length, expl_visibility=NEW.expl_visibility, adate=NEW.adate, adescript=NEW.adescript, siphon_type=NEW.siphon_type, odorflap=NEW.odorflap, connec_y2=NEW.connec_y2,
 			placement_type=NEW.placement_type, label_quadrant=NEW.label_quadrant, access_type=NEW.access_type, lock_level=NEW.lock_level, length=NEW.length, width=NEW.width, drainzone_outfall=NEW.drainzone_outfall, 
-			dwfzone_outfall=NEW.dwfzone_outfall, omunit_id=NEW.omunit_id, dma_id=NEW.dma_id, has_treatment=NEW.has_treatment
+			dwfzone_outfall=NEW.dwfzone_outfall, omunit_id=NEW.omunit_id, dma_id=NEW.dma_id, has_treatment=NEW.has_treatment, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
 			WHERE gully_id = OLD.gully_id;
 
 		ELSE
@@ -972,7 +973,7 @@ BEGIN
 			asset_id=NEW.asset_id, epa_type=NEW.epa_type, units_placement=NEW.units_placement, groove_height=NEW.groove_height,
 			groove_length=NEW.groove_length, expl_visibility=NEW.expl_visibility, adate=NEW.adate, adescript=NEW.adescript, siphon_type=NEW.siphon_type, odorflap=NEW.odorflap, connec_y2=NEW.connec_y2,
 			placement_type=NEW.placement_type, label_quadrant=NEW.label_quadrant, access_type=NEW.access_type, lock_level=NEW.lock_level, length=NEW.length, width=NEW.width, drainzone_outfall=NEW.drainzone_outfall, 
-			dwfzone_outfall=NEW.dwfzone_outfall, omunit_id=NEW.omunit_id, dma_id=NEW.dma_id, has_treatment=NEW.has_treatment
+			dwfzone_outfall=NEW.dwfzone_outfall, omunit_id=NEW.omunit_id, dma_id=NEW.dma_id, has_treatment=NEW.has_treatment, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
 			WHERE gully_id = OLD.gully_id;
 
 		END IF;

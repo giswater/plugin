@@ -183,7 +183,7 @@ BEGIN
 	INSERT INTO temp_om_mincut_hydrometer (result_id, hydrometer_id)
 	SELECT p_mincut_id, erh.hydrometer_id
 	FROM v_hydrometer erh
-	JOIN connec c ON erh.customer_code = c.customer_code
+	JOIN connec c ON erh.feature_customer_code = c.customer_code
 	JOIN temp_om_mincut_connec ON c.connec_id=temp_om_mincut_connec.connec_id
 	JOIN value_state_type v ON state_type = v.id
 	WHERE result_id=p_mincut_id AND v.is_operative=TRUE AND c.connec_id=temp_om_mincut_connec.connec_id;
@@ -192,7 +192,7 @@ BEGIN
 	INSERT INTO temp_om_mincut_hydrometer (result_id, hydrometer_id)
 	SELECT p_mincut_id,erh.hydrometer_id
 	FROM v_hydrometer erh
-	JOIN man_netwjoin mn ON mn.customer_code = erh.customer_code
+	JOIN man_netwjoin mn ON mn.customer_code = erh.feature_customer_code
 	JOIN node n ON n.node_id = mn.node_id
 	JOIN temp_om_mincut_node ON n.node_id=temp_om_mincut_node.node_id
 	JOIN value_state_type v ON state_type = v.id

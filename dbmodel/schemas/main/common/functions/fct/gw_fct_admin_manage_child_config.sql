@@ -67,6 +67,8 @@ BEGIN
 		concat('Custom editable view for ',v_cat_feature), 'role_edit') ON CONFLICT (id) DO NOTHING;
 	END IF;
 
+	EXECUTE 'GRANT ALL ON TABLE '||v_view_name||' TO role_edit';
+
 	--manage tab hydrometer on netwjoin
 	IF v_view_name IS NOT NULL AND v_project_type = 'WS' and v_feature_class = 'netwjoin' THEN
 		INSERT INTO config_form_tabs ( formname, tabname, label, tooltip, sys_role, tabfunction, tabactions, device, orderby)
@@ -80,15 +82,33 @@ BEGIN
 	END IF;
 
 	--select list of fields different than id from config_form_fields
-	EXECUTE 'SELECT DISTINCT string_agg(column_name::text,'' ,'') FROM (SELECT column_name
-	FROM information_schema.columns WHERE table_name=''config_form_fields'' and table_schema='''||v_schemaname||'''
-	AND column_name!=''id'' ORDER BY ordinal_position)a;'
+	EXECUTE 'SELECT DISTINCT string_agg(col.attname::text,'' ,'') FROM (
+	SELECT a.attname
+	FROM pg_catalog.pg_attribute a
+	JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+	JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+	WHERE c.relname = ''config_form_fields''
+	  AND n.nspname = '''||v_schemaname||'''
+	  AND a.attnum > 0
+	  AND NOT a.attisdropped
+	  AND a.attname != ''id''
+	ORDER BY a.attnum
+	) col;'
 	INTO v_config_fields;
 
 	--select list of fields different than id and formname from config_form_fields
-	EXECUTE 'SELECT DISTINCT string_agg(concat(column_name)::text,'' ,'') FROM (SELECT column_name
-	FROM information_schema.columns WHERE table_name=''config_form_fields'' and table_schema='''||v_schemaname||'''
-	AND column_name not in (''id'', ''formname'', ''formtype'') ORDER BY ordinal_position)a;'
+	EXECUTE 'SELECT DISTINCT string_agg(col.attname::text,'' ,'') FROM (
+	SELECT a.attname
+	FROM pg_catalog.pg_attribute a
+	JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+	JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+	WHERE c.relname = ''config_form_fields''
+	  AND n.nspname = '''||v_schemaname||'''
+	  AND a.attnum > 0
+	  AND NOT a.attisdropped
+	  AND a.attname NOT IN (''id'', ''formname'', ''formtype'')
+	ORDER BY a.attnum
+	) col;'
 	INTO v_insert_fields;
 
 	--insert configuration copied from the parent view config
@@ -124,9 +144,26 @@ BEGIN
 	WHERE formname = '''||v_view_name||''' AND columnname =''model_id'';';
 
 	--select columns from man_* table without repeating the identifier
-	v_man_fields = 'SELECT DISTINCT column_name::text, data_type::text, numeric_precision, numeric_scale
-	FROM information_schema.columns where table_name=''man_'||lower(v_feature_class)||''' and table_schema='''||v_schemaname||''' 
-	and column_name!='''||lower(v_feature_type)||'_id'' group by column_name, data_type,numeric_precision, numeric_scale;';
+	v_man_fields = 'SELECT DISTINCT a.attname::text AS column_name,
+	CASE t.typname
+		WHEN ''varchar'' THEN ''character varying''
+		WHEN ''int4'' THEN ''integer''
+		WHEN ''int2'' THEN ''smallint''
+		WHEN ''bool'' THEN ''boolean''
+		ELSE t.typname
+	END::text AS data_type,
+	CASE WHEN t.typname IN (''numeric'', ''decimal'') THEN ((a.atttypmod - 4) >> 16) & 65535 END AS numeric_precision,
+	CASE WHEN t.typname IN (''numeric'', ''decimal'') THEN (a.atttypmod - 4) & 65535 END AS numeric_scale
+	FROM pg_catalog.pg_attribute a
+	JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+	JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+	JOIN pg_catalog.pg_type t ON t.oid = a.atttypid
+	WHERE c.relname = ''man_'||lower(v_feature_class)||'''
+	  AND n.nspname = '''||v_schemaname||'''
+	  AND a.attnum > 0
+	  AND NOT a.attisdropped
+	  AND a.attname != '''||lower(v_feature_type)||'_id''
+	GROUP BY a.attname, t.typname, a.atttypmod;';
 
 
 	--insert configuration from the man_* tables of the feature type

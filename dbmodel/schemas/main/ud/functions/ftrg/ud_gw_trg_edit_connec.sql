@@ -711,7 +711,7 @@ BEGIN
 			UPDATE link SET state=0 WHERE feature_id=OLD.connec_id;
 
 			--check if there is any active hydrometer related to connec
-			IF (SELECT count(hydrometer_id) FROM v_hydrometer erh JOIN connec ON connec.customer_code = erh.customer_code
+			IF (SELECT count(hydrometer_id) FROM v_hydrometer erh JOIN connec ON connec.customer_code = erh.feature_customer_code
 			WHERE (connec.connec_id=NEW.connec_id) AND erh.state_id = 1) > 0 THEN
 				EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
 				"data":{"message":"3184", "function":"1318","parameters":null}}$$);';

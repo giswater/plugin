@@ -315,6 +315,40 @@ BEGIN
 
 		END LOOP;
 
+		-- Apply multilang UI translations for sys_param_user
+		IF v_ui_lang IS NOT NULL THEN
+			FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array))
+			LOOP
+				SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
+				FROM multilang.sys_param_user i
+				WHERE i.project_type = v_ml_project_type
+				  AND i.context = 'sys_param_user'
+				  AND i.source = aux_json->>'widgetname'
+				  AND i.lang = v_ui_lang
+				LIMIT 1;
+				IF v_i18n_lb IS NOT NULL THEN
+					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+						fields_array[(aux_json->>'orderby')::INT], 'label', v_i18n_lb);
+				END IF;
+				IF v_i18n_tt IS NOT NULL THEN
+					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+						fields_array[(aux_json->>'orderby')::INT], 'tooltip', v_i18n_tt);
+				END IF;
+			END LOOP;
+
+			SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
+			FROM multilang.config_form_tabs i
+			WHERE i.project_type = v_ml_project_type
+			  AND i.formname = 'config'
+			  AND i.source = rec_tab.tabname
+			  AND i.context = 'config_form_tabs'
+			  AND i.lang = v_ui_lang
+			LIMIT 1;
+			IF v_i18n_lb IS NOT NULL THEN
+				rec_tab.label := v_i18n_lb;
+			END IF;
+		END IF;
+
 		--  Convert to json
 		fields := array_to_json(fields_array);
 		fields := COALESCE(fields, '[]');
@@ -365,6 +399,40 @@ BEGIN
 			v_debug := json_build_object('querystring', v_querystring, 'vars', v_debug_vars, 'funcname', 'gw_fct_getconfig', 'flag', 90);
 			SELECT gw_fct_debugsql(v_debug) INTO v_msgerr;
 			EXECUTE v_querystring INTO fields_array;
+		END IF;
+
+		-- Apply multilang UI translations for config_param_system
+		IF v_ui_lang IS NOT NULL AND fields_array IS NOT NULL THEN
+			FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array))
+			LOOP
+				SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
+				FROM multilang.config_param_system i
+				WHERE i.project_type = v_ml_project_type
+				  AND i.context = 'config_param_system'
+				  AND i.source = aux_json->>'widgetname'
+				  AND i.lang = v_ui_lang
+				LIMIT 1;
+				IF v_i18n_lb IS NOT NULL THEN
+					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+						fields_array[(aux_json->>'orderby')::INT], 'label', v_i18n_lb);
+				END IF;
+				IF v_i18n_tt IS NOT NULL THEN
+					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
+						fields_array[(aux_json->>'orderby')::INT], 'tooltip', v_i18n_tt);
+				END IF;
+			END LOOP;
+
+			SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
+			FROM multilang.config_form_tabs i
+			WHERE i.project_type = v_ml_project_type
+			  AND i.formname = 'config'
+			  AND i.source = rec_tab.tabname
+			  AND i.context = 'config_form_tabs'
+			  AND i.lang = v_ui_lang
+			LIMIT 1;
+			IF v_i18n_lb IS NOT NULL THEN
+				rec_tab.label := v_i18n_lb;
+			END IF;
 		END IF;
 
 		-- Convert to json

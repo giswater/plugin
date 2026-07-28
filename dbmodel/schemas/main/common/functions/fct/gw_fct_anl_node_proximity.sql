@@ -119,7 +119,7 @@ v_result = null;
 		     ',"data":{ "info":'||v_result_info||','||
 				'"point":'||v_result_point||
 			'}}'||
-	    '}')::json, 3228, null, null, null);
+	    '}')::json, 2914, null, null, null);
 
 END;
 $BODY$

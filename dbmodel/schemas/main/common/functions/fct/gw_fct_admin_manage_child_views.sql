@@ -232,7 +232,14 @@ BEGIN
 		END IF;
 
 		-- if addfield table does not exists (when creating a new object in cat_feature)
-		IF (SELECT EXISTS (SELECT table_name FROM information_schema.TABLES WHERE table_schema = CURRENT_SCHEMA AND table_name = v_feature_childtable_name)) IS FALSE THEN
+		IF (SELECT EXISTS (
+			SELECT 1
+			FROM pg_catalog.pg_class c
+			JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+			WHERE n.nspname = CURRENT_SCHEMA
+			  AND c.relname = v_feature_childtable_name
+			  AND c.relkind IN ('r', 'p')
+		)) IS FALSE THEN
 			
 			-- create the addfields table and add as many columns as common addfields
 			FOR rec IN SELECT param_name, datatype_id FROM sys_addfields WHERE cat_feature_id IS NULL
@@ -267,7 +274,7 @@ BEGIN
 
 	-- manage permissions
     IF v_action <> 'MULTI-DELETE' THEN
-        PERFORM gw_fct_admin_role_permissions();
+        --PERFORM gw_fct_admin_role_permissions();
     END IF;
 
 	--  Return

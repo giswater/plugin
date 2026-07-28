@@ -159,11 +159,11 @@ BEGIN
 
 		IF v_project_type = 'WS' THEN
 			--remove scada related to node
-			EXECUTE 'SELECT count(*) FROM ext_scada where node_id = '||v_feature_id||''
+			EXECUTE 'SELECT count(*) FROM ext_rtc_scada where node_id = '||v_feature_id||''
 			INTO v_count;
 
 			IF v_count > 0 THEN
-				EXECUTE 'DELETE FROM ext_scada where node_id = '||v_feature_id||';';
+				EXECUTE 'DELETE FROM ext_rtc_scada where node_id = '||v_feature_id||';';
 				EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
                        "data":{"message":"3484", "function":"2736", "parameters":{"v_count":"'||v_count||'"}, "fid":"152", "result_id":"'||quote_nullable(v_result_id)||'", "is_process":true}}$$)';
 			END IF;

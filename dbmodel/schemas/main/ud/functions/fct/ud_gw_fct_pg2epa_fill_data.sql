@@ -32,6 +32,7 @@ v_isoperative boolean;
 v_statetype text;
 v_networkmode integer;
 v_timeseries record;
+v_query_arc text;
 
 BEGIN
 
@@ -126,7 +127,7 @@ BEGIN
 	SELECT node_id, 'TREATMENT', poll_id, function FROM ve_inp_treatment;
 
 	-- Insert on arc rpt_inp table
-	EXECUTE 'INSERT INTO temp_t_arc 
+	v_query_arc := 'INSERT INTO temp_t_arc 
 	(result_id, arc_id, node_1, node_2, elevmax1, elevmax2, arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation, length, n, expl_id, the_geom, q0, qmax, barrels, slope,
 	culvert, kentry, kexit, kavg, flap, seepage, age)
 	SELECT '||quote_literal(result_id_var)||',
@@ -155,6 +156,8 @@ BEGIN
 		AND (''ARC'' = ANY (cat_material.feature_type) OR cat_material.feature_type IS NULL)
 		AND a.sector_id > 0
 		AND a.sector_id=selector_sector.sector_id AND selector_sector.cur_user=current_user';
+	RAISE NOTICE 'v_query_arc: %', v_query_arc;
+	EXECUTE v_query_arc;
 
 	-- update child param for outfall from node when is the last (border of sector)
 	-- need to be here after inserting temp_t_arc
