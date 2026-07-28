@@ -153,7 +153,7 @@ class GwI18NMultilangLanguagesDialog(GwI18NLocalesTableBase):
         """List only languages already downloaded for the plugin (locales.active = 1)."""
         self.possible_locales = []
 
-        status, cursor = tools_gw.create_sqlite_conn("config")
+        status, cursor = tools_gw.create_sqlite_conn("locales")
         if not status or cursor is None:
             msg = "Config database file not found"
             tools_qt.show_info_box(msg)
@@ -206,7 +206,7 @@ class GwI18NMultilangLanguagesDialog(GwI18NLocalesTableBase):
         active: bool,
         version: str | None = None,
     ) -> bool:
-        status, cursor = tools_gw.create_sqlite_conn("config")
+        status, cursor = tools_gw.create_sqlite_conn("locales")
         if not status or cursor is None:
             msg = "Config database file not found"
             tools_qt.show_info_box(msg)
