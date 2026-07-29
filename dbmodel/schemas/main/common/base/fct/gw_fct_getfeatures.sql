@@ -57,7 +57,7 @@ DECLARE
     v_legacy_list boolean := false;
     v_include_pageinfo boolean := false;
     v_has_advanced boolean := false;
-    v_result json;
+    v_result jsonb;
     v_result_array json[];
     v_select text;
     v_x1 float;
@@ -282,7 +282,7 @@ BEGIN
             'body', jsonb_build_object(
                 'form', '{}'::jsonb,
                 'feature', '{}'::jsonb,
-                'data', COALESCE(v_result, jsonb_build_object('type', 'FeatureCollection', 'features', '[]'::jsonb, 'pageInfo', COALESCE(v_pageinfo, '{}'::json)))
+                'data', COALESCE(v_result, jsonb_build_object('type', 'FeatureCollection', 'features', '[]'::jsonb, 'pageInfo', COALESCE(v_pageinfo::jsonb, '{}'::jsonb)))
             )
         )::json;
     END IF;
