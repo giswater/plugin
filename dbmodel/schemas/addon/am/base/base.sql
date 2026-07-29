@@ -48,6 +48,8 @@ CREATE TABLE arc_input (
     strategic boolean,
     mandatory boolean,
     compliance integer,
+    mincut_customers integer,
+    mincut_criticity numeric(4,2),
     CONSTRAINT arc_input_pkey PRIMARY KEY (arc_id)
 );
 
@@ -200,6 +202,8 @@ CREATE TABLE arc_engine_wm (
     nrw integer,
     strategic integer,
     compliance integer,
+    mincut_customers integer,
+    mincut_criticity numeric(4,2),
     val_first double precision,
     val double precision,
     CONSTRAINT arc_engine_wm_pkey PRIMARY KEY (arc_id, result_id)
@@ -230,6 +234,8 @@ CREATE TABLE arc_output (
     strategic boolean,
     mandatory boolean,
     compliance integer,
+    mincut_customers integer,
+    mincut_criticity numeric(4,2),
     val double precision,
     orderby integer,
     expected_year integer,
@@ -295,6 +301,8 @@ CREATE VIEW v_asset_arc_output AS
     strategic,
     mandatory,
     compliance,
+    mincut_customers,
+    mincut_criticity,
     val,
     orderby,
     expected_year,
@@ -332,6 +340,8 @@ CREATE VIEW v_asset_arc_output_compare AS
     strategic,
     mandatory,
     compliance,
+    mincut_customers,
+    mincut_criticity,
     val,
     orderby,
     expected_year,
@@ -369,6 +379,8 @@ AS SELECT o.arc_id,
     o.strategic,
     o.mandatory,
     o.compliance,
+    o.mincut_customers,
+    o.mincut_criticity,
     o.val,
     o.orderby,
     o.expected_year,
@@ -395,6 +407,7 @@ INSERT INTO config_engine_def VALUES ('flow_1', '0.0', 'WM', NULL, NULL, true, '
 INSERT INTO config_engine_def VALUES ('nrw_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'ANC', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO config_engine_def VALUES ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 8, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO config_engine_def VALUES ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 9, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO config_engine_def VALUES ('mincut_criticity_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 10, 'Mincut criticity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO config_engine_def VALUES ('expected_year', '0.7', 'SH', NULL, NULL, true, 'lyt_engine_2', 1, 'Weight expected year', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO config_engine_def VALUES ('compliance', '0.1', 'SH', NULL, NULL, true, 'lyt_engine_2', 2, 'Weight compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO config_engine_def VALUES ('strategic', '0.2', 'SH', NULL, NULL, true, 'lyt_engine_2', 3, 'Weight strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
@@ -405,6 +418,7 @@ INSERT INTO config_engine_def VALUES ('flow_2', '0.5', 'WM', NULL, NULL, true, '
 INSERT INTO config_engine_def VALUES ('nrw_2', '0.2', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'ANC', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO config_engine_def VALUES ('strategic_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 9, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO config_engine_def VALUES ('compliance_2', '0.3', 'WM', NULL, NULL, true, 'lyt_engine_2', 10, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO config_engine_def VALUES ('mincut_criticity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 11, 'Mincut criticity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
 --
 -- config_form_tableview

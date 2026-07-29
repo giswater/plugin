@@ -7,6 +7,7 @@ or (at your option) any later version.
 # -*- coding: utf-8 -*-
 
 import configparser
+import json
 import traceback
 from datetime import date
 from math import log, log1p, exp
@@ -185,6 +186,33 @@ class GwCalculatePriority(GwTask):
             return 10
         return float((value - min) * 10 / (max - min))
 
+    def _fit_mincut_criticity(self, value, min_customers, max_customers):
+        """Fit affected customers to Stage-1 mincut criticity scale [1, 10]."""
+        if value is None:
+            return None
+        if min_customers is None or max_customers is None:
+            return None
+        if min_customers == max_customers:
+            return 5.5
+        return round(1 + 9.0 * (value - min_customers) / (max_customers - min_customers), 2)
+
+    def _update_mincut_criticity(self):
+        """Refresh mincut_customers / mincut_criticity on am.arc_input."""
+        try:
+            row = tools_db.get_row(
+                "SELECT am.gw_fct_am_update_mincut_criticity('{}'::json) AS result",
+                is_thread=True,
+            )
+            if not row:
+                return False
+            result = row["result"]
+            if isinstance(result, str):
+                result = json.loads(result)
+            status = (result or {}).get("status")
+            return status == "Accepted"
+        except Exception:
+            return False
+
     def _get_arcs(self):
         """ Get arcs """
 
@@ -217,7 +245,9 @@ class GwCalculatePriority(GwTask):
                 coalesce(a.flow_avg, 0) flow_avg,
                 a.dma_id,
                 ai.strategic,
-                coalesce(ai.mandatory, false) mandatory
+                coalesce(ai.mandatory, false) mandatory,
+                ai.mincut_customers,
+                ai.mincut_criticity
             """
 
         filter_list = []
@@ -665,6 +695,8 @@ class GwCalculatePriority(GwTask):
         self._emit_report(tools_qt.tr("Getting auxiliary data from DB") + " (1/4)...")
         self.setProgress(10)
 
+        self._update_mincut_criticity()
+
         rows = tools_db.get_rows(
             """
             with lengths AS (
@@ -780,6 +812,12 @@ class GwCalculatePriority(GwTask):
                 arc["catalog_compliance"],
             )
 
+            # NULL means no mincut footprint; keep distinct from criticity = 1
+            if "mincut_customers" not in arc:
+                arc["mincut_customers"] = None
+            if "mincut_criticity" not in arc:
+                arc["mincut_criticity"] = None
+
             arcs.append(arc)
 
         min_rleak = min(arc["rleak"] for arc in arcs)
@@ -793,6 +831,14 @@ class GwCalculatePriority(GwTask):
 
         min_flow = min(arc["flow_avg"] for arc in arcs)
         max_flow = max(arc["flow_avg"] for arc in arcs)
+
+        mincut_values = [
+            arc["mincut_customers"]
+            for arc in arcs
+            if arc["mincut_customers"] is not None
+        ]
+        min_mincut = min(mincut_values) if mincut_values else None
+        max_mincut = max(mincut_values) if mincut_values else None
 
         for arc in arcs:
             arc["val_rleak"] = self._fit_to_scale(arc["rleak"], min_rleak, max_rleak)
@@ -812,6 +858,17 @@ class GwCalculatePriority(GwTask):
             arc["val_strategic"] = 10 if arc["strategic"] else 0
             arc["val_compliance"] = 10 - arc["compliance"]
 
+            # Prefer DB precomputed criticity; recompute for the current selection if missing
+            if arc["mincut_criticity"] is None and arc["mincut_customers"] is not None:
+                arc["mincut_criticity"] = self._fit_mincut_criticity(
+                    arc["mincut_customers"], min_mincut, max_mincut
+                )
+            arc["val_mincut_criticity"] = (
+                float(arc["mincut_criticity"])
+                if arc["mincut_criticity"] is not None
+                else 0.0
+            )
+
             # First iteration weights
             arc["w1_rleak"] = self.config_engine["rleak_1"]
             arc["w1_mleak"] = self.config_engine["mleak_1"]
@@ -820,6 +877,9 @@ class GwCalculatePriority(GwTask):
             arc["w1_nrw"] = self.config_engine["nrw_1"]
             arc["w1_strategic"] = self.config_engine["strategic_1"]
             arc["w1_compliance"] = self.config_engine["compliance_1"]
+            arc["w1_mincut_criticity"] = float(
+                self.config_engine.get("mincut_criticity_1", 0) or 0
+            )
 
             # Second iteration weights
             arc["w2_rleak"] = self.config_engine["rleak_2"]
@@ -829,6 +889,9 @@ class GwCalculatePriority(GwTask):
             arc["w2_nrw"] = self.config_engine["nrw_2"]
             arc["w2_strategic"] = self.config_engine["strategic_2"]
             arc["w2_compliance"] = self.config_engine["compliance_2"]
+            arc["w2_mincut_criticity"] = float(
+                self.config_engine.get("mincut_criticity_2", 0) or 0
+            )
 
             arc["val_1"] = (
                 arc["val_rleak"] * arc["w1_rleak"]
@@ -838,6 +901,7 @@ class GwCalculatePriority(GwTask):
                 + arc["val_nrw"] * arc["w1_nrw"]
                 + arc["val_strategic"] * arc["w1_strategic"]
                 + arc["val_compliance"] * arc["w1_compliance"]
+                + arc["val_mincut_criticity"] * arc["w1_mincut_criticity"]
             )
             arc["val_2"] = (
                 arc["val_rleak"] * arc["w2_rleak"]
@@ -847,6 +911,7 @@ class GwCalculatePriority(GwTask):
                 + arc["val_nrw"] * arc["w2_nrw"]
                 + arc["val_strategic"] * arc["w2_strategic"]
                 + arc["val_compliance"] * arc["w2_compliance"]
+                + arc["val_mincut_criticity"] * arc["w2_mincut_criticity"]
             )
 
         # First iteration
@@ -935,6 +1000,11 @@ class GwCalculatePriority(GwTask):
                 "val_compliance",
                 "w1_compliance",
                 "w2_compliance",
+                "mincut_customers",
+                "mincut_criticity",
+                "val_mincut_criticity",
+                "w1_mincut_criticity",
+                "w2_mincut_criticity",
                 "val_strategic",
                 "w1_strategic",
                 "w2_strategic",
@@ -1010,6 +1080,8 @@ class GwCalculatePriority(GwTask):
                     nrw,
                     strategic,
                     compliance,
+                    mincut_customers,
+                    mincut_criticity,
                     val_first,
                     val
                 ) values
@@ -1017,6 +1089,16 @@ class GwCalculatePriority(GwTask):
             for i in range(1000):
                 try:
                     arc = second_iteration[index]
+                    mincut_customers_sql = (
+                        arc["mincut_customers"]
+                        if arc["mincut_customers"] is not None
+                        else "NULL"
+                    )
+                    mincut_criticity_sql = (
+                        arc["mincut_criticity"]
+                        if arc["mincut_criticity"] is not None
+                        else "NULL"
+                    )
                     save_arcs_sql += f"""
                         ({arc["arc_id"]},
                         {self.result_id},
@@ -1027,6 +1109,8 @@ class GwCalculatePriority(GwTask):
                         {arc["val_nrw"]},
                         {arc["val_strategic"]},
                         {arc["val_compliance"]},
+                        {mincut_customers_sql},
+                        {mincut_criticity_sql},
                         {arc["val_1"]},
                         {arc["val_2"]}
                         ),
@@ -1062,6 +1146,8 @@ class GwCalculatePriority(GwTask):
                     strategic,
                     nrw,
                     longevity,
+                    mincut_customers,
+                    mincut_criticity,
                     val,
                     mandatory,
                     compliance,
@@ -1084,6 +1170,16 @@ class GwCalculatePriority(GwTask):
                         if arc["builtdate"]
                         else "NULL"
                     )
+                    mincut_customers_sql = (
+                        arc["mincut_customers"]
+                        if arc["mincut_customers"] is not None
+                        else "NULL"
+                    )
+                    mincut_criticity_sql = (
+                        arc["mincut_criticity"]
+                        if arc["mincut_criticity"] is not None
+                        else "NULL"
+                    )
                     save_arcs_sql += f"""
                         ({arc["arc_id"]},
                         {self.result_id},
@@ -1099,6 +1195,8 @@ class GwCalculatePriority(GwTask):
                         {arc["strategic"] or 'false'},
                         {arc["nrw"]},
                         {arc["longevity"]},
+                        {mincut_customers_sql},
+                        {mincut_criticity_sql},
                         {arc["val_2"]},
                         {arc["mandatory"]},
                         {arc["compliance"]},

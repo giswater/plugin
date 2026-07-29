@@ -15191,6 +15191,8 @@ CREATE VIEW v_asset_arc_input AS
     i.mandatory,
     i.strategic,
     i.rleak,
+    i.mincut_customers,
+    i.mincut_criticity,
     a.arccat_id,
     a.matcat_id,
     a.dnom,

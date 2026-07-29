@@ -25,6 +25,8 @@ FROM (
     ('nrw_1', 'WM', 'ANC', NULL, NULL),
     ('bratemain0', 'SH', 'Breakage rate coefficient', 'Pipe leak growth rate', NULL),
     ('nrw_2', 'WM', 'ANC', NULL, NULL),
+    ('mincut_criticity_1', 'WM', 'Mincut criticity', 'Users affected by topological isolation after a burst', NULL),
+    ('mincut_criticity_2', 'WM', 'Mincut criticity', 'Users affected by topological isolation after a burst', NULL),
     ('expected_year', 'SH', 'Expected annual weight', 'Weight in final matrix per year of renewal', NULL),
     ('compliance', 'SH', 'Regulatory weight', 'Weight in final matrix for regulatory compliance', NULL),
     ('drate', 'SH', 'Discount rate (%)', 'Real price discount rate. Takes into account price increases by discounting inflation.', NULL)

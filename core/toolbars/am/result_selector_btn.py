@@ -6,7 +6,7 @@ or (at your option) any later version.
 """
 # -*- coding: utf-8 -*-
 
-from ....libs import tools_db, tools_qgis, tools_qt
+from ....libs import tools_db, tools_qgis, tools_qt, lib_vars
 from ...utils import tools_gw
 from ..dialog import GwAction
 
@@ -102,9 +102,14 @@ class GwResultSelectorButton(GwAction):
 
         try:
             # Update symbology of layers currently loaded in the project
+            if not lib_vars.schema_name:
+                return
             target_layers = []
-            sql = "SELECT id, addparam FROM sys_table WHERE source = 'am' AND addparam ->> 'refreshSymbology' = 'true'"
-            rows = tools_db.get_rows(sql)
+            sql = (
+                f"SELECT id, addparam FROM {lib_vars.schema_name}.sys_table "
+                "WHERE source = 'am' AND addparam ->> 'refreshSymbology' = 'true'"
+            )
+            rows = tools_db.get_rows(sql) or []
             for row in rows:
                 target_layer = tools_qgis.get_layer_by_tablename(row[0], schema_name="am")
                 if target_layer is None:

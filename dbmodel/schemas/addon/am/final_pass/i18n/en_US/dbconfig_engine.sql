@@ -19,6 +19,8 @@ UPDATE config_engine_def AS t SET label = v.label, descript = v.descript, placeh
     ('longevity_2', 'WM', 'Longevity', NULL, NULL),
     ('mleak_1', 'WM', 'Probability of failure', NULL, NULL),
     ('mleak_2', 'WM', 'Probability of failure', NULL, NULL),
+    ('mincut_criticity_1', 'WM', 'Mincut criticity', 'Users affected by topological isolation after a burst', NULL),
+    ('mincut_criticity_2', 'WM', 'Mincut criticity', 'Users affected by topological isolation after a burst', NULL),
     ('nrw_1', 'WM', 'ANC', NULL, NULL),
     ('nrw_2', 'WM', 'ANC', NULL, NULL),
     ('rleak_1', 'WM', 'Actual breaks', NULL, NULL),

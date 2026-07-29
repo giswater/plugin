@@ -169,14 +169,29 @@ class Giswater(QObject):
             # Check if project is current loaded and remove giswater toolbars from qgis
             if self.load_project:
                 if self.load_project.plugin_toolbars:
+                    main_window = self.iface.mainWindow()
                     for plugin_toolbar in list(self.load_project.plugin_toolbars.values()):
-                        if plugin_toolbar.enabled and plugin_toolbar.toolbar.objectName() != 'toolbar_toc_name':
-                            plugin_toolbar.toolbar.setVisible(False)
-                            del plugin_toolbar.toolbar
+                        toolbar = getattr(plugin_toolbar, "toolbar", None)
+                        if toolbar is None:
+                            continue
+                        # ToC reuses the Layers panel toolbar — never remove/hide it.
+                        # Skip by toolbar_id/gw_name; objectName is translated and never equals 'toolbar_toc_name'.
+                        if getattr(plugin_toolbar, "toolbar_id", None) == "toc" or toolbar.property("gw_name") == "toc":
+                            plugin_toolbar.toolbar = None
+                            continue
+                        # Must remove from main window; hide + del only orphans widgets on PluginReloader
+                        try:
+                            main_window.removeToolBar(toolbar)
+                        except Exception:
+                            pass
+                        toolbar.setParent(None)
+                        toolbar.deleteLater()
+                        plugin_toolbar.toolbar = None
+                    self.load_project.plugin_toolbars.clear()
         except Exception as e:
             message = "Exception in unload when deleting {0}"
             msg_params = ("plugin_toolbar.toolbar",)
-            tools_log.log_info(message, parameter=str(e))
+            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
 
         try:
             # Set 'Main Info button' if project is unload or project don't have layers

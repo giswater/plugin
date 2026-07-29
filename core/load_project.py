@@ -562,10 +562,12 @@ class GwLoadProject(QObject):
                 active = tools_os.set_boolean(flag, False)
 
                 if exists and active:
+                    self._remove_orphan_toolbar(toolbar_name, toolbar_id)
                     plugin_toolbar.toolbar = self.iface.addToolBar(toolbar_name)
 
         # All other toolbars just get created normally
         else:
+            self._remove_orphan_toolbar(toolbar_name, toolbar_id)
             plugin_toolbar.toolbar = self.iface.addToolBar(toolbar_name)
 
         # Finalize: register and optionally hide/disable immediately
@@ -575,6 +577,18 @@ class GwLoadProject(QObject):
             plugin_toolbar.list_actions = list_actions
             self.plugin_toolbars[toolbar_id] = plugin_toolbar
             self._enable_toolbar(toolbar_id)
+
+    def _remove_orphan_toolbar(self, toolbar_name, toolbar_id):
+        """Remove leftover Giswater toolbars left by PluginReloader incomplete unload."""
+        main_window = self.iface.mainWindow()
+        for toolbar in main_window.findChildren(QToolBar):
+            if toolbar.objectName() == toolbar_name or toolbar.property("gw_name") == toolbar_id:
+                try:
+                    main_window.removeToolBar(toolbar)
+                except Exception:
+                    pass
+                toolbar.setParent(None)
+                toolbar.deleteLater()
 
     def _create_psector_status_bar(self):
         """Create Psector status bar with play/pause button and psector combobox."""

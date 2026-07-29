@@ -120,7 +120,9 @@ class GwAddChildLayerButton(GwAction):
                     menu.addAction(widgetAction)
 
                 if f"{field['tableName']}" in layer_list:
+                    widget.blockSignals(True)
                     widget.setChecked(True)
+                    widget.blockSignals(False)
                 widget.setStyleSheet("margin: 5px 5px 5px 8px;")
 
                 layer_name = field['tableName']
@@ -162,22 +164,39 @@ class GwAddChildLayerButton(GwAction):
         """
 
         if state == 2:
-            layer = tools_qgis.get_layer(custom_properties={"gw_id": tablename}, tablename=tablename)
+            schema = None
+            if group == "AM" or group == "CM":
+                schema = "am" if group == "AM" else "cm"
+            # Pass schema so AM/CM layers are found in am/cm, not only in parent WS schema
+            layer = tools_qgis.get_layer(
+                custom_properties={"gw_id": tablename},
+                tablename=tablename,
+                schema_name=schema,
+            )
             if layer is None:
-                schema = None
-                if group == "AM" or group == "CM":
-                    schema = "am" if group == "AM" else "cm"
                 if provider_config:
                     tools_gw.add_layer_provider(tablename, provider_config, group, sub_group, alias=alias, sub_sub_group=sub_sub_group, schema=schema)
                 else:
                     tools_gw.add_layer_database(tablename, the_geom, field_id, group, sub_group, alias=alias, sub_sub_group=sub_sub_group, schema=schema)
         elif state == 0:
-            layer = tools_qgis.get_layer(custom_properties={"gw_id": tablename}, tablename=tablename)
+            schema = None
+            if group == "AM" or group == "CM":
+                schema = "am" if group == "AM" else "cm"
+            layer = tools_qgis.get_layer(
+                custom_properties={"gw_id": tablename},
+                tablename=tablename,
+                schema_name=schema,
+            )
             if layer is not None:
                 msg = "Remove layer from project?"
                 title = "Warning"
                 answer = tools_qt.show_question(msg, title, parameter=f"'{layer.name()}'", force_action=True)
                 if answer:
-                    tools_qgis.remove_layer(custom_properties={"gw_id": tablename}, tablename=tablename, group_name=group, sub_group=sub_group)
+                    tools_qgis.remove_layer(
+                        custom_properties={"gw_id": tablename},
+                        tablename=tablename,
+                        group_name=group,
+                        sub_group=sub_group,
+                    )
 
     # endregion
