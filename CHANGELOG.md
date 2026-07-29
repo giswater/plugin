@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve EPA Execute cancel behavior.
 - Improve general progress display in EPA Execute dialog.
 
+### Fixed
+
+- Ensure QPIP dependency folder stays on `sys.path` when QPIP is disabled or uninstalled.
+
 ## [4.16.0] - 2026-07-24
 
 ### Added
