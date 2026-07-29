@@ -31,8 +31,6 @@ DECLARE
     v_idx integer := 1;
 
 BEGIN
-    SET search_path = "SCHEMA_NAME", public;
-
     SELECT array_agg(row_to_json(a)) INTO v_text FROM json_each(p_filter_fields) a;
 
     IF v_text IS NULL THEN

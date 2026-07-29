@@ -1,0 +1,2 @@
+- Refactor gw_fct_getfeatures with shared list/filter helpers (gw_fct_build_filters_sql, gw_fct_resolve_list_query, gw_fct_build_canvas_filter_sql).
+- Add sys_message 4680 for GeoJSON output requiring the_geom in resolved tableName queries.

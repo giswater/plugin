@@ -3811,10 +3811,6 @@ INSERT INTO sys_function VALUES (2584, 'gw_fct_getinfofromlist', 'utils', 'funct
 INSERT INTO sys_function VALUES (2586, 'gw_fct_getinfoplan', 'utils', 'function', 'json', 'json', 'Get information about plan cost', 'role_basic', NULL, 'core');
 INSERT INTO sys_function VALUES (2590, 'gw_fct_getlayersfromcoordinates', 'utils', 'function', 'json', 'json', 'Get information about layer by coordinates', 'role_basic', NULL, 'core');
 INSERT INTO sys_function VALUES (2592, 'gw_fct_getlist', 'utils', 'function', 'json', 'json', 'Function to call lists', 'role_basic', NULL, 'core');
-INSERT INTO sys_function VALUES (3484, 'gw_fct_getfeatures', 'utils', 'function', 'json', 'json', 'Function for getting features filtering by sys_type, featureType or config_form_list tableName', NULL, NULL, 'core');
-INSERT INTO sys_function VALUES (3566, 'gw_fct_build_filters_sql', 'utils', 'function', 'json, text', 'text', 'Build SQL AND clauses from filterFields json for list and feature queries', NULL, NULL, 'core');
-INSERT INTO sys_function VALUES (3568, 'gw_fct_resolve_list_query', 'utils', 'function', 'text, integer', 'json', 'Resolve config_form_list query_text and metadata for a listname', NULL, NULL, 'core');
-INSERT INTO sys_function VALUES (3570, 'gw_fct_build_canvas_filter_sql', 'utils', 'function', 'text, double precision, double precision, double precision, double precision, integer', 'text', 'Build SQL canvas extend filter for a geometry expression', NULL, NULL, 'core');
 INSERT INTO sys_function VALUES (2596, 'gw_fct_getpermissions', 'utils', 'function', 'json', 'json', 'Get information about permissions', 'role_basic', NULL, 'core');
 INSERT INTO sys_function VALUES (2600, 'gw_fct_getsearch', 'utils', 'function', 'json', 'json', 'Get search form fields', 'role_basic', NULL, 'core');
 INSERT INTO sys_function VALUES (2602, 'gw_fct_gettypeahead', 'utils', 'function', 'json', 'json', 'Function called to fill typeahead widgets', 'role_basic', NULL, 'core');

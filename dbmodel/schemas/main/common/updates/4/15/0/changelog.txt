@@ -3,4 +3,3 @@
 - Change wmeter_number type to text in ext_hydrometer table.
 - Add unique index on `link` table to enforce feature_id and feature_type uniqueness when state is 1 and feature_id is not null.
 - Add sys_message 4370/4371 to block geographic QGIS project CRS on pg2epa INP export.
-- Refactor gw_fct_getfeatures with shared list/filter helpers (gw_fct_build_filters_sql, gw_fct_resolve_list_query, gw_fct_build_canvas_filter_sql).
