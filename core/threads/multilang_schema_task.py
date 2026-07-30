@@ -27,7 +27,7 @@ from ...giswater_admin.log_format import (
     format_file,
     format_progress_status,
 )
-from ...libs import lib_vars, tools_log
+from ...libs import lib_vars, tools_log, tools_qt
 from ..admin._admin_catalog import make_psycopg2_fetcher
 from ..admin.i18n_baseline_seed import (
     SEED_LANGUAGE_FOLDER,
@@ -120,10 +120,12 @@ class GwMultilangSchemaTask(GwTask):
 
     def _execute_sql(self, sql: str) -> bool:
         if self._adapter is None:
-            self._set_task_error("Database connection is not available.")
+            msg = "Database connection is not available."
+            self._set_task_error(msg)
             return False
         if not self._adapter.execute(sql):
-            self._set_task_error(self._adapter.last_error() or "SQL execution failed.")
+            msg = "SQL execution failed."
+            self._set_task_error(self._adapter.last_error() or msg)
             return False
         return True
 
@@ -134,7 +136,8 @@ class GwMultilangSchemaTask(GwTask):
         self.error = None
 
         if self.aux_conn is None or isinstance(self.aux_conn, dict):
-            self._set_task_error("Could not open database connection for multilang task.")
+            msg = "Could not open database connection for multilang task."
+            self._set_task_error(msg)
             return False
 
         self._adapter = Psycopg2Adapter(self.aux_conn)
@@ -170,9 +173,9 @@ class GwMultilangSchemaTask(GwTask):
         if self._adapter is not None:
             self._adapter.commit()
         self.setProgress(100)
-        tools_log.log_info(
-            f"Multilang language delete completed for {self.lang_id}."
-        )
+        msg = "Multilang language delete completed for {0}."
+        msg_params = (self.lang_id,)
+        tools_log.log_info(msg, msg_params=msg_params)
         return True
 
     def _run_seed_language_only(self) -> bool:
@@ -184,10 +187,10 @@ class GwMultilangSchemaTask(GwTask):
 
         sql_root = self.params.sql_root or ""
         if not language_baselines_exist(sql_root, self.locale or self.lang_folder):
-            self._set_task_error(
-                f"No local i18n baseline SQL found for ({self.lang_folder}). "
-                "Download plugin language files first."
-            )
+            msg = "No local i18n baseline SQL found for ({0}). Download plugin language files first."
+            msg_params = (self.lang_folder,)
+            msg = tools_qt.tr(msg, list_params=msg_params)
+            self._set_task_error(msg)
             return False
 
         if not self._execute_sql(ensure_cat_language_sql(self.locale or self.lang_id)):

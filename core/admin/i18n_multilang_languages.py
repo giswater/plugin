@@ -314,10 +314,7 @@ class GwI18NMultilangLanguagesDialog(GwI18NLocalesTableBase):
         if not force:
             usages = i18n_service.find_locale_usages(locale, include_multilang=False)
             if usages:
-                msg = (
-                    "Language ({0}) is in use and cannot be deleted. "
-                    "Used by: {1}"
-                )
+                msg = "Language ({0}) is in use and cannot be deleted. Used by: {1}"
                 msg_params = (locale, ", ".join(usages))
                 tools_qt.show_warning_box(msg, msg_params=msg_params)
                 return
