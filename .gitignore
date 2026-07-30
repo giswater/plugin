@@ -24,3 +24,5 @@ i18n/giswater_*.ts
 
 # Ignore config.sqlite file in resources/gis
 resources/gis/locales.sqlite
+
+.claude/settings.local.json
