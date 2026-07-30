@@ -43,19 +43,6 @@ BEGIN
     END LOOP;
 END $$;
 
-INSERT INTO config_param_user (parameter, value, cur_user)
-VALUES ('utils_language_ui', '{"status":true, "lang":"en_US"}', current_user)
-ON CONFLICT (parameter, cur_user) DO NOTHING;
-
-DO $patch$
-BEGIN
-    IF to_regprocedure('gw_fct_get_utils_language_ui()') IS NOT NULL THEN
-        ALTER FUNCTION gw_fct_get_utils_language_ui() VOLATILE;
-    END IF;
-END $patch$;
-
-
-
 INSERT INTO sys_param_user (
     id, formname, descript, sys_role, "label", dv_querytext, isenabled, layoutorder,
     project_type, isparent, isautoupdate, "datatype", widgettype, ismandatory,
@@ -105,3 +92,47 @@ SET
         ELSE isenabled
     END
 WHERE id = 'multilang_language';
+
+DO $BODY$
+DECLARE
+    v_schema text := current_schema();
+    v_tables text[] := ARRAY[
+        'config_form_fields',
+        'config_form_tabs',
+        'config_param_system',
+        'sys_param_user',
+        'sys_message',
+        'sys_function',
+        'sys_fprocess',
+        'sys_table'
+    ];
+    v_table text;
+BEGIN
+    IF to_regnamespace('multilang') IS NOT NULL
+       AND to_regprocedure('multilang.gw_fct_admin_manage_multilang_views(boolean, text)') IS NOT NULL
+    THEN
+        PERFORM multilang.gw_fct_admin_manage_multilang_views(true, v_schema);
+    ELSE
+        FOREACH v_table IN ARRAY v_tables
+        LOOP
+            IF to_regclass(format('%I.%I', v_schema, v_table)) IS NOT NULL THEN
+                EXECUTE format(
+                    'CREATE OR REPLACE VIEW %I.%I AS SELECT * FROM %I.%I',
+                    v_schema, 'v_' || v_table, v_schema, v_table
+                );
+            END IF;
+        END LOOP;
+    END IF;
+END
+$BODY$;
+
+INSERT INTO sys_table (id, descript, sys_role, "source") VALUES
+('v_config_form_fields', 'Campos de los formularios de configuración (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
+('v_config_form_tabs', 'Pestañas de los formularios de configuración (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
+('v_config_param_system', 'Parámetros de sistema de configuración (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
+('v_sys_param_user', 'Parámetros de usuario del sistema (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
+('v_sys_message', 'Mensajes del sistema (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
+('v_sys_function', 'Funciones del sistema (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
+('v_sys_fprocess', 'Procesos del sistema (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
+('v_sys_table', 'Tablas del sistema (permite multilenguaje e integración con network schemas)', 'role_basic', 'core')
+ON CONFLICT (id) DO NOTHING;

@@ -102,7 +102,7 @@ CREATE TABLE sys_fprocess (
     lang text NOT NULL DEFAULT 'en_us',
     ex text NULL,
     "in" text NULL,
-    na text NULL,
+    na varchar(250) NULL,
     updated_by text DEFAULT CURRENT_USER NULL,
     updated_on timestamptz DEFAULT now() NULL,
     CONSTRAINT sys_fprocess_id_uniq UNIQUE (id),
