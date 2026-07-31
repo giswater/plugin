@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `observ` column to `inp_dscenario_%` tables.
 - Show hydraulic steps progress in EPA Execute dialog.
+- Add `custom_code_autofill` column to `cat_feature` and `config_mapzones` tables.
 
 ### Changed
 
