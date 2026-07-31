@@ -31,6 +31,8 @@ from ..threads.task import GwTask
 from ..ui.ui_manager import GwAdminUi, GwAdminDbProjectUi, GwAdminRenameProjUi, GwAdminProjectInfoUi, \
     GwAdminFieldsUi, GwCredentialsUi, GwReplaceInFileUi, \
     GwAdminMarkdownGeneratorUi  # noqa: F401
+    
+from .i18n_languages import GwI18NManageLanguagesDialog
 
 from ..utils import tools_gw
 from ... import global_vars
@@ -1303,6 +1305,9 @@ class GwAdminButton:
 
         # Get combo locale
         self.cmb_locale = self.dlg_readsql_create_project.findChild(QComboBox, 'cmb_locale')
+        tools_gw.add_icon(self.dlg_readsql_create_project.btn_language, "184")
+        msg = "Manage languages"
+        self.dlg_readsql_create_project.btn_language.setToolTip(tools_qt.tr(msg))
 
         # Populate combo with all locales
         status, sqlite_cur = tools_gw.create_sqlite_conn("locales")
@@ -1968,6 +1973,7 @@ class GwAdminButton:
         force = bool(getattr(self, "_i18n_provision_after_load", False))
         self._i18n_provision_after_load = False
         self._ensure_language_packages_for_connection(force=force)
+        tools_gw.add_giswater_language_menu()
 
     def _finalize_admin_permissions_and_status(self):
         message = ''
@@ -2868,6 +2874,42 @@ class GwAdminButton:
         # context exists, so we point at the project-type-agnostic common tree.
         self.folder_locale = os.path.join(self.sql_dir, 'schemas', 'main', 'common')
 
+    def _open_language_dialog(self):
+        """Open language dialog"""
+        dlg = getattr(self, 'dlg_i18n_languages', None)
+        if dlg is not None and not isdeleted(dlg) and dlg.isVisible():
+            tools_gw.focus_open_dialog(dlg)
+            return
+
+        dlg = GwI18NManageLanguagesDialog(self, parent=self.dlg_readsql_create_project)
+        dlg.init_dialog()
+        self.dlg_i18n_languages = dlg
+
+    def _populate_language_combo_create_project(self):
+        """Populate language combo for create project"""
+        self.cmb_locale.clear()
+        status, cursor = tools_gw.create_sqlite_conn("locales")
+        if not status or cursor is None:
+            msg = "Config database file not found"
+            tools_qgis.show_warning(self.dlg_readsql_create_project, msg)
+            return
+        cursor.execute(
+            f"SELECT locale, name FROM locales WHERE active = 1 ORDER BY name"
+        )
+        rows = [[locale, name] for locale, name in cursor.fetchall()]
+        if not rows:
+            msg = "No active locales configured"
+            tools_qgis.show_warning(self.dlg_readsql_create_project, msg)
+            return
+        if global_vars.gw_dev_mode is True:
+            rows.append(["no_TR", "Harcoded (No translation)"])
+        tools_qt.fill_combo_values(self.cmb_locale, rows)
+        language = tools_gw.get_config_parser(
+            'i18n_generator', 'qm_lang_language', "user", "session", False,
+        )
+        if language:
+            tools_qt.set_combo_value(self.cmb_locale, language, 0, add_new=False)
+
     def _populate_data_schema_name(self, widget=None):
         """Fill project schema combo from cached catalog or pg_catalog."""
 
@@ -3091,6 +3133,7 @@ class GwAdminButton:
         self.cmb_create_project_type.currentIndexChanged.connect(
             lambda _index=None: self._apply_dev_project_name())
         self.cmb_locale.currentIndexChanged.connect(partial(self._update_locale))
+        self.dlg_readsql_create_project.btn_language.clicked.connect(partial(self._open_language_dialog))
         self.filter_srid.textChanged.connect(partial(self._filter_srid_changed))
         for radio in (self.rdb_empty, self.rdb_sample_inv, self.rdb_sample_full):
             if radio is not None:
