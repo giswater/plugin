@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.16.1] - 2026-07-31
+
 ### Added
 
 - Show hydraulic steps progress in EPA Execute dialog.
@@ -567,7 +569,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.16.0...main
+[unreleased]: https://github.com/giswater/plugin/compare/v4.16.1...release/4.16
+[4.16.1]: https://github.com/giswater/plugin/compare/v4.16.0...v4.16.1
 [4.16.0]: https://github.com/giswater/plugin/compare/v4.15.4...v4.16.0
 [4.15.4]: https://github.com/giswater/plugin/compare/v4.15.3...v4.15.4
 [4.15.3]: https://github.com/giswater/plugin/compare/v4.15.2...v4.15.3
