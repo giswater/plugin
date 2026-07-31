@@ -2893,9 +2893,7 @@ class GwAdminButton:
             msg = "Config database file not found"
             tools_qgis.show_warning(self.dlg_readsql_create_project, msg)
             return
-        cursor.execute(
-            f"SELECT locale, name FROM locales WHERE active = 1 ORDER BY name"
-        )
+        cursor.execute("SELECT locale, name FROM locales WHERE active = 1 ORDER BY name")
         rows = [[locale, name] for locale, name in cursor.fetchall()]
         if not rows:
             msg = "No active locales configured"
