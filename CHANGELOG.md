@@ -22,7 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix open advanced settings dialog.
 - Update database connection handling.
 - Update condition to exclude 'MINSECTOR' in query text exploitation.
-- Fix show hydraulic-engine EPA progress and cancel mid-run.
 - Comment out repeated paths check for future consideration
 - Reorder utilities icons list.
 - Fix `gw_fct_linktonetwork` function to add `minPipeDiameter` variable for massive process and adjust diameter comparison logic.
