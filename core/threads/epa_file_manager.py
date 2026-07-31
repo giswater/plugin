@@ -100,42 +100,33 @@ class GwEpaFileManager(GwTask):
             tools_log.log_info(msg, msg_params=msg_params)
             status = self._export_inp()
 
-        # Try to import hydraulic engine
-        try:
-            from importlib.util import find_spec
-            from hydraulic_engine.utils import tools_log as he_tools_log
-            has_hydraulic_engine = find_spec("hydraulic_engine") is not None
-            # Set logger for hydraulic engine
-            he_tools_log.set_logger("hydraulic_engine", min_log_level=10)
-        except ImportError:
-            has_hydraulic_engine = False
-
-        if has_hydraulic_engine and global_vars.project_type == 'ws':
-            tools_log.log_info("Hydraulic engine imported successfully")
-        elif global_vars.project_type == 'ud':
-            tools_log.log_info("Hydraulic engine not compatible with project type 'ud'. Using default EPA software.")
-        else:
-            tools_log.log_info("Hydraulic engine not imported. Using default EPA software.")
+        # Prefer hydraulic_engine for WS (EPANET) and UD (SWMM); fall back to classic EPA
+        has_hydraulic_engine = self._init_hydraulic_engine()
+        runner = None
 
         if status and self.go2epa_execute_epa:
-            if not has_hydraulic_engine or global_vars.project_type == 'ud':
-                msg_params = ("_execute_epa",)
+            if has_hydraulic_engine:
+                msg_params = ("_execute_epa_with_hydraulic_engine",)
                 tools_log.log_info(msg, msg_params=msg_params)
-                status = self._execute_epa()
-            elif has_hydraulic_engine and global_vars.project_type == 'ws':
                 runner = self._execute_epa_with_hydraulic_engine()
                 if runner is None:
                     status = False
+            else:
+                msg_params = ("_execute_epa",)
+                tools_log.log_info(msg, msg_params=msg_params)
+                status = self._execute_epa()
 
         if status and self.go2epa_import_result:
             tools_log.log_info("Task 'Go2Epa' execute function 'def _import_rpt'")
-            if not has_hydraulic_engine or global_vars.project_type == 'ud':
+            if has_hydraulic_engine and runner is not None:
+                msg_params = ("_import_rpt_with_hydraulic_engine",)
+                tools_log.log_info(msg, msg_params=msg_params)
+                status = self._import_rpt_with_hydraulic_engine(runner)
+            else:
                 msg_params = ("_import_rpt",)
                 tools_log.log_info(msg, msg_params=msg_params)
                 self.function_name = 'gw_fct_rpt2pg_main'
                 status = self._import_rpt()
-            elif has_hydraulic_engine and global_vars.project_type == 'ws':
-                status = self._import_rpt_with_hydraulic_engine(runner)
 
         return status
 
@@ -154,7 +145,7 @@ class GwEpaFileManager(GwTask):
             return
 
         # If PostgreSQL function returned null
-        if (self.go2epa_export_inp or self.go2epa_export_inp) and self.complet_result is None:
+        if (self.go2epa_export_inp or self.go2epa_execute_epa) and self.complet_result is None:
             msg = "Database returned null. Check postgres function '{0}'"
             msg_params = (self.function_name,)
             tools_log.log_warning(msg, msg_params=msg_params)
@@ -182,25 +173,27 @@ class GwEpaFileManager(GwTask):
             msg = "Task 'Go2Epa' execute function '{0}' from '{1}'"
             if self.go2epa_export_inp and self.complet_result:
                 if self.complet_result.get('status') == "Accepted":
-                    if 'body' in self.complet_result:
-                        if 'data' in self.complet_result['body']:
-                            msg_params = ("add_layer_temp", "tools_gw.py",)
-                            tools_log.log_info(msg, msg_params=msg_params)
-                            tools_gw.add_layer_temp(self.dlg_go2epa, self.complet_result['body']['data'],
-                                                    None, True, True, 1, True, close=False,
-                                                    call_set_tabs_enabled=False)
+                    body = self.complet_result.get('body') or {}
+                    data = body.get('data') if isinstance(body, dict) else None
+                    if data:
+                        msg_params = ("add_layer_temp", "tools_gw.py",)
+                        tools_log.log_info(msg, msg_params=msg_params)
+                        tools_gw.add_layer_temp(self.dlg_go2epa, data,
+                                                None, True, True, 1, True, close=False,
+                                                call_set_tabs_enabled=False)
 
             if self.go2epa_import_result and self.rpt_result:
                 if self.rpt_result.get('status') == "Accepted":
-                    if 'body' in self.rpt_result:
-                        if 'data' in self.rpt_result['body']:
-                            msg_params = ("add_layer_temp", "tools_gw.py",)
-                            tools_log.log_info(msg, msg_params=msg_params)
-
-                            tools_gw.add_layer_temp(self.dlg_go2epa, self.rpt_result['body']['data'],
-                                                    None, True, True, 1, True, close=False,
-                                                    call_set_tabs_enabled=False)
-                    self.message = self.rpt_result['message']['text']
+                    body = self.rpt_result.get('body') or {}
+                    data = body.get('data') if isinstance(body, dict) else None
+                    if data:
+                        msg_params = ("add_layer_temp", "tools_gw.py",)
+                        tools_log.log_info(msg, msg_params=msg_params)
+                        tools_gw.add_layer_temp(self.dlg_go2epa, data,
+                                                None, True, True, 1, True, close=False,
+                                                call_set_tabs_enabled=False)
+                    if self.message is None:
+                        self.message = (self.rpt_result.get('message') or {}).get('text')
             sql = f"SELECT {self.function_name}("
             if self.body:
                 sql += f"{self.body}"
@@ -231,7 +224,8 @@ class GwEpaFileManager(GwTask):
                 if self.complet_result.get('status') == "Failed":
                     tools_gw.manage_json_exception(self.complet_result)
             if self.rpt_result:
-                if "Failed" in self.rpt_result.get('status'):
+                status = self.rpt_result.get('status') or ''
+                if "Failed" in status:
                     tools_gw.manage_json_exception(self.rpt_result)
 
         if self.error_msg:
@@ -358,14 +352,15 @@ class GwEpaFileManager(GwTask):
         tools_log.log_info(msg)
 
         # Get values from complet_result['body']['file'] and insert into INP file
-        if 'file' not in self.complet_result['body']:
+        body = (self.complet_result or {}).get('body') or {}
+        if 'file' not in body:
             return False
 
         msg = "Task 'Go2Epa' execute function '{0}'"
         msg_params = ("_fill_inp_file",)
         tools_log.log_info(msg, msg_params=msg_params)
-        self._fill_inp_file(self.file_inp, self.complet_result['body']['file'])
-        self.message = self.complet_result['message']['text']
+        self._fill_inp_file(self.file_inp, body['file'])
+        self.message = (self.complet_result.get('message') or {}).get('text')
         self.common_msg += "Export INP finished. "
 
         self._set_progress(self.EXPORT_START, self.EXPORT_END)
@@ -478,6 +473,22 @@ class GwEpaFileManager(GwTask):
 
         return True
 
+    def _init_hydraulic_engine(self) -> bool:
+        """Try to import hydraulic_engine. Returns True if the package is available."""
+        try:
+            from importlib.util import find_spec
+            from hydraulic_engine.utils import tools_log as he_tools_log
+            has_hydraulic_engine = find_spec("hydraulic_engine") is not None
+            if has_hydraulic_engine:
+                he_tools_log.set_logger("hydraulic_engine", min_log_level=10)
+                tools_log.log_info("Hydraulic engine imported successfully")
+            else:
+                tools_log.log_info("Hydraulic engine not imported. Using default EPA software.")
+            return has_hydraulic_engine
+        except ImportError:
+            tools_log.log_info("Hydraulic engine not imported. Using default EPA software.")
+            return False
+
     def _on_epa_progress(self, progress: int, message: str):
         self._set_progress(self.EPA_START, self.EPA_END, progress)
         self.step_completed.emit(
@@ -489,14 +500,39 @@ class GwEpaFileManager(GwTask):
         """Continue hydraulic steps unless the QgsTask was canceled."""
         return not self.isCanceled()
 
+    def _create_hydraulic_runner(self, he):
+        """Create EPANET or SWMM runner according to project type (hydraulic-engine >= 0.7)."""
+        file_sidecar = None
+        if self.file_rpt and self.file_rpt != "null":
+            root, _ = os.path.splitext(self.file_rpt)
+            file_sidecar = root
+
+        if global_vars.project_type == 'ws':
+            return he.epanet.EpanetRunner(
+                inp_path=self.file_inp,
+                rpt_path=self.file_rpt,
+                bin_path=f"{file_sidecar}.bin" if file_sidecar else None,
+                progress_callback=self._on_epa_progress,
+            )
+        if global_vars.project_type == 'ud':
+            return he.swmm.SwmmRunner(
+                inp_path=self.file_inp,
+                rpt_path=self.file_rpt,
+                out_path=f"{file_sidecar}.out" if file_sidecar else None,
+                progress_callback=self._on_epa_progress,
+            )
+        return None
+
     def _execute_epa_with_hydraulic_engine(self):
+        """Execute EPA (EPANET/SWMM) using hydraulic_engine."""
 
         import hydraulic_engine as he
 
         if self.isCanceled():
             return None
 
-        tools_log.log_info("Execute EPA software")
+        tools_log.log_info("Execute EPA software (hydraulic_engine)")
+        self.step_completed.emit({"message": {"level": 1, "text": "Execute EPA software......"}}, "")
 
         if self.file_rpt == "null":
             message = "You have to set this parameter"
@@ -513,12 +549,11 @@ class GwEpaFileManager(GwTask):
             return None
 
         try:
-            # Execute EPA with hydraulic engine
-            runner = he.epanet.EpanetRunner(
-                self.file_inp,
-                self.file_rpt,
-                progress_callback=self._on_epa_progress,
-            )
+            runner = self._create_hydraulic_runner(he)
+            if runner is None:
+                self.error_msg = f"Unsupported project type for hydraulic engine: {global_vars.project_type}"
+                return None
+
             results = runner.run(step_callback=self._on_epa_step)
             if self.isCanceled() or (
                 results is not None
@@ -527,7 +562,6 @@ class GwEpaFileManager(GwTask):
                 return None
             if results is None:
                 self.error_msg = "Error executing EPA software"
-                self.error_msg_params = (results,)
                 return None
             if results.status == he.utils.enums.RunStatus.ERROR:
                 detail = "; ".join(results.errors) if results.errors else "unknown error"
@@ -538,6 +572,8 @@ class GwEpaFileManager(GwTask):
             return None
 
         self.common_msg += "EPA model finished. "
+        self.step_completed.emit({"message": {"level": 1, "text": "EPA model finished."}}, "\n")
+        self._set_progress(self.EPA_START, self.EPA_END)
 
         return runner
 
@@ -616,64 +652,92 @@ class GwEpaFileManager(GwTask):
         finally:
             return status
 
+    def _build_hydraulic_db_connection(self, he):
+        """Build a hydraulic_engine PG connection from the active Giswater DAO/credentials."""
+        gw_dao = tools_db.dao
+        creds = tools_db.dao_db_credentials or {}
+        if gw_dao is None and not creds:
+            return None
+
+        host = getattr(gw_dao, 'host', None) or creds.get('host') or 'localhost'
+        port = getattr(gw_dao, 'port', None) or creds.get('port') or 5432
+        dbname = getattr(gw_dao, 'dbname', None) or creds.get('db') or ''
+        user = getattr(gw_dao, 'user', None) or creds.get('user') or ''
+        password = getattr(gw_dao, 'password', None)
+        if password is None:
+            password = creds.get('password') or ''
+
+        return he.create_pg_connection(
+            host=host,
+            port=port,
+            dbname=dbname,
+            user=user,
+            password=password,
+            schema=lib_vars.schema_name,
+        )
+
     def _import_rpt_with_hydraulic_engine(self, runner):
-        """ Import result file with hydraulic engine """
+        """Import simulation results with hydraulic_engine (WS/UD, >= 0.7)."""
 
         import hydraulic_engine as he
 
         tools_log.log_info(f"Import simulation results........: {self.file_rpt}")
 
-        status = False
         try:
             row = tools_gw.get_config_value("inp_report_onlymaxmin_values")
-            if row is not None and row[0] == 'true':
-                only_extrema = True
-            else:
-                only_extrema = False
+            only_extrema = row is not None and row[0] == 'true'
 
-            # Call import function
             tools_log.log_info("Import simulation results into database")
-            # Create connection
-            dao_db_credentials = tools_db.dao
-            if dao_db_credentials is None:
+            dao = self._build_hydraulic_db_connection(he)
+            if dao is None:
+                self.error_msg = "No database connection available for hydraulic engine export"
                 return False
-            dao = he.create_pg_connection(
-                host=dao_db_credentials.host,
-                port=dao_db_credentials.port,
-                dbname=dao_db_credentials.dbname,
-                user=dao_db_credentials.user,
-                password=dao_db_credentials.password,
-                schema=tools_db.lib_vars.schema_name,
-            )
 
-            # Import results
             self._set_progress(self.IMPORT_START, self.IMPORT_END, 0)
-            status = runner.export_result(
-                to=he.ExportDataSource.DATABASE,
-                result_id=self.result_name,
-                client=dao,
-                only_extrema=only_extrema,
-            )
+
+            # only_extrema is EPANET-only (hydraulic-engine >= 0.5); SWMM export has no such kwarg
+            export_kwargs = {
+                'to': he.ExportDataSource.DATABASE,
+                'result_id': self.result_name,
+                'client': dao,
+                'round_decimals': 4,
+            }
+            if global_vars.project_type == 'ws':
+                export_kwargs['only_extrema'] = only_extrema
+
+            status = runner.export_result(**export_kwargs)
+            if not status:
+                self.error_msg = "Error importing simulation results into database"
+                return False
+
             tools_log.log_info("Import simulation results finished")
 
-            # Build result JSON
-            try:
-                # gw_fct_rpt2pg_log expects temp_audit_check_data to exist;
-                # normally created by gw_fct_rpt2pg_main, which the hydraulic engine path bypasses
-                parameters = f"'{self.result_name}', " + " '" + '{"status":"Accepted"}' + "'::json"
-                rows = tools_gw.execute_procedure('gw_fct_rpt2pg_log', parameters=parameters, is_thread=True)
+            # gw_fct_rpt2pg_log expects temp_audit_check_data to exist;
+            # normally created by gw_fct_rpt2pg_main, which the hydraulic engine path bypasses
+            parameters = f"'{self.result_name}', " + " '" + '{"status":"Accepted"}' + "'::json"
+            rows = tools_gw.execute_procedure('gw_fct_rpt2pg_log', parameters=parameters, is_thread=True)
+            if rows:
                 self.rpt_result = rows
-                self.message = self.rpt_result.get("message", {}).get("text")
-            except Exception as e:
-                self.error_msg = str(e)
-                return False
+                # message may be explicitly null in JSON → .get("message", {}) still returns None
+                self.message = (rows.get("message") or {}).get("text")
+            else:
+                self.rpt_result = {
+                    "status": "Accepted",
+                    "message": {"level": 1, "text": "Import simulation results finished"},
+                }
+                self.message = self.rpt_result["message"]["text"]
             self.active_epa_layers = True
+            self.common_msg += "Import RPT file finished. "
             self._set_progress(self.IMPORT_START, self.IMPORT_END)
             return True
         except Exception as e:
             self.error_msg = str(e)
+            return False
         finally:
-            return status
+            try:
+                he.close_connection()
+            except Exception:
+                pass
 
     def _read_rpt_file(self, file_path: str = None):
         """

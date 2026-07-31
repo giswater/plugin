@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `observ` column to `inp_dscenario_%` tables.
 - Add `custom_code_autofill` column to `cat_feature` and `config_mapzones` tables.
+- Extend `hydraulic_engine` Go2Epa path to UD (SWMM); fall back to classic EPA when the package is missing.
+- Allow Execute EPA on Linux for UD when `hydraulic_engine` is installed.
+
+### Changed
+
+- Refactor Go2Epa hydraulic_engine integration to share execute/import flow for WS and UD.
+- Require `hydraulic_engine>=0.7.0` and align Go2Epa runners with its EPANET/SWMM export API.
+
+### Fixed
+
+- Fix Go2Epa hydraulic-engine result import crash when JSON `message` is null (`NoneType` has no attribute `get`).
+- Fix EPANET-only `only_extrema` being passed to SWMM `export_result`.
 
 ## [4.16.1] - 2026-07-31
 
