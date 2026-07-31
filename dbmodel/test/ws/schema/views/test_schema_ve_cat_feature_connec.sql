@@ -22,7 +22,7 @@ SELECT columns_are(
     've_cat_feature_connec',
     ARRAY[
         'id', 'system_id', 'epa_default', 'code_autofill', 'double_geom', 'shortcut_key',
-        'link_path', 'descript', 'active', 'abrevation'
+        'link_path', 'descript', 'active', 'abrevation', 'custom_code_autofill'
     ],
     'View ve_cat_feature_connec should have the correct columns'
 );
@@ -38,6 +38,7 @@ SELECT col_type_is('ve_cat_feature_connec', 'link_path', 'text', 'Column link_pa
 SELECT col_type_is('ve_cat_feature_connec', 'descript', 'text', 'Column descript should be text');
 SELECT col_type_is('ve_cat_feature_connec', 'active', 'bool', 'Column active should be bool');
 SELECT col_type_is('ve_cat_feature_connec', 'abrevation', 'varchar(30)', 'Column abrevation should be varchar(30)');
+SELECT col_type_is('ve_cat_feature_connec', 'custom_code_autofill', 'bool', 'Column custom_code_autofill should be bool');
 
 SELECT * FROM finish();
 

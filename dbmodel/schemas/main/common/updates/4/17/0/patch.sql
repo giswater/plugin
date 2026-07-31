@@ -105,3 +105,7 @@ SET
         ELSE isenabled
     END
 WHERE id = 'multilang_language';
+
+
+ALTER TABLE cat_feature ADD custom_code_autofill bool DEFAULT false NULL;
+ALTER TABLE config_mapzones ADD custom_code_autofill bool DEFAULT false NULL;

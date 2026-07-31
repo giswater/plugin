@@ -308,3 +308,94 @@ AS SELECT f.dscenario_id,
   WHERE (EXISTS ( SELECT 1
            FROM selector_inp_dscenario s
           WHERE s.dscenario_id = f.dscenario_id AND s.cur_user = CURRENT_USER));
+
+
+CREATE OR REPLACE VIEW ve_cat_feature_arc
+AS SELECT cat_feature.id,
+    cat_feature.feature_class AS system_id,
+    cat_feature_arc.epa_default,
+    cat_feature.code_autofill,
+    cat_feature.shortcut_key,
+    cat_feature.link_path,
+    cat_feature.descript,
+    cat_feature.active,
+    cat_feature.abrevation,
+    cat_feature.custom_code_autofill
+   FROM cat_feature
+     JOIN cat_feature_arc USING (id);
+
+CREATE OR REPLACE VIEW ve_cat_feature_connec
+AS SELECT cat_feature.id,
+    cat_feature.feature_class AS system_id,
+    cat_feature.code_autofill,
+    cat_feature_connec.double_geom::text AS double_geom,
+    cat_feature.shortcut_key,
+    cat_feature.link_path,
+    cat_feature.descript,
+    cat_feature.active,
+    cat_feature.abrevation,
+    cat_feature.custom_code_autofill
+   FROM cat_feature
+     JOIN cat_feature_connec USING (id);
+
+CREATE OR REPLACE VIEW ve_cat_feature_element
+AS SELECT cat_feature.id,
+    cat_feature.feature_class AS system_id,
+    cat_feature_element.epa_default,
+    cat_feature.code_autofill,
+    cat_feature.shortcut_key,
+    cat_feature.link_path,
+    cat_feature.descript,
+    cat_feature.active,
+    cat_feature.abrevation,
+    cat_feature.custom_code_autofill
+   FROM cat_feature
+     JOIN cat_feature_element USING (id);
+
+CREATE OR REPLACE VIEW ve_cat_feature_gully
+AS SELECT cat_feature.id,
+    cat_feature.feature_class AS system_id,
+    cat_feature_gully.epa_default,
+    cat_feature.code_autofill,
+    cat_feature_gully.double_geom::text AS double_geom,
+    cat_feature.shortcut_key,
+    cat_feature.link_path,
+    cat_feature.descript,
+    cat_feature.active,
+    cat_feature.abrevation,
+    cat_feature.custom_code_autofill
+   FROM cat_feature
+     JOIN cat_feature_gully USING (id);
+
+CREATE OR REPLACE VIEW ve_cat_feature_link
+AS SELECT cat_feature.id,
+    cat_feature.feature_class AS system_id,
+    cat_feature.code_autofill,
+    cat_feature.shortcut_key,
+    cat_feature.link_path,
+    cat_feature.descript,
+    cat_feature.active,
+    cat_feature.abrevation,
+    cat_feature.custom_code_autofill
+   FROM cat_feature
+     JOIN cat_feature_link USING (id);
+
+CREATE OR REPLACE VIEW ve_cat_feature_node
+AS SELECT cat_feature.id,
+    cat_feature.feature_class AS system_id,
+    cat_feature_node.epa_default,
+    cat_feature_node.isarcdivide,
+    cat_feature_node.isprofilesurface,
+    cat_feature.code_autofill,
+    cat_feature_node.choose_hemisphere,
+    cat_feature_node.double_geom::text AS double_geom,
+    cat_feature_node.num_arcs,
+    cat_feature_node.isexitupperintro,
+    cat_feature.shortcut_key,
+    cat_feature.link_path,
+    cat_feature.descript,
+    cat_feature.active,
+    cat_feature.abrevation,
+    cat_feature.custom_code_autofill
+   FROM cat_feature
+     JOIN cat_feature_node USING (id);
