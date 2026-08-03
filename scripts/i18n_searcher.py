@@ -559,6 +559,9 @@ def _normalize_concatenated_assignment(content: str, field_name: str) -> str:
 
 # region Python messages (_update_py_messages)
 
+_PYMESSAGE_SOURCE_CODE = "giswater"
+
+
 def _scan_python_messages(scan_root: Path) -> tuple[dict[str, None], PythonScanStats]:
     """Scan .py files and return unique message strings with scan stats."""
     messages: dict[str, None] = {}
@@ -604,7 +607,7 @@ def _pymessage_row(source: str, ms_en_us: str | None = None) -> dict[str, Any]:
     text = ms_en_us if ms_en_us is not None else source
     return {
         "source": source,
-        "source_code": "giswater",
+        "source_code": _PYMESSAGE_SOURCE_CODE,
         "project_type": "python",
         "context": "pymessage",
         "ms_en_us": text.strip(),
@@ -783,18 +786,21 @@ def extract_py_candidates(
         stats.duplicate_occurrences,
     )
 
-    baseline_by_source = _index_baseline_rows(
+    baseline_by_pk = _index_baseline_rows(
         _baseline_by_table(i18n_rows, "pymessage"),
-        ("source",),
+        ("source", "source_code"),
     )
 
-    scanned_texts = {source: {"ms_en_us": source} for source in scanned}
+    scanned_texts = {
+        (source, _PYMESSAGE_SOURCE_CODE): {"ms_en_us": source}
+        for source in scanned
+    }
     findings: list[ExtractedString] = []
     kind_counts = {UpdateKind.NEW: 0, UpdateKind.TEXT_CHANGED: 0, UpdateKind.DELETED: 0}
     for key, update_kind, text_values, old_map, new_map, baseline in _classify_scanned_rows(
-        scanned_texts, baseline_by_source, ("ms_en_us",)
+        scanned_texts, baseline_by_pk, ("ms_en_us",)
     ):
-        source = str(key)
+        source = key[0] if isinstance(key, tuple) else str(key)
         if not source.strip():
             continue
         kind_counts[update_kind] += 1
