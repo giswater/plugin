@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comment out repeated paths check for future consideration
 - Reorder utilities icons list.
 - Fix `gw_fct_linktonetwork` function to add `minPipeDiameter` variable for massive process and adjust diameter comparison logic.
+- Fix visits views to use selector filters.
 
 ## [4.16.0] - 2026-07-24
 

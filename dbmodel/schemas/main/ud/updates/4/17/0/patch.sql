@@ -399,7 +399,7 @@ AS SELECT cat_feature.id,
     cat_feature.custom_code_autofill
    FROM cat_feature
      JOIN cat_feature_node USING (id);
-     
+
 UPDATE config_form_fields
 	SET "label"='Cabinet:'
 	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='cabinet' AND "label"='cabinet';
@@ -411,3 +411,102 @@ UPDATE config_form_fields
 UPDATE config_form_fields
 	SET "label"='Lab code'
 	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='lab_code' AND "label"='lab_code';
+
+CREATE OR REPLACE VIEW v_om_visit AS
+SELECT DISTINCT ON (visit_id)
+	visit_id,
+	code,
+	visitcat_id,
+	name,
+	visit_start,
+	visit_end,
+	user_name,
+	is_done,
+	feature_id,
+	feature_type,
+	the_geom::geometry(Point, SRID_VALUE) AS the_geom
+FROM (
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_node.node_id AS feature_id,
+		'NODE'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN node.the_geom
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_node ON om_visit_x_node.visit_id = om_visit.id
+	JOIN node ON node.node_id = om_visit_x_node.node_id
+	JOIN vf_node vf ON vf.node_id = node.node_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+	UNION
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_arc.arc_id AS feature_id,
+		'ARC'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN st_lineinterpolatepoint(arc.the_geom, 0.5::double precision)
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_arc ON om_visit_x_arc.visit_id = om_visit.id
+	JOIN arc ON arc.arc_id = om_visit_x_arc.arc_id
+	JOIN vf_arc vf ON vf.arc_id = arc.arc_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+	UNION
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_connec.connec_id AS feature_id,
+		'CONNEC'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN connec.the_geom
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_connec ON om_visit_x_connec.visit_id = om_visit.id
+	JOIN connec ON connec.connec_id = om_visit_x_connec.connec_id
+	JOIN vf_connec vf ON vf.connec_id = connec.connec_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+	UNION
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_gully.gully_id AS feature_id,
+		'GULLY'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN gully.the_geom
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_gully ON om_visit_x_gully.visit_id = om_visit.id
+	JOIN gully ON gully.gully_id = om_visit_x_gully.gully_id
+	JOIN vf_gully vf ON vf.gully_id = gully.gully_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+) a;

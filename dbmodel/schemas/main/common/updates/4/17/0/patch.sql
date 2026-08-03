@@ -174,3 +174,40 @@ UPDATE config_form_fields
 UPDATE config_form_fields
   SET tooltip = replace(tooltip, '- id', '- Id')
   WHERE tooltip LIKE '%- id%';
+
+CREATE OR REPLACE VIEW ve_om_visit AS
+SELECT
+	om_visit.id,
+	om_visit.visitcat_id,
+	om_visit.ext_code,
+	om_visit.status,
+	om_visit.startdate,
+	om_visit.enddate,
+	om_visit.user_name,
+	om_visit.the_geom,
+	om_visit.webclient_id,
+	om_visit.expl_id
+FROM om_visit
+WHERE 
+    EXISTS ( SELECT 1 FROM selector_sector ssec WHERE ssec.cur_user = CURRENT_USER AND ssec.sector_id = om_visit.sector_id)
+    AND EXISTS ( SELECT 1 FROM selector_municipality sm WHERE sm.cur_user = CURRENT_USER AND sm.muni_id = om_visit.muni_id)
+    AND EXISTS ( SELECT 1 FROM selector_expl se WHERE se.cur_user = CURRENT_USER AND se.expl_id = om_visit.expl_id);
+
+CREATE OR REPLACE VIEW v_ui_om_visit
+AS 
+SELECT 
+    om_visit.id,
+    om_visit_cat.name AS visit_catalog,
+    om_visit.ext_code,
+    om_visit.startdate,
+    om_visit.enddate,
+    om_visit.user_name,
+    om_visit.webclient_id,
+    exploitation.name AS exploitation,
+    om_visit.the_geom,
+    om_visit.descript,
+    om_visit.is_done,
+    om_visit.visit_type
+FROM om_visit
+LEFT JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+LEFT JOIN exploitation ON exploitation.expl_id = om_visit.expl_id;
