@@ -60,19 +60,33 @@ BEGIN
 
 	-- the strategy of selector_sector is not used for nodes. The reason is to enable the posibility to export the sector=-1. In addition using this it's impossible to export orphan nodes
 	v_querytext = ' INSERT INTO temp_t_node (node_id, top_elev, elev, node_type, nodecat_id, epa_type, sector_id, state, state_type, annotation, the_geom, expl_id, dma_id, presszone_id, dqa_id, minsector_id, age, builtdate)
-		WITH b AS (SELECT ve_arc.* FROM selector_sector, ve_arc
-		JOIN value_state_type ON ve_arc.state_type = value_state_type.id
-		WHERE ve_arc.sector_id = selector_sector.sector_id AND epa_type !=''UNDEFINED'' AND selector_sector.cur_user = "current_user"()::text 
-		AND ve_arc.sector_id > 0 AND ve_arc.state > 0'
-		||v_statetype||')
+		WITH b AS (
+			SELECT arc.arc_id, arc.node_1, arc.node_2, arc.sector_id
+			FROM arc
+			JOIN vf_arc on arc.arc_id = vf_arc.arc_id
+			JOIN value_state_type ON arc.state_type = value_state_type.id
+			WHERE epa_type <> ''UNDEFINED'' AND EXISTS (
+				SELECT 1 FROM selector_sector ss WHERE ss.sector_id = arc.sector_id AND ss.cur_user = current_user
+			)
+			AND COALESCE(vf_arc.p_state, arc.sector_id) > 0
+			AND COALESCE(vf_arc.p_state, arc.state) > 0'
+			||v_statetype||'
+		)
 		SELECT DISTINCT ON (n.node_id)
-		n.node_id, top_elev, top_elev-depth as elev, node_type, nodecat_id, epa_type, a.sector_id, n.state, n.state_type, n.annotation, n.the_geom, n.expl_id, n.dma_id, presszone_id, dqa_id, minsector_id,
+		n.node_id, top_elev, top_elev-depth as elev, node_type, nodecat_id, epa_type, a.sector_id, COALESCE(vf_node.p_state, n.state), n.state_type, n.annotation, n.the_geom, n.expl_id, n.dma_id, presszone_id, dqa_id, minsector_id,
 		(case when n.builtdate is not null then (now()::date-n.builtdate)/30 else 0 end),
 		n.builtdate
 		FROM node n 
-		JOIN (SELECT node_1 AS node_id, sector_id FROM b UNION SELECT node_2, sector_id FROM b)a USING (node_id)
+		JOIN (
+			SELECT node_1 AS node_id, sector_id
+			FROM b
+			UNION
+			SELECT node_2, sector_id
+			FROM b
+		)a USING (node_id)
 		JOIN cat_node c ON c.id=nodecat_id
-		WHERE n.sector_id > 0';
+		JOIN vf_node ON n.node_id = vf_node.node_id
+		WHERE COALESCE(vf_node.p_state, n.sector_id) > 0';
 
 	EXECUTE v_querytext;
 
@@ -85,18 +99,25 @@ BEGIN
 
 		EXECUTE ' INSERT INTO temp_t_node (node_id, top_elev, elev, node_type, nodecat_id, epa_type, sector_id, state, state_type, annotation, the_geom, expl_id, 
 			dma_id, presszone_id, dqa_id, minsector_id, age, builtdate)
-			SELECT DISTINCT ON (c.connec_id)
-			c.connec_id, top_elev, top_elev-depth as elev, ''CONNEC'', conneccat_id, epa_type, c.sector_id, c.state, c.state_type, c.annotation, c.the_geom, c.expl_id, 
+			SELECT
+			c.connec_id, top_elev, top_elev-depth as elev, ''CONNEC'', conneccat_id, epa_type, c.sector_id, COALESCE(vf_connec.p_state, c.state), c.state_type, c.annotation, c.the_geom, c.expl_id, 
 			c.dma_id, c.presszone_id, c.dqa_id, c.minsector_id,
 			(case when c.builtdate is not null then (now()::date-c.builtdate)/30 else 0 end),
 			c.builtdate
-			FROM selector_sector, ve_connec c
+			FROM connec c
+			JOIN vf_connec on c.connec_id = vf_connec.connec_id
 			JOIN value_state_type ON id = state_type
-			WHERE c.sector_id = selector_sector.sector_id 
-			AND c.sector_id > 0 AND c.state > 0 
-			AND pjoint_id IS NOT NULL AND pjoint_type IS NOT NULL
-			AND epa_type = ''JUNCTION''
-			AND selector_sector.cur_user = "current_user"()::text '
+			WHERE EXISTS (
+				select 1
+				from selector_sector ss
+				where ss.sector_id = c.sector_id
+				and ss.cur_user = current_user
+			)
+			AND COALESCE(vf_connec.p_state, c.sector_id) > 0
+			AND COALESCE(vf_connec.p_state, c.state) > 0 
+			AND COALESCE(vf_connec.pjoint_id, c.pjoint_id) IS NOT NULL
+			AND COALESCE(vf_connec.pjoint_type, c.pjoint_type) IS NOT NULL
+			AND epa_type = ''JUNCTION'' '
 			||v_statetype;
 	END IF;
 
@@ -152,7 +173,7 @@ BEGIN
 	v_querytext = 'INSERT INTO temp_t_arc (arc_id, node_1, node_2, arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation, roughness, 
 		length, diameter, the_geom, expl_id, dma_id, presszone_id, dqa_id, minsector_id, age, family, builtdate)
 		SELECT DISTINCT ON (arc_id)
-		ve_arc.arc_id, node_1, node_2, ve_arc.arc_type, arccat_id, epa_type, ve_arc.sector_id, ve_arc.state, ve_arc.state_type, ve_arc.annotation,
+		ve_arc.arc_id, node_1, node_2, ve_arc.arc_type, arccat_id, epa_type, ve_arc.sector_id, COALESCE(ve_arc.p_state, ve_arc.state), ve_arc.state_type, ve_arc.annotation,
 		CASE WHEN custom_roughness IS NOT NULL THEN custom_roughness ELSE roughness END AS roughness,
 		(CASE WHEN ve_arc.custom_length IS NOT NULL THEN custom_length ELSE gis_length END), 
 		(CASE WHEN inp_pipe.custom_dint IS NOT NULL THEN custom_dint ELSE dint END),  -- diameter is child value but in order to make simple the query getting values from ve_arc (dint)...
@@ -178,7 +199,7 @@ BEGIN
 			AND (now()::date - (CASE WHEN builtdate IS NULL THEN ''1900-01-01''::date ELSE builtdate END))/365 <= cat_mat_roughness.end_age '
 			||v_statetype||' AND ve_arc.sector_id=selector_sector.sector_id AND selector_sector.cur_user=current_user
 			AND epa_type != ''UNDEFINED''
-			AND ve_arc.sector_id > 0 AND ve_arc.state > 0
+			AND COALESCE(ve_arc.p_state, ve_arc.sector_id) > 0 AND COALESCE(ve_arc.p_state, ve_arc.state) > 0
 			AND st_length(ve_arc.the_geom) >= '||v_minlength;
 
 	IF v_networkmode = 1 THEN
@@ -224,7 +245,7 @@ BEGIN
 				AND (now()::date - (CASE WHEN c.builtdate IS NULL THEN ''1900-01-01''::date ELSE c.builtdate END))/365 <= cat_mat_roughness.end_age '
 				||v_statetype||' AND c.sector_id=selector_sector.sector_id AND selector_sector.cur_user=current_user
 				AND epa_type = ''JUNCTION''
-				AND c.sector_id > 0 AND c.state > 0
+				AND COALESCE(vf_connec.p_state, c.sector_id) > 0 AND COALESCE(vf_connec.p_state, c.state) > 0
 				AND pjoint_id IS NOT NULL AND pjoint_type IS NOT NULL';
 	END IF;
 
