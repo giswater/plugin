@@ -493,7 +493,7 @@ AS SELECT cat_feature.id,
 
 DO $$
 BEGIN
-  IF lower(SELECT language FROM sys_version) NOT ILIKE 'es_%' THEN
+  IF lower((SELECT language FROM sys_version LIMIT 1)) NOT ILIKE 'es_%' THEN
     UPDATE config_form_fields
       SET "label"='Pattern:',tooltip='Pattern'
       WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='pattern_id' AND tabname='tab_epa' AND "label"='Patrón:';
