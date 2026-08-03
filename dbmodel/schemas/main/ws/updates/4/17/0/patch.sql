@@ -490,3 +490,55 @@ AS SELECT cat_feature.id,
     cat_feature.custom_code_autofill
    FROM cat_feature
      JOIN cat_feature_node USING (id);
+
+DO $$
+BEGIN
+  IF lower(SELECT language FROM sys_version) NOT ILIKE 'es_%' THEN
+    UPDATE config_form_fields
+      SET "label"='Pattern:',tooltip='Pattern'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='pattern_id' AND tabname='tab_epa' AND "label"='Patrón:';
+    UPDATE config_form_fields
+      SET "label"='Pattern:',tooltip='Pattern'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='pattern_id' AND tabname='tab_epa' AND "label"='Patrón:';
+    UPDATE config_form_fields
+      SET "label"='Head:',tooltip='Head'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='head' AND tabname='tab_epa' AND "label"='Carga hidráulica:';
+    UPDATE config_form_fields
+      SET "label"='Head:',tooltip='Head'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='head' AND tabname='tab_epa' AND "label"='Carga hidráulica:';
+    UPDATE config_form_fields
+      SET "label"='Emitter coefficient:',tooltip='Emitter coefficient'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='emitter_coeff' AND tabname='tab_epa' AND "label"='Coeficiente de emisión:';
+    UPDATE config_form_fields
+      SET "label"='Emitter coefficient:',tooltip='Emitter coefficient'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='emitter_coeff' AND tabname='tab_epa' AND "label"='Coeficiente de emisión:';
+    UPDATE config_form_fields
+      SET "label"='Pattern ID:',tooltip='Pattern ID'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='demand_pattern_id' AND tabname='tab_epa' AND "label"='Patrón de demanda:';
+    UPDATE config_form_fields
+      SET "label"='Pattern ID:',tooltip='Pattern ID'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='demand_pattern_id' AND tabname='tab_epa' AND "label"='Patrón de demanda:';
+    UPDATE config_form_fields
+      SET "label"='Demand:',tooltip='demand - Water demand'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='demand' AND tabname='tab_epa' AND "label"='Demanda:';
+    UPDATE config_form_fields
+      SET "label"='Demand:',tooltip='demand - Water demand'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='demand' AND tabname='tab_epa' AND "label"='Demanda:';
+  END IF;
+END $$;
+
+UPDATE config_form_fields
+	SET "label"='Data quality'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='dataquality' AND "label"='Dataquality';
+
+UPDATE config_form_fields
+	SET "label"='Data quality obs.'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='dataquality_obs' AND "label"='Dataquality_obs';
+
+UPDATE config_form_fields
+	SET "label"='Cabinet:'
+	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='cabinet' AND "label"='cabinet';
+
+UPDATE config_form_fields
+	SET "label"='Place name:'
+	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='place_name' AND "label"='place_name';

@@ -109,3 +109,68 @@ WHERE id = 'multilang_language';
 
 ALTER TABLE cat_feature ADD custom_code_autofill bool DEFAULT false NULL;
 ALTER TABLE config_mapzones ADD custom_code_autofill bool DEFAULT false NULL;
+
+UPDATE sys_message SET error_message = 'The volume water inserted is %volume%, which it means that lossed water percentatge due leak of data have been %percentage% %.'
+WHERE id = 4640 AND error_message = 'The volume water inserted is %volume%, wich it means that lossed water percentatge due leak of data have been %percentage% %.';
+
+UPDATE config_param_system
+	SET "label"='Cibs schema:'
+	WHERE "parameter"='admin_cibs_schema' AND "label"='cibs schema:';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column rg_id.', except_msg='subcatchment(s) with null values on mandatory column rg_id.' 
+WHERE fid=704 AND fprocess_name='Check subcatchment(s) with null values on mandatory column rg_id column.';
+    
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column area.', except_msg='subcatchment(s) with null values on mandatory column area.' 
+WHERE fid=702 AND fprocess_name='Check subcatchment(s) with null values on mandatory column area column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column width.', except_msg='subcatchment(s) with null values on mandatory column width.' 
+WHERE fid=700 AND fprocess_name='Check subcatchment(s) with null values on mandatory column width column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column slope.', except_msg='subcatchment(s) with null values on mandatory column slope.' WHERE fid=698;
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column clength.', except_msg='subcatchment(s) with null values on mandatory column clength.' 
+WHERE fid=696 AND fprocess_name='Check subcatchment(s) with null values on mandatory column clength column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column nimp.', except_msg='subcatchment(s) with null values on mandatory column nimp.' 
+WHERE fid=694 AND fprocess_name='Check subcatchment(s) with null values on mandatory column nimp column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column nperv.', except_msg='subcatchment(s) with null values on mandatory column nperv.' 
+WHERE fid=692 AND fprocess_name='Check subcatchment(s) with null values on mandatory column nperv column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column simp.', except_msg='subcatchment(s) with null values on mandatory column simp.' 
+WHERE fid=690 AND fprocess_name='Check subcatchment(s) with null values on mandatory column simp column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column sperv.', except_msg='subcatchment(s) with null values on mandatory column sperv.' 
+WHERE fid=688 AND fprocess_name='Check subcatchment(s) with null values on mandatory column sperv column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column zero.', except_msg='subcatchment(s) with null values on mandatory column zero.' 
+WHERE fid=686 AND fprocess_name='Check subcatchment(s) with null values on mandatory column zero column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column routeto.', except_msg='subcatchment(s) with null values on mandatory column routeto.' 
+WHERE fid=684 AND fprocess_name='Check subcatchment(s) with null values on mandatory column routeto column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column rted.', except_msg='subcatchment(s) with null values on mandatory column rted.' 
+WHERE fid=682 AND fprocess_name='Check subcatchment(s) with null values on mandatory column rted column.';
+
+UPDATE config_param_system 
+SET "label" = "label" || ':' 
+WHERE "parameter" = 'help_domain' 
+  AND "label" IS NOT NULL 
+  AND "label" LIKE '%:';
+
+DO $$
+BEGIN
+  IF lower(SELECT language FROM sys_version) NOT ILIKE 'es_%' THEN
+    UPDATE sys_fprocess SET 
+    except_msg = 'raingages with null values at least in the mandatory columns for the rain type (form_type, intvl, scf, rgage_type).',
+    info_msg = 'The mandatory columns for the rain type (form_type, intvl, scf, rgage_type) have been checked and no values are missing.'
+    WHERE fid = 285 AND except_msg = 'raingages con valores nulos al menos en las columnas obligatorias para el tipo de lluvia (form_type, intvl, scf, rgage_type).';
+  END IF;
+END $$;
+
+UPDATE config_form_fields
+  SET tooltip = LEFT(tooltip, LENGTH(tooltip) - 1)
+  WHERE tooltip LIKE '%:';
+
+UPDATE config_form_fields
+  SET tooltip = replace(tooltip, '- id', '- Id')
+  WHERE tooltip LIKE '%- id%';
