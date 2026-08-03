@@ -1372,11 +1372,13 @@ def compute_detection_key(
     loc: DbLocation,
     kind: UpdateKind,
     normalized_primary_keys: dict[str, Any],
+    detected_version: str,
 ) -> str:
     payload: dict[str, Any] = {
         "table_name": loc.table_i18n,
         "primary_keys": dict(sorted(normalized_primary_keys.items())),
         "kind": _kind_for_hash(kind),
+        "detected_version": detected_version,
     }
     if loc.table_i18n == "pydialog":
         post_fields = _py_post_fields(loc.table_i18n, loc)
@@ -1395,7 +1397,7 @@ def finding_to_record(finding: ExtractedString, detected_version: str) -> dict[s
         raise ValueError("DB finding missing db_location")
     loc = finding.db_location
     normalized_primary_keys = primary_keys_from_row(loc.table_i18n, loc.columns)
-    detection_key = compute_detection_key(loc, finding.update_kind, normalized_primary_keys)
+    detection_key = compute_detection_key(loc, finding.update_kind, normalized_primary_keys, detected_version)
     kind = _kind_for_hash(finding.update_kind)
     # Prefer PK source_code from the found row; only default for non-deleted when missing.
     source_code = normalized_primary_keys.get("source_code", "")
