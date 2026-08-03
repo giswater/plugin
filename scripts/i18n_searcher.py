@@ -2002,6 +2002,7 @@ def _upload_grouped_records(
     api: TranslationsApiClient,
     grouped: dict[str, list[dict[str, Any]]],
     *,
+    detected_version: str,
     new_path: str,
     changed_path: str,
     deleted_path: str,
@@ -2009,7 +2010,7 @@ def _upload_grouped_records(
     dry_run: bool,
 ) -> None:
     # Clear prior pending rows before uploading this run's detections.
-    clear_pending_detections(api, clear_pending_path, dry_run=dry_run)
+    clear_pending_detections(api, detected_version, clear_pending_path, dry_run=dry_run)
     for kind, path in (
         ("new", new_path),
         ("changed", changed_path),
@@ -2098,6 +2099,7 @@ def main() -> int:
             _upload_grouped_records(
                 api,
                 grouped,
+                detected_version=detected_version,
                 new_path=new_path or DEFAULT_NEW_PATH,
                 changed_path=changed_path or DEFAULT_CHANGED_PATH,
                 deleted_path=deleted_path or DEFAULT_DELETED_PATH,
