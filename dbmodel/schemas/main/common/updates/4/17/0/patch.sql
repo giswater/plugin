@@ -446,3 +446,92 @@ AS WITH sector_visibility_agg AS (
     LEFT JOIN value_state_type vst ON vst.id = e.state_type;
 
 SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE", "batchId":2}}$$);
+
+UPDATE sys_fprocess
+	SET query_text='SELECT * FROM t_gully WHERE arc_id IS NULL'
+	WHERE fid=455;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT * FROM temp_t_node WHERE top_elev = 0'
+	WHERE fid=165;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT * FROM temp_t_node WHERE top_elev IS NULL'
+	WHERE fid=164;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT * FROM t_arc WHERE sys_elev1 = NULL OR sys_elev2 = NULL'
+	WHERE fid=284;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT *
+FROM t_arc a
+JOIN cat_arc c ON c.id = a.matcat_id  
+WHERE a.matcat_id IS null
+AND sys_type !=''VARC'''
+	WHERE fid=569;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT * FROM t_node WHERE epa_type !=''UNDEFINED'' AND sys_elev IS NULL'
+	WHERE fid=584;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT *
+FROM t_arc a
+JOIN cat_arc c ON c.id = a.cat_matcat_id  
+WHERE a.cat_matcat_id IS null
+AND sys_type !=''VARC'''
+	WHERE fid=430;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT n.node_id, nodecat_id, the_geom, n.expl_id
+FROM (
+	SELECT node_1 node_id, sector_id
+	FROM t_arc
+	WHERE epa_type !=''UNDEFINED''
+	UNION 
+	SELECT node_2, sector_id
+	FROM t_arc
+	WHERE epa_type !=''UNDEFINED''
+)a
+JOIN (
+	SELECT node_id, nodecat_id, the_geom, expl_id
+	FROM t_node
+	WHERE epa_type = ''UNDEFINED''
+) n USING (node_id) 
+WHERE n.node_id IS NOT NULL'
+	WHERE fid=379;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT node_id, nodecat_id, expl_id, t_node.the_geom, ''Node sink'' FROM t_node WHERE epa_type !=''UNDEFINED'' AND node_id IN
+	(SELECT node_1 FROM (SELECT arc_id, node_1, node_2 FROM t_arc JOIN cat_arc c ON c.id = arccat_id 
+	JOIN cat_arc_shape s ON c.shape = s.id WHERE slope < 0 AND s.epa != ''FORCE_MAIN'')a
+	EXCEPT 
+	SELECT node_1 FROM (SELECT arc_id, node_1, node_2 FROM t_arc JOIN cat_arc c ON c.id = arccat_id 
+	JOIN cat_arc_shape s ON c.shape = s.id WHERE slope > 0)a)'
+	WHERE fid=113;
+
+UPDATE sys_fprocess
+	SET query_text='
+SELECT * FROM (
+SELECT node_id, nodecat_id, n.the_geom, n.expl_id FROM t_node n  
+JOIN t_arc a1 ON node_id=a1.node_1  AND n.epa_type IN (''SHORTPIPE'', ''VALVE'', ''PUMP'')
+UNION ALL 
+SELECT node_id, nodecat_id, n.the_geom, n.expl_id FROM t_node n  
+JOIN t_arc a1 ON node_id=a1.node_2  AND n.epa_type IN (''SHORTPIPE'', ''VALVE'', ''PUMP''))a 
+GROUP by node_id, nodecat_id, the_geom, expl_id HAVING count(*) > 2'
+	WHERE fid=166;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT *FROM (
+SELECT node_id, nodecat_id, t_node.the_geom, t_node.expl_id FROM t_node 
+JOIN t_arc a1 ON node_id=a1.node_1 WHERE t_node.epa_type IN (''VALVE'', ''PUMP'') UNION ALL
+SELECT node_id, nodecat_id, t_node.the_geom, t_node.expl_id FROM t_node 
+JOIN t_arc a1 ON node_id=a1.node_1 WHERE t_node.epa_type IN (''VALVE'', ''PUMP''))a 
+GROUP by node_id, nodecat_id, the_geom, expl_id HAVING count(*) < 2'
+	WHERE fid=167;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT n.node_id, n.nodecat_id, n.the_geom, n.expl_id FROM t_node n WHERE NOT EXISTS (SELECT 1 FROM t_arc a WHERE a.node_1 = n.node_id) AND NOT EXISTS (SELECT 1 FROM t_arc a WHERE a.node_2 = n.node_id)
+AND epa_type !=''UNDEFINED'' AND is_operative'
+	WHERE fid=228;
