@@ -401,14 +401,6 @@ AS SELECT cat_feature.id,
      JOIN cat_feature_node USING (id);
 
 UPDATE config_form_fields
-	SET "label"='Cabinet:'
-	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='cabinet' AND "label"='cabinet';
-
-UPDATE config_form_fields
-	SET "label"='Place name:'
-	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='place_name' AND "label"='place_name';
-
-UPDATE config_form_fields
 	SET "label"='Lab code'
 	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='lab_code' AND "label"='lab_code';
 

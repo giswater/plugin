@@ -175,6 +175,23 @@ UPDATE config_form_fields
   SET tooltip = replace(tooltip, '- id', '- Id')
   WHERE tooltip LIKE '%- id%';
 
+UPDATE config_form_fields
+	SET "label"='Data quality'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='dataquality' AND "label"='Dataquality';
+
+UPDATE config_form_fields
+	SET "label"='Data quality obs.'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='dataquality_obs' AND "label"='Dataquality_obs';
+
+UPDATE config_form_fields
+	SET "label"='Cabinet:'
+	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='cabinet' AND "label"='cabinet';
+
+UPDATE config_form_fields
+	SET "label"='Place name:'
+	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='place_name' AND "label"='place_name';
+
+
 CREATE OR REPLACE VIEW ve_om_visit AS
 SELECT
 	om_visit.id,

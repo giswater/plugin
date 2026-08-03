@@ -355,5 +355,29 @@ UPDATE config_form_fields
   WHERE tooltip LIKE '%- id%';
 
 UPDATE config_form_fields
+  SET tooltip = LEFT(tooltip, LENGTH(tooltip) - 1)
+  WHERE tooltip LIKE '%:';
+
+UPDATE config_form_fields
   SET "label" = 'Workcat id end:', tooltip = 'Workcat id end'
   WHERE "label" = 'Workcat id End:';
+
+UPDATE config_form_fields
+	SET "label"='Data quality'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='dataquality' AND "label"='Dataquality';
+
+UPDATE config_form_fields
+	SET "label"='Data quality obs.'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='dataquality_obs' AND "label"='Dataquality_obs';
+
+UPDATE config_form_fields
+	SET "label"='Cabinet:'
+	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='cabinet' AND "label"='cabinet';
+
+UPDATE config_form_fields
+	SET "label"='Place name:'
+	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='place_name' AND "label"='place_name';
+
+UPDATE config_form_fields
+	SET "label"='Lab code'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='lab_code' AND "label"='lab_code';
