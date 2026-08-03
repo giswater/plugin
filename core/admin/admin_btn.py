@@ -864,9 +864,9 @@ class GwAdminButton:
                 task.cancel()
 
     def _resolve_update_kind(self) -> str:
-        kind = self.project_type_selected or self.project_type
-        if not kind:
-            kind = self._get_selected_project_type()
+        # Schema-backed type wins; never prefer stale project_type_selected
+        # (e.g. after switching UD → WS in the schema combo, or create-project flips).
+        kind = self._get_selected_project_type() or self.project_type
         return str(kind or 'ws').lower()
 
     def _resolve_parent_context(self, parent_schema=None, parent_type=None):
@@ -2588,17 +2588,29 @@ class GwAdminButton:
         return schema_name
 
     def _get_selected_project_type(self) -> str:
-        if getattr(self, 'project_type', None):
-            return str(self.project_type).lower()
+        """Return project type for the currently selected schema (catalog/sys_version).
+
+        Must not short-circuit on stale self.project_type — that value lags until
+        _set_info_project runs, and sync handlers fire before it.
+        """
         schema_name = self._get_selected_schema_name()
         if not schema_name:
-            return str(getattr(self, 'project_type_selected', '') or '').lower()
+            return str(
+                getattr(self, 'project_type', None)
+                or getattr(self, 'project_type_selected', '')
+                or ''
+            ).lower()
         if self._admin_catalog_cache and self._admin_catalog_cache.sys_version_schemas:
             schemas = self._admin_catalog_cache.sys_version_schemas
         else:
             schemas = admin_catalog.fetch_sys_version_schemas()
         pt = admin_catalog.project_type_for_schema(schemas, schema_name)
-        return str(pt or getattr(self, 'project_type_selected', '') or '').lower()
+        return str(
+            pt
+            or getattr(self, 'project_type', None)
+            or getattr(self, 'project_type_selected', '')
+            or ''
+        ).lower()
 
     def _set_project_type_paths(self, project_type: str):
         self.project_type_selected = project_type
@@ -2821,9 +2833,7 @@ class GwAdminButton:
     def _read_info_version(self):
         """Load merged common + ws/ud changelogs for pending upgrade versions."""
 
-        kind = (self.project_type_selected or self.project_type or 'ws')
-        if kind:
-            kind = str(kind).lower()
+        kind = self._resolve_update_kind()
         if kind not in ('ws', 'ud'):
             tools_log.log_warning(
                 "Changelog preview only supported for ws/ud project types",
@@ -3031,6 +3041,8 @@ class GwAdminButton:
                 self.lbl_schema_name.setText('')
             else:
                 self.project_type = last_dict_info['project_type']
+                if self.project_type:
+                    self._set_project_type_paths(str(self.project_type).lower())
                 self.project_epsg = last_dict_info['project_epsg']
                 self.project_version = last_dict_info['project_version']
                 self.project_language = last_dict_info['project_language']
