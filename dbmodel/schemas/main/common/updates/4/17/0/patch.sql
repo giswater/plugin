@@ -191,6 +191,9 @@ UPDATE config_form_fields
 	SET "label"='Place name:'
 	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='place_name' AND "label"='place_name';
 
+UPDATE config_form_fields
+	SET tooltip='Date to'
+	WHERE tooltip='' OR tooltip IS NULL;
 
 CREATE OR REPLACE VIEW ve_om_visit AS
 SELECT

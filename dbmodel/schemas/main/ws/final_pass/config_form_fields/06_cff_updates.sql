@@ -403,3 +403,7 @@ UPDATE config_form_fields
 UPDATE config_form_fields
   SET "label" = 'Workcat id end:', tooltip = 'Workcat id end'
   WHERE "label" = 'Workcat id End:';
+
+UPDATE config_form_fields
+	SET tooltip='Date to'
+	WHERE tooltip='' OR tooltip IS NULL;

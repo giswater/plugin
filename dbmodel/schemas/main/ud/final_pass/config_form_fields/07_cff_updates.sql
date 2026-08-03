@@ -381,3 +381,7 @@ UPDATE config_form_fields
 UPDATE config_form_fields
 	SET "label"='Lab code'
 	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='lab_code' AND "label"='lab_code';
+
+UPDATE config_form_fields
+	SET tooltip='Date to'
+	WHERE tooltip='' OR tooltip IS NULL;
