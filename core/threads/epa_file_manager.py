@@ -532,7 +532,7 @@ class GwEpaFileManager(GwTask):
             return None
 
         tools_log.log_info("Execute EPA software (hydraulic_engine)")
-        self.step_completed.emit({"message": {"level": 1, "text": "Execute EPA software......"}}, "")
+        self.step_completed.emit({"message": {"level": 1, "text": "Execute EPA software......\n\n"}}, "")
 
         if self.file_rpt == "null":
             message = "You have to set this parameter"
