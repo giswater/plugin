@@ -360,16 +360,16 @@ BEGIN
       WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='head' AND tabname='tab_epa' AND "label"='Carga hidráulica:';
     UPDATE config_form_fields
       SET "label"='Emitter coefficient:',tooltip='Emitter coefficient'
-      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='emitter_coeff' AND tabname='tab_epa' AND "label"='Coeficiente de emisión:';
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='emitter_coeff' AND tabname='tab_epa' AND "label"='Coeficiente emisor:';
     UPDATE config_form_fields
       SET "label"='Emitter coefficient:',tooltip='Emitter coefficient'
-      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='emitter_coeff' AND tabname='tab_epa' AND "label"='Coeficiente de emisión:';
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='emitter_coeff' AND tabname='tab_epa' AND "label"='Coeficiente emisor:';
     UPDATE config_form_fields
-      SET "label"='Pattern ID:',tooltip='Pattern ID'
-      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='demand_pattern_id' AND tabname='tab_epa' AND "label"='Patrón de demanda:';
+      SET "label"='Pattern id:',tooltip='Pattern id'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='demand_pattern_id' AND tabname='tab_epa' AND "label"='Id del patrón:';
     UPDATE config_form_fields
-      SET "label"='Pattern ID:',tooltip='Pattern ID'
-      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='demand_pattern_id' AND tabname='tab_epa' AND "label"='Patrón de demanda:';
+      SET "label"='Pattern id:',tooltip='Pattern id'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='demand_pattern_id' AND tabname='tab_epa' AND "label"='Id del patrón:';
     UPDATE config_form_fields
       SET "label"='Demand:',tooltip='demand - Water demand'
       WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='demand' AND tabname='tab_epa' AND "label"='Demanda:';
