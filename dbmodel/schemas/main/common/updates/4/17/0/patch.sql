@@ -159,7 +159,7 @@ WHERE "parameter" = 'help_domain'
 
 DO $$
 BEGIN
-  IF lower((SELECT "language" FROM sys_version LIMIT 1)) NOT ILIKE 'es_%' THEN
+  IF lower((SELECT "language" FROM sys_version LIMIT 1)) NOT ILIKE 'es_%' OR (SELECT "language" FROM sys_version LIMIT 1) IS NULL THEN
     UPDATE sys_fprocess SET 
     except_msg = 'raingages with null values at least in the mandatory columns for the rain type (form_type, intvl, scf, rgage_type).',
     info_msg = 'The mandatory columns for the rain type (form_type, intvl, scf, rgage_type) have been checked and no values are missing.'
