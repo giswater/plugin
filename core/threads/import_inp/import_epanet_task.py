@@ -11,7 +11,7 @@ from typing import Any
 
 from qgis.PyQt.QtCore import pyqtSignal
 
-from ....libs import lib_vars, tools_db, tools_os
+from ....libs import lib_vars, tools_db, tools_os, tools_qt
 from ...utils import tools_gw
 from ..task import GwTask
 from ...utils.import_inp import lerp_progress, batched, get_row, get_rows, execute_sql, toolsdb_execute_values
@@ -104,17 +104,26 @@ class GwImportInpTask(GwTask):
             # Disable triggers except plan trigger
             self._enable_triggers(False, plan_trigger=True)
 
-            self.progress_changed.emit("Validate inputs", self.PROGRESS_INIT, "Validating inputs...", False)
+            message = "Validate inputs"
+            msg = "Validating inputs..."
+            self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_INIT, tools_qt.tr(msg), False)
             self._validate_inputs()
-            self.progress_changed.emit("Validate inputs", self.PROGRESS_VALIDATE, "done!", True)
+            msg = "done!"
+            self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_VALIDATE, tools_qt.tr(msg), True)
 
-            self.progress_changed.emit("Getting options", self.PROGRESS_VALIDATE, "Importing options...", False)
+            message = "Getting options"
+            msg = "Importing options..."
+            self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_VALIDATE, tools_qt.tr(msg), False)
             self._save_options()
-            self.progress_changed.emit("Getting options", self.PROGRESS_OPTIONS, "done!", True)
+            msg = "done!"
+            self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_OPTIONS, tools_qt.tr(msg), True)
 
-            self.progress_changed.emit("Getting options", self.PROGRESS_OPTIONS, "Getting units...", False)
+            message = "Getting options"
+            msg = "Getting units..."
+            self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_OPTIONS, tools_qt.tr(msg), False)
             self._get_units()
-            self.progress_changed.emit("Getting options", self.PROGRESS_OPTIONS, "done!", True)
+            msg = "done!"
+            self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_OPTIONS, tools_qt.tr(msg), True)
 
             self._manage_nonvisual()
 
@@ -123,29 +132,39 @@ class GwImportInpTask(GwTask):
             self._manage_visual()
 
             if self.update_municipality:
-                self.progress_changed.emit("Municipality", self.PROGRESS_VISUAL, "Updating municipality...", False)
+                message = "Municipality"
+                msg = "Updating municipality..."
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_VISUAL, tools_qt.tr(msg), False)
                 self._update_municipality()
-                self.progress_changed.emit("Municipality", self.PROGRESS_MUNICIPALITY, "done!", True)
+                msg = "done!"
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_MUNICIPALITY, tools_qt.tr(msg), True)
 
             if self.network.num_sources > 0:
-                self.progress_changed.emit("Sources", self.PROGRESS_MUNICIPALITY, "Importing sources...", False)
+                message = "Sources"
+                msg = "Importing sources..."
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_MUNICIPALITY, tools_qt.tr(msg), False)
                 self._save_sources()
-                self.progress_changed.emit("Sources", self.PROGRESS_SOURCES, "done!", True)
+                msg = "done!"
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_SOURCES, tools_qt.tr(msg), True)
 
             # Enable plan and topocontrol triggers
             self._enable_triggers(False, plan_trigger=True, geometry_trigger=True)
 
             if any(self.manage_nodarcs.values()):
-                self.progress_changed.emit("Nodarcs", self.PROGRESS_SOURCES, "Managing nodarcs (pumps/valves as nodes)...", False)
+                message = "Nodarcs"
+                msg = "Managing nodarcs (pumps/valves as nodes)..."
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_SOURCES, tools_qt.tr(msg), False)
                 log_str = self._manage_nodarcs()
-                self.progress_changed.emit("Nodarcs", self.PROGRESS_END, "done!", True)
-                self.progress_changed.emit("Nodarcs", self.PROGRESS_END, log_str, True)
+                msg = "done!"
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_END, tools_qt.tr(msg), True)
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_END, log_str, True)
 
             # Enable ALL triggers
             self._enable_triggers(True)
 
             execute_sql("select 1", commit=True, is_thread=True)
-            self.progress_changed.emit("", self.PROGRESS_END, "\n\nALL DONE! INP successfully imported.", True)
+            msg = "\n\nALL DONE! INP successfully imported."
+            self.progress_changed.emit("", self.PROGRESS_END, tools_qt.tr(msg), True)
             return True
         except Exception:
             self.exception = traceback.format_exc()
@@ -154,12 +173,16 @@ class GwImportInpTask(GwTask):
             return False
 
     def _manage_catalogs(self) -> None:
-        self.progress_changed.emit("Create catalogs", lerp_progress(0, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), "Creating workcat", True)
+        message = "Create catalogs"
+        msg = "Creating workcat..."
+        self.progress_changed.emit(tools_qt.tr(message), lerp_progress(0, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), tools_qt.tr(msg), True)
         if self.state != 2:
             self._create_workcat_id()
-        self.progress_changed.emit("Create catalogs", lerp_progress(10, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), "Creating demand dscenario", True)
+        msg = "Creating demand dscenario..."
+        self.progress_changed.emit(tools_qt.tr(message), lerp_progress(10, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), tools_qt.tr(msg), True)
         self._create_demand_dscenario()
-        self.progress_changed.emit("Create catalogs", lerp_progress(20, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), "Creating new node catalogs", True)
+        msg = "Creating new node catalogs..."
+        self.progress_changed.emit(tools_qt.tr(message), lerp_progress(20, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), tools_qt.tr(msg), True)
         self._create_new_node_catalogs()
 
         # Get existing catalogs in DB
@@ -167,9 +190,11 @@ class GwImportInpTask(GwTask):
         if cat_arc_ids:
             self.arccat_db += [x[0] for x in cat_arc_ids]
 
-        self.progress_changed.emit("Create catalogs", lerp_progress(50, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), "Creating new varc catalogs", True)
+        msg = "Creating new varc catalogs..."
+        self.progress_changed.emit(tools_qt.tr(message), lerp_progress(50, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), tools_qt.tr(msg), True)
         self._create_new_varc_catalogs()
-        self.progress_changed.emit("Create catalogs", lerp_progress(70, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), "Creating new pipe catalogs", True)
+        msg = "Creating new pipe catalogs..."
+        self.progress_changed.emit(tools_qt.tr(message), lerp_progress(70, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), tools_qt.tr(msg), True)
         self._create_new_pipe_catalogs()
 
         # Get man tables
@@ -178,47 +203,60 @@ class GwImportInpTask(GwTask):
             sql = f"SELECT feature_class FROM cat_feature WHERE id = '{v}';"
             row = get_row(sql, commit=self.force_commit, is_thread=True)
             if not row:
-                self._log_message(f"Feature class not found: {v}")
+                msg = "Feature class not found: {0}"
+                msg_params = (v,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             feature_class = row[0]
             self.man_tables[k] = f"man_{feature_class.lower()}"
 
     def _manage_nonvisual(self) -> None:
+        message = "Non-visual objects"
         if self.network.num_patterns > 0:
-            self.progress_changed.emit("Non-visual objects", lerp_progress(0, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), "Importing patterns", True)
+            msg = "Importing patterns..."
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(0, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), tools_qt.tr(msg), True)
             self._save_patterns()
 
         if self.network.num_curves > 0:
-            self.progress_changed.emit("Non-visual objects", lerp_progress(40, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), "Importing curves", True)
+            msg = "Importing curves..."
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(40, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), tools_qt.tr(msg), True)
             self._save_curves()
 
     def _manage_visual(self) -> None:
+        message = "Visual objects"
         if self.network.num_junctions > 0:
-            self.progress_changed.emit("Visual objects", lerp_progress(0, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing junctions", True)
+            msg = "Importing junctions..."
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(0, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_junctions()
 
         if self.network.num_reservoirs > 0:
-            self.progress_changed.emit("Visual objects", lerp_progress(30, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing reservoirs", True)
+            msg = "Importing reservoirs..."
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(30, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_reservoirs()
 
         if self.network.num_tanks > 0:
-            self.progress_changed.emit("Visual objects", lerp_progress(40, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing tanks", True)
+            msg = "Importing tanks..."
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(40, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_tanks()
 
         if self.network.num_pumps > 0:
-            self.progress_changed.emit("Visual objects", lerp_progress(50, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing pumps", True)
+            msg = "Importing pumps..."
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(50, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_pumps()
 
         if self.network.num_valves > 0:
-            self.progress_changed.emit("Visual objects", lerp_progress(60, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing valves", True)
+            msg = "Importing valves..."
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(60, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_valves()
 
         if self.network.num_pipes > 0:
-            self.progress_changed.emit("Visual objects", lerp_progress(70, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing pipes", True)
+            msg = "Importing pipes..."
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(70, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_pipes()
 
         if self.network.num_controls > 0:
-            self.progress_changed.emit("Visual objects", lerp_progress(90, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing controls and rules", True)
+            msg = "Importing controls and rules..."
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(90, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_controls_and_rules()
 
     def _enable_triggers(self, enable: bool, plan_trigger: bool = False, geometry_trigger: bool = False) -> None:
@@ -355,8 +393,12 @@ class GwImportInpTask(GwTask):
         template = "(%s, %s)"
 
         if self.debug_mode:
-            self._log_message("DEBUG: OPTIONS:")
-            self._log_message(f"DEBUG: {str(update_params)}")
+            msg = "DEBUG: OPTIONS:"
+            self._log_message(tools_qt.tr(msg))
+
+            msg = "DEBUG: {0}"
+            msg_params = (str(update_params),)
+            self._log_message(tools_qt.tr(msg, list_params=msg_params))
 
         # Execute batch update
         toolsdb_execute_values(sql, update_params, template, fetch=False, commit=self.force_commit)
@@ -522,7 +564,9 @@ class GwImportInpTask(GwTask):
                     VALUES (%s, %s, %s, %s);
                 """
                 if self.debug_mode:
-                    self._log_message(f"DEBUG: catalog: {catalog}, arctype_id: {arctype_id}, material: {material}, pipe_dint: {pipe_dint}")
+                    msg = "DEBUG: catalog: {0}, arctype_id: {1}, material: {2}, pipe_dint: {3}"
+                    msg_params = (catalog, arctype_id, material, pipe_dint)
+                    self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 execute_sql(
                     sql, (catalog, arctype_id, material, pipe_dint), commit=self.force_commit, is_thread=True
                 )
@@ -540,8 +584,8 @@ class GwImportInpTask(GwTask):
                     new_name = f"{pattern_name}_{i}"
                     if new_name in patterns_db:
                         continue
-                    message = f'The pattern "{pattern_name}" has been renamed to "{new_name}" to avoid a collision with an existing pattern.'
-                    self._log_message(message)
+                    message = 'The pattern "{0}" has been renamed to "{1}" to avoid a collision with an existing pattern.'
+                    self._log_message(tools_qt.tr(message, list_params=(pattern_name, new_name)))
                     self.mappings["patterns"][pattern_name] = new_name
                     pattern_name = new_name
                     break
@@ -574,8 +618,8 @@ class GwImportInpTask(GwTask):
 
         for curve_name, curve in self.network.curves.items():
             if curve.curve_type is None:
-                message = f'The "{curve_name}" curve does not have a specified curve type and was not imported.'
-                self._log_message(message)
+                message = 'The "{0}" curve does not have a specified curve type and was not imported.'
+                self._log_message(tools_qt.tr(message, list_params=(curve_name,)))
                 continue
 
             if curve_name in curves_db:
@@ -583,8 +627,8 @@ class GwImportInpTask(GwTask):
                     new_name = f"{curve_name}_{i}"
                     if new_name in curves_db:
                         continue
-                    message = f'The curve "{curve_name}" has been renamed to "{new_name}" to avoid a collision with an existing curve.'
-                    self._log_message(message)
+                    message = 'The curve "{0}" has been renamed to "{1}" to avoid a collision with an existing curve.'
+                    self._log_message(tools_qt.tr(message, list_params=(curve_name, new_name)))
                     self.mappings["curves"][curve_name] = new_name
                     curve_name = new_name
                     break
@@ -659,7 +703,9 @@ class GwImportInpTask(GwTask):
                 setting = value
             else:
                 setting = None
-                self._log_message(f'Could not write control {control_name} - skipping')
+                msg = "Could not write control {0} - skipping"
+                msg_params = (control_name,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
 
             return setting
 
@@ -682,7 +728,9 @@ class GwImportInpTask(GwTask):
                 else_actions = control_dict.get("else_actions", [])
 
                 if len(then_actions) != 1 or len(else_actions) != 0:
-                    self._log_message(f'Too many actions on CONTROL "{control_name}"')
+                    msg = "Too many actions on CONTROL '{0}'"
+                    msg_params = (control_name,)
+                    self._log_message(tools_qt.tr(msg, list_params=msg_params))
                     continue
 
                 control_action = control._then_actions[0]
@@ -731,15 +779,20 @@ class GwImportInpTask(GwTask):
                     elif isinstance(source_obj, Junction):
                         thresh_value = from_si(FlowUnits[self.db_units], threshold, HydParam.Pressure)
                     else:
-                        raise RuntimeError(f'Unknown control for EPANET INP files: {type(control)}')
+                        msg = "Unknown control for EPANET INP files: {0}"
+                        msg_params = (type(control),)
+                        raise RuntimeError(tools_qt.tr(msg, list_params=msg_params))
 
                     text = f"{link_type} {link_id} {setting} IF {node_type} {node_id} {compare} {thresh_value}"
                 else:
-                    raise RuntimeError(f'Unknown control for EPANET INP files: {type(control)}')
+                    msg = "Unknown control for EPANET INP files: {0}"
+                    msg_params = (type(control),)
+                    raise RuntimeError(tools_qt.tr(msg, list_params=msg_params))
 
                 if text in controls_db:
-                    msg = f"The control '{control_name}' is already on database. Skipping..."
-                    self._log_message(msg)
+                    msg = "The control '{0}' is already on database. Skipping..."
+                    msg_params = (control_name,)
+                    self._log_message(tools_qt.tr(msg, list_params=msg_params))
                     continue
 
                 sql = "INSERT INTO inp_controls (sector_id, text, active) VALUES (%s, %s, true)"
@@ -758,8 +811,9 @@ class GwImportInpTask(GwTask):
                 text += f"\nPRIORITY {priority}"
                 text = self._replace_codes_with_ids(text, req)
                 if text in rules_db:
-                    msg = f"The rule '{control_name}' is already on database. Skipping..."
-                    self._log_message(msg)
+                    msg = "The rule '{0}' is already on database. Skipping..."
+                    msg_params = (control_name,)
+                    self._log_message(tools_qt.tr(msg, list_params=msg_params))
                     continue
 
                 sql = "INSERT INTO inp_rules (sector_id, text, active) VALUES (%s, %s, true)"
@@ -863,9 +917,12 @@ class GwImportInpTask(GwTask):
             node_sql, node_params, node_template, fetch=True, commit=self.force_commit
         )
         if self.debug_mode:
-            self._log_message(f"DEBUG: {str(junctions)}")
+            msg = "DEBUG: {0}"
+            msg_params = (str(junctions),)
+            self._log_message(tools_qt.tr(msg, list_params=msg_params))
         if not junctions:
-            self._log_message("Junctions couldn't be inserted!")
+            msg = "Junctions couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = []
@@ -893,7 +950,9 @@ class GwImportInpTask(GwTask):
             if node_id is not None:
                 demands_params[i] = (demand_param[0], node_id, *demand_param[2:])
             else:
-                self._log_message(f"Node ID for {j_name} not found!")
+                msg = "Node ID for {0} not found!"
+                msg_params = (j_name,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
 
         # Insert into inp table
         toolsdb_execute_values(
@@ -980,9 +1039,12 @@ class GwImportInpTask(GwTask):
             node_sql, node_params, node_template, fetch=True, commit=self.force_commit
         )
         if self.debug_mode:
-            self._log_message(f"DEBUG: {str(reservoirs)}")
+            msg = "DEBUG: {0}"
+            msg_params = (str(reservoirs),)
+            self._log_message(tools_qt.tr(msg, list_params=msg_params)) 
         if not reservoirs:
-            self._log_message("Reservoirs couldn't be inserted!")
+            msg = "Reservoirs couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = []
@@ -1094,9 +1156,12 @@ class GwImportInpTask(GwTask):
             node_sql, node_params, node_template, fetch=True, commit=self.force_commit
         )
         if self.debug_mode:
-            self._log_message(f"DEBUG: {str(tanks)}")
+            msg = "DEBUG: {0}"
+            msg_params = (str(tanks),)
+            self._log_message(tools_qt.tr(msg, list_params=msg_params))
         if not tanks:
-            self._log_message("Tanks couldn't be inserted!")
+            msg = "Tanks couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = []
@@ -1174,7 +1239,9 @@ class GwImportInpTask(GwTask):
                 node_1 = self.node_ids[p.start_node_name]
                 node_2 = self.node_ids[p.end_node_name]
             except KeyError as e:
-                self._log_message(f"Node not found: {e}")
+                msg = "Node not found: {0}"
+                msg_params = (e,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             epa_type = "VIRTUALPUMP"
             expl_id = self.exploitation
@@ -1220,9 +1287,12 @@ class GwImportInpTask(GwTask):
             arc_sql, arc_params, arc_template, fetch=True, commit=self.force_commit
         )
         if self.debug_mode:
-            self._log_message(f"DEBUG: {str(pumps)}")
+            msg = "DEBUG: {0}"
+            msg_params = (str(pumps),)
+            self._log_message(tools_qt.tr(msg, list_params=msg_params))
         if not pumps:
-            self._log_message("Pumps couldn't be inserted!")
+            msg = "Pumps couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = []
@@ -1290,7 +1360,9 @@ class GwImportInpTask(GwTask):
                 node_1 = self.node_ids[v.start_node_name]
                 node_2 = self.node_ids[v.end_node_name]
             except KeyError as e:
-                self._log_message(f"Node not found: {e}")
+                msg = "Node not found: {0}"
+                msg_params = (e,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
 
             valve_type = v.valve_type.lower()
@@ -1336,7 +1408,8 @@ class GwImportInpTask(GwTask):
             arc_sql, arc_params, arc_template, fetch=True, commit=self.force_commit
         )
         if not valves:
-            self._log_message("Valves couldn't be inserted!")
+            msg = "Valves couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = {}
@@ -1413,7 +1486,9 @@ class GwImportInpTask(GwTask):
                 node_1 = self.node_ids[p.start_node_name]
                 node_2 = self.node_ids[p.end_node_name]
             except KeyError as e:
-                self._log_message(f"Node not found: {e}")
+                msg = "Node not found: {0}"
+                msg_params = (e,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             arccat_id = self.catalogs["pipes"][(round(p.diameter * 1000, 0), p.roughness)]
             epa_type = "PIPE"
@@ -1456,9 +1531,12 @@ class GwImportInpTask(GwTask):
             arc_sql, arc_params, arc_template, fetch=True, commit=self.force_commit
         )
         if self.debug_mode:
-            self._log_message(f"DEBUG: {str(pipes)}")
+            msg = "DEBUG: {0}"
+            msg_params = (str(pipes),)
+            self._log_message(tools_qt.tr(msg, list_params=msg_params))
         if not pipes:
-            self._log_message("Pipes couldn't be inserted!")
+            msg = "Pipes couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = []
@@ -1481,7 +1559,9 @@ class GwImportInpTask(GwTask):
                  )
             )
             if self.debug_mode:
-                self._log_message(f"DEBUG: {str(inp_params)}")
+                msg = "DEBUG: {0}"
+                msg_params = (str(inp_params),)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
 
         # Insert into inp table
         toolsdb_execute_values(
@@ -1507,7 +1587,9 @@ class GwImportInpTask(GwTask):
             params = (node_name,)
             row = get_row(sql, params, commit=self.force_commit, is_thread=True)
             if not row:
-                self._log_message(f"Couldn't find node '{node_name}' for source '{s_name}'.")
+                msg = "Couldn't find node '{0}' for source '{1}'."
+                msg_params = (node_name, s_name)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             node_id, epa_type = row
 
@@ -1536,8 +1618,8 @@ class GwImportInpTask(GwTask):
             body = tools_gw.create_body(extras=extras)
             json_result = tools_gw.execute_procedure(fct_name, body, commit=self.force_commit, is_thread=True)
             if not json_result or json_result.get('status') != 'Accepted':
-                message = f"Error executing {fct_name} - {json_result.get('message')}"
-                raise ValueError(message)
+                message = "Error executing {0} - {1}"
+                raise ValueError(message.format(fct_name, json_result.get('message')))
             try:
                 if json_result['body']['data']['info']:
                     info = json_result['body']['data']['info']

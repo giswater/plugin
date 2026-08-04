@@ -62,8 +62,9 @@ class GwComposerPages(GwTask):
                 if formtabs['tableName'] != 'selector_psector':
                     continue
                 if self.atlas.count() != len(formtabs['fields']):
-                    msg = f"The number of pages in your composition does not match the number of psectors. ({self.atlas.count()} != {len(formtabs['fields'])})"
-                    tools_qgis.show_warning(msg)
+                    msg = "The number of pages in your composition does not match the number of psectors. ({0} != {1})"
+                    msg_params = (self.atlas.count(), len(formtabs['fields']))
+                    tools_qgis.show_warning(msg, msg_params=msg_params)
                     return False
                 psectors_list = formtabs['fields']
 
