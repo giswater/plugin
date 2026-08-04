@@ -31,6 +31,8 @@ from ..threads.task import GwTask
 from ..ui.ui_manager import GwAdminUi, GwAdminDbProjectUi, GwAdminRenameProjUi, GwAdminProjectInfoUi, \
     GwAdminFieldsUi, GwCredentialsUi, GwReplaceInFileUi, \
     GwAdminMarkdownGeneratorUi  # noqa: F401
+    
+from .i18n_languages import GwI18NManageLanguagesDialog
 
 from ..utils import tools_gw
 from ... import global_vars
@@ -456,7 +458,7 @@ class GwAdminButton:
     ) -> None:
         """Wire am into a WS parent schema."""
         msg = (
-            "You are about to integrate am with the following WS schema: {0}\n\n"
+            "You are about to integrate AM with the following WS schema: {0}\n\n"
             "Are you sure you want to continue?"
         )
         msg_params = (parent_schema,)
@@ -819,9 +821,8 @@ class GwAdminButton:
     def _set_cm_pschema_qgis(self):
         """Flag the next QGIS project creation as a CM project."""
         self.is_cm_project = True
-        tools_qgis.show_info(
-            tools_qt.tr("Layer of CM project will be added to the project when create"),
-        )
+        msg = "Layer of CM project will be added to the project when create"
+        tools_qgis.show_info(msg)
 
     def _get_cm_schema_name(self):
         """
@@ -1304,6 +1305,9 @@ class GwAdminButton:
 
         # Get combo locale
         self.cmb_locale = self.dlg_readsql_create_project.findChild(QComboBox, 'cmb_locale')
+        tools_gw.add_icon(self.dlg_readsql_create_project.btn_language, "184")
+        msg = "Manage languages"
+        self.dlg_readsql_create_project.btn_language.setToolTip(tools_qt.tr(msg))
 
         # Populate combo with all locales
         status, sqlite_cur = tools_gw.create_sqlite_conn("locales")
@@ -1619,7 +1623,8 @@ class GwAdminButton:
         ignore_widgets = _admin_connection_ignore_widgets()
         tools_qt.enable_dialog(self.dlg_readsql, False, ignore_widgets)
         self._clear_project_schema_combo()
-        tools_qt.set_widget_text(self.dlg_readsql, 'lbl_status_text', tools_qt.tr('Connecting...'))
+        msg = "Connecting..."
+        tools_qt.set_widget_text(self.dlg_readsql, 'lbl_status_text', tools_qt.tr(msg))
         tools_qt.set_widget_text(self.dlg_readsql, 'lbl_schema_name', '')
 
     def _apply_connection_failure(self, message, close_for_credentials=False, connection_name=None):
@@ -1968,6 +1973,7 @@ class GwAdminButton:
         force = bool(getattr(self, "_i18n_provision_after_load", False))
         self._i18n_provision_after_load = False
         self._ensure_language_packages_for_connection(force=force)
+        tools_gw.add_giswater_language_menu()
 
     def _finalize_admin_permissions_and_status(self):
         message = ''
@@ -2262,8 +2268,9 @@ class GwAdminButton:
             tools_qt.fill_combo_values(self.cmb_connection, self.list_connections)
         tools_qt.set_combo_value(self.cmb_connection, str(last_connection), 1)
 
-        window_title = f'Giswater ({self.plugin_version})'
-        self.dlg_readsql.setWindowTitle(window_title)
+        title = 'Giswater ({0})'
+        title_params = (self.plugin_version,)
+        self.dlg_readsql.setWindowTitle(tools_qt.tr(title, list_params=title_params))
 
         folder_path = tools_gw.get_config_parser(
             "btn_admin", "custom_sql_path", "user", "session", force_reload=True
@@ -2867,6 +2874,40 @@ class GwAdminButton:
         # context exists, so we point at the project-type-agnostic common tree.
         self.folder_locale = os.path.join(self.sql_dir, 'schemas', 'main', 'common')
 
+    def _open_language_dialog(self):
+        """Open language dialog"""
+        dlg = getattr(self, 'dlg_i18n_languages', None)
+        if dlg is not None and not isdeleted(dlg) and dlg.isVisible():
+            tools_gw.focus_open_dialog(dlg)
+            return
+
+        dlg = GwI18NManageLanguagesDialog(self, parent=self.dlg_readsql_create_project)
+        dlg.init_dialog()
+        self.dlg_i18n_languages = dlg
+
+    def _populate_language_combo_create_project(self):
+        """Populate language combo for create project"""
+        self.cmb_locale.clear()
+        status, cursor = tools_gw.create_sqlite_conn("locales")
+        if not status or cursor is None:
+            msg = "Config database file not found"
+            tools_qgis.show_warning(self.dlg_readsql_create_project, msg)
+            return
+        cursor.execute("SELECT locale, name FROM locales WHERE active = 1 ORDER BY name")
+        rows = [[locale, name] for locale, name in cursor.fetchall()]
+        if not rows:
+            msg = "No active locales configured"
+            tools_qgis.show_warning(self.dlg_readsql_create_project, msg)
+            return
+        if global_vars.gw_dev_mode is True:
+            rows.append(["no_TR", "Harcoded (No translation)"])
+        tools_qt.fill_combo_values(self.cmb_locale, rows)
+        language = tools_gw.get_config_parser(
+            'i18n_generator', 'qm_lang_language', "user", "session", False,
+        )
+        if language:
+            tools_qt.set_combo_value(self.cmb_locale, language, 0, add_new=False)
+
     def _populate_data_schema_name(self, widget=None):
         """Fill project schema combo from cached catalog or pg_catalog."""
 
@@ -2970,8 +3011,9 @@ class GwAdminButton:
             # Still show connection versions when the form is disabled (q8)
             if getattr(self, 'software_version_info', None) is not None:
                 self.software_version_info.setText(versions_msg)
-            window_title = f'Giswater ({self.plugin_version})'
-            self.dlg_readsql.setWindowTitle(window_title)
+            title = 'Giswater ({0})'
+            title_params = (self.plugin_version,)
+            self.dlg_readsql.setWindowTitle(tools_qt.tr(title, list_params=title_params))
             return
 
         if schema_name == 'null':
@@ -3029,8 +3071,9 @@ class GwAdminButton:
                 self.schema_name = schema_name
 
         # Update windowTitle
-        window_title = f'Giswater ({self.plugin_version})'
-        self.dlg_readsql.setWindowTitle(window_title)
+        title = 'Giswater ({0})'
+        title_params = (self.plugin_version,)
+        self.dlg_readsql.setWindowTitle(tools_qt.tr(title, list_params=title_params))
 
     def _set_schema_crud_visible(self, visible: bool):
         for name in _SCHEMA_CRUD_BUTTONS:
@@ -3088,6 +3131,7 @@ class GwAdminButton:
         self.cmb_create_project_type.currentIndexChanged.connect(
             lambda _index=None: self._apply_dev_project_name())
         self.cmb_locale.currentIndexChanged.connect(partial(self._update_locale))
+        self.dlg_readsql_create_project.btn_language.clicked.connect(partial(self._open_language_dialog))
         self.filter_srid.textChanged.connect(partial(self._filter_srid_changed))
         for radio in (self.rdb_empty, self.rdb_sample_inv, self.rdb_sample_full):
             if radio is not None:
@@ -3144,7 +3188,9 @@ class GwAdminButton:
         self._update_time_elapsed("", self.dlg_readsql_create_project)
 
         # Open dialog
-        self.dlg_readsql_create_project.setWindowTitle(f"Create Project - {self.connection_name}")
+        title = "Create Project - {0}"
+        title_params = (self.connection_name,)
+        self.dlg_readsql_create_project.setWindowTitle(tools_qt.tr(title, list_params=title_params))
         tools_gw.open_dialog(self.dlg_readsql_create_project, dlg_name='admin_dbproject')
 
     def _open_create_cm_project(self):
@@ -3192,7 +3238,9 @@ class GwAdminButton:
         self.dlg_readsql_rename.key_escape.connect(partial(tools_gw.close_dialog, self.dlg_readsql_rename))
 
         # Open dialog
-        self.dlg_readsql_rename.setWindowTitle(f'Rename project - {schema}')
+        title = 'Rename project - {0}'
+        title_params = (schema,)
+        self.dlg_readsql_rename.setWindowTitle(tools_qt.tr(title, list_params=title_params))
         self.dlg_readsql_rename.schema_rename_copy.setText(schema)
         tools_gw.open_dialog(self.dlg_readsql_rename, dlg_name='admin_renameproj')
 
@@ -3340,7 +3388,9 @@ class GwAdminButton:
         self.dlg_readsql_copy.key_escape.connect(partial(tools_gw.close_dialog, self.dlg_readsql_copy))
 
         # Open dialog
-        self.dlg_readsql_copy.setWindowTitle('Copy project - ' + schema)
+        title = 'Copy project - {0}'
+        title_params = (schema,)
+        self.dlg_readsql_copy.setWindowTitle(tools_qt.tr(title, list_params=title_params))
         tools_gw.open_dialog(self.dlg_readsql_copy, dlg_name='admin_renameproj')
 
     def _copy_project_start(self, schema):
@@ -3425,7 +3475,10 @@ class GwAdminButton:
                 if refresh:
                     refresh()
             else:
-                tools_qt.show_info_box(f"Delete schema failed: {fx.error}", "Error")
+                title = "Error"
+                msg = "Delete schema failed: {0}"
+                msg_params = (fx.error,)
+                tools_qt.show_info_box(msg, title, msg_params=msg_params)
 
     def _multilang_stored_seeded_schemas(self) -> set[str]:
         """Project types recorded at last multilang seed (prefer addparam)."""
@@ -3756,27 +3809,27 @@ class GwAdminButton:
         form_name_fields = tools_qt.get_text(self.dlg_readsql, self.dlg_readsql.cmb_formname_fields)
         is_multi_addfield = tools_qt.is_checked(self.dlg_readsql, self.dlg_readsql.chk_add_fields_multi)
 
-        window_title = ""
+        title = ""
         title_params = None
         if action == 'create':
             if is_multi_addfield:
-                window_title = 'Create multi field'
+                title = 'Create multi field'
             else:
-                window_title = 'Create field on "{0}"'
+                title = 'Create field on "{0}"'
                 title_params = (str(form_name_fields),)
             self._manage_create_field(form_name_fields, is_multi_addfield)
         elif action == 'update':
             if is_multi_addfield:
-                window_title = 'Update multi field'
+                title = 'Update multi field'
             else:
-                window_title = 'Update field on "{0}"'
+                title = 'Update field on "{0}"'
                 title_params = (str(form_name_fields),)
             self._manage_update_field(self.dlg_manage_fields, form_name_fields, is_multi_addfield, tableview='ve_config_addfields')
         elif action == 'delete':
             if is_multi_addfield:
-                window_title = 'Delete multi field'
+                title = 'Delete multi field'
             else:
-                window_title = 'Delete field on "{0}"'
+                title = 'Delete field on "{0}"'
                 title_params = (str(form_name_fields),)
             self._manage_delete_field(form_name_fields, is_multi_addfield)
 
@@ -3790,7 +3843,7 @@ class GwAdminButton:
             partial(self._update_selected_addfild, self.dlg_manage_fields.tbl_update, is_multi_addfield))
 
         tools_gw.open_dialog(self.dlg_manage_fields, dlg_name='admin_addfields')
-        self.dlg_manage_fields.setWindowTitle(tools_qt.tr(window_title, list_params=title_params))
+        self.dlg_manage_fields.setWindowTitle(tools_qt.tr(title, list_params=title_params))
 
     def _update_selected_addfild(self, widget, is_multi_addfield):
         """"""
@@ -3823,11 +3876,14 @@ class GwAdminButton:
                 tools_qt.remove_tab(self.dlg_manage_fields.tab_add_fields,
                                                self.dlg_manage_fields.tab_add_fields.widget(x).objectName())
 
+        title = None
+        title_params = None
         if is_multi_addfield:
-                window_title = 'Update multi field'
+            title = 'Update multi field'
         else:
-            window_title = 'Update field on "' + str(form_name_fields) + '"'
-        self.dlg_manage_fields.setWindowTitle(window_title)
+            title = 'Update field on "{0}"'
+            title_params = (str(form_name_fields),)
+        self.dlg_manage_fields.setWindowTitle(tools_qt.tr(title, list_params=title_params))
         self._manage_create_field(form_name_fields, is_multi_addfield)
 
         row = selected_list[0].row()
@@ -4027,7 +4083,8 @@ class GwAdminButton:
                     f"WHERE parameter = 'admin_config_control_trigger'")
                 tools_db.execute_sql(sql)
                 return
-            self._manage_json_message(json_result, parameter="Field configured in 'config_form_fields'")
+            msg = "Field configured in 'config_form_fields'"
+            self._manage_json_message(json_result, parameter=msg)
 
         elif action == 'update':
 
@@ -4068,7 +4125,8 @@ class GwAdminButton:
 
             # Execute manage add fields function
             json_result = tools_gw.execute_procedure('gw_fct_admin_manage_addfields', body, schema_name)
-            self._manage_json_message(json_result, parameter="Field update in 'config_form_fields'")
+            msg = "Field update in 'config_form_fields'"
+            self._manage_json_message(json_result, parameter=msg)
             if not json_result or json_result['status'] == 'Failed':
                 return
 
@@ -4090,7 +4148,8 @@ class GwAdminButton:
 
             # Execute manage add fields function
             json_result = tools_gw.execute_procedure('gw_fct_admin_manage_addfields', body, schema_name)
-            self._manage_json_message(json_result, parameter="Delete function")
+            msg = "Delete function"
+            self._manage_json_message(json_result, parameter=msg)
 
         # set admin_config_control_trigger with prev user value
         sql = (f"UPDATE {schema_name}.config_param_system "
@@ -4291,9 +4350,8 @@ class GwAdminButton:
         self.dlg_readsql.btn_create_asset.setEnabled(
             project_type == "ws" and schema_name != "null" and not am_exists
         )
-        self.dlg_readsql.btn_create_asset.setToolTip(
-            tools_qt.tr("Open Manage Schemas to create and integrate am")
-        )
+        msg = "Open Manage Schemas to create and integrate am"
+        self.dlg_readsql.btn_create_asset.setToolTip(tools_qt.tr(msg))
         self.dlg_readsql.btn_update_asset.setEnabled(am_exists)
         self.dlg_readsql.btn_delete_asset.setEnabled(am_exists)
 
@@ -4435,14 +4493,17 @@ class GwAdminButton:
             self.dlg_readsql, self.dlg_readsql.cmb_utils_ws, return_string_null=False
         )
         if not ws:
-            tools_qgis.show_message("Select a WS schema to integrate.", Qgis.MessageLevel.Info)
+            msg = "Select a WS schema to integrate."
+            tools_qgis.show_message(msg, Qgis.MessageLevel.Info)
             return
         if not admin_catalog.schema_exists('utils'):
-            tools_qgis.show_message("Utils schema does not exist. Create it first.", Qgis.MessageLevel.Info)
+            msg = "Utils schema does not exist. Create it first."
+            tools_qgis.show_message(msg, Qgis.MessageLevel.Info)
             return
         row = tools_db.get_row(f"SELECT {ws}.gw_fct_admin_satellite_enabled('utils')")
         if row and row[0] is True:
-            tools_qgis.show_message("Selected schema is already integrated with utils.", Qgis.MessageLevel.Info)
+            msg = "Selected schema is already integrated with utils."
+            tools_qgis.show_message(msg, Qgis.MessageLevel.Info)
             return
         self._run_create_utils_task('integrate_ws', 'Integrate utils with WS', ws_schema=ws)
 
@@ -4451,21 +4512,24 @@ class GwAdminButton:
             self.dlg_readsql, self.dlg_readsql.cmb_utils_ud, return_string_null=False
         )
         if not ud:
-            tools_qgis.show_message("Select a UD schema to integrate.", Qgis.MessageLevel.Info)
+            msg = "Select a UD schema to integrate."
+            tools_qgis.show_message(msg, Qgis.MessageLevel.Info)
             return
         if not admin_catalog.schema_exists('utils'):
-            tools_qgis.show_message("Utils schema does not exist. Create it first.", Qgis.MessageLevel.Info)
+            msg = "Utils schema does not exist. Create it first."
+            tools_qgis.show_message(msg, Qgis.MessageLevel.Info)
             return
         row = tools_db.get_row(f"SELECT {ud}.gw_fct_admin_satellite_enabled('utils')")
         if row and row[0] is True:
-            tools_qgis.show_message("Selected schema is already integrated with utils.", Qgis.MessageLevel.Info)
+            msg = "Selected schema is already integrated with utils."
+            tools_qgis.show_message(msg, Qgis.MessageLevel.Info)
             return
         self._run_create_utils_task('integrate_ud', 'Integrate utils with UD', ud_schema=ud)
 
     def _create_cibs(self):
 
         if self._cibs_schema_exists():
-            msg = "Schema cibs already exist."
+            msg = "Schema cibs already exists."
             tools_qgis.show_message(msg, Qgis.MessageLevel.Info)
             return
 
@@ -4485,7 +4549,7 @@ class GwAdminButton:
         self.cibs_project_name, self.cibs_project_result, self.cibs_project_type = schema_info
 
         if not self._cibs_schema_exists():
-            msg = "cibs schema does not exist. Create it first."
+            msg = "Cibs schema does not exist. Create it first."
             if lib_vars.session_vars.get("message_parent"):
                 tools_qt.show_info_box(msg, "Info")
             else:
@@ -4496,7 +4560,7 @@ class GwAdminButton:
                f"WHERE parameter = 'admin_cibs_schema'")
         row = tools_db.get_row(sql)
         if row and row[0] is True:
-            msg = "Selected schema is already adapted to cibs"
+            msg = "Selected schema is already adapted to cibs."
             if lib_vars.session_vars.get("message_parent"):
                 tools_qt.show_info_box(msg, "Info")
             else:
@@ -4571,7 +4635,8 @@ class GwAdminButton:
     def _create_i18n(self, manage_schemas_dlg=None):
         """Create multilang schema and seed en_US baseline translations."""
         if admin_catalog.schema_exists('multilang'):
-            tools_qgis.show_message("Schema multilang already exists.", Qgis.MessageLevel.Info)
+            msg = "Schema multilang already exists."
+            tools_qgis.show_message(msg, Qgis.MessageLevel.Info)
             return False
         from .i18n_baseline_seed import invalidate_baseline_fingerprint_cache
         invalidate_baseline_fingerprint_cache(self.sql_dir)
@@ -4608,7 +4673,8 @@ class GwAdminButton:
         self.timer = QTimer()
         self.timer.start(1000)
 
-        desc = description or "Create multilang schema"
+        msg = "Create multilang schema"
+        desc = description or tools_qt.tr(msg)
         task = GwMultilangSchemaTask(
             self,
             params,
@@ -4642,9 +4708,10 @@ class GwAdminButton:
             sql_root=self.sql_dir,
         )
         callback = on_done if on_done is not None else partial(self._on_builder_done_other_update, 'multilang')
+        msg = "Update multilang schema"
         self._submit_multilang_task(
             bp,
-            description="Update multilang schema",
+            description=tools_qt.tr(msg),
             on_done=callback,
             manage_schemas_dlg=manage_schemas_dlg,
         )
@@ -4666,10 +4733,11 @@ class GwAdminButton:
             sql_root=self.sql_dir,
         )
         callback = on_done if on_done is not None else partial(self._on_builder_done_other_update, 'cibs')
+        msg = "Update cibs schema"
         self._submit_builder(
             'cibs',
             bp,
-            description="Update cibs schema",
+            description=tools_qt.tr(msg),
             on_done=callback,
         )
 
@@ -4693,10 +4761,11 @@ class GwAdminButton:
             sql_root=self.sql_dir,
         )
         callback = on_done if on_done is not None else partial(self._on_builder_done_other_update, 'audit')
+        msg = "Update audit schema"
         self._submit_builder(
             'audit',
             bp,
-            description="Update audit schema",
+            description=tools_qt.tr(msg),
             on_done=callback,
         )
 
@@ -4732,8 +4801,9 @@ class GwAdminButton:
             sql_root=self.sql_dir,
         )
         callback = on_done if on_done is not None else partial(self._on_builder_done_other_update, 'am')
+        msg = "Update am schema"
         self._submit_builder('am', bp,
-                             description="Update am schema",
+                             description=tools_qt.tr(msg),
                              on_done=callback)
 
     def _update_cm(self, parent_schema=None, parent_type=None, cm_schema=None, on_done=None):
@@ -4760,8 +4830,9 @@ class GwAdminButton:
             sql_root=self.sql_dir,
         )
         callback = on_done if on_done is not None else partial(self._on_builder_done_other_update, 'cm')
+        msg = "Update cm schema"
         self._submit_builder('cm', bp,
-                             description="Update cm schema",
+                             description=tools_qt.tr(msg),
                              on_done=callback)
 
     def _on_builder_done_other_update(self, schema_name, result):

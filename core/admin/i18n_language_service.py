@@ -476,7 +476,7 @@ def download_language_files(
         return False, "zip", error or tools_qt.tr(msg)
     ok, error = extract_language_zip(zip_data)
     if not ok:
-        msg = "Could not extract language files"
+        msg = "Could not extract language files: Unknown error"
         return False, "zip", error or tools_qt.tr(msg)
     return True, None, None
 

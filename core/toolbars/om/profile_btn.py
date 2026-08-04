@@ -394,7 +394,11 @@ class GwProfileButton(GwAction):
             else:
                 if self.element_id == str(self.initNode) or self.element_id == str(self.endNode) \
                         or self.element_id in [str(x) for x in self.add_points_list]:
-                    msg = "Node already selected" if snapped_node else "Arc already selected"
+                    msg = ""
+                    if snapped_node:
+                        msg = "Node already selected"
+                    else:
+                        msg = "Arc already selected"
                     param = element_id
                     tools_qgis.show_warning(msg, parameter=param)
                     if not self.add_points:

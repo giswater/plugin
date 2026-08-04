@@ -529,7 +529,13 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
                 if not self._set_locale_active(locale, False):
                     return
                 self._update_locale_state(locale, active=False, version=None)
-                self._manager._populate_language_combo(mode="hot_update")
+
+                # Populate language combo for hot update and create project
+                if hasattr(self._manager, "_populate_language_combo"):
+                    self._manager._populate_language_combo(mode="hot_update")
+                if hasattr(self._manager, "_populate_language_combo_create_project"):
+                    self._manager._populate_language_combo_create_project()
+                    
                 msg = "Language files deleted and locale deactivated ({0})."
                 msg_params = (locale,)
                 tools_qt.show_info_box(msg, msg_params=msg_params)
@@ -554,7 +560,13 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
         if not self._set_locale_active(locale, True, version=version):
             return
         self._update_locale_state(locale, active=True, version=version)
-        self._manager._populate_language_combo(mode="hot_update")
+
+        # Populate language combo for hot update and create project
+        if hasattr(self._manager, "_populate_language_combo"):
+            self._manager._populate_language_combo(mode="hot_update")
+        if hasattr(self._manager, "_populate_language_combo_create_project"):
+            self._manager._populate_language_combo_create_project()
+
         if not force:
             msg = "Language files downloaded and locale activated ({0})."
             msg_params = (locale,)

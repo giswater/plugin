@@ -197,7 +197,7 @@
            <item row="0" column="5">
             <widget class="QPushButton" name="btn_change_team">
              <property name="text">
-              <string>Cambiar equipo</string>
+              <string>Change team</string>
              </property>
             </widget>
            </item>
@@ -225,7 +225,7 @@
            <item row="0" column="0">
             <widget class="QLabel" name="lbl_user">
              <property name="text">
-              <string>Usuario:</string>
+              <string>User:</string>
              </property>
             </widget>
            </item>
@@ -251,7 +251,7 @@
            <item row="0" column="2">
             <widget class="QLabel" name="lbl_campaign">
              <property name="text">
-              <string>Campaña:</string>
+              <string>Campaign:</string>
              </property>
             </widget>
            </item>

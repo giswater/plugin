@@ -509,7 +509,8 @@ def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, hide_config_w
     """ Open dialog """
     # Check database connection before opening dialog
     if dlg_name not in ('admin_credentials', 'admin', 'load_menu') and not check_db_connection():
-        tools_qgis.show_warning("Database connection is not available")
+        msg = "Database connection is not available"
+        tools_qgis.show_warning(msg)
         return
 
     # Manage translate
@@ -7154,6 +7155,13 @@ def create_giswater_menu(project_loaded=False):
     if global_vars.load_project_menu is None:
         global_vars.load_project_menu = GwMenuLoad()
     global_vars.load_project_menu.read_menu(project_loaded)
+
+
+def add_giswater_language_menu():
+    """Add Language entry to the Giswater menu when a database connection is active."""
+    if global_vars.load_project_menu is None:
+        return
+    global_vars.load_project_menu._add_language_menu()
 
 
 def unset_giswater_menu():

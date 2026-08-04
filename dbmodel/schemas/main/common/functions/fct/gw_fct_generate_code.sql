@@ -48,7 +48,7 @@ BEGIN
         INTO v_entity
         FROM cat_feature cf
         WHERE cf.id = p_class
-          AND cf.code_autofill IS TRUE;
+          AND cf.custom_code_autofill IS TRUE;
 
     ELSIF p_context = 'mapzone' THEN
 
@@ -56,7 +56,7 @@ BEGIN
         INTO v_entity
         FROM config_mapzones cm
         WHERE cm.id = p_class
-          AND cm.code_autofill IS TRUE;
+          AND cm.custom_code_autofill IS TRUE;
 
     ELSE
         RETURN NULL;

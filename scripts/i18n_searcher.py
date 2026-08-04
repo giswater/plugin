@@ -6,7 +6,7 @@ Workflow (CI)::
   1. GET  /api/i18n/messages          — full i18n baseline in one call (no query params)
   2. Read origin schemas (PostgreSQL) — ws_trans, ud_trans, etc.
   3. Classify new / changed / deleted rows
-  4. POST /api/i18n/clear_pending_detections — clear prior pending rows (body: {})
+  4. POST /api/i18n/clear_pending_detections — clear prior pending rows (body: {detected_version})
   5. POST /api/i18n/cat_*_text        — upload detections (see docs/post-detections.md)
 
 Authentication uses the same cookie session as scripts/i18n_export_zips.py.
@@ -72,8 +72,10 @@ _KEYS: tuple[str, ...] = tuple(
 )
 # "message" must precede "msg" so "message = ..." is not treated as msg.
 _FIELD_LINE_RE = re.compile(r"^(message|msg|title)\s*=")
+_ASSIGN_PREFIX_RE = re.compile(r"^(message|msg|title)\s*=\s*")
 _FSTRING_LITERAL_RE = re.compile(r'f["\']')
-_QUOTED_SEGMENTS_RE = re.compile(r"(['\"])(.*?)\1")
+# Prefer triple quotes so """...""" / '''...''' are one segment, not empty "".
+_QUOTED_SEGMENTS_RE = re.compile(r'("""|\'\'\'|["\'])(.*?)\1', re.DOTALL)
 _TAG_TEXT_RE = re.compile(r">(.*?)<")
 _TAG_ACTION_BLOCK_RE = re.compile(r'<action name="([^"]+)">(.*?)</action>', re.DOTALL)
 _TAG_PROPERTY_TEXT_RE = re.compile(r'<property name="text">\s*<string>(.*?)</string>', re.DOTALL)
@@ -375,12 +377,6 @@ def _read_stripped_lines(file_path: Path) -> Optional[list[str]]:
         return None
 
 
-def _search_for_lines(message: str) -> list[str]:
-    if "\\n" in message:
-        return message.split("\\n")
-    return [message]
-
-
 def _contains_fstring_literal(text: str) -> bool:
     """True when the assignment uses an f-string literal (must not be translated as-is)."""
     return bool(_FSTRING_LITERAL_RE.search(text))
@@ -396,19 +392,36 @@ def _parse_field_from_key(key: str) -> str:
     return "msg"
 
 
-def _extract_key_for(key: str) -> str:
-    field = _parse_field_from_key(key)
-    if "(" in key:
-        return f'{field} = "'
-    return key
+def _wrap_assignment_text(field_name: str, text: str) -> str:
+    """Wrap extracted text so embedded quotes do not break later parsing."""
+    if '"""' in text and "'''" in text:
+        escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+        return f'{field_name} = "{escaped}"'
+    if '"""' in text:
+        return f"{field_name} = '''{text}'''"
+    return f'{field_name} = """{text}"""'
+
+
+def _extract_python_assignment_message(content: str) -> Optional[str]:
+    """Extract one whole message from a msg/message/title assignment.
+
+    Keeps embedded newlines / ``\\n`` escapes as part of the same message
+    (including parenthesized concatenations and triple-quoted literals).
+    """
+    match = _ASSIGN_PREFIX_RE.match(content)
+    if not match:
+        return None
+    rhs = content[match.end():]
+    if not rhs:
+        return None
+
+    segments = _QUOTED_SEGMENTS_RE.findall(rhs)
+    if not segments:
+        return None
+    return "".join(part for _quote, part in segments)
 
 
 _FIELD_BY_KEY = {key: _parse_field_from_key(key) for key in _KEYS}
-_EXTRACT_KEY_BY_KEY = {key: _extract_key_for(key) for key in _KEYS}
-_EXTRACT_RE_BY_KEY = {
-    key: re.compile(rf"{re.escape(ek)}(.*?){ek[-1]}")
-    for key, ek in _EXTRACT_KEY_BY_KEY.items()
-}
 
 
 def _msg_multiline_end(
@@ -421,11 +434,48 @@ def _msg_multiline_end(
         return found_lines
     matches = _QUOTED_SEGMENTS_RE.findall(full_text)
     if matches:
-        final_text = f'{field_name} = "' + "".join(m[1] for m in matches) + '"'
-        found_lines.append((num_line, final_text))
+        joined = "".join(m[1] for m in matches)
+        found_lines.append((num_line, _wrap_assignment_text(field_name, joined)))
     else:
         found_lines.append((num_line, full_text.strip()))
     return found_lines
+
+
+_TRIPLE_ASSIGN_RE_BY_FIELD = {
+    field: re.compile(rf'^{re.escape(field)}\s*=\s*("""|\'\'\')(.*)$')
+    for field in _FIELDS
+}
+
+
+def _scan_triple_quoted_assignment(
+    stripped_lines: list[str],
+    idx: int,
+    field_name: str,
+) -> Optional[tuple[str, int]]:
+    """Scan triple-quoted msg/message/title assignments, including multiline bodies."""
+    line = stripped_lines[idx]
+    match = _TRIPLE_ASSIGN_RE_BY_FIELD[field_name].match(line)
+    if not match:
+        return None
+    quote, after = match.group(1), match.group(2)
+    closer = after.find(quote)
+    if closer != -1:
+        body = after[:closer]
+        return _wrap_assignment_text(field_name, body), idx
+
+    parts = [after]
+    pos = idx + 1
+    total = len(stripped_lines)
+    while pos < total:
+        next_line = stripped_lines[pos]
+        closer = next_line.find(quote)
+        if closer != -1:
+            parts.append(next_line[:closer])
+            body = "\n".join(parts)
+            return _wrap_assignment_text(field_name, body), pos
+        parts.append(next_line)
+        pos += 1
+    return None
 
 
 def _scan_key(
@@ -452,6 +502,14 @@ def _scan_key(
         if _contains_fstring_literal(line):
             continue
         if not is_paren:
+            # ``msg = "`` also matches ``msg = """``; handle triple quotes as one message.
+            triple = _scan_triple_quoted_assignment(stripped_lines, idx, field_name)
+            if triple is not None:
+                content, end_idx = triple
+                found_lines.append((idx, content))
+                if end_idx > idx:
+                    consumed_until = end_idx
+                continue
             content = line
             pos = idx + 1
             while pos < total:
@@ -483,10 +541,17 @@ def _scan_key(
 
 def _normalize_concatenated_assignment(content: str, field_name: str) -> str:
     """Join adjacent string literals in ``msg = "a" "b"`` style assignments."""
-    segments = _QUOTED_SEGMENTS_RE.findall(content)
+    match = _ASSIGN_PREFIX_RE.match(content)
+    if not match:
+        return content
+    rhs = content[match.end():]
+    if rhs.startswith("("):
+        return content
+    segments = _QUOTED_SEGMENTS_RE.findall(rhs)
     if len(segments) <= 1:
         return content
-    return f'{field_name} = "' + "".join(part for _quote, part in segments) + '"'
+    joined = "".join(part for _quote, part in segments)
+    return _wrap_assignment_text(field_name, joined)
 
 
 # endregion
@@ -516,23 +581,21 @@ def _scan_python_messages(scan_root: Path) -> tuple[dict[str, None], PythonScanS
             field_candidates = candidates[_FIELD_BY_KEY[key]]
             if not field_candidates:
                 continue
-            extract_re = _EXTRACT_RE_BY_KEY[key]
             field_name = _FIELD_BY_KEY[key]
             for _num_line, content in _scan_key(stripped_lines, key, field_candidates):
                 if _contains_fstring_literal(content):
                     continue
                 content = _normalize_concatenated_assignment(content, field_name)
-                match = extract_re.search(content)
-                if not match:
+                message = _extract_python_assignment_message(content)
+                if message is None:
                     continue
-                for message in _search_for_lines(match.group(1)):
-                    stats.extraction_events += 1
-                    if not message.strip():
-                        continue
-                    if message in messages:
-                        stats.duplicate_occurrences += 1
-                        continue
-                    messages[message] = None
+                stats.extraction_events += 1
+                if not message.strip():
+                    continue
+                if message in messages:
+                    stats.duplicate_occurrences += 1
+                    continue
+                messages[message] = None
 
     return messages, stats
 
@@ -1372,11 +1435,13 @@ def compute_detection_key(
     loc: DbLocation,
     kind: UpdateKind,
     normalized_primary_keys: dict[str, Any],
+    detected_version: str,
 ) -> str:
     payload: dict[str, Any] = {
         "table_name": loc.table_i18n,
         "primary_keys": dict(sorted(normalized_primary_keys.items())),
         "kind": _kind_for_hash(kind),
+        "detected_version": detected_version,
     }
     if loc.table_i18n == "pydialog":
         post_fields = _py_post_fields(loc.table_i18n, loc)
@@ -1395,7 +1460,7 @@ def finding_to_record(finding: ExtractedString, detected_version: str) -> dict[s
         raise ValueError("DB finding missing db_location")
     loc = finding.db_location
     normalized_primary_keys = primary_keys_from_row(loc.table_i18n, loc.columns)
-    detection_key = compute_detection_key(loc, finding.update_kind, normalized_primary_keys)
+    detection_key = compute_detection_key(loc, finding.update_kind, normalized_primary_keys, detected_version)
     kind = _kind_for_hash(finding.update_kind)
     # Prefer PK source_code from the found row; only default for non-deleted when missing.
     source_code = normalized_primary_keys.get("source_code", "")
@@ -2002,6 +2067,7 @@ def _upload_grouped_records(
     api: TranslationsApiClient,
     grouped: dict[str, list[dict[str, Any]]],
     *,
+    detected_version: str,
     new_path: str,
     changed_path: str,
     deleted_path: str,
@@ -2009,7 +2075,7 @@ def _upload_grouped_records(
     dry_run: bool,
 ) -> None:
     # Clear prior pending rows before uploading this run's detections.
-    clear_pending_detections(api, clear_pending_path, dry_run=dry_run)
+    clear_pending_detections(api, detected_version, clear_pending_path, dry_run=dry_run)
     for kind, path in (
         ("new", new_path),
         ("changed", changed_path),
@@ -2098,6 +2164,7 @@ def main() -> int:
             _upload_grouped_records(
                 api,
                 grouped,
+                detected_version=detected_version,
                 new_path=new_path or DEFAULT_NEW_PATH,
                 changed_path=changed_path or DEFAULT_CHANGED_PATH,
                 deleted_path=deleted_path or DEFAULT_DELETED_PATH,

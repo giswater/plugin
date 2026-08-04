@@ -316,7 +316,7 @@
              </size>
             </property>
             <property name="toolTip">
-             <string>Create am schema with sample leaks data</string>
+             <string>Create AM schema with sample leaks data</string>
             </property>
             <property name="text">
              <string>+ Sample</string>
