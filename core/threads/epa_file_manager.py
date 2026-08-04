@@ -101,32 +101,34 @@ class GwEpaFileManager(GwTask):
             status = self._export_inp()
 
         # Prefer hydraulic_engine for WS (EPANET) and UD (SWMM); fall back to classic EPA
-        has_hydraulic_engine = self._init_hydraulic_engine()
-        runner = None
+        if status:
+            if self.go2epa_execute_epa or self.go2epa_import_result:
+                has_hydraulic_engine = self._init_hydraulic_engine()
+                runner = None
 
-        if status and self.go2epa_execute_epa:
-            if has_hydraulic_engine:
-                msg_params = ("_execute_epa_with_hydraulic_engine",)
-                tools_log.log_info(msg, msg_params=msg_params)
-                runner = self._execute_epa_with_hydraulic_engine()
-                if runner is None:
-                    status = False
-            else:
-                msg_params = ("_execute_epa",)
-                tools_log.log_info(msg, msg_params=msg_params)
-                status = self._execute_epa()
+            if self.go2epa_execute_epa:
+                if has_hydraulic_engine:
+                    msg_params = ("_execute_epa_with_hydraulic_engine",)
+                    tools_log.log_info(msg, msg_params=msg_params)
+                    runner = self._execute_epa_with_hydraulic_engine()
+                    if runner is None:
+                        status = False
+                else:
+                    msg_params = ("_execute_epa",)
+                    tools_log.log_info(msg, msg_params=msg_params)
+                    status = self._execute_epa()
 
-        if status and self.go2epa_import_result:
-            tools_log.log_info("Task 'Go2Epa' execute function 'def _import_rpt'")
-            if has_hydraulic_engine and runner is not None:
-                msg_params = ("_import_rpt_with_hydraulic_engine",)
-                tools_log.log_info(msg, msg_params=msg_params)
-                status = self._import_rpt_with_hydraulic_engine(runner)
-            else:
-                msg_params = ("_import_rpt",)
-                tools_log.log_info(msg, msg_params=msg_params)
-                self.function_name = 'gw_fct_rpt2pg_main'
-                status = self._import_rpt()
+            if self.go2epa_import_result:
+                tools_log.log_info("Task 'Go2Epa' execute function 'def _import_rpt'")
+                if has_hydraulic_engine and runner is not None:
+                    msg_params = ("_import_rpt_with_hydraulic_engine",)
+                    tools_log.log_info(msg, msg_params=msg_params)
+                    status = self._import_rpt_with_hydraulic_engine(runner)
+                else:
+                    msg_params = ("_import_rpt",)
+                    tools_log.log_info(msg, msg_params=msg_params)
+                    self.function_name = 'gw_fct_rpt2pg_main'
+                    status = self._import_rpt()
 
         return status
 
