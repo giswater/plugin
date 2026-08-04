@@ -41,10 +41,8 @@ class ValveOperationCheck:
         try:
             tools_os.get_dep("wntr")
         except ImportError:
-            tools_qgis.show_critical(
-                "Python package 'wntr' is not installed. "
-                "Please install it using pip or the 'qpip' QGIS plugin."
-            )
+            msg = "Python package 'wntr' is not installed. Please install it using pip or the 'qpip' QGIS plugin."
+            tools_qgis.show_critical(msg)
             return
 
         dlg = self.dlg_voc
@@ -54,8 +52,9 @@ class ValveOperationCheck:
         if not self._ovewrite_existing_files(self.output_folder, self.file_name):
             return
         self._save_user_values()
+        title = "Valve Operation Check"
         self.thread = GwValveOperationCheck(
-            "Valve Operation Check",
+            title,
             self.network,
             self.config,
             self.output_folder,
@@ -112,8 +111,8 @@ class ValveOperationCheck:
             elif status.lower() == "closed":
                 scenarios[name]["closed"].append(arc_id)
             else:
-                message = f"Incorrect valve status ({status}) for arc {arc_id}."
-                raise ValueError(message)
+                message = "Incorrect valve status ({0}) for arc {1}."
+                raise ValueError(message.format(status, arc_id))
 
         return scenarios
 
@@ -166,14 +165,16 @@ class ValveOperationCheck:
 
         if len(sufixes_that_exist) == 1:
             file = f"{file_name}{sufixes_that_exist[0]}"
-            msg = f"The file {file} already exists. Do you want to overwrite it?"
-            return tools_qt.show_question(msg)
+            msg = "The file {0} already exists. Do you want to overwrite it?"
+            msg_params = (file,)
+            return tools_qt.show_question(msg, msg_params=msg_params)
 
         elif len(sufixes_that_exist) > 1:
             file_names = [f'"{file_name}{sufix}"' for sufix in sufixes_that_exist]
             all_files = ", ".join(file_names)
-            msg = f"The files {all_files} already exist. Do you want to overwrite them?"
-            return tools_qt.show_question(msg)
+            msg = "The files {0} already exist. Do you want to overwrite them?"
+            msg_params = (all_files,)
+            return tools_qt.show_question(msg, msg_params=msg_params)
 
         return True
 
@@ -295,7 +296,7 @@ class ValveOperationCheck:
             tools_qt.show_info_box(msg)
             return False
         elif not Path(output_folder).exists():
-            msg = tools_qt.tr('"{0}" does not exist. Please select a valid folder.')
+            msg = '"{0}" does not exist. Please select a valid folder.'
             msg_params = (output_folder,)
             tools_qt.show_info_box(msg, msg_params=msg_params)
             return False
@@ -375,8 +376,8 @@ class ConfigVOC:
         elif status.lower() == "closed":
             self.scenarios[name]["closed"] += valves
         else:
-            message = f"Incorrect valve status ({status}) for scenario {name}."
-            raise ValueError(message)
+            message = "Incorrect valve status ({0}) for scenario {1}."
+            raise ValueError(message.format(status, name))
 
     def _strip_comments(self, str):
         index = str.find(";")

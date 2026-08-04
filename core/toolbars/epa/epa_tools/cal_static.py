@@ -49,15 +49,15 @@ class StaticCalibration:
         csv_exists = os.path.exists(csv_file)
         
         if inp_exists and csv_exists:
-            msg = tools_qt.tr('The files "{0}.inp" and "{1}.csv" already exist. Do you want to overwrite them?')
+            msg = 'The files "{0}.inp" and "{1}.csv" already exist. Do you want to overwrite them?'
             msg_params = (file_name, file_name,)
             return tools_qt.show_question(msg, msg_params=msg_params)
         elif inp_exists:
-            msg = tools_qt.tr('The file "{0}.inp" already exists. Do you want to overwrite it?')
+            msg = 'The file "{0}.inp" already exists. Do you want to overwrite it?'
             msg_params = (file_name, file_name,)
             return tools_qt.show_question(msg, msg_params=msg_params)
         elif csv_exists:
-            msg = tools_qt.tr('The file "{0}.csv" already exists. Do you want to overwrite it?')
+            msg = 'The file "{0}.csv" already exists. Do you want to overwrite it?'
             msg_params = (file_name,)
             return tools_qt.show_question(msg, msg_params=msg_params)
 
@@ -77,8 +77,9 @@ class StaticCalibration:
         dlg.tab_log_txt_infolog.setText("")
         dlg.progress_bar.show()
 
+        title = "Static Calibration"
         self.thread = GwStaticCalibration(
-            "Static Calibration",
+            tools_qt.tr(title),
             input_file,
             config,
             output_folder,
@@ -109,8 +110,9 @@ class StaticCalibration:
         # Button Cancel behavior
         dlg.btn_cancel.clicked.disconnect()
         dlg.btn_cancel.clicked.connect(t.cancel)
+        title = "Canceling task..."
         dlg.btn_cancel.clicked.connect(
-            partial(self._log_status, {"message": "Canceling task..."})
+            partial(self._log_status, {"message": tools_qt.tr(title)})
         )
         t.ended.connect(partial(dlg.btn_cancel.clicked.connect, dlg.reject))
         t.ended.connect(lambda txt: self._log_status({"message": txt}))
@@ -265,7 +267,7 @@ class StaticCalibration:
         if tools_db.dao.conn.closed:
             tools_db.dao.init_db()
         if tools_db.execute_sql(sql):
-            msg = tools_qt.tr('Changes applied to "{0}" successfully.')
+            msg = 'Changes applied to "{0}" successfully.'
             msg_params = (dscenario_name,)
             tools_qt.show_info_box(msg, msg_params=msg_params)
 
@@ -350,7 +352,7 @@ class StaticCalibration:
             tools_qt.show_info_box(msg)
             return
         elif not os.path.exists(config_file):
-            msg = tools_qt.tr('"{0}" does not exist. Please select a valid config file.')
+            msg = '"{0}" does not exist. Please select a valid config file.'
             msg_params = (config_file,)
             tools_qt.show_info_box(msg, msg_params=msg_params)
             return
@@ -369,7 +371,7 @@ class StaticCalibration:
             tools_qt.show_info_box(msg)
             return
         elif not os.path.exists(output_folder):
-            msg = tools_qt.tr('"{0}" does not exist. Please select a valid folder.')
+            msg = '"{0}" does not exist. Please select a valid folder.'
             msg_params = (output_folder,)
             tools_qt.show_info_box(msg, msg_params=msg_params)
             return
@@ -404,8 +406,8 @@ class ConfigSC:
         for scenario in self.scenarios.values():
             for option in required_scenario_options:
                 if option not in scenario:
-                    message = f"{option} not found in {scenario['name']} scenario."
-                    raise ValueError(message)
+                    message = "{0} not found in {1} scenario."
+                    raise ValueError(message.format(option, scenario['name']))
 
     def _parse_file(self, config_file):
         with open(config_file) as file:
@@ -458,12 +460,12 @@ class ConfigSC:
             self.scenarios[name][option] = values
         elif option in brackets_options:
             if len(values) != 2:
-                message = f"Option '{option}' in scenario {name} must have 2 values."
-                raise ValueError(message)
+                message = "Option '{0}' in scenario {1} must have 2 values."
+                raise ValueError(message.format(option, name))
             self.scenarios[name]["brackets"][option] = [float(x) for x in values]
         else:
-            message = f"Incorrect option ({option}) for scenario {name}."
-            raise ValueError(message)
+            message = "Incorrect option ({0}) for scenario {1}."
+            raise ValueError(message.format(option, name))
 
     def _strip_comments(self, str):
         index = str.find(";")
