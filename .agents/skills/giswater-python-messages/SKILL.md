@@ -1,25 +1,21 @@
 ---
 
-name: giswater-python-messages
+## name: giswater-python-messages
 description: >
-  Writes Giswater Python user messages the way the i18n scanner expects: assign
-  text to msg / title / message, call tools_qgis or tools_qt helpers, and use
-  indexed placeholders with msg_params instead of f-strings or concatenation.
-  Use when writing, reviewing, or fixing show_info, show_warning, show_critical,
-  show_message, show_info_box, show_warning_box, show_question,
-  show_exception_message, tools_qt.tr, msg_params, title_params, translations,
-  or i18n strings — and whenever a task requires adding or changing user-facing
-  text (errors, warnings, confirmations, progress labels, dialog copy) even if
-  the user did not mention messages or i18n. Load this skill before writing the
-  first show_* call or msg/title/message assignment in a task. Example questions:
-  "How should I write this warning?", "Why is this message not translated?",
-  "Fix this f-string show_info", "Add a confirm dialog before delete",
-  "Rewrite this message for i18n".
+  Makes Giswater Python user-facing text translatable end-to-end: write it so
+  i18n_searcher can detect it, then apply translation via helpers or explicit
+  tools_qt.tr. Use when writing, reviewing, or fixing show_info, show_warning,
+  show_critical, show_message, show_info_box, show_warning_box, show_question,
+  show_exception_message, tools_qt.tr, msg_params, title_params, dialog titles,
+  menu/actions text, translations, or i18n strings — and whenever a task adds
+  or changes user-facing text even if the user did not mention messages or i18n.
+  Load before the first show_* call, msg/title/message assignment, or tools_qt.tr
+  for UI copy. Example questions: "How should I write this warning?", "Why is
+  this message not translated?", "Fix this f-string show_info", "Set a dialog
+  title", "Add a menu action", "Rewrite this message for i18n".
 metadata:
-    author: giswater
-version: "0.3.1"
-
----
+  author: giswater
+version: "0.4.0"
 
 
 
@@ -27,51 +23,93 @@ version: "0.3.1"
 
 
 
-## When to use this skill
+## Objective
 
-Apply this skill whenever user-facing Python text is created or changed — **including when you add it on your own because the task needs it**, not only when the user asks about messages or i18n.
+**All Giswater Python user-facing texts must be translated.** That requires two steps:
 
-**Mandatory during implementation:** before adding the first `show_*` call, `msg` / `title` / `message` assignment, confirm dialog, or translated widget text in any feature, bug fix, or refactor, read this skill and follow the canonical pattern. Typical triggers:
+1. **Detect** the texts so a human (or the translations API) can translate them.
+2. **Apply** the translation at runtime so the UI shows the localized string.
 
-- Implementing validation, error handling, or success feedback for a new workflow
-- Adding a confirm dialog before a destructive action
-- Surfacing import/export, download, or batch-process results to the user
-- Updating progress labels or status text in a dialog or toolbar
-- Touching existing message code while working on an unrelated task
+Skip either step and the text stays untranslated for users.
 
-Typical user questions:
+Load this skill whenever you create or change user-facing Python text — including when you add it because the task needs it, not only when the user asks about i18n.
 
-- "How should I write this warning / info message?"
-- "Add a confirm dialog before deleting this feature"
-- "Why is this message not translated / not in the i18n tables?"
-- "Fix this f-string / concatenated `show_info`"
-- "Rewrite these messages so the scanner can detect them"
-- "Show an error box when the import fails"
-- "Update the progress label while downloading"
+---
 
 
 
-## Note: message standard
+## 1. Detect — format for `i18n_searcher`
 
-> **Write every user message so Giswater and the i18n scanner can find and translate it.**
->
-> 1. **Show it with a Giswater helper** — e.g. `tools_qgis.show_warning`, `tools_qt.show_info_box`, `tools_qt.show_question`. Do not call `QMessageBox` or `iface.messageBar()` directly.
-> 2. **Put the text in a variable first** — assign to `msg`, `title`, or `message` on its own line, then pass that variable to the helper. Inline strings are invisible to the scanner.
-> 3. **Keep the string whole and use placeholders** — do not build the text with `+`, f-strings, or `.format()`. Write `msg = "Hello {0} and {1}"` and pass values as `msg_params = (a, b)`.
+`scripts/i18n_searcher.py` finds candidate strings. **Detection only works if the format is exact.** Wrong format ⇒ string never enters the translation tables ⇒ users never see a translation, even if you call `tr` correctly.
+
+### Required assignment form
+
+Put every translatable string in a variable named `msg`, `title`, `message`, or `inf_text`, on a line that **starts** with that name, then `=`, then a string literal (or `(` / `"""` for multi-line):
+
+```python
+msg = "Layer {0} not found"
+msg_params = (layer_name,)
+```
+
+```python
+title = "Confirm delete"
+```
 
 
 
-## Canonical pattern
+### Format rules (indispensable)
 
-Always these three lines, in this order:
+
+| Rule                                                                        | Why                                                              |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Line starts with `msg` / `title` / `message` / `inf_text` then `=`          | Scanner only matches those names at line start                   |
+| Right-hand side is a **plain string literal**                               | f-strings are skipped; variables / expressions are not extracted |
+| No `+`, f-strings, `.format()`, `%`, ternaries                              | Corrupts or drops the extracted text                             |
+| Dynamic parts use `{0}`, `{1}`, … and a `msg_params` / `title_params` tuple | Translators can reorder; values stay out of the catalog key      |
+| Source language is English                                                  | Catalog baseline                                                 |
+
+
+Multi-line literals are fine:
+
+```python
+msg = (
+    "The process finished with errors. "
+    "Check the log file {0} for details."
+)
+```
+
+
+
+### What the scanner sees
+
+
+| Written as                                   | Result                           |
+| -------------------------------------------- | -------------------------------- |
+| `msg = "Layer {0} not found"`                | detected                         |
+| `msg = f"Layer {name} not found"`            | **skipped**                      |
+| `self.msg = "..."`, `error_msg = "..."`      | **not detected**                 |
+| `msg = other_variable`                       | **not detected**                 |
+| `msg = "Layer " + name`                      | **corrupted**                    |
+| `tools_qgis.show_warning("Layer not found")` | **not detected** — no assignment |
+
+
+---
+
+
+
+## 2. Apply — show the translated string
+
+Detection alone is not enough. At runtime the English catalog key must go through translation.
+
+### Helpers already translate (usual case)
+
+`tools_qgis.show_*`, `tools_qt.show_*_box` / `show_question` / `show_exception_message`, and similar helpers call `tools_qt.tr` internally. Pass the **raw** English `msg` / `title` and optional `msg_params` — do **not** wrap them in `tr` yourself:
 
 ```python
 msg = "Hello {0} and {1}"
 msg_params = (a, b)
 tools_qgis.show_warning(msg, msg_params=msg_params)
 ```
-
-Without dynamic values, drop `msg_params`:
 
 ```python
 msg = "Layer not found"
@@ -80,110 +118,90 @@ tools_qgis.show_warning(msg)
 
 
 
-## Rules
+### Explicit `tools_qt.tr` (when there is no helper)
 
-1. **Route every user-facing text through a Giswater helper** — never `iface.messageBar().pushMessage(...)`, `QMessageBox(...)`, or `print(...)`.
-2. **Assign the text to** `msg`**,** `title`**, or** `message` **first** — these three names are the only ones the scanner recognizes, and the assignment must start the line.
-3. **The assigned value is a plain string literal** — no f-strings, no `+`, no `.format()`, no `%`, no ternaries, no pre-translation.
-4. **Use indexed placeholders** `{0}`, `{1}`, … in the order they read in English.
-5. **Pass dynamic values as a tuple** in `msg_params` (and `title_params` for the title).
-6. **Write the source string in English**; the helper translates it.
-
-
-
-## Choose the helper
-
-
-| Need                                      | Call                                                                             |
-| ----------------------------------------- | -------------------------------------------------------------------------------- |
-| Message bar, informational                | `tools_qgis.show_info(msg, msg_params=msg_params)`                               |
-| Message bar, warning                      | `tools_qgis.show_warning(msg, msg_params=msg_params)`                            |
-| Message bar, error                        | `tools_qgis.show_critical(msg, msg_params=msg_params)`                           |
-| Message bar, explicit level / success     | `tools_qgis.show_message(msg, Qgis.MessageLevel.Success, msg_params=msg_params)` |
-| Modal, informational                      | `tools_qt.show_info_box(msg, title=title, msg_params=msg_params)`                |
-| Modal, warning                            | `tools_qt.show_warning_box(msg, msg_params=msg_params)`                          |
-| Modal, yes/no decision                    | `tools_qt.show_question(msg, title, msg_params=msg_params)`                      |
-| Modal, caught exception                   | `tools_qt.show_exception_message(title, msg, msg_params=msg_params)`             |
-| Widget text (`setText`, labels)           | `widget.setText(tools_qt.tr(msg, list_params=msg_params))`                       |
-| Log file / QGIS log only, not user-facing | `tools_log.log_info(msg)`                                                        |
-
-
-Inside a dialog, pass `dialog=self.dlg_...` to the `tools_qgis.show_*` helpers so the message lands on that dialog's message bar.
-
-Note the kwarg difference: helpers take `msg_params`, while `tools_qt.tr` takes `list_params`.
-
-## What the scanner sees
-
-`scripts/i18n_searcher.py` extracts messages by reading lines that **begin** with `msg`, `message`, or `title` followed by `=` and a quote or `(`. Anything else is invisible or extracted wrong — the text then never reaches the translation tables, and users see untranslated or truncated strings.
-
-
-| Written as                                              | Result                                                                  |
-| ------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `msg = "Layer {0} not found"`                           | detected correctly                                                      |
-| `msg = f"Layer {name} not found"`                       | **skipped entirely** — f-strings are explicitly excluded                |
-| `self.msg = "..."`, `error_msg = "..."`, `msg2 = "..."` | **not detected** — the line must start with `msg` / `message` / `title` |
-| `msg = other_variable`                                  | **not detected** — no string literal on the right side                  |
-| `msg = "Layer " + name + " missing"`                    | **corrupted** — extracted as `Layer missing`                            |
-| `msg = "Yes" if flag else "No"`                         | **corrupted** — all literals are glued into `YesNo`                     |
-| `tools_qgis.show_warning("Layer not found")`            | **not detected** — no assignment                                        |
-
-
-These multi-line forms are detected correctly, so use them for long text:
+For UI copy that is not routed through a message helper — dialog titles, menu/actions, labels, placeholders, button text, etc. — assign the English string first (so the scanner finds it), then call `tools_qt.tr` when setting the widget:
 
 ```python
-msg = (
-    "The process finished with errors. "
-    "Check the log file {0} for details."
-)
-msg_params = (log_path,)
-tools_qgis.show_warning(msg, msg_params=msg_params)
+title = "Manage fields"
+dlg.setWindowTitle(tools_qt.tr(title))
 ```
 
 ```python
-msg = """Line one.
-Line two with {0}."""
-msg_params = (value,)
-tools_qt.show_info_box(msg)
+title = "Get help"
+action = menu.addAction(tools_qt.tr(title))
+```
+
+```python
+msg = "Type to search..."
+widget.setPlaceholderText(tools_qt.tr(msg))
+```
+
+With placeholders, helpers use `msg_params=`; `tools_qt.tr` uses `list_params=`:
+
+```python
+title = "Project {0}"
+title_params = (name,)
+dlg.setWindowTitle(tools_qt.tr(title, list_params=title_params))
 ```
 
 
 
-## Anti-patterns and their fix
+### Choose the helper
 
 
-| Anti-pattern                                                                             | Fix                                                                            |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `show_info(f"Found {n} arcs")`                                                           | `msg = "Found {0} arcs"` + `msg_params = (n,)`                                 |
-| `msg = "Error: " + str(e)`                                                               | `msg = "Error: {0}"` + `msg_params = (e,)`                                     |
-| `msg = "Deleted {} rows".format(n)`                                                      | `msg = "Deleted {0} rows"` + `msg_params = (n,)`                               |
-| `show_warning(tools_qt.tr("Node not found"))`                                            | `msg = "Node not found"` + `show_warning(msg)` — the helper already translates |
-| `show_warning(msg, parameter=", ".join(missing))` when the value belongs in the sentence | `msg = "Widgets not found: {0}"` + `msg_params = (", ".join(missing),)`        |
-| Building a sentence from fragments across `if` branches                                  | One complete `msg` literal per branch                                          |
-| Same text repeated with different word order per language                                | One `msg` with `{0}` / `{1}`, reordered by translators                         |
+| Need                                      | Call                                                                                       |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Message bar, info / warning / error       | `tools_qgis.show_info` / `show_warning` / `show_critical`                                  |
+| Message bar, explicit level               | `tools_qgis.show_message(..., level, msg_params=...)`                                      |
+| Modal info / warning / yes-no / exception | `tools_qt.show_info_box` / `show_warning_box` / `show_question` / `show_exception_message` |
+| Widget / title / action text (no helper)  | assign `msg`/`title`, then `tools_qt.tr(...)`                                              |
+| Log only (not user-facing UI)             | `tools_log.log_info(msg)` — still use assignment form if the text is catalogued            |
 
 
-`parameter=` is still fine for appending a raw technical value (an ID, a stack trace) after a complete sentence — but prefer `msg_params` whenever the value reads as part of the sentence.
+Inside a dialog, pass `dialog=self.dlg_...` to `tools_qgis.show_*` so the bar attaches to that dialog.
+
+---
+
+
+
+## Anti-patterns
+
+
+| Anti-pattern                                  | Fix                                                                        |
+| --------------------------------------------- | -------------------------------------------------------------------------- |
+| `show_info(f"Found {n} arcs")`                | `msg = "Found {0} arcs"` + `msg_params = (n,)`                             |
+| `msg = "Error: " + str(e)`                    | `msg = "Error: {0}"` + `msg_params = (e,)`                                 |
+| `show_warning(tools_qt.tr("Node not found"))` | `msg = "Node not found"` + `show_warning(msg)` — helper already translates |
+| `dlg.setWindowTitle("Manage fields")`         | `title = "Manage fields"` + `setWindowTitle(tools_qt.tr(title))`           |
+| `menu.addAction("Get help")`                  | `title = "Get help"` + `addAction(tools_qt.tr(title))`                     |
+| `iface.messageBar()` / raw `QMessageBox`      | Use Giswater helpers                                                       |
+| Sentence built from fragments across branches | One complete `msg` literal per branch                                      |
+
+
+`parameter=` may append a raw technical value after a full sentence; prefer `msg_params` when the value is part of the sentence.
+
+---
+
+
 
 ## Self-check
 
-Before finishing, verify each message you touched:
+For every user-facing string you touched:
 
-- [ ] Goes through a `tools_qgis.*` / `tools_qt.*` helper
-- [ ] Text assigned to `msg`, `title`, or `message` at the start of a line
-- [ ] Right side is a plain literal: no f-string, `+`, `.format()`, `%`, ternary, or `tr()`
-- [ ] Placeholders indexed `{0}`, `{1}`, … and `msg_params` is a tuple in the same order
-- [ ] Single-value tuples written with the trailing comma: `msg_params = (locale,)`
-- [ ] `title` follows the same rules, with `title_params` when it has placeholders
+- [ ] **Detectable:** assigned to `msg` / `title` / `message` / `inf_text` at line start; plain English literal; `{0}`… + params tuple if dynamic
+- [ ] **Applied:** shown via a helper that translates, **or** explicit `tools_qt.tr` for titles/actions/widgets
+- [ ] No double-`tr` on helper paths; no inline/f-string in the call
 
-Scan the files you changed for inline strings and f-strings in message calls:
+Quick scan for missed inline message calls:
 
 ```bash
 rg -n -g "*.py" "show_(info|warning|critical|message|info_box|warning_box|question)\(\s*f?[\x22\x27]" <path>
 ```
 
-Any hit is a message to rewrite into the canonical pattern.
+
 
 ## Reference
 
-- Worked examples for common situations (counts, exceptions, loops, questions, dialogs, progress labels, batch results): [references/examples.md](references/examples.md)
+- Worked examples: [references/examples.md](references/examples.md)
 
