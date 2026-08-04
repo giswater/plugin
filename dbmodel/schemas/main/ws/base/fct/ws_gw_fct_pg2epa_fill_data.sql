@@ -221,10 +221,10 @@ BEGIN
 		-- this need to be solved here in spite of fill_data functions because some kind of incosnstency done on this function on previous lines
 		EXECUTE 'INSERT INTO temp_t_arc (arc_id, node_1, node_2, arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation, roughness, length, diameter, the_geom,
 			expl_id, dma_id, presszone_id, dqa_id, minsector_id, status, minorloss, age, family, builtdate)
-			SELECT concat(''CO'',connec_id), connec_id as node_1, 
+			SELECT concat(''CO'',c.connec_id), c.connec_id as node_1, 
 			CASE 	WHEN t.exit_type = ''ARC'' THEN concat(''VN'',t.link_id)
 				WHEN t.exit_type IN (''NODE'', ''CONNEC'') THEN t.exit_id::text 
-				ELSE pjoint_id::text end AS node_2, 
+				ELSE vf_connec.pjoint_id::text end AS node_2, 
 			''LINK'', conneccat_id, ''PIPE'', t.sector_id, t.state, t.state_type, t.annotation, 
 			(CASE WHEN custom_roughness IS NOT NULL THEN custom_roughness ELSE roughness END) AS roughness,
 			(CASE WHEN t.custom_length IS NOT NULL THEN t.custom_length ELSE st_length(t.the_geom) END), 
@@ -235,10 +235,11 @@ BEGIN
 			cat_material."family",
 			c.builtdate
 			FROM selector_sector, link t
-			JOIN ve_connec c ON connec_id = t.feature_id
+			JOIN connec c ON c.connec_id = t.feature_id
+			JOIN vf_connec ON c.connec_id = vf_connec.connec_id
 			JOIN value_state_type ON value_state_type.id = c.state_type
 			JOIN cat_connec ON cat_connec.id = conneccat_id
-			JOIN inp_connec USING (connec_id)
+			JOIN inp_connec ON c.connec_id = inp_connec.connec_id
 			LEFT JOIN cat_mat_roughness ON cat_mat_roughness.matcat_id = cat_connec.matcat_id
 			LEFT JOIN cat_material ON cat_material.id = cat_connec.matcat_id
 				WHERE (now()::date - (CASE WHEN c.builtdate IS NULL THEN ''1900-01-01''::date ELSE c.builtdate END))/365 >= cat_mat_roughness.init_age
@@ -246,7 +247,7 @@ BEGIN
 				||v_statetype||' AND c.sector_id=selector_sector.sector_id AND selector_sector.cur_user=current_user
 				AND epa_type = ''JUNCTION''
 				AND COALESCE(vf_connec.p_state, c.sector_id) > 0 AND COALESCE(vf_connec.p_state, c.state) > 0
-				AND pjoint_id IS NOT NULL AND pjoint_type IS NOT NULL';
+				AND vf_connec.pjoint_id IS NOT NULL AND vf_connec.pjoint_type IS NOT NULL';
 	END IF;
 
 	-- insert numarcs for nodes
