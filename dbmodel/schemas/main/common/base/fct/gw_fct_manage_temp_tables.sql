@@ -379,9 +379,8 @@ BEGIN
             CREATE TEMP TABLE IF NOT EXISTS temp_t_anlgraph (LIKE temp_anlgraph INCLUDING ALL);
             CREATE TEMP TABLE IF NOT EXISTS temp_t_go2epa (LIKE temp_go2epa INCLUDING ALL);
 
-            EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_pump AS SELECT t.* FROM ve_inp_pump t JOIN vf_node USING (node_id)'||v_filter;
-
             IF v_project_type = 'WS' THEN
+                EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_pump AS SELECT t.* FROM ve_inp_pump t JOIN vf_node USING (node_id)'||v_filter;
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_pipe AS SELECT t.* FROM ve_inp_pipe t JOIN vf_arc USING (arc_id)'||v_filter;
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_valve AS SELECT t.* FROM ve_inp_valve t JOIN vf_node USING (node_id)'||v_filter;
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_junction AS SELECT t.* FROM ve_inp_junction t JOIN vf_node USING (node_id)'||v_filter;
@@ -391,11 +390,12 @@ BEGIN
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_virtualvalve AS SELECT t.* FROM ve_inp_virtualvalve t JOIN vf_arc USING (arc_id)'||v_filter;
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_virtualpump AS SELECT t.* FROM ve_inp_virtualpump t JOIN vf_arc USING (arc_id)'||v_filter;
 		    ELSIF v_project_type  = 'UD' THEN
+                EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_pump AS SELECT t.* FROM ve_inp_pump t JOIN vf_arc USING (arc_id)'||v_filter;
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_conduit AS SELECT t.* FROM ve_inp_conduit t JOIN vf_arc USING (arc_id)'||v_filter;
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_outlet AS SELECT t.* FROM ve_inp_outlet t JOIN vf_node USING (node_id)'||v_filter;
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_orifice AS SELECT t.* FROM ve_inp_orifice t JOIN vf_node USING (node_id)'||v_filter;
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_weir AS SELECT t.* FROM ve_inp_weir t JOIN vf_node USING (node_id)'||v_filter;
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_virtual AS SELECT t.* FROM ve_inp_virtual t JOIN vf_node USING (node_id)'||v_filter;
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_outlet AS SELECT t.* FROM ve_inp_outlet t JOIN vf_arc USING (arc_id)'||v_filter;
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_orifice AS SELECT t.* FROM ve_inp_orifice t JOIN vf_arc USING (arc_id)'||v_filter;
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_weir AS SELECT t.* FROM ve_inp_weir t JOIN vf_arc USING (arc_id)'||v_filter;
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_virtual AS SELECT t.* FROM ve_inp_virtual t JOIN vf_arc USING (arc_id)'||v_filter;
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_storage AS SELECT t.* FROM ve_inp_storage t JOIN vf_node USING (node_id)'||v_filter;
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_junction AS SELECT t.* FROM ve_inp_junction t JOIN vf_node USING (node_id)'||v_filter;
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_outfall AS SELECT t.* FROM ve_inp_outfall t JOIN vf_node USING (node_id)'||v_filter;
