@@ -18,6 +18,7 @@ Origin database: ORIGIN_PG_CONN or --origin-conn (default in CI: GW_CONN).
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import logging
@@ -1146,11 +1147,59 @@ class OriginDb:
 # region Row comparison helpers
 
 def _normalize_cell_value(value: Any) -> str:
+    """Normalize PK / metadata scalars. Does not reinterpret JSON text."""
     return normalize_pk_value(value)
 
 
+def _canonicalize_jsonish(value: Any) -> str | None:
+    """Return canonical JSON text for arrays/objects; None when not JSON-shaped.
+
+    ``config_typevalue.idval`` / ``tt_en_us`` values are JSON arrays that often
+    share leading tokens (``["OM", "ANALYTICS"]`` vs ``[..., "INPUT"]``). Plain
+    ``str(list)`` (Python single quotes) or mixed JSON spacing makes equal arrays
+    look different and floods changed detections. Canonical JSON keeps exact
+    full-value equality stable; row identity stays on catalog PK (formname+source).
+    """
+    if isinstance(value, (list, dict)):
+        return json.dumps(value, ensure_ascii=False)
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if len(text) < 2 or text[0] not in "[{":
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        # Origin/API may still carry a Python list/dict repr from older runs.
+        if not ((text.startswith("[") and text.endswith("]")) or (
+            text.startswith("{") and text.endswith("}")
+        )):
+            return None
+        try:
+            parsed = ast.literal_eval(text)
+        except (SyntaxError, ValueError):
+            return None
+    if isinstance(parsed, (list, dict)):
+        return json.dumps(parsed, ensure_ascii=False)
+    return None
+
+
+def _normalize_compare_value(value: Any, column: str) -> str:
+    """Normalize one cell for row diffs: JSON-canonicalize ``*_en_us`` text."""
+    if "en_us" in column:
+        canonical = _canonicalize_jsonish(value)
+        if canonical is not None:
+            return canonical
+    return _normalize_cell_value(value)
+
+
 def _dict_to_values_tuple(d: dict, keys: list[str]) -> tuple:
-    return tuple(_normalize_cell_value(d.get(k, "")) for k in keys)
+    return tuple(_normalize_compare_value(d.get(k, ""), k) for k in keys)
+
+
+def _pk_tuple(row: dict, pk_keys: list[str]) -> tuple:
+    """PK identity only (never text). Overlapping idval/tt strings cannot collide."""
+    return tuple(_normalize_cell_value(row.get(k, "")) for k in pk_keys)
 
 
 def _pk_columns(keys: list[str]) -> list[str]:
@@ -1183,12 +1232,20 @@ def _classify_diff_rows(
     rows_org: list[dict],
     rows_i18n: list[dict],
     keys: list[str],
+    *,
+    table_name: str = "",
 ) -> list[tuple[dict, UpdateKind, Optional[dict]]]:
-    pk_keys = _pk_columns(keys)
-    i18n_by_pk = {_dict_to_values_tuple(row, pk_keys): row for row in rows_i18n}
+    # Always index by catalog PK (e.g. formname+source for dbconfig_typevalue),
+    # never by idval/tt text — overlapping JSON arrays must not share identity.
+    pk_keys = (
+        list(catalog_primary_key_columns(table_name))
+        if table_name
+        else _pk_columns(keys)
+    )
+    i18n_by_pk = {_pk_tuple(row, pk_keys): row for row in rows_i18n}
     classified: list[tuple[dict, UpdateKind, Optional[dict]]] = []
     for row in _set_diff_rows(rows_org, rows_i18n, keys):
-        previous = i18n_by_pk.get(_dict_to_values_tuple(row, pk_keys))
+        previous = i18n_by_pk.get(_pk_tuple(row, pk_keys))
         if previous is not None:
             classified.append((row, UpdateKind.TEXT_CHANGED, previous))
         else:
@@ -1200,13 +1257,19 @@ def _classify_deleted_rows(
     rows_org: list[dict],
     rows_i18n: list[dict],
     keys: list[str],
+    *,
+    table_name: str = "",
 ) -> list[dict]:
     """Rows in i18n baseline whose PK no longer exists in aligned org rows."""
-    pk_keys = _pk_columns(keys)
-    org_pks = {_dict_to_values_tuple(row, pk_keys) for row in rows_org}
+    pk_keys = (
+        list(catalog_primary_key_columns(table_name))
+        if table_name
+        else _pk_columns(keys)
+    )
+    org_pks = {_pk_tuple(row, pk_keys) for row in rows_org}
     classified: list[dict] = []
     for row in rows_i18n:
-        if _dict_to_values_tuple(row, pk_keys) not in org_pks:
+        if _pk_tuple(row, pk_keys) not in org_pks:
             classified.append(row)
     return classified
 
@@ -1285,9 +1348,9 @@ def _align_org_rows(
 
 def _en_us_text_map(row: dict[str, Any], en_us_columns: list[str], *, require_nonempty: bool) -> dict[str, str]:
     return {
-        col: _normalize_cell_value(row.get(col, ""))
+        col: _normalize_compare_value(row.get(col, ""), col)
         for col in en_us_columns
-        if not require_nonempty or _normalize_cell_value(row.get(col, ""))
+        if not require_nonempty or _normalize_compare_value(row.get(col, ""), col)
     }
 
 
@@ -1339,8 +1402,8 @@ def _findings_from_db_row(
         old_map: dict[str, str] = {}
         new_map: dict[str, str] = {}
         for col in en_us_columns:
-            new_val = _normalize_cell_value(row.get(col, ""))
-            old_val = _normalize_cell_value(previous_row.get(col, ""))
+            new_val = _normalize_compare_value(row.get(col, ""), col)
+            old_val = _normalize_compare_value(previous_row.get(col, ""), col)
             if new_val != old_val:
                 old_map[col] = old_val
                 new_map[col] = new_val
@@ -1368,7 +1431,7 @@ def _compare_db_rows(
     compare_keys = _row_compare_columns(table_name, columns_i18n)
     findings: list[ExtractedString] = []
     for row, update_kind, previous_row in _classify_diff_rows(
-        expected_rows, baseline_rows, compare_keys
+        expected_rows, baseline_rows, compare_keys, table_name=table_name
     ):
         findings.extend(
             _findings_from_db_row(
@@ -1382,7 +1445,9 @@ def _compare_db_rows(
                 previous_row=previous_row,
             )
         )
-    for row in _classify_deleted_rows(expected_rows, baseline_rows, compare_keys):
+    for row in _classify_deleted_rows(
+        expected_rows, baseline_rows, compare_keys, table_name=table_name
+    ):
         findings.extend(
             _findings_from_db_row(
                 row,
