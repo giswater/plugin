@@ -268,14 +268,9 @@ class CalculatePriorityConfig:
             elif type == "SELECTION":
                 dialog_type = "dialog_priority_selection"
             else:
-                raise ValueError(
-                    tools_qt.tr(
-                        "Invalid value for type of priority dialog. "
-                        "Please pass either 'GLOBAL' or 'SELECTION'. "
-                        "Value passed:"
-                    )
-                    + f" '{self.type}'."
-                )
+                msg = "Invalid value for type of priority dialog. Please pass either 'GLOBAL' or 'SELECTION'. Value passed: {0}"
+                msg_params = (self.type,)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
             # Read the config file
             config = configparser.ConfigParser()
@@ -284,7 +279,9 @@ class CalculatePriorityConfig:
             )
 
             if not os.path.exists(config_path):
-                print(f"Config file not found: {config_path}")
+                msg = "Config file not found: {0}"
+                msg_params = (config_path,)
+                print(tools_qt.tr(msg, list_params=msg_params))
                 return
 
             config.read(config_path)
@@ -445,7 +442,8 @@ class CalculatePriority:
 
     def _add_total(self, lyt):
         lbl = QLabel()
-        lbl.setText(tools_qt.tr("Total"))
+        title = "Total"
+        lbl.setText(tools_qt.tr(title))
         value = QLabel()
         position_config = {"layoutname": lyt, "layoutorder": 100}
         tools_gw.add_widget(self.dlg_priority, position_config, lbl, value)
@@ -482,7 +480,9 @@ class CalculatePriority:
                 target_layers.append((target_layer, row[1]))
 
             if len(target_layers) > 0:
-                result = tools_qt.show_question("Do you want to update the symbology of the layers currently loaded in the project?", "Update AM Layers Symbology", force_action=True)
+                msg = "Do you want to update the symbology of the layers currently loaded in the project?"
+                title = "Update AM Layers Symbology"
+                result = tools_qt.show_question(msg, title, force_action=True)
                 if result:
                     for layer, addparam in target_layers:
                         tools_gw.refresh_categorized_layer_symbology_classes(layer, addparam)
@@ -840,7 +840,8 @@ class CalculatePriority:
 
         if layer is None:
             # show warning
-            tools_qgis.show_warning("For select on canvas is mandatory to load v_asset_arc_input layer", dialog=self.dlg_priority)
+            msg = "For select on canvas is mandatory to load v_asset_arc_input layer"
+            tools_qgis.show_warning(msg, dialog=self.dlg_priority)
             return
         tools_gw.selection_init(self, self.dlg_priority, self.layer_to_work)
 
@@ -852,25 +853,34 @@ class CalculatePriority:
             lib_vars.plugin_dir, f"icons{os.sep}dialogs{os.sep}svg"
         )
 
+        msg = "Select Feature(s)"
+        title_select = msg
+        msg = "Select Features by Polygon"
+        title_polygon = msg
+        msg = "Select Features by Freehand"
+        title_freehand = msg
+        msg = "Select Features by Radius"
+        title_radius = msg
+
         values = [
             [
                 0,
-                "Select Feature(s)",
+                title_select,
                 os.path.join(icons_folder, "mActionSelectRectangle.svg"),
             ],
             [
                 1,
-                "Select Features by Polygon",
+                title_polygon,
                 os.path.join(icons_folder, "mActionSelectPolygon.svg"),
             ],
             [
                 2,
-                "Select Features by Freehand",
+                title_freehand,
                 os.path.join(icons_folder, "mActionSelectRadius.svg"),
             ],
             [
                 3,
-                "Select Features by Radius",
+                title_radius,
                 os.path.join(icons_folder, "mActionSelectRadius.svg"),
             ],
         ]
@@ -881,7 +891,7 @@ class CalculatePriority:
             num = value[0]
             label = value[1]
             icon = QIcon(value[2])
-            action = select_menu.addAction(icon, f"{label}")
+            action = select_menu.addAction(icon, tools_qt.tr(label))
             action.triggered.connect(partial(self._trigger_action_select, num))
 
         self.dlg_priority.btn_snapping.setMenu(select_menu)
@@ -1018,11 +1028,12 @@ class CalculatePriority:
             """
         ):
             msg = "This result name already exists"
-            info = "Please choose a different name."
+            message = "Please choose a different name."
+            title = "Info"
             tools_qt.show_info_box(
                 msg,
-                title="Info",
-                inf_text=info,
+                title=title,
+                inf_text=message,
                 parameter=result_name,
             )
             return
@@ -1094,10 +1105,10 @@ class CalculatePriority:
                 )
             except Exception:
                 msg = "Invalid value for field"
-                info = "Please enter a valid number."
+                message = "Please enter a valid number."
                 tools_qt.show_info_box(
                     msg,
-                    inf_text=info,
+                    inf_text=message,
                     parameter=field["label"],
                 )
                 return
@@ -1268,4 +1279,6 @@ class CalculatePriority:
             if hidde:
                 self.refresh_table(dialog, widget)
         except Exception as e:
-            print(f"EXCEPTION -> {e}")
+            msg = "EXCEPTION -> {0}"
+            msg_params = (e,)
+            print(tools_qt.tr(msg, list_params=msg_params))
