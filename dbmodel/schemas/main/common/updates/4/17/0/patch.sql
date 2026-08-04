@@ -193,7 +193,7 @@ UPDATE config_form_fields
 
 UPDATE config_form_fields
 	SET tooltip='Date to'
-	WHERE tooltip='' OR tooltip IS NULL;
+	WHERE (tooltip='' OR tooltip IS NULL) AND columnname = 'date_to';
 
 CREATE OR REPLACE VIEW ve_om_visit AS
 SELECT
