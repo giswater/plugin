@@ -1250,8 +1250,9 @@ class GwSchemaI18NManager:
             for row in rows:
                 primary_keys_org.append((row["source"], row["dialog_name"], row["toolbar_name"]))
         except Exception as e:
-            msg = tools_qt.tr("Error fetching existing primary keys: {0}")
-            tools_qt.manage_exception_db(msg.format(e), query, pause_on_exception=True)
+            msg = "Error fetching existing primary keys: {0}"
+            msg_params = (e,)
+            tools_qt.manage_exception_db(tools_qt.tr(msg, list_params=msg_params), query, pause_on_exception=True)
 
         # Delete removed widgets
         old_keys = set(primary_keys_org) - set(primary_keys_final)
@@ -1273,8 +1274,9 @@ class GwSchemaI18NManager:
                 try:
                     self.cursor_i18n.execute(delete_query)
                 except Exception as e:
-                    msg = tools_qt.tr("Error deleting rows: {0}")
-                    tools_qt.manage_exception_db(msg.format(e), delete_query, pause_on_exception=True)
+                    msg = "Error deleting rows: {0}"
+                    msg_params = (e,)
+                    tools_qt.manage_exception_db(tools_qt.tr(msg, list_params=msg_params), delete_query, pause_on_exception=True)
 
         # Update the table
         text_error = ""
@@ -1308,8 +1310,9 @@ class GwSchemaI18NManager:
             try:
                 self.cursor_i18n.execute(query)
             except Exception as e:
-                msg = tools_qt.tr("Error updating table: {0}\n")
-                text_error += msg.format(e)
+                msg = "Error updating table: {0}\n"
+                msg_params = (e,)
+                text_error += tools_qt.tr(msg, list_params=msg_params)
                 query_error += query + '\n'
 
         if text_error:

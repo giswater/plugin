@@ -15,10 +15,6 @@ from ...libs import tools_log, tools_qgis, tools_qt
 from ..threads.i18n_provision_task import GwI18nProvisionTask
 from .i18n_language_service import LocaleRequirement, ProvisionResult
 
-_PROVISION_MESSAGE = (
-    "We are downloading the necessary language files. Please do not close QGIS."
-)
-
 # Keep a module-level reference so GC does not cancel the task mid-flight.
 _active_task: GwI18nProvisionTask | None = None
 _active_dialog: QProgressDialog | None = None
@@ -57,9 +53,10 @@ def _close_progress_dialog() -> None:
 def _show_progress_dialog() -> QProgressDialog:
     global _active_dialog
     _close_progress_dialog()
-    message = tools_qt.tr(_PROVISION_MESSAGE)
-    dlg = QProgressDialog(message, None, 0, 0)
-    dlg.setWindowTitle(tools_qt.tr("Language files"))
+    message = "We are downloading the necessary language files. Please do not close QGIS."
+    dlg = QProgressDialog(tools_qt.tr(message), None, 0, 0)
+    title = "Language files"
+    dlg.setWindowTitle(tools_qt.tr(title))
     dlg.setCancelButton(None)
     dlg.setMinimumDuration(0)
     dlg.setWindowModality(Qt.WindowModality.ApplicationModal)

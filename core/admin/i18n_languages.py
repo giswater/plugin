@@ -380,7 +380,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
     def _on_download(self) -> None:
         locale = self._selected_locale()
         if not locale:
-            msg = "Select a locale"
+            msg = "Select a language"
             tools_qt.show_info_box(msg)
             return
         self._action_download(locale)
@@ -388,7 +388,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
     def _on_update(self) -> None:
         locale = self._selected_locale()
         if not locale:
-            msg = "Select a locale"
+            msg = "Select a language"
             tools_qt.show_info_box(msg)
             return
 
@@ -408,7 +408,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
     def _on_delete(self) -> None:
         locale = self._selected_locale()
         if not locale:
-            msg = "Select a locale"
+            msg = "Select a language"
             tools_qt.show_info_box(msg)
             return
         self._action_delete(locale)
@@ -450,7 +450,10 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
                 self.possible_locales.append((locale, name, False, None))
 
         if self._offline:
-            msg = "Could not reach the translations server. Showing downloaded languages only."
+            msg = (
+                "Could not reach the translations server. "
+                "Showing downloaded languages only."
+            )
             tools_qt.show_warning_box(msg)
 
     def _set_locale_active(
@@ -484,7 +487,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
     def _action_download(self, locale: str, force: bool = False) -> None:
         if locale in self._busy_locales:
             return
-        msg = f"Do you want to download local language files for ({locale})?"
+        msg = "Do you want to download local language files for ({0})?"
         title = "Download language files?"
         msg_params = (locale,)
         if not force and not tools_qt.show_question(msg, title, msg_params=msg_params):
@@ -513,9 +516,9 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
                     msg_params = (locale, ", ".join(usages))
                     tools_qt.show_warning_box(msg, msg_params=msg_params)
                     return
-            msg = "Delete local language files for ({0})?"
+            msg = "Do you want to delete local language files for ({0})?"
             msg_params = (locale,)
-            title = "Delete language files"
+            title = "Delete language files?"
             if not force and not tools_qt.show_question(msg, title, msg_params=msg_params):
                 return
             ok, error = i18n_service.delete_language_files(locale)
