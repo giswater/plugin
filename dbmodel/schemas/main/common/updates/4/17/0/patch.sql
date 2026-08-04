@@ -232,10 +232,41 @@ FROM om_visit
 LEFT JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
 LEFT JOIN exploitation ON exploitation.expl_id = om_visit.expl_id;
 
-WITH numbered AS (
-    SELECT id,
-        typevalue,
-        (ROW_NUMBER() OVER (ORDER BY id COLLATE "C")) - 1 AS new_id
-    FROM config_typevalue
-    WHERE typevalue = 'sys_table_context'
-)
+-- Fix sys_table_context 27/28/29 when 4.5.0 renumbered with a non-C
+-- collation (Linux ICU): OM ANALYTICS siblings were assigned the wrong
+-- numeric id vs the C-collation / i18n baseline.
+-- Reattach each row's payload (idval, addparam, ...) to the canonical id
+-- using addparam.orderBy so translated idval text is preserved.
+-- Canonical: orderBy 31→27, 32→28, 30→29. Only WS (has orderBy 31 and 32).
+UPDATE config_typevalue AS t
+SET idval = s.idval,
+	camelstyle = s.camelstyle,
+	addparam = s.addparam
+FROM (
+	SELECT
+		idval,
+		camelstyle,
+		addparam,
+		CASE (addparam->>'orderBy')::integer
+			WHEN 31 THEN '27'
+			WHEN 32 THEN '28'
+			WHEN 30 THEN '29'
+		END AS target_id
+	FROM config_typevalue
+	WHERE typevalue = 'sys_table_context'
+		AND (addparam->>'orderBy')::integer IN (30, 31, 32)
+) AS s
+WHERE t.typevalue = 'sys_table_context'
+	AND t.id = s.target_id
+    AND EXISTS (
+		SELECT 1 FROM config_typevalue
+		WHERE typevalue = 'sys_table_context' AND (addparam->>'orderBy')::integer = 30
+	)
+	AND EXISTS (
+		SELECT 1 FROM config_typevalue
+		WHERE typevalue = 'sys_table_context' AND (addparam->>'orderBy')::integer = 31
+	)
+	AND EXISTS (
+		SELECT 1 FROM config_typevalue
+		WHERE typevalue = 'sys_table_context' AND (addparam->>'orderBy')::integer = 32
+	);
