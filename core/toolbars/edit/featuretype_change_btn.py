@@ -325,7 +325,7 @@ def btn_accept_featuretype_change(**kwargs):
             if "Accepted" in complet_result['status']:
                 msg = complet_result['message']['text']
                 if msg is None:
-                    msg = tools_qt.tr('Replace feature done successfully')
+                    msg = 'Replace feature done successfully'
                 tools_qgis.show_info(msg)
             elif "Failed" in complet_result['status']:
                 return
