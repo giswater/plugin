@@ -65,15 +65,15 @@ TRANSLATABLE_JSON_KEYS = frozenset(
 )
 _SQL_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
-_FIELDS = ("message", "msg", "title")
+_FIELDS = ("message", "msg", "title", "inf_text")
 _PATTERNS = ("=", " =", "= ", " = ")
 _QUOTES = ('"', "'", "(")
 _KEYS: tuple[str, ...] = tuple(
     f"{f}{p}{q}" for f, p, q in product(_FIELDS, _PATTERNS, _QUOTES)
 )
 # "message" must precede "msg" so "message = ..." is not treated as msg.
-_FIELD_LINE_RE = re.compile(r"^(message|msg|title)\s*=")
-_ASSIGN_PREFIX_RE = re.compile(r"^(message|msg|title)\s*=\s*")
+_FIELD_LINE_RE = re.compile(r"^(message|msg|title|inf_text)\s*=")
+_ASSIGN_PREFIX_RE = re.compile(r"^(message|msg|title|inf_text)\s*=\s*")
 _FSTRING_LITERAL_RE = re.compile(r'f["\']')
 # Prefer triple quotes so """...""" / '''...''' are one segment, not empty "".
 _QUOTED_SEGMENTS_RE = re.compile(r'("""|\'\'\'|["\'])(.*?)\1', re.DOTALL)
