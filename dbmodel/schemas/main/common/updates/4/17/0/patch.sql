@@ -231,3 +231,11 @@ SELECT
 FROM om_visit
 LEFT JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
 LEFT JOIN exploitation ON exploitation.expl_id = om_visit.expl_id;
+
+WITH numbered AS (
+    SELECT id,
+        typevalue,
+        (ROW_NUMBER() OVER (ORDER BY id COLLATE "C")) - 1 AS new_id
+    FROM config_typevalue
+    WHERE typevalue = 'sys_table_context'
+)

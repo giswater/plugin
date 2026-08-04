@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm
+FROM python:3.11-slim-bookworm
 
 # Match postgresql-client major to the postgres service (pg_dump/pg_restore version check).
 ARG PG_MAJOR=16
