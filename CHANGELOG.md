@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix Go2Epa hydraulic-engine result import crash when JSON `message` is null (`NoneType` has no attribute `get`).
 - Fix EPANET-only `only_extrema` being passed to SWMM `export_result`.
+- Fix `gw_fct_setsearch` function to use `COALESCE` to handle NULL geometry in `ve_address` table.
 
 ## [4.16.1] - 2026-07-31
 
