@@ -108,6 +108,7 @@ BEGIN
 		INSERT INTO selector_state (state_id, cur_user) VALUES (1, current_user);
 
 		-- create temp tables
+		PERFORM gw_fct_manage_temp_tables('{"data":{"parameters":{"fid":227, "project_type":"UD", "action":"DROP", "group":"EPAMAIN"}}}');
 		PERFORM gw_fct_manage_temp_tables('{"data":{"parameters":{"fid":227, "project_type":"UD", "action":"CREATE", "group":"EPAMAIN"}}}');
 
 		-- getting selectors
