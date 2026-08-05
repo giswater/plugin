@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `custom_code_autofill` column to `cat_feature` and `config_mapzones` tables.
 - Extend `hydraulic_engine` Go2Epa path to UD (SWMM); fall back to classic EPA when the package is missing.
 - Allow Execute EPA on Linux for UD when `hydraulic_engine` is installed.
+- Add `btn_child` to campaign manager dialog to create a child campaign.
 
 ### Changed
 
