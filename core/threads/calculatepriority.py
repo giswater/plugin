@@ -21,6 +21,7 @@ from ...libs import lib_vars, tools_db, tools_os, tools_qt
 
 
 def get_min_greater_than(iterable, value):
+    """ Return smallest iterable value greater than or equal to value """
     result = None
     for item in iterable:
         if item == value:
@@ -41,6 +42,7 @@ def optimal_replacement_time(
     replacement_cost,
     discount_rate,
 ):
+    """ Compute Shamir-Howard optimal pipe replacement year """
     BREAKS_YEAR_0 = 0.05   # represents how many breaks we have in the pipe right now.
     optimal_replacement_cycle = (1 / break_growth_rate) * log(
         log1p(discount_rate) * replacement_cost / BREAKS_YEAR_0 / repairing_cost
@@ -86,6 +88,9 @@ class GwCalculatePriority(GwTask):
         config_catalog,
         config_material,
         config_engine,
+        asset_type="ARC",
+        node_type=None,
+        nodecat=None,
     ):
         super().__init__(description, QgsTask.Flag.CanCancel)
         self.result_type = result_type
@@ -102,6 +107,9 @@ class GwCalculatePriority(GwTask):
         self.config_catalog = config_catalog
         self.config_material = config_material
         self.config_engine = config_engine
+        self.asset_type = asset_type or "ARC"
+        self.node_type = node_type
+        self.nodecat = nodecat
 
         if lib_vars.plugin_dir:
             config_path = Path(lib_vars.plugin_dir) / "config" / "giswater.config"
@@ -113,6 +121,7 @@ class GwCalculatePriority(GwTask):
             self.msg_task_canceled = tools_qt.tr("Task canceled.")
 
     def run(self):
+        """ Execute SH or WM priority calculation for selected asset type """
         try:
             tools_os.get_dep("pandas")
         except ImportError:
@@ -124,6 +133,15 @@ class GwCalculatePriority(GwTask):
 
         try:
             if self.method == "SH":
+                if self.asset_type == "NODE":
+                    self._emit_report(
+                        tools_qt.tr("Task canceled:"),
+                        tools_qt.tr(
+                            "The Shamir-Howard method is not available for NODE assets. "
+                            "Please switch the calculation engine to Weighted Method."
+                        ),
+                    )
+                    return False
                 return self._run_sh()
             elif self.method == "WM":
                 return self._run_wm()
@@ -140,11 +158,13 @@ class GwCalculatePriority(GwTask):
             return False
 
     def _calculate_ivi(self, arcs, year, replacements=False):
+        """ Compute Infrastructure Value Index for arcs at a year """
         current_value = self._current_value(arcs, year, replacements)
         replacement_cost = self._replacement_cost(arcs)
         return current_value / replacement_cost
 
     def _copy_input_to_output(self):
+        """ Copy ext_arc_asset attributes into arc_output rows """
         tools_db.execute_sql(
             f"""
             update am.arc_output o
@@ -157,7 +177,22 @@ class GwCalculatePriority(GwTask):
             is_thread=True
         )
 
+    def _copy_node_input_to_output(self):
+        """ Copy ext_node_asset attributes into node_output rows """
+        tools_db.execute_sql(
+            f"""
+            update am.node_output o
+            set (sector_id, macrosector_id, presszone_id, builtdate, nodecat_id, node_type, the_geom, code, expl_id, dma_id)
+                = (select sector_id, macrosector_id, presszone_id, builtdate, nodecat_id, node_type, the_geom, code, expl_id, dma_id
+                    from am.ext_node_asset a
+                    where a.node_id = o.node_id)
+            where o.result_id = {self.result_id}
+            """,
+            is_thread=True
+        )
+
     def _current_value(self, arcs, year, replacements=False):
+        """ Sum depreciated replacement cost of arcs at a year """
         current_value = 0
         for arc in arcs:
             if (
@@ -178,6 +213,7 @@ class GwCalculatePriority(GwTask):
         return current_value
 
     def _emit_report(self, *args):
+        """ Emit log report messages to the dialog """
         self.report.emit({"info": {"values": [{"message": arg} for arg in args]}})
 
     def _fit_to_scale(self, value, min, max):
@@ -195,6 +231,43 @@ class GwCalculatePriority(GwTask):
         if min_customers == max_customers:
             return 5.5
         return round(1 + 9.0 * (value - min_customers) / (max_customers - min_customers), 2)
+
+    def _normalize_min_max(self, value, lo, hi):
+        """Fit a raw value onto a [1, 10] scale using dataset min/max (Stage-2 convention).
+        A flat dataset (lo == hi) yields the mid value 5.5; a missing value or missing
+        bounds yields None so the caller can decide how to treat absent data."""
+        if value is None or lo is None or hi is None:
+            return None
+        # Numeric DB columns come back as Decimal; normalize to float upfront so the
+        # arithmetic below never mixes Decimal and float operands.
+        value, lo, hi = float(value), float(lo), float(hi)
+        if lo == hi:
+            return 5.5
+        return round(1 + 9.0 * (value - lo) / (hi - lo), 2)
+
+    def _normalize_binary(self, value):
+        """Map a boolean/None raw value to the [0, 10] scale used by binary criteria."""
+        if value is None:
+            return None
+        return 10 if value else 0
+
+    def _scale_or_zero(self, normalized):
+        """A NULL raw input must contribute 0 to a weighted sum, never a fake mid value."""
+        return float(normalized) if normalized is not None else 0.0
+
+    def _format_report(self, title, rows):
+        """Render a two-column, left-padded 'label: value' report block from (header, value) pairs."""
+        headers = [row[0] for row in rows]
+        values = [row[1] for row in rows]
+        columns = [headers, values]
+        for column in columns:
+            length = max(len(x) for x in column)
+            for index, string in enumerate(column):
+                column[index] = string.ljust(length)
+        txt = f"{title}:\n"
+        for line in zip(*columns):
+            txt += "  ".join(line) + "\n"
+        return txt.strip()
 
     def _update_mincut_criticity(self):
         """Refresh mincut_customers / mincut_criticity on am.arc_input."""
@@ -272,7 +345,61 @@ class GwCalculatePriority(GwTask):
             """
             return tools_db.get_rows(sql, is_thread=True)
 
+    def _get_nodes(self):
+        """Get nodes (Stage 2, NODE asset_type).
+
+        Raw overlay fields live on node_input (*_raw); age/cost can also come from
+        ext_node_asset when the overlay row is missing.
+        """
+
+        columns = """
+            a.node_id,
+            a.node_type,
+            a.nodecat_id,
+            a.matcat_id,
+            a.builtdate,
+            a.sector_id,
+            a.macrosector_id,
+            a.presszone_id,
+            a.expl_id,
+            a.dma_id,
+            a.code,
+            a.the_geom,
+            coalesce(i.age, a.age) AS age,
+            coalesce(i.mandatory, false) AS mandatory,
+            i.strategic,
+            i.incident_count,
+            i.structural_raw,
+            i.operational_raw,
+            i.nrw_raw,
+            i.affected_users_raw,
+            i.compliance,
+            coalesce(i.estimated_cost, a.estimated_cost, 0) AS estimated_cost
+        """
+
+        filter_list = []
+        if self.features:
+            filter_list.append(f"""a.node_id in ('{"','".join(self.features)}')""")
+        if self.exploitation:
+            filter_list.append(f"a.expl_id = {self.exploitation}")
+        if self.presszone:
+            filter_list.append(f"a.presszone_id = '{self.presszone}'")
+        if self.node_type:
+            filter_list.append(f"a.node_type = '{self.node_type}'")
+        if self.nodecat:
+            filter_list.append(f"a.nodecat_id = '{self.nodecat}'")
+        filters = f"where {' and '.join(filter_list)}" if filter_list else ""
+
+        sql = f"""
+            select {columns}
+            from am.ext_node_asset a
+            left join am.node_input i using (node_id)
+            {filters}
+        """
+        return tools_db.get_rows(sql, is_thread=True)
+
     def _invalid_arccat_id_report(self, obj):
+        """ Build report text for pipes with invalid arccat_id """
         if not obj["qtd"]:
             return
         msg = "\n".join(
@@ -284,7 +411,21 @@ class GwCalculatePriority(GwTask):
         )
         return msg.format(qtd=obj["qtd"], list=", ".join(obj["set"]))
 
+    def _invalid_nodecat_id_report(self, obj):
+        """ Build report text for nodes with invalid nodecat_id """
+        if not obj["qtd"]:
+            return
+        msg = "\n".join(
+            [
+                tools_qt.tr("Nodes with invalid nodecat_ids: {qtd}."),
+                tools_qt.tr("Invalid nodecat_ids: {list}."),
+                tools_qt.tr("These nodes have NOT been assigned a priority value."),
+            ]
+        )
+        return msg.format(qtd=obj["qtd"], list=", ".join(str(x) for x in obj["set"]))
+
     def _invalid_diameter_report(self, obj):
+        """ Build report text for pipes with invalid diameter """
         if not obj["qtd"]:
             return
         msg = "\n".join(
@@ -297,6 +438,7 @@ class GwCalculatePriority(GwTask):
         return msg.format(qtd=obj["qtd"], list=", ".join(map(str, sorted(obj["set"]))))
 
     def _invalid_material_report(self, obj):
+        """ Build report text for pipes with invalid material """
         if not obj["qtd"]:
             return
         if self.config_material.has_material(self.unknown_material):
@@ -324,6 +466,7 @@ class GwCalculatePriority(GwTask):
         )
 
     def _invalid_pressures_report(self, null_pressures):
+        """ Build report text for pipes missing pressure data """
         if not null_pressures:
             return
         msg = "\n".join(
@@ -337,6 +480,7 @@ class GwCalculatePriority(GwTask):
         return msg.format(qtd=null_pressures)
 
     def _ivi_report(self, ivi):
+        """ Format IVI values by year as report text """
         title = tools_qt.tr("IVI")
         year_header = tools_qt.tr("Year")
         without_replacements_header = tools_qt.tr("Without replacements")
@@ -362,9 +506,11 @@ class GwCalculatePriority(GwTask):
         return txt.strip()
 
     def _replacement_cost(self, arcs):
+        """ Sum replacement construction cost for arcs """
         return sum(arc["cost_constr"] for arc in arcs)
 
     def _yearly_replacement_report(self, output_arcs):
+        """ Format yearly replacement counts and costs as report text """
         # output_arcs: [arc_id, cost_repmain, cost_constr, bratemain, year, ...]
         by_year = {}
         for arc in output_arcs:
@@ -402,6 +548,7 @@ class GwCalculatePriority(GwTask):
         return txt.strip()
 
     def _run_sh(self):
+        """ Run Shamir-Howard priority calculation for ARC assets """
         self._emit_report(tools_qt.tr("Getting auxiliary data from DB") + " (1/5)...")
         self.setProgress(0)
 
@@ -690,6 +837,13 @@ class GwCalculatePriority(GwTask):
         return True
 
     def _run_wm(self):
+        """Dispatch the Weighted Method calculation to the ARC or NODE implementation."""
+        if self.asset_type == "NODE":
+            return self._run_node_wm()
+        return self._run_arc_wm()
+
+    def _run_arc_wm(self):
+        """ Run Weighted Method two-iteration calculation for ARC assets """
         pd = tools_os.get_dep("pandas")
 
         self._emit_report(tools_qt.tr("Getting auxiliary data from DB") + " (1/4)...")
@@ -1228,24 +1382,378 @@ class GwCalculatePriority(GwTask):
         self._emit_report(tools_qt.tr("Task finished!"))
         return True
 
+    def _run_node_wm(self):
+        """ Run Weighted Method two-iteration calculation for NODE assets """
+        pd = tools_os.get_dep("pandas")
+
+        self._emit_report(tools_qt.tr("Getting auxiliary data from DB") + " (1/4)...")
+        self.setProgress(10)
+
+        dma_rows = tools_db.get_rows(
+            "select dma_id, nrw from am.dma_nrw", is_thread=True
+        ) or []
+        nrw_by_dma = {row["dma_id"]: row["nrw"] for row in dma_rows}
+
+        if self.isCanceled():
+            self._emit_report(self.msg_task_canceled)
+            return False
+
+        self._emit_report(tools_qt.tr("Getting node data from DB") + " (2/4)...")
+        self.setProgress(20)
+
+        rows = self._get_nodes()
+        if not rows:
+            self._emit_report(
+                tools_qt.tr("Task canceled:"),
+                tools_qt.tr("No nodes found matching your selected filters."),
+            )
+            return False
+
+        if self.isCanceled():
+            self._emit_report(self.msg_task_canceled)
+            return False
+
+        self._emit_report(tools_qt.tr("Calculating values") + " (3/4)...")
+        self.setProgress(30)
+
+        today_year = date.today().year
+        nodes = []
+        invalid_nodecat_id = {"qtd": 0, "set": set()}
+        invalid_material = {"qtd": 0, "set": set()}
+        for row in rows:
+            node = row.copy()
+            nodecat_id = node.get("nodecat_id")
+            if not self.config_catalog or not self.config_catalog.has_key(nodecat_id):
+                invalid_nodecat_id["qtd"] += 1
+                invalid_nodecat_id["set"].add(nodecat_id or "NULL")
+                continue
+
+            node_material = node.get("matcat_id")
+            if (
+                not node_material
+                or node_material == self.unknown_material
+                or not self.config_material.has_material(node_material)
+            ):
+                invalid_material["qtd"] += 1
+                invalid_material["set"].add(node_material or "NULL")
+                if not self.config_material.has_material(self.unknown_material):
+                    continue
+                node_material = self.unknown_material
+            node["matcat_id"] = node_material
+
+            # Prefer overlay/ext age; fall back to builtdate / material default year
+            if node.get("age") is None and node.get("builtdate"):
+                node["age"] = today_year - node["builtdate"].year
+            elif node.get("age") is None:
+                default_year = self.config_material.get_default_builtdate(node_material)
+                if default_year:
+                    node["age"] = today_year - int(default_year)
+
+            # DMA NRW wins when present; node_input.nrw_raw is the fallback
+            node["nrw_raw"] = nrw_by_dma.get(node.get("dma_id"), node.get("nrw_raw"))
+
+            # Cost from nodecatalog (unit), same role as ARC cost_constr * length
+            catalog_cost = self.config_catalog.get_cost_constr(nodecat_id)
+            if catalog_cost is not None:
+                node["estimated_cost"] = max(float(catalog_cost), 0)
+            else:
+                node["estimated_cost"] = max(float(node.get("estimated_cost") or 0), 0)
+
+            # Compliance grade from catalog + material (ARC pattern); keep input bool for output
+            node["catalog_compliance"] = self.config_catalog.get_compliance(nodecat_id)
+            node["material_compliance"] = self.config_material.get_compliance(node_material)
+            node["compliance_grade"] = min(
+                node["material_compliance"],
+                node["catalog_compliance"],
+            )
+            nodes.append(node)
+
+        if not nodes:
+            self._emit_report(
+                tools_qt.tr("Task canceled:"),
+                tools_qt.tr("No nodes found matching your selected filters."),
+            )
+            reports = [
+                self._invalid_nodecat_id_report(invalid_nodecat_id),
+                self._invalid_material_report(invalid_material),
+            ]
+            for report in reports:
+                if report:
+                    self._emit_report(report)
+            return False
+
+        # Stage2: MIN_MAX raw → scaled score name. BINARY handled separately.
+        min_max_fields = {
+            "age": "longevity",
+            "incident_count": "incident_history",
+            "structural_raw": "structural_condition",
+            "operational_raw": "operational_condition",
+            "nrw_raw": "nrw",
+            "affected_users_raw": "affected_users",
+        }
+        bounds = {}
+        for field in min_max_fields:
+            values = [n[field] for n in nodes if n.get(field) is not None]
+            bounds[field] = (min(values), max(values)) if values else (None, None)
+
+        for node in nodes:
+            for field, score_name in min_max_fields.items():
+                lo, hi = bounds[field]
+                node[f"val_{score_name}"] = self._scale_or_zero(
+                    self._normalize_min_max(node.get(field), lo, hi)
+                )
+            node["val_strategic"] = self._scale_or_zero(
+                self._normalize_binary(node.get("strategic"))
+            )
+            # Same as ARC WM: lower compliance grade → higher priority score
+            node["val_compliance"] = float(10 - node["compliance_grade"])
+
+            for suffix in ("1", "2"):
+                node[f"w{suffix}_longevity"] = float(self.config_engine[f"longevity_{suffix}"])
+                node[f"w{suffix}_incident_history"] = float(self.config_engine[f"incident_history_{suffix}"])
+                node[f"w{suffix}_structural_condition"] = float(self.config_engine[f"structural_condition_{suffix}"])
+                node[f"w{suffix}_operational_condition"] = float(self.config_engine[f"operational_condition_{suffix}"])
+                node[f"w{suffix}_nrw"] = float(self.config_engine[f"nrw_{suffix}"])
+                node[f"w{suffix}_affected_users"] = float(self.config_engine[f"affected_users_{suffix}"])
+                node[f"w{suffix}_strategic"] = float(self.config_engine[f"strategic_{suffix}"])
+                node[f"w{suffix}_compliance"] = float(self.config_engine[f"compliance_{suffix}"])
+
+            for suffix in ("1", "2"):
+                node[f"val_{suffix}"] = sum(
+                    node[f"val_{score_name}"] * node[f"w{suffix}_{score_name}"]
+                    for score_name in (
+                        "longevity", "incident_history", "structural_condition",
+                        "operational_condition", "nrw",
+                        "affected_users", "strategic", "compliance",
+                    )
+                )
+
+        # First iteration: yearly-budget * horizon window, ordered by mandatory then val_1
+        nodes.sort(key=lambda x: x["val_1"], reverse=True)
+        nodes.sort(key=lambda x: x["mandatory"], reverse=True)
+        cum_cost = 0
+        second_iteration = []
+        for node in nodes:
+            second_iteration.append(node)
+            cum_cost += node["estimated_cost"]
+            if cum_cost > self.result_budget * (self.target_year - today_year):
+                break
+
+        if not len(second_iteration):
+            self._emit_report(
+                tools_qt.tr("Task canceled:"),
+                tools_qt.tr("No nodes found matching your budget. (Hint: increase the yearly budget or/and the horizon year)"),
+            )
+            return False
+
+        # Second iteration: assign replacement_year by yearly budget, ordered by mandatory then val_2
+        second_iteration.sort(key=lambda x: x["val_2"], reverse=True)
+        second_iteration.sort(key=lambda x: x["mandatory"], reverse=True)
+        replacement_year = today_year + 1
+        cum_cost = 0
+        for node in second_iteration:
+            cum_cost += node["estimated_cost"]
+            node["replacement_year"] = replacement_year
+            node["cum_cost"] = cum_cost
+            if cum_cost > self.result_budget:
+                replacement_year += 1
+                cum_cost = 0
+
+        for node in nodes:
+            matching_node = next(
+                (n2 for n2 in second_iteration if n2["node_id"] == node["node_id"]), None
+            )
+            if matching_node:
+                node.update(matching_node)
+
+        self.df = pd.DataFrame(nodes).reset_index(drop=True)
+
+        if self.isCanceled():
+            self._emit_report(self.msg_task_canceled)
+            return False
+        self._emit_report(tools_qt.tr("Updating tables") + " (4/4)...")
+        self.setProgress(40)
+
+        self.statistics_report = "\n\n".join(
+            filter(
+                lambda x: x,
+                [
+                    self._node_summary(nodes),
+                    self._invalid_nodecat_id_report(invalid_nodecat_id),
+                    self._invalid_material_report(invalid_material),
+                ],
+            )
+        )
+
+        self.result_id = self._save_result_info()
+        if not self.result_id:
+            return False
+
+        if self.config_catalog is not None:
+            self.config_catalog.save(self.result_id)
+        if self.config_material is not None:
+            self.config_material.save(self.result_id)
+        self._save_config_engine()
+
+        tools_db.execute_sql(
+            f"""
+            delete from am.node_engine_wm where result_id = {self.result_id};
+            delete from am.node_output where result_id = {self.result_id};
+            """,
+            is_thread=True
+        )
+
+        # Saving to am.node_engine_wm (scaled scores)
+        index = 0
+        loop = 0
+        ended = False
+        while not ended:
+            save_nodes_sql = """
+                insert into am.node_engine_wm (
+                    node_id,
+                    result_id,
+                    longevity,
+                    incident_history,
+                    structural_condition,
+                    operational_condition,
+                    nrw,
+                    affected_users,
+                    strategic,
+                    compliance,
+                    val_first,
+                    val,
+                    orderby
+                ) values
+            """
+            for i in range(1000):
+                try:
+                    node = second_iteration[index]
+                    save_nodes_sql += f"""
+                        ({node["node_id"]},
+                        {self.result_id},
+                        {node["val_longevity"]},
+                        {node["val_incident_history"]},
+                        {node["val_structural_condition"]},
+                        {node["val_operational_condition"]},
+                        {node["val_nrw"]},
+                        {node["val_affected_users"]},
+                        {node["val_strategic"]},
+                        {node["val_compliance"]},
+                        {node["val_1"]},
+                        {node["val_2"]},
+                        {index + 1}
+                        ),
+                    """
+                    index += 1
+                except IndexError:
+                    ended = True
+                    break
+            save_nodes_sql = save_nodes_sql.strip()[:-1]
+            tools_db.execute_sql(save_nodes_sql, is_thread=True)
+            loop += 1
+            progress = (70 - 40) / len(second_iteration) * 1000 * loop + 40
+            self.setProgress(progress)
+
+        # Saving to am.node_output (scaled scores + planning fields)
+        index = 0
+        loop = 0
+        ended = False
+        while not ended:
+            save_nodes_sql = """
+                insert into am.node_output (
+                    node_id,
+                    result_id,
+                    longevity,
+                    incident_history,
+                    structural_condition,
+                    operational_condition,
+                    nrw,
+                    affected_users,
+                    strategic,
+                    mandatory,
+                    compliance,
+                    val,
+                    orderby,
+                    replacement_year,
+                    budget,
+                    total,
+                    estimated_cost
+                ) values
+            """
+            for i in range(1000):
+                try:
+                    node = second_iteration[index]
+                    if node["replacement_year"] > self.target_year:
+                        break
+                    strategic_sql = (
+                        "TRUE" if node.get("strategic") else
+                        "FALSE" if node.get("strategic") is not None else "NULL"
+                    )
+                    compliance_sql = (
+                        "TRUE" if node.get("compliance") else
+                        "FALSE" if node.get("compliance") is not None else "NULL"
+                    )
+                    save_nodes_sql += f"""
+                        ({node["node_id"]},
+                        {self.result_id},
+                        {node["val_longevity"]},
+                        {node["val_incident_history"]},
+                        {node["val_structural_condition"]},
+                        {node["val_operational_condition"]},
+                        {node["val_nrw"]},
+                        {node["val_affected_users"]},
+                        {strategic_sql},
+                        {node["mandatory"]},
+                        {compliance_sql},
+                        {node["val_2"]},
+                        {index + 1},
+                        {node["replacement_year"]},
+                        {node["estimated_cost"]},
+                        {node["cum_cost"]},
+                        {node["estimated_cost"]}
+                        ),
+                    """
+                    index += 1
+                except IndexError:
+                    ended = True
+                    break
+            save_nodes_sql = save_nodes_sql.strip()[:-1]
+            if save_nodes_sql.endswith("values"):
+                break
+            tools_db.execute_sql(save_nodes_sql, is_thread=True)
+            loop += 1
+            progress = (90 - 70) / len(second_iteration) * 1000 * loop + 70
+            self.setProgress(progress)
+
+        self._copy_node_input_to_output()
+
+        self._emit_report(self.statistics_report)
+
+        self._emit_report(tools_qt.tr("Task finished!"))
+        return True
+
     def _save_config_engine(self):
+        """ Persist engine parameter values for the result """
         save_config_engine_sql = f"""
             delete from am.config_engine where result_id = {self.result_id};
             insert into am.config_engine
-                (result_id, parameter, value)
+                (result_id, parameter, value, asset_type)
             values
         """
         for k, v in self.config_engine.items():
-            save_config_engine_sql += f"({self.result_id}, '{k}', {v}),"
+            save_config_engine_sql += f"({self.result_id}, '{k}', {v}, '{self.asset_type}'),"
         save_config_engine_sql = save_config_engine_sql.strip()[:-1]
         tools_db.execute_sql(save_config_engine_sql, is_thread=True)
 
     def _save_result_info(self):
+        """ Insert or update cat_result and return result_id """
         str_features = (
             f"""ARRAY['{"','".join(self.features)}']""" if self.features else "NULL"
         )
         str_presszone_id = f"'{self.presszone}'" if self.presszone else "NULL"
         str_material_id = f"'{self.material}'" if self.material else "NULL"
+        str_nodecat = f"'{self.nodecat}'" if self.nodecat else "NULL"
+        str_node_type = f"'{self.node_type}'" if self.node_type else "NULL"
         tools_db.execute_sql(
             f"""
             insert into am.cat_result (result_name,
@@ -1257,11 +1765,14 @@ class GwCalculatePriority(GwTask):
                 presszone_id,
                 dnom,
                 material_id,
+                nodecat_id,
+                node_type,
                 budget,
                 target_year,
                 report,
                 cur_user,
-                tstamp)
+                tstamp,
+                asset_type)
             values ('{self.result_name}',
                 '{self.result_type}',
                 '{self.result_description}',
@@ -1271,11 +1782,14 @@ class GwCalculatePriority(GwTask):
                 {str_presszone_id},
                 {self.diameter or 'NULL'},
                 {str_material_id},
+                {str_nodecat},
+                {str_node_type},
                 {self.result_budget or 'NULL'},
                 {self.target_year or 'NULL'},
                 '{self.statistics_report}',
                 current_user,
-                now())
+                now(),
+                '{self.asset_type}')
             on conflict (result_name) do update
             set result_type = EXCLUDED.result_type,
                 descript = EXCLUDED.descript,
@@ -1285,11 +1799,14 @@ class GwCalculatePriority(GwTask):
                 presszone_id = EXCLUDED.presszone_id,
                 dnom = EXCLUDED.dnom,
                 material_id = EXCLUDED.material_id,
+                nodecat_id = EXCLUDED.nodecat_id,
+                node_type = EXCLUDED.node_type,
                 budget = EXCLUDED.budget,
                 target_year = EXCLUDED.target_year,
                 report = EXCLUDED.report,
                 cur_user = EXCLUDED.cur_user,
-                tstamp = EXCLUDED.tstamp
+                tstamp = EXCLUDED.tstamp,
+                asset_type = EXCLUDED.asset_type
             """,
             is_thread=True
         )
@@ -1301,44 +1818,37 @@ class GwCalculatePriority(GwTask):
         return row[0]
 
     def _summary(self, arcs):
-        title = tools_qt.tr("SUMMARY")
-        investment_header = tools_qt.tr("Investment (€/year):")
-        year_header = tools_qt.tr("Year:")
-        current_network_cost_header = tools_qt.tr("Current network cost (€):")
-        total_replacement_cost_header = tools_qt.tr("Total replacement cost (€):")
-        ivi_header = tools_qt.tr("IVI (Horizon year):")
-        replacement_rate_header = tools_qt.tr("Replacement rate (%/year):")
+        """ Build ARC weighted-method summary report block """
         current_cost = sum(arc["current_cost_constr"] for arc in arcs)
 
         replacement_cost = self._replacement_cost(arcs)
         ivi_target_year = self._calculate_ivi(arcs, self.target_year, True)
         replacement_rate = self.result_budget / replacement_cost * 100 if replacement_cost > 0 else 0
 
-        columns = [
-            [
-                investment_header,
-                year_header,
-                current_network_cost_header,
-                total_replacement_cost_header,
-                ivi_header,
-                replacement_rate_header,
-            ],
-            [
-                f"{self.result_budget:.2f}",
-                f"{self.target_year}",
-                f"{current_cost:.2f}",
-                f"{replacement_cost:.2f}",
-                f"{ivi_target_year:.3f}",
-                f"{replacement_rate:.2f}",
-            ],
+        rows = [
+            (tools_qt.tr("Investment (€/year):"), f"{self.result_budget:.2f}"),
+            (tools_qt.tr("Year:"), f"{self.target_year}"),
+            (tools_qt.tr("Current network cost (€):"), f"{current_cost:.2f}"),
+            (tools_qt.tr("Total replacement cost (€):"), f"{replacement_cost:.2f}"),
+            (tools_qt.tr("IVI (Horizon year):"), f"{ivi_target_year:.3f}"),
+            (tools_qt.tr("Replacement rate (%/year):"), f"{replacement_rate:.2f}"),
         ]
-        for column in columns:
-            length = max(len(x) for x in column)
-            for index, string in enumerate(column):
-                column[index] = string.ljust(length)
+        return self._format_report(tools_qt.tr("SUMMARY"), rows)
 
-        txt = f"{title}:\n"
-        for line in zip(*columns):
-            txt += "  ".join(line)
-            txt += "\n"
-        return txt.strip()
+    def _node_summary(self, nodes):
+        """ Build NODE weighted-method summary report block """
+        selected = [n for n in nodes if n.get("replacement_year")]
+        total_cost = sum(n["estimated_cost"] for n in selected)
+        replacement_cost = sum(n["estimated_cost"] for n in nodes)
+        replacement_rate = self.result_budget / replacement_cost * 100 if replacement_cost > 0 else 0
+
+        rows = [
+            (tools_qt.tr("Investment (€/year):"), f"{self.result_budget:.2f}"),
+            (tools_qt.tr("Year:"), f"{self.target_year}"),
+            (tools_qt.tr("Nodes evaluated:"), f"{len(nodes)}"),
+            (tools_qt.tr("Nodes selected for replacement:"), f"{len(selected)}"),
+            (tools_qt.tr("Total replacement cost (€):"), f"{replacement_cost:.2f}"),
+            (tools_qt.tr("Selected replacement cost (€):"), f"{total_cost:.2f}"),
+            (tools_qt.tr("Replacement rate (%/year):"), f"{replacement_rate:.2f}"),
+        ]
+        return self._format_report(tools_qt.tr("SUMMARY"), rows)

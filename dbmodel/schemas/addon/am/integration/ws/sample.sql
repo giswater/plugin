@@ -22,3 +22,13 @@ SELECT id AS arccat_id,
 FROM PARENT_SCHEMA.cat_arc
 WHERE dnom IS NOT NULL
 ON CONFLICT (arccat_id) DO NOTHING;
+
+INSERT INTO config_nodecatalog_def (nodecat_id, dnom, cost_constr, cost_repmain, compliance)
+SELECT id AS nodecat_id,
+	NULLIF(regexp_replace(COALESCE(dnom, ''), '[^0-9\.]', '', 'g'), '')::NUMERIC AS dnom,
+	100 AS cost_constr,
+	0 AS cost_repmain,
+	10 AS compliance
+FROM PARENT_SCHEMA.cat_node
+WHERE active IS DISTINCT FROM FALSE
+ON CONFLICT (nodecat_id) DO NOTHING;

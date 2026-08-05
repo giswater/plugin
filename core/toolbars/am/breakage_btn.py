@@ -40,7 +40,7 @@ class GwAmBreakageButton(GwAction):
     Dropdown with two options: 'Incremental load' and 'Assigning'"""
 
     def __init__(self, icon_path, action_name, text, toolbar, action_group):
-
+        """ Initialise breakage toolbar action and dropdown menu """
         super().__init__(icon_path, action_name, text, toolbar, action_group)
         self.iface = global_vars.iface
 
@@ -67,6 +67,7 @@ class GwAmBreakageButton(GwAction):
         self.dlg_assignation = None
 
     def clicked_event(self):
+        """ Show breakage tools dropdown menu at toolbar button """
         if self.action:
             if hasattr(self.action, 'associatedObjects'):
                 button = QWidget(self.action.associatedObjects()[1])
@@ -111,11 +112,12 @@ class GwAmBreakageButton(GwAction):
             tools_qgis.show_warning(msg, parameter=name)
 
     def priority_config(self):
+        """ Open global priority calculation dialog """
         calculate_priority = CalculatePriority(type="GLOBAL")
         calculate_priority.clicked_event()
 
     def assignation(self):
-
+        """ Open breakdown assignation dialog """
         self.dlg_assignation = GwAssignationUi(self)
         dlg = self.dlg_assignation
         tools_gw.load_settings(dlg)
@@ -153,7 +155,7 @@ class GwAmBreakageButton(GwAction):
         tools_gw.open_dialog(self.dlg_assignation, dlg_name="assignation")
 
     def _manage_hidden_form_leaks(self):
-
+        """ Show or hide assignation leak filter widgets from config """
         status = True
         try:
             # Read the config file
@@ -204,6 +206,7 @@ class GwAmBreakageButton(GwAction):
         return status
 
     def _assignation_user_values(self, action):
+        """ Load or save assignation widget values from session config """
         txt_widgets = [
             "txt_buffer",
             "txt_years",
@@ -253,6 +256,7 @@ class GwAmBreakageButton(GwAction):
                 )
 
     def _set_assignation_signals(self):
+        """ Connect assignation dialog widget signals """
         dlg = self.dlg_assignation
 
         dlg.chk_all_leaks.toggled.connect(lambda x: dlg.txt_years.setEnabled(not x))
@@ -264,6 +268,7 @@ class GwAmBreakageButton(GwAction):
         dlg.rejected.connect(partial(tools_gw.close_dialog, dlg))
 
     def _execute_assignation(self):
+        """ Validate inputs and start breakdown assignation task """
         dlg = self.dlg_assignation
 
         inputs = self._validate_assignation_input()
@@ -324,6 +329,7 @@ class GwAmBreakageButton(GwAction):
         QgsApplication.taskManager().addTask(t)
 
     def _validate_assignation_input(self):
+        """ Validate and return assignation dialog numeric inputs """
         dlg = self.dlg_assignation
 
         try:
@@ -396,11 +402,13 @@ class GwAmBreakageButton(GwAction):
         )
 
     def _update_timer(self, widget):
+        """ Update elapsed-time label during assignation task """
         elapsed_time = time() - self.t0
         text = str(timedelta(seconds=round(elapsed_time)))
         widget.setText(text)
 
     def _cancel_thread(self, dlg):
+        """ Cancel running assignation task and log message """
         self.thread.cancel()
         tools_gw.fill_tab_log(
             dlg,
@@ -410,6 +418,7 @@ class GwAmBreakageButton(GwAction):
         )
 
     def _assignation_ended(self):
+        """ Reset dialog after assignation task completes """
         dlg = self.dlg_assignation
         cancel = dlg.buttonBox.StandardButton.Cancel
         dlg.buttonBox.removeButton(dlg.buttonBox.button(cancel))

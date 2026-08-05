@@ -17,7 +17,7 @@ from ...ui.ui_manager import GwResultSelectorUi
 
 class GwResultSelectorButton(GwAction):
     def __init__(self, icon_path, action_name, text, toolbar, action_group):
-
+        """ Initialise toolbar action for AM result selector """
         super().__init__(icon_path, action_name, text, toolbar, action_group)
         self.iface = global_vars.iface
 
@@ -28,6 +28,7 @@ class GwResultSelectorButton(GwAction):
         self.action_group = action_group
 
     def clicked_event(self):
+        """ Open result selector dialog and load combo values """
         self.dlg_result_selector = GwResultSelectorUi(self)
         if not self._fill_combos():
             return
@@ -36,6 +37,7 @@ class GwResultSelectorButton(GwAction):
         tools_gw.open_dialog(self.dlg_result_selector, dlg_name="result_selector")
 
     def _fill_combos(self):
+        """ Fill main and compare result combos from cat_result """
         dlg = self.dlg_result_selector
         results = tools_db.get_rows(
             """
@@ -79,6 +81,7 @@ class GwResultSelectorButton(GwAction):
         return True
 
     def _save_selection(self):
+        """ Persist user result selection and refresh layer symbology """
         dlg = self.dlg_result_selector
         result_main = tools_qt.get_combo_value(dlg, dlg.cmb_result_main)
         result_compare = tools_qt.get_combo_value(dlg, dlg.cmb_result_compare)
@@ -97,8 +100,16 @@ class GwResultSelectorButton(GwAction):
             """
         )
         dlg.close()
-        tools_qgis.set_layer_index("v_asset_arc_output")
-        tools_qgis.set_layer_index("v_asset_arc_output_compare")
+        for layer_name in (
+            "v_asset_arc_output",
+            "v_asset_arc_output_compare",
+            "v_asset_node_output",
+            "v_asset_node_output_compare",
+        ):
+            layer = tools_qgis.get_layer_by_tablename(layer_name, schema_name="am")
+            if layer:
+                layer.dataProvider().reloadData()
+                layer.triggerRepaint()
 
         try:
             # Update symbology of layers currently loaded in the project
@@ -125,6 +136,7 @@ class GwResultSelectorButton(GwAction):
             pass
 
     def _set_signals(self):
+        """ Connect result selector dialog widget signals """
         dlg = self.dlg_result_selector
         dlg.btn_cancel.clicked.connect(dlg.reject)
         dlg.btn_accept.clicked.connect(self._save_selection)
@@ -132,6 +144,7 @@ class GwResultSelectorButton(GwAction):
         dlg.cmb_result_compare.currentIndexChanged.connect(self._update_descriptions)
 
     def _update_descriptions(self):
+        """ Update description text fields from combo selection """
         dlg = self.dlg_result_selector
         desc_main = tools_qt.get_combo_value(dlg, dlg.cmb_result_main, 2)
         dlg.txt_result_main_desc.setText(desc_main)

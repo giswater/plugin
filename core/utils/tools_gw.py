@@ -1272,6 +1272,15 @@ def refresh_categorized_layer_symbology_classes(layer, addparam=None):
         :param layer: Layer to refresh (QgsVectorLayer)
         :param addparam: Addparams of the layer (dict)
     """
+    if addparam is None:
+        return
+    if isinstance(addparam, str):
+        try:
+            addparam = json.loads(addparam)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return
+    if not isinstance(addparam, dict):
+        return
 
     field_name = addparam.get('symbolField')
 

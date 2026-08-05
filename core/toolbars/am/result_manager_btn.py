@@ -28,7 +28,7 @@ class GwResultManagerButton(GwAction):
     """ """
 
     def __init__(self, icon_path, action_name, text, toolbar, action_group):
-
+        """ Initialise toolbar action for AM result manager """
         super().__init__(icon_path, action_name, text, toolbar, action_group)
         self.iface = global_vars.iface
 
@@ -39,10 +39,11 @@ class GwResultManagerButton(GwAction):
         self.action_group = action_group
 
     def clicked_event(self):
+        """ Open priority result manager dialog """
         self.open_manager()
 
     def open_manager(self):
-
+        """ Build and open priority manager with filters and results table """
         self.dlg_priority_manager = GwPriorityManagerUi(self)
 
         # Fill names
@@ -143,7 +144,7 @@ class GwResultManagerButton(GwAction):
         tools_gw.open_dialog(self.dlg_priority_manager, dlg_name="priority_manager")
 
     def _manage_txt_report(self):
-
+        """ Fill info panel with selected result record details """
         dlg = self.dlg_priority_manager
 
         selected_list = dlg.tbl_results.selectionModel().selectedRows()
@@ -173,7 +174,7 @@ class GwResultManagerButton(GwAction):
         dlg.txt_info.setText(txt)
 
     def _manage_btn_action(self):
-
+        """ Enable action buttons according to selected result status """
         dlg = self.dlg_priority_manager
 
         selected_list = dlg.tbl_results.selectionModel().selectedRows()
@@ -210,7 +211,7 @@ class GwResultManagerButton(GwAction):
             dlg.btn_delete.setEnabled(True)
 
     def _filter_table(self):
-
+        """ Apply combo filters to cat_result table model """
         dlg = self.dlg_priority_manager
 
         tbl_result = dlg.tbl_results
@@ -236,7 +237,7 @@ class GwResultManagerButton(GwAction):
         tbl_result.model().select()
 
     def _delete_result(self):
-
+        """ Delete selected result when status is CANCELED """
         table = self.dlg_priority_manager.tbl_results
         selected = [x.data() for x in table.selectedIndexes() if x.column() == 0]
         for result_id in selected:
@@ -275,7 +276,7 @@ class GwResultManagerButton(GwAction):
         table.model().select()
 
     def _dlg_status_accept(self, result_id):
-
+        """ Update result status from status selector dialog """
         new_status = tools_qt.get_combo_value(self.dlg_status, "cmb_status")
         tools_db.execute_sql(
             f"""
@@ -288,9 +289,9 @@ class GwResultManagerButton(GwAction):
         self.dlg_priority_manager.tbl_results.model().select()
 
     def _edit_result(self):
+        """ Open priority dialog in edit mode for selected result """
 
         # Get parameters
-
         dlg = self.dlg_priority_manager
         selected_list = dlg.tbl_results.selectionModel().selectedRows()
         row = selected_list[0].row()
@@ -308,7 +309,7 @@ class GwResultManagerButton(GwAction):
         calculate_priority.clicked_event()
 
     def _duplicate_result(self):
-
+        """ Open priority dialog in duplicate mode for selected result """
         dlg = self.dlg_priority_manager
         selected_list = dlg.tbl_results.selectionModel().selectedRows()
         row = selected_list[0].row()
@@ -372,7 +373,7 @@ class GwResultManagerButton(GwAction):
             print(f"EXCEPTION -> {e}")
 
     def _open_status_selector(self):
-
+        """ Open dialog to change status of selected result """
         table = self.dlg_priority_manager.tbl_results
         selected = [x.data() for x in table.selectedIndexes() if x.column() == 0]
 
@@ -410,6 +411,7 @@ class GwResultManagerButton(GwAction):
         tools_gw.open_dialog(self.dlg_status, dlg_name="status_selector")
 
     def _set_corporate(self):
+        """ Toggle corporate flag and resolve exploitation conflicts """
         table = self.dlg_priority_manager.tbl_results
         selected_list = table.selectionModel().selectedRows()
 
@@ -433,9 +435,17 @@ class GwResultManagerButton(GwAction):
             self._update_symbology()
             return
 
-        # Get the exploitations of result_id
+        asset_type = row.value("asset_type") or "ARC"
+        if asset_type == "NODE":
+            output_table = "am.node_output"
+            corporate_view = "am.v_asset_node_corporate"
+        else:
+            output_table = "am.arc_output"
+            corporate_view = "am.v_asset_arc_corporate"
+
+        # Get the exploitations of result_id (ARC and NODE corporate scopes stay separate)
         sql = (
-            f"SELECT DISTINCT expl_id FROM am.arc_output WHERE result_id={result_id}"
+            f"SELECT DISTINCT expl_id FROM {output_table} WHERE result_id={result_id}"
         )
         rows = tools_db.get_rows(sql)
         result_expl = set()
@@ -443,7 +453,7 @@ class GwResultManagerButton(GwAction):
             result_expl = {row[0] for row in rows}
 
         # get the result_ids that arecorporate and it exploitations
-        sql = "SELECT DISTINCT result_id, expl_id FROM am.v_asset_arc_corporate"
+        sql = f"SELECT DISTINCT result_id, expl_id FROM {corporate_view}"
         rows = tools_db.get_rows(sql)
         corporate_expl = {}
         if rows:
@@ -496,6 +506,7 @@ class GwResultManagerButton(GwAction):
         self._update_symbology()
 
     def _update_symbology(self):
+        """ Offer to refresh AM layer symbology after corporate change """
         try:
             # Update symbology of layers currently loaded in the project
             if not lib_vars.schema_name:
@@ -521,6 +532,7 @@ class GwResultManagerButton(GwAction):
             pass
 
     def _set_signals(self):
+        """ Connect priority manager dialog widget signals """
         dlg = self.dlg_priority_manager
         dlg.btn_corporate.clicked.connect(self._set_corporate)
         dlg.btn_edit.clicked.connect(self._edit_result)

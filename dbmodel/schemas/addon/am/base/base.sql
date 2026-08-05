@@ -50,6 +50,8 @@ CREATE TABLE arc_input (
     compliance integer,
     mincut_customers integer,
     mincut_criticity numeric(4,2),
+    data_quality integer,
+    data_quality_obs varchar[],
     CONSTRAINT arc_input_pkey PRIMARY KEY (arc_id)
 );
 
@@ -69,7 +71,10 @@ CREATE TABLE cat_result (
     material_id character varying(30),
     features character varying[],
     dnom numeric(12,3),
+    nodecat_id character varying(30),
+    node_type character varying(30),
     iscorporate boolean,
+    asset_type varchar(10) DEFAULT 'ARC',
     CONSTRAINT cat_result_pkey PRIMARY KEY (result_id),
     CONSTRAINT cat_result_result_type_check CHECK (result_type = ANY (ARRAY['GLOBAL', 'SELECTION'])),
     CONSTRAINT cat_result_status_check CHECK (status = ANY (ARRAY['CANCELED', 'ON PLANNING', 'FINISHED']))
@@ -105,6 +110,26 @@ CREATE TABLE config_catalog (
     result_id integer NOT NULL,
     CONSTRAINT config_catalog_arccat_id_or_dnom
         CHECK (arccat_id IS NOT NULL OR dnom IS NOT NULL)
+);
+
+CREATE TABLE config_nodecatalog_def (
+    id serial PRIMARY KEY,
+    nodecat_id varchar(30) NOT NULL,
+    dnom numeric(12,2),
+    cost_constr numeric(12,2),
+    cost_repmain numeric(12,2),
+    compliance integer,
+    CONSTRAINT config_nodecatalog_def_nodecat_id UNIQUE (nodecat_id)
+);
+
+CREATE TABLE config_nodecatalog (
+    nodecat_id varchar(30) NOT NULL,
+    dnom numeric(12,2),
+    cost_constr numeric(12,2),
+    cost_repmain numeric(12,2),
+    compliance integer,
+    result_id integer NOT NULL,
+    CONSTRAINT config_nodecatalog_pkey PRIMARY KEY (nodecat_id, result_id)
 );
 
 CREATE TABLE config_material_def (
@@ -150,7 +175,9 @@ CREATE TABLE config_engine_def (
     widgetcontrols json,
     placeholder text,
     standardvalue text,
-    CONSTRAINT config_engine_def_pkey PRIMARY KEY (parameter, method)
+    asset_type varchar(10) NOT NULL DEFAULT 'ARC',
+    CONSTRAINT config_engine_def_pkey PRIMARY KEY (parameter, method, asset_type),
+    CONSTRAINT config_engine_def_asset_type_check CHECK (asset_type = ANY (ARRAY['ARC', 'NODE']))
 );
 
 CREATE TABLE config_engine (
@@ -174,7 +201,9 @@ CREATE TABLE config_engine (
     placeholder text,
     standardvalue text,
     result_id integer NOT NULL,
-    CONSTRAINT config_engine_pkey PRIMARY KEY (parameter, result_id)
+    asset_type varchar(10) NOT NULL DEFAULT 'ARC',
+    CONSTRAINT config_engine_pkey PRIMARY KEY (parameter, result_id),
+    CONSTRAINT config_engine_asset_type_check CHECK (asset_type = ANY (ARRAY['ARC', 'NODE']))
 );
 
 CREATE TABLE arc_engine_sh (
@@ -247,6 +276,77 @@ CREATE TABLE arc_output (
     CONSTRAINT arc_output_pkey PRIMARY KEY (arc_id, result_id)
 );
 
+-- Stage 2: NODE Weighted Method tables
+
+CREATE TABLE node_input (
+    node_id int4 NOT NULL,
+    age numeric(12,3),
+    incident_count numeric(12,3),
+    structural_raw numeric(12,3),
+    operational_raw numeric(12,3),
+    nrw_raw numeric(12,3),
+    affected_users_raw numeric(12,3),
+    strategic boolean,
+    compliance boolean,
+    mandatory boolean DEFAULT false,
+    data_quality integer,
+    data_quality_obs varchar[],
+    estimated_cost numeric(12,2),
+    CONSTRAINT node_input_pkey PRIMARY KEY (node_id)
+);
+
+CREATE TABLE node_engine_wm (
+    node_id int4 NOT NULL,
+    result_id integer NOT NULL,
+    longevity numeric(5,2),
+    incident_history numeric(5,2),
+    structural_condition numeric(5,2),
+    operational_condition numeric(5,2),
+    nrw numeric(5,2),
+    affected_users numeric(5,2),
+    strategic numeric(5,2),
+    compliance numeric(5,2),
+    val_first double precision,
+    val double precision,
+    orderby integer,
+    CONSTRAINT node_engine_wm_pkey PRIMARY KEY (node_id, result_id)
+);
+
+CREATE TABLE node_output (
+    node_id int4 NOT NULL,
+    result_id integer NOT NULL,
+    sector_id integer,
+    macrosector_id integer,
+    presszone_id character varying(30),
+    builtdate date,
+    nodecat_id character varying(30),
+    node_type character varying(30),
+    the_geom public.geometry(point,SCHEMA_SRID),
+    code character varying(50),
+    expl_id integer,
+    dma_id integer,
+    longevity numeric(12,3),
+    incident_history numeric(12,3),
+    structural_condition numeric(12,3),
+    operational_condition numeric(12,3),
+    nrw numeric(12,3),
+    affected_users numeric(12,3),
+    strategic boolean,
+    mandatory boolean,
+    compliance boolean,
+    val double precision,
+    orderby integer,
+    selected boolean DEFAULT false,
+    expected_year integer,
+    replacement_year integer,
+    budget numeric(12,2),
+    total numeric(12,2),
+    estimated_cost numeric(12,2),
+    comments text,
+    data_quality_class varchar(20),
+    CONSTRAINT node_output_pkey PRIMARY KEY (node_id, result_id)
+);
+
 CREATE TABLE selector_result_main (
     result_id integer NOT NULL,
     cur_user text DEFAULT "current_user"() NOT NULL,
@@ -288,7 +388,6 @@ CREATE VIEW v_asset_arc_output AS
     matcat_id,
     pavcat_id,
     function_type,
-    the_geom,
     code,
     expl_id,
     dma_id,
@@ -310,7 +409,8 @@ CREATE VIEW v_asset_arc_output AS
     budget,
     total,
     length,
-    cum_length
+    cum_length,
+    the_geom
    FROM arc_output o
      JOIN selector_result_main s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
@@ -327,7 +427,6 @@ CREATE VIEW v_asset_arc_output_compare AS
     matcat_id,
     pavcat_id,
     function_type,
-    the_geom,
     code,
     expl_id,
     dma_id,
@@ -349,7 +448,8 @@ CREATE VIEW v_asset_arc_output_compare AS
     budget,
     total,
     length,
-    cum_length
+    cum_length,
+    the_geom
    FROM arc_output o
      JOIN selector_result_compare s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
@@ -366,7 +466,6 @@ AS SELECT o.arc_id,
     o.matcat_id,
     o.pavcat_id,
     o.function_type,
-    o.the_geom,
     o.code,
     o.expl_id,
     o.dma_id,
@@ -388,8 +487,117 @@ AS SELECT o.arc_id,
     o.budget,
     o.total,
     o.length,
-    o.cum_length
+    o.cum_length,
+    o.the_geom
    FROM arc_output o
+     JOIN cat_result r ON r.result_id = o.result_id
+  WHERE r.iscorporate = TRUE;
+
+CREATE VIEW v_asset_node_output AS
+ SELECT node_id,
+    o.result_id,
+    sector_id,
+    macrosector_id,
+    presszone_id,
+    builtdate,
+    nodecat_id,
+    node_type,
+    code,
+    expl_id,
+    dma_id,
+    longevity,
+    incident_history,
+    structural_condition,
+    operational_condition,
+    nrw,
+    affected_users,
+    strategic,
+    mandatory,
+    compliance,
+    val,
+    orderby,
+    selected,
+    expected_year,
+    replacement_year,
+    budget,
+    total,
+    estimated_cost,
+    comments,
+    data_quality_class,
+    the_geom
+   FROM node_output o
+     JOIN selector_result_main s ON (s.result_id = o.result_id)
+  WHERE (s.cur_user = (CURRENT_USER)::text);
+
+CREATE VIEW v_asset_node_output_compare AS
+ SELECT node_id,
+    o.result_id,
+    sector_id,
+    macrosector_id,
+    presszone_id,
+    builtdate,
+    nodecat_id,
+    node_type,
+    code,
+    expl_id,
+    dma_id,
+    longevity,
+    incident_history,
+    structural_condition,
+    operational_condition,
+    nrw,
+    affected_users,
+    strategic,
+    mandatory,
+    compliance,
+    val,
+    orderby,
+    selected,
+    expected_year,
+    replacement_year,
+    budget,
+    total,
+    estimated_cost,
+    comments,
+    data_quality_class,
+    the_geom
+   FROM node_output o
+     JOIN selector_result_compare s ON (s.result_id = o.result_id)
+  WHERE (s.cur_user = (CURRENT_USER)::text);
+
+CREATE OR REPLACE VIEW v_asset_node_corporate
+AS SELECT o.node_id,
+    o.result_id,
+    o.sector_id,
+    o.macrosector_id,
+    o.presszone_id,
+    o.builtdate,
+    o.nodecat_id,
+    o.node_type,
+    o.code,
+    o.expl_id,
+    o.dma_id,
+    o.longevity,
+    o.incident_history,
+    o.structural_condition,
+    o.operational_condition,
+    o.nrw,
+    o.affected_users,
+    o.strategic,
+    o.mandatory,
+    o.compliance,
+    o.val,
+    o.orderby,
+    o.selected,
+    o.expected_year,
+    o.replacement_year,
+    o.budget,
+    o.total,
+    o.estimated_cost,
+    o.comments,
+    o.data_quality_class,
+    o.the_geom
+   FROM node_output o
      JOIN cat_result r ON r.result_id = o.result_id
   WHERE r.iscorporate = TRUE;
 
@@ -398,27 +606,52 @@ AS SELECT o.arc_id,
 --
 SET search_path = am, public;
 
-INSERT INTO config_engine_def VALUES ('bratemain0', '0.05', 'SH', NULL, NULL, true, 'lyt_engine_1', 1, 'Break rate coefficient', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('drate', '0.05', 'SH', NULL, NULL, true, 'lyt_engine_1', 2, 'Discount rate (%)', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('rleak_1', '0.2', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Real breaks', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('mleak_1', '0.1', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Probability of failure', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('longevity_1', '0.7', 'WM', NULL, NULL, true, 'lyt_engine_1', 5, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('flow_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Circulating flow', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('nrw_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'ANC', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 8, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 9, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('mincut_criticity_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 10, 'Mincut criticity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('expected_year', '0.7', 'SH', NULL, NULL, true, 'lyt_engine_2', 1, 'Weight expected year', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('compliance', '0.1', 'SH', NULL, NULL, true, 'lyt_engine_2', 2, 'Weight compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('strategic', '0.2', 'SH', NULL, NULL, true, 'lyt_engine_2', 3, 'Weight strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('rleak_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Real breaks', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('mleak_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'Probability of failure', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('flow_2', '0.5', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Circulating flow', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('nrw_2', '0.2', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'ANC', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('strategic_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 9, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('compliance_2', '0.3', 'WM', NULL, NULL, true, 'lyt_engine_2', 10, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-INSERT INTO config_engine_def VALUES ('mincut_criticity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 11, 'Mincut criticity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO config_engine_def VALUES ('bratemain0', '0.05', 'SH', NULL, NULL, true, 'lyt_engine_1', 1, 'Break rate coefficient', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('drate', '0.05', 'SH', NULL, NULL, true, 'lyt_engine_1', 2, 'Discount rate (%)', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('rleak_1', '0.2', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Real breaks', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('mleak_1', '0.1', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Probability of failure', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('longevity_1', '0.7', 'WM', NULL, NULL, true, 'lyt_engine_1', 5, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('flow_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Circulating flow', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('nrw_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'ANC', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 8, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 9, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('mincut_criticity_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 10, 'Mincut criticity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('expected_year', '0.7', 'SH', NULL, NULL, true, 'lyt_engine_2', 1, 'Weight expected year', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('compliance', '0.1', 'SH', NULL, NULL, true, 'lyt_engine_2', 2, 'Weight compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('strategic', '0.2', 'SH', NULL, NULL, true, 'lyt_engine_2', 3, 'Weight strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('rleak_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Real breaks', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('mleak_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'Probability of failure', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('flow_2', '0.5', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Circulating flow', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('nrw_2', '0.2', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'ANC', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('strategic_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 9, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('compliance_2', '0.3', 'WM', NULL, NULL, true, 'lyt_engine_2', 10, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('mincut_criticity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 11, 'Mincut criticity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+
+--
+-- Stage 2: NODE Weighted Method default weights
+--
+INSERT INTO config_engine_def (
+    parameter, value, method, round, descript, active, layoutname, layoutorder,
+    label, datatype, widgettype, dv_querytext, dv_controls, ismandatory, iseditable,
+    stylesheet, widgetcontrols, placeholder, standardvalue, asset_type
+) VALUES
+    ('longevity_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('incident_history_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('structural_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('operational_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('nrw_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 5, 'ANC', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('affected_users_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Affected users', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('incident_history_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('structural_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('operational_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('nrw_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'ANC', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('affected_users_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Affected users', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('strategic_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('compliance_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE');
 
 --
 -- config_form_tableview
@@ -428,6 +661,10 @@ INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_ca
 INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_catalog_def', 'cost_constr', 1, true, NULL, NULL, '{"stretch": true}');
 INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_catalog_def', 'cost_repmain', 2, true, NULL, NULL, '{"stretch": true}');
 INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_catalog_def', 'compliance', 3, true, NULL, NULL, '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'dnom', 0, true, NULL, NULL, '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'cost_constr', 1, true, NULL, NULL, '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'cost_repmain', 2, true, NULL, NULL, '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'compliance', 3, true, NULL, NULL, '{"stretch": true}');
 INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_material_def', 'material', 0, true, NULL, NULL, '{"stretch": true}');
 INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_material_def', 'pleak', 1, true, NULL, NULL, '{"stretch": true}');
 INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_material_def', 'age_max', 2, true, NULL, NULL, '{"stretch": true}');
@@ -507,6 +744,8 @@ GRANT ALL ON TABLE arc_output TO role_basic;
 GRANT ALL ON TABLE cat_result TO role_basic;
 GRANT ALL ON TABLE config_catalog TO role_basic;
 GRANT ALL ON TABLE config_catalog_def TO role_basic;
+GRANT ALL ON TABLE config_nodecatalog TO role_basic;
+GRANT ALL ON TABLE config_nodecatalog_def TO role_basic;
 GRANT ALL ON TABLE config_engine TO role_basic;
 GRANT ALL ON TABLE config_engine_def TO role_basic;
 GRANT ALL ON TABLE config_form_tableview TO role_basic;
@@ -518,3 +757,9 @@ GRANT ALL ON TABLE selector_result_compare TO role_basic;
 GRANT ALL ON TABLE selector_result_main TO role_basic;
 GRANT ALL ON TABLE value_result_type TO role_basic;
 GRANT ALL ON TABLE value_status TO role_basic;
+GRANT ALL ON TABLE node_input TO role_basic;
+GRANT ALL ON TABLE node_engine_wm TO role_basic;
+GRANT ALL ON TABLE node_output TO role_basic;
+GRANT ALL ON TABLE v_asset_node_output TO role_basic;
+GRANT ALL ON TABLE v_asset_node_output_compare TO role_basic;
+GRANT ALL ON TABLE v_asset_node_corporate TO role_basic;

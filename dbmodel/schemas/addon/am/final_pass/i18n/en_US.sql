@@ -33,6 +33,22 @@ FROM (
 ) AS v(parameter, method, label, descript, placeholder)
 WHERE t.parameter = v.parameter AND t.method = v.method;
 
+-- Stage 2: NODE-only Weighted Method parameters
+UPDATE config_engine_def AS t
+SET label = v.label, descript = v.descript, placeholder = v.placeholder
+FROM (
+    VALUES
+    ('incident_history_1', 'WM', 'Incident history', 'Number of past incidents recorded for the node', NULL),
+    ('incident_history_2', 'WM', 'Incident history', 'Number of past incidents recorded for the node', NULL),
+    ('structural_condition_1', 'WM', 'Structural condition', 'Structural assessment score of the node', NULL),
+    ('structural_condition_2', 'WM', 'Structural condition', 'Structural assessment score of the node', NULL),
+    ('operational_condition_1', 'WM', 'Operational condition', 'Operational assessment score of the node', NULL),
+    ('operational_condition_2', 'WM', 'Operational condition', 'Operational assessment score of the node', NULL),
+    ('affected_users_1', 'WM', 'Affected users', 'Users affected by a potential failure of the node', NULL),
+    ('affected_users_2', 'WM', 'Affected users', 'Users affected by a potential failure of the node', NULL)
+) AS v(parameter, method, label, descript, placeholder)
+WHERE t.parameter = v.parameter AND t.method = v.method AND t.asset_type = 'NODE';
+
 UPDATE value_result_type AS t
 SET idval = v.idval
 FROM (

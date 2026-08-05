@@ -72,7 +72,17 @@
          <item row="0" column="3">
           <widget class="QComboBox" name="cmb_status"/>
          </item>
-         <item row="1" column="1" colspan="3">
+         <item row="0" column="4">
+          <widget class="QLabel" name="lbl_asset_type">
+           <property name="text">
+            <string>Asset type:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="5">
+          <widget class="QComboBox" name="cmb_asset_type"/>
+         </item>
+         <item row="1" column="1" colspan="5">
           <widget class="QLineEdit" name="txt_descript">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -470,6 +480,7 @@
  <tabstops>
   <tabstop>txt_result_id</tabstop>
   <tabstop>cmb_status</tabstop>
+  <tabstop>cmb_asset_type</tabstop>
   <tabstop>txt_descript</tabstop>
   <tabstop>btn_snapping</tabstop>
   <tabstop>cmb_expl_selection</tabstop>
