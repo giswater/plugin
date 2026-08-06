@@ -146,6 +146,7 @@ BEGIN
 	v_check_arcdnom = (p_data->>'data')::json->>'pipeDiameter';
 	v_check_maxdistance = (p_data->>'data')::json->>'maxDistance';
 	v_psector_id_param = ((p_data->>'data')::json->>'psectorId')::integer;
+	v_min_arcdnom = (p_data->>'data')::json->>'minPipeDiameter';
 
 	-- get user variables (use psector from Python if provided, otherwise from config)
 	v_psector_current = COALESCE(v_psector_id_param, (SELECT value::integer FROM config_param_user WHERE parameter = 'plan_psector_current' AND cur_user = current_user));
@@ -164,14 +165,16 @@ BEGIN
 
   	IF v_projecttype = 'WS' THEN
 		BEGIN
-			SELECT min(ca.dnom::float) INTO v_min_arcdnom
-			FROM cat_arc ca
-			WHERE ca.id IN (
-				SELECT DISTINCT arccat_id
-				FROM arc
-				JOIN vf_arc va ON va.arc_id = arc.arc_id
-				WHERE state > 0 AND arccat_id IS NOT NULL
-			);
+			IF v_min_arcdnom IS NULL THEN
+				SELECT min(ca.dnom::float) INTO v_min_arcdnom
+				FROM cat_arc ca
+				WHERE ca.id IN (
+					SELECT DISTINCT arccat_id
+					FROM arc
+					JOIN vf_arc va ON va.arc_id = arc.arc_id
+					WHERE state > 0 AND arccat_id IS NOT NULL
+				);
+			END IF;
 
 			IF v_min_arcdnom IS NOT NULL AND v_check_arcdnom <= v_min_arcdnom THEN
 				EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
@@ -345,7 +348,7 @@ BEGIN
 
 				-- Use check arc diameter variable
 				IF v_projecttype = 'WS' THEN
-					v_checkeddiam = concat(' AND dnom::float <',v_check_arcdnom,' ');
+					v_checkeddiam = concat(' AND dnom::float <=',v_check_arcdnom,' ');
 				ELSE v_checkeddiam = '';
 				END IF;
 

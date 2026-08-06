@@ -136,3 +136,167 @@ INSERT INTO sys_table (id, descript, sys_role, "source") VALUES
 ('v_sys_fprocess', 'Procesos del sistema (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
 ('v_sys_table', 'Tablas del sistema (permite multilenguaje e integración con network schemas)', 'role_basic', 'core')
 ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE cat_feature ADD custom_code_autofill bool DEFAULT false NULL;
+ALTER TABLE config_mapzones ADD custom_code_autofill bool DEFAULT false NULL;
+
+UPDATE sys_message SET error_message = 'The volume water inserted is %volume%, which it means that lossed water percentatge due leak of data have been %percentage% %.'
+WHERE id = 4640 AND error_message = 'The volume water inserted is %volume%, wich it means that lossed water percentatge due leak of data have been %percentage% %.';
+
+UPDATE config_param_system
+	SET "label"='Cibs schema:'
+	WHERE "parameter"='admin_cibs_schema' AND "label"='cibs schema:';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column rg_id.', except_msg='subcatchment(s) with null values on mandatory column rg_id.' 
+WHERE fid=704 AND fprocess_name='Check subcatchment(s) with null values on mandatory column rg_id column.';
+    
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column area.', except_msg='subcatchment(s) with null values on mandatory column area.' 
+WHERE fid=702 AND fprocess_name='Check subcatchment(s) with null values on mandatory column area column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column width.', except_msg='subcatchment(s) with null values on mandatory column width.' 
+WHERE fid=700 AND fprocess_name='Check subcatchment(s) with null values on mandatory column width column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column slope.', except_msg='subcatchment(s) with null values on mandatory column slope.' WHERE fid=698;
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column clength.', except_msg='subcatchment(s) with null values on mandatory column clength.' 
+WHERE fid=696 AND fprocess_name='Check subcatchment(s) with null values on mandatory column clength column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column nimp.', except_msg='subcatchment(s) with null values on mandatory column nimp.' 
+WHERE fid=694 AND fprocess_name='Check subcatchment(s) with null values on mandatory column nimp column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column nperv.', except_msg='subcatchment(s) with null values on mandatory column nperv.' 
+WHERE fid=692 AND fprocess_name='Check subcatchment(s) with null values on mandatory column nperv column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column simp.', except_msg='subcatchment(s) with null values on mandatory column simp.' 
+WHERE fid=690 AND fprocess_name='Check subcatchment(s) with null values on mandatory column simp column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column sperv.', except_msg='subcatchment(s) with null values on mandatory column sperv.' 
+WHERE fid=688 AND fprocess_name='Check subcatchment(s) with null values on mandatory column sperv column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column zero.', except_msg='subcatchment(s) with null values on mandatory column zero.' 
+WHERE fid=686 AND fprocess_name='Check subcatchment(s) with null values on mandatory column zero column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column routeto.', except_msg='subcatchment(s) with null values on mandatory column routeto.' 
+WHERE fid=684 AND fprocess_name='Check subcatchment(s) with null values on mandatory column routeto column.';
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column rted.', except_msg='subcatchment(s) with null values on mandatory column rted.' 
+WHERE fid=682 AND fprocess_name='Check subcatchment(s) with null values on mandatory column rted column.';
+
+UPDATE config_param_system 
+SET "label" = "label" || ':' 
+WHERE "parameter" = 'help_domain' 
+  AND "label" IS NOT NULL 
+  AND "label" LIKE '%:';
+
+DO $$
+BEGIN
+  IF lower((SELECT "language" FROM sys_version LIMIT 1)) NOT ILIKE 'es_%' OR (SELECT "language" FROM sys_version LIMIT 1) IS NULL THEN
+    UPDATE sys_fprocess SET 
+    except_msg = 'raingages with null values at least in the mandatory columns for the rain type (form_type, intvl, scf, rgage_type).',
+    info_msg = 'The mandatory columns for the rain type (form_type, intvl, scf, rgage_type) have been checked and no values are missing.'
+    WHERE fid = 285 AND except_msg = 'raingages con valores nulos al menos en las columnas obligatorias para el tipo de lluvia (form_type, intvl, scf, rgage_type).';
+  END IF;
+END $$;
+
+UPDATE config_form_fields
+  SET tooltip = LEFT(tooltip, LENGTH(tooltip) - 1)
+  WHERE tooltip LIKE '%:';
+
+UPDATE config_form_fields
+  SET tooltip = replace(tooltip, '- id', '- Id')
+  WHERE tooltip LIKE '%- id%';
+
+UPDATE config_form_fields
+	SET "label"='Data quality'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='dataquality' AND "label"='Dataquality';
+
+UPDATE config_form_fields
+	SET "label"='Data quality obs.'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='dataquality_obs' AND "label"='Dataquality_obs';
+
+UPDATE config_form_fields
+	SET "label"='Cabinet:'
+	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='cabinet' AND "label"='cabinet';
+
+UPDATE config_form_fields
+	SET "label"='Place name:'
+	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='place_name' AND "label"='place_name';
+
+UPDATE config_form_fields
+	SET tooltip='Date to'
+	WHERE (tooltip='' OR tooltip IS NULL) AND columnname = 'date_to';
+
+CREATE OR REPLACE VIEW ve_om_visit AS
+SELECT
+	om_visit.id,
+	om_visit.visitcat_id,
+	om_visit.ext_code,
+	om_visit.status,
+	om_visit.startdate,
+	om_visit.enddate,
+	om_visit.user_name,
+	om_visit.the_geom,
+	om_visit.webclient_id,
+	om_visit.expl_id
+FROM om_visit
+WHERE 
+    EXISTS ( SELECT 1 FROM selector_sector ssec WHERE ssec.cur_user = CURRENT_USER AND ssec.sector_id = om_visit.sector_id)
+    AND EXISTS ( SELECT 1 FROM selector_municipality sm WHERE sm.cur_user = CURRENT_USER AND sm.muni_id = om_visit.muni_id)
+    AND EXISTS ( SELECT 1 FROM selector_expl se WHERE se.cur_user = CURRENT_USER AND se.expl_id = om_visit.expl_id);
+
+CREATE OR REPLACE VIEW v_ui_om_visit
+AS 
+SELECT 
+    om_visit.id,
+    om_visit_cat.name AS visit_catalog,
+    om_visit.ext_code,
+    om_visit.startdate,
+    om_visit.enddate,
+    om_visit.user_name,
+    om_visit.webclient_id,
+    exploitation.name AS exploitation,
+    om_visit.the_geom,
+    om_visit.descript,
+    om_visit.is_done,
+    om_visit.visit_type
+FROM om_visit
+LEFT JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+LEFT JOIN exploitation ON exploitation.expl_id = om_visit.expl_id;
+
+-- Fix sys_table_context 27/28/29 when 4.5.0 renumbered with a non-C
+-- collation (Linux ICU): OM ANALYTICS siblings were assigned the wrong
+-- numeric id vs the C-collation / i18n baseline.
+-- Reattach each row's payload (idval, addparam, ...) to the canonical id
+-- using addparam.orderBy so translated idval text is preserved.
+-- Canonical: orderBy 31→27, 32→28, 30→29. Only WS (has orderBy 31 and 32).
+UPDATE config_typevalue AS t
+SET idval = s.idval,
+	camelstyle = s.camelstyle,
+	addparam = s.addparam
+FROM (
+	SELECT
+		idval,
+		camelstyle,
+		addparam,
+		CASE (addparam->>'orderBy')::integer
+			WHEN 31 THEN '27'
+			WHEN 32 THEN '28'
+			WHEN 30 THEN '29'
+		END AS target_id
+	FROM config_typevalue
+	WHERE typevalue = 'sys_table_context'
+		AND (addparam->>'orderBy')::integer IN (30, 31, 32)
+) AS s
+WHERE t.typevalue = 'sys_table_context'
+	AND t.id = s.target_id
+    AND EXISTS (
+		SELECT 1 FROM config_typevalue
+		WHERE typevalue = 'sys_table_context' AND (addparam->>'orderBy')::integer = 30
+	)
+	AND EXISTS (
+		SELECT 1 FROM config_typevalue
+		WHERE typevalue = 'sys_table_context' AND (addparam->>'orderBy')::integer = 31
+	)
+	AND EXISTS (
+		SELECT 1 FROM config_typevalue
+		WHERE typevalue = 'sys_table_context' AND (addparam->>'orderBy')::integer = 32
+	);

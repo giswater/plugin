@@ -31,6 +31,8 @@ from ..threads.task import GwTask
 from ..ui.ui_manager import GwAdminUi, GwAdminDbProjectUi, GwAdminRenameProjUi, GwAdminProjectInfoUi, \
     GwAdminFieldsUi, GwCredentialsUi, GwReplaceInFileUi, \
     GwAdminMarkdownGeneratorUi  # noqa: F401
+    
+from .i18n_languages import GwI18NManageLanguagesDialog
 
 from ..utils import tools_gw
 from ... import global_vars
@@ -862,9 +864,9 @@ class GwAdminButton:
                 task.cancel()
 
     def _resolve_update_kind(self) -> str:
-        kind = self.project_type_selected or self.project_type
-        if not kind:
-            kind = self._get_selected_project_type()
+        # Schema-backed type wins; never prefer stale project_type_selected
+        # (e.g. after switching UD → WS in the schema combo, or create-project flips).
+        kind = self._get_selected_project_type() or self.project_type
         return str(kind or 'ws').lower()
 
     def _resolve_parent_context(self, parent_schema=None, parent_type=None):
@@ -1303,6 +1305,9 @@ class GwAdminButton:
 
         # Get combo locale
         self.cmb_locale = self.dlg_readsql_create_project.findChild(QComboBox, 'cmb_locale')
+        tools_gw.add_icon(self.dlg_readsql_create_project.btn_language, "184")
+        msg = "Manage languages"
+        self.dlg_readsql_create_project.btn_language.setToolTip(tools_qt.tr(msg))
 
         # Populate combo with all locales
         status, sqlite_cur = tools_gw.create_sqlite_conn("locales")
@@ -1968,6 +1973,7 @@ class GwAdminButton:
         force = bool(getattr(self, "_i18n_provision_after_load", False))
         self._i18n_provision_after_load = False
         self._ensure_language_packages_for_connection(force=force)
+        tools_gw.add_giswater_language_menu()
 
     def _finalize_admin_permissions_and_status(self):
         message = ''
@@ -2582,17 +2588,29 @@ class GwAdminButton:
         return schema_name
 
     def _get_selected_project_type(self) -> str:
-        if getattr(self, 'project_type', None):
-            return str(self.project_type).lower()
+        """Return project type for the currently selected schema (catalog/sys_version).
+
+        Must not short-circuit on stale self.project_type — that value lags until
+        _set_info_project runs, and sync handlers fire before it.
+        """
         schema_name = self._get_selected_schema_name()
         if not schema_name:
-            return str(getattr(self, 'project_type_selected', '') or '').lower()
+            return str(
+                getattr(self, 'project_type', None)
+                or getattr(self, 'project_type_selected', '')
+                or ''
+            ).lower()
         if self._admin_catalog_cache and self._admin_catalog_cache.sys_version_schemas:
             schemas = self._admin_catalog_cache.sys_version_schemas
         else:
             schemas = admin_catalog.fetch_sys_version_schemas()
         pt = admin_catalog.project_type_for_schema(schemas, schema_name)
-        return str(pt or getattr(self, 'project_type_selected', '') or '').lower()
+        return str(
+            pt
+            or getattr(self, 'project_type', None)
+            or getattr(self, 'project_type_selected', '')
+            or ''
+        ).lower()
 
     def _set_project_type_paths(self, project_type: str):
         self.project_type_selected = project_type
@@ -2815,9 +2833,7 @@ class GwAdminButton:
     def _read_info_version(self):
         """Load merged common + ws/ud changelogs for pending upgrade versions."""
 
-        kind = (self.project_type_selected or self.project_type or 'ws')
-        if kind:
-            kind = str(kind).lower()
+        kind = self._resolve_update_kind()
         if kind not in ('ws', 'ud'):
             tools_log.log_warning(
                 "Changelog preview only supported for ws/ud project types",
@@ -2867,6 +2883,40 @@ class GwAdminButton:
         # this is a legacy reset used by _update_locale before any project_type
         # context exists, so we point at the project-type-agnostic common tree.
         self.folder_locale = os.path.join(self.sql_dir, 'schemas', 'main', 'common')
+
+    def _open_language_dialog(self):
+        """Open language dialog"""
+        dlg = getattr(self, 'dlg_i18n_languages', None)
+        if dlg is not None and not isdeleted(dlg) and dlg.isVisible():
+            tools_gw.focus_open_dialog(dlg)
+            return
+
+        dlg = GwI18NManageLanguagesDialog(self, parent=self.dlg_readsql_create_project)
+        dlg.init_dialog()
+        self.dlg_i18n_languages = dlg
+
+    def _populate_language_combo_create_project(self):
+        """Populate language combo for create project"""
+        self.cmb_locale.clear()
+        status, cursor = tools_gw.create_sqlite_conn("locales")
+        if not status or cursor is None:
+            msg = "Config database file not found"
+            tools_qgis.show_warning(self.dlg_readsql_create_project, msg)
+            return
+        cursor.execute("SELECT locale, name FROM locales WHERE active = 1 ORDER BY name")
+        rows = [[locale, name] for locale, name in cursor.fetchall()]
+        if not rows:
+            msg = "No active locales configured"
+            tools_qgis.show_warning(self.dlg_readsql_create_project, msg)
+            return
+        if global_vars.gw_dev_mode is True:
+            rows.append(["no_TR", "Harcoded (No translation)"])
+        tools_qt.fill_combo_values(self.cmb_locale, rows)
+        language = tools_gw.get_config_parser(
+            'i18n_generator', 'qm_lang_language', "user", "session", False,
+        )
+        if language:
+            tools_qt.set_combo_value(self.cmb_locale, language, 0, add_new=False)
 
     def _populate_data_schema_name(self, widget=None):
         """Fill project schema combo from cached catalog or pg_catalog."""
@@ -2991,6 +3041,8 @@ class GwAdminButton:
                 self.lbl_schema_name.setText('')
             else:
                 self.project_type = last_dict_info['project_type']
+                if self.project_type:
+                    self._set_project_type_paths(str(self.project_type).lower())
                 self.project_epsg = last_dict_info['project_epsg']
                 self.project_version = last_dict_info['project_version']
                 self.project_language = last_dict_info['project_language']
@@ -3091,6 +3143,7 @@ class GwAdminButton:
         self.cmb_create_project_type.currentIndexChanged.connect(
             lambda _index=None: self._apply_dev_project_name())
         self.cmb_locale.currentIndexChanged.connect(partial(self._update_locale))
+        self.dlg_readsql_create_project.btn_language.clicked.connect(partial(self._open_language_dialog))
         self.filter_srid.textChanged.connect(partial(self._filter_srid_changed))
         for radio in (self.rdb_empty, self.rdb_sample_inv, self.rdb_sample_full):
             if radio is not None:

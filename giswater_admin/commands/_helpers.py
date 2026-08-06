@@ -166,6 +166,25 @@ def detect_project_version(conn: Any, schema: str) -> str:
     return ""
 
 
+def detect_project_epsg(conn: Any, schema: str, default: str = "25831") -> str:
+    """Return schema EPSG from ``sys_version.epsg`` for ``SRID_VALUE`` substitution."""
+    try:
+        with conn.raw.cursor() as cur:  # type: ignore[attr-defined]
+            cur.execute(
+                f'SELECT epsg FROM "{schema}".sys_version '
+                "ORDER BY id DESC LIMIT 1"
+            )
+            row = cur.fetchone()
+            if row and row[0] is not None and str(row[0]).strip() not in ("", "0"):
+                return str(row[0])
+    except Exception:  # noqa: BLE001
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+    return default
+
+
 def report_result(
     args: argparse.Namespace,
     out: Out,

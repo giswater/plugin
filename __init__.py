@@ -17,16 +17,14 @@
  ***************************************************************************/
  This script initializes the plugin, making it known to QGIS.
 """
-import os
 import sys
 from pathlib import Path
-
-plugin_path = os.path.abspath(os.path.join(os.path.dirname(__file__)))
-sys.path.append(plugin_path)
+from qgis.core import QgsApplication
 
 # Keep QPIP deps importable if QPIP is disabled/uninstalled (QPIP removes this path on unload).
+_profile_path = QgsApplication.qgisSettingsDirPath()
 _py_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
-_deps_path = Path(plugin_path).parent.parent / "dependencies" / _py_ver
+_deps_path = Path(_profile_path) / "python" / "dependencies" / _py_ver
 _deps_path_str = str(_deps_path)
 if _deps_path.is_dir() and _deps_path_str not in sys.path:
     sys.path.insert(0, _deps_path_str)

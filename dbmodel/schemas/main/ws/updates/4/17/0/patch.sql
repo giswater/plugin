@@ -414,3 +414,193 @@ AS SELECT d.dscenario_id,
   WHERE (EXISTS ( SELECT 1
            FROM selector_inp_dscenario s
           WHERE s.dscenario_id = p.dscenario_id AND s.cur_user = CURRENT_USER)) AND a.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_cat_feature_arc
+AS SELECT cat_feature.id,
+    cat_feature.feature_class AS system_id,
+    cat_feature_arc.epa_default,
+    cat_feature.code_autofill,
+    cat_feature.shortcut_key,
+    cat_feature.link_path,
+    cat_feature.descript,
+    cat_feature.active,
+    cat_feature.abrevation,
+    cat_feature.custom_code_autofill
+   FROM cat_feature
+     JOIN cat_feature_arc USING (id);
+
+CREATE OR REPLACE VIEW ve_cat_feature_connec
+AS SELECT cat_feature.id,
+    cat_feature.feature_class AS system_id,
+    cat_feature_connec.epa_default,
+    cat_feature.code_autofill,
+    cat_feature_connec.double_geom::text AS double_geom,
+    cat_feature.shortcut_key,
+    cat_feature.link_path,
+    cat_feature.descript,
+    cat_feature.active,
+    cat_feature.abrevation,
+    cat_feature.custom_code_autofill
+   FROM cat_feature
+     JOIN cat_feature_connec USING (id);
+
+CREATE OR REPLACE VIEW ve_cat_feature_element
+AS SELECT cat_feature.id,
+    cat_feature.feature_class AS system_id,
+    cat_feature_element.epa_default,
+    cat_feature.code_autofill,
+    cat_feature.shortcut_key,
+    cat_feature.link_path,
+    cat_feature.descript,
+    cat_feature.active,
+    cat_feature.abrevation,
+    cat_feature.custom_code_autofill
+   FROM cat_feature
+     JOIN cat_feature_element USING (id);
+
+CREATE OR REPLACE VIEW ve_cat_feature_link
+AS SELECT cat_feature.id,
+    cat_feature.feature_class AS system_id,
+    cat_feature.code_autofill,
+    cat_feature.shortcut_key,
+    cat_feature.link_path,
+    cat_feature.descript,
+    cat_feature.active,
+    cat_feature.abrevation,
+    cat_feature.custom_code_autofill
+   FROM cat_feature
+     JOIN cat_feature_link USING (id);
+
+CREATE OR REPLACE VIEW ve_cat_feature_node
+AS SELECT cat_feature.id,
+    cat_feature.feature_class AS system_id,
+    cat_feature_node.epa_default,
+    cat_feature_node.isarcdivide,
+    cat_feature_node.isprofilesurface,
+    cat_feature_node.choose_hemisphere,
+    cat_feature.code_autofill,
+    cat_feature_node.double_geom::text AS double_geom,
+    cat_feature_node.num_arcs,
+    cat_feature_node.graph_delimiter,
+    cat_feature.shortcut_key,
+    cat_feature.link_path,
+    cat_feature.descript,
+    cat_feature.active,
+    cat_feature.abrevation,
+    cat_feature.custom_code_autofill
+   FROM cat_feature
+     JOIN cat_feature_node USING (id);
+
+DO $$
+BEGIN
+  IF lower((SELECT language FROM sys_version LIMIT 1)) NOT ILIKE 'es_%' OR (SELECT language FROM sys_version LIMIT 1) IS NULL THEN
+    UPDATE config_form_fields
+      SET "label"='Pattern:',tooltip='Pattern'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='pattern_id' AND tabname='tab_epa' AND "label"='Patrón:';
+    UPDATE config_form_fields
+      SET "label"='Pattern:',tooltip='Pattern'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='pattern_id' AND tabname='tab_epa' AND "label"='Patrón:';
+    UPDATE config_form_fields
+      SET "label"='Head:',tooltip='Head'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='head' AND tabname='tab_epa' AND "label"='Carga hidráulica:';
+    UPDATE config_form_fields
+      SET "label"='Head:',tooltip='Head'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='head' AND tabname='tab_epa' AND "label"='Carga hidráulica:';
+    UPDATE config_form_fields
+      SET "label"='Emitter coefficient:',tooltip='Emitter coefficient'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='emitter_coeff' AND tabname='tab_epa' AND "label"='Coeficiente emisor:';
+    UPDATE config_form_fields
+      SET "label"='Emitter coefficient:',tooltip='Emitter coefficient'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='emitter_coeff' AND tabname='tab_epa' AND "label"='Coeficiente emisor:';
+    UPDATE config_form_fields
+      SET "label"='Pattern id:',tooltip='Pattern id'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='demand_pattern_id' AND tabname='tab_epa' AND "label"='Id del patrón:';
+    UPDATE config_form_fields
+      SET "label"='Pattern id:',tooltip='Pattern id'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='demand_pattern_id' AND tabname='tab_epa' AND "label"='Id del patrón:';
+    UPDATE config_form_fields
+      SET "label"='Demand:',tooltip='demand - Water demand'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='demand' AND tabname='tab_epa' AND "label"='Demanda:';
+    UPDATE config_form_fields
+      SET "label"='Demand:',tooltip='demand - Water demand'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='demand' AND tabname='tab_epa' AND "label"='Demanda:';
+  END IF;
+END $$;
+
+CREATE OR REPLACE VIEW v_om_visit AS
+SELECT DISTINCT ON (visit_id)
+	visit_id,
+	code,
+	visitcat_id,
+	name,
+	visit_start,
+	visit_end,
+	user_name,
+	is_done,
+	feature_id,
+	feature_type,
+	the_geom::geometry(Point) AS the_geom
+FROM (
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_node.node_id AS feature_id,
+		'NODE'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN node.the_geom
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_node ON om_visit_x_node.visit_id = om_visit.id
+	JOIN node ON node.node_id = om_visit_x_node.node_id
+	JOIN vf_node vf ON vf.node_id = node.node_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+	UNION
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_arc.arc_id AS feature_id,
+		'ARC'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN st_lineinterpolatepoint(arc.the_geom, 0.5::double precision)
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_arc ON om_visit_x_arc.visit_id = om_visit.id
+	JOIN arc ON arc.arc_id = om_visit_x_arc.arc_id
+	JOIN vf_arc vf ON vf.arc_id = arc.arc_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+	UNION
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_connec.connec_id AS feature_id,
+		'CONNEC'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN connec.the_geom
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_connec ON om_visit_x_connec.visit_id = om_visit.id
+	JOIN connec ON connec.connec_id = om_visit_x_connec.connec_id
+	JOIN vf_connec vf ON vf.connec_id = connec.connec_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+) a;

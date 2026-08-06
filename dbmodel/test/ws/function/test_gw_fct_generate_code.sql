@@ -57,13 +57,13 @@ ON CONFLICT (context, entity, part) DO UPDATE SET
   descript = EXCLUDED.descript,
   active = EXCLUDED.active;
 
-INSERT INTO config_mapzones (id, abrevation, descript, fid, code_autofill, active, is_dynamic)
-VALUES ('TSTMAP', 'TST', 'Test mapzone', NULL, true, true, true)
+INSERT INTO config_mapzones (id, abrevation, descript, fid, code_autofill, custom_code_autofill, active, is_dynamic)
+VALUES ('TSTMAP', 'TST', 'Test mapzone', NULL, true, true, true, true)
 ON CONFLICT (id) DO UPDATE
-SET abrevation = EXCLUDED.abrevation, code_autofill = EXCLUDED.code_autofill;
+SET abrevation = EXCLUDED.abrevation, code_autofill = EXCLUDED.code_autofill, custom_code_autofill = EXCLUDED.custom_code_autofill;
 
 UPDATE cat_feature
-SET abrevation = 'TST', code_autofill = true
+SET abrevation = 'TST', custom_code_autofill = true
 WHERE id = 'MANHOLE';
 
 SELECT is(
@@ -137,6 +137,8 @@ UPDATE config_code_parts SET active = true, concat_order = 4 WHERE context = 'ma
 
 ALTER SEQUENCE seq_mapzone_code RESTART WITH 1;
 
+UPDATE config_mapzones SET custom_code_autofill = true WHERE id = 'DMA';
+
 SELECT is(
     gw_fct_generate_code('mapzone', 'DMA', (
         SELECT json_build_object(
@@ -171,15 +173,15 @@ SELECT is(
     'Mapzone code uses abrevation + separator + sequence'
 );
 
-UPDATE cat_feature SET code_autofill = false WHERE id = 'MANHOLE';
+UPDATE cat_feature SET custom_code_autofill = false WHERE id = 'MANHOLE';
 
 SELECT is(
     gw_fct_generate_code('feature', 'MANHOLE', json_build_object('node_id', 1, 'node_type', 'MANHOLE')),
     NULL::text,
-    'Returns NULL when cat_feature.code_autofill is false'
+    'Returns NULL when cat_feature.custom_code_autofill is false'
 );
 
-UPDATE cat_feature SET code_autofill = true WHERE id = 'MANHOLE';
+UPDATE cat_feature SET custom_code_autofill = true WHERE id = 'MANHOLE';
 UPDATE cat_feature SET abrevation = 'TST' WHERE id = 'MANHOLE';
 
 UPDATE config_code_parts SET active = false WHERE context = 'feature';

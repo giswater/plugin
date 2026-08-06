@@ -5,7 +5,7 @@ General Public License as published by the Free Software Foundation, either vers
 or (at your option) any later version.
 */
 
-SET search_path = cm, public, pg_catalog;
+SET search_path = cm, PARENT_SCHEMA, public, pg_catalog;
 
 -- Create tables and views related with cat_feature
 DO $$
@@ -858,6 +858,7 @@ VALUES(3558, '0- [CM] Actualizar geometría de lotes y campañas', '{"featureTyp
 ]'::json, NULL, true, '{4}')
 ON CONFLICT DO NOTHING;
 
+SET search_path = cm, PARENT_SCHEMA, public, pg_catalog;
 
 DROP TRIGGER IF EXISTS trg_validate_campaign_x_arc_feature ON cm.om_campaign_x_arc;
 CREATE TRIGGER trg_validate_campaign_x_arc_feature BEFORE INSERT ON cm.om_campaign_x_arc

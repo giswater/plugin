@@ -330,7 +330,7 @@ class AddNewLot:
 
         response = tools_gw.execute_procedure("gw_fct_cm_getlot", p_data, schema_name="cm")
         if not response or response.get("status") != "Accepted":
-            msg = tools_qt.tr("Failed to load lot form.", context_name="cm")
+            msg = "Failed to load lot form"
             tools_qgis.show_warning(msg)
             return
 
@@ -657,7 +657,7 @@ class AddNewLot:
             fields['sector_id'] = sector_val[0]
 
         if list_mandatory:
-            msg = tools_qt.tr("Some mandatory fields are missing. Please fill the required fields (marked in red).", context_name="cm")
+            msg = "Some mandatory fields are missing. Please fill the required fields (marked in red)."
             tools_qgis.show_warning(
                 msg,
                 dialog=self.dlg_lot
@@ -688,7 +688,7 @@ class AddNewLot:
                 self.dlg_lot.accept()
             tools_gw.refresh_selectors(is_cm=True)
         else:
-            msg = tools_qt.tr("Error saving lot.", context_name="cm")
+            msg = "Error saving lot"
             tools_qgis.show_warning(msg)
 
     def reset_rb_list(self, rb_list: Optional[List[Any]] = None):
@@ -842,10 +842,10 @@ class AddNewLot:
         self.dlg_lot_man.tbl_lots.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
 
         # Fill combo values for lot date_filter_type combo
-        date_types = [['real_startdate', tools_qt.tr("Start date", context_name="cm")],
-                      ['real_enddate', tools_qt.tr("End date", context_name="cm")],
-                      ['startdate', tools_qt.tr("Planned start date", context_name="cm")],
-                      ['enddate', tools_qt.tr("Planned end date", context_name="cm")]]
+        date_types = [['real_startdate', tools_qt.tr("Start date")],
+                      ['real_enddate', tools_qt.tr("End date")],
+                      ['startdate', tools_qt.tr("Planned start date")],
+                      ['enddate', tools_qt.tr("Planned end date")]]
         tools_qt.fill_combo_values(self.dlg_lot_man.cmb_date_filter_type, date_types, 1, sort_combo=False)
 
         # Fill combo values for lot status (based on sys_typevalue table)
@@ -987,7 +987,7 @@ class AddNewLot:
         else:
             selected = self.dlg_lot_man.tbl_lots.selectionModel().selectedRows()
             if not selected:
-                msg = tools_qt.tr("Please select a lot to open.", context_name="cm")
+                msg = "Please select a lot to open"
                 tools_qgis.show_warning(msg, dialog=self.dlg_lot_man)
                 return
             lot_ids = [index.data() for index in selected]
@@ -998,7 +998,7 @@ class AddNewLot:
                 if lot_id > 0:
                     self.manage_lot(lot_id=lot_id, is_new=False)
             except (ValueError, TypeError):
-                msg = tools_qt.tr("Invalid lot ID.", context_name="cm")
+                msg = "Invalid lot ID"
                 tools_qgis.show_warning(msg)
 
     def delete_lot(self):
@@ -1006,12 +1006,13 @@ class AddNewLot:
 
         selected = self.dlg_lot_man.tbl_lots.selectionModel().selectedRows()
         if not selected:
-            msg = tools_qt.tr("Select a lot to delete.", context_name="cm")
+            msg = "Select a lot to delete"
             tools_qgis.show_warning(msg, dialog=self.dlg_lot_man)
             return
-        msg = tools_qt.tr("Are you sure you want to delete {0} lot(s)?", context_name="cm")
+        msg = "Are you sure you want to delete {0} lot(s)?"
         msg_params = (len(selected),)
-        if not tools_qt.show_question(msg, msg_params=msg_params, title=tools_qt.tr("Delete Lot(s)", context_name="cm")):
+        title = "Delete Lot(s)"
+        if not tools_qt.show_question(msg, msg_params=msg_params, title=title):
             return
         deleted = 0
         for index in selected:
@@ -1031,7 +1032,7 @@ class AddNewLot:
             sql = f"DELETE FROM cm.om_campaign_lot WHERE lot_id = {lot_id}"
             if tools_db.execute_sql(sql):
                 deleted += 1
-        msg = tools_qt.tr("{0} lot(s) deleted.", context_name="cm")
+        msg = "{0} lot(s) deleted."
         msg_params = (deleted,)
         tools_qgis.show_info(msg, msg_params=msg_params, dialog=self.dlg_lot_man)
         tools_gw.refresh_selectors(is_cm=True)
@@ -1931,7 +1932,7 @@ class AddNewLot:
         idname = self.dict_tables[tablename]["idname"]
         selected = table.selectionModel().selectedRows()
         if not selected:
-            msg = tools_qt.tr("No records selected", context_name="cm")
+            msg = "No records selected"
             tools_qgis.show_warning(msg, dialog=self.dlg_resources_man)
             return
         # Determine column indexes
@@ -2001,11 +2002,13 @@ class AddNewLot:
                 login_names_to_drop = [row[0] for row in login_names_rows if row and row[0]]
 
         # Create message for the question
-        msg = f'''{tools_qt.tr("Are you sure you want to delete these records:", context_name="cm")} ({ids})?'''
+        msg = "Are you sure you want to delete these records: ({0})?"
+        msg_params = (ids,)
         if tablename == "cat_user" and login_names_to_drop:
-            msg += f"\\n{tools_qt.tr('This will also delete the database user(s):', context_name='cm')} {', '.join(login_names_to_drop)}"
-        title = tools_qt.tr("Delete records", context_name="cm")
-        answer = tools_qt.show_question(msg, title=title)
+            msg = "Are you sure you want to delete these records: ({0})?\nThis will also delete the database user(s): {1}"
+            msg_params = (ids, ', '.join(login_names_to_drop))
+        title = "Delete records"
+        answer = tools_qt.show_question(msg, msg_params=msg_params, title=title)
 
         # Check answer
         if answer:
@@ -2113,7 +2116,7 @@ class AddNewLot:
                 values.append(item.text())
 
         if not values:
-            msg = tools_qt.tr("No records selected", context_name="cm")
+            msg = "No records selected"
             tools_qgis.show_warning(msg)
 
         return values
@@ -2166,8 +2169,9 @@ def upsert_team(**kwargs: Any):
 
     # Validate input values
     if not name or not name.strip() or not org_id:
-        msg = tools_qt.tr("Missing required fields", context_name="cm")
-        tools_qt.show_info_box(msg, tools_qt.tr("Info", context_name="cm"))
+        msg = "Missing required fields"
+        title = "Info"
+        tools_qt.show_info_box(msg, title)
         return
 
     # Validate if name already exists
@@ -2184,15 +2188,16 @@ def upsert_team(**kwargs: Any):
 
     rows = tools_db.get_rows(sql_name_exists)
     if rows:
-        msg = tools_qt.tr("The team name already exists", context_name="cm")
-        tools_qt.show_info_box(msg, tools_qt.tr("Info", context_name="cm"), parameter=str(name))
+        msg = "The team name already exists"
+        title = "Info"
+        tools_qt.show_info_box(msg, title, parameter=str(name))
         return
 
     # Execute SQL
     status = tools_db.execute_sql(sql, commit=True)
 
     if not status:
-        msg = tools_qt.tr("Error creating or updating team", context_name="cm")
+        msg = "Error creating or updating team"
         tools_qgis.show_warning(msg, parameter=str(name))
         return
 
