@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Iterator, Mapping, Sequence
 
 from .builder import _parse_version
+from ...libs import tools_qt
 
 CHANGELOG_NAME = "changelog.txt"
 _SCOPE_ORDER = ("common", "ws", "ud")
@@ -33,7 +34,9 @@ def network_update_roots(sql_root: str, kind: str) -> list[str]:
     """Return absolute update roots: common first, then ws or ud."""
     k = (kind or "").strip().lower()
     if k not in ("ws", "ud"):
-        raise ValueError(f"network changelog kind must be 'ws' or 'ud', got: {kind!r}")
+        msg = "network changelog kind must be 'ws' or 'ud', got: {0}"
+        msg_params = (repr(kind),)
+        raise ValueError(tools_qt.tr(msg, list_params=msg_params))
     base = os.path.join(sql_root, "schemas", "main")
     return [
         os.path.join(base, "common", "updates"),

@@ -182,7 +182,9 @@ class GwI18NLocalesTableBase(GwI18NManageLanguagesUi):
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = i18n_service.json.loads(response.read().decode())
         if not isinstance(payload, dict):
-            raise ValueError(f"Unexpected languages payload from {endpoint}")
+            msg = "Unexpected languages payload from {0}"
+            msg_params = (endpoint,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
         return payload
 
     def load_downloaded_locales(self, locales: dict[str, str]) -> dict[str, tuple[str, str | None]]:

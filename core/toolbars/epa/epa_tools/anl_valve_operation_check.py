@@ -98,7 +98,8 @@ class ValveOperationCheck:
             status = addparam["valve_status"]
 
             if name == "base":
-                raise ValueError("A scenario cannot be named 'base'.")
+                msg = "A scenario cannot be named 'base'."
+                raise ValueError(tools_qt.tr(msg))
 
             if name not in scenarios:
                 scenarios[name] = {}
@@ -111,8 +112,9 @@ class ValveOperationCheck:
             elif status.lower() == "closed":
                 scenarios[name]["closed"].append(arc_id)
             else:
-                message = "Incorrect valve status ({0}) for arc {1}."
-                raise ValueError(message.format(status, arc_id))
+                msg = "Incorrect valve status ({0}) for arc {1}."
+                msg_params = (status, arc_id)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         return scenarios
 
@@ -328,7 +330,9 @@ class ConfigVOC:
         ]
         for option in required_options:
             if option not in self.options:
-                raise ValueError(f"{option} not found in [OPTIONS] section.")
+                msg = "{0} not found in [OPTIONS] section."
+                msg_params = (option,)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def _parse_file(self, config_file):
         with open(config_file) as file:
@@ -363,7 +367,8 @@ class ConfigVOC:
         name, status, *valves = tokens
 
         if name == "base":
-            raise ValueError("A scenario cannot be named 'base'.")
+            msg = "A scenario cannot be named 'base'."
+            raise ValueError(tools_qt.tr(msg))
 
         if name not in self.scenarios:
             self.scenarios[name] = {}
@@ -376,8 +381,9 @@ class ConfigVOC:
         elif status.lower() == "closed":
             self.scenarios[name]["closed"] += valves
         else:
-            message = "Incorrect valve status ({0}) for scenario {1}."
-            raise ValueError(message.format(status, name))
+            msg = "Incorrect valve status ({0}) for scenario {1}."
+            msg_params = (status, name)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def _strip_comments(self, str):
         index = str.find(";")

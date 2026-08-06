@@ -278,7 +278,8 @@ class GwImportInpTask(GwTask):
     def _get_units(self) -> None:
         units = self.network.options.hydraulic.inpfile_units
         if not units:
-            raise ValueError("Units not specified in the INP file.")
+            msg = "Units not specified in the INP file."
+            raise ValueError(tools_qt.tr(msg))
         self.db_units = units
 
     def _validate_inputs(self) -> None:
@@ -698,7 +699,9 @@ class GwImportInpTask(GwTask):
                 elif valve_type == 'GPV':
                     setting = value
                 else:
-                    raise ValueError(f'Valve type not recognized: {valve_type}')
+                    msg = 'Valve type not recognized: {0}'
+                    msg_params = (valve_type,)
+                    raise ValueError(tools_qt.tr(msg, list_params=msg_params))
             elif attribute == 'setting':
                 setting = value
             else:

@@ -196,7 +196,9 @@ def modify_links(network, links, factor, fn):
         if (link_name + "_n2a") in wn.link_name_list:
             link_name += "_n2a"
         elif link_name not in wn.link_name_list:
-            raise ValueError(f'The link "{link_name}" does not exist in the network.')
+            msg = "The link '{0}' does not exist in the network."
+            msg_params = (link_name,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
         link = wn.get_link(link_name)
         fn(wn, link, factor)
     return wn
@@ -206,7 +208,9 @@ def modify_nodes(network, nodes, factor, fn):
     wn = copy.deepcopy(network)
     for node_name in nodes:
         if node_name not in wn.node_name_list:
-            raise ValueError(f'The node "{node_name}" does not exist in the network.')
+            msg = "The node '{0}' does not exist in the network."
+            msg_params = (node_name,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
         node = wn.get_node(node_name)
         fn(wn, node, factor)
     return wn
@@ -260,7 +264,9 @@ class PowerModder:
         from wntr.epanet.util import to_si, FlowUnits, HydParam
 
         if feature.link_type != "Pump":
-            raise ValueError(f'The link "{feature.name}" is not a pump.')
+            msg = "The link '{0}' is not a pump."
+            msg_params = (feature.name,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         units = network.options.hydraulic.inpfile_units
         power = to_si(FlowUnits[units], factor, HydParam.Power)
@@ -312,7 +318,9 @@ class SettingModder:
 
         units = network.options.hydraulic.inpfile_units
         if feature.link_type != "Valve":
-            raise ValueError(f'The link "{feature.name}" is not a valve.')
+            msg = "The link '{0}' is not a valve."
+            msg_params = (feature.name,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
         feature.initial_status = LinkStatus.Active
         valve_type = feature.valve_type
         if valve_type == "TCV":
@@ -322,7 +330,9 @@ class SettingModder:
                 FlowUnits[units], factor, self.hyd_param[valve_type]
             )
         else:
-            raise ValueError(f"Cannot calibrate {valve_type} ({feature.name}).")
+            msg = "Cannot calibrate {0} ({1})."
+            msg_params = (valve_type, feature.name)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def apply_factor(self, network, factor):
         return modify_links(network, self.valves, factor, self.modify_feature)
@@ -409,13 +419,13 @@ class Calibrations:
     def _check_input(self):
         for calibration in self.calibrations:
             if calibration["calibration_mode"] not in self.modders:
-                raise ValueError(
-                    f'"{calibration["calibration_mode"]}" is not a valid calibration_mode.'
-                )
+                msg = '"{0}" is not a valid calibration_mode.'
+                msg_params = (calibration["calibration_mode"],)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
             if calibration["target_parameter"] not in self.checkers:
-                raise ValueError(
-                    f'"{calibration["target_parameter"]}" is not a valid target_parameter.'
-                )
+                msg = '"{0}" is not a valid target_parameter.'
+                msg_params = (calibration["target_parameter"],)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def _fill_brackets(self):
         for calibration in self.calibrations:

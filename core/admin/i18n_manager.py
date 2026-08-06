@@ -1809,7 +1809,9 @@ class GwSchemaI18NManager:
         elif mode == 'values':
             return tuple(d.values())
         else:
-            raise ValueError(f"Unsupported compare mode: {mode}")
+            msg = "Unsupported compare mode: {0}"
+            msg_params = (mode,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def _set_operation_on_dict(self, rows1, rows2, op='&', compare='items'):
         """
@@ -1827,14 +1829,18 @@ class GwSchemaI18NManager:
         elif op == '^':
             result = set1 ^ set2
         else:
-            raise ValueError(f"Unsupported operation: {op}")
+            msg = "Unsupported operation: {0}"
+            msg_params = (op,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         if compare == 'items':
             return [dict(t) for t in result]
         elif compare == 'values':
             return [dict(zip(rows1[0].keys(), t)) for t in result]
         else:
-            raise ValueError(f"Unsupported compare mode: {compare}")
+            msg = "Unsupported compare mode: {0}"
+            msg_params = (compare,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def _get_all_columns(self, table_i18n):
         """ Get all columns from the table """

@@ -109,7 +109,9 @@ class AddDemandCheck:
             pressure = addparam["requiredPressure"]
 
             if node_id in nodes:
-                raise ValueError(f"Node {node_id} duplicated in config file.")
+                msg = "Node {0} duplicated in config file."
+                msg_params = (node_id,)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
             nodes[node_id] = {
                 "name": node_id,
@@ -329,7 +331,9 @@ class ConfigADC:
         required_options: list[str] = ["max_distance"]
         for option in required_options:
             if option not in self.options:
-                raise ValueError(f"{option} not found in [OPTIONS] section.")
+                msg = "{0} not found in [OPTIONS] section."
+                msg_params = (option,)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def _parse_file(self, config_file):
         with open(config_file) as file:
@@ -363,7 +367,9 @@ class ConfigADC:
         pressure = float(tokens[2])
 
         if node in self.junctions:
-            raise ValueError(f"Node {node} duplicated in config file.")
+            msg = "Node {0} duplicated in config file."
+            msg_params = (node,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         self.junctions[node] = {
             "name": node,

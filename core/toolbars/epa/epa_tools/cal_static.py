@@ -394,7 +394,9 @@ class ConfigSC:
         required_options = ["accuracy", "trials"]
         for option in required_options:
             if option not in self.options:
-                raise ValueError(f"{option} not found in [OPTIONS] section.")
+                msg = "{0} not found in [OPTIONS] section."
+                msg_params = (option,)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         required_scenario_options = [
             "target_parameter",
@@ -406,8 +408,9 @@ class ConfigSC:
         for scenario in self.scenarios.values():
             for option in required_scenario_options:
                 if option not in scenario:
-                    message = "{0} not found in {1} scenario."
-                    raise ValueError(message.format(option, scenario['name']))
+                    msg = "{0} not found in {1} scenario."
+                    msg_params = (option, scenario['name'])
+                    raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def _parse_file(self, config_file):
         with open(config_file) as file:
@@ -460,12 +463,14 @@ class ConfigSC:
             self.scenarios[name][option] = values
         elif option in brackets_options:
             if len(values) != 2:
-                message = "Option '{0}' in scenario {1} must have 2 values."
-                raise ValueError(message.format(option, name))
+                msg = "Option '{0}' in scenario {1} must have 2 values."
+                msg_params = (option, name)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
             self.scenarios[name]["brackets"][option] = [float(x) for x in values]
         else:
-            message = "Incorrect option ({0}) for scenario {1}."
-            raise ValueError(message.format(option, name))
+            msg = "Incorrect option ({0}) for scenario {1}."
+            msg_params = (option, name)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def _strip_comments(self, str):
         index = str.find(";")

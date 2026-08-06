@@ -42,9 +42,9 @@ class GwConfigCatalogButton:
         self._data = {}
         for entry in sorted(data, key=lambda i: i["dnom"]):
             if key in self._data:
-                raise ValueError(
-                    f"Key ({key}) is not unique in the config catalog."
-                )
+                msg = "Key ({0}) is not unique in the config catalog."
+                msg_params = (key,)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
             self._data[entry[key]] = entry
 
     def arccat_ids(self):
@@ -332,7 +332,9 @@ class CalculatePriority:
             }
         else:
             if not result_id:
-                raise ValueError(f"For mode '{mode}', an result_id must be informed.")
+                msg = "For mode '{0}', an result_id must be informed."
+                msg_params = (mode,)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
             self.result = tools_db.get_row(
                 f"""
                 SELECT result_id AS id,
