@@ -127,14 +127,14 @@ END
 $BODY$;
 
 INSERT INTO sys_table (id, descript, sys_role, "source") VALUES
-('v_config_form_fields', 'Campos de los formularios de configuración (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
-('v_config_form_tabs', 'Pestañas de los formularios de configuración (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
-('v_config_param_system', 'Parámetros de sistema de configuración (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
-('v_sys_param_user', 'Parámetros de usuario del sistema (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
-('v_sys_message', 'Mensajes del sistema (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
-('v_sys_function', 'Funciones del sistema (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
-('v_sys_fprocess', 'Procesos del sistema (permite multilenguaje e integración con network schemas)', 'role_basic', 'core'),
-('v_sys_table', 'Tablas del sistema (permite multilenguaje e integración con network schemas)', 'role_basic', 'core')
+('v_config_form_fields', 'Configuration form fields (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_config_form_tabs', 'Configuration form tabs (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_config_param_system', 'Configuration system parameters (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_sys_param_user', 'System user parameters (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_sys_message', 'System messages (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_sys_function', 'System functions (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_sys_fprocess', 'System processes (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_sys_table', 'System tables (allows multilingual and integration with network schemas)', 'role_basic', 'core')
 ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE cat_feature ADD custom_code_autofill bool DEFAULT false NULL;
