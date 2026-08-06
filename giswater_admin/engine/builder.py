@@ -17,7 +17,6 @@ from . import sql_runner
 from .cancel import CancelToken
 from .manifest import Manifest, Phase, Step
 from .templating import apply_subs, render
-from ...libs import tools_qt
 
 logger = logging.getLogger(__name__)
 
@@ -229,6 +228,7 @@ class SchemaBuilder:
         # baseline (SCHEMA_NAME etc.) and rendered with the context.
         rendered_manifest_subs = render(manifest.substitutions, self._ctx) or {}
         self._subs = {**params.base_subs(), **rendered_manifest_subs}
+        print("aaa")
 
     # ------------------------------------------------------------------ public
 
@@ -323,9 +323,7 @@ class SchemaBuilder:
             elif phase.type == "sql_inline":
                 pr = self._run_sql_inline(phase, seen, total)
             else:
-                msg = "Unsupported phase type: {0}"
-                msg_params = (phase.type,)
-                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
+                raise ValueError(f"Unsupported phase type: {phase.type}")
         finally:
             if pr is None:
                 pass
@@ -543,9 +541,7 @@ class SchemaBuilder:
                 if to_incl and not (e <= to_incl):
                     continue
             else:
-                msg = "Unsupported dir_walk range.mode: {0}"
-                msg_params = (mode,)
-                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
+                raise ValueError(f"Unsupported dir_walk range.mode: {mode}")
             out.append(full)
         return out
 
@@ -609,9 +605,7 @@ class SchemaBuilder:
             elif mode == "all":
                 pass
             else:
-                msg = "Unsupported version_walk range.mode: {0}"
-                msg_params = (mode,)
-                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
+                raise ValueError(f"Unsupported version_walk range.mode: {mode}")
             paths = [p for p in versions[v] if p is not None]
             out.append((v, paths))
         return out
