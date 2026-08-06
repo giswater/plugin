@@ -41,6 +41,9 @@ from ..admin.i18n_baseline_seed import (
     invalidate_baseline_fingerprint_cache,
     language_baselines_exist,
     multilang_user_param_provision_sql,
+    multilang_views_provision_sql,
+    multilang_json_error_message,
+    run_multilang_function_sql,
     normalize_language_folder,
     normalize_language_id,
     seed_sql_for_project_types,
@@ -257,6 +260,16 @@ class GwMultilangSchemaTask(GwTask):
                 "skipping import."
             )
             self._finalize_addparam([])
+            if not self._provision_network_user_param(enable=True):
+                if self._adapter is not None:
+                    self._adapter.rollback()
+                return False
+            if not self._provision_network_views(enable=True):
+                if self._adapter is not None:
+                    self._adapter.rollback()
+                return False
+            if self._adapter is not None:
+                self._adapter.commit()
             return True
 
         if not self._ensure_cat_language():
@@ -283,12 +296,53 @@ class GwMultilangSchemaTask(GwTask):
                 self._adapter.rollback()
             return False
 
+        if not self._provision_network_views(enable=True):
+            if self._adapter is not None:
+                self._adapter.rollback()
+            return False
+
         if self._adapter is not None:
             self._adapter.commit()
         return True
 
+    def _execute_multilang_function(self, sql: str, *, label: str) -> bool:
+        json_result, ok = run_multilang_function_sql(
+            sql,
+            adapter=self._adapter,
+            is_thread=True,
+            show_exception=False,
+        )
+        if ok:
+            return True
+
+        msg = "{0} failed."
+        msg = msg.format(label)
+        err = (
+            lib_vars.session_vars.get("last_error_msg")
+            or lib_vars.session_vars.get("last_error")
+            or multilang_json_error_message(json_result, sql=sql)
+            or msg
+        )
+        self._set_task_error(err)
+        if json_result:
+            from ..utils import tools_gw
+
+            tools_gw.manage_json_exception(json_result, sql=sql, is_thread=True)
+        return False
+
     def _provision_network_user_param(self, *, enable: bool) -> bool:
-        return self._execute_sql(multilang_user_param_provision_sql(enable=enable))
+        msg = "Multilang user parameter provisioning"
+        return self._execute_multilang_function(
+            multilang_user_param_provision_sql(enable=enable),
+            label=msg,
+        )
+
+    def _provision_network_views(self, *, enable: bool) -> bool:
+        msg = "Multilang views provisioning"
+        return self._execute_multilang_function(
+            multilang_views_provision_sql(enable=enable),
+            label=msg,
+        )
 
     def _seed_project_types(
         self,

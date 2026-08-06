@@ -159,7 +159,7 @@ BEGIN
 
 	v_query = concat(
 	'SELECT formname, tabname, label, tooltip, tabfunction, tabactions, value
-	 FROM (SELECT formname, tabname, f.label, f.tooltip, tabfunction, tabactions, unnest(device) AS device, value, orderby FROM config_form_tabs f, config_param_system
+	 FROM (SELECT formname, tabname, f.label, f.tooltip, tabfunction, tabactions, unnest(device) AS device, value, orderby FROM v_config_form_tabs f, config_param_system
 	 WHERE formname=',quote_literal(v_selector_type),' AND isenabled IS TRUE AND concat(''basic_selector_'', tabname) = parameter ',(v_querytab),
 	' AND sys_role IN (SELECT rolname FROM pg_roles WHERE pg_has_role(current_user, oid, ''member'')))a WHERE device = ',v_device, v_exclude_tab,' ORDER BY orderby');
 

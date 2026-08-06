@@ -3474,9 +3474,38 @@ class GwAdminButton:
         result = tools_qt.show_question(msg, "Info", force_action=True, msg_params=msg_params)
         if result:
             if schema == "multilang":
-                from .i18n_baseline_seed import multilang_user_param_provision_sql
+                from .i18n_baseline_seed import (
+                    multilang_user_param_provision_sql,
+                    multilang_views_provision_sql,
+                    run_multilang_function_sql,
+                )
 
-                tools_db.execute_sql(multilang_user_param_provision_sql(enable=False))
+                # Recreate plain views before DROP so nothing still joins multilang.*
+                _, views_ok = run_multilang_function_sql(
+                    multilang_views_provision_sql(enable=False),
+                    show_exception=True,
+                )
+                if not views_ok:
+                    msg = "Multilang views rollback failed."
+                    err = lib_vars.session_vars.get("last_error_msg") or (
+                        lib_vars.session_vars.get("last_error") or msg
+                    )
+                    title = "Error"
+                    tools_qt.show_info_box(err, title)
+                    return
+
+                _, params_ok = run_multilang_function_sql(
+                    multilang_user_param_provision_sql(enable=False),
+                    show_exception=True,
+                )
+                if not params_ok:
+                    msg = "Multilang user parameter rollback failed."
+                    err = lib_vars.session_vars.get("last_error_msg") or (
+                        lib_vars.session_vars.get("last_error") or msg
+                    )
+                    title = "Error"
+                    tools_qt.show_info_box(err, title)
+                    return
             fx = engine_drop_schema(QtDbAdapter(), schema, cascade=True, commit=True)
             if fx.ok:
                 msg = "Process finished successfully: Delete schema"

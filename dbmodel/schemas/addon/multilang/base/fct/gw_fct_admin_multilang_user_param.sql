@@ -22,8 +22,10 @@ DECLARE
     v_project_type text;
     v_dv_querytext text;
     v_count integer := 0;
+    v_prev_search_path text;
 BEGIN
-    SET search_path = multilang, public;
+    v_prev_search_path := current_setting('search_path');
+    PERFORM set_config('search_path', 'multilang, public', true);
 
     IF p_enable IS TRUE AND to_regclass('multilang.cat_language') IS NULL THEN
         p_enable := FALSE;
@@ -89,10 +91,12 @@ BEGIN
 
             v_count := v_count + 1;
         EXCEPTION WHEN OTHERS THEN
+            PERFORM set_config('search_path', v_prev_search_path, true);
             NULL;
         END;
     END LOOP;
 
+    PERFORM set_config('search_path', v_prev_search_path, true);
     RETURN json_build_object('status', 'Accepted', 'schemas', v_count);
 END;
 $BODY$
