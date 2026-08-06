@@ -1163,11 +1163,6 @@ BEGIN
 			END LOOP;
 		END IF;
 
-		v_new_node_type= (SELECT node_type FROM  cat_node where cat_node.id=NEW.nodecat_id);
-
-		UPDATE arc SET nodetype_1 = v_new_node_type, elevation1=NEW.top_elev, depth1=NEW.depth, staticpressure1 = NEW.staticpressure WHERE node_1 = NEW.node_id;
-		UPDATE arc SET nodetype_2 = v_new_node_type, elevation2=NEW.top_elev, depth2=NEW.depth, staticpressure2 = NEW.staticpressure WHERE node_2 = NEW.node_id;
-
 		-- set label_quadrant, label_x and label_y according to cat_feature
 		EXECUTE '
 		SELECT addparam->''labelPosition''->''dist''->>0
@@ -1438,9 +1433,6 @@ BEGIN
 
 		-- delete from node_add table
 		DELETE FROM node_add WHERE node_id = OLD.node_id;
-
-		UPDATE arc SET nodetype_1 = NULL, elevation1=NULL, depth1=NULL, staticpressure1 = NULL WHERE node_1 = OLD.node_id;
-		UPDATE arc SET nodetype_2 = NULL, elevation2=NULL, depth2=NULL, staticpressure2 = NULL WHERE node_2 = OLD.node_id;
 
 		RETURN NULL;
     END IF;
