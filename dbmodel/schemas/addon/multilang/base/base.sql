@@ -38,6 +38,18 @@ CREATE TABLE config_form_fields (
     lang text NOT NULL DEFAULT 'en_us',
     lb text NULL,
     tt text NULL,
+    -- NULL = exact formname match; non-NULL = LIKE pattern (feat seeds '%_arc%' → 've_arc%').
+    formname_like text GENERATED ALWAYS AS (
+        CASE
+            WHEN length(formname) >= 4
+             AND left(formname, 2) = '%_'
+             AND right(formname, 1) = '%'
+             AND position('%' IN substring(formname FROM 3 FOR length(formname) - 3)) = 0
+            THEN 've_' || substring(formname FROM 3 FOR length(formname) - 3) || '%'
+            WHEN position('%' IN formname) > 0 THEN formname
+            ELSE NULL
+        END
+    ) STORED,
     updated_by text DEFAULT CURRENT_USER NULL,
     updated_on timestamptz DEFAULT now() NULL,
     CONSTRAINT config_form_fields_id_uniq UNIQUE (id),
@@ -56,6 +68,17 @@ CREATE TABLE config_form_fields_json (
     hint text NOT NULL DEFAULT 'widgetcontrols',
     lang text NOT NULL DEFAULT 'en_us',
     "text" jsonb NULL,
+    formname_like text GENERATED ALWAYS AS (
+        CASE
+            WHEN length(formname) >= 4
+             AND left(formname, 2) = '%_'
+             AND right(formname, 1) = '%'
+             AND position('%' IN substring(formname FROM 3 FOR length(formname) - 3)) = 0
+            THEN 've_' || substring(formname FROM 3 FOR length(formname) - 3) || '%'
+            WHEN position('%' IN formname) > 0 THEN formname
+            ELSE NULL
+        END
+    ) STORED,
     updated_by text DEFAULT CURRENT_USER NULL,
     updated_on timestamptz DEFAULT now() NULL,
     CONSTRAINT config_form_fields_json_id_uniq UNIQUE (id),
@@ -169,8 +192,18 @@ CREATE TABLE sys_table (
     CONSTRAINT sys_table_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
 );
 
-CREATE INDEX idx_config_form_fields_lang ON config_form_fields USING btree (lang);
-CREATE INDEX idx_config_form_fields_json_lang ON config_form_fields_json USING btree (lang);
+CREATE INDEX idx_config_form_fields_exact ON config_form_fields
+    USING btree (lang, project_type, context, formtype, tabname, source, formname)
+    WHERE formname_like IS NULL;
+CREATE INDEX idx_config_form_fields_pattern ON config_form_fields
+    USING btree (lang, project_type, context, formtype, tabname, source)
+    WHERE formname_like IS NOT NULL;
+CREATE INDEX idx_config_form_fields_json_exact ON config_form_fields_json
+    USING btree (lang, project_type, context, formtype, tabname, source, hint, formname)
+    WHERE formname_like IS NULL;
+CREATE INDEX idx_config_form_fields_json_pattern ON config_form_fields_json
+    USING btree (lang, project_type, context, formtype, tabname, source, hint)
+    WHERE formname_like IS NOT NULL;
 CREATE INDEX idx_config_param_system_lang ON config_param_system USING btree (lang);
 
 GRANT ALL ON SCHEMA multilang TO role_basic;

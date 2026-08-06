@@ -24,10 +24,6 @@ DECLARE
     v_pt_expr text;
     v_join text;
     v_context text;
-    -- Feature seeds (dbconfig_form_fields_feat) store the formname as '%_arc%',
-    -- meaning "every arc feature form", which are the ones named 've_arc%'.
-    v_feat_re text := '^%_(.+)%$';
-    v_feat_repl text := 've_\1%';
 BEGIN
     v_lang_expr := format(
         '(SELECT lower(btrim(cpu.value))
@@ -49,53 +45,60 @@ BEGIN
     );
 
     IF p_table = 'config_form_fields' THEN
-        -- Exact formnames are more specific, so they win over feature patterns.
+        -- Exact formnames win via equijoin; feature/wildcard patterns use formname_like.
         v_context := 'config_form_fields';
         v_join := format(
-            'LEFT JOIN LATERAL (
+            'LEFT JOIN multilang.config_form_fields ml
+                ON ml.formtype = t.formtype
+               AND ml.tabname = t.tabname
+               AND ml.source = t.columnname
+               AND ml.context = %1$L
+               AND ml.project_type = %2$s
+               AND ml.lang = %3$s
+               AND ml.formname = t.formname
+               AND ml.formname_like IS NULL
+            LEFT JOIN LATERAL (
                 SELECT ml0.lb, ml0.tt
                 FROM multilang.config_form_fields ml0
-                WHERE ml0.formtype = t.formtype
-                AND ml0.tabname = t.tabname
-                AND ml0.source = t.columnname
-                AND ml0.context = %1$L
-                AND ml0.project_type = %2$s
-                AND ml0.lang = %3$s
-                AND (CASE
-                        WHEN ml0.formname ~ %4$L
-                            THEN t.formname LIKE regexp_replace(ml0.formname, %4$L, %5$L)
-                        WHEN strpos(ml0.formname, %6$L) > 0
-                            THEN t.formname LIKE ml0.formname
-                        ELSE ml0.formname = t.formname
-                     END)
-                ORDER BY (ml0.formname = t.formname) DESC,
-                         length(ml0.formname) DESC,
-                         ml0.formname
+                WHERE ml.formname IS NULL
+                  AND ml0.formtype = t.formtype
+                  AND ml0.tabname = t.tabname
+                  AND ml0.source = t.columnname
+                  AND ml0.context = %1$L
+                  AND ml0.project_type = %2$s
+                  AND ml0.lang = %3$s
+                  AND ml0.formname_like IS NOT NULL
+                  AND t.formname LIKE ml0.formname_like
+                ORDER BY length(ml0.formname_like) DESC, ml0.formname
                 LIMIT 1
-            ) ml ON TRUE
+            ) mlp ON TRUE
+            LEFT JOIN multilang.config_form_fields_json mlj
+                ON mlj.formtype = t.formtype
+               AND mlj.tabname = t.tabname
+               AND mlj.source = t.columnname
+               AND mlj.context = %1$L
+               AND mlj.hint = ''widgetcontrols''
+               AND mlj.project_type = %2$s
+               AND mlj.lang = %3$s
+               AND mlj.formname = t.formname
+               AND mlj.formname_like IS NULL
             LEFT JOIN LATERAL (
                 SELECT mlj0.text
                 FROM multilang.config_form_fields_json mlj0
-                WHERE mlj0.formtype = t.formtype
-                AND mlj0.tabname = t.tabname
-                AND mlj0.source = t.columnname
-                AND mlj0.context = %1$L
-                AND mlj0.hint = ''widgetcontrols''
-                AND mlj0.project_type = %2$s
-                AND mlj0.lang = %3$s
-                AND (CASE
-                        WHEN mlj0.formname ~ %4$L
-                            THEN t.formname LIKE regexp_replace(mlj0.formname, %4$L, %5$L)
-                        WHEN strpos(mlj0.formname, %6$L) > 0
-                            THEN t.formname LIKE mlj0.formname
-                        ELSE mlj0.formname = t.formname
-                     END)
-                ORDER BY (mlj0.formname = t.formname) DESC,
-                         length(mlj0.formname) DESC,
-                         mlj0.formname
+                WHERE mlj.formname IS NULL
+                  AND mlj0.formtype = t.formtype
+                  AND mlj0.tabname = t.tabname
+                  AND mlj0.source = t.columnname
+                  AND mlj0.context = %1$L
+                  AND mlj0.hint = ''widgetcontrols''
+                  AND mlj0.project_type = %2$s
+                  AND mlj0.lang = %3$s
+                  AND mlj0.formname_like IS NOT NULL
+                  AND t.formname LIKE mlj0.formname_like
+                ORDER BY length(mlj0.formname_like) DESC, mlj0.formname
                 LIMIT 1
-            ) mlj ON TRUE',
-            v_context, v_pt_expr, v_lang_expr, v_feat_re, v_feat_repl, '%'
+            ) mljp ON TRUE',
+            v_context, v_pt_expr, v_lang_expr
         );
     ELSIF p_table = 'config_form_tabs' THEN
         v_context := 'config_form_tabs';
@@ -178,14 +181,17 @@ BEGIN
         SELECT
             c.ordinal_position,
             CASE
+                WHEN c.column_name = 'label' AND p_table = 'config_form_fields'
+                    THEN 'COALESCE(ml.lb, mlp.lb, t.label) AS label'
                 WHEN c.column_name = 'label'
                     AND p_table IN (
-                        'config_form_fields', 'config_form_tabs',
+                        'config_form_tabs',
                         'config_param_system', 'sys_param_user'
                     )
                     THEN 'COALESCE(ml.lb, t.label) AS label'
-                WHEN c.column_name = 'tooltip'
-                    AND p_table IN ('config_form_fields', 'config_form_tabs')
+                WHEN c.column_name = 'tooltip' AND p_table = 'config_form_fields'
+                    THEN 'COALESCE(ml.tt, mlp.tt, t.tooltip) AS tooltip'
+                WHEN c.column_name = 'tooltip' AND p_table = 'config_form_tabs'
                     THEN 'COALESCE(ml.tt, t.tooltip) AS tooltip'
                 WHEN c.column_name = 'descript'
                     AND p_table IN ('config_param_system', 'sys_param_user')
@@ -207,7 +213,7 @@ BEGIN
                     THEN 'COALESCE(ml.al, t.alias) AS alias'
                 WHEN c.column_name = 'widgetcontrols' AND p_table = 'config_form_fields'
                     THEN '(COALESCE(t.widgetcontrols::jsonb, ''{}''::jsonb)
-                           || COALESCE(mlj.text, ''{}''::jsonb))::json AS widgetcontrols'
+                           || COALESCE(mlj.text, mljp.text, ''{}''::jsonb))::json AS widgetcontrols'
                 WHEN c.column_name IN ('datatype', 'source', 'in', 'text', 'parameter', 'label')
                     THEN format('t.%I', c.column_name)
                 ELSE format('t.%I', c.column_name)
