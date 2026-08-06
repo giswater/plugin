@@ -286,10 +286,10 @@ BEGIN
         END IF;
 
         IF 'EPA' = ANY(v_group_array) THEN
-            v_filter = ' WHERE COALESCE(p_state, sector_id) > 0';
-
-			IF v_verifiedExceptions THEN
-                v_filter = concat(v_filter, ' AND (verified IS NULL OR verified IN (0,1))');
+            IF v_verifiedExceptions THEN
+                v_filter = ' WHERE (verified IS NULL OR verified IN (0,1))';
+            ELSE
+                v_filter = ' WHERE state IS NOT NULL ';
             END IF;
 
             /*
@@ -297,7 +297,7 @@ BEGIN
                 v_filter = v_filter||' AND is_operative = TRUE';
             END IF;
             */
-            
+
             IF v_project_type = 'WS' THEN
                 CREATE TEMP TABLE IF NOT EXISTS temp_vnode(
                     id serial NOT NULL,
@@ -384,7 +384,7 @@ BEGIN
             CREATE TEMP TABLE IF NOT EXISTS temp_t_go2epa (LIKE temp_go2epa INCLUDING ALL);
 
             IF v_project_type = 'WS' THEN
-                EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_pump AS SELECT t.* FROM ve_inp_pump t JOIN vf_node USING (node_id)'||v_filter;
+                EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_pump AS SELECT t.* FROM ve_inp_pump t'||v_filter;
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_pipe AS SELECT t.* FROM ve_inp_pipe t JOIN vf_arc USING (arc_id)'||v_filter;
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_valve AS SELECT t.* FROM ve_inp_valve t JOIN vf_node USING (node_id)'||v_filter;
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_junction AS SELECT t.* FROM ve_inp_junction t JOIN vf_node USING (node_id)'||v_filter;
@@ -414,10 +414,10 @@ BEGIN
         END IF;
 
         IF 'OMCHECK' = ANY(v_group_array) THEN
-            v_filter = ' WHERE COALESCE(p_state, sector_id) > 0';
-
-			IF v_verifiedExceptions THEN
-                v_filter = concat(v_filter, ' AND (verified IS NULL OR verified IN (0,1))');
+            IF v_verifiedExceptions THEN
+                v_filter = ' WHERE (verified IS NULL OR verified IN (0,1))';
+            ELSE
+                v_filter = ' WHERE state IS NOT NULL ';
             END IF;
 
             IF v_isoperative THEN
