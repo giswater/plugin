@@ -13,7 +13,7 @@ from qgis.core import QgsTask
 from qgis.PyQt.QtCore import pyqtSignal
 
 from .task import GwTask
-from ...libs import tools_db, tools_os
+from ...libs import tools_db, tools_os, tools_qt
 from ..utils import tools_gw
 
 
@@ -42,27 +42,33 @@ class GwStaticCalibration(GwTask):
             write_inpfile = wntr_network.write_inpfile
             tools_os.get_dep("scipy")
         except ImportError as e:
-            self.exception = (
-                f"Python package '{e.name}' is not installed. "
-                "Please install it using pip or the 'qpip' QGIS plugin."
+            msg = (
+                "Python package '{0}' is not installed. Please install "
+                "it using pip or the 'qpip' QGIS plugin."
             )
+            msg_params = (e.name,)
+            self.exception = tools_qt.tr(msg, list_params=msg_params)
             return False
 
         try:
-            self.status.emit({"message": "Reading input files...", "step": "first"})
+            msg = "Reading input files..."
+            self.status.emit({"message": msg, "step": "first"})
             static_calibration = Calibrations(self, self.input_file, self.config)
 
             if self.isCanceled():
-                self.ended.emit("Task canceled.")
+                msg = "Task canceled."
+                self.ended.emit(tools_qt.tr(msg))
                 return False
 
             static_calibration.execute()
 
             if self.isCanceled():
-                self.ended.emit("Task canceled.")
+                msg = "Task canceled."
+                self.ended.emit(tools_qt.tr(msg))
                 return False
 
-            self.status.emit({"message": "Saving output files...", "step": "last"})
+            msg = "Saving output files..."
+            self.status.emit({"message": msg, "step": "last"})
             inp_file = f"{self.output_folder}/{self.file_name}.inp"
             write_inpfile(static_calibration.calibrated_network, inp_file)
             csv_file = f"{self.output_folder}/{self.file_name}.csv"
@@ -70,12 +76,9 @@ class GwStaticCalibration(GwTask):
             static_calibration.write_csv_report(csv_file, report_obj=report)
 
             self.report.emit(report)
-            msg = "Process finished.\n\n"
-            msg += "INP file created on:\n"
-            msg += f"{inp_file}\n\n"
-            msg += "Report file created on:\n"
-            msg += f"{csv_file}"
-            self.ended.emit(msg)
+            msg = "Process finished.\n\nINP file created on:\n{0}\n\nReport file created on:\n{1}"
+            msg_params = (inp_file, csv_file)
+            self.ended.emit(tools_qt.tr(msg, list_params=msg_params))
             return True
         except Exception as e:
             self.ended.emit(str(e))
@@ -446,9 +449,11 @@ class Calibrations:
             brackets = calibration["brackets"]
 
             if self.task:
+                msg = 'Executing calibration "{0}" ({1}/{2})...'
+                msg_params = (name, index + 1, total_steps)
                 self.task.status.emit(
                     {
-                        "message": f'Executing calibration "{name}" ({index + 1}/{total_steps})...',
+                        "message": tools_qt.tr(msg, list_params=msg_params),
                         "step": index + 1,
                         "steps": total_steps,
                     }

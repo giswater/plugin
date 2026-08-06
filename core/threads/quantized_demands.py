@@ -15,7 +15,7 @@ from qgis.core import QgsTask
 from qgis.PyQt.QtCore import pyqtSignal
 
 from .task import GwTask
-from ...libs import tools_os
+from ...libs import tools_os, tools_qt
 from ...resources.epatools.utils import anl_quantized_demands
 
 
@@ -54,7 +54,8 @@ class GwQuantizedDemands(GwTask):
             return False
 
         try:
-            self.status.emit("Creating quantized model...")
+            message = "Creating quantized model..."
+            self.status.emit(tools_qt.tr(message))
             model = QuantizedModel(
                 self.input_file,
                 self.flow_list,
@@ -63,32 +64,35 @@ class GwQuantizedDemands(GwTask):
                 self.leak_flow,
                 self.hourly_consumption,
             )
-            msg = "Process finished."
 
             inppath = Path(self.output_folder) / f"{self.file_name}.inp"
             if self.isCanceled():
                 self.status.emit("")
-                self.ended.emit("Task canceled.")
+                message = "Task canceled."
+                self.ended.emit(tools_qt.tr(message))
                 return False
-            self.status.emit("Saving INP file...")
+            message = "Saving INP file..."
+            self.status.emit(tools_qt.tr(message))
             write_inpfile(model.quantized_network, inppath)
-            msg += f"\n\nINP file created on:\n{inppath}"
 
             csvpath = Path(self.output_folder) / f"{self.file_name}.csv"
             if self.isCanceled():
                 self.status.emit("")
-                self.ended.emit("Task canceled.")
+                message = "Task canceled."
+                self.ended.emit(tools_qt.tr(message))
                 return False
             self.write_statistics(model, csvpath)
-            msg += f"\n\nStatistics file created on:\n{csvpath}"
 
             if self.isCanceled():
                 self.status.emit("")
-                self.ended.emit("Task canceled.")
+                message = "Task canceled."
+                self.ended.emit(tools_qt.tr(message))
                 return False
 
             self.status.emit("")
-            self.ended.emit(msg)
+            msg = "Process finished.\n\nINP file created on:\n{0}\n\nStatistics file created on:\n{1}"
+            msg_params = (inppath, csvpath)
+            self.ended.emit(tools_qt.tr(msg, list_params=msg_params))
             return True
 
         except Exception as e:
@@ -100,7 +104,8 @@ class GwQuantizedDemands(GwTask):
         wntr_sim = tools_os.get_dep("wntr.sim")
         EpanetSimulator = wntr_sim.EpanetSimulator
 
-        self.status.emit("Running simulation...")
+        msg = "Running simulation..."
+        self.status.emit(tools_qt.tr(msg))
         sim = EpanetSimulator(model.quantized_network)
         results = {}
         results["input"] = model.input_model.results
@@ -110,7 +115,8 @@ class GwQuantizedDemands(GwTask):
             self.status.emit("")
             return
 
-        self.status.emit("Saving statistics file...")
+        msg = "Saving statistics file..."
+        self.status.emit(tools_qt.tr(msg))
         statistics = {}
         for origin in ["input", "output"]:
             links = results[origin].link["velocity"]

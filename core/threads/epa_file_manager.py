@@ -73,7 +73,8 @@ class GwEpaFileManager(GwTask):
 
         super().run()
 
-        self.step_completed.emit({"message": {"level": 1, "text": "GO2EPA - Work in progress"}}, "\n")
+        msg = "GO2EPA - Work in progress"
+        self.step_completed.emit({"message": {"level": 1, "text": tools_qt.tr(msg)}}, "\n")
         self.step_completed.emit({"message": {"level": 1, "text": "-------------------------"}}, "\n")
 
         self.initialize_variables()
@@ -329,7 +330,8 @@ class GwEpaFileManager(GwTask):
             if json_result.get('status') == 'Failed':
                 tools_log.log_warning(json_result)
                 self.function_failed = True
-                self.step_completed.emit({"message": {"level": 1, "text": "EXECUTION FAILED! Check logs for more information"}}, "\n")
+                msg = "EXECUTION FAILED! Check logs for more information"
+                self.step_completed.emit({"message": {"level": 1, "text": tools_qt.tr(msg)}}, "\n")
                 return False
 
         json_result = main_json_result
@@ -444,7 +446,8 @@ class GwEpaFileManager(GwTask):
 
         msg = "Execute EPA software"
         tools_log.log_info(msg)
-        self.step_completed.emit({"message": {"level": 1, "text": "Execute EPA software......"}}, "")
+        msg = "Execute EPA software......"
+        self.step_completed.emit({"message": {"level": 1, "text": tools_qt.tr(msg)}}, "")
 
         msg = "INP file not found"
         if self.file_inp is not None:
@@ -475,7 +478,8 @@ class GwEpaFileManager(GwTask):
         subprocess.call([opener, self.file_inp, self.file_rpt], shell=False)
         self._set_progress(self.EPA_START, self.EPA_END)
         self.common_msg += "EPA model finished. "
-        self.step_completed.emit({"message": {"level": 1, "text": "EPA model finished."}}, "\n")
+        msg = "EPA model finished."
+        self.step_completed.emit({"message": {"level": 1, "text": tools_qt.tr(msg)}}, "\n")
 
         return True
 
@@ -541,7 +545,8 @@ class GwEpaFileManager(GwTask):
             return None
 
         tools_log.log_info("Execute EPA software (hydraulic_engine)")
-        self.step_completed.emit({"message": {"level": 1, "text": "Execute EPA software......\n\n"}}, "")
+        msg = "Execute EPA software......\n\n"
+        self.step_completed.emit({"message": {"level": 1, "text": tools_qt.tr(msg)}}, "")
 
         if self.file_rpt == "null":
             message = "You have to set this parameter"
@@ -590,7 +595,8 @@ class GwEpaFileManager(GwTask):
             return None
 
         self.common_msg += "EPA model finished. "
-        self.step_completed.emit({"message": {"level": 1, "text": "EPA model finished."}}, "\n")
+        msg = "EPA model finished."
+        self.step_completed.emit({"message": {"level": 1, "text": tools_qt.tr(msg)}}, "\n")
         self._set_progress(self.EPA_START, self.EPA_END)
 
         return runner
