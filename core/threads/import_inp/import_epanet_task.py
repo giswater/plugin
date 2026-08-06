@@ -285,19 +285,19 @@ class GwImportInpTask(GwTask):
     def _validate_inputs(self) -> None:
         if self.workcat in (None, ""):
             message = "Please enter a Workcat_id to proceed with this import."
-            raise ValueError(message)
+            raise ValueError(tools_qt.tr(message))
 
         if self.exploitation in (None, ""):
             message = "Please select an exploitation to proceed with this import."
-            raise ValueError(message)
+            raise ValueError(tools_qt.tr(message))
 
         if self.sector in (None, ""):
             message = "Please select a sector to proceed with this import."
-            raise ValueError(message)
+            raise ValueError(tools_qt.tr(message))
 
         if self.municipality in (None, ""):
             message = "Please select a municipality to proceed with this import."
-            raise ValueError(message)
+            raise ValueError(tools_qt.tr(message))
         if self.municipality == 999999:
             self.municipality = 0
             self.update_municipality = True
@@ -432,12 +432,12 @@ class GwImportInpTask(GwTask):
         json_result = tools_gw.execute_procedure('gw_fct_create_dscenario_empty', body, commit=self.force_commit, is_thread=True)
         if not json_result or json_result.get('status') != 'Accepted':
             message = "Error executing gw_fct_create_dscenario_empty"
-            raise ValueError(message)
+            raise ValueError(tools_qt.tr(message))
 
         self.dscenario_id = json_result['body']['data'].get('dscenario_id')
         if self.dscenario_id is None:
             message = "Function gw_fct_create_dscenario_empty returned no dscenario_id"
-            raise ValueError(message)
+            raise ValueError(tools_qt.tr(message))
 
     def _create_new_node_catalogs(self):
         cat_node_ids = get_rows("SELECT id FROM cat_node", commit=self.force_commit, is_thread=True)
@@ -1622,7 +1622,8 @@ class GwImportInpTask(GwTask):
             json_result = tools_gw.execute_procedure(fct_name, body, commit=self.force_commit, is_thread=True)
             if not json_result or json_result.get('status') != 'Accepted':
                 message = "Error executing {0} - {1}"
-                raise ValueError(message.format(fct_name, json_result.get('message')))
+                msg_params = (fct_name, json_result.get('message'))
+                raise ValueError(tools_qt.tr(message, list_params=msg_params))
             try:
                 if json_result['body']['data']['info']:
                     info = json_result['body']['data']['info']
