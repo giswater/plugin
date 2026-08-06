@@ -228,7 +228,6 @@ class SchemaBuilder:
         # baseline (SCHEMA_NAME etc.) and rendered with the context.
         rendered_manifest_subs = render(manifest.substitutions, self._ctx) or {}
         self._subs = {**params.base_subs(), **rendered_manifest_subs}
-        print("aaa")
 
     # ------------------------------------------------------------------ public
 
