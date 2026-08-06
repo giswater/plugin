@@ -128,13 +128,7 @@ BEGIN
 
     -- LOGIC FOR THE DIFFERENT ACTIONS
     IF v_action = 'CREATE' THEN
-        IF v_verifiedExceptions THEN
-            v_filter = ' WHERE (verified IS NULL OR verified IN (0,1))';
-        ELSE
-            v_filter = ' WHERE state IS NOT NULL ';
-        END IF;
-
-
+        
         IF 'LOG' = ANY(v_group_array) THEN
             CREATE TEMP TABLE IF NOT EXISTS t_audit_check_data (LIKE audit_check_data INCLUDING ALL);
             CREATE TEMP TABLE IF NOT EXISTS t_audit_check_project (LIKE audit_check_project INCLUDING ALL);
@@ -292,8 +286,18 @@ BEGIN
         END IF;
 
         IF 'EPA' = ANY(v_group_array) THEN
-            v_filter = concat(v_filter, ' AND (sector_id IN (SELECT sector_id FROM selector_sector WHERE cur_user = current_user AND sector_id > 0) OR p_state > 0)');
+            v_filter = ' WHERE COALESCE(p_state, sector_id) > 0';
 
+			IF v_verifiedExceptions THEN
+                v_filter = concat(v_filter, ' AND (verified IS NULL OR verified IN (0,1))');
+            END IF;
+
+            /*
+            IF v_isoperative THEN
+                v_filter = v_filter||' AND is_operative = TRUE';
+            END IF;
+            */
+            
             IF v_project_type = 'WS' THEN
                 CREATE TEMP TABLE IF NOT EXISTS temp_vnode(
                     id serial NOT NULL,
@@ -410,14 +414,16 @@ BEGIN
         END IF;
 
         IF 'OMCHECK' = ANY(v_group_array) THEN
+            v_filter = ' WHERE COALESCE(p_state, sector_id) > 0';
+
 			IF v_verifiedExceptions THEN
-                v_filter = ' WHERE (verified IS NULL OR verified IN (0,1)) AND COALESCE(p_state, sector_id) > 0';
-            ELSE
-                v_filter = ' WHERE state IS NOT NULL AND COALESCE(p_state, sector_id) > 0';
+                v_filter = concat(v_filter, ' AND (verified IS NULL OR verified IN (0,1))');
             END IF;
+
             IF v_isoperative THEN
                 v_filter = v_filter||' AND is_operative = TRUE';
             END IF;
+
             EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_arc AS SELECT * FROM ve_arc'||v_filter;
             CREATE INDEX IF NOT EXISTS idx_t_arc_the_geom ON t_arc USING gist (the_geom);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_t_arc_arc_id ON t_arc USING btree (arc_id);
