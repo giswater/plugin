@@ -69,12 +69,6 @@ v_querystring text;
 v_debug_vars json;
 v_debug json;
 v_msgerr json;
-v_ui_lang text;
-v_ml_pref jsonb;
-v_ml_project_type text;
-v_i18n_lb text;
-v_i18n_tt text;
-v_schema text;
 
 BEGIN
 
@@ -90,16 +84,6 @@ BEGIN
 	--  Get project type
 	SELECT project_type INTO v_project_type FROM sys_version ORDER BY id DESC LIMIT 1;
 
-	-- Resolve multilang UI preference once for all config tabs
-	v_ml_pref := NULL;
-	v_ui_lang := NULL;
-	v_ml_project_type := NULL;
-	IF to_regnamespace('multilang') IS NOT NULL THEN
-		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
-		v_ui_lang := v_ml_pref->>'lang';
-		v_ml_project_type := v_ml_pref->>'project_type';
-	END IF;
-
 	-- Get layers and table names
 	v_layers_name = ((p_data ->> 'data')::json->> 'list_layers_name')::text;
 	v_layers_table = ((p_data ->> 'data')::json->> 'list_tables_name')::text;
@@ -113,7 +97,7 @@ BEGIN
 
 	-- basic_tab
 	-------------------------
-	SELECT * INTO rec_tab FROM config_form_tabs WHERE formname='config' AND tabname='tab_user';
+	SELECT * INTO rec_tab FROM v_config_form_tabs WHERE formname='config' AND tabname='tab_user';
 	IF rec_tab.tabname IS NOT NULL THEN
 
 		-- Get all parameters from audit_cat param_user
@@ -127,7 +111,7 @@ BEGIN
 					isparent, sys_role, project_type, widgetcontrols::text,
 					(CASE WHEN value IS NOT NULL AND value != ''false'' THEN True ELSE False END) AS checked, placeholder, descript AS tooltip, 
 					dv_parent_id, dv_querytext, dv_querytext_filterc, dv_orderby_id, dv_isnullvalue	
-					FROM sys_param_user 
+					FROM v_sys_param_user AS sys_param_user 
 					LEFT JOIN (SELECT * FROM config_param_user WHERE cur_user=current_user) a ON a.parameter=sys_param_user.id 
 					WHERE sys_role IN (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 					AND formname =',quote_literal(lower(v_formname)),'
@@ -141,7 +125,7 @@ BEGIN
 					isparent, sys_role, project_type, widgetcontrols::text,
 					(CASE WHEN value IS NOT NULL AND value != ''false'' THEN True ELSE False END) AS checked, placeholder, sys_param_user.descript AS tooltip, 
 					dv_parent_id, dv_querytext, dv_querytext_filterc, dv_orderby_id, dv_isnullvalue	
-					FROM sys_param_user 
+					FROM v_sys_param_user AS sys_param_user 
 					JOIN cat_feature ON concat(''feat_'', lower(cat_feature.id),''_vdefault'') = sys_param_user.id
 					LEFT JOIN (SELECT * FROM config_param_user WHERE cur_user=current_user) a ON a.parameter=sys_param_user.id 
 					WHERE sys_role IN (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
@@ -332,43 +316,6 @@ BEGIN
 
 		END LOOP;
 
-		-- Apply multilang UI translations for sys_param_user
-		IF v_ui_lang IS NOT NULL THEN
-			FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array))
-			LOOP
-				SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
-				FROM multilang.sys_param_user i
-				WHERE i.project_type = v_ml_project_type
-				  AND i.context = 'sys_param_user'
-				  AND i.source = aux_json->>'widgetname'
-				  AND i.lang = v_ui_lang
-				LIMIT 1;
-				IF v_i18n_lb IS NOT NULL THEN
-					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
-						fields_array[(aux_json->>'orderby')::INT], 'label', v_i18n_lb);
-				END IF;
-				IF v_i18n_tt IS NOT NULL THEN
-					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
-						fields_array[(aux_json->>'orderby')::INT], 'tooltip', v_i18n_tt);
-				END IF;
-			END LOOP;
-
-			SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
-			FROM multilang.config_form_tabs i
-			WHERE i.project_type = v_ml_project_type
-			  AND i.formname = 'config'
-			  AND i.source = rec_tab.tabname
-			  AND i.context = 'config_form_tabs'
-			  AND i.lang = v_ui_lang
-			LIMIT 1;
-			IF v_i18n_lb IS NOT NULL THEN
-				rec_tab.label := v_i18n_lb;
-			END IF;
-			IF v_i18n_tt IS NOT NULL THEN
-				rec_tab.tooltip := v_i18n_tt;
-			END IF;
-		END IF;
-
 		--  Convert to json
 		fields := array_to_json(fields_array);
 		fields := COALESCE(fields, '[]');
@@ -390,7 +337,7 @@ BEGIN
 
 	-- Admin tab
 	--------------
-    SELECT * INTO rec_tab FROM config_form_tabs WHERE formname='config' AND tabname='tab_admin' ;
+    SELECT * INTO rec_tab FROM v_config_form_tabs WHERE formname='config' AND tabname='tab_admin' ;
 
     -- only form config form (epaoptions not need admin tab)
     IF v_formname='config' THEN
@@ -402,7 +349,7 @@ BEGIN
 							widgettype, datatype, layoutname, layoutorder, row_number() over (order by layoutname, layoutorder) as orderby, descript as tooltip,
 							(CASE WHEN iseditable IS NULL OR iseditable IS TRUE THEN True ELSE False END) AS iseditable,
 							placeholder
-							FROM config_param_system WHERE isenabled=TRUE AND layoutname IS NOT NULL AND layoutorder IS NOT NULL AND (project_type =''utils'' or project_type=',
+							FROM v_config_param_system WHERE isenabled=TRUE AND layoutname IS NOT NULL AND layoutorder IS NOT NULL AND (project_type =''utils'' or project_type=',
 							quote_literal(lower(v_project_type)),') ORDER BY orderby) a');
 			v_debug_vars := json_build_object('v_project_type', v_project_type);
 			v_debug := json_build_object('querystring', v_querystring, 'vars', v_debug_vars, 'funcname', 'gw_fct_getconfig', 'flag', 80);
@@ -414,48 +361,11 @@ BEGIN
 			v_querystring = concat('SELECT (array_agg(row_to_json(a))) FROM (SELECT label, parameter AS widgetname, parameter as widgetname, concat(''admin_'',parameter), value, 
 							widgettype, datatype, layoutname, layoutorder, row_number() over (order by layoutname, layoutorder) as orderby, descript as tooltip, FALSE AS iseditable,
 							placeholder
-							FROM config_param_system WHERE isenabled=TRUE AND (project_type =''utils'' or project_type=',quote_literal(lower(v_project_type)),') ORDER BY orderby) a');
+							FROM v_config_param_system WHERE isenabled=TRUE AND (project_type =''utils'' or project_type=',quote_literal(lower(v_project_type)),') ORDER BY orderby) a');
 			v_debug_vars := json_build_object('v_project_type', v_project_type);
 			v_debug := json_build_object('querystring', v_querystring, 'vars', v_debug_vars, 'funcname', 'gw_fct_getconfig', 'flag', 90);
 			SELECT gw_fct_debugsql(v_debug) INTO v_msgerr;
 			EXECUTE v_querystring INTO fields_array;
-		END IF;
-
-		-- Apply multilang UI translations for config_param_system
-		IF v_ui_lang IS NOT NULL AND fields_array IS NOT NULL THEN
-			FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array))
-			LOOP
-				SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
-				FROM multilang.config_param_system i
-				WHERE i.project_type = v_ml_project_type
-				  AND i.context = 'config_param_system'
-				  AND i.source = aux_json->>'widgetname'
-				  AND i.lang = v_ui_lang
-				LIMIT 1;
-				IF v_i18n_lb IS NOT NULL THEN
-					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
-						fields_array[(aux_json->>'orderby')::INT], 'label', v_i18n_lb);
-				END IF;
-				IF v_i18n_tt IS NOT NULL THEN
-					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
-						fields_array[(aux_json->>'orderby')::INT], 'tooltip', v_i18n_tt);
-				END IF;
-			END LOOP;
-
-			SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
-			FROM multilang.config_form_tabs i
-			WHERE i.project_type = v_ml_project_type
-			  AND i.formname = 'config'
-			  AND i.source = rec_tab.tabname
-			  AND i.context = 'config_form_tabs'
-			  AND i.lang = v_ui_lang
-			LIMIT 1;
-			IF v_i18n_lb IS NOT NULL THEN
-				rec_tab.label := v_i18n_lb;
-			END IF;
-			IF v_i18n_tt IS NOT NULL THEN
-				rec_tab.tooltip := v_i18n_tt;
-			END IF;
 		END IF;
 
 		-- Convert to json

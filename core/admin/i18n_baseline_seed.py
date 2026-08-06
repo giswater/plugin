@@ -975,6 +975,171 @@ def multilang_user_param_provision_sql(
     )
 
 
+def multilang_views_provision_sql(
+    *,
+    enable: bool,
+    schema_name: str | None = None,
+) -> str:
+    """Recreate UI translation views (JOIN when enable, plain when disable)."""
+    schema_arg = "NULL"
+    if schema_name:
+        esc_schema = str(schema_name).replace("'", "''")
+        schema_arg = f"'{esc_schema}'"
+    return (
+        "SELECT multilang.gw_fct_admin_manage_multilang_views("
+        f"{'true' if enable else 'false'}, {schema_arg});"
+    )
+
+
+def _coerce_json_result(json_result: Any) -> dict[str, Any] | None:
+    if json_result is None:
+        return None
+    if isinstance(json_result, dict):
+        return json_result
+    if isinstance(json_result, str):
+        try:
+            parsed = json.loads(json_result)
+        except (TypeError, ValueError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
+    return None
+
+
+def multilang_json_error_message(
+    json_result: Any,
+    *,
+    sql: str | None = None,
+) -> str:
+    """Build a user-facing message from a multilang admin function JSON result."""
+    data = _coerce_json_result(json_result)
+    if not data:
+        msg = "Empty response from database function."
+        return msg
+
+    message = data.get("message")
+    if isinstance(message, dict) and message.get("text"):
+        text = str(message["text"])
+    elif isinstance(message, str):
+        text = message
+    else:
+        text = ""
+
+    errors = data.get("errors")
+    if isinstance(errors, list) and errors:
+        details: list[str] = []
+        for item in errors[:5]:
+            if not isinstance(item, dict):
+                continue
+            schema = item.get("schema") or "?"
+            view = item.get("view")
+            table = item.get("table")
+            err = item.get("error") or item.get("NOSQLERR") or item.get("SQLERRM") or "unknown error"
+            target = view or table or schema
+            details.append(f"{schema}.{target}: {err}")
+        if details:
+            suffix = "; ".join(details)
+            if len(errors) > 5:
+                suffix += f"; ... ({len(errors) - 5} more)"
+            text = f"{text} {suffix}".strip() if text else suffix
+
+    if text:
+        return text
+
+    for key in ("SQLERR", "NOSQLERR", "SQLERRM"):
+        if data.get(key):
+            return str(data[key])
+
+    if sql:
+        msg = "Multilang function failed. SQL: {0}"
+        msg = msg.format(sql)
+        return msg
+    msg = "Multilang function failed."
+    return msg
+
+
+def run_multilang_function_sql(
+    sql: str,
+    *,
+    aux_conn: Any = None,
+    adapter: Any = None,
+    is_thread: bool = False,
+    show_exception: bool = True,
+    log_sql: bool = False,
+) -> tuple[dict[str, Any] | None, bool]:
+    """Execute a multilang admin function returning json and interpret its status."""
+    from ...libs import lib_vars, tools_db, tools_log
+
+    json_result: dict[str, Any] | None = None
+
+    if adapter is not None:
+        value, ok = adapter.execute_scalar(sql)
+        if not ok:
+            err = adapter.last_error() or "SQL execution failed."
+            lib_vars.session_vars["last_error"] = err
+            lib_vars.session_vars["last_error_msg"] = err
+            msg = "Multilang function SQL failed"
+            tools_log.log_warning(msg, parameter=err)
+            return None, False
+        json_result = _coerce_json_result(value)
+    else:
+        row = tools_db.get_row(
+            sql,
+            commit=True,
+            log_sql=log_sql,
+            aux_conn=aux_conn,
+            is_thread=is_thread,
+        )
+        if not row or row[0] is None:
+            message = "SQL execution failed."
+            err = lib_vars.session_vars.get("last_error") or message
+            lib_vars.session_vars["last_error_msg"] = err
+            msg = "Multilang function SQL failed"
+            tools_log.log_warning(msg, parameter=err)
+            return None, False
+        json_result = _coerce_json_result(row[0])
+
+    if not json_result:
+        msg = "Multilang function returned an invalid JSON response."
+        lib_vars.session_vars["last_error"] = msg
+        lib_vars.session_vars["last_error_msg"] = msg
+        tools_log.log_warning(msg, parameter=sql)
+        return None, False
+
+    if log_sql:
+        msg = "Multilang function response"
+        tools_log.log_db(json_result, header=msg)
+
+    status = json_result.get("status")
+    if status == "Failed":
+        err = multilang_json_error_message(json_result, sql=sql)
+        lib_vars.session_vars["last_error"] = err
+        lib_vars.session_vars["last_error_msg"] = err
+        msg = "Multilang function failed"
+        tools_log.log_warning(msg, parameter=err)
+        if show_exception and not is_thread:
+            from ..utils import tools_gw
+
+            tools_gw.manage_json_exception(json_result, sql=sql, is_thread=is_thread)
+        return json_result, False
+
+    if status != "Accepted":
+        err = multilang_json_error_message(json_result, sql=sql)
+        lib_vars.session_vars["last_error"] = err
+        lib_vars.session_vars["last_error_msg"] = err
+        msg = "Multilang function returned unexpected status"
+        tools_log.log_warning(msg, parameter=err)
+        if show_exception and not is_thread:
+            from ..utils import tools_gw
+
+            tools_gw.manage_json_exception(json_result, sql=sql, is_thread=is_thread)
+        return json_result, False
+
+    message = json_result.get("message")
+    if isinstance(message, dict) and message.get("text"):
+        tools_log.log_info(str(message["text"]))
+    return json_result, True
+
+
 def build_change_lang_sql(
     schema_name: str,
     language: str,

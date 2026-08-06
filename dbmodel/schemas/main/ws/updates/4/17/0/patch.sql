@@ -539,7 +539,7 @@ SELECT DISTINCT ON (visit_id)
 	is_done,
 	feature_id,
 	feature_type,
-	the_geom::geometry(Point, SRID_VALUE) AS the_geom
+	the_geom::geometry(Point) AS the_geom
 FROM (
 	SELECT
 		om_visit.id AS visit_id,

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `custom_code_autofill` column to `cat_feature` and `config_mapzones` tables.
 - Extend `hydraulic_engine` Go2Epa path to UD (SWMM); fall back to classic EPA when the package is missing.
 - Allow Execute EPA on Linux for UD when `hydraulic_engine` is installed.
+- Add `btn_child` to campaign manager dialog to create a child campaign.
 
 ### Changed
 
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix Go2Epa hydraulic-engine result import crash when JSON `message` is null (`NoneType` has no attribute `get`).
 - Fix EPANET-only `only_extrema` being passed to SWMM `export_result`.
 - Fix `gw_fct_setsearch` function to use `COALESCE` to handle NULL geometry in `ve_address` table.
+- Fix creation of temporary table `temp_ve_arc_geom_selector` to use `vf_arc` view.
 
 ## [4.16.1] - 2026-07-31
 
