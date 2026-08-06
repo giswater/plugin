@@ -89,7 +89,8 @@ class GwPsectorDuplicate(QObject):
             tools_gw.close_dialog(self.dlg_duplicate_psector)
         else:
             tools_qt.get_widget(self.dlg_duplicate_psector, self.dlg_duplicate_psector.btn_accept).setEnabled(False)
-            self.dlg_duplicate_psector.setWindowTitle('SUCCESS IN DUPLICATING PSECTOR')
+            title = "SUCCESS IN DUPLICATING PSECTOR"
+            self.dlg_duplicate_psector.setWindowTitle(tools_qt.tr(title))
 
         self.is_duplicated.emit()
 
