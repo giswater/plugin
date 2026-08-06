@@ -569,7 +569,7 @@ class GwEpaFileManager(GwTask):
             if runner is None:
                 msg = "Unsupported project type for hydraulic engine: {0}"
                 msg_params = (global_vars.project_type,)
-                self.error_msg = tools_qt.tr(msg, msg_params=msg_params)
+                self.error_msg = tools_qt.tr(msg, list_params=msg_params)
                 return None
 
             results = runner.run(step_callback=self._on_epa_step)
@@ -586,12 +586,12 @@ class GwEpaFileManager(GwTask):
                 detail = "; ".join(results.errors) if results.errors else "unknown error"
                 msg = "Error executing EPA software: {0}"
                 msg_params = (detail,)
-                self.error_msg = tools_qt.tr(msg, msg_params=msg_params)
+                self.error_msg = tools_qt.tr(msg, list_params=msg_params)
                 return None
         except Exception as e:
             msg = "Error executing EPA software: {0}"
             msg_params = (e,)
-            self.error_msg = tools_qt.tr(msg, msg_params=msg_params)
+            self.error_msg = tools_qt.tr(msg, list_params=msg_params)
             return None
 
         self.common_msg += "EPA model finished. "
