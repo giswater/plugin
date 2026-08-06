@@ -278,7 +278,9 @@ def parse_sql_value_tuple(raw: str) -> list[Any]:
     """Parse one SQL VALUES tuple: (a, 'b', NULL, 1) or (1, E'text', NULL)."""
     text = raw.strip()
     if not text.startswith("(") or not text.endswith(")"):
-        raise ValueError(f"Invalid tuple: {raw[:80]!r}")
+        msg = "Invalid tuple: {0}"
+        msg_params = (repr(raw[:80]),)
+        raise ValueError(msg.format(*msg_params))
     inner = text[1:-1]
     values: list[Any] = []
     i = 0

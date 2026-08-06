@@ -426,7 +426,8 @@ class GwProfileButton(GwAction):
                         # Stay in add_points mode so the user can keep adding mid-features
                     else:
                         self.endNode = element_id
-                        tools_qgis.show_info("Node 2 selected", parameter=self.element_id)
+                        msg = "Node 2 selected"
+                        tools_qgis.show_info(msg, parameter=self.element_id)
                         # Defer DB + UI so messageBar paints (Qt handles paint after this event returns)
                         QTimer.singleShot(50, self._on_node2_selected_continue)
 

@@ -1250,8 +1250,9 @@ class GwSchemaI18NManager:
             for row in rows:
                 primary_keys_org.append((row["source"], row["dialog_name"], row["toolbar_name"]))
         except Exception as e:
-            msg = tools_qt.tr("Error fetching existing primary keys: {0}")
-            tools_qt.manage_exception_db(msg.format(e), query, pause_on_exception=True)
+            msg = "Error fetching existing primary keys: {0}"
+            msg_params = (e,)
+            tools_qt.manage_exception_db(tools_qt.tr(msg, list_params=msg_params), query, pause_on_exception=True)
 
         # Delete removed widgets
         old_keys = set(primary_keys_org) - set(primary_keys_final)
@@ -1273,8 +1274,9 @@ class GwSchemaI18NManager:
                 try:
                     self.cursor_i18n.execute(delete_query)
                 except Exception as e:
-                    msg = tools_qt.tr("Error deleting rows: {0}")
-                    tools_qt.manage_exception_db(msg.format(e), delete_query, pause_on_exception=True)
+                    msg = "Error deleting rows: {0}"
+                    msg_params = (e,)
+                    tools_qt.manage_exception_db(tools_qt.tr(msg, list_params=msg_params), delete_query, pause_on_exception=True)
 
         # Update the table
         text_error = ""
@@ -1308,8 +1310,9 @@ class GwSchemaI18NManager:
             try:
                 self.cursor_i18n.execute(query)
             except Exception as e:
-                msg = tools_qt.tr("Error updating table: {0}\n")
-                text_error += msg.format(e)
+                msg = "Error updating table: {0}\n"
+                msg_params = (e,)
+                text_error += tools_qt.tr(msg, list_params=msg_params)
                 query_error += query + '\n'
 
         if text_error:
@@ -1806,7 +1809,9 @@ class GwSchemaI18NManager:
         elif mode == 'values':
             return tuple(d.values())
         else:
-            raise ValueError(f"Unsupported compare mode: {mode}")
+            msg = "Unsupported compare mode: {0}"
+            msg_params = (mode,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def _set_operation_on_dict(self, rows1, rows2, op='&', compare='items'):
         """
@@ -1824,14 +1829,18 @@ class GwSchemaI18NManager:
         elif op == '^':
             result = set1 ^ set2
         else:
-            raise ValueError(f"Unsupported operation: {op}")
+            msg = "Unsupported operation: {0}"
+            msg_params = (op,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         if compare == 'items':
             return [dict(t) for t in result]
         elif compare == 'values':
             return [dict(zip(rows1[0].keys(), t)) for t in result]
         else:
-            raise ValueError(f"Unsupported compare mode: {compare}")
+            msg = "Unsupported compare mode: {0}"
+            msg_params = (compare,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def _get_all_columns(self, table_i18n):
         """ Get all columns from the table """

@@ -79,10 +79,10 @@ class Campaign:
 
         # Populate combo date type (planned dates first, then real dates)
         rows = [
-            ['startdate', tools_qt.tr('Start date', 'cm')],
-            ['enddate', tools_qt.tr('End date', 'cm')],
-            ['real_startdate', tools_qt.tr('Real start date', 'cm')],
-            ['real_enddate', tools_qt.tr('Real end date', 'cm')]
+            ['startdate', tools_qt.tr('Start date')],
+            ['enddate', tools_qt.tr('End date')],
+            ['real_startdate', tools_qt.tr('Real start date')],
+            ['real_enddate', tools_qt.tr('Real end date')]
         ]
         tools_qt.fill_combo_values(self.manager_dialog.campaign_cmb_date_filter_type, rows, 1, sort_combo=False)
         # Default to planned Start date
@@ -1160,8 +1160,8 @@ class Campaign:
         """Delete the selected campaign"""
         selected = self.manager_dialog.tbl_campaign.selectionModel().selectedRows()
         if not selected:
-            msg = tools_qt.tr("Select a campaign to delete.", context_name="cm")
-            tools_qgis.show_warning(msg, dialog=self.manager_dialog)
+            msg = "Select a campaign to delete."
+            tools_qgis.show_warning(msg, dialog=self.manager_dialog, context_name="cm")
             return
 
         index = selected[0]
@@ -1358,8 +1358,9 @@ def update_expl_sector_combos(**kwargs: Any):
         update_sector_combo(dialog, saved_values)
 
     except Exception as e:
-        msg = "CRITICAL ERROR in update_expl_sector_combos"
-        tools_qgis.show_warning(f"{msg}: {e}", dialog=dialog)
+        msg = "CRITICAL ERROR in update_expl_sector_combos: {0}"
+        msg_params = (e,)
+        tools_qgis.show_warning(msg, msg_params=msg_params, dialog=dialog)
 
 
 def update_sector_combo(dialog: QDialog, saved_values: Optional[Dict] = None):

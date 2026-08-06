@@ -17,7 +17,7 @@ from qgis.PyQt.QtCore import QSettings
 from ....ui.ui_manager import RecursiveEpaUi
 from ....threads.recursive_epa import GwRecursiveEpa
 from ..... import global_vars
-from .....libs import tools_qt, lib_vars
+from .....libs import tools_qt, lib_vars, tools_qgis
 from ....utils import tools_gw
 
 
@@ -77,8 +77,9 @@ class RecursiveEpa():
 
         setting_file = config_path
         if not os.path.exists(setting_file):
-            message = f"Config file not found at: {setting_file}"
-            self.iface.messageBar().pushMessage("", message, 1, 20)
+            msg = "Config file not found at: {0}"
+            msg_params = (setting_file,)
+            tools_qgis.show_warning(msg, msg_params=msg_params)
             return
         settings = QSettings(setting_file, QSettings.Format.IniFormat)
         if hasattr(settings, "setIniCodec"):
@@ -97,7 +98,8 @@ class RecursiveEpa():
                 inf_text += f"\n{list3}"
         response = tools_qt.show_question(msg, inf_text=inf_text, force_action=True)
         if response:
-            self.recursive_epa = GwRecursiveEpa("Recursive Go2Epa", prefix, folder_path, settings, lib_vars.plugin_dir)
+            msg = "Recursive Go2Epa"
+            self.recursive_epa = GwRecursiveEpa(tools_qt.tr(msg), prefix, folder_path, settings, lib_vars.plugin_dir)
             self.recursive_epa.change_btn_accept.connect(self._enable_cancel_btn)
             self.recursive_epa.time_changed.connect(self._set_remaining_time)
             QgsApplication.taskManager().addTask(self.recursive_epa)
@@ -117,13 +119,15 @@ class RecursiveEpa():
     def _enable_cancel_btn(self, enable):
         if enable:
             self.dlg_epa.btn_accept.clicked.disconnect()
-            self.dlg_epa.btn_accept.setText("Cancel")
+            title = "Cancel"
+            self.dlg_epa.btn_accept.setText(tools_qt.tr(title))
             self.dlg_epa.btn_accept.clicked.connect(self.recursive_epa.stop_task)
             self.dlg_epa.btn_close.hide()
         else:
             self.dlg_epa.btn_close.show()
             self.dlg_epa.btn_accept.clicked.disconnect()
-            self.dlg_epa.btn_accept.setText("Accept")
+            title = "Accept"
+            self.dlg_epa.btn_accept.setText(tools_qt.tr(title))
             self.dlg_epa.btn_accept.clicked.connect(partial(self.execute_epa, self.dlg_epa))
 
     def _set_remaining_time(self, time):

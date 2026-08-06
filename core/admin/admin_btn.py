@@ -775,7 +775,8 @@ class GwAdminButton:
         """Link CM to the selected WS/UD parent schema."""
         parent_schema, parent_type = self._resolve_parent_context(parent_schema, parent_type)
         if not parent_schema:
-            tools_qt.show_info_box("Select a WS or UD anchor in the network table.")
+            msg = "Select a WS or UD anchor in the network table."
+            tools_qt.show_info_box(msg)
             return
 
         msg = (
@@ -798,7 +799,8 @@ class GwAdminButton:
         """Load CM example data for the selected parent schema."""
         parent_schema, parent_type = self._resolve_parent_context(parent_schema, parent_type)
         if not parent_schema:
-            tools_qt.show_info_box("Select a WS or UD anchor in the network table.")
+            msg = "Select a WS or UD anchor in the network table."
+            tools_qt.show_info_box(msg)
             return
 
         msg = (
@@ -1663,15 +1665,17 @@ class GwAdminButton:
 
         ok, credentials = self._prepare_connection_credentials(connection_name)
         if not ok:
-            err = lib_vars.session_vars.get('last_error') or (
-                "Connection Failed. Please, check connection parameters"
-            )
+            msg = "Connection Failed. Please, check connection parameters"
+            err = lib_vars.session_vars.get('last_error') or tools_qt.tr(msg)
             if self.is_service and not tools_db.is_db_auth_error(err):
-                msg = ("There is an error in the configuration of the pgservice file, "
-                       "please check it or consult your administrator")
                 if err:
-                    msg = f"{msg} ({err})"
-                self._apply_connection_failure(msg)
+                    msg = ("There is an error in the configuration of the pgservice file, "
+                           "please check it or consult your administrator ({0})")
+                    self._apply_connection_failure(tools_qt.tr(msg, list_params=(err,)))
+                else:
+                    msg = ("There is an error in the configuration of the pgservice file, "
+                           "please check it or consult your administrator")
+                    self._apply_connection_failure(tools_qt.tr(msg))
             else:
                 self._apply_connection_failure(err)
             return
@@ -1729,9 +1733,8 @@ class GwAdminButton:
 
         ok, credentials = self._prepare_connection_credentials(connection_name)
         if not ok:
-            err = lib_vars.session_vars.get("last_error") or (
-                "Connection failed. Please, check connection parameters"
-            )
+            msg = "Connection failed. Please, check connection parameters"
+            err = lib_vars.session_vars.get("last_error") or tools_qt.tr(msg)
             tools_qt.show_info_box(err, "Info")
             return False
 
@@ -1742,26 +1745,24 @@ class GwAdminButton:
                 if ok and tools_db.ping_database(credentials):
                     pass
                 else:
-                    tools_qt.show_info_box(
-                        err or "Connection failed. Please, check connection parameters",
-                        "Info",
-                    )
+                    msg = "Connection failed. Please, check connection parameters"
+                    title = "Info"
+                    tools_qt.show_info_box(err or msg, title)
                     return False
             else:
-                tools_qt.show_info_box(
-                    "Connection failed. Please, check connection parameters",
-                    "Info",
-                )
+                msg = "Connection failed. Please, check connection parameters"
+                title = "Info"
+                tools_qt.show_info_box(msg, title)
                 return False
 
         self.logged, credentials = tools_db.connect_to_database_credentials(
             credentials, max_attempts=0
         )
         if not self.logged:
-            err = lib_vars.session_vars.get("last_error") or (
-                "Connection failed. Please, check connection parameters"
-            )
-            tools_qt.show_info_box(err, "Info")
+            msg = "Connection failed. Please, check connection parameters"
+            err = lib_vars.session_vars.get("last_error") or msg
+            title = "Info"
+            tools_qt.show_info_box(err, title)
             return False
 
         tools_db.dao_db_credentials = credentials
@@ -1869,34 +1870,45 @@ class GwAdminButton:
                             self._schema_cache[connection_name] = sync_result
                             self._apply_admin_load_result(sync_result, connection_name)
                             return
-                    self._apply_connection_failure(
-                        err or "Connection Failed. Please, check connection parameters"
-                    )
+                    msg = "Connection Failed. Please, check connection parameters"
+                    self._apply_connection_failure(err or tools_qt.tr(msg))
                     return
                 if self.is_service:
-                    msg = ("There is an error in the configuration of the pgservice file, "
-                           "please check it or consult your administrator")
                     if err:
-                        msg = f"{msg} ({err})"
-                    self._apply_connection_failure(msg)
+                        msg = ("There is an error in the configuration of the pgservice file, "
+                               "please check it or consult your administrator ({0})")
+                        msg_params = (err,)
+                        self._apply_connection_failure(
+                            tools_qt.tr(msg, list_params=msg_params)
+                        )
+                    else:
+                        msg = ("There is an error in the configuration of the pgservice file, "
+                               "please check it or consult your administrator")
+                        self._apply_connection_failure(tools_qt.tr(msg))
                 else:
-                    msg = "Connection Failed. Please, check connection parameters"
                     if err:
-                        msg = f"{msg} ({err})"
-                    tools_qgis.show_message(msg, Qgis.MessageLevel.Warning)
+                        msg = "Connection Failed. Please, check connection parameters ({0})"
+                        msg_params = (err,)
+                    else:
+                        msg = "Connection Failed. Please, check connection parameters"
+                        msg_params = None
+                    tools_qgis.show_message(msg, Qgis.MessageLevel.Warning, msg_params=msg_params)
                     self._apply_connection_failure(
-                        msg, close_for_credentials=True, connection_name=connection_name
+                        tools_qt.tr(msg, list_params=msg_params),
+                        close_for_credentials=True, connection_name=connection_name
                     )
                 return
 
             ok, credentials = self._prepare_connection_credentials(connection_name)
             if not ok:
-                msg = lib_vars.session_vars.get('last_error') or "Connection Failed. Please, check connection parameters"
+                message = "Connection Failed. Please, check connection parameters"
+                msg = lib_vars.session_vars.get('last_error') or tools_qt.tr(message)
                 self._apply_connection_failure(msg)
                 return
             self.logged, credentials = tools_db.connect_to_database_credentials(credentials, max_attempts=0)
             if not self.logged:
-                msg = lib_vars.session_vars.get('last_error') or "Connection Failed. Please, check connection parameters"
+                message = "Connection Failed. Please, check connection parameters"
+                msg = lib_vars.session_vars.get('last_error') or tools_qt.tr(message)
                 if self.is_service and tools_db.is_db_auth_error(msg):
                     self._apply_connection_failure(msg)
                 elif self.is_service:
@@ -2284,8 +2296,9 @@ class GwAdminButton:
             self._manage_docker()
 
         if not connection_status and not self.is_service:
+            msg = "Connection Failed. Please, check connection parameters"
             self._apply_connection_failure(
-                "Connection Failed. Please, check connection parameters",
+                tools_qt.tr(msg),
                 close_for_credentials=True,
                 connection_name=last_connection,
             )
@@ -3464,7 +3477,10 @@ class GwAdminButton:
                 if refresh:
                     refresh()
             else:
-                tools_qt.show_info_box(f"Delete schema failed: {fx.error}", "Error")
+                msg = "Delete schema failed: {0}"
+                msg_params = (fx.error,)
+                title = "Error"
+                tools_qt.show_info_box(msg, title, msg_params=msg_params)
 
     def _delete_other_schema(self, schema):
         """ Delete other schema """
@@ -4525,7 +4541,8 @@ class GwAdminButton:
     def _create_utils(self):
         """Create the (singleton) utils satellite schema via the engine."""
         if admin_catalog.schema_exists('utils'):
-            tools_qgis.show_message("Schema Utils already exist.", Qgis.MessageLevel.Info)
+            msg = "Schema Utils already exist."
+            tools_qgis.show_message(msg, Qgis.MessageLevel.Info)
             return
         self._run_create_utils_task('empty', 'Create utils schema')
 

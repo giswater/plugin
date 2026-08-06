@@ -64,7 +64,8 @@ class GwMapzoneManager:
         self.mapzone_mng_dlg = GwMapzoneManagerUi(self)
         tools_gw.load_settings(self.mapzone_mng_dlg)
         if not self._setup_dynamic_dialog():
-            tools_qgis.show_warning("Mapzone manager dynamic config not found.")
+            msg = "Mapzone manager dynamic config not found."
+            tools_qgis.show_warning(msg)
             return
 
         if not self._load_main_tabs():
@@ -128,7 +129,9 @@ class GwMapzoneManager:
         }
         missing = [name for name, widget in required_widgets.items() if widget is None]
         if missing:
-            tools_qgis.show_warning("Mapzone dynamic widgets not found", parameter=", ".join(missing), dialog=self.mapzone_mng_dlg)
+            msg = "Mapzone dynamic widgets not found: {0}"
+            msg_params = (", ".join(missing),)
+            tools_qgis.show_warning(msg, msg_params=msg_params, dialog=self.mapzone_mng_dlg)
             self._clear_dynamic_module_reference()
             return False
         return True
@@ -369,7 +372,8 @@ class GwMapzoneManager:
             tabs.append((mapzone_type, tab_cfg.get('tabLabel') or mapzone_type.capitalize()))
 
         if not tabs:
-            tools_qgis.show_warning("Mapzone manager tabs not configured in DB.", dialog=self.mapzone_mng_dlg)
+            msg = "Mapzone manager tabs not configured in DB."
+            tools_qgis.show_warning(msg, dialog=self.mapzone_mng_dlg)
             return False
 
         for mapzone_type, tab_label in tabs:
@@ -1139,10 +1143,12 @@ class GwMapzoneManager:
             tools_qt.set_widget_visible(self.config_dlg, self.config_dlg.txt_toArc, False)
 
         # Open dialog
-        dlg_title = f"Mapzone config - {mapzone_name}"
+        title = "Mapzone config - {0}"
+        title_params = (mapzone_name,)
         if self.netscenario_id is not None:
-            dlg_title += f" (Netscenario {self.netscenario_id})"
-        tools_gw.open_dialog(self.config_dlg, 'mapzone_config', title=dlg_title)
+            title = "Mapzone config - {0} (Netscenario {1})"
+            title_params = (mapzone_name, self.netscenario_id)
+        tools_gw.open_dialog(self.config_dlg, 'mapzone_config', title=title, title_params=title_params)
 
     def _config_dlg_finished(self, dialog):
 
@@ -1207,19 +1213,23 @@ class GwMapzoneManager:
             return
         menu = QMenu(qtableview)
 
-        action_update = QAction("Update", qtableview)
+        title = "Update"
+        action_update = QAction(tools_qt.tr(title), qtableview)
         action_update.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_update"))
         menu.addAction(action_update)
 
-        action_delete = QAction("Delete", qtableview)
+        title = "Delete"
+        action_delete = QAction(tools_qt.tr(title), qtableview)
         action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete"))
         menu.addAction(action_delete)
 
-        action_toggle_active = QAction("Toggle Active", qtableview)
+        title = "Toggle Active"
+        action_toggle_active = QAction(tools_qt.tr(title), qtableview)
         action_toggle_active.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_toggle_active"))
         menu.addAction(action_toggle_active)
 
-        action_config = QAction("Config", qtableview)
+        title = "Config"
+        action_config = QAction(tools_qt.tr(title), qtableview)
         action_config.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_config"))
         menu.addAction(action_config)
 
@@ -1743,7 +1753,9 @@ class GwMapzoneManager:
             return
         result = json_result
 
-        dlg_title = f"New {mapzone_type.capitalize()}"
+        title = "New {0}"
+        title_params = (mapzone_type.capitalize(),)
+        dlg_title = tools_qt.tr(title, list_params=title_params)
 
         self._build_generic_info(dlg_title, result, tablename, field_id, force_action="INSERT", on_close=on_close)
 
@@ -1784,7 +1796,9 @@ class GwMapzoneManager:
             return
         result = json_result
 
-        dlg_title = f"Update {mapzone_type.capitalize()} ({mapzone_id})"
+        title = "Update {0} ({1})"
+        title_params = (mapzone_type.capitalize(), mapzone_id)
+        dlg_title = tools_qt.tr(title, list_params=title_params)
 
         self._build_generic_info(dlg_title, result, tablename, field_id, force_action="UPDATE", on_close=on_close)
 
