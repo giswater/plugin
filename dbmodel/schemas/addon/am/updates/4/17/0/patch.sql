@@ -31,6 +31,20 @@ ALTER TABLE am.arc_input
 	ADD COLUMN IF NOT EXISTS data_quality_obs varchar[];
 
 -- cat_result: asset_type discriminator (ARC results keep their previous behaviour)
+-- Undo accidental rename feature_type → asset_type if someone applied that draft
+DO $$
+BEGIN
+	IF EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'am' AND table_name = 'cat_result' AND column_name = 'feature_type'
+	) AND NOT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'am' AND table_name = 'cat_result' AND column_name = 'asset_type'
+	) THEN
+		ALTER TABLE am.cat_result RENAME COLUMN feature_type TO asset_type;
+	END IF;
+END $$;
+
 ALTER TABLE am.cat_result
 	ADD COLUMN IF NOT EXISTS asset_type varchar(10) DEFAULT 'ARC';
 
@@ -40,8 +54,36 @@ ALTER TABLE am.cat_result
 	ADD COLUMN IF NOT EXISTS nodecat_id character varying(30),
 	ADD COLUMN IF NOT EXISTS node_type character varying(30);
 
+-- Multiple node types selected in Features tab (comma-separated)
+ALTER TABLE am.cat_result
+	ALTER COLUMN node_type TYPE text;
+
+-- NODE result → optional linked ARC result (combined IVI / shared horizon)
+ALTER TABLE am.cat_result
+	ADD COLUMN IF NOT EXISTS linked_arc_result_id integer;
+
+ALTER TABLE am.cat_result DROP CONSTRAINT IF EXISTS cat_result_linked_arc_result_id_fkey;
+ALTER TABLE am.cat_result
+	ADD CONSTRAINT cat_result_linked_arc_result_id_fkey
+	FOREIGN KEY (linked_arc_result_id) REFERENCES am.cat_result (result_id) ON DELETE SET NULL;
+
 -- config_engine_def: asset_type becomes part of the primary key so ARC and NODE
 -- parameters can share the same (parameter, method) name without clashing.
+DO $$
+BEGIN
+	IF EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'am' AND table_name = 'config_engine_def' AND column_name = 'feature_type'
+	) AND NOT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'am' AND table_name = 'config_engine_def' AND column_name = 'asset_type'
+	) THEN
+		ALTER TABLE am.config_engine_def DROP CONSTRAINT IF EXISTS config_engine_def_pkey;
+		ALTER TABLE am.config_engine_def DROP CONSTRAINT IF EXISTS config_engine_def_feature_type_check;
+		ALTER TABLE am.config_engine_def RENAME COLUMN feature_type TO asset_type;
+	END IF;
+END $$;
+
 ALTER TABLE am.config_engine_def
 	ADD COLUMN IF NOT EXISTS asset_type varchar(10);
 
@@ -51,6 +93,7 @@ ALTER TABLE am.config_engine_def
 	ALTER COLUMN asset_type SET DEFAULT 'ARC',
 	ALTER COLUMN asset_type SET NOT NULL;
 
+ALTER TABLE am.config_engine_def DROP CONSTRAINT IF EXISTS config_engine_def_feature_type_check;
 ALTER TABLE am.config_engine_def DROP CONSTRAINT IF EXISTS config_engine_def_asset_type_check;
 ALTER TABLE am.config_engine_def
 	ADD CONSTRAINT config_engine_def_asset_type_check CHECK (asset_type = ANY (ARRAY['ARC', 'NODE']));
@@ -60,6 +103,20 @@ ALTER TABLE am.config_engine_def
 	ADD CONSTRAINT config_engine_def_pkey PRIMARY KEY (parameter, method, asset_type);
 
 -- config_engine: mirrors config_engine_def structure for saved results, keep asset_type in sync
+DO $$
+BEGIN
+	IF EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'am' AND table_name = 'config_engine' AND column_name = 'feature_type'
+	) AND NOT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'am' AND table_name = 'config_engine' AND column_name = 'asset_type'
+	) THEN
+		ALTER TABLE am.config_engine DROP CONSTRAINT IF EXISTS config_engine_feature_type_check;
+		ALTER TABLE am.config_engine RENAME COLUMN feature_type TO asset_type;
+	END IF;
+END $$;
+
 ALTER TABLE am.config_engine
 	ADD COLUMN IF NOT EXISTS asset_type varchar(10);
 
@@ -69,6 +126,7 @@ ALTER TABLE am.config_engine
 	ALTER COLUMN asset_type SET DEFAULT 'ARC',
 	ALTER COLUMN asset_type SET NOT NULL;
 
+ALTER TABLE am.config_engine DROP CONSTRAINT IF EXISTS config_engine_feature_type_check;
 ALTER TABLE am.config_engine DROP CONSTRAINT IF EXISTS config_engine_asset_type_check;
 ALTER TABLE am.config_engine
 	ADD CONSTRAINT config_engine_asset_type_check CHECK (asset_type = ANY (ARRAY['ARC', 'NODE']));

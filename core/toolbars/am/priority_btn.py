@@ -23,8 +23,9 @@ from qgis.PyQt.QtWidgets import (
     QTableView,
     QTableWidget,
     QTableWidgetItem,
+    QCheckBox,
 )
-from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtGui import QIcon, QFont
 from qgis.PyQt.QtSql import QSqlTableModel
 
 from .... import global_vars
@@ -36,6 +37,7 @@ from ..dialog import GwAction
 
 from ...ui.ui_manager import GwPriorityUi
 from ...threads.calculatepriority import GwCalculatePriority
+from .result_selector_btn import set_am_selector_result
 
 
 class GwConfigCatalogButton:
@@ -394,6 +396,7 @@ class CalculatePriority:
                 "nodecat_id": None,
                 "node_type": None,
                 "asset_type": "ARC",
+                "linked_arc_result_id": None,
             }
         else:
             if not result_id:
@@ -414,7 +417,8 @@ class CalculatePriority:
                     dnom,
                     nodecat_id,
                     node_type,
-                    asset_type
+                    asset_type,
+                    linked_arc_result_id
                 FROM am.cat_result
                 WHERE result_id = {result_id}
                 """
@@ -479,6 +483,7 @@ class CalculatePriority:
         self._load_material_table()
 
         self._fill_engine_options()
+        self._load_arc_result_combo()
         self._set_signals()
 
         self.dlg_priority.executing = False
@@ -509,6 +514,7 @@ class CalculatePriority:
             msg = "Next"
             tools_qt.set_widget_text(dlg, dlg.btn_again, msg)
             dlg.btn_save2file.setEnabled(True)
+            dlg.progressBar.setValue(100)
             self._activate_result_and_refresh_symbology()
         else:
             dlg.progressBar.setValue(100)
@@ -521,13 +527,8 @@ class CalculatePriority:
         """ Point selectors at the new result, reload AM layers, rebuild year classes. """
         result_id = getattr(self.thread, "result_id", None)
         if result_id:
-            tools_db.execute_sql(
-                f"""
-                delete from am.selector_result_main where cur_user = current_user;
-                insert into am.selector_result_main (result_id, cur_user)
-                values ({result_id}, current_user);
-                """
-            )
+            # Keep the other feature's selection (ARC vs NODE) visible on the map
+            set_am_selector_result(result_id, "main")
 
         for layer_name in (
             "v_asset_arc_output",
@@ -598,21 +599,45 @@ class CalculatePriority:
         tools_qt.set_widget_text(
             dlg, dlg.lbl_material, tools_qt.tr("Node type:") if is_node else tools_qt.tr("Material:")
         )
+        # Features tab (node types) only for NODE; hide single node_type combo in Selection
+        self._set_config_tab_visible("tab_features", is_node)
+        self._set_arc_result_combo_visible()
+        if is_node:
+            dlg.lbl_material.setVisible(False)
+            dlg.cmb_material.setVisible(False)
+            self._load_node_types()
+            if hasattr(dlg, "tab_features"):
+                idx = dlg.tab_widget.indexOf(dlg.tab_features)
+                if idx >= 0:
+                    dlg.tab_widget.setCurrentIndex(idx)
+        else:
+            self._clear_node_type_widgets()
+            dlg.lbl_material.setVisible(True)
+            dlg.cmb_material.setVisible(True)
+            tools_qt.set_widget_text(dlg, dlg.lbl_material, tools_qt.tr("Material:"))
+            if hasattr(dlg, "cmb_arc_result"):
+                blocked = dlg.cmb_arc_result.blockSignals(True)
+                dlg.cmb_arc_result.setCurrentIndex(0)
+                dlg.cmb_arc_result.blockSignals(blocked)
+                dlg.txt_year.setEnabled(True)
+
 
     def _catalog_config(self):
         """Return (sql, key, save_table) for the current asset_type / dialog mode."""
+        # Qualify parent-schema catalogs: AM fns often SET search_path = am, public
+        parent = lib_vars.schema_name
         if self.asset_type == "NODE":
             if self.mode == "new":
                 sql = (
                     "select d.*, cat_node.matcat_id "
                     "from am.config_nodecatalog_def d "
-                    "JOIN cat_node ON d.nodecat_id = cat_node.id"
+                    f"JOIN {parent}.cat_node ON d.nodecat_id = cat_node.id"
                 )
             else:
                 sql = (
                     "select d.*, cat_node.matcat_id "
                     "from am.config_nodecatalog d "
-                    f"JOIN cat_node ON d.nodecat_id = cat_node.id "
+                    f"JOIN {parent}.cat_node ON d.nodecat_id = cat_node.id "
                     f"where d.result_id = {self.result['id']}"
                 )
             return sql, "nodecat_id", "config_nodecatalog"
@@ -621,13 +646,13 @@ class CalculatePriority:
             sql = (
                 "select d.*, cat_arc.matcat_id "
                 "from am.config_catalog_def d "
-                "JOIN cat_arc ON d.arccat_id = cat_arc.id"
+                f"JOIN {parent}.cat_arc ON d.arccat_id = cat_arc.id"
             )
         else:
             sql = (
                 "select d.*, cat_arc.matcat_id "
                 "from am.config_catalog d "
-                f"JOIN cat_arc ON d.arccat_id = cat_arc.id "
+                f"JOIN {parent}.cat_arc ON d.arccat_id = cat_arc.id "
                 f"where d.result_id = {self.result['id']}"
             )
         return sql, "arccat_id", "config_catalog"
@@ -707,6 +732,181 @@ class CalculatePriority:
         idx = dlg.tab_widget.indexOf(page)
         if idx >= 0:
             dlg.tab_widget.setTabVisible(idx, visible)
+
+    def _clear_node_type_widgets(self):
+        """Remove dynamically created node-type checkboxes."""
+        dlg = self.dlg_priority
+        layout = getattr(dlg, "lyt_node_types", None)
+        if layout is None:
+            return
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                # Do NOT setParent(None): that turns the widget into a top-level
+                # window (empty QGIS popup with shadow) until deleteLater runs.
+                widget.hide()
+                widget.deleteLater()
+        if hasattr(dlg, "lbl_features_count"):
+            tools_qt.set_widget_text(
+                dlg, dlg.lbl_features_count, tools_qt.tr("0 / 0 selected")
+            )
+
+    @staticmethod
+    def _node_type_label(node_type):
+        """Humanize DB id for display (AIR_VALVE → Air Valve)."""
+        return str(node_type).replace("_", " ").title()
+
+    def _iter_node_type_checks(self):
+        """Yield QCheckBox widgets in the Features grid."""
+        dlg = self.dlg_priority
+        layout = getattr(dlg, "lyt_node_types", None)
+        if layout is None:
+            return
+        for i in range(layout.count()):
+            widget = layout.itemAt(i).widget()
+            if isinstance(widget, QCheckBox):
+                yield widget
+
+    def _update_features_count(self):
+        """Refresh 'n / total selected' label on Features tab."""
+        dlg = self.dlg_priority
+        if not hasattr(dlg, "lbl_features_count"):
+            return
+        checks = list(self._iter_node_type_checks())
+        total = len(checks)
+        selected = sum(1 for chk in checks if chk.isChecked())
+        tools_qt.set_widget_text(
+            dlg,
+            dlg.lbl_features_count,
+            tools_qt.tr("{0} / {1} selected").format(selected, total),
+        )
+
+    def _set_all_node_types(self, checked):
+        """Select all / clear Features checkboxes."""
+        for chk in self._iter_node_type_checks():
+            chk.blockSignals(True)
+            chk.setChecked(checked)
+            chk.blockSignals(False)
+        self._update_features_count()
+
+    def _load_node_types(self):
+        """Fill Features grid with node_types matching expl / presszone / nodecat."""
+        dlg = self.dlg_priority
+        if not hasattr(dlg, "lyt_node_types") or self.asset_type != "NODE":
+            return
+
+        previous_state = {
+            chk.property("node_type"): chk.isChecked()
+            for chk in self._iter_node_type_checks()
+        }
+        self._clear_node_type_widgets()
+        layout = dlg.lyt_node_types
+
+        filters = ["node_type IS NOT NULL"]
+        exploitation = tools_qt.get_combo_value(dlg, "cmb_expl_selection") or None
+        presszone = tools_qt.get_combo_value(dlg, "cmb_presszone") or None
+        nodecat = tools_qt.get_combo_value(dlg, "cmb_dnom") or None
+        if exploitation not in (None, ""):
+            filters.append(f"expl_id = {exploitation}")
+        if presszone not in (None, ""):
+            pz = str(presszone).replace("'", "''")
+            filters.append(f"presszone_id = '{pz}'")
+        if nodecat not in (None, ""):
+            nc = str(nodecat).replace("'", "''")
+            filters.append(f"nodecat_id = '{nc}'")
+
+        rows = tools_db.get_rows(
+            f"""
+            SELECT DISTINCT node_type
+            FROM am.ext_node_asset
+            WHERE {' AND '.join(filters)}
+            ORDER BY node_type
+            """
+        ) or []
+
+        saved = self.result.get("node_type")
+        if isinstance(saved, str) and saved:
+            saved = [x.strip() for x in saved.split(",") if x.strip()]
+        elif not isinstance(saved, (list, tuple)):
+            saved = None
+        if saved is None and self.mode == "new":
+            saved = self._node_types_user_values("load")
+
+        n = len(rows)
+        n_cols = min(3, max(1, n))
+        for i, row in enumerate(rows):
+            node_type = row[0]
+            chk = QCheckBox(self._node_type_label(node_type))
+            chk.setObjectName(f"chk_feature_{node_type}")
+            chk.setProperty("node_type", node_type)
+            chk.setToolTip(str(node_type))
+            font = chk.font()
+            font.setBold(False)
+            font.setWeight(QFont.Weight.Normal)
+            chk.setFont(font)
+            if node_type in previous_state:
+                chk.setChecked(previous_state[node_type])
+            elif saved is not None:
+                chk.setChecked(node_type in saved)
+            else:
+                chk.setChecked(True)
+            chk.stateChanged.connect(self._update_features_count)
+            layout.addWidget(chk, i // n_cols, i % n_cols, Qt.AlignmentFlag.AlignLeft)
+
+        if n_cols >= 3:
+            for col in range(n_cols):
+                layout.setColumnStretch(col, 1)
+        else:
+            for col in range(n_cols):
+                layout.setColumnStretch(col, 0)
+            layout.setColumnStretch(n_cols, 1)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+
+        # Scroll fills remaining tab space (undo any leftover fixed height)
+        scroll = getattr(dlg, "scroll_node_types", None)
+        if scroll is not None:
+            scroll.setMinimumSize(0, 0)
+            scroll.setMaximumSize(16777215, 16777215)
+        features_lyt = getattr(dlg, "gridLayout_features", None)
+        if features_lyt is not None:
+            features_lyt.setRowStretch(0, 0)
+            features_lyt.setRowStretch(1, 0)
+            features_lyt.setRowStretch(2, 1)
+
+        self._update_features_count()
+
+    def _get_selected_node_types(self):
+        """Return list of checked node type ids ([] if none / not NODE)."""
+        if self.asset_type != "NODE" or not hasattr(self.dlg_priority, "lyt_node_types"):
+            return None
+        return [
+            chk.property("node_type")
+            for chk in self._iter_node_type_checks()
+            if chk.isChecked()
+        ]
+
+    def _node_types_user_values(self, action):
+        """Load/save Features tab checks in user session (same pattern as breakage assignation)."""
+        section = "btn_am_priority"
+        parameter = "node_types"
+        if action == "save":
+            if self.asset_type != "NODE":
+                return
+            checked = self._get_selected_node_types()
+            if checked is None:
+                return
+            value = ",".join(checked)
+            self.result["node_type"] = value if value else None
+            tools_gw.set_config_parser(
+                section, parameter, value.replace("%", "%%"), "user", "session"
+            )
+        elif action == "load":
+            value = tools_gw.get_config_parser(section, parameter, "user", "session")
+            if not value:
+                return None
+            return [x.strip() for x in str(value).split(",") if x.strip()]
+        return None
 
     def _on_asset_type_changed(self):
         """ Reload config tables when asset type changes """
@@ -887,6 +1087,22 @@ class CalculatePriority:
         if self.mode == "edit":
             self.dlg_priority.txt_result_id.setEnabled(False)
 
+        self._set_arc_result_combo_visible()
+
+    def _set_arc_result_combo_visible(self):
+        """ Show ARC-result combo only for NODE calculations (with budget row visible). """
+        dlg = self.dlg_priority
+        if not hasattr(dlg, "cmb_arc_result"):
+            return
+        show = (
+            self.asset_type == "NODE"
+            and (self.config.show_budget is True or bool(self.result.get("budget")))
+            and getattr(dlg, "grb_global", None) is not None
+            and dlg.grb_global.isVisible()
+        )
+        dlg.lbl_arc_result.setVisible(show)
+        dlg.cmb_arc_result.setVisible(show)
+
     def _manage_calculate(self):
         """ Validate inputs, run data checks and start calculation task """
         dlg = self.dlg_priority
@@ -926,10 +1142,12 @@ class CalculatePriority:
                 config_catalog, config_material,
             ):
                 return
+            linked_arc_result_id = self._get_linked_arc_result_id()
             self._run_node_calculation(
                 result_name, result_description, status, features, exploitation,
                 presszone, node_type, nodecat, budget, target_year,
                 config_catalog, config_material, config_engine,
+                linked_arc_result_id=linked_arc_result_id,
             )
             return
 
@@ -1092,7 +1310,11 @@ class CalculatePriority:
         if presszone:
             filter_list.append(f"presszone_id = '{presszone}'")
         if node_type:
-            filter_list.append(f"node_type = '{node_type}'")
+            if isinstance(node_type, (list, tuple)):
+                types = "','".join(str(t).replace("'", "''") for t in node_type)
+                filter_list.append(f"node_type in ('{types}')")
+            else:
+                filter_list.append(f"node_type = '{node_type}'")
         if nodecat:
             filter_list.append(f"nodecat_id = '{nodecat}'")
         filters = f"where {' and '.join(filter_list)}" if filter_list else ""
@@ -1177,10 +1399,24 @@ class CalculatePriority:
                     return False
         return True
 
+    def _get_linked_arc_result_id(self):
+        """Selected ARC result_id from NODE combo, or None."""
+        dlg = self.dlg_priority
+        if not hasattr(dlg, "cmb_arc_result"):
+            return None
+        result_id = tools_qt.get_combo_value(dlg, dlg.cmb_arc_result)
+        if not result_id:
+            return None
+        try:
+            return int(result_id)
+        except (TypeError, ValueError):
+            return None
+
     def _run_node_calculation(
         self, result_name, result_description, status, features, exploitation,
         presszone, node_type, nodecat, budget, target_year,
         config_catalog, config_material, config_engine,
+        linked_arc_result_id=None,
     ):
         """NODE WM: same Catalog/Material plumbing as ARC (nodecatalog + shared materials)."""
         self.thread = GwCalculatePriority(
@@ -1202,6 +1438,7 @@ class CalculatePriority:
             asset_type=self.asset_type,
             node_type=node_type,
             nodecat=nodecat,
+            linked_arc_result_id=linked_arc_result_id,
         )
         self._start_thread()
 
@@ -1349,9 +1586,18 @@ class CalculatePriority:
         dlg.rejected.connect(self.close_dlg)
         dlg.btn_save2file.clicked.connect(self._save2file)
         dlg.cmb_asset_type.currentIndexChanged.connect(partial(self._on_asset_type_changed))
+        if hasattr(dlg, "cmb_arc_result"):
+            dlg.cmb_arc_result.currentIndexChanged.connect(partial(self._on_arc_result_changed))
         dlg.cmb_expl_selection.currentIndexChanged.connect(partial(self._load_presszone))
         dlg.cmb_presszone.currentIndexChanged.connect(partial(self._load_diameter))
         dlg.cmb_dnom.currentIndexChanged.connect(partial(self._load_material))
+        if hasattr(dlg, "btn_features_select_all"):
+            dlg.btn_features_select_all.setAutoDefault(False)
+            dlg.btn_features_select_all.setDefault(False)
+            dlg.btn_features_clear.setAutoDefault(False)
+            dlg.btn_features_clear.setDefault(False)
+            dlg.btn_features_select_all.clicked.connect(partial(self._set_all_node_types, True))
+            dlg.btn_features_clear.clicked.connect(partial(self._set_all_node_types, False))
         dlg.btn_add_catalog.clicked.connect(
             partial(self._manage_qtw_row, dlg, dlg.tbl_catalog, "add")
         )
@@ -1369,6 +1615,7 @@ class CalculatePriority:
 
     def close_dlg(self):
         """ Close dialog """
+        self._node_types_user_values("save")
         tools_qgis.disconnect_signal_selection_changed()
         tools_gw.remove_selection(True, layers=self.rel_layers)
         tools_gw.close_dialog(self.dlg_priority)
@@ -1466,9 +1713,15 @@ class CalculatePriority:
         else:
             diameter = None
             material = None
-            # cmb_dnom/cmb_material are repurposed to filter by nodecat_id/node_type for NODE assets
+            # cmb_dnom = optional nodecat; node types from Features tab
             nodecat = tools_qt.get_combo_value(dlg, "cmb_dnom") or None
-            node_type = tools_qt.get_combo_value(dlg, "cmb_material") or None
+            node_type = self._get_selected_node_types()
+            if not node_type:
+                msg = "Please select at least one node type in the Features tab."
+                tools_qt.show_info_box(msg)
+                return
+            # Persist selection even if dialog stays open after Run
+            self._node_types_user_values("save")
 
         try:
             budget = float(dlg.txt_budget.text())
@@ -1580,21 +1833,101 @@ class CalculatePriority:
 
         rows = tools_db.get_rows(sql)
         tools_qt.fill_combo_values(dlg.cmb_expl_selection, rows, 1, add_empty=True)
-        tools_qt.set_combo_value(
-            dlg.cmb_expl_selection,
-            dlg.cmb_expl_selection.itemText(0),
-            0,
-            add_new=False,
-        )
+        if self.result.get("expl_id") not in (None, ""):
+            tools_qt.set_combo_value(
+                dlg.cmb_expl_selection, self.result["expl_id"], 0, add_new=False
+            )
+        else:
+            tools_qt.set_combo_value(
+                dlg.cmb_expl_selection,
+                dlg.cmb_expl_selection.itemText(0),
+                0,
+                add_new=False,
+            )
 
-        # Load presszone combo
+        # Load presszone combo (and NODE features list)
         self._load_presszone()
+
+        if self.asset_type == "NODE" and self.result.get("presszone_id") not in (None, ""):
+            cmb_pz = dlg.cmb_presszone
+            blocked = cmb_pz.blockSignals(True)
+            tools_qt.set_combo_value(
+                cmb_pz, self.result["presszone_id"], 0, add_new=False
+            )
+            cmb_pz.blockSignals(blocked)
+            self._load_diameter()
+            if self.result.get("nodecat_id") not in (None, ""):
+                cmb_dnom = dlg.cmb_dnom
+                blocked = cmb_dnom.blockSignals(True)
+                tools_qt.set_combo_value(
+                    cmb_dnom, self.result["nodecat_id"], 0, add_new=False
+                )
+                cmb_dnom.blockSignals(blocked)
+                self._load_material()
+            self._schedule_load_node_types()
 
         # Text budget
         tools_qt.set_widget_text(dlg, dlg.txt_budget, self.result["budget"])
 
-        # Text horizon year
+        # Fill horizon year
         tools_qt.set_widget_text(dlg, dlg.txt_year, self.result["target_year"])
+
+    def _load_arc_result_combo(self):
+        """ Fill combo with finished ARC priority results (left of yearly budget). """
+        dlg = self.dlg_priority
+        if not hasattr(dlg, "cmb_arc_result"):
+            return
+        rows = tools_db.get_rows(
+            """
+            SELECT result_id AS id, result_name AS idval
+            FROM am.cat_result
+            WHERE COALESCE(asset_type, 'ARC') = 'ARC'
+            ORDER BY result_name
+            """
+        )
+        blocked = dlg.cmb_arc_result.blockSignals(True)
+        tools_qt.fill_combo_values(
+            dlg.cmb_arc_result, rows or None, 1, combo_clear=True, add_empty=True
+        )
+        linked = self.result.get("linked_arc_result_id")
+        if linked and self.asset_type == "NODE":
+            tools_qt.set_combo_value(dlg.cmb_arc_result, str(linked), 0, add_new=False)
+            dlg.txt_year.setEnabled(False)
+        elif self.asset_type == "NODE":
+            dlg.txt_year.setEnabled(True)
+        dlg.cmb_arc_result.blockSignals(blocked)
+
+    def _on_arc_result_changed(self):
+        """ Copy budget/horizon from ARC result; lock horizon while an ARC result is linked. """
+        dlg = self.dlg_priority
+        result_id = tools_qt.get_combo_value(dlg, dlg.cmb_arc_result)
+        if not result_id:
+            dlg.txt_year.setEnabled(True)
+            return
+        try:
+            result_id = int(result_id)
+        except (TypeError, ValueError):
+            dlg.txt_year.setEnabled(True)
+            return
+        row = tools_db.get_row(
+            f"""
+            SELECT budget, target_year
+            FROM am.cat_result
+            WHERE result_id = {result_id}
+              AND COALESCE(asset_type, 'ARC') = 'ARC'
+            """
+        )
+        if not row:
+            dlg.txt_year.setEnabled(True)
+            return
+        budget = row["budget"] if not isinstance(row, (list, tuple)) else row[0]
+        target_year = row["target_year"] if not isinstance(row, (list, tuple)) else row[1]
+        if budget is not None:
+            tools_qt.set_widget_text(dlg, dlg.txt_budget, budget)
+        if target_year is not None:
+            tools_qt.set_widget_text(dlg, dlg.txt_year, target_year)
+        # Horizon must match the linked ARC plan (disabled = gray look)
+        dlg.txt_year.setEnabled(False)
 
     # endregion
 
@@ -1606,6 +1939,8 @@ class CalculatePriority:
             tools_qt.fill_combo_values(dlg.cmb_presszone, None, 1, combo_clear=True)
             tools_qt.fill_combo_values(dlg.cmb_dnom, None, 1, combo_clear=True)
             tools_qt.fill_combo_values(dlg.cmb_material, None, 1, combo_clear=True)
+            if self.asset_type == "NODE":
+                self._schedule_load_node_types()
             return
         sql = f"""           
             SELECT DISTINCT ON (ext.presszone_id) 
@@ -1621,6 +1956,7 @@ class CalculatePriority:
         tools_qt.fill_combo_values(dlg.cmb_presszone, rows, 1, add_empty=True)
 
         self._load_diameter()
+        # Features grid refreshed once from _load_diameter / _load_material
 
     def _load_diameter(self):
         """ Fill diameter or nodecat combo for selected presszone """
@@ -1630,6 +1966,8 @@ class CalculatePriority:
         if presszone == "":
             tools_qt.fill_combo_values(dlg.cmb_dnom, None, 1, combo_clear=True)
             tools_qt.fill_combo_values(dlg.cmb_material, None, 1, combo_clear=True)
+            if self.asset_type == "NODE":
+                self._schedule_load_node_types()
             return
         if self.asset_type == "ARC":
             sql = f"""
@@ -1659,6 +1997,8 @@ class CalculatePriority:
 
         if dnom == "":
             tools_qt.fill_combo_values(dlg.cmb_material, None, 1, combo_clear=True)
+            if self.asset_type == "NODE":
+                self._schedule_load_node_types()
             return
 
         if self.asset_type == "ARC":
@@ -1675,6 +2015,18 @@ class CalculatePriority:
                 """
         rows = tools_db.get_rows(sql)
         tools_qt.fill_combo_values(dlg.cmb_material, rows, 1, add_empty=True)
+        if self.asset_type == "NODE":
+            self._schedule_load_node_types()
+
+    def _schedule_load_node_types(self):
+        """Debounce Features grid rebuild so combo popups are not disrupted."""
+        timer = getattr(self, "_node_types_timer", None)
+        if timer is None:
+            timer = QTimer(self.dlg_priority)
+            timer.setSingleShot(True)
+            timer.timeout.connect(self._load_node_types)
+            self._node_types_timer = timer
+        timer.start(0)
 
     def _fill_table(
         self,

@@ -72,12 +72,15 @@ CREATE TABLE cat_result (
     features character varying[],
     dnom numeric(12,3),
     nodecat_id character varying(30),
-    node_type character varying(30),
+    node_type text,
     iscorporate boolean,
     asset_type varchar(10) DEFAULT 'ARC',
+    linked_arc_result_id integer,
     CONSTRAINT cat_result_pkey PRIMARY KEY (result_id),
     CONSTRAINT cat_result_result_type_check CHECK (result_type = ANY (ARRAY['GLOBAL', 'SELECTION'])),
-    CONSTRAINT cat_result_status_check CHECK (status = ANY (ARRAY['CANCELED', 'ON PLANNING', 'FINISHED']))
+    CONSTRAINT cat_result_status_check CHECK (status = ANY (ARRAY['CANCELED', 'ON PLANNING', 'FINISHED'])),
+    CONSTRAINT cat_result_linked_arc_result_id_fkey
+        FOREIGN KEY (linked_arc_result_id) REFERENCES cat_result (result_id) ON DELETE SET NULL
 );
 
 CREATE TABLE value_result_type (
