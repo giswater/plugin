@@ -539,7 +539,7 @@ SELECT DISTINCT ON (visit_id)
 	is_done,
 	feature_id,
 	feature_type,
-	the_geom AS the_geom
+	the_geom
 FROM (
 	SELECT
 		om_visit.id AS visit_id,
