@@ -63,6 +63,8 @@ SKIP_FOLDER_NAMES = frozenset({"packages", "resources"})
 TRANSLATABLE_JSON_KEYS = frozenset(
     {"label", "tooltip", "placeholder", "text", "comboNames", "vdefault_value"}
 )
+# Tables whose extra_columns hold a content blob (org_text/text), not identity fields.
+_BLOB_CONTENT_TABLES = frozenset({"dbstyle", "dbjson", "dbconfig_form_fields_json"})
 _SQL_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 _FIELDS = ("message", "msg", "title", "inf_text")
@@ -1305,10 +1307,26 @@ def _clean_rows_org(rows_org: list[dict], columns_org: list[str], project_type: 
     return cleaned
 
 
+def _flatten_baseline_extra_columns(row: dict[str, Any], table_name: str) -> dict[str, Any]:
+    """Lift GET-baseline extra_columns (e.g. org_text/text) onto the row for diffs."""
+    declared = TABLE_EXTRA_COLUMNS.get(table_name, ())
+    if not declared:
+        return row
+    extra = row.get("extra_columns")
+    if not isinstance(extra, dict):
+        return row
+    flat = dict(row)
+    for column in declared:
+        if flat.get(column) in (None, "") and column in extra:
+            flat[column] = extra[column]
+    return flat
+
+
 def _clean_rows_i18n(rows_i18n: list[dict], columns_i18n: list[str], project_type: str, table_i18n: str) -> list[dict]:
     cleaned = []
+    table_name = table_i18n.split(".")[-1]
     for row in rows_i18n:
-        clean_row = dict(row)
+        clean_row = _flatten_baseline_extra_columns(dict(row), table_name)
         for col in columns_i18n:
             val = clean_row.get(col, "")
             if val is None:
@@ -1327,7 +1345,6 @@ def _align_org_rows(
     columns_i18n: list[str],
     project_type: str,
     table_org: str,
-    is_dbstyle: bool,
 ) -> list[dict]:
     pairs = _org_i18n_column_pairs(columns_org, columns_i18n)
     aligned_org: list[dict] = []
@@ -1338,10 +1355,6 @@ def _align_org_rows(
         aligned["project_type"] = row.get("project_type", project_type)
         aligned["source_code"] = row.get("source_code", "giswater")
         aligned["context"] = row.get("context", table_org)
-        if "hint" in row:
-            aligned["hint"] = row["hint"]
-        if "lb_en_us" in row and is_dbstyle:
-            aligned["lb_en_us"] = row["lb_en_us"]
         aligned_org.append(aligned)
     return aligned_org
 
@@ -1352,6 +1365,14 @@ def _en_us_text_map(row: dict[str, Any], en_us_columns: list[str], *, require_no
         for col in en_us_columns
         if not require_nonempty or _normalize_compare_value(row.get(col, ""), col)
     }
+
+
+def _blob_content_column(table_name: str) -> Optional[str]:
+    """Return org_text/text for blob content tables; None otherwise."""
+    if table_name not in _BLOB_CONTENT_TABLES:
+        return None
+    declared = TABLE_EXTRA_COLUMNS.get(table_name, ())
+    return declared[0] if declared else None
 
 
 def _findings_from_db_row(
@@ -1407,9 +1428,24 @@ def _findings_from_db_row(
             if new_val != old_val:
                 old_map[col] = old_val
                 new_map[col] = new_val
-        if not old_map:
+        if old_map:
+            return [_finding(UpdateKind.TEXT_CHANGED, old_text_values=old_map, new_text_values=new_map)]
+        # Same PK + labels: emit only when the content blob drifted.
+        blob_col = _blob_content_column(table_name)
+        if not blob_col:
             return []
-        return [_finding(UpdateKind.TEXT_CHANGED, old_text_values=old_map, new_text_values=new_map)]
+        schema_blob = _normalize_cell_value(row.get(blob_col, ""))
+        baseline_blob = _normalize_cell_value(previous_row.get(blob_col, ""))
+        if not schema_blob or schema_blob == baseline_blob:
+            return []
+        text_values = _en_us_text_map(row, en_us_columns, require_nonempty=True)
+        if not text_values:
+            return []
+        return [_finding(
+            UpdateKind.TEXT_CHANGED,
+            old_text_values=dict(text_values),
+            new_text_values=dict(text_values),
+        )]
 
     text_values = _en_us_text_map(row, en_us_columns, require_nonempty=True)
     if not text_values:
@@ -1427,12 +1463,21 @@ def _compare_db_rows(
     schema_org: str,
     project_type: str,
 ) -> list[ExtractedString]:
-    """Classify aligned rows and emit findings for all three update kinds."""
+    """Classify aligned rows and emit findings for all three update kinds.
+
+    For blob content tables, a second pass emits ``changed`` when PK and labels
+    match but org_text/text drifted from the schema.
+    """
     compare_keys = _row_compare_columns(table_name, columns_i18n)
+    pk_keys = list(catalog_primary_key_columns(table_name))
+    i18n_by_pk = {_pk_tuple(row, pk_keys): row for row in baseline_rows}
     findings: list[ExtractedString] = []
+    classified_pks: set[tuple] = set()
+
     for row, update_kind, previous_row in _classify_diff_rows(
         expected_rows, baseline_rows, compare_keys, table_name=table_name
     ):
+        classified_pks.add(_pk_tuple(row, pk_keys))
         findings.extend(
             _findings_from_db_row(
                 row,
@@ -1459,6 +1504,29 @@ def _compare_db_rows(
                 update_kind=UpdateKind.DELETED,
             )
         )
+
+    # Same PK + labels (not in set-diff): still sync drifted content blobs.
+    if _blob_content_column(table_name):
+        for row in expected_rows:
+            pk = _pk_tuple(row, pk_keys)
+            if pk in classified_pks:
+                continue
+            previous = i18n_by_pk.get(pk)
+            if previous is None:
+                continue
+            findings.extend(
+                _findings_from_db_row(
+                    row,
+                    table_name,
+                    table_org,
+                    schema_org,
+                    project_type,
+                    columns_i18n,
+                    update_kind=UpdateKind.TEXT_CHANGED,
+                    previous_row=previous,
+                )
+            )
+
     return findings
 
 # endregion
@@ -1697,13 +1765,14 @@ def _normalize_json_text(text: str) -> str:
     return re.sub(r"[ \t]*[\r\n]+[ \t]*", " ", text).strip()
 
 
-def _serialize_json_blob(payload: Any) -> str:
-    """Serialize a physical JSON column value for extra_columns.text."""
-    if payload in (None, "", "None"):
-        return ""
-    if isinstance(payload, str):
-        return payload
-    return json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+def _parse_json_payload(text_blob: str) -> Any:
+    """Parse a JSON column text blob for label extraction; None if invalid."""
+    if text_blob in ("", "None"):
+        return None
+    try:
+        return json.loads(text_blob)
+    except (json.JSONDecodeError, TypeError):
+        return None
 
 
 def _extract_json_table(
@@ -1735,8 +1804,9 @@ def _extract_json_table(
         f"""{column}::text ILIKE '%%{key}":%%'""" for key in TRANSLATABLE_JSON_KEYS
     ]
     where_clause = " OR ".join(where_conditions)
+    # Fetch literal DB text so extra_columns.text matches the schema exactly.
     query_org = (
-        f"SELECT {', '.join(pk_column_org)}, {column} "
+        f"SELECT {', '.join(pk_column_org)}, {column}::text AS text_raw "
         f"FROM {schema_org}.{table_org} WHERE {where_clause}"
     )
     rows_org = origin.fetch_all(query_org)
@@ -1753,10 +1823,13 @@ def _extract_json_table(
 
     expected: list[dict] = []
     for row in rows_org:
-        payload = row.get(column)
-        if payload in (None, "", "None"):
+        text_blob = row.get("text_raw")
+        if text_blob in (None, "", "None"):
             continue
-        text_blob = _serialize_json_blob(payload)
+        text_blob = str(text_blob)
+        payload = _parse_json_payload(text_blob)
+        if payload is None:
+            continue
         datas = _extract_translatable_strings(payload)
         for i, data in enumerate(datas):
             for key, text in data.items():
@@ -1903,7 +1976,7 @@ def _extract_dbstyle_table(
         columns_org_compare.extend(["hint", "lb_en_us"])
     rows_org = _clean_rows_org(rows_org, columns_org_compare, project_type, table_org)
     aligned_org = _align_org_rows(
-        rows_org, columns_org_compare, columns_i18n, project_type, table_org, is_dbstyle=True
+        rows_org, columns_org_compare, columns_i18n, project_type, table_org
     )
 
     return _compare_db_rows(
@@ -2003,7 +2076,7 @@ def _extract_one_db_table(
         rows_org = origin.fetch_all(query_org)
         rows_org = _clean_rows_org(rows_org, columns_org, project_type, table_org)
         aligned_org = _align_org_rows(
-            rows_org, columns_org, columns_i18n, project_type, table_org, is_dbstyle=False
+            rows_org, columns_org, columns_i18n, project_type, table_org
         )
         findings.extend(
             _compare_db_rows(
