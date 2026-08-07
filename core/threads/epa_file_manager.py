@@ -564,6 +564,8 @@ class GwEpaFileManager(GwTask):
             self.error_msg_params = (msg, self.file_inp,)
             return None
 
+        run_cwd = os.path.dirname(os.path.abspath(self.file_rpt or self.file_inp))
+        prev_cwd = os.getcwd()
         try:
             runner = self._create_hydraulic_runner(he)
             if runner is None:
@@ -571,6 +573,9 @@ class GwEpaFileManager(GwTask):
                 msg_params = (global_vars.project_type,)
                 self.error_msg = tools_qt.tr(msg, list_params=msg_params)
                 return None
+
+            if run_cwd and os.path.isdir(run_cwd):
+                os.chdir(run_cwd)
 
             results = runner.run(step_callback=self._on_epa_step)
             if self.isCanceled() or (
@@ -593,6 +598,8 @@ class GwEpaFileManager(GwTask):
             msg_params = (e,)
             self.error_msg = tools_qt.tr(msg, list_params=msg_params)
             return None
+        finally:
+            os.chdir(prev_cwd)
 
         self.common_msg += "EPA model finished. "
         msg = "EPA model finished."
