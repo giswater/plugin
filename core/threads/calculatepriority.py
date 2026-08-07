@@ -2075,7 +2075,7 @@ class GwCalculatePriority(GwTask):
             (tools_qt.tr("Investment (€/year):"), f"{self.result_budget:.2f}"),
             (tools_qt.tr("Year:"), f"{self.target_year}"),
             (tools_qt.tr("Current network cost (€):"), f"{current_cost:.2f}"),
-            (tools_qt.tr("Total replacement cost (€):"), f"{replacement_cost:.2f}"),
+            (tools_qt.tr("Total renewal cost (€):"), f"{replacement_cost:.2f}"),
             (tools_qt.tr("IVI (Horizon year):"), f"{ivi_target_year:.3f}"),
             (tools_qt.tr("Replacement rate (%/year):"), f"{replacement_rate:.2f}"),
         ]
@@ -2096,8 +2096,8 @@ class GwCalculatePriority(GwTask):
             (tools_qt.tr("Year:"), f"{self.target_year}"),
             (tools_qt.tr("Nodes evaluated:"), f"{len(nodes)}"),
             (tools_qt.tr("Nodes selected for replacement:"), f"{len(selected)}"),
-            (tools_qt.tr("Total replacement cost (€):"), f"{replacement_cost:.2f}"),
-            (tools_qt.tr("Selected replacement cost (€):"), f"{total_cost:.2f}"),
+            (tools_qt.tr("Total renewal cost (€):"), f"{replacement_cost:.2f}"),
+            (tools_qt.tr("Selected renewal cost (€):"), f"{total_cost:.2f}"),
             (tools_qt.tr("IVI NODE (Horizon year):"), f"{ivi_target_year:.3f}"),
             (tools_qt.tr("Replacement rate (%/year):"), f"{replacement_rate:.2f}"),
         ]

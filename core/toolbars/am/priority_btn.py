@@ -81,7 +81,7 @@ class GwConfigCatalogButton:
         headers = [
             id_header,
             tools_qt.tr("Diameter"),
-            tools_qt.tr("Replacement cost"),
+            tools_qt.tr("Renewal cost"),
             tools_qt.tr("Repair cost"),
             tools_qt.tr("Compliance Grade"),
             tools_qt.tr("Material"),
