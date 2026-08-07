@@ -526,7 +526,7 @@ BEGIN
       WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='demand' AND tabname='tab_epa' AND "label"='Demanda:';
   END IF;
 END $$;
-
+DROP VIEW IF EXISTS v_om_visit;
 CREATE OR REPLACE VIEW v_om_visit AS
 SELECT DISTINCT ON (visit_id)
 	visit_id,
@@ -539,7 +539,7 @@ SELECT DISTINCT ON (visit_id)
 	is_done,
 	feature_id,
 	feature_type,
-	the_geom::geometry(Point, SRID_VALUE) AS the_geom
+	the_geom AS the_geom
 FROM (
 	SELECT
 		om_visit.id AS visit_id,

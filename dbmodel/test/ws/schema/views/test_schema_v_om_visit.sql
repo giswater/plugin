@@ -38,7 +38,7 @@ SELECT col_type_is('v_om_visit', 'user_name', 'varchar(50)', 'Column user_name s
 SELECT col_type_is('v_om_visit', 'is_done', 'bool', 'Column is_done should be bool');
 SELECT col_type_is('v_om_visit', 'feature_id', 'int4', 'Column feature_id should be int4');
 SELECT col_type_is('v_om_visit', 'feature_type', 'text', 'Column feature_type should be text');
-SELECT col_type_is('v_om_visit', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('v_om_visit', 'the_geom', 'geometry', 'Column the_geom should be geometry');
 
 SELECT * FROM finish();
 
