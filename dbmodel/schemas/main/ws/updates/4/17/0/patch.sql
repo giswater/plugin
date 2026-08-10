@@ -543,83 +543,7 @@ UPDATE config_form_fields
 	SET "label"='Place name:'
 	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='place_name' AND "label"='place_name';
 
-CREATE OR REPLACE VIEW v_om_visit AS
-SELECT DISTINCT ON (visit_id)
-	visit_id,
-	code,
-	visitcat_id,
-	name,
-	visit_start,
-	visit_end,
-	user_name,
-	is_done,
-	feature_id,
-	feature_type,
-	the_geom::geometry(Point, SRID_VALUE) AS the_geom
-FROM (
-	SELECT
-		om_visit.id AS visit_id,
-		om_visit.ext_code AS code,
-		om_visit.visitcat_id,
-		om_visit_cat.name,
-		om_visit.startdate AS visit_start,
-		om_visit.enddate AS visit_end,
-		om_visit.user_name,
-		om_visit.is_done,
-		om_visit_x_node.node_id AS feature_id,
-		'NODE'::text AS feature_type,
-		CASE
-			WHEN om_visit.the_geom IS NULL THEN node.the_geom
-			ELSE om_visit.the_geom
-		END AS the_geom
-	FROM om_visit
-	JOIN om_visit_x_node ON om_visit_x_node.visit_id = om_visit.id
-	JOIN node ON node.node_id = om_visit_x_node.node_id
-	JOIN vf_node vf ON vf.node_id = node.node_id
-	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
-	UNION
-	SELECT
-		om_visit.id AS visit_id,
-		om_visit.ext_code AS code,
-		om_visit.visitcat_id,
-		om_visit_cat.name,
-		om_visit.startdate AS visit_start,
-		om_visit.enddate AS visit_end,
-		om_visit.user_name,
-		om_visit.is_done,
-		om_visit_x_arc.arc_id AS feature_id,
-		'ARC'::text AS feature_type,
-		CASE
-			WHEN om_visit.the_geom IS NULL THEN st_lineinterpolatepoint(arc.the_geom, 0.5::double precision)
-			ELSE om_visit.the_geom
-		END AS the_geom
-	FROM om_visit
-	JOIN om_visit_x_arc ON om_visit_x_arc.visit_id = om_visit.id
-	JOIN arc ON arc.arc_id = om_visit_x_arc.arc_id
-	JOIN vf_arc vf ON vf.arc_id = arc.arc_id
-	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
-	UNION
-	SELECT
-		om_visit.id AS visit_id,
-		om_visit.ext_code AS code,
-		om_visit.visitcat_id,
-		om_visit_cat.name,
-		om_visit.startdate AS visit_start,
-		om_visit.enddate AS visit_end,
-		om_visit.user_name,
-		om_visit.is_done,
-		om_visit_x_connec.connec_id AS feature_id,
-		'CONNEC'::text AS feature_type,
-		CASE
-			WHEN om_visit.the_geom IS NULL THEN connec.the_geom
-			ELSE om_visit.the_geom
-		END AS the_geom
-	FROM om_visit
-	JOIN om_visit_x_connec ON om_visit_x_connec.visit_id = om_visit.id
-	JOIN connec ON connec.connec_id = om_visit_x_connec.connec_id
-	JOIN vf_connec vf ON vf.connec_id = connec.connec_id
-	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
-) a;
+
 
 CREATE OR REPLACE VIEW vf_link AS
 SELECT
@@ -742,3 +666,421 @@ WHERE
         )
     )
   );
+
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"SAVE-DROP", "rootViews":["ve_connec"], "batchId":4}}$$);
+
+DROP VIEW IF EXISTS v_om_visit;
+DROP VIEW IF EXISTS vf_connec;
+CREATE OR REPLACE VIEW vf_connec AS
+SELECT
+  c.connec_id,
+  pp.state AS p_state,
+  pp.arc_id AS p_arc_id,
+  pp.exit_id AS p_pjoint_id,
+  pp.exit_type AS p_pjoint_type
+FROM
+  connec c
+  LEFT JOIN LATERAL (
+    SELECT
+      x.state,
+      x.arc_id,
+      x.exit_id,
+      x.exit_type
+    FROM
+      (
+        SELECT
+          1
+        WHERE
+          (
+            EXISTS (
+              SELECT
+                1
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+      ) gate
+      CROSS JOIN LATERAL (
+        SELECT
+          pp_1.state,
+          pp_1.arc_id,
+          l.exit_id,
+          l.exit_type
+        FROM
+          plan_psector_x_connec pp_1
+          LEFT JOIN link l ON l.link_id = pp_1.link_id
+          AND l.state = 2
+        WHERE
+          pp_1.connec_id = c.connec_id
+          AND (
+            pp_1.psector_id IN (
+              SELECT
+                sp.psector_id
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+        ORDER BY
+          pp_1.psector_id DESC,
+          pp_1.state DESC
+        LIMIT
+          1
+      ) x
+  ) pp ON TRUE
+WHERE
+  (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_state ss
+      WHERE
+        ss.cur_user = CURRENT_USER
+        AND ss.state_id = COALESCE(pp.state, c.state)
+    )
+  )
+  AND (
+    (
+      c.sector_id IN (
+        SELECT
+          ssec.sector_id
+        FROM
+          selector_sector ssec
+        WHERE
+          ssec.cur_user = CURRENT_USER
+      )
+    )
+    OR pp.state IS NOT NULL
+  )
+  AND (
+    c.muni_id IN (
+      SELECT
+        sm.muni_id
+      FROM
+        selector_municipality sm
+      WHERE
+        sm.cur_user = CURRENT_USER
+    )
+  )
+  AND (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_expl se
+      WHERE
+        se.cur_user = CURRENT_USER
+        AND (
+          se.expl_id = c.expl_id
+          OR (se.expl_id = ANY (c.expl_visibility))
+        )
+    )
+  );
+
+CREATE OR REPLACE VIEW v_om_visit AS
+SELECT DISTINCT ON (visit_id)
+	visit_id,
+	code,
+	visitcat_id,
+	name,
+	visit_start,
+	visit_end,
+	user_name,
+	is_done,
+	feature_id,
+	feature_type,
+	the_geom::geometry(Point, SRID_VALUE) AS the_geom
+FROM (
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_node.node_id AS feature_id,
+		'NODE'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN node.the_geom
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_node ON om_visit_x_node.visit_id = om_visit.id
+	JOIN node ON node.node_id = om_visit_x_node.node_id
+	JOIN vf_node vf ON vf.node_id = node.node_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+	UNION
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_arc.arc_id AS feature_id,
+		'ARC'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN st_lineinterpolatepoint(arc.the_geom, 0.5::double precision)
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_arc ON om_visit_x_arc.visit_id = om_visit.id
+	JOIN arc ON arc.arc_id = om_visit_x_arc.arc_id
+	JOIN vf_arc vf ON vf.arc_id = arc.arc_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+	UNION
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_connec.connec_id AS feature_id,
+		'CONNEC'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN connec.the_geom
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_connec ON om_visit_x_connec.visit_id = om_visit.id
+	JOIN connec ON connec.connec_id = om_visit_x_connec.connec_id
+	JOIN vf_connec vf ON vf.connec_id = connec.connec_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+) a;
+
+CREATE OR REPLACE VIEW ve_connec
+AS WITH typevalue AS (
+         SELECT edit_typevalue.typevalue,
+            edit_typevalue.id,
+            edit_typevalue.idval
+           FROM edit_typevalue
+          WHERE edit_typevalue.typevalue::text = ANY (ARRAY['sector_type'::text, 'presszone_type'::text, 'dma_type'::text, 'dqa_type'::text, 'supplyzone_type'::text, 'omzone_type'::text])
+        ), sector_table AS (
+         SELECT sector.sector_id,
+            sector.macrosector_id,
+            sector.stylesheet,
+            t.id AS sector_type
+           FROM sector
+             LEFT JOIN typevalue t ON t.id::text = sector.sector_type::text AND t.typevalue::text = 'sector_type'::text
+        ), dma_table AS (
+         SELECT dma.dma_id,
+            dma.macrodma_id,
+            dma.stylesheet,
+            t.id AS dma_type
+           FROM dma
+             LEFT JOIN typevalue t ON t.id::text = dma.dma_type::text AND t.typevalue::text = 'dma_type'::text
+        ), presszone_table AS (
+         SELECT presszone.presszone_id,
+            presszone.head AS presszone_head,
+            presszone.stylesheet,
+            t.id AS presszone_type
+           FROM presszone
+             LEFT JOIN typevalue t ON t.id::text = presszone.presszone_type AND t.typevalue::text = 'presszone_type'::text
+        ), dqa_table AS (
+         SELECT dqa.dqa_id,
+            dqa.stylesheet,
+            t.id AS dqa_type,
+            dqa.macrodqa_id
+           FROM dqa
+             LEFT JOIN typevalue t ON t.id::text = dqa.dqa_type::text AND t.typevalue::text = 'dqa_type'::text
+        ), supplyzone_table AS (
+         SELECT supplyzone.supplyzone_id,
+            supplyzone.stylesheet,
+            t.id AS supplyzone_type
+           FROM supplyzone
+             LEFT JOIN typevalue t ON t.id::text = supplyzone.supplyzone_type::text AND t.typevalue::text = 'supplyzone_type'::text
+        ), omzone_table AS (
+         SELECT omzone.omzone_id,
+            t.id AS omzone_type,
+            omzone.macroomzone_id
+           FROM omzone
+             LEFT JOIN typevalue t ON t.id::text = omzone.omzone_type::text AND t.typevalue::text = 'omzone_type'::text
+        ), inp_network_mode AS (
+         SELECT config_param_user.value
+           FROM config_param_user
+          WHERE config_param_user.parameter::text = 'inp_options_networkmode'::text AND config_param_user.cur_user::text = CURRENT_USER
+        )
+ SELECT c.connec_id,
+    c.code,
+    c.sys_code,
+    c.top_elev,
+    c.depth,
+    cat_connec.connec_type,
+    cat_feature.feature_class AS sys_type,
+    c.conneccat_id,
+    cat_connec.matcat_id AS cat_matcat_id,
+    cat_connec.pnom AS cat_pnom,
+    cat_connec.dnom AS cat_dnom,
+    cat_connec.dint AS cat_dint,
+    c.customer_code,
+    c.connec_length,
+    c.epa_type,
+    c.state,
+    c.state_type,
+    c.arc_id,
+    c.expl_id,
+    exploitation.macroexpl_id,
+    c.muni_id,
+    c.sector_id,
+    sector_table.macrosector_id,
+    sector_table.sector_type,
+    supplyzone_table.supplyzone_id,
+    supplyzone_table.supplyzone_type,
+    presszone_table.presszone_id,
+    presszone_table.presszone_type,
+    presszone_table.presszone_head,
+    dma_table.dma_id,
+    dma_table.macrodma_id,
+    dma_table.dma_type,
+    dqa_table.dqa_id,
+    dqa_table.macrodqa_id,
+    dqa_table.dqa_type,
+    omzone_table.omzone_id,
+    omzone_table.omzone_type,
+    c.crmzone_id,
+    crmzone.macrocrmzone_id,
+    crmzone.name AS crmzone_name,
+    c.minsector_id,
+    c.soilcat_id,
+    c.function_type,
+    c.category_type,
+    c.location_type,
+    c.fluid_type,
+    c.n_hydrometer,
+    c.n_inhabitants,
+    c.staticpressure,
+    c.descript,
+    c.annotation,
+    c.observ,
+    c.comment,
+    concat(cat_feature.link_path, c.link) AS link,
+    c.num_value,
+    c.district_id,
+    c.postcode,
+    c.streetaxis_id,
+    c.postnumber,
+    c.postcomplement,
+    c.streetaxis2_id,
+    c.postnumber2,
+    c.postcomplement2,
+    vm.region_id,
+    vm.province_id,
+    c.block_code,
+    c.plot_id,
+    c.workcat_id,
+    c.workcat_id_end,
+    c.workcat_id_plan,
+    c.builtdate,
+    c.enddate,
+    c.ownercat_id,
+    c.pjoint_id,
+    c.pjoint_type,
+    c.om_state,
+    c.conserv_state,
+    c.accessibility,
+    c.access_type,
+    c.placement_type,
+    c.priority,
+    COALESCE(c.brand_id, cat_connec.brand_id) AS brand_id,
+    COALESCE(c.model_id, cat_connec.model_id) AS model_id,
+    c.serial_number,
+    c.asset_id,
+    c.adate,
+    c.adescript,
+    c.verified,
+    c.datasource,
+    cat_connec.label,
+    c.label_x,
+    c.label_y,
+    c.label_rotation,
+    c.rotation,
+    c.label_quadrant,
+    cat_connec.svg,
+    c.inventory,
+    c.publish,
+    vst.is_operative,
+        CASE
+            WHEN c.sector_id > 0 AND vst.is_operative = true AND c.epa_type = 'JUNCTION'::text AND inp_network_mode.value = '4'::text THEN c.epa_type::character varying::text
+            ELSE NULL::text
+        END AS inp_type,
+    connec_add.demand_base,
+    connec_add.demand_max,
+    connec_add.demand_min,
+    connec_add.demand_avg,
+    connec_add.press_max,
+    connec_add.press_min,
+    connec_add.press_avg,
+    connec_add.quality_max,
+    connec_add.quality_min,
+    connec_add.quality_avg,
+    connec_add.flow_max,
+    connec_add.flow_min,
+    connec_add.flow_avg,
+    connec_add.vel_max,
+    connec_add.vel_min,
+    connec_add.vel_avg,
+    connec_add.result_id,
+    sector_table.stylesheet ->> 'featureColor'::text AS sector_style,
+    dma_table.stylesheet ->> 'featureColor'::text AS dma_style,
+    presszone_table.stylesheet ->> 'featureColor'::text AS presszone_style,
+    dqa_table.stylesheet ->> 'featureColor'::text AS dqa_style,
+    supplyzone_table.stylesheet ->> 'featureColor'::text AS supplyzone_style,
+    c.lock_level,
+    c.expl_visibility,
+    ( SELECT st_x(c.the_geom) AS st_x) AS xcoord,
+    ( SELECT st_y(c.the_geom) AS st_y) AS ycoord,
+    ( SELECT st_y(st_transform(c.the_geom, 4326)) AS st_y) AS lat,
+    ( SELECT st_x(st_transform(c.the_geom, 4326)) AS st_x) AS long,
+    date_trunc('second'::text, c.created_at) AS created_at,
+    c.created_by,
+    date_trunc('second'::text, c.updated_at) AS updated_at,
+    c.updated_by,
+    c.the_geom,
+    vf.p_state,
+    c.uuid,
+    c.uncertain,
+    c.xyz_date,
+    c.dataquality,
+    c.dataquality_obs,
+    vf.p_arc_id,
+    vf.p_pjoint_id,
+    vf.p_pjoint_type
+   FROM connec c
+     JOIN vf_connec vf ON vf.connec_id = c.connec_id
+     JOIN cat_connec ON cat_connec.id::text = c.conneccat_id::text
+     JOIN cat_feature ON cat_feature.id::text = cat_connec.connec_type::text
+     JOIN exploitation ON c.expl_id = exploitation.expl_id
+     JOIN v_municipality vm ON c.muni_id = vm.muni_id
+     JOIN sector_table ON sector_table.sector_id = c.sector_id
+     LEFT JOIN presszone_table ON presszone_table.presszone_id = c.presszone_id
+     LEFT JOIN dma_table ON dma_table.dma_id = c.dma_id
+     LEFT JOIN dqa_table ON dqa_table.dqa_id = c.dqa_id
+     LEFT JOIN supplyzone_table ON supplyzone_table.supplyzone_id = c.supplyzone_id
+     LEFT JOIN omzone_table ON omzone_table.omzone_id = c.omzone_id
+     LEFT JOIN crmzone ON crmzone.crmzone_id = c.crmzone_id
+     LEFT JOIN connec_add ON connec_add.connec_id = c.connec_id
+     LEFT JOIN value_state_type vst ON vst.id = c.state_type
+     LEFT JOIN inp_network_mode ON true;
+
+CREATE TRIGGER gw_trg_edit_connec INSTEAD OF
+INSERT
+    OR
+DELETE
+    OR
+UPDATE
+    ON
+    ve_connec FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_connec('parent');
+
+
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE", "batchId":4}}$$);
