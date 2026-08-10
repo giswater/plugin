@@ -36,9 +36,7 @@ from .i18n.i18n_languages import GwI18NManageLanguagesDialog
 
 from ..utils import tools_gw
 from ... import global_vars
-from .i18n_generator import GwI18NGenerator
 from .markdown_generator import GwAdminMarkdownGenerator
-from .i18n_manager import GwSchemaI18NManager
 from .i18n.i18n_hot_update import GwAdminI18NHotUpdate
 from .import_osm import GwImportOsm
 from ...libs import lib_vars, tools_qt, tools_qgis, tools_log, tools_db, tools_os
@@ -2090,8 +2088,8 @@ class GwAdminButton:
 
         # DEPRECATED tab_dev — widgets/handlers kept for migration to another repo.
         # See: btn_create_utils, btn_update_utils, cmb_utils_ws/ud, btn_create_cibs,
-        # btn_adapt_cibs, cmb_cibs, btn_i18n, btn_translation, btn_create_qgis_template,
-        # btn_markdown_generator (tab_dev in admin.ui).
+        # btn_adapt_cibs, cmb_cibs, btn_create_qgis_template, btn_markdown_generator
+        # (tab_dev in admin.ui).
         tools_qt.remove_tab(self.dlg_readsql.tab_main, "tab_dev")
 
         for _gb_name in ('groupBox_2', 'groupBox', 'groupBox_cibs'):
@@ -2183,8 +2181,6 @@ class GwAdminButton:
 
         # i18n
         self.dlg_readsql.btn_manage_languages.clicked.connect(partial(self._manage_languages_hot_update))
-        self.dlg_readsql.btn_i18n.clicked.connect(partial(self._i18n_manager))
-        self.dlg_readsql.btn_translation.clicked.connect(partial(self._i18n_generator))
 
         # Markdown generator
         self.dlg_readsql.btn_markdown_generator.clicked.connect(partial(self._markdown_generator))
@@ -2223,20 +2219,6 @@ class GwAdminButton:
 
         qm_gen = GwAdminMarkdownGenerator()
         qm_gen.init_dialog()
-
-    def _i18n_manager(self):
-
-        manager = GwSchemaI18NManager()
-        manager.init_dialog()
-        dict_info = tools_gw.get_project_info(self._get_schema_name())
-        manager.pass_schema_info(dict_info)
-
-    def _i18n_generator(self):
-
-        generator = GwI18NGenerator()
-        generator.init_dialog()
-        dict_info = tools_gw.get_project_info(self._get_schema_name())
-        generator.pass_schema_info(dict_info)
 
     def _manage_languages_hot_update(self):
         """ Initialize the language functionalities """
