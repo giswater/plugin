@@ -785,7 +785,7 @@ def fetch_multilang_operative_languages(
         return set()
 
     try:
-        from .i18n.i18n_baseline_seed import (
+        from .i18n.multilang_seed_sql import (
             fetch_seeded_language_ids,
             normalize_language_folder,
         )

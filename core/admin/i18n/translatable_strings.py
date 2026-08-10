@@ -1,3 +1,16 @@
+"""
+This file is part of Giswater
+The program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the License,
+or (at your option) any later version.
+
+String catalogue for ``scripts/i18n_searcher.py``.
+
+This module is intentionally not imported by runtime code. It only holds
+``message = "..."`` assignments so the extractor can pick up user-facing
+strings that live outside normal Python call sites (e.g. SQL/UI fragments).
+Do not add logic here.
+"""
 message = "File name"
 message = "Function name"
 message = "Detail"
