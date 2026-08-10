@@ -4328,7 +4328,7 @@ class GwAdminButton:
         msg = 'prefer'
         tools_qt.set_widget_text(self.dlg_credentials, self.dlg_credentials.cmb_sslmode, msg)
 
-        tools_gw.open_dialog(self.dlg_credentials, dlg_name='admin_credentials')
+        tools_gw.open_dialog(self.dlg_credentials, dlg_name='admin_credentials', skip_db_check=True)
 
     def _manage_user_params(self):
         """"""
@@ -4369,7 +4369,7 @@ class GwAdminButton:
             self._set_buttons_enabled()
         except Exception as e:
             tools_log.log_info(str(e))
-            tools_gw.open_dialog(self.dlg_readsql, dlg_name='admin')
+            tools_gw.open_dialog(self.dlg_readsql, dlg_name='admin', skip_db_check=True)
 
     def _set_buttons_enabled(self):
         """Hide schema CRUD for non-superusers; enable/disable when visible."""
