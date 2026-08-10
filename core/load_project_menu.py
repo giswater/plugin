@@ -154,7 +154,7 @@ class GwMenuLoad(QObject):
             return
 
         icon_folder = f"{lib_vars.plugin_dir}{os.sep}icons"
-        icon_path = f"{icon_folder}{os.sep}dialogs{os.sep}184.svg"
+        icon_path = f"{icon_folder}{os.sep}dialogs{os.sep}184.png"
         language_icon = QIcon(icon_path)
         title = "Language"
         action_language = self.main_menu.addAction(tools_qt.tr(title))
