@@ -9,7 +9,7 @@ import json
 
 from functools import partial
 
-from qgis.PyQt.QtCore import Qt, QRegularExpression
+from qgis.PyQt.QtCore import Qt, QDate, QRegularExpression
 from qgis.PyQt.QtWidgets import QAbstractItemView, QTableView, QDialog, QAction, QMenu, QPushButton, QHeaderView
 from qgis.PyQt.QtGui import QRegularExpressionValidator, QStandardItemModel, QCursor
 
@@ -46,8 +46,10 @@ class GwGo2EpaManagerButton(GwAction):
         self.dlg_manager.btn_toggle_corporate.setEnabled(False)
         self.dlg_manager.btn_archive.setEnabled(False)
 
-        # Fill combo box and table view
-        # self._fill_combo_result_id()
+        # Populate filter widgets
+        self._populate_filters()
+
+        # Fill table view
         self.dlg_manager.tbl_rpt_cat_result.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._fill_manager_table()
 
@@ -70,9 +72,42 @@ class GwGo2EpaManagerButton(GwAction):
         self.dlg_manager.btn_close.clicked.connect(partial(tools_gw.close_dialog, self.dlg_manager))
         self.dlg_manager.rejected.connect(partial(tools_gw.close_dialog, self.dlg_manager))
         self.dlg_manager.txt_result_id.textChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.cmb_status.currentIndexChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.cmb_network_type.currentIndexChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.cmb_expl.currentIndexChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.date_exec_from.dateChanged.connect(partial(self._fill_manager_table))
 
         # Open form
         tools_gw.open_dialog(self.dlg_manager, dlg_name='go2epa_manager')
+
+    def _populate_filters(self):
+        """ Populate filter combo boxes and initialize exec date from. """
+
+        rows = tools_db.get_rows(
+            "SELECT id, idval FROM inp_typevalue WHERE typevalue = 'inp_result_status' ORDER BY id"
+        )
+        tools_qt.fill_combo_values(self.dlg_manager.cmb_status, rows, add_empty=True)
+
+        rows = tools_db.get_rows(
+            "SELECT id, idval FROM inp_typevalue WHERE typevalue = 'inp_options_networkmode' ORDER BY id"
+        )
+        tools_qt.fill_combo_values(self.dlg_manager.cmb_network_type, rows, add_empty=True)
+
+        rows = tools_db.get_rows(
+            "SELECT expl_id, name FROM ve_exploitation WHERE expl_id > 0 ORDER BY name"
+        )
+        tools_qt.fill_combo_values(self.dlg_manager.cmb_expl, rows, add_empty=True)
+        tools_qt.set_autocompleter(self.dlg_manager.cmb_expl)
+
+        row = tools_db.get_row("SELECT MIN(exec_date)::date FROM v_ui_rpt_cat_result")
+        min_date = row[0] if row and row[0] else QDate.currentDate()
+        self.dlg_manager.date_exec_from.setCalendarPopup(True)
+        self.dlg_manager.date_exec_from.setDisplayFormat('dd/MM/yyyy')
+        if lib_vars.date_format in ("dd/MM/yyyy", "dd-MM-yyyy", "yyyy/MM/dd", "yyyy-MM-dd"):
+            self.dlg_manager.date_exec_from.setDisplayFormat(lib_vars.date_format)
+        self.dlg_manager.date_exec_from.blockSignals(True)
+        self.dlg_manager.date_exec_from.setDate(min_date)
+        self.dlg_manager.date_exec_from.blockSignals(False)
 
     def _show_context_menu(self, qtableview):
         """ Show custom context menu """
@@ -102,10 +137,10 @@ class GwGo2EpaManagerButton(GwAction):
 
         menu.exec(QCursor.pos())
 
-    def _fill_manager_table(self, filter_id=None):
-        """ Fill dscenario manager table with data from ve_cat_dscenario """
+    def _fill_manager_table(self, *args):
+        """ Fill EPA result manager table from v_ui_rpt_cat_result """
 
-        complet_list = self._get_list("v_ui_rpt_cat_result", filter_id)
+        complet_list = self._get_list("v_ui_rpt_cat_result")
 
         if complet_list is False:
             return False, False
@@ -129,13 +164,38 @@ class GwGo2EpaManagerButton(GwAction):
 
         return complet_list
 
-    def _get_list(self, table_name='v_ui_rpt_cat_result', filter_id=None):
-        """ Mount and execute the query for gw_fct_getlist """
+    def _get_list(self, table_name='v_ui_rpt_cat_result'):
+        """ Mount and execute the query for gw_fct_getlist using dialog filters """
 
         extras = f'"tableName":"{table_name}"'
         filter_fields = '"limit": -1'
-        if filter_id:
-            filter_fields += f', "result_id": {{"filterSign":"ILIKE", "value":"{filter_id}"}}'
+
+        result_id = tools_qt.get_text(self.dlg_manager, self.dlg_manager.txt_result_id, False, False)
+        if result_id and result_id != 'null':
+            filter_fields += f', "result_id": {{"filterSign":"ILIKE", "value":"{result_id}"}}'
+
+        status = tools_qt.get_combo_value(self.dlg_manager, self.dlg_manager.cmb_status, 1)
+        if status not in (None, '', -1):
+            filter_fields += f', "status": {{"filterSign":"=", "value":"{status}"}}'
+
+        network_type = tools_qt.get_combo_value(self.dlg_manager, self.dlg_manager.cmb_network_type, 1)
+        if network_type not in (None, '', -1):
+            filter_fields += f', "network_type": {{"filterSign":"=", "value":"{network_type}"}}'
+
+        expl_id = tools_qt.get_combo_value(self.dlg_manager, self.dlg_manager.cmb_expl, 0)
+        if expl_id not in (None, '', -1):
+            filter_fields += (
+                f', "expl_id": {{"filterSign":"@>", "filterType":"int4[]", "value":"{{{expl_id}}}"}}'
+            )
+
+        exec_date = tools_qt.get_calendar_date(
+            self.dlg_manager, self.dlg_manager.date_exec_from, date_format='dd-MM-yyyy'
+        )
+        if exec_date:
+            filter_fields += (
+                f', "exec_date": {{"filterSign":">=", "filterType":"timestamp", "value":"{exec_date}"}}'
+            )
+
         body = tools_gw.create_body(filter_fields=filter_fields, extras=extras)
         json_result = tools_gw.execute_procedure('gw_fct_getlist', body)
         if json_result is None or json_result['status'] == 'Failed':
@@ -151,7 +211,7 @@ class GwGo2EpaManagerButton(GwAction):
         sql = f"""UPDATE v_ui_rpt_cat_result SET "{columnname}" = $${value}$$ WHERE result_id = '{result_id}';"""
         result = tools_db.execute_sql(sql, log_sql=True)
         if result:
-            self._fill_manager_table(tools_qt.get_text(self.dlg_manager, 'txt_result_id'))
+            self._fill_manager_table()
 
     def _fill_txt_infolog(self, selected):
         """
@@ -320,7 +380,7 @@ class GwGo2EpaManagerButton(GwAction):
             sql = f"DELETE FROM {table_name}"
             sql += f" WHERE {column_id} IN ({list_id})"
             tools_db.execute_sql(sql)
-            self._fill_manager_table(tools_qt.get_text(self.dlg_manager, 'txt_result_id'))
+            self._fill_manager_table()
 
     def _toggle_rpt_archived(self, widget, column_id):
         """ Call gw_fct_set_rpt_archived with selected result_id
