@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import unittest
 
-from core.admin.i18n_baseline_seed import (
+from core.admin.i18n.i18n_baseline_seed import (
     BASELINE_TO_MULTILANG_TABLE,
     MULTILANG_UI_TABLES,
     MultilangRow,

@@ -15,7 +15,7 @@ from qgis.PyQt.QtGui import QIcon, QKeySequence
 from qgis.PyQt.QtWidgets import QMenu, QPushButton, QTreeWidget, QTreeWidgetItem, QHeaderView
 from qgis.core import QgsApplication
 
-from .admin.i18n_languages import GwI18NManageLanguagesDialog
+from .admin.i18n.i18n_languages import GwI18NManageLanguagesDialog
 from .ui.ui_manager import GwLoadMenuUi
 from .utils import tools_gw
 from .. import global_vars

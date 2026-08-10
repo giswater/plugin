@@ -32,14 +32,14 @@ from ..ui.ui_manager import GwAdminUi, GwAdminDbProjectUi, GwAdminRenameProjUi, 
     GwAdminFieldsUi, GwCredentialsUi, GwReplaceInFileUi, \
     GwAdminMarkdownGeneratorUi  # noqa: F401
     
-from .i18n_languages import GwI18NManageLanguagesDialog
+from .i18n.i18n_languages import GwI18NManageLanguagesDialog
 
 from ..utils import tools_gw
 from ... import global_vars
 from .i18n_generator import GwI18NGenerator
 from .markdown_generator import GwAdminMarkdownGenerator
 from .i18n_manager import GwSchemaI18NManager
-from .i18n_hot_update import GwAdminI18NHotUpdate
+from .i18n.i18n_hot_update import GwAdminI18NHotUpdate
 from .import_osm import GwImportOsm
 from ...libs import lib_vars, tools_qt, tools_qgis, tools_log, tools_db, tools_os
 from ..ui.docker import GwDocker
@@ -371,7 +371,7 @@ class GwAdminButton:
             self.error_count += 1
         self.manage_process_result(project_name_schema, project_type, is_test=is_test)
         if result.ok and admin_catalog.schema_exists("multilang"):
-            from .i18n_baseline_seed import multilang_user_param_provision_sql
+            from .i18n.i18n_baseline_seed import multilang_user_param_provision_sql
 
             tools_db.execute_sql(
                 multilang_user_param_provision_sql(
@@ -1803,7 +1803,7 @@ class GwAdminButton:
     def _ensure_language_packages_for_connection(self, *, force: bool = False) -> None:
         """Start automatic language-file provisioning for the active DB connection."""
         try:
-            from .i18n_provision import ensure_language_packages_after_connection
+            from .i18n.i18n_provision import ensure_language_packages_after_connection
             ensure_language_packages_after_connection(force=force)
         except Exception as exc:
             msg = "Automatic language provisioning failed to start: {0}"
@@ -3490,7 +3490,7 @@ class GwAdminButton:
         result = tools_qt.show_question(msg, "Info", force_action=True, msg_params=msg_params)
         if result:
             if schema == "multilang":
-                from .i18n_baseline_seed import (
+                from .i18n.i18n_baseline_seed import (
                     multilang_user_param_provision_sql,
                     multilang_views_provision_sql,
                     run_multilang_function_sql,
@@ -3539,7 +3539,7 @@ class GwAdminButton:
 
     def _multilang_stored_seeded_schemas(self) -> set[str]:
         """Project types recorded at last multilang seed (prefer addparam)."""
-        from .i18n_baseline_seed import (
+        from .i18n.i18n_baseline_seed import (
             fetch_seeded_project_types_from_multilang,
             parse_stored_seeded_project_types,
         )
@@ -3567,13 +3567,13 @@ class GwAdminButton:
 
     def _multilang_current_seed_targets(self, inventory_rows=None) -> set[str]:
         """Project types that should be present in multilang seed (ws/ud/am/cm)."""
-        from .i18n_baseline_seed import translatable_project_types_with_baseline
+        from .i18n.i18n_baseline_seed import translatable_project_types_with_baseline
 
         return set(translatable_project_types_with_baseline(self.sql_dir))
 
     def _multilang_schemas_out_of_sync(self, inventory_rows=None) -> bool:
         """True when project types differ from the last multilang seed."""
-        from .i18n_baseline_seed import seeded_project_types_out_of_sync
+        from .i18n.i18n_baseline_seed import seeded_project_types_out_of_sync
 
         if not admin_catalog.schema_exists("multilang"):
             return False
@@ -3583,7 +3583,7 @@ class GwAdminButton:
 
     def _multilang_baseline_changed(self) -> bool:
         """True when bundled en_US baseline SQL differs from the last seed."""
-        from .i18n_baseline_seed import baseline_needs_reseed
+        from .i18n.i18n_baseline_seed import baseline_needs_reseed
 
         if not admin_catalog.schema_exists("multilang"):
             return False
@@ -4696,7 +4696,7 @@ class GwAdminButton:
             msg = "Schema multilang already exists."
             tools_qgis.show_message(msg, Qgis.MessageLevel.Info)
             return False
-        from .i18n_baseline_seed import invalidate_baseline_fingerprint_cache
+        from .i18n.i18n_baseline_seed import invalidate_baseline_fingerprint_cache
         invalidate_baseline_fingerprint_cache(self.sql_dir)
         bp = BuildParams(
             schema_name='multilang',
@@ -4748,7 +4748,7 @@ class GwAdminButton:
 
     def _update_i18n(self, on_done=None, manage_schemas_dlg=None):
         """Run multilang schema update and re-seed baseline translations."""
-        from .i18n_baseline_seed import invalidate_baseline_fingerprint_cache
+        from .i18n.i18n_baseline_seed import invalidate_baseline_fingerprint_cache
         invalidate_baseline_fingerprint_cache(self.sql_dir)
         row = tools_db.get_row(
             "SELECT giswater, language, epsg FROM multilang.sys_version "

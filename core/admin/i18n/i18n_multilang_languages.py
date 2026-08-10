@@ -9,10 +9,10 @@ import os
 
 from qgis.core import QgsApplication
 
-from ..utils import tools_gw
-from ...giswater_admin.engine import BuildParams
-from ...libs import lib_vars, tools_db, tools_qt
-from ..threads.multilang_schema_task import GwMultilangSchemaTask
+from ...utils import tools_gw
+from ....giswater_admin.engine import BuildParams
+from ....libs import lib_vars, tools_db, tools_qt
+from ...threads.multilang_schema_task import GwMultilangSchemaTask
 from .i18n_baseline_seed import (
     fetch_seeded_language_ids,
     language_baselines_exist,

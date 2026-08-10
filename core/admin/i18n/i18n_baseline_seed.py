@@ -1067,7 +1067,7 @@ def run_multilang_function_sql(
     log_sql: bool = False,
 ) -> tuple[dict[str, Any] | None, bool]:
     """Execute a multilang admin function returning json and interpret its status."""
-    from ...libs import lib_vars, tools_db, tools_log
+    from ....libs import lib_vars, tools_db, tools_log
 
     json_result: dict[str, Any] | None = None
 
@@ -1117,7 +1117,7 @@ def run_multilang_function_sql(
         msg = "Multilang function failed"
         tools_log.log_warning(msg, parameter=err)
         if show_exception and not is_thread:
-            from ..utils import tools_gw
+            from ...utils import tools_gw
 
             tools_gw.manage_json_exception(json_result, sql=sql, is_thread=is_thread)
         return json_result, False
@@ -1129,7 +1129,7 @@ def run_multilang_function_sql(
         msg = "Multilang function returned unexpected status"
         tools_log.log_warning(msg, parameter=err)
         if show_exception and not is_thread:
-            from ..utils import tools_gw
+            from ...utils import tools_gw
 
             tools_gw.manage_json_exception(json_result, sql=sql, is_thread=is_thread)
         return json_result, False

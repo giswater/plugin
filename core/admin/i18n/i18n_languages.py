@@ -14,11 +14,11 @@ from qgis.PyQt.QtWidgets import (
     QHeaderView, QAbstractItemView,
 )
 
-from ..ui.ui_manager import GwI18NManageLanguagesUi
-from ..utils import tools_gw
-from ...libs import lib_vars, tools_qt
+from ...ui.ui_manager import GwI18NManageLanguagesUi
+from ...utils import tools_gw
+from ....libs import lib_vars, tools_qt
 from . import i18n_language_service as i18n_service
-from ..threads.task import GwTask
+from ...threads.task import GwTask
 
 
 _LOCALE_COLUMNS = ("Active", "Locale", "Name")

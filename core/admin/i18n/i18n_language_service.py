@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
-from ...libs import tools_qt
+from ....libs import tools_qt
 from .i18n_baseline_seed import (
     TRANSLATABLE_PROJECT_TYPES,
     normalize_language_folder,
@@ -255,19 +255,19 @@ def translation_version_label(
         return "latest"
     version = user_version
     if version is None:
-        from ...libs import tools_qgis
+        from ....libs import tools_qgis
         version, _ = tools_qgis.get_plugin_version()
     path = resolve_translation_version_path(version, available_versions)
     return version_path_to_label(path)
 
 
 def plugin_dir() -> Path:
-    from ...libs import lib_vars
+    from ....libs import lib_vars
     return Path(lib_vars.plugin_dir).resolve()
 
 
 def dbmodel_dir() -> str:
-    from ...libs import lib_vars
+    from ....libs import lib_vars
     return os.path.join(lib_vars.plugin_dir, "dbmodel")
 
 
@@ -280,7 +280,7 @@ def language_files_exist(
     if locale.lower() == "en_us":
         return True
 
-    from ...libs import lib_vars
+    from ....libs import lib_vars
 
     folder = normalize_language_folder(locale)
     ts_path = os.path.join(lib_vars.plugin_dir, "i18n", f"{TS_NAME}_{folder}.ts")
@@ -353,7 +353,7 @@ def find_locale_usages(
 
     usages: list[str] = []
     try:
-        from . import _admin_catalog as admin_catalog
+        from .. import _admin_catalog as admin_catalog
 
         for row in admin_catalog.fetch_schema_translation_info():
             language = str(row.get("language") or "")
@@ -387,7 +387,7 @@ def translation_zip_url(
     else:
         version = user_version
         if version is None:
-            from ...libs import tools_qgis
+            from ....libs import tools_qgis
             version, _ = tools_qgis.get_plugin_version()
         version_path = resolve_translation_version_path(version, available_versions)
     return f"{base}/{version_path}/{filename}"
@@ -399,6 +399,7 @@ def fetch_language_zip(
     user_version: str | None = None,
     use_latest: bool = False,
     available_versions: list[str] | None = None,
+    timeout: float = 120,
 ) -> tuple[bytes | None, str | None]:
     url = translation_zip_url(
         locale,
@@ -409,7 +410,7 @@ def fetch_language_zip(
     request = urllib.request.Request(url, method="GET")
     request.add_header("Accept", "application/zip, application/octet-stream, */*")
     try:
-        with urllib.request.urlopen(request, timeout=120) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             body = response.read()
         if not body.startswith(b"PK"):
             msg = "Response from {0} is not a ZIP archive"
@@ -463,6 +464,7 @@ def download_language_files(
     user_version: str | None = None,
     use_latest: bool = False,
     available_versions: list[str] | None = None,
+    timeout: float = 120,
 ) -> tuple[bool, str | None, str | None]:
     """Download and extract language files. Returns (ok, failed_schema, error)."""
     zip_data, error = fetch_language_zip(
@@ -470,6 +472,7 @@ def download_language_files(
         user_version=user_version,
         use_latest=use_latest,
         available_versions=available_versions,
+        timeout=timeout,
     )
     if error or not zip_data:
         msg = "Empty response"
@@ -483,7 +486,7 @@ def download_language_files(
 
 def get_installed_locale_meta(locale: str) -> tuple[bool, str | None]:
     """Return (active, version) from the config SQLite ``locales`` table."""
-    from ..utils import tools_gw
+    from ...utils import tools_gw
 
     status, cursor = tools_gw.create_sqlite_conn("locales")
     if not status or cursor is None:
@@ -514,7 +517,7 @@ def set_locale_active(
     *,
     name: str | None = None,
 ) -> bool:
-    from ..utils import tools_gw
+    from ...utils import tools_gw
 
     status, cursor = tools_gw.create_sqlite_conn("locales")
     if not status or cursor is None:
@@ -647,7 +650,7 @@ def collect_locale_requirements(
     highest_schema_version = max_version(req.version for req in by_locale.values())
     if highest_schema_version is None:
         try:
-            from ...libs import tools_qgis
+            from ....libs import tools_qgis
             plugin_version, _ = tools_qgis.get_plugin_version()
             highest_schema_version = plugin_version
         except Exception:
@@ -684,6 +687,8 @@ def provision_language_packages(
     *,
     available_versions: list[str] | None = None,
     progress_cb: Callable[[int, int, str], None] | None = None,
+    should_abort: Callable[[], bool] | None = None,
+    download_timeout: float = 20,
 ) -> ProvisionResult:
     """
     Download missing/outdated locales for the highest required version each.
@@ -697,12 +702,17 @@ def provision_language_packages(
     total = len(pending)
 
     for index, req in enumerate(pending):
+        if should_abort and should_abort():
+            msg = "Download cancelled or timed out"
+            result.failed.append((req.locale, tools_qt.tr(msg)))
+            break
         if progress_cb:
             progress_cb(index, total, req.locale)
         ok, _schema, error = download_language_files(
             req.locale,
             user_version=req.version,
             available_versions=versions,
+            timeout=download_timeout,
         )
         if not ok:
             msg = "Unknown error"
@@ -746,7 +756,7 @@ def reconcile_downloaded_locales(
     When ``locales`` is empty (e.g. offline), still returns packages present on disk
     and recorded in SQLite. Returns ``None`` when the config database is unavailable.
     """
-    from ..utils import tools_gw
+    from ...utils import tools_gw
 
     downloaded_locales: dict[str, tuple[str, str | None]] = {}
     status, cursor = tools_gw.create_sqlite_conn("locales")

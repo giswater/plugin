@@ -29,7 +29,7 @@ from ...giswater_admin.log_format import (
 )
 from ...libs import lib_vars, tools_log, tools_qt
 from ..admin._admin_catalog import make_psycopg2_fetcher
-from ..admin.i18n_baseline_seed import (
+from ..admin.i18n.i18n_baseline_seed import (
     SEED_LANGUAGE_FOLDER,
     SEED_LANGUAGE_ID,
     TRANSLATABLE_PROJECT_TYPES,

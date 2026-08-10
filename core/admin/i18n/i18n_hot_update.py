@@ -16,11 +16,11 @@ from qgis.PyQt.QtWidgets import (
     QHeaderView, QSizePolicy, QScrollArea,
 )
 
-from ..ui.ui_manager import GwAdminI18NHotUpdateUi
-from ..utils import tools_gw
+from ...ui.ui_manager import GwAdminI18NHotUpdateUi
+from ...utils import tools_gw
 from qgis.PyQt.sip import isdeleted
-from ...libs import lib_vars, tools_qt, tools_db, tools_os
-from . import _admin_catalog as admin_catalog
+from ....libs import lib_vars, tools_qt, tools_db, tools_os
+from .. import _admin_catalog as admin_catalog
 from .i18n_language_service import I18N_SCHEMAS
 from .i18n_languages import GwI18NManageLanguagesDialog
 from .i18n_multilang_languages import GwI18NMultilangLanguagesDialog
