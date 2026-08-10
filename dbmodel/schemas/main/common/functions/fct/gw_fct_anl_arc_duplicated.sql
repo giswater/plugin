@@ -63,7 +63,7 @@ BEGIN
 
 	-- Computing process
 	IF v_selectionmode = 'previousSelection' THEN
-		v_query_text := 'AND BOOL_OR(va.arc_id = ANY(' || quote_literal(v_array) || '))';
+		v_query_text := 'AND BOOL_OR(va2.arc_id = ANY(' || quote_literal(v_array) || '))';
 	ELSE
 		v_query_text := '';
 	END IF;
@@ -73,15 +73,17 @@ BEGIN
 			CREATE TEMP TABLE temp_anl_arc AS
 			SELECT a.arc_id, a.arccat_id, a.state, ta.arc_id_aux, a.node_1, a.node_2, a.expl_id, a.the_geom
 			FROM (
-				SELECT va.the_geom, MIN(va.arc_id) AS arc_id_aux
-				FROM %I va
-				GROUP BY va.the_geom
+				SELECT va1.arc_id, MIN(va2.arc_id) AS arc_id_aux
+				FROM %I va1
+				JOIN %I va2 ON va1.the_geom && va2.the_geom
+				WHERE ST_Equals(va1.the_geom, va2.the_geom)
+				GROUP BY va1.arc_id
 				HAVING COUNT(*) > 1
 				%s
 			) ta
 			JOIN arc a ON ta.the_geom = a.the_geom
 			WHERE EXISTS (SELECT 1 FROM vf_arc vfa WHERE vfa.arc_id = a.arc_id)
-		$sql$, v_worklayer, v_query_text);
+		$sql$, v_worklayer, v_worklayer, v_query_text);
 	ELSIF v_checktype='finalNodes' THEN
 		EXECUTE format($sql$
 			CREATE TEMP TABLE temp_anl_arc AS
