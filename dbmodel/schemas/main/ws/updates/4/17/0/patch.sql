@@ -620,3 +620,125 @@ FROM (
 	JOIN vf_connec vf ON vf.connec_id = connec.connec_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
 ) a;
+
+CREATE OR REPLACE VIEW vf_link AS
+SELECT
+  l.link_id,
+  pp.state AS p_state
+FROM
+  link l
+  LEFT JOIN LATERAL (
+    SELECT
+      x.connec_id,
+      x.psector_id
+    FROM
+      (
+        SELECT
+          1
+        WHERE
+          (
+            EXISTS (
+              SELECT
+                1
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+      ) gate
+      CROSS JOIN LATERAL (
+        SELECT
+          pp1.connec_id,
+          pp1.psector_id
+        FROM
+          plan_psector_x_connec pp1
+        WHERE
+          pp1.connec_id = l.feature_id
+          AND (
+            pp1.psector_id IN (
+              SELECT
+                sp.psector_id
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+        ORDER BY
+          pp1.psector_id DESC
+        LIMIT
+          1
+      ) x
+  ) last_ps ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT
+      x.state
+    FROM
+      (
+        SELECT
+          1
+        WHERE
+          last_ps.psector_id IS NOT NULL
+      ) gate
+      CROSS JOIN LATERAL (
+        SELECT
+          pp2.state
+        FROM
+          plan_psector_x_connec pp2
+        WHERE
+          pp2.link_id = l.link_id
+          AND pp2.psector_id = last_ps.psector_id
+        LIMIT
+          1
+      ) x
+  ) pp ON TRUE
+WHERE
+  (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_state ss
+      WHERE
+        ss.cur_user = CURRENT_USER
+        AND ss.state_id = COALESCE(pp.state, l.state)
+    )
+  )
+  AND (
+    (
+      l.sector_id IN (
+        SELECT
+          ssec.sector_id
+        FROM
+          selector_sector ssec
+        WHERE
+          ssec.cur_user = CURRENT_USER
+      )
+    )
+    OR pp.state IS NOT NULL
+  )
+  AND (
+    l.muni_id IN (
+      SELECT
+        sm.muni_id
+      FROM
+        selector_municipality sm
+      WHERE
+        sm.cur_user = CURRENT_USER
+    )
+  )
+  AND (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_expl se
+      WHERE
+        se.cur_user = CURRENT_USER
+        AND (
+          se.expl_id = l.expl_id
+          OR (se.expl_id = ANY (l.expl_visibility))
+        )
+    )
+  );

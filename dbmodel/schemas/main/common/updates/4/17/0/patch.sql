@@ -212,165 +212,442 @@ FROM om_visit
 LEFT JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
 LEFT JOIN exploitation ON exploitation.expl_id = om_visit.expl_id;
 
+CREATE OR REPLACE VIEW vf_node AS
+SELECT
+  n.node_id,
+  pp.state AS p_state
+FROM
+  node n
+  LEFT JOIN LATERAL (
+    SELECT
+      x.state
+    FROM
+      (
+        SELECT
+          1
+        WHERE
+          (
+            EXISTS (
+              SELECT
+                1
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+      ) gate
+      CROSS JOIN LATERAL (
+        SELECT
+          pp_1.state
+        FROM
+          plan_psector_x_node pp_1
+        WHERE
+          pp_1.node_id = n.node_id
+          AND (
+            pp_1.psector_id IN (
+              SELECT
+                sp.psector_id
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+        ORDER BY
+          pp_1.psector_id DESC
+        LIMIT
+          1
+      ) x
+  ) pp ON TRUE
+WHERE
+  (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_state ss
+      WHERE
+        ss.cur_user = CURRENT_USER
+        AND ss.state_id = COALESCE(pp.state, n.state)
+    )
+  )
+  AND (
+    (
+      n.sector_id IN (
+        SELECT
+          ssec.sector_id
+        FROM
+          selector_sector ssec
+        WHERE
+          ssec.cur_user = CURRENT_USER
+      )
+    )
+    OR (
+      EXISTS (
+        SELECT
+          1
+        FROM
+          node_x_sector_visibility sv
+          JOIN selector_sector ssec ON ssec.sector_id = sv.sector_id
+          AND ssec.cur_user = CURRENT_USER
+        WHERE
+          sv.node_id = n.node_id
+      )
+    )
+    OR pp.state IS NOT NULL
+  )
+  AND (
+    (
+      n.muni_id IN (
+        SELECT
+          sm.muni_id
+        FROM
+          selector_municipality sm
+        WHERE
+          sm.cur_user = CURRENT_USER
+      )
+    )
+    OR (
+      EXISTS (
+        SELECT
+          1
+        FROM
+          node_x_municipality_visibility mv
+          JOIN selector_municipality sm ON sm.muni_id = mv.muni_id
+          AND sm.cur_user = CURRENT_USER
+        WHERE
+          mv.node_id = n.node_id
+      )
+    )
+  )
+  AND (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_expl se
+      WHERE
+        se.cur_user = CURRENT_USER
+        AND (
+          se.expl_id = n.expl_id
+          OR (se.expl_id = ANY (n.expl_visibility))
+        )
+    )
+  );
 
+CREATE OR REPLACE VIEW vf_arc AS
+SELECT
+  a.arc_id,
+  pp.state AS p_state
+FROM
+  arc a
+  LEFT JOIN LATERAL (
+    SELECT
+      x.state
+    FROM
+      (
+        SELECT
+          1
+        WHERE
+          (
+            EXISTS (
+              SELECT
+                1
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+      ) gate
+      CROSS JOIN LATERAL (
+        SELECT
+          pp_1.state
+        FROM
+          plan_psector_x_arc pp_1
+        WHERE
+          pp_1.arc_id = a.arc_id
+          AND (
+            pp_1.psector_id IN (
+              SELECT
+                sp.psector_id
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+        ORDER BY
+          pp_1.psector_id DESC
+        LIMIT
+          1
+      ) x
+  ) pp ON TRUE
+WHERE
+  (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_state ss
+      WHERE
+        ss.cur_user = CURRENT_USER
+        AND ss.state_id = COALESCE(pp.state, a.state)
+    )
+  )
+  AND (
+    (
+      a.sector_id IN (
+        SELECT
+          ssec.sector_id
+        FROM
+          selector_sector ssec
+        WHERE
+          ssec.cur_user = CURRENT_USER
+      )
+    )
+    OR pp.state IS NOT NULL
+  )
+  AND (
+    a.muni_id IN (
+      SELECT
+        sm.muni_id
+      FROM
+        selector_municipality sm
+      WHERE
+        sm.cur_user = CURRENT_USER
+    )
+  )
+  AND (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_expl se
+      WHERE
+        se.cur_user = CURRENT_USER
+        AND (
+          se.expl_id = a.expl_id
+          OR (se.expl_id = ANY (a.expl_visibility))
+        )
+    )
+  );
 
-CREATE OR REPLACE VIEW vf_node
-AS SELECT n.node_id,
-    pp.state AS p_state
-   FROM node n
-     LEFT JOIN LATERAL ( SELECT x.state
-           FROM ( SELECT 1
-                  WHERE (EXISTS ( SELECT 1
-                           FROM selector_psector sp
-                          WHERE sp.cur_user = CURRENT_USER))) gate
-             CROSS JOIN LATERAL ( SELECT pp_1.state
-                   FROM plan_psector_x_node pp_1
-                  WHERE pp_1.node_id = n.node_id AND (pp_1.psector_id IN ( SELECT sp.psector_id
-                           FROM selector_psector sp
-                          WHERE sp.cur_user = CURRENT_USER))
-                  ORDER BY pp_1.psector_id DESC
-                 LIMIT 1) x) pp ON true
-  WHERE (EXISTS ( SELECT 1
-           FROM selector_state ss
-          WHERE ss.cur_user = CURRENT_USER AND ss.state_id = COALESCE(pp.state, n.state))) AND ((n.sector_id IN ( SELECT ssec.sector_id
-           FROM selector_sector ssec
-          WHERE ssec.cur_user = CURRENT_USER)) OR (EXISTS ( SELECT 1
-           FROM node_x_sector_visibility sv
-             JOIN selector_sector ssec ON ssec.sector_id = sv.sector_id AND ssec.cur_user = CURRENT_USER
-          WHERE sv.node_id = n.node_id))) AND ((n.muni_id IN ( SELECT sm.muni_id
-           FROM selector_municipality sm
-          WHERE sm.cur_user = CURRENT_USER)) OR (EXISTS ( SELECT 1
-           FROM node_x_municipality_visibility mv
-             JOIN selector_municipality sm ON sm.muni_id = mv.muni_id AND sm.cur_user = CURRENT_USER
-          WHERE mv.node_id = n.node_id))) AND (EXISTS ( SELECT 1
-           FROM selector_expl se
-          WHERE se.cur_user = CURRENT_USER AND (se.expl_id = n.expl_id OR (se.expl_id = ANY (n.expl_visibility)))));
+CREATE OR REPLACE VIEW vf_connec AS
+SELECT
+  c.connec_id,
+  pp.state AS p_state,
+  pp.arc_id AS p_arc_id,
+  pp.exit_id AS p_pjoint_id,
+  pp.exit_type AS pjoint_type
+FROM
+  connec c
+  LEFT JOIN LATERAL (
+    SELECT
+      x.state,
+      x.arc_id,
+      x.exit_id,
+      x.exit_type
+    FROM
+      (
+        SELECT
+          1
+        WHERE
+          (
+            EXISTS (
+              SELECT
+                1
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+      ) gate
+      CROSS JOIN LATERAL (
+        SELECT
+          pp_1.state,
+          pp_1.arc_id,
+          l.exit_id,
+          l.exit_type
+        FROM
+          plan_psector_x_connec pp_1
+          LEFT JOIN link l ON l.link_id = pp_1.link_id
+          AND l.state = 2
+        WHERE
+          pp_1.connec_id = c.connec_id
+          AND (
+            pp_1.psector_id IN (
+              SELECT
+                sp.psector_id
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+        ORDER BY
+          pp_1.psector_id DESC,
+          pp_1.state DESC
+        LIMIT
+          1
+      ) x
+  ) pp ON TRUE
+WHERE
+  (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_state ss
+      WHERE
+        ss.cur_user = CURRENT_USER
+        AND ss.state_id = COALESCE(pp.state, c.state)
+    )
+  )
+  AND (
+    (
+      c.sector_id IN (
+        SELECT
+          ssec.sector_id
+        FROM
+          selector_sector ssec
+        WHERE
+          ssec.cur_user = CURRENT_USER
+      )
+    )
+    OR pp.state IS NOT NULL
+  )
+  AND (
+    c.muni_id IN (
+      SELECT
+        sm.muni_id
+      FROM
+        selector_municipality sm
+      WHERE
+        sm.cur_user = CURRENT_USER
+    )
+  )
+  AND (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_expl se
+      WHERE
+        se.cur_user = CURRENT_USER
+        AND (
+          se.expl_id = c.expl_id
+          OR (se.expl_id = ANY (c.expl_visibility))
+        )
+    )
+  );
 
-CREATE OR REPLACE VIEW vf_arc
-AS SELECT a.arc_id,
-    pp.state AS p_state
-   FROM arc a
-     LEFT JOIN LATERAL ( SELECT x.state
-           FROM ( SELECT 1
-                  WHERE (EXISTS ( SELECT 1
-                           FROM selector_psector sp
-                          WHERE sp.cur_user = CURRENT_USER))) gate
-             CROSS JOIN LATERAL ( SELECT pp_1.state
-                   FROM plan_psector_x_arc pp_1
-                  WHERE pp_1.arc_id = a.arc_id AND (pp_1.psector_id IN ( SELECT sp.psector_id
-                           FROM selector_psector sp
-                          WHERE sp.cur_user = CURRENT_USER))
-                  ORDER BY pp_1.psector_id DESC
-                 LIMIT 1) x) pp ON true
-  WHERE (EXISTS ( SELECT 1
-           FROM selector_state ss
-          WHERE ss.cur_user = CURRENT_USER AND ss.state_id = COALESCE(pp.state, a.state))) AND (a.sector_id IN ( SELECT ssec.sector_id
-           FROM selector_sector ssec
-          WHERE ssec.cur_user = CURRENT_USER)) AND (a.muni_id IN ( SELECT sm.muni_id
-           FROM selector_municipality sm
-          WHERE sm.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
-           FROM selector_expl se
-          WHERE se.cur_user = CURRENT_USER AND (se.expl_id = a.expl_id OR (se.expl_id = ANY (a.expl_visibility)))));
-
-CREATE OR REPLACE VIEW vf_connec
-AS SELECT c.connec_id,
-    pp.state AS p_state,
-    pp.arc_id AS arc_id,
-    pp.exit_id AS pjoint_id,
-    pp.exit_type AS pjoint_type
-   FROM connec c
-     LEFT JOIN LATERAL ( SELECT x.state,
-            x.arc_id,
-            x.exit_id,
-            x.exit_type
-           FROM ( SELECT 1
-                  WHERE (EXISTS ( SELECT 1
-                           FROM selector_psector sp
-                          WHERE sp.cur_user = CURRENT_USER))) gate
-             CROSS JOIN LATERAL ( SELECT pp_1.state,
-                    pp_1.arc_id,
-                    l.exit_id,
-                    l.exit_type
-                   FROM plan_psector_x_connec pp_1
-                     LEFT JOIN link l ON l.link_id = pp_1.link_id AND l.state = 2
-                  WHERE pp_1.connec_id = c.connec_id AND (pp_1.psector_id IN ( SELECT sp.psector_id
-                           FROM selector_psector sp
-                          WHERE sp.cur_user = CURRENT_USER))
-                  ORDER BY pp_1.psector_id DESC, pp_1.state DESC
-                 LIMIT 1) x) pp ON true
-  WHERE (EXISTS ( SELECT 1
-           FROM selector_state ss
-          WHERE ss.cur_user = CURRENT_USER AND ss.state_id = COALESCE(pp.state, c.state))) AND (c.sector_id IN ( SELECT ssec.sector_id
-           FROM selector_sector ssec
-          WHERE ssec.cur_user = CURRENT_USER)) AND (c.muni_id IN ( SELECT sm.muni_id
-           FROM selector_municipality sm
-          WHERE sm.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
-           FROM selector_expl se
-          WHERE se.cur_user = CURRENT_USER AND (se.expl_id = c.expl_id OR (se.expl_id = ANY (c.expl_visibility)))));
-
-CREATE OR REPLACE VIEW vf_element
-AS SELECT e.element_id,
-    pp.state AS p_state
-   FROM element e
-     LEFT JOIN man_frelem mf ON e.element_id = mf.element_id
-     LEFT JOIN LATERAL ( SELECT pp_1.state
-           FROM plan_psector_x_node pp_1
-          WHERE pp_1.node_id = mf.node_id AND (pp_1.psector_id IN ( SELECT sp.psector_id
-                   FROM selector_psector sp
-                  WHERE sp.cur_user = CURRENT_USER))
-          ORDER BY pp_1.psector_id DESC
-         LIMIT 1) pp ON true
-  WHERE (EXISTS ( SELECT 1
-           FROM selector_state ss
-          WHERE ss.cur_user = CURRENT_USER AND ss.state_id = COALESCE(pp.state, e.state))) AND ((e.sector_id IN ( SELECT ssec.sector_id
-           FROM selector_sector ssec
-          WHERE ssec.cur_user = CURRENT_USER)) OR (EXISTS ( SELECT 1
-           FROM element_x_sector_visibility sv
-             JOIN selector_sector ssec ON ssec.sector_id = sv.sector_id AND ssec.cur_user = CURRENT_USER
-          WHERE sv.element_id = e.element_id))) AND ((e.muni_id IN ( SELECT sm.muni_id
-           FROM selector_municipality sm
-          WHERE sm.cur_user = CURRENT_USER)) OR (EXISTS ( SELECT 1
-           FROM element_x_municipality_visibility mv
-             JOIN selector_municipality sm ON sm.muni_id = mv.muni_id AND sm.cur_user = CURRENT_USER
-          WHERE mv.element_id = e.element_id))) AND (EXISTS ( SELECT 1
-           FROM selector_expl se
-          WHERE se.cur_user = CURRENT_USER AND (se.expl_id = e.expl_id OR (se.expl_id = ANY (e.expl_visibility)))));
-
-CREATE OR REPLACE VIEW vf_link
-AS SELECT l.link_id,
-    pp.state AS p_state
-   FROM link l
-     LEFT JOIN LATERAL ( SELECT x.connec_id,
-            x.psector_id
-           FROM ( SELECT 1
-                  WHERE (EXISTS ( SELECT 1
-                           FROM selector_psector sp
-                          WHERE sp.cur_user = CURRENT_USER))) gate
-             CROSS JOIN LATERAL ( SELECT pp1.connec_id,
-                    pp1.psector_id
-                   FROM plan_psector_x_connec pp1
-                  WHERE pp1.connec_id = l.feature_id AND (pp1.psector_id IN ( SELECT sp.psector_id
-                           FROM selector_psector sp
-                          WHERE sp.cur_user = CURRENT_USER))
-                  ORDER BY pp1.psector_id DESC
-                 LIMIT 1) x) last_ps ON true
-     LEFT JOIN LATERAL ( SELECT x.state
-           FROM ( SELECT 1
-                  WHERE last_ps.psector_id IS NOT NULL) gate
-             CROSS JOIN LATERAL ( SELECT pp2.state
-                   FROM plan_psector_x_connec pp2
-                  WHERE pp2.link_id = l.link_id AND pp2.psector_id = last_ps.psector_id
-                 LIMIT 1) x) pp ON true
-  WHERE (EXISTS ( SELECT 1
-           FROM selector_state ss
-          WHERE ss.cur_user = CURRENT_USER AND ss.state_id = COALESCE(pp.state, l.state))) AND (l.sector_id IN ( SELECT ssec.sector_id
-           FROM selector_sector ssec
-          WHERE ssec.cur_user = CURRENT_USER)) AND (l.muni_id IN ( SELECT sm.muni_id
-           FROM selector_municipality sm
-          WHERE sm.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
-           FROM selector_expl se
-          WHERE se.cur_user = CURRENT_USER AND (se.expl_id = l.expl_id OR (se.expl_id = ANY (l.expl_visibility)))));
-
+CREATE OR REPLACE VIEW vf_element AS
+SELECT
+  e.element_id,
+  pp.state AS p_state
+FROM
+  element e
+  LEFT JOIN man_frelem mf ON e.element_id = mf.element_id
+  LEFT JOIN LATERAL (
+    SELECT
+      pp_1.state
+    FROM
+      plan_psector_x_node pp_1
+    WHERE
+      pp_1.node_id = mf.node_id
+      AND (
+        pp_1.psector_id IN (
+          SELECT
+            sp.psector_id
+          FROM
+            selector_psector sp
+          WHERE
+            sp.cur_user = CURRENT_USER
+        )
+      )
+    ORDER BY
+      pp_1.psector_id DESC
+    LIMIT
+      1
+  ) pp ON TRUE
+WHERE
+  (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_state ss
+      WHERE
+        ss.cur_user = CURRENT_USER
+        AND ss.state_id = COALESCE(pp.state, e.state)
+    )
+  )
+  AND (
+    (
+      e.sector_id IN (
+        SELECT
+          ssec.sector_id
+        FROM
+          selector_sector ssec
+        WHERE
+          ssec.cur_user = CURRENT_USER
+      )
+    )
+    OR (
+      EXISTS (
+        SELECT
+          1
+        FROM
+          element_x_sector_visibility sv
+          JOIN selector_sector ssec ON ssec.sector_id = sv.sector_id
+          AND ssec.cur_user = CURRENT_USER
+        WHERE
+          sv.element_id = e.element_id
+      )
+    )
+    OR pp.state IS NOT NULL
+  )
+  AND (
+    (
+      e.muni_id IN (
+        SELECT
+          sm.muni_id
+        FROM
+          selector_municipality sm
+        WHERE
+          sm.cur_user = CURRENT_USER
+      )
+    )
+    OR (
+      EXISTS (
+        SELECT
+          1
+        FROM
+          element_x_municipality_visibility mv
+          JOIN selector_municipality sm ON sm.muni_id = mv.muni_id
+          AND sm.cur_user = CURRENT_USER
+        WHERE
+          mv.element_id = e.element_id
+      )
+    )
+  )
+  AND (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_expl se
+      WHERE
+        se.cur_user = CURRENT_USER
+        AND (
+          se.expl_id = e.expl_id
+          OR (se.expl_id = ANY (e.expl_visibility))
+        )
+    )
+  );
 
 SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"SAVE-DROP", "rootViews":["ve_element"], "batchId":2}}$$);
 
