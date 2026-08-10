@@ -1,4 +1,9 @@
 """
+This file is part of Giswater
+The program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the License,
+or (at your option) any later version.
+
 Coordinator that ensures language packages after a Giswater database connection.
 
 Shows a non-dismissible progress dialog while downloads run; failures warn
@@ -13,7 +18,7 @@ from qgis.PyQt.QtWidgets import QProgressDialog
 
 from ....libs import tools_log, tools_qgis, tools_qt
 from ...threads.i18n_provision_task import GwI18nProvisionTask
-from .i18n_language_service import LocaleRequirement, ProvisionResult
+from .language_shared_functions import LocaleRequirement, ProvisionResult
 
 # Keep a module-level reference so GC does not cancel the task mid-flight.
 _active_task: GwI18nProvisionTask | None = None
@@ -181,7 +186,7 @@ def ensure_language_packages_after_connection(
     pending: list[LocaleRequirement] = []
     try:
         from .. import _admin_catalog as admin_catalog
-        from .i18n_language_service import (
+        from .language_shared_functions import (
             collect_locale_requirements,
             locale_likely_needs_download,
         )

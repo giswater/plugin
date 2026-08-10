@@ -1,4 +1,9 @@
 """
+This file is part of Giswater
+The program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the License,
+or (at your option) any later version.
+
 UI-independent language package resolution, download, and installed-state tracking.
 
 Used by the Manage Languages dialog and by automatic post-connection provisioning.
@@ -18,8 +23,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
-from ....libs import tools_qt
-from .i18n_baseline_seed import (
+from ....libs import tools_qt, tools_qgis, lib_vars
+from .multilang_seed_sql import (
     TRANSLATABLE_PROJECT_TYPES,
     normalize_language_folder,
     normalize_language_id,
@@ -255,20 +260,17 @@ def translation_version_label(
         return "latest"
     version = user_version
     if version is None:
-        from ....libs import tools_qgis
         version, _ = tools_qgis.get_plugin_version()
     path = resolve_translation_version_path(version, available_versions)
     return version_path_to_label(path)
 
 
 def plugin_dir() -> Path:
-    from ....libs import lib_vars
     return Path(lib_vars.plugin_dir).resolve()
 
 
-def dbmodel_dir() -> str:
-    from ....libs import lib_vars
-    return os.path.join(lib_vars.plugin_dir, "dbmodel")
+def dbmodel_dir() -> Path:
+    return plugin_dir() / "dbmodel"
 
 
 def language_files_exist(
@@ -277,10 +279,8 @@ def language_files_exist(
     cleanup_incomplete: bool = True,
 ) -> bool:
     """True when local .ts and schema i18n SQL folders exist for the locale."""
-    if locale.lower() == "en_us":
+    if is_no_translation_locale(locale):
         return True
-
-    from ....libs import lib_vars
 
     folder = normalize_language_folder(locale)
     ts_path = os.path.join(lib_vars.plugin_dir, "i18n", f"{TS_NAME}_{folder}.ts")
@@ -289,7 +289,7 @@ def language_files_exist(
     for schema_key, schema_path in I18N_SCHEMAS.items():
         if schema_key == "python":
             continue
-        path = os.path.join(dbmodel_dir(), schema_path, folder)
+        path = os.path.join(str(dbmodel_dir()), schema_path, folder)
         if not os.path.isdir(path) or not any(name.endswith(".sql") for name in os.listdir(path)):
             if cleanup_incomplete:
                 delete_language_files(locale)
@@ -387,7 +387,6 @@ def translation_zip_url(
     else:
         version = user_version
         if version is None:
-            from ....libs import tools_qgis
             version, _ = tools_qgis.get_plugin_version()
         version_path = resolve_translation_version_path(version, available_versions)
     return f"{base}/{version_path}/{filename}"
@@ -547,12 +546,112 @@ def set_locale_active(
                ON CONFLICT (locale) DO UPDATE SET
                  name = excluded.name,
                  active = excluded.active,
-                 version = excluded.version,
-                 active_multilang = excluded.active_multilang""",
+                 version = excluded.version""",
             (folder, name or folder, 1 if active else 0, version),
         )
     cursor.connection.commit()
     return True
+
+
+def set_locale_active_multilang(
+    locale: str,
+    active: bool,
+    *,
+    name: str | None = None,
+) -> bool:
+    """Set ``locales.active_multilang`` for a locale. Does not change plugin ``active``."""
+    from ...utils import tools_gw
+
+    status, cursor = tools_gw.create_sqlite_conn("locales")
+    if not status or cursor is None:
+        return False
+    folder = normalize_language_folder(locale)
+    flag = 1 if active else 0
+    cursor.execute("SELECT 1 FROM locales WHERE locale = ?", (folder,))
+    if cursor.fetchone():
+        cursor.execute(
+            "UPDATE locales SET active_multilang = ? WHERE locale = ?",
+            (flag, folder),
+        )
+    else:
+        cursor.execute(
+            """INSERT INTO locales (locale, name, active, version, active_multilang)
+               VALUES (?, ?, 0, NULL, ?)
+               ON CONFLICT (locale) DO UPDATE SET
+                 name = COALESCE(excluded.name, locales.name),
+                 active_multilang = excluded.active_multilang""",
+            (folder, name or folder, flag),
+        )
+    cursor.connection.commit()
+    return True
+
+
+def update_active_multilang_flags(updates: list[tuple[int, str]]) -> bool:
+    """Batch-update ``active_multilang`` as ``(flag, locale)`` pairs."""
+    if not updates:
+        return True
+    from ...utils import tools_gw
+
+    status, cursor = tools_gw.create_sqlite_conn("locales")
+    if not status or cursor is None:
+        return False
+    cursor.executemany(
+        "UPDATE locales SET active_multilang = ? WHERE locale = ?",
+        updates,
+    )
+    cursor.connection.commit()
+    return True
+
+
+def list_locales_for_combo(
+    *,
+    flag: str = "active",
+) -> list[tuple[str, str]] | None:
+    """Return ``(locale, name)`` rows for combos. ``flag`` is ``active`` or ``active_multilang``.
+
+    Returns ``None`` when the config database is unavailable.
+    """
+    if flag not in ("active", "active_multilang"):
+        msg = "Unsupported locales combo flag: {0}"
+        msg_params = (flag,)
+        tools_qgis.show_warning(msg, msg_params=msg_params)
+        return None
+    from ...utils import tools_gw
+
+    status, cursor = tools_gw.create_sqlite_conn("locales")
+    if not status or cursor is None:
+        return None
+    cursor.execute(
+        f"SELECT locale, name FROM locales WHERE {flag} = 1 ORDER BY name"
+    )
+    return [(str(locale), str(name or locale)) for locale, name in cursor.fetchall()]
+
+
+def list_plugin_locales_for_multilang() -> (
+    list[tuple[str, str, int | bool | None, str | None]] | None
+):
+    """Return plugin-active locale rows for the Multilang dialog.
+
+    Each row is ``(locale, name, active_multilang, version)``, including ``en_US``
+    even when not marked plugin-active. Returns ``None`` when config DB is unavailable.
+    """
+    from ...utils import tools_gw
+
+    status, cursor = tools_gw.create_sqlite_conn("locales")
+    if not status or cursor is None:
+        return None
+    cursor.execute(
+        "SELECT locale, name, active_multilang, version FROM locales "
+        "WHERE id IN ("
+        "  SELECT MIN(id) FROM locales "
+        "  WHERE active = 1 OR lower(locale) = 'en_us' "
+        "  GROUP BY locale"
+        ") ORDER BY name"
+    )
+    return [
+        (str(locale), name, active_multilang, version)
+        for locale, name, active_multilang, version in cursor.fetchall()
+    ]
 
 
 def locale_likely_needs_download(locale: str, required_version: str | None) -> bool:
@@ -561,7 +660,7 @@ def locale_likely_needs_download(locale: str, required_version: str | None) -> b
 
     Used on the UI thread to decide whether to start a provision task.
     """
-    if locale.lower() == "en_us":
+    if is_no_translation_locale(locale):
         return False
     if not language_files_exist(locale, cleanup_incomplete=False):
         return True
@@ -578,7 +677,7 @@ def locale_needs_download(
     available_versions: list[str] | None = None,
 ) -> bool:
     """True when local files are missing or the installed package is older than required."""
-    if locale.lower() == "en_us":
+    if is_no_translation_locale(locale):
         return False
     if not language_files_exist(locale):
         return True
@@ -650,7 +749,6 @@ def collect_locale_requirements(
     highest_schema_version = max_version(req.version for req in by_locale.values())
     if highest_schema_version is None:
         try:
-            from ....libs import tools_qgis
             plugin_version, _ = tools_qgis.get_plugin_version()
             highest_schema_version = plugin_version
         except Exception:
@@ -744,7 +842,8 @@ def fetch_languages() -> dict[str, str]:
     if not isinstance(payload, dict):
         msg = "Unexpected languages payload from ({0})"
         msg_params = (endpoint,)
-        raise ValueError(tools_qt.tr(msg, list_params=msg_params))
+        tools_qgis.show_warning(msg, msg_params=msg_params)
+        return {}
     return {str(locale): str(name) for locale, name in payload.items()}
 
 
@@ -783,8 +882,7 @@ def reconcile_downloaded_locales(
                        ON CONFLICT (locale) DO UPDATE SET
                          name = excluded.name,
                          active = excluded.active,
-                         version = excluded.version,
-                         active_multilang = excluded.active_multilang""",
+                         version = excluded.version""",
                     (locale, name, version),
                 )
         elif locale in db_locales and db_locales[locale][1]:

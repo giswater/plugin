@@ -9,7 +9,7 @@ from qgis.PyQt.QtCore import pyqtSignal
 
 from .task import GwTask
 from ...libs import tools_log
-from ..admin.i18n.i18n_language_service import (
+from ..admin.i18n.language_shared_functions import (
     LocaleRequirement,
     ProvisionResult,
     get_available_versions,
