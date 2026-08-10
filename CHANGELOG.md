@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `btn_child` to campaign manager dialog to create a child campaign.
 
+### Fixed
+
+- Fix open dialogs to skip database connection check when `skip_db_check` is True.
+
 ## [4.16.1] - 2026-07-31
 
 ### Added

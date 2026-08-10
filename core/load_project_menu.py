@@ -174,7 +174,7 @@ class GwMenuLoad(QObject):
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
         # Open dialog
-        tools_gw.open_dialog(self.dlg_manage_menu, dlg_name='load_menu', title="Advanced Menu")
+        tools_gw.open_dialog(self.dlg_manage_menu, dlg_name='load_menu', title="Advanced Menu", skip_db_check=True)
 
     def _reset_position_dialog(self):
         """ Reset position dialog x/y """

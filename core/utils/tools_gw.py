@@ -505,11 +505,12 @@ def open_help_link(context, uiname, dlg=None):
     tools_os.open_file(file_path)
 
 
-def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, hide_config_widgets=False, plugin_dir=lib_vars.plugin_dir, plugin_name=lib_vars.plugin_name):
+def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, title_params=None, hide_config_widgets=False, plugin_dir=lib_vars.plugin_dir, plugin_name=lib_vars.plugin_name, skip_db_check=False):
     """ Open dialog """
     # Check database connection before opening dialog
-    if dlg_name not in ('admin_credentials', 'admin', 'load_menu') and not check_db_connection():
-        tools_qgis.show_warning("Database connection is not available")
+    if skip_db_check is False and not check_db_connection():
+        msg = "Database connection is not available"
+        tools_qgis.show_warning(msg)
         return
 
     # Manage translate
