@@ -254,7 +254,13 @@ INSERT INTO am.config_engine_def (
 	('nrw_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'ANC', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
 	('affected_users_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Affected users', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
 	('strategic_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-	('compliance_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE')
+	('compliance_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+	('affected_arcs_1', '0.0', 'WM', NULL,
+	 'Weight for nodes between arcs planned in the linked ARC result (share of adjacent arcs in that plan). Locked to 0 when no ARC result is linked.',
+	 true, 'lyt_engine_1', 9, 'Affected Arcs', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+	('affected_arcs_2', '0.0', 'WM', NULL,
+	 'Weight for nodes between arcs planned in the linked ARC result (share of adjacent arcs in that plan). Locked to 0 when no ARC result is linked.',
+	 true, 'lyt_engine_2', 9, 'Affected Arcs', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE')
 ON CONFLICT (parameter, method, asset_type) DO NOTHING;
 
 -- Drop retired NODE indicator affected_flow (redistribute param_2 defaults to sum 1)
@@ -956,3 +962,29 @@ BEGIN
 		ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 	$sys$, v_parent);
 END $$;
+
+-- NODE Engine: Affected Arcs — weights in both iterations (tied to linked ARC result)
+DELETE FROM am.config_engine
+WHERE parameter = 'affected_arcs' AND asset_type = 'NODE';
+DELETE FROM am.config_engine_def
+WHERE parameter = 'affected_arcs' AND method = 'WM' AND asset_type = 'NODE';
+
+INSERT INTO am.config_engine_def (
+	parameter, value, method, round, descript, active, layoutname, layoutorder,
+	label, datatype, widgettype, dv_querytext, dv_controls, ismandatory, iseditable,
+	stylesheet, widgetcontrols, placeholder, standardvalue, asset_type
+) VALUES
+	('affected_arcs_1', '0.0', 'WM', NULL,
+	 'Weight for nodes between arcs planned in the linked ARC result (share of adjacent arcs in that plan). Locked to 0 when no ARC result is linked.',
+	 true, 'lyt_engine_1', 9, 'Affected Arcs', 'float', 'text',
+	 NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+	('affected_arcs_2', '0.0', 'WM', NULL,
+	 'Weight for nodes between arcs planned in the linked ARC result (share of adjacent arcs in that plan). Locked to 0 when no ARC result is linked.',
+	 true, 'lyt_engine_2', 9, 'Affected Arcs', 'float', 'text',
+	 NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE')
+ON CONFLICT (parameter, method, asset_type) DO UPDATE SET
+	value = EXCLUDED.value,
+	label = EXCLUDED.label,
+	descript = EXCLUDED.descript,
+	layoutname = EXCLUDED.layoutname,
+	layoutorder = EXCLUDED.layoutorder;

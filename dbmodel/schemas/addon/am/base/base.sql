@@ -654,7 +654,13 @@ INSERT INTO config_engine_def (
     ('nrw_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'ANC', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
     ('affected_users_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Affected users', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
     ('strategic_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('compliance_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE');
+    ('compliance_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('affected_arcs_1', '0.0', 'WM', NULL,
+     'Weight for nodes between arcs planned in the linked ARC result (share of adjacent arcs in that plan). Locked to 0 when no ARC result is linked.',
+     true, 'lyt_engine_1', 9, 'Affected Arcs', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('affected_arcs_2', '0.0', 'WM', NULL,
+     'Weight for nodes between arcs planned in the linked ARC result (share of adjacent arcs in that plan). Locked to 0 when no ARC result is linked.',
+     true, 'lyt_engine_2', 9, 'Affected Arcs', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE');
 
 --
 -- config_form_tableview

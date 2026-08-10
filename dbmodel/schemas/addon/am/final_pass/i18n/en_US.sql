@@ -45,7 +45,11 @@ FROM (
     ('operational_condition_1', 'WM', 'Operational condition', 'Operational assessment score of the node', NULL),
     ('operational_condition_2', 'WM', 'Operational condition', 'Operational assessment score of the node', NULL),
     ('affected_users_1', 'WM', 'Affected users', 'Users affected by a potential failure of the node', NULL),
-    ('affected_users_2', 'WM', 'Affected users', 'Users affected by a potential failure of the node', NULL)
+    ('affected_users_2', 'WM', 'Affected users', 'Users affected by a potential failure of the node', NULL),
+    ('affected_arcs_1', 'WM', 'Affected Arcs',
+     'Weight for nodes between arcs planned in the linked ARC result', NULL),
+    ('affected_arcs_2', 'WM', 'Affected Arcs',
+     'Weight for nodes between arcs planned in the linked ARC result', NULL)
 ) AS v(parameter, method, label, descript, placeholder)
 WHERE t.parameter = v.parameter AND t.method = v.method AND t.asset_type = 'NODE';
 

@@ -1569,6 +1569,68 @@ class GwCalculatePriority(GwTask):
         self._emit_report(tools_qt.tr("Task finished!"))
         return True
 
+    def _compute_affected_arcs_raw(self, nodes):
+        """Set affected_arcs_raw = share of adjacent arcs in the linked ARC plan.
+
+        Only nodes with ≥2 adjacent arcs in that plan get a ratio (0–1); others stay
+        None so they score 0. No linked ARC → all None.
+        """
+        for node in nodes:
+            node["affected_arcs_raw"] = None
+        if not nodes or not self.linked_arc_result_id:
+            return
+
+        parent = lib_vars.schema_name
+        if not parent:
+            return
+
+        replaced_rows = tools_db.get_rows(
+            f"""
+            SELECT arc_id
+            FROM am.arc_output
+            WHERE result_id = {int(self.linked_arc_result_id)}
+            """,
+            is_thread=True,
+        ) or []
+        replaced = {row["arc_id"] for row in replaced_rows}
+        if not replaced:
+            return
+
+        adj_rows = tools_db.get_rows(
+            f"""
+            SELECT arc_id, node_1, node_2
+            FROM {parent}.arc
+            WHERE state = 1
+              AND node_1 IS NOT NULL
+              AND node_2 IS NOT NULL
+            """,
+            is_thread=True,
+        ) or []
+        adjacency = {}
+        for row in adj_rows:
+            for node_id in (row["node_1"], row["node_2"]):
+                adjacency.setdefault(node_id, []).append(row["arc_id"])
+
+        scored = 0
+        for node in nodes:
+            arcs = adjacency.get(node["node_id"]) or []
+            if not arcs:
+                continue
+            n_replaced = sum(1 for arc_id in arcs if arc_id in replaced)
+            # "Between two arcs that are going to be modified"
+            if n_replaced < 2:
+                continue
+            node["affected_arcs_raw"] = n_replaced / len(arcs)
+            scored += 1
+
+        if scored:
+            self._emit_report(
+                tools_qt.tr(
+                    "Affected Arcs: {0} nodes scored from linked ARC result.",
+                    list_params=(scored,),
+                )
+            )
+
     def _prepare_nodes_for_wm(self, rows, nrw_by_dma, today_year):
         """ Build NODE WM working rows; skip invalid catalog/material. """
         nodes = []
@@ -1789,6 +1851,7 @@ class GwCalculatePriority(GwTask):
         nodes, invalid_nodecat_id, invalid_material = self._prepare_nodes_for_wm(
             rows, nrw_by_dma, today_year
         )
+        self._compute_affected_arcs_raw(nodes)
 
         if not nodes:
             self._emit_report(
@@ -1812,6 +1875,7 @@ class GwCalculatePriority(GwTask):
             "operational_raw": "operational_condition",
             "nrw_raw": "nrw",
             "affected_users_raw": "affected_users",
+            "affected_arcs_raw": "affected_arcs",
         }
         bounds = {}
         for field in min_max_fields:
@@ -1839,6 +1903,7 @@ class GwCalculatePriority(GwTask):
                 node[f"w{suffix}_affected_users"] = float(self.config_engine[f"affected_users_{suffix}"])
                 node[f"w{suffix}_strategic"] = float(self.config_engine[f"strategic_{suffix}"])
                 node[f"w{suffix}_compliance"] = float(self.config_engine[f"compliance_{suffix}"])
+                node[f"w{suffix}_affected_arcs"] = float(self.config_engine[f"affected_arcs_{suffix}"])
 
             for suffix in ("1", "2"):
                 node[f"val_{suffix}"] = sum(
@@ -1846,7 +1911,7 @@ class GwCalculatePriority(GwTask):
                     for score_name in (
                         "longevity", "incident_history", "structural_condition",
                         "operational_condition", "nrw",
-                        "affected_users", "strategic", "compliance",
+                        "affected_users", "strategic", "compliance", "affected_arcs",
                     )
                 )
 

@@ -484,6 +484,8 @@ class CalculatePriority:
 
         self._fill_engine_options()
         self._load_arc_result_combo()
+        # After combo restore (edit/duplicate): unlock Affected Arcs if ARC is linked
+        self._sync_affected_arcs_widget()
         self._set_signals()
 
         self.dlg_priority.executing = False
@@ -1019,13 +1021,36 @@ class CalculatePriority:
             self._add_total("lyt_engine_1")
             self._add_total("lyt_engine_2")
 
+        self._sync_affected_arcs_widget()
+
     def _get_weight_widgets(self, lyt):
         """ Return engine weight input widgets for a layout """
+
         def is_weight(x):
             """ Return whether field belongs to the given engine layout """
             return x["layoutname"] == lyt
+
         fields = filter(is_weight, self.config_engine_fields)
         return [tools_qt.get_widget(self.dlg_priority, x["widgetname"]) for x in fields]
+
+    def _sync_affected_arcs_widget(self):
+        """Lock Affected Arcs weights to 0 when NODE has no linked ARC result."""
+        dlg = self.dlg_priority
+        widgets = [
+            tools_qt.get_widget(dlg, name)
+            for name in ("affected_arcs_1", "affected_arcs_2")
+        ]
+        widgets = [w for w in widgets if w is not None]
+        if not widgets:
+            return
+        linked = self._get_linked_arc_result_id() if self.asset_type == "NODE" else None
+        if self.asset_type != "NODE" or not linked:
+            for widget in widgets:
+                tools_qt.set_widget_text(dlg, widget, "0")
+                widget.setEnabled(False)
+        else:
+            for widget in widgets:
+                widget.setEnabled(True)
 
     def _manage_hidden_form(self):
         """ Show or hide priority dialog widgets per giswater.config """
@@ -1903,11 +1928,13 @@ class CalculatePriority:
         result_id = tools_qt.get_combo_value(dlg, dlg.cmb_arc_result)
         if not result_id:
             dlg.txt_year.setEnabled(True)
+            self._sync_affected_arcs_widget()
             return
         try:
             result_id = int(result_id)
         except (TypeError, ValueError):
             dlg.txt_year.setEnabled(True)
+            self._sync_affected_arcs_widget()
             return
         row = tools_db.get_row(
             f"""
@@ -1919,6 +1946,7 @@ class CalculatePriority:
         )
         if not row:
             dlg.txt_year.setEnabled(True)
+            self._sync_affected_arcs_widget()
             return
         budget = row["budget"] if not isinstance(row, (list, tuple)) else row[0]
         target_year = row["target_year"] if not isinstance(row, (list, tuple)) else row[1]
@@ -1928,6 +1956,7 @@ class CalculatePriority:
             tools_qt.set_widget_text(dlg, dlg.txt_year, target_year)
         # Horizon must match the linked ARC plan (disabled = gray look)
         dlg.txt_year.setEnabled(False)
+        self._sync_affected_arcs_widget()
 
     # endregion
 
