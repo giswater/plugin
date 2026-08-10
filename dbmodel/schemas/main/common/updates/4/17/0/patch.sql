@@ -535,3 +535,7 @@ UPDATE sys_fprocess
 	SET query_text='SELECT n.node_id, n.nodecat_id, n.the_geom, n.expl_id FROM t_node n WHERE NOT EXISTS (SELECT 1 FROM t_arc a WHERE a.node_1 = n.node_id) AND NOT EXISTS (SELECT 1 FROM t_arc a WHERE a.node_2 = n.node_id)
 AND epa_type !=''UNDEFINED'' AND is_operative'
 	WHERE fid=228;
+
+UPDATE sys_fprocess SET
+fprocess_name = 'Check roughness configuration'
+WHERE fid = 377;
