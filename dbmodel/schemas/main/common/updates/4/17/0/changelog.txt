@@ -1,1 +1,2 @@
 - Fix `gw_fct_linkexitgenerator` to filter links by sector_id > 0 when is called from `gw_fct_pg2epa_fill_data` function.
+- Improve selector_sector to use sector_id >= 0, now users can select also the 0 sector.

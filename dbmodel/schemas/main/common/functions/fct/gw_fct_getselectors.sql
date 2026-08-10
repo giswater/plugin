@@ -213,7 +213,7 @@ BEGIN
 			SELECT sector_id, code, name, descript, expl_id, muni_id, macrosector_id, parent_id, active
 			FROM sector
 			WHERE active
-			AND sector_id > 0
+			AND sector_id >= 0
 			ORDER BY sector_id;
 
 			INSERT INTO temp_macrosector (macrosector_id, code, name, descript, expl_id, muni_id, active)
@@ -283,7 +283,7 @@ BEGIN
 			FROM temp_muni_sector_expl t
 			JOIN temp_exploitation e USING (expl_id)
 			JOIN sector s ON s.sector_id = t.sector_id
-			WHERE s.active AND s.sector_id > 0
+			WHERE s.active AND s.sector_id >= 0
 			ORDER BY s.sector_id
 			ON CONFLICT (sector_id) DO NOTHING;
 

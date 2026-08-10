@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Refactor Go2Epa hydraulic_engine integration to share execute/import flow for WS and UD.
 - Require `hydraulic_engine>=0.7.0` and align Go2Epa runners with its EPANET/SWMM export API.
+- Improve selector_sector to use sector_id >= 0, now users can select also the 0 sector.
 
 ### Fixed
 
