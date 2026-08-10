@@ -1195,6 +1195,26 @@ def _normalize_compare_value(value: Any, column: str) -> str:
     return _normalize_cell_value(value)
 
 
+def _normalize_blob_compare_value(value: Any) -> str:
+    """Blob equality that ignores JSON pretty-printing (newlines, tabs, spacing).
+
+    ``config_report.filterparam`` and friends are stored with arbitrary
+    indentation, so byte equality floods changed detections for blobs whose
+    content is identical. Non-JSON blobs (dbstyle QML) keep exact text.
+    """
+    if isinstance(value, (list, dict)):
+        parsed: Any = value
+    else:
+        text = _normalize_cell_value(value).replace("\r\n", "\n").replace("\r", "\n")
+        if len(text) < 2 or text[0] not in "[{":
+            return text
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return text
+    return json.dumps(sort_keys_deep(parsed), separators=(",", ":"), ensure_ascii=False)
+
+
 def _dict_to_values_tuple(d: dict, keys: list[str]) -> tuple:
     return tuple(_normalize_compare_value(d.get(k, ""), k) for k in keys)
 
@@ -1434,9 +1454,11 @@ def _findings_from_db_row(
         blob_col = _blob_content_column(table_name)
         if not blob_col:
             return []
-        schema_blob = _normalize_cell_value(row.get(blob_col, ""))
-        baseline_blob = _normalize_cell_value(previous_row.get(blob_col, ""))
-        if not schema_blob or schema_blob == baseline_blob:
+        schema_blob = _normalize_blob_compare_value(row.get(blob_col, ""))
+        baseline_blob = _normalize_blob_compare_value(previous_row.get(blob_col, ""))
+        # An absent baseline blob means the API did not expose the column, which
+        # is not evidence of drift; syncing on it would flag every row.
+        if not schema_blob or not baseline_blob or schema_blob == baseline_blob:
             return []
         text_values = _en_us_text_map(row, en_us_columns, require_nonempty=True)
         if not text_values:
@@ -1493,6 +1515,7 @@ def _compare_db_rows(
     for row in _classify_deleted_rows(
         expected_rows, baseline_rows, compare_keys, table_name=table_name
     ):
+        classified_pks.add(_pk_tuple(row, pk_keys))
         findings.extend(
             _findings_from_db_row(
                 row,
@@ -1506,7 +1529,9 @@ def _compare_db_rows(
         )
 
     # Same PK + labels (not in set-diff): still sync drifted content blobs.
-    if _blob_content_column(table_name):
+    blob_col = _blob_content_column(table_name)
+    if blob_col:
+        blob_findings: list[ExtractedString] = []
         for row in expected_rows:
             pk = _pk_tuple(row, pk_keys)
             if pk in classified_pks:
@@ -1514,7 +1539,7 @@ def _compare_db_rows(
             previous = i18n_by_pk.get(pk)
             if previous is None:
                 continue
-            findings.extend(
+            blob_findings.extend(
                 _findings_from_db_row(
                     row,
                     table_name,
@@ -1526,6 +1551,12 @@ def _compare_db_rows(
                     previous_row=previous,
                 )
             )
+        if blob_findings:
+            log.info(
+                "%s/%s: %d detection(s) from %s drift only",
+                table_name, table_org, len(blob_findings), blob_col,
+            )
+        findings.extend(blob_findings)
 
     return findings
 
