@@ -31,7 +31,8 @@ CM="${CM:-cm}"
 AM="${AM:-am}"
 AUDIT="${AUDIT:-audit}"
 PARENT_PROFILE="${PARENT_PROFILE:-empty}"
-SATELLITES="${SATELLITES:-utils,cibs}"
+# Set-but-empty means "no satellites" (i18n lane); only unset falls back to the default.
+SATELLITES="${SATELLITES-utils,cibs}"
 LANGUAGE="${LANGUAGE:-}"
 
 MAIN_LANG=()
