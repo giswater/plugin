@@ -300,3 +300,8 @@ WHERE t.typevalue = 'sys_table_context'
 		SELECT 1 FROM config_typevalue
 		WHERE typevalue = 'sys_table_context' AND (addparam->>'orderBy')::integer = 32
 	);
+
+UPDATE sys_fprocess SET query_text='SELECT node_id, nodecat_id, the_geom, a.active, t_node.expl_id FROM t_node JOIN cat_node c ON id=nodecat_id JOIN cat_feature_node n ON n.id=c.node_type
+LEFT JOIN (SELECT node_id, a.active FROM t_node JOIN (SELECT NULLIF(((json_array_elements_text((graphconfig::json->>''use'')::json))::json->>''nodeParent''), '''')::integer AS node_id, 
+active FROM dma WHERE graphconfig IS NOT NULL )a USING (node_id)) a USING (node_id) WHERE ''DMA'' = ANY(graph_delimiter) AND (a.node_id IS NULL
+OR node_id NOT IN (SELECT NULLIF(json_array_elements_text((graphconfig::json->>''ignore'')::json), '''')::integer FROM dma WHERE active IS TRUE)) AND t_node.state > 0 and verified <> 2 and a.active is false' WHERE fid=180;
