@@ -208,7 +208,8 @@ BEGIN
 		WHERE project_type IN (LOWER('||quote_literal(v_project_type)||'), ''utils'') 
 		AND addparam IS NULL 
 		AND query_text IS NOT NULL 
-		AND function_name ILIKE ''%gw_fct_pg2epa_check_result%'' AND function_name NOT ILIKE ''%gw_fct_pg2epa_check_result_%''
+		AND function_name ILIKE ''%gw_fct_pg2epa_check_result%'' 
+		AND function_name NOT ILIKE ''%gw_fct_pg2epa_check_result\_%''
 		AND active ORDER BY fid ASC
 		';
 
