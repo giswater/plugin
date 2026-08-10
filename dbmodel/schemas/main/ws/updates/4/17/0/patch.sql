@@ -604,3 +604,37 @@ FROM (
 	JOIN vf_connec vf ON vf.connec_id = connec.connec_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
 ) a;
+
+UPDATE sys_fprocess SET query_text='WITH base AS (
+    SELECT l.link_id, l.feature_type, l.exit_type, l.the_geom AS link_geom,
+           c.connec_id, c.conneccat_id, c.the_geom AS connec_geom,
+           c.expl_id, c.arc_id AS connec_arc_id
+    FROM t_link l
+    JOIN t_connec c ON l.feature_id = c.connec_id
+    WHERE l.feature_type = ''CONNEC''
+      AND l.state = 1
+      AND c.state = 1
+),
+matched_arc AS (
+    SELECT DISTINCT b.link_id
+    FROM base b
+    JOIN t_arc a ON ST_DWithin(a.the_geom, ST_EndPoint(b.link_geom), 0.01)
+    WHERE b.exit_type = ''ARC''
+      AND a.state = 1
+      AND (a.arc_id <> b.connec_arc_id OR b.connec_arc_id IS NULL)
+),
+matched_node AS (
+    SELECT DISTINCT b.link_id
+    FROM base b
+    JOIN t_node n ON ST_DWithin(n.the_geom, ST_EndPoint(b.link_geom), 0.01)
+    WHERE b.exit_type IN (''NODE'', ''ARC'')
+      AND n.state = 1
+)
+SELECT b.connec_id, b.conneccat_id, b.connec_geom AS the_geom,
+       b.expl_id, b.feature_type, b.link_id
+FROM base b
+JOIN matched_arc ma ON ma.link_id = b.link_id
+WHERE NOT EXISTS (
+    SELECT 1 FROM matched_node mn WHERE mn.link_id = b.link_id
+)
+ORDER BY b.feature_type, b.link_id' WHERE fid=257;

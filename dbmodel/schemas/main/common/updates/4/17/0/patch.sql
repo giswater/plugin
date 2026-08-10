@@ -305,3 +305,78 @@ UPDATE sys_fprocess SET query_text='SELECT node_id, nodecat_id, the_geom, a.acti
 LEFT JOIN (SELECT node_id, a.active FROM t_node JOIN (SELECT NULLIF(((json_array_elements_text((graphconfig::json->>''use'')::json))::json->>''nodeParent''), '''')::integer AS node_id, 
 active FROM dma WHERE graphconfig IS NOT NULL )a USING (node_id)) a USING (node_id) WHERE ''DMA'' = ANY(graph_delimiter) AND (a.node_id IS NULL
 OR node_id NOT IN (SELECT NULLIF(json_array_elements_text((graphconfig::json->>''ignore'')::json), '''')::integer FROM dma WHERE active IS TRUE)) AND t_node.state > 0 and verified <> 2 and a.active is false' WHERE fid=180;
+
+
+UPDATE sys_fprocess SET query_text='WITH a AS (
+  SELECT arc_id, node_1, node_2, arccat_id, expl_id, state, the_geom
+  FROM t_arc
+  WHERE state = 1
+),
+n1 AS (
+  SELECT a.arc_id, nearest.node_id
+  FROM a
+  CROSS JOIN LATERAL (
+    SELECT node.node_id
+    FROM t_node node
+    WHERE node.state = 1
+      AND ST_DWithin(node.the_geom, ST_StartPoint(a.the_geom), 0.02)
+    ORDER BY node.the_geom <-> ST_StartPoint(a.the_geom)
+    LIMIT 1
+  ) nearest
+),
+n2 AS (
+  SELECT a.arc_id, nearest.node_id
+  FROM a
+  CROSS JOIN LATERAL (
+    SELECT node.node_id
+    FROM t_node node
+    WHERE node.state = 1
+      AND ST_DWithin(node.the_geom, ST_EndPoint(a.the_geom), 0.02)
+    ORDER BY node.the_geom <-> ST_EndPoint(a.the_geom)
+    LIMIT 1
+  ) nearest
+)
+SELECT a.*
+FROM a
+LEFT JOIN n1 ON a.arc_id = n1.arc_id
+LEFT JOIN n2 ON a.arc_id = n2.arc_id
+WHERE a.node_1 IS DISTINCT FROM n1.node_id
+   OR a.node_2 IS DISTINCT FROM n2.node_id' WHERE fid=372;
+UPDATE sys_fprocess SET query_text='with
+mec as ( -- links with startpoint close to connec
+SELECT l.link_id as arc_id, c.conneccat_id as arccat_id, l.the_geom, l.expl_id FROM connec c, link l
+WHERE l.state = 1 and c.state = 1 and ST_DWithin(ST_startpoint(l.the_geom), c.the_geom, 0.01) group by 1,2 ORDER BY 1 DESC
+), 
+moc as ( -- links connected to connec
+SELECT link_id, feature_id, ''417'', l.state, l.the_geom 
+FROM link l JOIN connec c ON feature_id = connec_id WHERE l.state = 1 and l.feature_type = ''CONNEC'') 
+select * from mec where arc_id not in (select link_id from moc)' WHERE fid=417;
+UPDATE sys_fprocess SET query_text='with q_arc as (
+WITH v_state_arc AS (
+SELECT arc_id FROM selector_state, arc
+WHERE arc.state = selector_state.state_id AND selector_state.cur_user = CURRENT_USER
+)
+select * from arc JOIN v_state_arc USING (arc_id))
+SELECT b.* FROM (
+WITH v_state_node AS (SELECT node_id FROM selector_state, node
+WHERE node.state = selector_state.state_id AND selector_state.cur_user = CURRENT_USER)
+SELECT n1.node_id, n1.nodecat_id, n1.sector_id, n1.expl_id, n1.state, n1.the_geom  FROM q_arc, 
+(select * from node JOIN v_state_node USING (node_id)) n1 
+JOIN (SELECT node_1 node_id from q_arc UNION 
+select node_2 FROM q_arc) b USING (node_id) 
+WHERE st_dwithin(q_arc.the_geom, n1.the_geom,0.01) AND n1.node_id NOT IN 
+(node_1, node_2)
+)b, selector_expl e 
+where e.expl_id= b.expl_id AND cur_user=current_user' WHERE fid=432;
+UPDATE sys_fprocess SET query_text='WITH dup AS (
+    SELECT arc_id, arccat_id, state, node_1, node_2, expl_id, the_geom,
+           md5(ST_AsBinary(the_geom)) AS geom_hash
+    FROM ve_arc
+    WHERE state > 0
+)
+SELECT a.arc_id, a.arccat_id, a.state AS state1,
+       b.arc_id AS arc_id_aux,
+       a.node_1, a.node_2, a.expl_id, a.the_geom
+FROM dup a
+JOIN dup b ON a.geom_hash = b.geom_hash
+WHERE a.arc_id != b.arc_id' WHERE fid=479;
