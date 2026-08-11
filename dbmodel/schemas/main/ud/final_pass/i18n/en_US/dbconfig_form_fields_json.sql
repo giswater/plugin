@@ -9,15 +9,7 @@ UPDATE config_param_system SET value = FALSE WHERE parameter = 'admin_config_con
 
 UPDATE config_form_fields AS t SET widgetcontrols = v.text::json FROM (
 	VALUES
-	('btn_accept', 'generic', 'form_visit', 'tab_data', '{"setMultiline":false,"text":"Accept"}'),
-    ('btn_apply', 'generic', 'form_visit', 'tab_file', '{"setMultiline":false,"text":"Apply"}'),
-    ('btn_cancel', 'generic', 'form_visit', 'tab_file', '{"setMultiline":false,"text":"Cancel"}'),
-    ('btn_accept', 'generic', 'link_to_gully', 'tab_none', '{"text":"Accept"}'),
-    ('btn_close', 'generic', 'link_to_gully', 'tab_none', '{"text":"Close"}'),
-    ('btn_accept', 'gully', 'form_feature', 'tab_none', '{"text":"Accept"}'),
-    ('btn_apply', 'gully', 'form_feature', 'tab_none', '{"text":"Apply"}'),
-    ('btn_cancel', 'gully', 'form_feature', 'tab_none', '{"text":"Cancel"}'),
-    ('btn_accept', 'arc', 'form_feature', 'tab_none', '{"text":"Accept"}'),
+	('btn_accept', 'arc', 'form_feature', 'tab_none', '{"text":"Accept"}'),
     ('btn_apply', 'arc', 'form_feature', 'tab_none', '{"text":"Apply"}'),
     ('btn_cancel', 'arc', 'form_feature', 'tab_none', '{"text":"Cancel"}'),
     ('btn_accept', 'connec', 'form_feature', 'tab_none', '{"text":"Accept"}'),
@@ -40,6 +32,9 @@ UPDATE config_form_fields AS t SET widgetcontrols = v.text::json FROM (
     ('btn_cancel', 'generic', 'epa_selector', 'tab_none', '{"text":"Cancel"}'),
     ('btn_accept', 'generic', 'form_featuretype_change', 'tab_none', '{"text":"Accept"}'),
     ('btn_cancel', 'generic', 'form_featuretype_change', 'tab_none', '{"text":"Cancel"}'),
+    ('btn_accept', 'generic', 'form_visit', 'tab_data', '{"setMultiline":false,"text":"Accept"}'),
+    ('btn_apply', 'generic', 'form_visit', 'tab_file', '{"setMultiline":false,"text":"Apply"}'),
+    ('btn_cancel', 'generic', 'form_visit', 'tab_file', '{"setMultiline":false,"text":"Cancel"}'),
     ('btn_options', 'generic', 'go2epa', 'tab_data', '{"text":"Options"}'),
     ('btn_selector', 'generic', 'go2epa', 'tab_data', '{"text":"Selector"}'),
     ('btn_download_inp', 'generic', 'go2epa', 'tab_log', '{"text":"INP File"}'),
@@ -48,6 +43,8 @@ UPDATE config_form_fields AS t SET widgetcontrols = v.text::json FROM (
     ('btn_execute_epa', 'generic', 'go2epa', 'tab_none', '{"text":"Execute"}'),
     ('btn_accept', 'generic', 'link_to_connec', 'tab_none', '{"text":"Accept"}'),
     ('btn_close', 'generic', 'link_to_connec', 'tab_none', '{"text":"Close"}'),
+    ('btn_accept', 'generic', 'link_to_gully', 'tab_none', '{"text":"Accept"}'),
+    ('btn_close', 'generic', 'link_to_gully', 'tab_none', '{"text":"Close"}'),
     ('btn_cancel', 'generic', 'nvo_manager', 'tab_none', '{"text":"Close"}'),
     ('btn_accept', 'generic', 'psector', 'tab_none', '{"text":"Accept"}'),
     ('btn_close', 'generic', 'psector', 'tab_none', '{"text":"Cancel"}'),
@@ -57,9 +54,22 @@ UPDATE config_form_fields AS t SET widgetcontrols = v.text::json FROM (
     ('btn_close', 'generic', 'workspace_manager', 'tab_none', '{"text":"Close"}'),
     ('btn_accept', 'generic', 'workspace_open', 'tab_none', '{"text":"Save"}'),
     ('btn_close', 'generic', 'workspace_open', 'tab_none', '{"text":"Close"}'),
+    ('btn_accept', 'gully', 'form_feature', 'tab_none', '{"text":"Accept"}'),
+    ('btn_apply', 'gully', 'form_feature', 'tab_none', '{"text":"Apply"}'),
+    ('btn_cancel', 'gully', 'form_feature', 'tab_none', '{"text":"Cancel"}'),
+    ('btn_cancel', 'mapzone_manager', 'form_mapzone', 'tab_none', '{"saveValue":false,"text":"Close"}'),
+    ('btn_config', 'mapzone_manager', 'form_mapzone', 'tab_none', '{"onContextMenu":"Config","saveValue":false,"text":"Config"}'),
+    ('btn_create', 'mapzone_manager', 'form_mapzone', 'tab_none', '{"onContextMenu":"Create","saveValue":false,"text":"Create"}'),
+    ('btn_delete', 'mapzone_manager', 'form_mapzone', 'tab_none', '{"onContextMenu":"Delete","saveValue":false,"text":"Delete"}'),
+    ('btn_toggle_active', 'mapzone_manager', 'form_mapzone', 'tab_none', '{"onContextMenu":"Toggle active","saveValue":false,"text":"Toggle active"}'),
+    ('btn_update', 'mapzone_manager', 'form_mapzone', 'tab_none', '{"onContextMenu":"Update","saveValue":false,"text":"Update"}'),
     ('btn_accept', 'node', 'form_feature', 'tab_none', '{"text":"Accept"}'),
     ('btn_apply', 'node', 'form_feature', 'tab_none', '{"text":"Apply"}'),
-    ('btn_cancel', 'node', 'form_feature', 'tab_none', '{"text":"Cancel"}')
+    ('btn_cancel', 'node', 'form_feature', 'tab_none', '{"text":"Cancel"}'),
+    ('btn_close', 'profile_interpolation', 'profile_interpolation', 'tab_none', '{"text":"Close"}'),
+    ('btn_run', 'profile_interpolation', 'profile_interpolation', 'tab_none', '{"text":"Run"}'),
+    ('profileMode', 'profile_interpolation', 'profile_interpolation', 'tab_none', '{"vdefault_value":"SMOOTH"}'),
+    ('type', 'profile_interpolation', 'profile_interpolation', 'tab_none', '{"vdefault_value":"FLOWEXIT"}')
 ) AS v(columnname, formname, formtype, tabname, text)
 WHERE t.columnname = v.columnname AND t.formname = v.formname AND t.formtype = v.formtype AND t.tabname = v.tabname;
 UPDATE config_param_system SET value = TRUE WHERE parameter = 'admin_config_control_trigger';

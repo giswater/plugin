@@ -7,7 +7,10 @@ The program is free software: you can redistribute it and/or modify it under the
 SET search_path = SCHEMA_NAME, public, pg_catalog;
 UPDATE config_report AS t SET alias = v.alias, descript = v.descript FROM (
 	VALUES
-	(100, 'Pipe length by Exploitation and Catalog', NULL),
+	(100, 'Conduit length by exploitation and catalog', NULL),
+    (101, 'Connecs by exploitation', NULL),
+    (105, 'Nodes by exploitation and type', NULL),
+    (100, 'Pipe length by Exploitation and Catalog', NULL),
     (101, 'Connecs by Exploitation', NULL),
     (102, 'Losses & NRW by Exploitation, Dma & Period', NULL),
     (103, 'Total Losses & NRW by Exploitation', NULL),
