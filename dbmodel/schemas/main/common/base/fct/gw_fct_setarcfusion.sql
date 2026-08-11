@@ -39,7 +39,7 @@ v_point_array1 geometry[];
 v_point_array2 geometry[];
 v_count integer;
 v_exists_node_id integer;
-v_new_record record;
+v_new_record "SCHEMA_NAME".arc;
 v_record1 record;
 v_record2 record;
 v_arc_geom geometry;
