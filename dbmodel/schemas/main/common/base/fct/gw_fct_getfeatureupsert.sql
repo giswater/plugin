@@ -141,12 +141,6 @@ v_selected_idval text;
 v_errcontext text;
 v_querystring text;
 v_msgerr json;
-v_ui_lang text;
-v_ml_pref jsonb;
-v_ml_project_type text;
-v_i18n_lb text;
-v_i18n_tt text;
-v_i18n_widgetcontrols jsonb;
 v_elevation numeric(12,4);
 v_staticpressure numeric(12,3);
 label_value text;
@@ -347,7 +341,7 @@ BEGIN
 
 				v_numnodes := (SELECT COUNT(*) FROM ve_node n WHERE ST_DWithin(v_reduced_geometry, n.the_geom, v_node_proximity) AND n.node_id != v_id::integer AND n.state!=0);
 				IF (v_numnodes >1) AND (v_node_proximity_control IS TRUE) THEN
-					v_message = (SELECT concat('Error[1096]:',error_message, v_id,'. ',hint_message) FROM sys_message WHERE id=1096);
+					v_message = (SELECT concat('Error[1096]:',error_message, v_id,'. ',hint_message) FROM v_sys_message WHERE id=1096);
 					v_status = false;
 				END IF;
 
@@ -363,7 +357,7 @@ BEGIN
 
 					-- Control of same node initial and final
 					IF (v_noderecord1.node_id = v_noderecord2.node_id) AND (v_samenode_init_end_control IS TRUE) THEN
-						v_message = (SELECT concat('ERROR-1040:',error_message, v_noderecord1.node_id,'. ',hint_message) FROM sys_message WHERE id=1040);
+						v_message = (SELECT concat('ERROR-1040:',error_message, v_noderecord1.node_id,'. ',hint_message) FROM v_sys_message WHERE id=1040);
 						v_status = false;
 					END IF;
 
@@ -512,7 +506,7 @@ BEGIN
 
 					ELSE
 						v_message = (SELECT concat('ERROR-1042:',error_message, '[node_1]:',v_noderecord1.node_id,'[node_2]:',v_noderecord2.node_id,'. ',hint_message)
-						FROM sys_message WHERE id=1042);
+						FROM v_sys_message WHERE id=1042);
 						v_status = false;
 					END IF;
 				END IF;
@@ -520,14 +514,14 @@ BEGIN
 			ELSIF upper(v_catfeature.feature_type) ='CONNEC' THEN
 				v_numnodes := (SELECT COUNT(*) FROM ve_connec c WHERE ST_DWithin(v_reduced_geometry, c.the_geom, v_connec_proximity) AND c.connec_id != v_id::integer AND c.state!=0);
 				IF (v_numnodes >1) AND (v_connec_proximity_control IS TRUE) THEN
-					v_message = (SELECT concat('ERROR-1044:',error_message, v_id,'. ',hint_message) FROM sys_message WHERE id=1044);
+					v_message = (SELECT concat('ERROR-1044:',error_message, v_id,'. ',hint_message) FROM v_sys_message WHERE id=1044);
 					v_status = false;
 				END IF;
 
 			ELSIF upper(v_catfeature.feature_type) ='GULLY' THEN
 				v_numnodes := (SELECT COUNT(*) FROM ve_gully g WHERE ST_DWithin(v_reduced_geometry, g.the_geom, v_gully_proximity) AND g.gully_id != v_id::integer AND g.state!=0);
 				IF (v_numnodes >1) AND (v_gully_proximity_control IS TRUE) THEN
-					v_message = (SELECT concat('ERROR-1045:',error_message, v_id,'. ',hint_message) FROM sys_message WHERE id=1045);
+					v_message = (SELECT concat('ERROR-1045:',error_message, v_id,'. ',hint_message) FROM v_sys_message WHERE id=1045);
 					v_status = false;
 				END IF;              
 			END IF;
@@ -1235,80 +1229,6 @@ BEGIN
 	IF (SELECT value::boolean FROM config_param_user WHERE parameter='edit_disable_topocontrol' AND cur_user=current_user) IS TRUE THEN
 	  	v_status = TRUE;
  	END IF;
-
-	-- Apply multilang UI translations for info dialog fields
-	v_ml_pref := NULL;
-	v_ui_lang := NULL;
-	v_ml_project_type := NULL;
-	IF to_regnamespace('multilang') IS NOT NULL THEN
-		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
-		v_ui_lang := v_ml_pref->>'lang';
-		v_ml_project_type := v_ml_pref->>'project_type';
-	END IF;
-	IF v_ui_lang IS NOT NULL AND v_fields_array IS NOT NULL THEN
-		FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(v_fields_array))
-		LOOP
-			SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
-			FROM multilang.config_form_fields i
-			WHERE i.project_type = v_ml_project_type
-			  AND (
-				i.formname = v_formname
-				OR i.formname = replace(v_idname, '_id', '')
-				OR v_formname LIKE i.formname
-			  )
-			  AND i.formtype = 'form_feature'
-			  AND i.tabname = COALESCE(aux_json->>'tabname', v_tabname)
-			  AND i.source = aux_json->>'columnname'
-			  AND i.context = 'config_form_fields'
-			  AND i.lang = v_ui_lang
-			ORDER BY CASE
-				WHEN i.formname = v_formname THEN 0
-				WHEN i.formname = replace(v_idname, '_id', '') THEN 1
-				ELSE 2
-			END
-			LIMIT 1;
-			IF v_i18n_lb IS NOT NULL THEN
-				v_fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
-					v_fields_array[(aux_json->>'orderby')::INT], 'label', v_i18n_lb);
-			END IF;
-			IF v_i18n_tt IS NOT NULL THEN
-				v_fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
-					v_fields_array[(aux_json->>'orderby')::INT], 'tooltip', v_i18n_tt);
-			END IF;
-
-			SELECT i."text" INTO v_i18n_widgetcontrols
-			FROM multilang.config_form_fields_json i
-			WHERE i.project_type = v_ml_project_type
-			  AND (
-				i.formname = v_formname
-				OR i.formname = replace(v_idname, '_id', '')
-				OR v_formname LIKE i.formname
-			  )
-			  AND i.formtype = 'form_feature'
-			  AND i.tabname = COALESCE(aux_json->>'tabname', v_tabname)
-			  AND i.source = aux_json->>'columnname'
-			  AND i.context = 'config_form_fields'
-			  AND i.hint = 'widgetcontrols'
-			  AND i.lang = v_ui_lang
-			ORDER BY CASE
-				WHEN i.formname = v_formname THEN 0
-				WHEN i.formname = replace(v_idname, '_id', '') THEN 1
-				ELSE 2
-			END
-			LIMIT 1;
-			IF v_i18n_widgetcontrols IS NOT NULL THEN
-				v_fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
-					v_fields_array[(aux_json->>'orderby')::INT],
-					'widgetcontrols',
-					(COALESCE((v_fields_array[(aux_json->>'orderby')::INT]->'widgetcontrols')::jsonb, '{}'::jsonb)
-						|| v_i18n_widgetcontrols)::json);
-				IF v_i18n_widgetcontrols ? 'text' THEN
-					v_fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
-						v_fields_array[(aux_json->>'orderby')::INT], 'value', v_i18n_widgetcontrols->>'text');
-				END IF;
-			END IF;
-		END LOOP;
-	END IF;
 
 	-- Convert to json
 	v_fields := array_to_json(v_fields_array);

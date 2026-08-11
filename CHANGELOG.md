@@ -10,9 +10,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `observ` column to `inp_dscenario_%` tables.
-- Show hydraulic steps progress in EPA Execute dialog.
 - Add `custom_code_autofill` column to `cat_feature` and `config_mapzones` tables.
 - Materialize graph inundation into `anl_graphinundation` / `v_anl_graphinundation` for QGIS temporal playback.
+- Extend `hydraulic_engine` Go2Epa path to UD (SWMM); fall back to classic EPA when the package is missing.
+- Allow Execute EPA on Linux for UD when `hydraulic_engine` is installed.
+- Add `btn_child` to campaign manager dialog to create a child campaign.
+
+### Changed
+
+- Document macOS QPIP native-library codesign workaround for Go2Epa / `hydraulic_engine` in README.
+- Refactor Go2Epa hydraulic_engine integration to share execute/import flow for WS and UD.
+- Require `hydraulic_engine>=0.7.0` and align Go2Epa runners with its EPANET/SWMM export API.
+
+### Fixed
+
+- Fix Go2Epa hydraulic-engine result import crash when JSON `message` is null (`NoneType` has no attribute `get`).
+- Fix EPANET-only `only_extrema` being passed to SWMM `export_result`.
+- Fix `gw_fct_setsearch` function to use `COALESCE` to handle NULL geometry in `ve_address` table.
+- Fix creation of temporary table `temp_ve_arc_geom_selector` to use `vf_arc` view.
+- Fix performance on `sys_fprocess` queries.
+- Fix open dialogs to skip database connection check when `skip_db_check` is True.
+
+## [4.16.1] - 2026-07-31
+
+### Added
+
+- Show hydraulic steps progress in EPA Execute dialog.
 
 ### Changed
 
@@ -26,10 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix open advanced settings dialog.
 - Update database connection handling.
 - Update condition to exclude 'MINSECTOR' in query text exploitation.
-- Fix show hydraulic-engine EPA progress and cancel mid-run.
 - Comment out repeated paths check for future consideration
 - Reorder utilities icons list.
 - Fix `gw_fct_linktonetwork` function to add `minPipeDiameter` variable for massive process and adjust diameter comparison logic.
+- Fix visits views to use selector filters.
 
 ## [4.16.0] - 2026-07-24
 
@@ -572,7 +595,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.16.0...main
+[unreleased]: https://github.com/giswater/plugin/compare/v4.16.1...main
+[4.16.1]: https://github.com/giswater/plugin/compare/v4.16.0...v4.16.1
 [4.16.0]: https://github.com/giswater/plugin/compare/v4.15.4...v4.16.0
 [4.15.4]: https://github.com/giswater/plugin/compare/v4.15.3...v4.15.4
 [4.15.3]: https://github.com/giswater/plugin/compare/v4.15.2...v4.15.3

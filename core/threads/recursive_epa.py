@@ -251,7 +251,9 @@ class GwRecursiveEpa(GwTask):
         tf = time()  # Final time
         td = tf - t0  # Delta time
         time_remaining = td * (self.total_objects - self.cur_idx)  # Delta time * remaining pages
-        self.time_changed.emit(f"Remaining: {timedelta(seconds=round(time_remaining))} ({self.cur_idx}/{self.total_objects})")
+        msg = "Remaining: {0} ({1}/{2})"
+        msg_params = (timedelta(seconds=round(time_remaining)), self.cur_idx, self.total_objects)
+        self.time_changed.emit(tools_qt.tr(msg, list_params=msg_params))
 
     def execute_go2epa(self, resultname, inpfilename, rptfilename):
 

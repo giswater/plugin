@@ -405,6 +405,8 @@ BEGIN
 			'{"sys_table_id":"ve_gully","sys_id_field":"gully_id","sys_search_field":"gully_id","alias":"Gullies","cat_field":"gullycat_id","orderby":"3","search_type":"gully"}'
 			WHERE  parameter = 'basic_search_network_gully';
 
+			UPDATE config_param_system SET value = 'false' WHERE parameter = 'edit_feature_auto_builtdate';
+
 		ELSIF v_isnew IS FALSE THEN
 
 			-- fix i18n

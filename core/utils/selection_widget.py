@@ -386,10 +386,14 @@ class GwSelectionWidget(QWidget):
         # Skip highlighting for very large datasets to avoid performance issues
         row_count = model.rowCount()
         if row_count > 5000:
-            print(f"Skipping map highlighting for very large dataset ({row_count} features)")
+            msg = "Skipping map highlighting for very large dataset ({0} features)"
+            msg_params = (row_count,)
+            print(tools_qt.tr(msg, list_params=msg_params))
             return
         elif row_count > 1000:
-            print(f"Highlighting large dataset ({row_count} features) - this may take a moment...")
+            msg = "Highlighting large dataset ({0} features) - this may take a moment..."
+            msg_params = (row_count,)
+            print(tools_qt.tr(msg, list_params=msg_params))
 
         # Get feature IDs from table
         id_column_name = f"{feature_type}_id"
@@ -423,7 +427,8 @@ class GwSelectionWidget(QWidget):
         # Create invert selection button
         btn_invert = QPushButton(self)
         tools_gw.add_icon(btn_invert, "183")
-        btn_invert.setToolTip("Invert the current selection in the table")
+        msg = "Invert the current selection in the table"
+        btn_invert.setToolTip(tools_qt.tr(msg))
         btn_invert.clicked.connect(partial(self.invert_table_selection, class_object, dialog, table_object))
         self.lyt_selection.addWidget(btn_invert, 0, self.number_buttons)
         self.number_buttons += 1
@@ -477,7 +482,8 @@ class GwSelectionWidget(QWidget):
         # Create expression button
         self.btn_expression = QToolButton(self)
         tools_gw.add_icon(self.btn_expression, "178")
-        self.btn_expression.setToolTip("Select features by expression")
+        msg = "Select features by expression"
+        self.btn_expression.setToolTip(tools_qt.tr(msg))
         # Connect button click
         self.btn_expression.clicked.connect(partial(self.expression_selection, class_object, dialog, table_object,
                                                   callback, callback_later, callback_later_values))
@@ -523,7 +529,8 @@ class GwSelectionWidget(QWidget):
         """
         btn_zoom_to_selection = QPushButton(self)
         tools_gw.add_icon(btn_zoom_to_selection, "176")
-        btn_zoom_to_selection.setToolTip("Zoom to selection")
+        msg = "Zoom to selection"
+        btn_zoom_to_selection.setToolTip(tools_qt.tr(msg))
         btn_zoom_to_selection.clicked.connect(partial(self.zoom_to_selection, class_object, dialog, table_object))
         self.lyt_selection.addWidget(btn_zoom_to_selection, 0, self.number_buttons)
         self.number_buttons += 1
@@ -543,7 +550,8 @@ class GwSelectionWidget(QWidget):
 
         selection_model = widget_table.selectionModel()
         if not selection_model or not selection_model.hasSelection():
-            tools_qgis.show_warning("Please select an element to zoom to.", dialog=dialog)
+            msg = "Please select an element to zoom to."
+            tools_qgis.show_warning(msg, dialog=dialog)
             return
 
         model = widget_table.model()
@@ -553,7 +561,9 @@ class GwSelectionWidget(QWidget):
         id_column_index = tools_qt.get_col_index_by_col_name(widget_table, id_col_name)
 
         if id_column_index is None:
-            tools_qgis.show_warning(f"Could not find ID column '{id_col_name}'.", dialog=dialog)
+            msg = "Could not find ID column '{0}'."
+            msg_params = (id_col_name,)
+            tools_qgis.show_warning(msg, msg_params=msg_params, dialog=dialog)
             return
 
         selected_rows = selection_model.selectedRows()
@@ -582,7 +592,8 @@ class GwSelectionWidget(QWidget):
         # Create button
         btn_selection_on_top = QPushButton(self)
         tools_gw.add_icon(btn_selection_on_top, "175")
-        btn_selection_on_top.setToolTip("Show selection on top")
+        msg = "Show selection on top"
+        btn_selection_on_top.setToolTip(tools_qt.tr(msg))
         btn_selection_on_top.clicked.connect(partial(self.show_selection_on_top_action, class_object, dialog, table_object, callback_later))
         self.lyt_selection.addWidget(btn_selection_on_top, 0, self.number_buttons)
         self.number_buttons += 1
@@ -597,7 +608,8 @@ class GwSelectionWidget(QWidget):
 
         selection_model = widget_table.selectionModel()
         if not selection_model or not selection_model.hasSelection():
-            tools_qgis.show_warning("Please select a row first", dialog=dialog)
+            msg = "Please select a row first"
+            tools_qgis.show_warning(msg, dialog=dialog)
             return
 
         # Move selection to top using QStandardItemModel

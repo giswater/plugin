@@ -73,8 +73,9 @@ class QuantizedDemands:
 
         self.dlg_epa.btn_ok.setEnabled(False)
         self.dlg_epa.btn_cancel.clicked.disconnect()
+        title = "Quantized Demands"
         self.quantized_demands = GwQuantizedDemands(
-            "Quantized Demands",
+            title,
             self.input_file,
             self.config,
             self.output_folder,
@@ -131,8 +132,9 @@ class QuantizedDemands:
 
         if len(sufixes_that_exist) == 1:
             file = f"{file_name}{sufixes_that_exist[0]}"
-            msg = f"The file {file} already exists. Do you want to overwrite it?"
-            return tools_qt.show_question(msg)
+            msg = "The file {0} already exists. Do you want to overwrite it?"
+            msg_params = (file,)
+            return tools_qt.show_question(msg, msg_params=msg_params)
 
         elif len(sufixes_that_exist) > 1:
             file_names = [f'"{file_name}{sufix}"' for sufix in sufixes_that_exist]
@@ -191,7 +193,7 @@ class QuantizedDemands:
             tools_qt.show_info_box(msg)
             return False
         elif not Path(output_folder).exists():
-            msg = tools_qt.tr('"{0}" does not exist. Please select a valid folder.')
+            msg = '"{0}" does not exist. Please select a valid folder.'
             msg_params = (output_folder,)
             tools_qt.show_info_box(msg, msg_params=msg_params)
             return False
@@ -221,7 +223,10 @@ class ConfigQD:
         required_options = ["model_timestep"]
         for option in required_options:
             if option not in self.options:
-                raise ValueError(f"{option} not found in [OPTIONS] section.")
+                msg = "{0} not found in [OPTIONS] section."
+                msg_params = (option,)
+                tools_qt.show_info_box(msg, msg_params=msg_params)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def _convert2lps(self, value, unit):
         convert_from = {
@@ -257,11 +262,14 @@ class ConfigQD:
                     self._process_input_flows(tokens)
 
         if not self._flow_list:
-            raise ValueError("Values for input flows not informed.")
+            msg = "Values for input flows not informed."
+            raise ValueError(tools_qt.tr(msg))
         if self._flow_list_unit is None:
-            raise ValueError("Unit for values of input flows not informed.")
+            msg = "Unit for values of input flows not informed."
+            raise ValueError(tools_qt.tr(msg))
         if self._flow_list_timestep is None:
-            raise ValueError("Timestep for input flows not informed.")
+            msg = "Timestep for input flows not informed."
+            raise ValueError(tools_qt.tr(msg))
 
         self.input_flows["values"] = [
             self._convert2lps(x, self._flow_list_unit) for x in self._flow_list
@@ -308,7 +316,8 @@ class ConfigQD:
         if value in ("simple", "hourly"):
             self.options["volume_distribution"] = value
         else:
-            raise ValueError("Value_distribution must be SIMPLE or HOURLY.")
+            msg = "Value_distribution must be SIMPLE or HOURLY."
+            raise ValueError(tools_qt.tr(msg))
 
     def _strip_comments(self, str):
         index = str.find(";")

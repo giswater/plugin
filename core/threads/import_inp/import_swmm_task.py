@@ -13,7 +13,7 @@ from typing import Optional
 
 from qgis.PyQt.QtCore import pyqtSignal
 
-from ....libs import lib_vars, tools_db
+from ....libs import lib_vars, tools_db, tools_qt
 from ...utils import tools_gw
 from ...utils.import_inp import lerp_progress, to_yesno, nan_to_none, get_rows, execute_sql, toolsdb_execute_values
 from ..task import GwTask
@@ -103,33 +103,43 @@ class GwImportInpTask(GwTask):
         try:
             from swmm_api.input_file.section_labels import TITLE, FILES  # noqa: F401
         except ImportError:
-            self.exception = (
-                "Python package 'swmm-api' is not installed. "
-                "Please install it using pip or the 'qpip' QGIS plugin."
-            )
+            msg = "Python package 'swmm-api' is not installed. Please install it using pip or the 'qpip' QGIS plugin."
+            self.exception = tools_qt.tr(msg)
             return False
 
         try:
             # Disable triggers except plan trigger
             self._enable_triggers(False, plan_trigger=True)
 
-            self.progress_changed.emit("Validate inputs", self.PROGRESS_INIT, "Validating inputs...", False)
+            message = "Validate inputs"
+            msg = "Validating inputs..."
+            self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_INIT, tools_qt.tr(msg), False)
             self._validate_inputs()
-            self.progress_changed.emit("Validate inputs", self.PROGRESS_VALIDATE, "done!", True)
+            msg = "done!"
+            self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_VALIDATE, tools_qt.tr(msg), True)
 
-            self.progress_changed.emit("Getting options", self.PROGRESS_VALIDATE, "Importing options...", False)
+            message = "Getting options"
+            msg = "Importing options..."
+            self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_VALIDATE, tools_qt.tr(msg), False)
             self._save_options()
-            self.progress_changed.emit("Getting options", self.PROGRESS_OPTIONS, "done!", True)
+            msg = "done!"
+            self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_OPTIONS, tools_qt.tr(msg), True)
 
             if self.network.get(TITLE):
-                self.progress_changed.emit("Getting options", self.PROGRESS_OPTIONS, "Importing title...", False)
+                message = "Getting options"
+                msg = "Importing title..."
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_OPTIONS, tools_qt.tr(msg), False)
                 self._save_title()
-                self.progress_changed.emit("Getting options", self.PROGRESS_OPTIONS, "done!", True)
+                msg = "done!"
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_OPTIONS, tools_qt.tr(msg), True)
 
             if self.network.get(FILES):
-                self.progress_changed.emit("Getting options", self.PROGRESS_OPTIONS, "Importing files...", False)
+                message = "Getting options"
+                msg = "Importing files..."
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_OPTIONS, tools_qt.tr(msg), False)
                 self._save_files()
-                self.progress_changed.emit("Getting options", self.PROGRESS_OPTIONS, "done!", True)
+                msg = "done!"
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_OPTIONS, tools_qt.tr(msg), True)
 
             self._manage_nonvisual()
 
@@ -138,9 +148,12 @@ class GwImportInpTask(GwTask):
             self._manage_visual()
 
             if self.update_municipality:
-                self.progress_changed.emit("Municipality", self.PROGRESS_VISUAL, "Updating municipality...", False)
+                message = "Municipality"
+                msg = "Updating municipality..."
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_VISUAL, tools_qt.tr(msg), False)
                 self._update_municipality()
-                self.progress_changed.emit("Municipality", self.PROGRESS_MUNICIPALITY, "done!", True)
+                msg = "done!"
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_MUNICIPALITY, tools_qt.tr(msg), True)
 
             self._manage_others()
 
@@ -148,18 +161,24 @@ class GwImportInpTask(GwTask):
             self._enable_triggers(False, plan_trigger=True, geometry_trigger=True)
 
             if any(self.manage_flwreg.values()):
-                self.progress_changed.emit("Flow regulators", self.PROGRESS_SOURCES, "Converting to flwreg...", False)
+                message = "Flow regulators"
+                msg = "Converting to flwreg..."
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_SOURCES, tools_qt.tr(msg), False)
                 log_str = self._manage_flwreg()
-                self.progress_changed.emit("Flow regulators", self.PROGRESS_END, "done!", True)
-                self.progress_changed.emit("Flow regulators", self.PROGRESS_END, log_str, True)
+                msg = "done!"
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_END, tools_qt.tr(msg), True)
+                self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_END, tools_qt.tr(log_str), True)
 
             # Enable ALL triggers
             self._enable_triggers(True)
 
             execute_sql("select 1", commit=True, is_thread=True)
-            report_message = '\n'.join([f"{k.upper()} imported: {v}" for k, v in self.results.items()])
-            self.progress_changed.emit("REPORT", self.PROGRESS_END, report_message, True)
-            self.progress_changed.emit("REPORT", self.PROGRESS_END, "ALL DONE! INP successfully imported.", True)
+            msg = "imported"
+            report_message = '\n'.join([f"{k.upper()} {tools_qt.tr(msg)}: {v}" for k, v in self.results.items()])
+            message = "REPORT"
+            self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_END, tools_qt.tr(report_message), True)
+            msg = "ALL DONE! INP successfully imported."
+            self.progress_changed.emit(tools_qt.tr(message), self.PROGRESS_END, tools_qt.tr(msg), True)
             return True
         except Exception:
             self.exception = traceback.format_exc()
@@ -168,10 +187,13 @@ class GwImportInpTask(GwTask):
             return False
 
     def _manage_catalogs(self) -> None:
-        self.progress_changed.emit("Create catalogs", lerp_progress(0, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), "Creating workcat", True)
+        message = "Create catalogs"
+        msg = "Creating workcat"
+        self.progress_changed.emit(tools_qt.tr(message), lerp_progress(0, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), tools_qt.tr(msg), True)
         if self.state != 2:
             self._create_workcat_id()
-        self.progress_changed.emit("Create catalogs", lerp_progress(20, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), "Creating new node catalogs", True)
+        msg = "Creating new node catalogs"
+        self.progress_changed.emit(tools_qt.tr(message), lerp_progress(20, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), tools_qt.tr(msg), True)
         self._create_new_node_catalogs()
 
         # Get existing catalogs in DB
@@ -179,34 +201,43 @@ class GwImportInpTask(GwTask):
         if cat_arc_ids:
             self.arccat_db += [x[0] for x in cat_arc_ids]
 
-        self.progress_changed.emit("Create catalogs", lerp_progress(50, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), "Creating new varc catalogs", True)
+        msg = "Creating new varc catalogs"
+        self.progress_changed.emit(tools_qt.tr(message), lerp_progress(50, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), tools_qt.tr(msg), True)
         self._create_new_varc_catalogs()
-        self.progress_changed.emit("Create catalogs", lerp_progress(70, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), "Creating new pipe catalogs", True)
+        msg = "Creating new pipe catalogs"
+        self.progress_changed.emit(tools_qt.tr(message), lerp_progress(70, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), tools_qt.tr(msg), True)
         self._create_new_conduit_catalogs()
         if any(self.manage_flwreg.values()):
-            self.progress_changed.emit("Create catalogs", lerp_progress(90, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), "Creating new flwreg catalogs", True)
+            msg = "Creating new flwreg catalogs"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(90, self.PROGRESS_OPTIONS, self.PROGRESS_CATALOGS), tools_qt.tr(msg), True)
             self._create_new_flwreg_catalogs()
 
     def _manage_nonvisual(self) -> None:
         from swmm_api.input_file.section_labels import PATTERNS, CURVES, TIMESERIES, CONTROLS, LID_CONTROLS
+        message = "Non-visual objects"
         if self.network.get(PATTERNS):
-            self.progress_changed.emit("Non-visual objects", lerp_progress(0, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), "Importing patterns", True)
+            msg = "Importing patterns"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(0, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), tools_qt.tr(msg), True)
             self._save_patterns()
 
         if self.network.get(CURVES):
-            self.progress_changed.emit("Non-visual objects", lerp_progress(40, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), "Importing curves", True)
+            msg = "Importing curves"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(40, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), tools_qt.tr(msg), True)
             self._save_curves()
 
         if self.network.get(TIMESERIES):
-            self.progress_changed.emit("Non-visual objects", lerp_progress(60, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), "Importing timeseries", True)
+            msg = "Importing timeseries"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(60, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), tools_qt.tr(msg), True)
             self._save_timeseries()
 
         if self.network.get(CONTROLS):
-            self.progress_changed.emit("Non-visual objects", lerp_progress(80, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), "Importing controls", True)
+            msg = "Importing controls"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(80, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), tools_qt.tr(msg), True)
             self._save_controls()
 
         if self.network.get(LID_CONTROLS):
-            self.progress_changed.emit("Non-visual objects", lerp_progress(80, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), "Importing LIDs", True)
+            msg = "Importing LIDs"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(80, self.PROGRESS_CATALOGS, self.PROGRESS_NONVISUAL), tools_qt.tr(msg), True)
             self._save_lids()
 
     def _manage_visual(self) -> None:
@@ -214,58 +245,73 @@ class GwImportInpTask(GwTask):
             JUNCTIONS, OUTFALLS, DIVIDERS, STORAGE, CONDUITS, PUMPS,
             ORIFICES, WEIRS, OUTLETS, RAINGAGES
         )
+        message = "Visual objects"
         if self.network.get(JUNCTIONS):
-            self.progress_changed.emit("Visual objects", lerp_progress(0, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing junctions", True)
+            msg = "Importing junctions"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(0, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_junctions()
 
         if self.network.get(OUTFALLS):
-            self.progress_changed.emit("Visual objects", lerp_progress(30, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing outfalls", True)
+            msg = "Importing outfalls"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(30, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_outfalls()
 
         if self.network.get(DIVIDERS):
-            self.progress_changed.emit("Visual objects", lerp_progress(40, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing dividers", True)
+            msg = "Importing dividers"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(40, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_dividers()
 
         if self.network.get(STORAGE):
-            self.progress_changed.emit("Visual objects", lerp_progress(45, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing storage units", True)
+            msg = "Importing storage units"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(45, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_storage()
 
         if self.network.get(PUMPS):
-            self.progress_changed.emit("Visual objects", lerp_progress(50, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing pumps", True)
+            msg = "Importing pumps"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(50, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_pumps()
 
         if self.network.get(ORIFICES):
-            self.progress_changed.emit("Visual objects", lerp_progress(60, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing orifices", True)
+            msg = "Importing orifices"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(60, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_orifices()
 
         if self.network.get(WEIRS):
-            self.progress_changed.emit("Visual objects", lerp_progress(65, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing weirs", True)
+            msg = "Importing weirs"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(65, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_weirs()
 
         if self.network.get(OUTLETS):
-            self.progress_changed.emit("Visual objects", lerp_progress(70, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing outlets", True)
+            msg = "Importing outlets"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(70, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_outlets()
 
         if self.network.get(CONDUITS):
-            self.progress_changed.emit("Visual objects", lerp_progress(80, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing conduits", True)
+            msg = "Importing conduits"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(80, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_conduits()
 
         if self.network.get(RAINGAGES):
-            self.progress_changed.emit("Visual objects", lerp_progress(95, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), "Importing raingages", True)
+            msg = "Importing raingages"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(95, self.PROGRESS_NONVISUAL, self.PROGRESS_VISUAL), tools_qt.tr(msg), True)
             self._save_raingages()
 
     def _manage_others(self) -> None:
         from swmm_api.input_file.section_labels import INFLOWS, DWF, SUBCATCHMENTS
+        message = "Others"
         if self.network.get(INFLOWS):
-            self.progress_changed.emit("Others", lerp_progress(0, self.PROGRESS_VISUAL, self.PROGRESS_END), "Importing inflows", True)
+            msg = "Importing inflows"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(0, self.PROGRESS_VISUAL, self.PROGRESS_END), tools_qt.tr(msg), True)
             self._save_inflows()
 
         if self.network.get(DWF):
-            self.progress_changed.emit("Others", lerp_progress(20, self.PROGRESS_VISUAL, self.PROGRESS_END), "Importing DWF", True)
+            msg = "Importing DWF"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(20, self.PROGRESS_VISUAL, self.PROGRESS_END), tools_qt.tr(msg), True)
             self._save_dwf()
 
         if self.network.get(SUBCATCHMENTS):
-            self.progress_changed.emit("Others", lerp_progress(40, self.PROGRESS_VISUAL, self.PROGRESS_END), "Importing subcatchments", True)
+            msg = "Importing subcatchments"
+            self.progress_changed.emit(tools_qt.tr(message), lerp_progress(40, self.PROGRESS_VISUAL, self.PROGRESS_END), tools_qt.tr(msg), True)
             self._save_subcatchments()
 
     def _enable_triggers(self, enable: bool, plan_trigger: bool = False, geometry_trigger: bool = False) -> None:
@@ -323,8 +369,8 @@ class GwImportInpTask(GwTask):
             json_result = tools_gw.execute_procedure('gw_fct_import_swmm_flwreg', body, commit=self.force_commit,
                                                     is_thread=True)
             if not json_result or json_result.get('status') != 'Accepted':
-                message = f"Error executing gw_fct_import_swmm_flwreg - {json_result.get('NOSQLERR')}"
-                raise ValueError(message)
+                message = "Error executing gw_fct_import_swmm_flwreg - {0}"
+                raise ValueError(message.format(json_result.get('NOSQLERR')))
             try:
                 if json_result['body']['data']['info']:
                     info = json_result['body']['data']['info']
@@ -622,8 +668,8 @@ class GwImportInpTask(GwTask):
                     new_name = f"{pattern_name}_{i}"
                     if new_name in patterns_db:
                         continue
-                    message = f'The pattern "{pattern_name}" has been renamed to "{new_name}" to avoid a collision with an existing pattern.'
-                    self._log_message(message)
+                    message = 'The pattern "{0}" has been renamed to "{1}" to avoid a collision with an existing pattern.'
+                    self._log_message(tools_qt.tr(message, list_params=(pattern_name, new_name)))
                     self.mappings["patterns"][pattern_name] = new_name
                     pattern_name = new_name
                     break
@@ -662,8 +708,8 @@ class GwImportInpTask(GwTask):
         self.results["curves"] = 0
         for curve_name, curve in self.network[CURVES].items():
             if curve.kind is None:
-                message = f'The "{curve_name}" curve does not have a specified curve type and was not imported.'
-                self._log_message(message)
+                message = 'The "{0}" curve does not have a specified curve type and was not imported.'
+                self._log_message(tools_qt.tr(message, list_params=(curve_name,)))
                 continue
 
             if curve_name in curves_db:
@@ -671,7 +717,8 @@ class GwImportInpTask(GwTask):
                     new_name = f"{curve_name}_{i}"
                     if new_name in curves_db:
                         continue
-                    message = f'The curve "{curve_name}" has been renamed to "{new_name}" to avoid a collision with an existing curve.'
+                    message = 'The curve "{0}" has been renamed to "{1}" to avoid a collision with an existing curve.'
+                    self._log_message(tools_qt.tr(message, list_params=(curve_name, new_name)))
                     self.mappings["curves"][curve_name] = new_name
                     curve_name = new_name
                     break
@@ -726,8 +773,8 @@ class GwImportInpTask(GwTask):
         self.results["timeseries"] = 0
         for ts_name, ts in self.network[TIMESERIES].items():
             if ts is None:
-                message = f'The timeseries "{ts_name}" was not imported.'
-                self._log_message(message)
+                message = 'The timeseries "{0}" was not imported.'
+                self._log_message(tools_qt.tr(message, list_params=(ts_name,)))
                 continue
 
             if ts_name in ts_db:
@@ -735,7 +782,8 @@ class GwImportInpTask(GwTask):
                     new_name = f"{ts_name}_{i}"
                     if new_name in ts_db:
                         continue
-                    message = f'The curve "{ts_name}" has been renamed to "{new_name}" to avoid a collision with an existing curve.'
+                    message = 'The timeseries "{0}" has been renamed to "{1}" to avoid a collision with an existing timeseries.'
+                    self._log_message(tools_qt.tr(message, list_params=(ts_name, new_name)))
                     self.mappings["timeseries"][ts_name] = new_name
                     ts_name = new_name
                     break
@@ -789,8 +837,9 @@ class GwImportInpTask(GwTask):
         for control_name, control in self.network[CONTROLS].items():
             text = control.to_inp_line()
             if text in controls_db:
-                msg = f"The control '{control_name}' is already on database. Skipping..."
-                self._log_message(msg)
+                msg = "The control '{0}' is already on database. Skipping..."
+                msg_params = (control_name,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             sql = "INSERT INTO inp_controls (sector_id, text, active) VALUES (%s, %s, true)"
             params = (self.sector, text)
@@ -813,8 +862,8 @@ class GwImportInpTask(GwTask):
                     new_name = f"{lid_name}_{i}"
                     if new_name in lids_db:
                         continue
-                    message = f'The lid "{lid_name}" has been renamed to "{new_name}" to avoid a collision with an existing lid.'
-                    self._log_message(message)
+                    message = 'The lid "{0}" has been renamed to "{1}" to avoid a collision with an existing lid.'
+                    self._log_message(tools_qt.tr(message, list_params=(lid_name, new_name)))
                     self.mappings["lids"][lid_name] = new_name
                     lid_name = new_name
                     break
@@ -887,7 +936,9 @@ class GwImportInpTask(GwTask):
 
         for j_name, j in self.network[JUNCTIONS].items():
             if j_name not in self.network[COORDINATES]:
-                self._log_message(f"ERROR: JUNCTION '{j_name}' has no coordinates in [COORDINATES] section.")
+                msg = "ERROR: JUNCTION '{0}' has no coordinates in [COORDINATES] section."
+                msg_params = (j_name,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             x, y = self.network[COORDINATES][j_name].x, self.network[COORDINATES][j_name].y
             srid = lib_vars.data_epsg
@@ -999,7 +1050,9 @@ class GwImportInpTask(GwTask):
 
         for o_name, o in self.network[OUTFALLS].items():
             if o_name not in self.network[COORDINATES]:
-                self._log_message(f"ERROR: OUTFALL '{o_name}' has no coordinates in [COORDINATES] section.")
+                msg = "ERROR: OUTFALL '{0}' has no coordinates in [COORDINATES] section."
+                msg_params = (o_name,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             x, y = self.network[COORDINATES][o_name].x, self.network[COORDINATES][o_name].y
             srid = lib_vars.data_epsg
@@ -1045,7 +1098,8 @@ class GwImportInpTask(GwTask):
             print(outfalls)
         self.results["outfalls"] = len(outfalls) if outfalls else 0
         if not outfalls:
-            self._log_message("Outfalls couldn't be inserted!")
+            msg = "Outfalls couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = []
@@ -1112,7 +1166,9 @@ class GwImportInpTask(GwTask):
 
         for d_name, d in self.network[DIVIDERS].items():
             if d_name not in self.network[COORDINATES]:
-                self._log_message(f"ERROR: DIVIDER '{d_name}' has no coordinates in [COORDINATES] section.")
+                msg = "ERROR: DIVIDER '{0}' has no coordinates in [COORDINATES] section."
+                msg_params = (d_name,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             x, y = self.network[COORDINATES][d_name].x, self.network[COORDINATES][d_name].y
             srid = lib_vars.data_epsg
@@ -1161,7 +1217,8 @@ class GwImportInpTask(GwTask):
             print(dividers)
         self.results["dividers"] = len(dividers) if dividers else 0
         if not dividers:
-            self._log_message("Dividers couldn't be inserted!")
+            msg = "Dividers couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = []
@@ -1229,7 +1286,9 @@ class GwImportInpTask(GwTask):
 
         for s_name, s in self.network[STORAGE].items():
             if s_name not in self.network[COORDINATES]:
-                self._log_message(f"ERROR: STORAGE '{s_name}' has no coordinates in [COORDINATES] section.")
+                msg = "ERROR: STORAGE '{0}' has no coordinates in [COORDINATES] section."
+                msg_params = (s_name,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             x, y = self.network[COORDINATES][s_name].x, self.network[COORDINATES][s_name].y
             srid = lib_vars.data_epsg
@@ -1280,7 +1339,8 @@ class GwImportInpTask(GwTask):
             print(storage)
         self.results["storage"] = len(storage) if storage else 0
         if not storage:
-            self._log_message("Dividers couldn't be inserted!")
+            msg = "Storage units couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = []
@@ -1360,7 +1420,9 @@ class GwImportInpTask(GwTask):
                 node_1 = self.node_ids[p.from_node]
                 node_2 = self.node_ids[p.to_node]
             except KeyError as e:
-                self._log_message(f"Node not found: {e}")
+                msg = "Node not found: {0}"
+                msg_params = (e,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             epa_type = "PUMP"
             expl_id = self.exploitation
@@ -1401,7 +1463,8 @@ class GwImportInpTask(GwTask):
             print(pumps)
         self.results["pumps"] = len(pumps) if pumps else 0
         if not pumps:
-            self._log_message("Pumps couldn't be inserted!")
+            msg = "Pumps couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = []
@@ -1479,7 +1542,9 @@ class GwImportInpTask(GwTask):
                 node_1 = self.node_ids[o.from_node]
                 node_2 = self.node_ids[o.to_node]
             except KeyError as e:
-                self._log_message(f"Node not found: {e}")
+                msg = "Node not found: {0}"
+                msg_params = (e,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             xs = self.network[XSECTIONS][o_name]
             epa_type = "ORIFICE"
@@ -1527,7 +1592,8 @@ class GwImportInpTask(GwTask):
             print(orifices)
         self.results["orifices"] = len(orifices) if orifices else 0
         if not orifices:
-            self._log_message("Orifices couldn't be inserted!")
+            msg = "Orifices couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = []
@@ -1607,7 +1673,9 @@ class GwImportInpTask(GwTask):
                 node_1 = self.node_ids[w.from_node]
                 node_2 = self.node_ids[w.to_node]
             except KeyError as e:
-                self._log_message(f"Node not found: {e}")
+                msg = "Node not found: {0}"
+                msg_params = (e,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             xs = self.network[XSECTIONS][w_name]
             epa_type = "WEIR"
@@ -1659,7 +1727,8 @@ class GwImportInpTask(GwTask):
             print(weirs)
         self.results["weirs"] = len(weirs) if weirs else 0
         if not weirs:
-            self._log_message("Weirs couldn't be inserted!")
+            msg = "Weirs couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = []
@@ -1740,7 +1809,9 @@ class GwImportInpTask(GwTask):
                 node_1 = self.node_ids[o.from_node]
                 node_2 = self.node_ids[o.to_node]
             except KeyError as e:
-                self._log_message(f"Node not found: {e}")
+                msg = "Node not found: {0}"
+                msg_params = (e,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             epa_type = "OUTLET"
             expl_id = self.exploitation
@@ -1783,7 +1854,8 @@ class GwImportInpTask(GwTask):
             print(outlets)
         self.results["outlets"] = len(outlets) if outlets else 0
         if not outlets:
-            self._log_message("Outlets couldn't be inserted!")
+            msg = "Outlets couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
         man_params = []
@@ -1858,7 +1930,9 @@ class GwImportInpTask(GwTask):
                 node_1 = self.node_ids[c.from_node]
                 node_2 = self.node_ids[c.to_node]
             except KeyError as e:
-                self._log_message(f"Node not found: {e}")
+                msg = "Node not found: {0}"
+                msg_params = (e,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             xs = self.network[XSECTIONS][c_name]
             if xs.shape == "CUSTOM":
@@ -1920,7 +1994,8 @@ class GwImportInpTask(GwTask):
             print(conduits)
         self.results["conduits"] = len(conduits) if conduits else 0
         if not conduits:
-            self._log_message("Conduits couldn't be inserted!")
+            msg = "Conduits couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg)) 
             return
 
         man_params = []
@@ -1965,7 +2040,9 @@ class GwImportInpTask(GwTask):
 
         for rg_name, rg in self.network[RAINGAGES].items():
             if rg_name not in self.network[SYMBOLS]:
-                self._log_message(f"ERROR: RAINGAGE '{rg_name}' has no coordinates in [SYMBOLS] section.")
+                msg = "ERROR: RAINGAGE '{0}' has no coordinates in [SYMBOLS] section."
+                msg_params = (rg_name,)
+                self._log_message(tools_qt.tr(msg, list_params=msg_params))
                 continue
             x, y = self.network[SYMBOLS][rg_name].x, self.network[SYMBOLS][rg_name].y
             srid = lib_vars.data_epsg
@@ -2004,7 +2081,8 @@ class GwImportInpTask(GwTask):
             print(raingages)
         self.results["raingages"] = len(raingages) if raingages else 0
         if not raingages:
-            self._log_message("Raingages couldn't be inserted!")
+            msg = "Raingages couldn't be inserted!"
+            self._log_message(tools_qt.tr(msg))
             return
 
     def _save_inflows(self):

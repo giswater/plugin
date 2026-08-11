@@ -397,7 +397,9 @@ class ConfigEC:
         ]
         for option in required_options:
             if option not in self.options:
-                raise ValueError(f"{option} not found in [OPTIONS] section.")
+                msg = "{0} not found in [OPTIONS] section."
+                msg_params = (option,)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         self._get_junctions_dmas(inpfile)
         self._get_emitters_coefficients(inpfile)

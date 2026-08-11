@@ -52,7 +52,8 @@ class GwScadaGraph:
         body = {"client": {"cur_user": tools_db.current_user}, "form": form}
         json_result = tools_gw.execute_procedure('gw_fct_get_dialog', body)
         if not json_result or json_result.get('status') != 'Accepted':
-            tools_qgis.show_warning("Failed to load scada graph dialog.")
+            msg = "Failed to load scada graph dialog."
+            tools_qgis.show_warning(msg)
             return
 
         self.dlg = GwScadaGraphUi(self.parent_widget)
@@ -61,7 +62,8 @@ class GwScadaGraph:
         self._cache_node_widgets()
         self._init_snapping()
         self.dlg.rejected.connect(partial(self._on_dialog_closed, self.dlg))
-        tools_gw.open_dialog(self.dlg, dlg_name='scada_graph', title=tools_qt.tr('Scada graph'))
+        title = 'Scada graph'
+        tools_gw.open_dialog(self.dlg, dlg_name='scada_graph', title=title)
 
     def _prepare_dialog_json(self, json_result):
         """ Copy button icons from widgetcontrols into stylesheet """
@@ -107,13 +109,16 @@ class GwScadaGraph:
         object_2 = tools_qt.get_text(
             dialog, self._find_widget(dialog, 'object_2'), return_string_null=False)
         if not object_1 or not object_2:
-            tools_qt.show_info_box(tools_qt.tr('object_1 and object_2 are required.'))
+            msg = "object_1 and object_2 are required."
+            tools_qt.show_info_box(msg)
             return None, None
         if not str(object_1).isdigit() or not str(object_2).isdigit():
-            tools_qt.show_info_box(tools_qt.tr('object_1 and object_2 must be numeric node ids.'))
+            msg = "object_1 and object_2 must be numeric node ids."
+            tools_qt.show_info_box(msg)
             return None, None
         if str(object_1) == str(object_2):
-            tools_qt.show_info_box(tools_qt.tr('object_1 and object_2 must be different.'))
+            msg = "object_1 and object_2 must be different."
+            tools_qt.show_info_box(msg)
             return None, None
         return int(object_1), int(object_2)
 
@@ -185,9 +190,8 @@ class GwScadaGraph:
 
         layer = self._ensure_graph_layer()
         if not layer:
-            tools_qgis.show_warning(
-                tools_qt.tr('Scada graph saved in DB but om_graph layer could not be loaded.'),
-                dialog=dialog)
+            msg = "Scada graph saved in DB but om_graph layer could not be loaded."
+            tools_qgis.show_warning(msg, dialog=dialog)
             return
         layer.dataProvider().reloadData()
         layer.triggerRepaint()
@@ -196,14 +200,13 @@ class GwScadaGraph:
         tools_qgis.select_features_by_expr(layer, expr_obj)
         tools_gw.zoom_to_feature_by_id('om_scada_graph', 'edge_id', edge_id)
         self.canvas.refresh()
-        tools_qgis.show_info(
-            tools_qt.tr('Scada graph edge created'),
-            parameter=str(edge_id),
-            dialog=dialog)
+        msg = "Scada graph edge created"
+        tools_qgis.show_info(msg, parameter=str(edge_id), dialog=dialog)
 
     def activate_snapping(self, target, dialog):
         if self.layer_node is None:
-            tools_qgis.show_warning(tools_qt.tr('Node layer not found in the project.'))
+            msg = "Node layer not found in the project."
+            tools_qgis.show_warning(msg)
             return
         self._disconnect_snapping()
         self._pick_target = target
@@ -236,7 +239,8 @@ class GwScadaGraph:
             return
         node_id = self.snapper_manager.get_snapped_feature(result).attribute('node_id')
         self._set_picked_node(self._pick_target, node_id)
-        tools_qgis.show_info(tools_qt.tr('Node selected'), parameter=str(node_id))
+        msg = "Node selected"
+        tools_qgis.show_info(msg, parameter=str(node_id))
         self._disconnect_snapping()
 
     def _disconnect_snapping(self):

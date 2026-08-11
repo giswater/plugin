@@ -18,11 +18,13 @@ DECLARE
     v_infer_parents boolean;
     v_parent_schema text;
     v_merge jsonb;
+    v_prev_search_path text;
     v_prev record;
     v_environment jsonb;
     v_addparam jsonb;
 BEGIN
-    SET search_path = multilang, public;
+    v_prev_search_path := current_setting('search_path');
+    PERFORM set_config('search_path', 'multilang, public', true);
 
     v_gwversion := (p_data -> 'data') ->> 'gwVersion';
     v_language := COALESCE((p_data -> 'client') ->> 'lang', 'en_US');
@@ -91,6 +93,7 @@ BEGIN
         v_addparam
     );
 
+    PERFORM set_config('search_path', v_prev_search_path, true);
     RETURN json_build_object('status', 'Accepted', 'version', v_gwversion);
 END;
 $BODY$

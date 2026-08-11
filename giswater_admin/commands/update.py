@@ -39,9 +39,10 @@ def run(args: argparse.Namespace, out: Out) -> int:
             conn.close()
             return 1
 
-    # Infer kind + project_version from sys_version unless overridden.
+    # Infer kind + project_version + epsg from sys_version unless overridden.
     kind = args.kind
     project_version = "0.0.0"
+    srid = "25831"
     if conn is not None:
         if not kind:
             kind = h.detect_project_type(conn, args.schema)
@@ -54,7 +55,9 @@ def run(args: argparse.Namespace, out: Out) -> int:
                 return 1
             out.info(f"kind auto-detected: {kind}")
         project_version = h.detect_project_version(conn, args.schema) or "0.0.0"
+        srid = h.detect_project_epsg(conn, args.schema, default=srid)
         out.info(f"current project_version: {project_version}")
+        out.info(f"schema epsg: {srid}")
         from ..engine.version_guard import assert_no_downgrade
 
         err = assert_no_downgrade(
@@ -81,7 +84,8 @@ def run(args: argparse.Namespace, out: Out) -> int:
     target_version = args.to_version or args.plugin_version or getattr(args, "version", None)
     params = BuildParams(
         schema_name=args.schema,
-        srid="0",  # irrelevant for upgrade phases (they don't touch SRID)
+        # Patches still substitute SRID_VALUE (e.g. geometry typemods on views).
+        srid=srid,
         locale=args.locale,
         plugin_version=target_version,
         project_version=project_version,

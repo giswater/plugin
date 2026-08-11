@@ -109,7 +109,9 @@ class AddDemandCheck:
             pressure = addparam["requiredPressure"]
 
             if node_id in nodes:
-                raise ValueError(f"Node {node_id} duplicated in config file.")
+                msg = "Node {0} duplicated in config file."
+                msg_params = (node_id,)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
             nodes[node_id] = {
                 "name": node_id,
@@ -180,15 +182,15 @@ class AddDemandCheck:
         csv_exists = Path(csv_file).exists()
 
         if in_exists and csv_exists:
-            msg = tools_qt.tr('The files "{0}.in" and "{1}.csv" already exist. Do you want to overwrite them?')
+            msg = 'The files "{0}.in" and "{1}.csv" already exist. Do you want to overwrite them?'
             msg_params = (file_name, file_name,)
             return tools_qt.show_question(msg, msg_params=msg_params)
         elif in_exists:
-            msg = tools_qt.tr('The file "{0}.in" already exists. Do you want to overwrite it?')
+            msg = 'The file "{0}.in" already exists. Do you want to overwrite it?'
             msg_params = (file_name, file_name,)
             return tools_qt.show_question(msg, msg_params=msg_params)
         elif csv_exists:
-            msg = tools_qt.tr('The file "{0}.csv" already exists. Do you want to overwrite it?')
+            msg = 'The file "{0}.csv" already exists. Do you want to overwrite it?'
             msg_params = (file_name,)
             return tools_qt.show_question(msg, msg_params=msg_params)
 
@@ -302,7 +304,7 @@ class AddDemandCheck:
             tools_qt.show_info_box(msg)
             return False
         elif not Path(output_folder).exists():
-            msg = tools_qt.tr('"{0}" does not exist. Please select a valid folder.')
+            msg = '"{0}" does not exist. Please select a valid folder.'
             msg_params = (output_folder,)
             tools_qt.show_info_box(msg, msg_params=msg_params)
             return False
@@ -329,7 +331,9 @@ class ConfigADC:
         required_options: list[str] = ["max_distance"]
         for option in required_options:
             if option not in self.options:
-                raise ValueError(f"{option} not found in [OPTIONS] section.")
+                msg = "{0} not found in [OPTIONS] section."
+                msg_params = (option,)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
     def _parse_file(self, config_file):
         with open(config_file) as file:
@@ -355,14 +359,17 @@ class ConfigADC:
         node = tokens[0]
 
         if len(tokens) != 3:
-            msg = f"Wrong number of parameters for node {node} in config file."
-            raise ValueError(msg)
+            msg = "Wrong number of parameters for node {0} in config file."
+            msg_params = (node,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         demand = float(tokens[1])
         pressure = float(tokens[2])
 
         if node in self.junctions:
-            raise ValueError(f"Node {node} duplicated in config file.")
+            msg = "Node {0} duplicated in config file."
+            msg_params = (node,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         self.junctions[node] = {
             "name": node,

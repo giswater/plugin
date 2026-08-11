@@ -182,7 +182,9 @@ class GwI18NLocalesTableBase(GwI18NManageLanguagesUi):
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = i18n_service.json.loads(response.read().decode())
         if not isinstance(payload, dict):
-            raise ValueError(f"Unexpected languages payload from {endpoint}")
+            msg = "Unexpected languages payload from {0}"
+            msg_params = (endpoint,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
         return payload
 
     def load_downloaded_locales(self, locales: dict[str, str]) -> dict[str, tuple[str, str | None]]:
@@ -380,7 +382,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
     def _on_download(self) -> None:
         locale = self._selected_locale()
         if not locale:
-            msg = "Select a locale"
+            msg = "Select a language"
             tools_qt.show_info_box(msg)
             return
         self._action_download(locale)
@@ -388,7 +390,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
     def _on_update(self) -> None:
         locale = self._selected_locale()
         if not locale:
-            msg = "Select a locale"
+            msg = "Select a language"
             tools_qt.show_info_box(msg)
             return
 
@@ -408,7 +410,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
     def _on_delete(self) -> None:
         locale = self._selected_locale()
         if not locale:
-            msg = "Select a locale"
+            msg = "Select a language"
             tools_qt.show_info_box(msg)
             return
         self._action_delete(locale)
@@ -450,7 +452,10 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
                 self.possible_locales.append((locale, name, False, None))
 
         if self._offline:
-            msg = "Could not reach the translations server. Showing downloaded languages only."
+            msg = (
+                "Could not reach the translations server. "
+                "Showing downloaded languages only."
+            )
             tools_qt.show_warning_box(msg)
 
     def _set_locale_active(
@@ -484,7 +489,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
     def _action_download(self, locale: str, force: bool = False) -> None:
         if locale in self._busy_locales:
             return
-        msg = f"Do you want to download local language files for ({locale})?"
+        msg = "Do you want to download local language files for ({0})?"
         title = "Download language files?"
         msg_params = (locale,)
         if not force and not tools_qt.show_question(msg, title, msg_params=msg_params):
@@ -513,9 +518,9 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
                     msg_params = (locale, ", ".join(usages))
                     tools_qt.show_warning_box(msg, msg_params=msg_params)
                     return
-            msg = "Delete local language files for ({0})?"
+            msg = "Do you want to delete local language files for ({0})?"
             msg_params = (locale,)
-            title = "Delete language files"
+            title = "Delete language files?"
             if not force and not tools_qt.show_question(msg, title, msg_params=msg_params):
                 return
             ok, error = i18n_service.delete_language_files(locale)
@@ -529,7 +534,13 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
                 if not self._set_locale_active(locale, False):
                     return
                 self._update_locale_state(locale, active=False, version=None)
-                self._manager._populate_language_combo(mode="hot_update")
+
+                # Populate language combo for hot update and create project
+                if hasattr(self._manager, "_populate_language_combo"):
+                    self._manager._populate_language_combo(mode="hot_update")
+                if hasattr(self._manager, "_populate_language_combo_create_project"):
+                    self._manager._populate_language_combo_create_project()
+                    
                 msg = "Language files deleted and locale deactivated ({0})."
                 msg_params = (locale,)
                 tools_qt.show_info_box(msg, msg_params=msg_params)
@@ -554,7 +565,13 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
         if not self._set_locale_active(locale, True, version=version):
             return
         self._update_locale_state(locale, active=True, version=version)
-        self._manager._populate_language_combo(mode="hot_update")
+
+        # Populate language combo for hot update and create project
+        if hasattr(self._manager, "_populate_language_combo"):
+            self._manager._populate_language_combo(mode="hot_update")
+        if hasattr(self._manager, "_populate_language_combo_create_project"):
+            self._manager._populate_language_combo_create_project()
+
         if not force:
             msg = "Language files downloaded and locale activated ({0})."
             msg_params = (locale,)

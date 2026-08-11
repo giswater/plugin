@@ -944,7 +944,8 @@ class GwInfo(QObject):
                         {"tbl": "tbl_dscenario", "view": "inp_dscenario_flwreg_orifice", "add_view": "ve_inp_dscenario_flwreg_orifice", "pk": ["dscenario_id", "nodarc_id"], "add_dlg_title": "Orifice - Dscenario"}
                        ]}
         kwargs = {"complet_result": self.complet_result, "class": self, "func_params": func_params}
-        open_epa_dlg("Orifice", **kwargs)
+        title = "Orifice"
+        open_epa_dlg(title, **kwargs)
 
     def _open_outlet_dlg(self):
         # kwargs
@@ -954,7 +955,8 @@ class GwInfo(QObject):
                         {"tbl": "tbl_dscenario", "view": "inp_dscenario_flwreg_outlet", "add_view": "ve_inp_dscenario_flwreg_outlet", "pk": ["dscenario_id", "nodarc_id"], "add_dlg_title": "Outlet - Dscenario"}
                        ]}
         kwargs = {"complet_result": self.complet_result, "class": self, "func_params": func_params}
-        open_epa_dlg("Outlet", **kwargs)
+        title = "Outlet"
+        open_epa_dlg(title, **kwargs)
 
     def _open_weir_dlg(self):
         # kwargs
@@ -964,7 +966,8 @@ class GwInfo(QObject):
                         {"tbl": "tbl_dscenario", "view": "inp_dscenario_flwreg_weir", "add_view": "ve_inp_dscenario_flwreg_weir", "pk": ["dscenario_id", "nodarc_id"], "add_dlg_title": "Weir - Dscenario"}
                        ]}
         kwargs = {"complet_result": self.complet_result, "class": self, "func_params": func_params}
-        open_epa_dlg("Weir", **kwargs)
+        title = "Weir"
+        open_epa_dlg(title, **kwargs)
 
     def _open_demand_dlg(self):
         # kwargs
@@ -973,7 +976,8 @@ class GwInfo(QObject):
                         {"tbl": "tbl_dscenario", "view": "inp_dscenario_demand", "add_view": "ve_inp_dscenario_demand", "id_name": "feature_id", "pk": ["dscenario_id", "feature_id"], "add_dlg_title": "Demand - Dscenario"}
                        ]}
         kwargs = {"complet_result": self.complet_result, "class": self, "func_params": func_params}
-        open_epa_dlg("Demand", **kwargs)
+        title = "Demand"
+        open_epa_dlg(title, **kwargs)
 
     def _open_dwf_dlg(self):
         # kwargs
@@ -983,7 +987,8 @@ class GwInfo(QObject):
                         {"tbl": "tbl_inflows", "view": "inp_dscenario_inflows", "pk": ["dscenario_id", "node_id", "order_id"], "add_view": "ve_inp_dscenario_inflows", "add_dlg_title": "INFLOWS - Dscenario"}
                        ]}
         kwargs = {"complet_result": self.complet_result, "class": self, "func_params": func_params}
-        open_epa_dlg("DWF & INFLOWS", **kwargs)
+        title = "DWF & INFLOWS"
+        open_epa_dlg(title, **kwargs)
 
     def action_open_link(self):
         """ Manage def open_file from action 'Open Link' """
@@ -1463,8 +1468,7 @@ class GwInfo(QObject):
         # Select only first element of the feature list
         feature = feature_list[0]
         feature_id = feature.attribute(str(self.feature_type) + '_id')
-        msg = (f'''{tools_qt.tr('Selected snapped feature_id to copy values from')}: {snapped_feature_attr[0]}\n'''
-               f'''{tools_qt.tr('Do you want to copy its values to the current node?')}\n\n''')
+        snapped_id = snapped_feature_attr[0]
         # Replace id because we don't have to copy it!
         snapped_feature_attr[0] = feature_id
         snapped_feature_attr_aux = []
@@ -1483,12 +1487,19 @@ class GwInfo(QObject):
                     snapped_feature_attr_aux.append(snapped_feature_attr[i])
                     fields_aux.append(fields[i].name())
 
-        for i in range(0, len(fields_aux)):
-            msg += f"{fields_aux[i]}: {snapped_feature_attr_aux[i]}\n"
+        fields_text = "\n".join(
+            f"{fields_aux[i]}: {snapped_feature_attr_aux[i]}" for i in range(0, len(fields_aux))
+        )
 
         # Ask confirmation question showing fields that will be copied
+        msg = (
+            "Selected snapped feature_id to copy values from: {0}\n"
+            "Do you want to copy its values to the current node?\n\n"
+            "{1}"
+        )
+        msg_params = (snapped_id, fields_text)
         title = "Update records"
-        answer = tools_qt.show_question(msg, title, None)
+        answer = tools_qt.show_question(msg, title, msg_params=msg_params)
         if answer:
             for i in range(0, len(fields)):
                 for x in range(0, len(fields_aux)):
@@ -1720,8 +1731,8 @@ class GwInfo(QObject):
 
     def _ask_for_save(self, action_edit, fid):
 
-        msg = tools_qt.tr('Are you sure to save this feature?')
-        title = tools_qt.tr("Save feature")
+        msg = 'Are you sure to save this feature?'
+        title = "Save feature"
         answer = tools_qt.show_question(msg, title, None, parameter=fid)
         if not answer:
             tools_qt.set_action_checked(action_edit, True)
@@ -1884,7 +1895,7 @@ class GwInfo(QObject):
             if "Failed" in json_result['status']:
                 msg = json_result['message']['text']
                 if msg is None:
-                    msg = tools_qt.tr('Feature not upserted')
+                    msg = 'Feature not upserted'
                 msg_level = json_result['message']['level']
                 if msg_level is None:
                     msg_level = 2
@@ -1895,7 +1906,7 @@ class GwInfo(QObject):
             if "Accepted" in json_result['status']:
                 msg = json_result['message']['text']
                 if msg is None:
-                    msg = tools_qt.tr('Feature upserted')
+                    msg = 'Feature upserted'
                 msg_level = json_result['message']['level']
                 if msg_level is None:
                     msg_level = 1
@@ -2485,7 +2496,8 @@ class GwInfo(QObject):
         if json_response and json_response['status'] != "Failed":
             # Refresh canvas & send a message
             tools_qgis.refresh_map_canvas()
-            tools_qgis.show_info(tools_qt.tr("Node set correctly"), dialog=dialog)
+            msg = "Node set correctly"
+            tools_qgis.show_info(msg, dialog=dialog)
 
             # Delete lineedit
             widget.deleteLater()
@@ -2499,7 +2511,8 @@ class GwInfo(QObject):
             if layout is not None:
                 layout.addWidget(new_widget, int(field['layoutorder']), 2)
             return
-        tools_qgis.show_warning(tools_qt.tr("Error setting node"), dialog=dialog)
+        msg = "Error setting node"
+        tools_qgis.show_warning(msg, dialog=dialog)
 
     def _open_catalog(self, tab_type, feature_type, child_type):
 
@@ -2766,8 +2779,9 @@ class GwInfo(QObject):
             widgetname = table.objectName()
             columnname = table.property('columnname')
             if columnname is None:
-                msg = f"widget {widgetname} in tab {self.tab_main.widget(index_tab).objectName()} has not columnname and cant be configured"
-                tools_qgis.show_info(msg, 3)
+                msg = "widget {0} in tab {1} has not columnname and cant be configured"
+                msg_params = (widgetname, self.tab_main.widget(index_tab).objectName())
+                tools_qgis.show_info(msg, 3, msg_params=msg_params)
                 continue
             linkedobject = table.property('linkedobject')
             if linkedobject is None:
@@ -3114,7 +3128,8 @@ class GwInfo(QObject):
                 #       def _set_to_arc(self, dialog, feat_id, child_type, widget_name, simple=False)
                 getattr(self, options[option][1])(dialog, feat_id, child_type, widget_name, simple=True)
         except Exception as e:
-            tools_qgis.show_warning(tools_qt.tr("Exception in info (def _get_id)"), parameter=e)
+            msg = "Exception in info (def _get_id)"
+            tools_qgis.show_warning(msg, parameter=e)
         finally:
             self._cancel_snapping_tool(dialog, action)
 
@@ -3175,7 +3190,9 @@ class GwInfo(QObject):
                 widget.setReadOnly(False)
                 widget.editingFinished.emit()  # Emit signal to indicate value has changed
         else:
-            tools_qgis.show_warning(f"Widget '{widget_name}' not found in the dialog.")
+            msg = "Widget '{0}' not found in the dialog."
+            msg_params = (widget_name,)
+            tools_qgis.show_warning(msg, msg_params=msg_params)
 
     def _cancel_snapping_tool(self, dialog, action):
 
@@ -3406,7 +3423,7 @@ def open_epa_dlg(windowtitle, **kwargs):
     # Build dlg
     info.dlg = globals()[ui](info)
     tools_gw.load_settings(info.dlg)
-    info.dlg.setWindowTitle(windowtitle)
+    info.dlg.setWindowTitle(tools_qt.tr(windowtitle))
 
     if windowtitle == "DWF & INFLOWS":
         pages = ["page_base", "page_dscenario"]
@@ -3525,35 +3542,43 @@ def _show_context_menu(qtableview, tableview):
 
         menu = QMenu(qtableview)
         if 'dscenario' in tableview['view'] and 'inflows' not in tableview['view']:
-            action_delete = QAction("Delete dscenario", qtableview)
+            title = "Delete dscenario"
+            action_delete = QAction(tools_qt.tr(title), qtableview)
             action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete_dscenario"))
             menu.addAction(action_delete)
 
-            action_edit = QAction("Edit dscenario", qtableview)
+            title = "Edit dscenario"
+            action_edit = QAction(tools_qt.tr(title), qtableview)
             action_edit.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_edit_dscenario"))
             menu.addAction(action_edit)
         elif 'dwf' in tableview['view']:
-            action_delete = QAction("Delete dwf", qtableview)
+            title = "Delete dwf"
+            action_delete = QAction(tools_qt.tr(title), qtableview)
             action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete_dwf"))
             menu.addAction(action_delete)
 
-            action_edit = QAction("Edit dwf", qtableview)
+            title = "Edit dwf"
+            action_edit = QAction(tools_qt.tr(title), qtableview)
             action_edit.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_edit_dwf"))
             menu.addAction(action_edit)
         elif 'inflows' in tableview['view']:
-            action_delete = QAction("Delete inflows", qtableview)
+            title = "Delete inflows"
+            action_delete = QAction(tools_qt.tr(title), qtableview)
             action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete_inflows"))
             menu.addAction(action_delete)
 
-            action_edit = QAction("Edit inflows", qtableview)
+            title = "Edit inflows"
+            action_edit = QAction(tools_qt.tr(title), qtableview)
             action_edit.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_edit_inflows"))
             menu.addAction(action_edit)
         else:
-            action_delete = QAction("Delete base", qtableview)
+            title = "Delete base"
+            action_delete = QAction(tools_qt.tr(title), qtableview)
             action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete_base"))
             menu.addAction(action_delete)
 
-            action_edit = QAction("Edit base", qtableview)
+            title = "Edit base"
+            action_edit = QAction(tools_qt.tr(title), qtableview)
             action_edit.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_edit_base"))
             menu.addAction(action_edit)
 
@@ -3839,7 +3864,8 @@ def accept_add_dlg(dialog, tablename, pkey, feature_id, my_json, complet_result,
             pass
         return
 
-    tools_qgis.show_warning(tools_qt.tr('Error'), parameter=json_result, dialog=dialog)
+    msg = "Error"
+    tools_qgis.show_warning(msg, parameter=json_result, dialog=dialog)
 
 
 def tbl_data_changed(info, view, tbl, model, addparam, index):
@@ -3906,7 +3932,7 @@ def save_tbl_changes(table_name, info, dialog, pk):
     if status:
         tools_gw.close_dialog(dialog)
     else:
-        msg = tools_qt.tr('There are some error in the records with id')
+        msg = 'There are some error in the records with id'
         tools_qgis.show_warning(msg, parameter=list_rows, dialog=dialog)
 
 
@@ -3937,7 +3963,7 @@ def save_widgets_changes(table_name, info, dialog, pk):
     if status:
         tools_gw.close_dialog(dialog)
     else:
-        msg = tools_qt.tr('There are some error in the records with id')
+        msg = 'There are some error in the records with id'
         tools_qgis.show_warning(msg, parameter=id_, dialog=dialog)
 
 
@@ -4138,8 +4164,9 @@ def add_frelem_to_dscenario(**kwargs):
                 continue
             epa_type = row_data[0]
             if epa_type == 'UNDEFINED':
-                message = f"Epa type is not defined for element {element_id}"
-                tools_qgis.show_warning(message, dialog=dialog)
+                message = "Epa type is not defined for element {0}"
+                msg_params = (element_id,)
+                tools_qgis.show_warning(message, msg_params=msg_params, dialog=dialog)
                 continue
             # Add frelem to dscenario
             sql = (f"INSERT INTO ve_inp_dscenario_{epa_type.lower()} (dscenario_id, element_id, node_id) "
