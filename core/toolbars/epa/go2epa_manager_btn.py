@@ -45,6 +45,7 @@ class GwGo2EpaManagerButton(GwAction):
         self.dlg_manager.tab_log_txt_infolog.setReadOnly(True)
         self.dlg_manager.btn_toggle_corporate.setEnabled(False)
         self.dlg_manager.btn_archive.setEnabled(False)
+        self.dlg_manager.btn_toggle_validated.setEnabled(False)
 
         # Populate filter widgets
         self._populate_filters()
@@ -64,6 +65,7 @@ class GwGo2EpaManagerButton(GwAction):
                                                               'result_id'))
         self.dlg_manager.btn_toggle_corporate.clicked.connect(partial(self._epa2data, self.dlg_manager.tbl_rpt_cat_result,
                                                               'result_id'))
+        self.dlg_manager.btn_toggle_validated.clicked.connect(partial(self._toggle_validated))
         self.dlg_manager.btn_delete.clicked.connect(partial(self._multi_rows_delete, self.dlg_manager.tbl_rpt_cat_result,
                                                             'v_ui_rpt_cat_result', 'result_id'))
         selection_model = self.dlg_manager.tbl_rpt_cat_result.selectionModel()
@@ -78,6 +80,7 @@ class GwGo2EpaManagerButton(GwAction):
         self.dlg_manager.date_exec_from.dateChanged.connect(partial(self._fill_manager_table))
         self.dlg_manager.chk_corporate.stateChanged.connect(partial(self._fill_manager_table))
         self.dlg_manager.chk_archived.stateChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.chk_validated.stateChanged.connect(partial(self._fill_manager_table))
 
         # Open form
         tools_gw.open_dialog(self.dlg_manager, dlg_name='go2epa_manager')
@@ -132,6 +135,12 @@ class GwGo2EpaManagerButton(GwAction):
         action_set_corporate.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_toggle_corporate"))
         action_set_corporate.setEnabled(qtableview.window().btn_toggle_corporate.isEnabled())
         menu.addAction(action_set_corporate)
+
+        title = "Toggle validated"
+        action_toggle_validated = QAction(tools_qt.tr(title), qtableview)
+        action_toggle_validated.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_toggle_validated"))
+        action_toggle_validated.setEnabled(qtableview.window().btn_toggle_validated.isEnabled())
+        menu.addAction(action_toggle_validated)
 
         action_delete = QAction("Delete", qtableview)
         action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete"))
@@ -203,6 +212,9 @@ class GwGo2EpaManagerButton(GwAction):
 
         if tools_qt.is_checked(self.dlg_manager, self.dlg_manager.chk_archived):
             filter_fields += ', "status": {"filterSign":"=", "value":"ARCHIVED"}'
+
+        if tools_qt.is_checked(self.dlg_manager, self.dlg_manager.chk_validated):
+            filter_fields += ', "isvalidated": {"filterSign":"=", "value":"true"}'
 
         body = tools_gw.create_body(filter_fields=filter_fields, extras=extras)
         json_result = tools_gw.execute_procedure('gw_fct_getlist', body)
@@ -303,7 +315,7 @@ class GwGo2EpaManagerButton(GwAction):
         tools_qt.set_widget_text(self.dlg_manager, 'tab_log_txt_infolog', msg)
 
     def _enable_buttons(self, selected):
-        set_corporate_enabled, archive_enabled = True, True
+        set_corporate_enabled, archive_enabled, toggle_validated_enabled = True, True, True
         selected_rows = self.dlg_manager.tbl_rpt_cat_result.selectionModel().selectedRows()
         last_status = None
         for idx, index in enumerate(selected_rows):
@@ -330,10 +342,54 @@ class GwGo2EpaManagerButton(GwAction):
                     archive_enabled = False
             last_status = status
 
+            # toggle validated: only PARTIAL or COMPLETED; block unvalidate while corporate
+            if status not in ('PARTIAL', 'COMPLETED'):
+                toggle_validated_enabled = False
+            col_idx = tools_qt.get_col_index_by_col_name(self.dlg_manager.tbl_rpt_cat_result, 'isvalidated')
+            is_validated = False
+            if col_idx is not None:
+                is_validated = tools_os.set_boolean(index.sibling(row, col_idx).data(), False)
+            if is_validated and tools_os.set_boolean(is_corporate, False):
+                toggle_validated_enabled = False
+
         if not selected_rows or len(selected_rows) > 1:
-            set_corporate_enabled, archive_enabled = False, False
+            set_corporate_enabled, archive_enabled, toggle_validated_enabled = False, False, False
         self.dlg_manager.btn_toggle_corporate.setEnabled(set_corporate_enabled)
         self.dlg_manager.btn_archive.setEnabled(archive_enabled)
+        self.dlg_manager.btn_toggle_validated.setEnabled(toggle_validated_enabled)
+
+    def _toggle_validated(self):
+        """ Toggle isvalidated for the selected EPA result. """
+
+        widget = self.dlg_manager.tbl_rpt_cat_result
+        selected_list = widget.selectionModel().selectedRows()
+        if len(selected_list) != 1:
+            msg = "Any record selected"
+            tools_qgis.show_warning(msg, dialog=self.dlg_manager)
+            return
+
+        row = selected_list[0].row()
+        col = tools_qt.get_col_index_by_col_name(widget, 'result_id')
+        result_id = widget.model().index(row, col).data()
+        col = tools_qt.get_col_index_by_col_name(widget, 'status')
+        status = widget.model().index(row, col).data()
+        col = tools_qt.get_col_index_by_col_name(widget, 'isvalidated')
+        is_validated = tools_os.set_boolean(widget.model().index(row, col).data(), False) if col is not None else False
+        col = tools_qt.get_col_index_by_col_name(widget, 'iscorporate')
+        is_corporate = tools_os.set_boolean(widget.model().index(row, col).data(), False) if col is not None else False
+
+        if status not in ('PARTIAL', 'COMPLETED'):
+            msg = "Only PARTIAL or COMPLETED results can be validated"
+            tools_qgis.show_warning(msg, dialog=self.dlg_manager)
+            return
+
+        if is_validated and is_corporate:
+            msg = "Unset corporate before unvalidating this result"
+            tools_qgis.show_warning(msg, dialog=self.dlg_manager)
+            return
+
+        new_value = str(not is_validated).lower()
+        self._update_data(result_id, 'isvalidated', new_value)
 
     def _fill_combo_result_id(self):
 

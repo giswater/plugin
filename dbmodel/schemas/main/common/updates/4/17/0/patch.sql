@@ -380,3 +380,28 @@ SELECT a.arc_id, a.arccat_id, a.state AS state1,
 FROM dup a
 JOIN dup b ON a.geom_hash = b.geom_hash
 WHERE a.arc_id != b.arc_id' WHERE fid=479;
+
+-- Add isvalidated to EPA results
+ALTER TABLE rpt_cat_result ADD COLUMN IF NOT EXISTS isvalidated boolean DEFAULT false;
+UPDATE rpt_cat_result SET isvalidated = false WHERE isvalidated IS NULL;
+ALTER TABLE rpt_cat_result ALTER COLUMN isvalidated SET DEFAULT false;
+ALTER TABLE rpt_cat_result ALTER COLUMN isvalidated SET NOT NULL;
+
+-- Remove DEPRECATED status (legacy; never assigned by Go2Epa UI/API)
+UPDATE rpt_cat_result SET status = 3 WHERE status = 0;  -- ARCHIVED
+DELETE FROM inp_typevalue WHERE typevalue = 'inp_result_status' AND id = '0';
+ALTER TABLE rpt_cat_result DROP CONSTRAINT IF EXISTS rpt_cat_result_status_check;
+ALTER TABLE rpt_cat_result ADD CONSTRAINT rpt_cat_result_status_check
+  CHECK (status = ANY (ARRAY[1, 2, 3, 4]));
+
+INSERT INTO config_form_tableview (location_type, project_type, objectname, columnname, columnindex, visible, width, alias, "style", addparam)
+SELECT
+    'epa_toolbar', 'utils', 'v_ui_rpt_cat_result', 'isvalidated',
+    (SELECT COALESCE(MAX(columnindex), 0) + 1 FROM config_form_tableview
+     WHERE location_type = 'epa_toolbar' AND project_type = 'utils' AND objectname = 'v_ui_rpt_cat_result'),
+    true, NULL, 'Isvalidated', NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM config_form_tableview
+    WHERE location_type = 'epa_toolbar' AND project_type = 'utils'
+      AND objectname = 'v_ui_rpt_cat_result' AND columnname = 'isvalidated'
+);

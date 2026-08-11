@@ -1,0 +1,1 @@
+- Recreate `v_ui_rpt_cat_result` including `isvalidated`.

@@ -297,7 +297,6 @@ UPDATE inp_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
     ('WINDSPEED FILE', 'inp_typevalue_temp', 'WINDSPEED FILE', NULL),
     ('WINDSPEED MONTHLY', 'inp_typevalue_temp', 'WINDSPEED MONTHLY', NULL),
     ('W_O', 'inp_typevalue_gully_method', 'W_O', NULL),
-    ('0', 'inp_result_status', 'DEPRECATED', NULL),
     ('1', 'inp_result_status', 'PARTIAL', NULL),
     ('2', 'inp_result_status', 'COMPLETED', NULL),
     ('3', 'inp_result_status', 'ARCHIVED', NULL),

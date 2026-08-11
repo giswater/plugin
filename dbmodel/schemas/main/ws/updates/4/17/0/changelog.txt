@@ -1,0 +1,2 @@
+- Recreate `v_ui_rpt_cat_result` including `isvalidated`.
+- Set `isvalidated=true` when setting corporate in `gw_fct_epa2data`.

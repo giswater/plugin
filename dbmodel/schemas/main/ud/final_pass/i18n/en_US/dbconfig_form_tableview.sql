@@ -967,6 +967,7 @@ UPDATE config_form_tableview AS t SET alias = v.alias FROM (
     ('v_ui_rpt_cat_result', 'export_options', 'Export options'),
     ('v_ui_rpt_cat_result', 'inp_options', 'Inp options'),
     ('v_ui_rpt_cat_result', 'iscorporate', 'Iscorporate'),
+    ('v_ui_rpt_cat_result', 'isvalidated', 'Isvalidated'),
     ('v_ui_rpt_cat_result', 'network_stats', 'Network stats'),
     ('v_ui_rpt_cat_result', 'network_type', 'Network type'),
     ('v_ui_rpt_cat_result', 'result_id', 'Result id'),
