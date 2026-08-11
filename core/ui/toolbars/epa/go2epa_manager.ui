@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1257</width>
+    <width>1383</width>
     <height>786</height>
    </rect>
   </property>
@@ -95,7 +95,7 @@
           <item row="1" column="7">
            <widget class="QCheckBox" name="chk_archived">
             <property name="text">
-             <string/>
+             <string>Show archived</string>
             </property>
            </widget>
           </item>
@@ -169,24 +169,10 @@
             </property>
            </widget>
           </item>
-          <item row="0" column="6">
-           <widget class="QLabel" name="lbl_validated">
-            <property name="text">
-             <string>Is validated:</string>
-            </property>
-           </widget>
-          </item>
           <item row="0" column="1">
            <widget class="QLabel" name="lbl_expl">
             <property name="text">
              <string>Exploitation:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="5">
-           <widget class="QLabel" name="lbl_corporate">
-            <property name="text">
-             <string>Is corporate:</string>
             </property>
            </widget>
           </item>
@@ -220,14 +206,14 @@
           <item row="1" column="6">
            <widget class="QCheckBox" name="chk_validated">
             <property name="text">
-             <string/>
+             <string>Show validated</string>
             </property>
            </widget>
           </item>
           <item row="1" column="5">
            <widget class="QCheckBox" name="chk_corporate">
             <property name="text">
-             <string/>
+             <string>Show corporate</string>
             </property>
            </widget>
           </item>
@@ -242,13 +228,6 @@
            <widget class="QLabel" name="lbl_status">
             <property name="text">
              <string>Status:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="7">
-           <widget class="QLabel" name="lbl_archived">
-            <property name="text">
-             <string>Archived:</string>
             </property>
            </widget>
           </item>
@@ -289,6 +268,22 @@
   </layout>
  </widget>
  <tabstops>
+  <tabstop>txt_result_id</tabstop>
+  <tabstop>cmb_expl</tabstop>
+  <tabstop>cmb_network_type</tabstop>
+  <tabstop>cmb_status</tabstop>
+  <tabstop>date_exec_from</tabstop>
+  <tabstop>chk_corporate</tabstop>
+  <tabstop>chk_validated</tabstop>
+  <tabstop>chk_archived</tabstop>
+  <tabstop>btn_edit</tabstop>
+  <tabstop>btn_show_inp_data</tabstop>
+  <tabstop>btn_toggle_corporate</tabstop>
+  <tabstop>btn_toggle_validated</tabstop>
+  <tabstop>btn_archive</tabstop>
+  <tabstop>btn_delete</tabstop>
+  <tabstop>tbl_rpt_cat_result</tabstop>
+  <tabstop>tab_log_txt_infolog</tabstop>
   <tabstop>btn_close</tabstop>
  </tabstops>
  <resources/>
