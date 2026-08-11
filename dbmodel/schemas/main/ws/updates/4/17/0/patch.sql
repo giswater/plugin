@@ -1084,3 +1084,446 @@ UPDATE
 
 
 SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE", "batchId":4}}$$);
+
+
+CREATE OR REPLACE VIEW ve_inp_connec
+AS SELECT c.connec_id,
+    c.top_elev,
+    c.depth,
+    c.conneccat_id,
+    c.arc_id,
+    c.expl_id,
+    c.sector_id,
+    c.dma_id,
+    c.state,
+    c.state_type,
+    c.pjoint_type,
+    c.pjoint_id,
+    c.annotation,
+    ic.demand,
+    ic.pattern_id,
+    ic.peak_factor,
+    ic.status,
+    ic.minorloss,
+    ic.custom_roughness,
+    ic.custom_length,
+    ic.custom_dint,
+    ic.emitter_coeff,
+    ic.init_quality,
+    ic.source_type,
+    ic.source_quality,
+    ic.source_pattern_id,
+    c.the_geom,
+    vf.p_state,
+    vf.p_arc_id,
+    vf.p_pjoint_id,
+    vf.p_pjoint_type
+   FROM connec c
+     JOIN vf_connec vf ON vf.connec_id = c.connec_id
+     JOIN inp_connec ic on c.connec_id = ic.connec_id
+     join value_state_type vst on vst.id = c.state_type 
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_frpump
+AS SELECT f.element_id,
+    f.node_id,
+    f.to_arc,
+    f.flwreg_length,
+    p.power,
+    p.curve_id,
+    p.speed,
+    p.pattern_id,
+    p.pump_type,
+    p.effic_curve_id,
+    p.energy_price,
+    p.energy_pattern_id,
+    p.status,
+    f.the_geom,
+    vf.p_state
+   FROM ve_man_frelem f
+     JOIN vf_element vf ON vf.element_id = f.element_id
+     JOIN inp_frpump p ON f.element_id = p.element_id;
+
+CREATE OR REPLACE VIEW ve_inp_frshortpipe
+AS SELECT f.element_id,
+    f.node_id,
+    f.to_arc,
+    f.flwreg_length,
+    p.minorloss,
+    p.bulk_coeff,
+    p.wall_coeff,
+    p.custom_dint,
+    p.status,
+    f.the_geom,
+    vf.p_state
+   FROM ve_man_frelem f
+     JOIN vf_element vf ON vf.element_id = f.element_id
+     JOIN inp_frshortpipe p ON f.element_id = p.element_id;
+
+CREATE OR REPLACE VIEW ve_inp_frvalve
+AS SELECT f.element_id,
+    f.node_id,
+    f.to_arc,
+    f.flwreg_length,
+    v.valve_type,
+    v.custom_dint,
+    v.setting,
+    v.curve_id,
+    v.minorloss,
+    v.add_settings,
+    v.init_quality,
+    v.status,
+    f.the_geom,
+    vf.p_state
+   FROM ve_man_frelem f
+     JOIN vf_element vf ON vf.element_id = f.element_id
+     JOIN inp_frvalve v ON f.element_id = v.element_id;
+
+CREATE OR REPLACE VIEW ve_inp_inlet
+AS SELECT n.node_id,
+    n.top_elev,
+    n.custom_top_elev,
+    n.depth,
+    n.nodecat_id,
+    n.expl_id,
+    n.sector_id,
+    n.dma_id,
+    n.state,
+    n.state_type,
+    n.annotation,
+    ii.initlevel,
+    ii.minlevel,
+    ii.maxlevel,
+    ii.diameter,
+    ii.minvol,
+    ii.curve_id,
+    ii.overflow,
+    ii.mixing_model,
+    ii.mixing_fraction,
+    ii.reaction_coeff,
+    ii.init_quality,
+    ii.source_type,
+    ii.source_quality,
+    ii.source_pattern_id,
+    ii.pattern_id,
+    ii.head,
+    ii.demand,
+    ii.demand_pattern_id,
+    ii.emitter_coeff,
+    n.the_geom,
+    vf.p_state
+   FROM node n
+     JOIN vf_node vf ON vf.node_id = n.node_id
+     JOIN inp_inlet ii ON ii.node_id = n.node_id
+     JOIN value_state_type vst ON vst.id = n.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_junction
+AS SELECT n.node_id,
+    n.top_elev,
+    n.custom_top_elev,
+    n.depth,
+    n.nodecat_id,
+    n.expl_id,
+    n.sector_id,
+    n.dma_id,
+    n.state,
+    n.state_type,
+    n.annotation,
+    ij.demand,
+    ij.pattern_id,
+    ij.peak_factor,
+    ij.emitter_coeff,
+    ij.init_quality,
+    ij.source_type,
+    ij.source_quality,
+    ij.source_pattern_id,
+    n.the_geom,
+    vf.p_state
+   FROM node n
+     JOIN vf_node vf ON vf.node_id = n.node_id
+     JOIN inp_junction ij ON ij.node_id = n.node_id
+     JOIN value_state_type vst ON vst.id = n.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_pipe
+AS SELECT a.arc_id,
+    a.node_1,
+    a.node_2,
+    a.arccat_id,
+    a.expl_id,
+    a.sector_id,
+    a.dma_id,
+    a.state,
+    a.state_type,
+    a.custom_length,
+    a.annotation,
+    ip.minorloss,
+    ip.status,
+    cat_arc.matcat_id AS cat_matcat_id,
+    a.builtdate,
+    ip.custom_roughness,
+    cat_arc.dint AS cat_dint,
+    ip.custom_dint,
+    ip.bulk_coeff,
+    ip.wall_coeff,
+    a.the_geom,
+    vf.p_state
+   FROM arc a
+     JOIN vf_arc vf ON vf.arc_id = a.arc_id
+     JOIN inp_pipe ip ON ip.arc_id = a.arc_id
+     JOIN cat_arc ON cat_arc.id::text = a.arccat_id::text
+     JOIN value_state_type vst ON vst.id = a.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_pump
+AS SELECT n.node_id,
+    n.top_elev,
+    n.custom_top_elev,
+    n.depth,
+    n.nodecat_id,
+    n.expl_id,
+    n.sector_id,
+    n.dma_id,
+    n.state,
+    n.state_type,
+    n.annotation,
+    concat(n.node_id, '_n2a') AS nodarc_id,
+    ip.power,
+    ip.curve_id,
+    ip.speed,
+    ip.pattern_id,
+    man_pump.to_arc,
+    ip.status,
+    ip.pump_type,
+    ip.effic_curve_id,
+    ip.energy_price,
+    ip.energy_pattern_id,
+    n.the_geom,
+    vf.p_state
+   FROM node n
+     JOIN vf_node vf ON vf.node_id = n.node_id
+     JOIN inp_pump ip ON ip.node_id = n.node_id
+     JOIN man_pump ON man_pump.node_id = n.node_id
+     JOIN value_state_type vst ON vst.id = n.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_pump_additional
+AS SELECT n.node_id,
+    n.top_elev,
+    n.custom_top_elev,
+    n.depth,
+    n.nodecat_id,
+    n.expl_id,
+    n.sector_id,
+    n.state,
+    n.state_type,
+    n.annotation,
+    n.dma_id,
+    p.order_id,
+    p.power,
+    p.curve_id,
+    p.speed,
+    p.pattern_id,
+    p.status,
+    p.effic_curve_id,
+    p.energy_price,
+    p.energy_pattern_id,
+    n.the_geom,
+    vf.p_state
+   FROM node n
+     JOIN vf_node vf ON vf.node_id = n.node_id
+     JOIN inp_pump_additional p ON p.node_id = n.node_id
+     JOIN value_state_type vst ON vst.id = n.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_reservoir
+AS SELECT n.node_id,
+    n.top_elev,
+    n.custom_top_elev,
+    n.depth,
+    n.nodecat_id,
+    n.expl_id,
+    n.sector_id,
+    n.dma_id,
+    n.state,
+    n.state_type,
+    n.annotation,
+    ir.pattern_id,
+    ir.head,
+    ir.init_quality,
+    ir.source_type,
+    ir.source_quality,
+    ir.source_pattern_id,
+    n.the_geom,
+    vf.p_state
+   FROM node n
+     JOIN vf_node vf ON vf.node_id = n.node_id
+     JOIN inp_reservoir ir ON ir.node_id = n.node_id
+     JOIN value_state_type vst ON vst.id = n.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_shortpipe
+AS SELECT n.node_id,
+    n.top_elev,
+    n.custom_top_elev,
+    n.depth,
+    n.nodecat_id,
+    n.expl_id,
+    n.sector_id,
+    n.dma_id,
+    n.state,
+    n.state_type,
+    n.annotation,
+    concat(n.node_id, '_n2a') AS nodarc_id,
+    isp.minorloss,
+        CASE
+            WHEN v.closed IS TRUE THEN 'CLOSED'::character varying(12)
+            WHEN v.broken IS FALSE AND v.to_arc IS NOT NULL THEN 'CV'::character varying(12)
+            ELSE 'OPEN'::character varying(12)
+        END AS status,
+    isp.bulk_coeff,
+    isp.wall_coeff,
+    isp.head,
+    isp.pattern_id,
+    isp.demand,
+    isp.demand_pattern_id,
+    isp.emitter_coeff,
+    n.the_geom,
+    vf.p_state
+   FROM node n
+     JOIN vf_node vf ON vf.node_id = n.node_id
+     JOIN inp_shortpipe isp ON isp.node_id = n.node_id
+     LEFT JOIN man_valve v ON v.node_id = n.node_id
+     JOIN value_state_type vst ON vst.id = n.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_tank
+AS SELECT n.node_id,
+    n.top_elev,
+    n.custom_top_elev,
+    n.depth,
+    n.nodecat_id,
+    n.expl_id,
+    n.sector_id,
+    n.dma_id,
+    n.state,
+    n.state_type,
+    n.annotation,
+    it.initlevel,
+    it.minlevel,
+    it.maxlevel,
+    it.diameter,
+    it.minvol,
+    it.curve_id,
+    it.overflow,
+    it.mixing_model,
+    it.mixing_fraction,
+    it.reaction_coeff,
+    it.init_quality,
+    it.source_type,
+    it.source_quality,
+    it.source_pattern_id,
+    n.the_geom,
+    vf.p_state
+   FROM node n
+     JOIN vf_node vf ON vf.node_id = n.node_id
+     JOIN inp_tank it ON it.node_id = n.node_id
+     JOIN value_state_type vst ON vst.id = n.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_valve
+AS SELECT n.node_id,
+    n.top_elev,
+    n.custom_top_elev,
+    n.depth,
+    n.nodecat_id,
+    n.expl_id,
+    n.sector_id,
+    n.dma_id,
+    n.state,
+    n.state_type,
+    n.annotation,
+    concat(n.node_id, '_n2a') AS nodarc_id,
+    iv.valve_type,
+    iv.setting,
+    iv.curve_id,
+    iv.minorloss,
+    mv.to_arc,
+        CASE
+            WHEN mv.closed IS TRUE THEN 'CLOSED'::character varying(12)
+            WHEN mv.broken IS FALSE AND (mv.to_arc IS NOT NULL OR iv.valve_type::text = 'TCV'::text) THEN 'ACTIVE'::character varying(12)
+            ELSE 'OPEN'::character varying(12)
+        END AS status,
+    cat_node.dint AS cat_dint,
+    iv.custom_dint,
+    iv.add_settings,
+    iv.init_quality,
+    iv.head,
+    iv.pattern_id,
+    iv.demand,
+    iv.demand_pattern_id,
+    iv.emitter_coeff,
+    n.the_geom,
+    vf.p_state
+   FROM node n
+     JOIN vf_node vf ON vf.node_id = n.node_id
+     JOIN inp_valve iv ON iv.node_id = n.node_id
+     JOIN man_valve mv ON mv.node_id = n.node_id
+     JOIN cat_node ON cat_node.id::text = n.nodecat_id::text
+     JOIN value_state_type vst ON vst.id = n.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_virtualpump
+AS SELECT a.arc_id,
+    a.node_1,
+    a.node_2,
+    a.arccat_id,
+    a.sector_id,
+    a.state,
+    a.state_type,
+    a.annotation,
+    a.expl_id,
+    a.dma_id,
+    p.power,
+    p.curve_id,
+    p.speed,
+    p.pattern_id,
+    p.status,
+    p.effic_curve_id,
+    p.energy_price,
+    p.energy_pattern_id,
+    p.pump_type,
+    a.the_geom,
+    vf.p_state
+   FROM arc a
+     JOIN vf_arc vf ON vf.arc_id = a.arc_id
+     JOIN inp_virtualpump p ON p.arc_id = a.arc_id
+     JOIN value_state_type vst ON vst.id = a.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_virtualvalve
+AS SELECT a.arc_id,
+    a.node_1,
+    a.node_2,
+    a.arccat_id,
+    a.expl_id,
+    a.sector_id,
+    a.dma_id,
+    a.state,
+    a.state_type,
+    a.custom_length,
+    a.annotation,
+    v.valve_type,
+    v.setting,
+    v.curve_id,
+    v.minorloss,
+    v.status,
+    v.init_quality,
+    a.the_geom,
+    vf.p_state
+   FROM arc a
+     JOIN vf_arc vf ON vf.arc_id = a.arc_id
+     JOIN inp_virtualvalve v ON v.arc_id = a.arc_id
+     JOIN value_state_type vst ON vst.id = a.state_type
+  WHERE vst.is_operative IS TRUE;
