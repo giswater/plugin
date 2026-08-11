@@ -76,6 +76,8 @@ class GwGo2EpaManagerButton(GwAction):
         self.dlg_manager.cmb_network_type.currentIndexChanged.connect(partial(self._fill_manager_table))
         self.dlg_manager.cmb_expl.currentIndexChanged.connect(partial(self._fill_manager_table))
         self.dlg_manager.date_exec_from.dateChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.chk_corporate.stateChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.chk_archived.stateChanged.connect(partial(self._fill_manager_table))
 
         # Open form
         tools_gw.open_dialog(self.dlg_manager, dlg_name='go2epa_manager')
@@ -195,6 +197,12 @@ class GwGo2EpaManagerButton(GwAction):
             filter_fields += (
                 f', "exec_date": {{"filterSign":">=", "filterType":"timestamp", "value":"{exec_date}"}}'
             )
+
+        if tools_qt.is_checked(self.dlg_manager, self.dlg_manager.chk_corporate):
+            filter_fields += ', "iscorporate": {"filterSign":"=", "value":"true"}'
+
+        if tools_qt.is_checked(self.dlg_manager, self.dlg_manager.chk_archived):
+            filter_fields += ', "status": {"filterSign":"=", "value":"ARCHIVED"}'
 
         body = tools_gw.create_body(filter_fields=filter_fields, extras=extras)
         json_result = tools_gw.execute_procedure('gw_fct_getlist', body)
