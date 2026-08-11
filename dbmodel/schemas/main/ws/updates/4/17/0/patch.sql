@@ -671,3 +671,7 @@ AND t2.typevalue = 'inp_options_networkmode';
 
 CREATE TRIGGER gw_trg_ui_rpt_cat_result INSTEAD OF INSERT OR DELETE OR UPDATE ON v_ui_rpt_cat_result
 FOR EACH ROW EXECUTE FUNCTION gw_trg_ui_rpt_cat_result();
+
+UPDATE config_param_system
+	SET layoutorder=12
+	WHERE "parameter"='admin_crm_schema';
