@@ -39,9 +39,9 @@ v_point_array1 geometry[];
 v_point_array2 geometry[];
 v_count integer;
 v_exists_node_id integer;
-v_new_record SCHEMA_NAME.arc;
-v_record1 SCHEMA_NAME.ve_arc;
-v_record2 SCHEMA_NAME.ve_arc;
+v_new_record record;
+v_record1 record;
+v_record2 record;
 v_arc_geom geometry;
 v_project_type text;
 rec_param record;
@@ -103,7 +103,10 @@ BEGIN
 	v_schemaname = 'SCHEMA_NAME';
 
 	SELECT project_type, giswater INTO v_project_type, v_version FROM sys_version ORDER BY id DESC LIMIT 1;
-
+	
+	v_new_record = SCHEMA_NAME.arc;
+	v_record1 = SCHEMA_NAME.ve_arc;
+	v_record2 = SCHEMA_NAME.ve_arc;
 
 	-- Get parameters from input json
 	v_array_node_id = lower(((p_data ->>'feature')::json->>'id')::text);
