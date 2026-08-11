@@ -103,10 +103,7 @@ BEGIN
 	v_schemaname = 'SCHEMA_NAME';
 
 	SELECT project_type, giswater INTO v_project_type, v_version FROM sys_version ORDER BY id DESC LIMIT 1;
-	
-	v_new_record = SCHEMA_NAME.arc;
-	v_record1 = SCHEMA_NAME.ve_arc;
-	v_record2 = SCHEMA_NAME.ve_arc;
+
 
 	-- Get parameters from input json
 	v_array_node_id = lower(((p_data ->>'feature')::json->>'id')::text);
