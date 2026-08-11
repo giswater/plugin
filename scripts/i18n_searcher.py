@@ -838,6 +838,9 @@ def extract_py_candidates(
 # region UI dialogs and toolbars (_update_py_dialogs)
 
 _PYDIALOG_DEFAULT_PROJECT_TYPE = "utils"
+# Qt UI encodes a literal "&" as "&&"; XML stores that as "&amp;&amp;". Skip O&M
+# labels so amp/&& formatting does not create false pydialog diffs.
+_PYDIALOG_IGNORE_TEXTS = frozenset({"O&&M", "O&amp;&amp;M", "O&M", "O&amp;M"})
 
 
 def _pydialog_project_type(*, baseline_row: Optional[dict[str, Any]] = None) -> str:
@@ -1026,6 +1029,8 @@ def _scan_ui_dialogs(
             if not match:
                 continue
             message_text = match.group(1).strip()
+            if message_text in _PYDIALOG_IGNORE_TEXTS:
+                continue
             column = "tt_en_us" if in_tooltip_property else "lb_en_us"
             if not message_text and column == "lb_en_us":
                 continue
@@ -1058,6 +1063,11 @@ def _extract_pydialog_candidates(
         ("lb_en_us", "tt_en_us"),
         include_deleted=lambda dialog_key: dialog_key[0] != "dlg_admin",
     ):
+        ignored_texts = (
+            set(text_values.values()) | set(old_map.values()) | set(new_map.values())
+        ) & _PYDIALOG_IGNORE_TEXTS
+        if ignored_texts:
+            continue
         actual_source, dialog_name, toolbar_name = key
         findings.append(
             _pydialog_finding(

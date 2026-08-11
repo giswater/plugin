@@ -152,7 +152,6 @@ jobs:
         run: docker compose -f docker-compose.test.yml down
 
   trigger-generate-i18n:
-    needs: run-i18n-searcher
     runs-on: ubuntu-latest
     name: Trigger Generate i18n
     steps:

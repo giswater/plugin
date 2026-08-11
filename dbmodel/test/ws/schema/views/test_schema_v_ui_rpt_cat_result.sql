@@ -30,7 +30,7 @@ SELECT columns_are(
 
 -- Check column types
 SELECT col_type_is('v_ui_rpt_cat_result', 'result_id', 'varchar(50)', 'Column result_id should be varchar(50)');
-SELECT col_type_is('v_ui_rpt_cat_result', 'expl_id', 'int4[]', 'Column expl_id should be int4[]');
+SELECT col_type_is('v_ui_rpt_cat_result', 'expl_id', 'character varying[]', 'Column expl_id should be int4[]');
 SELECT col_type_is('v_ui_rpt_cat_result', 'sector_id', 'int4[]', 'Column sector_id should be int4[]');
 SELECT col_type_is('v_ui_rpt_cat_result', 'dma_id', 'int4[]', 'Column dma_id should be int4[]');
 SELECT col_type_is('v_ui_rpt_cat_result', 'network_type', 'varchar(100)', 'Column network_type should be varchar(100)');

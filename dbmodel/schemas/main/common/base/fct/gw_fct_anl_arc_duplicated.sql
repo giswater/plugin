@@ -63,7 +63,11 @@ BEGIN
 
 	-- Computing process
 	IF v_selectionmode = 'previousSelection' THEN
-		v_query_text := 'AND BOOL_OR(va2.arc_id = ANY(' || quote_literal(v_array) || '))';
+		IF v_checktype = 'geometry' THEN
+			v_query_text := 'HAVING BOOL_OR(va1.arc_id = ANY(' || quote_literal(v_array) || ')) OR BOOL_OR(va2.arc_id = ANY(' || quote_literal(v_array) || '))';
+		ELSE
+			v_query_text := 'AND BOOL_OR(va.arc_id = ANY(' || quote_literal(v_array) || '))';
+		END IF;
 	ELSE
 		v_query_text := '';
 	END IF;
@@ -75,13 +79,14 @@ BEGIN
 			FROM (
 				SELECT va1.arc_id, MIN(va2.arc_id) AS arc_id_aux
 				FROM %I va1
-				JOIN %I va2 ON va1.the_geom && va2.the_geom
-				WHERE ST_Equals(va1.the_geom, va2.the_geom)
+				JOIN %I va2
+					ON va1.arc_id <> va2.arc_id
+					AND va1.the_geom && va2.the_geom
+					AND ST_Equals(va1.the_geom, va2.the_geom)
 				GROUP BY va1.arc_id
-				HAVING COUNT(*) > 1
 				%s
 			) ta
-			JOIN arc a ON ta.the_geom = a.the_geom
+			JOIN arc a ON a.arc_id = ta.arc_id
 			WHERE EXISTS (SELECT 1 FROM vf_arc vfa WHERE vfa.arc_id = a.arc_id)
 		$sql$, v_worklayer, v_worklayer, v_query_text);
 	ELSIF v_checktype='finalNodes' THEN

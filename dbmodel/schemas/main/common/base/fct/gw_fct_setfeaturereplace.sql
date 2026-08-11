@@ -320,8 +320,6 @@ BEGIN
 
 			END IF;
 
-			INSERT INTO audit_check_data (fid, result_id, error_message)
-			VALUES (v_fid, v_result_id, concat('New feature (',v_id,') inserted into node table.'));
 					EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
                        "data":{"message":"3346", "function":"2714", "parameters":{"v_id":"'||v_id||'"}, "fid":"'||v_fid||'", "result_id":"'||quote_nullable(v_result_id)||'", "is_process":true}}$$)';
 
