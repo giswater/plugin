@@ -176,7 +176,7 @@ class GwFastprint:
             if type(item) is not QgsLayoutItemLabel or item is None:
                 widget.clear()
                 widget.setStyleSheet("border: 1px solid red")
-                msg =  "Widget '{0}' not found in the composer"
+                msg = "Widget '{0}' not found in the composer"
                 msg_params = (widget.property('columnname'),)
                 widget.setPlaceholderText(tools_qt.tr(msg, list_params=msg_params))
             elif type(item) is QgsLayoutItemLabel and item is not None:
