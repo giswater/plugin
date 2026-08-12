@@ -381,6 +381,143 @@ FROM dup a
 JOIN dup b ON a.geom_hash = b.geom_hash
 WHERE a.arc_id != b.arc_id' WHERE fid=479;
 
+INSERT INTO config_form_list (listname, query_text, device, listtype, listclass)
+	WITH missing_tableviews AS (
+		-- QTableView widgets reference a listname via linkedobject
+		-- (or columnname when linkedobject is empty).
+		SELECT DISTINCT listname
+		FROM (
+			SELECT
+				COALESCE(NULLIF(cff.linkedobject, ''), cff.columnname) AS listname
+			FROM config_form_fields cff
+			WHERE cff.widgettype = 'tableview'
+				AND COALESCE(NULLIF(cff.linkedobject, ''), cff.columnname) IS NOT NULL
+			UNION
+			-- Manager/QSqlTableModel objectnames used by set_tablemodel_config
+			-- (see core/**/*.py). v_ui_% covers mapzone/visit/doc managers;
+			-- the IN list are literal/resolved names that are not v_ui_*.
+			SELECT c.relname AS listname
+			FROM pg_class c
+			JOIN pg_namespace n ON n.oid = c.relnamespace
+			WHERE n.nspname = current_schema()
+				AND c.relkind IN ('r', 'v', 'm')
+				AND (
+					c.relname LIKE 'v_ui\_%' ESCAPE '\'
+					OR c.relname IN (
+						'audit_results',
+						'cat_mat_roughness',
+						'cat_work',
+						'inp_lid',
+						'plan_psector_x_arc',
+						'plan_psector_x_connec',
+						'plan_psector_x_gully',
+						'plan_psector_x_node',
+						'tbl_workspace_manager',
+						've_arc',
+						've_cat_dscenario',
+						've_connec',
+						've_gully',
+						've_inp_controls',
+						've_inp_curve',
+						've_inp_curve_value',
+						've_inp_pattern',
+						've_inp_pattern_value',
+						've_inp_rules',
+						've_inp_timeseries',
+						've_inp_timeseries_value',
+						've_link',
+						've_node',
+						'vf_hydrometer',
+						'v_om_mincut_hydrometer'
+					)
+				)
+		) discovered
+		WHERE listname IS NOT NULL
+			AND NOT EXISTS (
+				SELECT 1
+				FROM config_form_list cfl
+				WHERE cfl.listname = discovered.listname
+			)
+	),
+	object_sources AS (
+		SELECT
+			mt.listname,
+			COALESCE(
+				CASE
+					WHEN EXISTS (
+						SELECT 1
+						FROM information_schema.tables t
+						WHERE t.table_schema = current_schema()
+							AND t.table_name = mt.listname
+					) THEN mt.listname
+				END,
+				CASE
+					WHEN mt.listname LIKE 'tbl\_%' ESCAPE '\'
+						AND EXISTS (
+							SELECT 1
+							FROM information_schema.tables t
+							WHERE t.table_schema = current_schema()
+								AND t.table_name = 'v_ui_' || substr(mt.listname, 5)
+						) THEN 'v_ui_' || substr(mt.listname, 5)
+				END,
+				CASE
+					WHEN mt.listname LIKE 'tbl\_%' ESCAPE '\'
+						AND EXISTS (
+							SELECT 1
+							FROM information_schema.tables t
+							WHERE t.table_schema = current_schema()
+								AND t.table_name = 've_' || substr(mt.listname, 5)
+						) THEN 've_' || substr(mt.listname, 5)
+				END
+			) AS source_table
+		FROM missing_tableviews mt
+	),
+	id_columns AS (
+		SELECT
+			os.listname,
+			os.source_table,
+			COALESCE(
+				(
+					SELECT a.attname
+					FROM pg_class t
+					JOIN pg_namespace s ON s.oid = t.relnamespace
+					JOIN pg_index i ON i.indrelid = t.oid AND i.indisprimary
+					JOIN pg_attribute a ON a.attrelid = t.oid
+						AND a.attnum = ANY(i.indkey)
+						AND NOT a.attisdropped
+					WHERE t.relname = os.source_table
+						AND s.nspname = current_schema()
+					ORDER BY a.attnum
+					LIMIT 1
+				),
+				(
+					SELECT a.attname
+					FROM pg_class t
+					JOIN pg_namespace s ON s.oid = t.relnamespace
+					JOIN pg_attribute a ON a.attrelid = t.oid
+					WHERE t.relname = os.source_table
+						AND s.nspname = current_schema()
+						AND a.attnum > 0
+						AND NOT a.attisdropped
+					ORDER BY a.attnum
+					LIMIT 1
+				)
+			) AS id_column
+		FROM object_sources os
+		WHERE os.source_table IS NOT NULL
+	)
+	SELECT
+		ic.listname,
+		'SELECT * FROM ' || ic.source_table || ' WHERE ' || ic.id_column || ' IS NOT NULL',
+		4,
+		'tab',
+		'list'
+	FROM id_columns ic
+	WHERE ic.id_column IS NOT NULL;
+
+UPDATE config_form_tableview SET
+	alias = INITCAP(REPLACE(COALESCE(alias, columnname), '_', ' '));
+
 INSERT INTO config_form_tableview (
 	location_type,
 	project_type,
@@ -405,8 +542,9 @@ INSERT INTO config_form_tableview (
 		ORDER BY objectname, columnindex DESC NULLS LAST
 	),
 	missing_lists AS (
-		-- Listnames referenced by forms but with no config_form_tableview
-		-- rows yet.
+		-- Listnames referenced by forms, or manager objectnames used by
+		-- set_tablemodel_config (v_ui_% / literal list from core/**/*.py),
+		-- with no config_form_tableview rows yet.
 		SELECT DISTINCT ON (cfl.listname)
 			cfl.listname AS objectname,
 			COALESCE(
@@ -418,16 +556,46 @@ INSERT INTO config_form_tableview (
 					ORDER BY cff.formname
 					LIMIT 1
 				),
-				'feature form'
+				'utils form'
 			) AS location_type,
 			'utils'::varchar AS project_type,
 			-1 AS max_index,
 			cfl.query_text
 		FROM config_form_list cfl
-		WHERE EXISTS (
-				SELECT 1
-				FROM config_form_fields cff
-				WHERE cff.linkedobject = cfl.listname
+		WHERE (
+				EXISTS (
+					SELECT 1
+					FROM config_form_fields cff
+					WHERE cff.linkedobject = cfl.listname
+				)
+				OR cfl.listname LIKE 'v_ui\_%' ESCAPE '\'
+				OR cfl.listname IN (
+					'audit_results',
+					'cat_mat_roughness',
+					'cat_work',
+					'inp_lid',
+					'plan_psector_x_arc',
+					'plan_psector_x_connec',
+					'plan_psector_x_gully',
+					'plan_psector_x_node',
+					'tbl_workspace_manager',
+					've_arc',
+					've_cat_dscenario',
+					've_connec',
+					've_gully',
+					've_inp_controls',
+					've_inp_curve',
+					've_inp_curve_value',
+					've_inp_pattern',
+					've_inp_pattern_value',
+					've_inp_rules',
+					've_inp_timeseries',
+					've_inp_timeseries_value',
+					've_link',
+					've_node',
+					'vf_hydrometer',
+					'v_om_mincut_hydrometer'
+				)
 			)
 			AND NOT EXISTS (
 				SELECT 1

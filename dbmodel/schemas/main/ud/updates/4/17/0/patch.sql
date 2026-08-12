@@ -542,31 +542,3 @@ UPDATE sys_param_user
 UPDATE config_param_system
 	SET layoutorder=12
 	WHERE "parameter"='admin_crm_schema';
-
-INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('node form','utils','tbl_doc_x_node','node_uuid',8,true,'Node Uuid')
-ON CONFLICT (objectname, columnname) DO NOTHING;
-INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('node form','utils','tbl_doc_x_node','doc_name',8,true,'Document Name')
-ON CONFLICT (objectname, columnname) DO NOTHING;
-
-INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('connec form','utils','tbl_doc_x_connec','connec_uuid',8,true,'Node Uuid')
-ON CONFLICT (objectname, columnname) DO NOTHING;
-INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('connec form','utils','tbl_doc_x_connec','doc_name',8,true,'Document Name')
-ON CONFLICT (objectname, columnname) DO NOTHING;
-
-INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('arc form','utils','tbl_doc_x_arc','arc_uuid',8,true,'Node Uuid')
-ON CONFLICT (objectname, columnname) DO NOTHING;
-INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('arc form','utils','tbl_doc_x_arc','doc_name',8,true,'Document Name')
-ON CONFLICT (objectname, columnname) DO NOTHING;
-
-INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('gully form','utils','tbl_doc_x_gully','gully_uuid',8,true,'Node Uuid')
-ON CONFLICT (objectname, columnname) DO NOTHING;
-INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('gully form','utils','tbl_doc_x_gully','doc_name',8,true,'Document Name')
-ON CONFLICT (objectname, columnname) DO NOTHING;
