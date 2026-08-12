@@ -1057,6 +1057,22 @@ class GwMapzoneManager:
         # Set variables
         self._reset_config_vars()
 
+        # Help text (set in Python so i18n_searcher can detect it)
+        msg = (
+            "Using this form you can configure graphconfig field for the selected mapzone.\n\n"
+            "How does it work?\n"
+            "1- Select the header of the mapzone using the nodeParent selection tool.\n"
+            "2- Select the direction of the water using the toArc selection tool. Multiple selection is allowed.\n"
+            "3- Press ADD to visualize your configuration on the Preview. If there are more headers, "
+            "repeat the process and they will be added to the Preview.\n"
+            "4- If you want to configure a node that will always be closed for this mapzone, "
+            "select it using the forceClosed tool and ADD.\n"
+            "To remove some wrong configuration, you have to select the affected nodeParent and click REMOVE. "
+            "This node and its related toArc will be deleted from the Preview.\n\n"
+            "Click OK to end set your Preview as the value on graphconfig field."
+        )
+        tools_qt.set_widget_text(self.config_dlg, 'tab_log_txt_infolog', tools_qt.tr(msg))
+
         # Fill preview
         if graphconfig:
             tools_qt.set_widget_text(self.config_dlg, 'txt_preview', graphconfig)
