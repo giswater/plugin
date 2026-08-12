@@ -380,3 +380,153 @@ SELECT a.arc_id, a.arccat_id, a.state AS state1,
 FROM dup a
 JOIN dup b ON a.geom_hash = b.geom_hash
 WHERE a.arc_id != b.arc_id' WHERE fid=479;
+
+INSERT INTO config_form_tableview (
+	location_type,
+	project_type,
+	objectname,
+	columnname,
+	columnindex,
+	visible,
+	alias
+	)
+	WITH existing_configs AS (
+		-- One *real* row per objectname (the one with the highest
+		-- columnindex), instead of independently MAX()-ing location_type
+		-- and project_type, which could synthesize a (location_type,
+		-- project_type) pair that never actually existed together on a
+		-- real row.
+		SELECT DISTINCT ON (objectname)
+			objectname,
+			location_type,
+			project_type,
+			COALESCE(columnindex, 0) AS max_index
+		FROM config_form_tableview
+		ORDER BY objectname, columnindex DESC NULLS LAST
+	),
+	missing_lists AS (
+		-- Listnames referenced by forms but with no config_form_tableview
+		-- rows yet.
+		SELECT DISTINCT ON (cfl.listname)
+			cfl.listname AS objectname,
+			COALESCE(
+				(
+					SELECT cff.formname || ' form'
+					FROM config_form_fields cff
+					WHERE cff.linkedobject = cfl.listname
+						AND cff.formname IS NOT NULL
+					ORDER BY cff.formname
+					LIMIT 1
+				),
+				'feature form'
+			) AS location_type,
+			'utils'::varchar AS project_type,
+			-1 AS max_index,
+			cfl.query_text
+		FROM config_form_list cfl
+		WHERE EXISTS (
+				SELECT 1
+				FROM config_form_fields cff
+				WHERE cff.linkedobject = cfl.listname
+			)
+			AND NOT EXISTS (
+				SELECT 1
+				FROM config_form_tableview x
+				WHERE x.objectname = cfl.listname
+			)
+		ORDER BY cfl.listname, cfl.device DESC NULLS LAST
+	),
+	existing_sources AS (
+		SELECT DISTINCT ON (ec.objectname)
+			ec.objectname,
+			ec.location_type,
+			ec.project_type,
+			ec.max_index,
+			cfl.query_text,
+			COALESCE(
+				substring(cfl.query_text from '(?i)FROM\s+(?:[a-zA-Z_][\w]*\.)?([a-zA-Z_][\w]*)'),
+				ec.objectname
+			) AS source_table,
+			-- Computed once per objectname here, instead of once per
+			-- column later - avoids re-running the same regex against
+			-- the same query_text for every column of a table.
+			trim(substring(cfl.query_text from '(?i)SELECT\s+(.*?)\s+FROM\s')) AS select_list
+		FROM existing_configs ec
+		LEFT JOIN config_form_list cfl
+			ON cfl.listname = ec.objectname
+		ORDER BY ec.objectname, cfl.device DESC NULLS LAST
+	),
+	missing_sources AS (
+		SELECT
+			ml.objectname,
+			ml.location_type,
+			ml.project_type,
+			ml.max_index,
+			ml.query_text,
+			COALESCE(
+				substring(ml.query_text from '(?i)FROM\s+(?:[a-zA-Z_][\w]*\.)?([a-zA-Z_][\w]*)'),
+				ml.objectname
+			) AS source_table,
+			trim(substring(ml.query_text from '(?i)SELECT\s+(.*?)\s+FROM\s')) AS select_list
+		FROM missing_lists ml
+	),
+	object_sources AS (
+		-- select_has_star: true only for a bare/qualified star used as a
+		-- select-list item (`*`, `t.*`), never for a star used as a
+		-- function argument (`count(*)`). The lookbehind/lookahead
+		-- exclude a '*' directly touching '(' or ')' or a word character
+		-- on either side.
+		SELECT *,
+			select_list IS NOT NULL
+				AND select_list ~ '(?<![\w(])\*(?![\w)])' AS select_has_star
+		FROM existing_sources
+		UNION ALL
+		SELECT *,
+			select_list IS NOT NULL
+				AND select_list ~ '(?<![\w(])\*(?![\w)])' AS select_has_star
+		FROM missing_sources
+	),
+	new_columns AS (
+		SELECT
+			os.location_type,
+			os.project_type,
+			os.objectname,
+			c.column_name AS columnname,
+			os.max_index,
+			ROW_NUMBER() OVER (
+				PARTITION BY os.objectname
+				ORDER BY c.ordinal_position
+			) AS rn,
+			-- Visible when the column is selected in query_text
+			-- (explicit/qualified name, or a genuine SELECT *).
+			CASE
+				WHEN os.query_text IS NULL THEN
+					c.column_name NOT IN ('id', 'created_at', 'updated_at', 'deleted_at')
+				WHEN os.select_has_star THEN
+					true
+				WHEN os.select_list ~* ('\m' || c.column_name || '\M') THEN
+					true
+				ELSE
+					false
+			END AS visible,
+			INITCAP(REPLACE(c.column_name, '_', ' ')) AS alias
+		FROM object_sources os
+		JOIN information_schema.columns c
+			ON c.table_schema = current_schema()
+			AND c.table_name = os.source_table
+		WHERE NOT EXISTS (
+			SELECT 1
+			FROM config_form_tableview x
+			WHERE x.objectname = os.objectname
+				AND x.columnname = c.column_name
+		)
+	)
+	SELECT
+		location_type,
+		project_type,
+		objectname,
+		columnname,
+		(max_index + rn) AS columnindex,
+		visible,
+		alias
+	FROM new_columns;
