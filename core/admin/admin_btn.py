@@ -515,10 +515,11 @@ class GwAdminButton:
             )
         ):
             msg = (
-                f"cm schema is not supported for parent_type='{pt_norm}' in this dbmodel. "
-                f"Missing schemas/addon/cm/integration/{pt_norm}/integration.sql."
+                "cm schema is not supported for parent_type='{0}' in this dbmodel. "
+                "Missing schemas/addon/cm/integration/{1}/integration.sql."
             )
-            tools_qgis.show_message(msg, Qgis.MessageLevel.Warning)
+            msg_params = (pt_norm, pt_norm)
+            tools_qgis.show_message(msg, Qgis.MessageLevel.Warning, msg_params=msg_params)
             return
 
         # Map step list -> profile. The legacy task ran one step at a
@@ -611,10 +612,11 @@ class GwAdminButton:
                 )
             ):
                 msg = (
-                    f"cibs schema is not supported for parent_type='{pt_norm}' in this dbmodel. "
-                    f"Missing schemas/addon/cibs/integration/{pt_norm}/integration.sql."
+                    "cibs schema is not supported for parent_type='{0}' in this dbmodel. "
+                    "Missing schemas/addon/cibs/integration/{1}/integration.sql."
                 )
-                tools_qgis.show_message(msg, Qgis.MessageLevel.Warning)
+                msg_params = (pt_norm, pt_norm)
+                tools_qgis.show_message(msg, Qgis.MessageLevel.Warning, msg_params=msg_params)
                 return
 
         register_is_new = "true" if profile == "empty" else "false"
