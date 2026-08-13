@@ -432,6 +432,19 @@ BEGIN
 				SELECT * INTO v_link FROM ve_link WHERE feature_id = v_connect_id limit 1;
 			END IF;
 
+			-- skip all processing for links with user-defined geometry
+			IF v_link.userdefined_geom IS TRUE THEN
+				v_connect := null;
+				v_link := null;
+				v_arc := null;
+				v_point_aux := null;
+				v_isoperative_psector := false;
+				v_existing_link := null;
+				v_linkfrompsector := null;
+				v_old_arc_id := null;
+				CONTINUE;
+			END IF;
+
 			-- exception control. It is not possible to create a link for connec over arc
 			SELECT * INTO v_arc FROM ve_arc WHERE ST_DWithin(v_connect.the_geom, ve_arc.the_geom, 0.001);
 
@@ -545,7 +558,7 @@ BEGIN
                         LIMIT 1',
 					v_link.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id'),
 					v_link.the_geom::text, v_check_maxdistance, v_checkeddiam)
-						INTO v_connect.arc_id;
+					INTO v_connect.arc_id;
 
 					IF v_connect.arc_id IS NULL AND v_isforcedarcs THEN -- looking for closest arc from connect within forced set
 						EXECUTE format(

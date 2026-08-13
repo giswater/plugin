@@ -1,3 +1,6 @@
+- Keep `link.userdefined_geom` when provided on `ve_link` edit; set TRUE on INSERT or geom change.
+- Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
+- Add editable `userdefined_geom` checkbox to link info forms.
 - Add Arc widgets (arc_id, set to arc, expression) to Gully to network dialog (link_to_gully).
 - Add Force node checkbox and node picker (UD) to Connect / Gully to network dialogs; link with exit_type NODE.
 - Rename Connect / Gully to network dialog layouts (`lyt_link_configuration`, `lyt_feature_selection`, `lyt_arc_selection`, `lyt_node_selection`, `lyt_extra_filters`).

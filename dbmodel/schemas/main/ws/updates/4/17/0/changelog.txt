@@ -1,2 +1,5 @@
+- Keep `link.userdefined_geom` when provided on `ve_link` edit; set TRUE on INSERT or geom change.
+- Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
+- Add editable `userdefined_geom` checkbox to link info forms.
 - Rename Connect to network dialog layouts (`lyt_link_configuration`, `lyt_feature_selection`, `lyt_arc_selection`, `lyt_extra_filters`).
 - Add Extra filters layout on Connect to network dialog (`extraFilters` on `gw_fct_linktonetwork`). Extra filters retarget an existing link only with Force reconnect.

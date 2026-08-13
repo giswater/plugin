@@ -22,7 +22,7 @@ i18n/giswater_*.qm
 i18n/giswater_*.ts
 !i18n/giswater_en_US.ts
 
-# Ignore config.sqlite file in resources/gis
+# Locales sqlite is generated from resources/gis/locales.sql if missing
 resources/gis/locales.sqlite
 
 .claude/settings.local.json

@@ -16,10 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `btn_child` to campaign manager dialog to create a child campaign.
 - Add Force node checkbox and node picker on UD Connect / Gully to network dialogs (`forceNode` / `forcedNodes`, `exit_type=NODE`).
 - Add Extra filters on Connect to network dialogs (`extraFilters` for arc/node KNN). Extra filters retarget an existing link only when Force reconnect is checked; new links are always created.
+- Add editable `userdefined_geom` checkbox to link info forms.
 
 ### Changed
 
 - Rename Connect / Gully to network dialog layouts (`lyt_link_configuration`, `lyt_feature_selection`, `lyt_arc_selection`, `lyt_node_selection`, `lyt_extra_filters`).
+- Generate `resources/gis/locales.sqlite` from `locales.sql` when missing instead of tracking the sqlite file.
+- Keep `link.userdefined_geom` when provided on `ve_link` edit; set it to TRUE only on INSERT or when geometry changes.
+- Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
 - Document macOS QPIP native-library codesign workaround for Go2Epa / `hydraulic_engine` in README.
 - Refactor Go2Epa hydraulic_engine integration to share execute/import flow for WS and UD.
 - Require `hydraulic_engine>=0.7.0` and align Go2Epa runners with its EPANET/SWMM export API.
