@@ -897,12 +897,12 @@ def delete_project_type_seed_sql(project_types: Iterable[str]) -> list[str]:
 
 
 def _locale_display_name(lang_id: str, folder: str) -> str | None:
-    """Return display name from bundled config.sqlite locales table, if available."""
+    """Return display name from bundled locales.sqlite table, if available."""
     try:
         import sqlite3
 
         plugin_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
-        db_path = os.path.join(plugin_dir, "resources", "gis", "config.sqlite")
+        db_path = os.path.join(plugin_dir, "resources", "gis", "locales.sqlite")
         if not os.path.isfile(db_path):
             return None
         with sqlite3.connect(db_path) as conn:

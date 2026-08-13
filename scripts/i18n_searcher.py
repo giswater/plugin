@@ -63,6 +63,20 @@ SKIP_FOLDER_NAMES = frozenset({"packages", "resources"})
 TRANSLATABLE_JSON_KEYS = frozenset(
     {"label", "tooltip", "placeholder", "text", "comboNames", "vdefault_value"}
 )
+# Scan JSON blobs for these keys too, but extract inner SQL literals rather than the query.
+_JSON_BLOB_SCAN_KEYS = TRANSLATABLE_JSON_KEYS | {"dvQueryText"}
+_DVQUERY_KEY = "dvQueryText"
+# Prefer SQL-escaped ''text'' (JSON dumps) then 'text' (parsed JSON / DB text).
+# Content is [^']+ so ''a'' AS sort_order cannot span into a later AS idval.
+_DVQUERY_IDVAL_RE = re.compile(
+    r"(?:''([^']+)''|'([^']+)')\s+AS\s+idval\b",
+    re.IGNORECASE,
+)
+# UNION SELECT -999,'ALL VISIBLE SECTORS' — positional idval with no alias.
+_DVQUERY_UNION_LITERAL_RE = re.compile(
+    r"\bUNION(?:\s+ALL)?\s+SELECT\s+-?\d+\s*,\s*(?:''([^']+)''|'([^']+)')",
+    re.IGNORECASE,
+)
 # Tables whose extra_columns hold a content blob (org_text/text), not identity fields.
 _BLOB_CONTENT_TABLES = frozenset({"dbstyle", "dbjson", "dbconfig_form_fields_json"})
 _SQL_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -1705,6 +1719,37 @@ def group_records(findings: list[ExtractedString], detected_version: str) -> dic
 
 # region JSON / feat / dbstyle extractors
 
+def _unescape_sql_string(text: str) -> str:
+    """Turn SQL-escaped quotes (''text'') into a plain catalog string."""
+    return text.replace("''", "'")
+
+
+def _extract_dvquery_idval_texts(query: str) -> list[str]:
+    """User-facing combo labels embedded as string literals in dvQueryText SQL.
+
+    Matches ``'User selected expl' AS idval`` and positional
+    ``UNION SELECT -999,'ALL VISIBLE SECTORS'``. Skips sort_order, WHERE
+    predicates, and column aliases such as ``name AS idval``.
+    """
+    found: list[str] = []
+    seen: set[str] = set()
+
+    def _add(raw: str | None) -> None:
+        if not raw:
+            return
+        text = _unescape_sql_string(raw).strip()
+        if not text or text in seen:
+            return
+        seen.add(text)
+        found.append(text)
+
+    for match in _DVQUERY_IDVAL_RE.finditer(query):
+        _add(match.group(1) or match.group(2))
+    for match in _DVQUERY_UNION_LITERAL_RE.finditer(query):
+        _add(match.group(1) or match.group(2))
+    return found
+
+
 def _extract_translatable_strings(data: Any) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
 
@@ -1712,7 +1757,11 @@ def _extract_translatable_strings(data: Any) -> list[dict[str, Any]]:
         if isinstance(item, dict):
             entry: dict[str, Any] = {}
             for key, value in item.items():
-                if key in TRANSLATABLE_JSON_KEYS:
+                if key.lower() == _DVQUERY_KEY.lower() and isinstance(value, str):
+                    texts = _extract_dvquery_idval_texts(value)
+                    if texts:
+                        entry[_DVQUERY_KEY] = texts
+                elif key in TRANSLATABLE_JSON_KEYS:
                     if key == "comboNames" and isinstance(value, list):
                         entry[key] = value
                     elif isinstance(value, str):
@@ -1842,7 +1891,7 @@ def _extract_json_table(
         ]
 
     where_conditions = [
-        f"""{column}::text ILIKE '%%{key}":%%'""" for key in TRANSLATABLE_JSON_KEYS
+        f"""{column}::text ILIKE '%%{key}":%%'""" for key in _JSON_BLOB_SCAN_KEYS
     ]
     where_clause = " OR ".join(where_conditions)
     # Fetch literal DB text so extra_columns.text matches the schema exactly.
@@ -1874,38 +1923,44 @@ def _extract_json_table(
         datas = _extract_translatable_strings(payload)
         for i, data in enumerate(datas):
             for key, text in data.items():
-                if isinstance(text, list):
+                values: list[tuple[str, str]] = []
+                if key == _DVQUERY_KEY and isinstance(text, list):
+                    for j, item in enumerate(text):
+                        text_val = _normalize_json_text(str(item)).strip()
+                        if text_val:
+                            values.append((f"{key}_{i}_{j}", text_val))
+                elif isinstance(text, list):
                     text_val = ", ".join(_normalize_json_text(str(t)) for t in text).strip()
+                    if text_val:
+                        values.append((f"{key}_{i}", text_val))
                 elif isinstance(text, str):
                     text_val = _normalize_json_text(text)
-                else:
-                    continue
-                if not text_val:
-                    continue
-                hint = f"{key}_{i}"
-                if is_form_fields:
-                    expected.append({
-                        "source_code": "giswater",
-                        "project_type": project_type,
-                        "context": table_org,
-                        "formname": row["formname"],
-                        "formtype": row["formtype"],
-                        "tabname": row["tabname"],
-                        "source": row["columnname"],
-                        "hint": hint,
-                        "lb_en_us": text_val,
-                        "text": text_blob,
-                    })
-                else:
-                    expected.append({
-                        "source_code": "giswater",
-                        "project_type": project_type,
-                        "context": table_org,
-                        "hint": hint,
-                        "source": row["id"],
-                        "lb_en_us": text_val,
-                        "text": text_blob,
-                    })
+                    if text_val:
+                        values.append((f"{key}_{i}", text_val))
+                for hint, text_val in values:
+                    if is_form_fields:
+                        expected.append({
+                            "source_code": "giswater",
+                            "project_type": project_type,
+                            "context": table_org,
+                            "formname": row["formname"],
+                            "formtype": row["formtype"],
+                            "tabname": row["tabname"],
+                            "source": row["columnname"],
+                            "hint": hint,
+                            "lb_en_us": text_val,
+                            "text": text_blob,
+                        })
+                    else:
+                        expected.append({
+                            "source_code": "giswater",
+                            "project_type": project_type,
+                            "context": table_org,
+                            "hint": hint,
+                            "source": row["id"],
+                            "lb_en_us": text_val,
+                            "text": text_blob,
+                        })
 
     return _compare_db_rows(
         expected,

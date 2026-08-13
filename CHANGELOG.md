@@ -11,14 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `observ` column to `inp_dscenario_%` tables.
 - Add `custom_code_autofill` column to `cat_feature` and `config_mapzones` tables.
+- Materialize graph inundation into `anl_graphinundation` / `v_anl_graphinundation` for QGIS temporal playback.
 - Extend `hydraulic_engine` Go2Epa path to UD (SWMM); fall back to classic EPA when the package is missing.
 - Allow Execute EPA on Linux for UD when `hydraulic_engine` is installed.
 - Add `btn_child` to campaign manager dialog to create a child campaign.
+- Add editable `userdefined_geom` checkbox to link info forms.
 - Add filters to EPA result manager (status, network type, exploitation, exec date from).
-- Add validated flag (`isvalidated`) to EPA results with toggle and filter in EPA result manager.
+- Add validated flag (`isvalidated`) to EPA results with toggle and filter in EPA result.
 
 ### Changed
 
+- Generate `resources/gis/locales.sqlite` from `locales.sql` when missing instead of tracking the sqlite file.
+- Keep `link.userdefined_geom` when provided on `ve_link` edit; set it to TRUE only on INSERT or when geometry changes.
+- Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
 - Document macOS QPIP native-library codesign workaround for Go2Epa / `hydraulic_engine` in README.
 - Refactor Go2Epa hydraulic_engine integration to share execute/import flow for WS and UD.
 - Require `hydraulic_engine>=0.7.0` and align Go2Epa runners with its EPANET/SWMM export API.
@@ -43,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improve EPA Execute cancel behavior.
 - Improve general progress display in EPA Execute dialog.
+- `gw_fct_getgraphinundation` now inserts into Postgres instead of returning a large GeoJSON FeatureCollection.
 
 ### Fixed
 

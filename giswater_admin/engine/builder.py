@@ -17,6 +17,7 @@ from . import sql_runner
 from .cancel import CancelToken
 from .manifest import Manifest, Phase, Step
 from .templating import apply_subs, render
+from .version_guard import assert_no_downgrade
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +235,28 @@ class SchemaBuilder:
     def run(self) -> BuildResult:
         phase_ids = self.manifest.profile(self.params.profile)
         result = BuildResult(profile=self.params.profile)
+
+        if self.params.run_mode in ("upgrade", "upgrade_step"):
+            err = assert_no_downgrade(
+                self.params.project_version,
+                self.params.plugin_version,
+                label=f"schema '{self.params.schema_name}'",
+            )
+            if err:
+                result.phases.append(
+                    PhaseResult(
+                        phase_id="version_guard",
+                        files=[
+                            sql_runner.FileExec(
+                                path="version_guard",
+                                ok=False,
+                                error=err,
+                            )
+                        ],
+                    )
+                )
+                self.progress_cb(0, 0, "done", None)
+                return result
 
         plan = self._plan(phase_ids)
         total = sum(item[1] for item in plan)

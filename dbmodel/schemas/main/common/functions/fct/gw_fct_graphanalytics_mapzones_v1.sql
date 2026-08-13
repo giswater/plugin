@@ -537,13 +537,13 @@ BEGIN
 					LEFT JOIN LATERAL json_array_elements_text(use_item->'toArc') AS elem_to_arc(value) ON TRUE
 					WHERE t.graphconfig IS NOT NULL
 					AND t.active
-					AND (cardinality($1) = 0 OR t.expl_id && $1)
 					%s
 				), graphconfig_filtered AS (
 					SELECT g.* 
 					FROM graphconfig g
 					JOIN node n ON n.node_id = g.node_parent
 					WHERE EXISTS (SELECT 1 FROM vf_exploitation vfe WHERE vfe.expl_id = ANY(array_append(n.expl_visibility, n.expl_id)))
+					AND EXISTS (SELECT 1 FROM temp_pgr_old_mapzone t WHERE t.mapzone_id = g.mapzone_id)
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id, pgr_arc_id)
 				SELECT
@@ -554,7 +554,7 @@ BEGIN
 				FROM graphconfig_filtered
 				WHERE mapzone_id > 0
 				AND (node_parent IS DISTINCT FROM 0 OR to_arc IS DISTINCT FROM 0);
-			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux) USING v_expl_id_array;
+			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux);
 
 			-- forceClosed
 			EXECUTE format($sql$
@@ -675,12 +675,12 @@ BEGIN
 					JOIN LATERAL json_array_elements(t.graphconfig->'use') AS use_item ON TRUE
 					WHERE t.graphconfig IS NOT NULL
 					AND t.active
-					AND (cardinality($1) = 0 OR t.expl_id && $1)
 				), graphconfig_filtered AS (
 					SELECT g.* 
 					FROM graphconfig g
 					JOIN node n ON n.node_id = g.node_parent
 					WHERE EXISTS (SELECT 1 FROM vf_exploitation vfe WHERE vfe.expl_id = ANY(array_append(n.expl_visibility, n.expl_id)))
+					AND EXISTS (SELECT 1 FROM temp_pgr_old_mapzone t WHERE t.mapzone_id = g.mapzone_id)
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id, pgr_arc_id)
 				SELECT
@@ -692,7 +692,7 @@ BEGIN
 				LEFT JOIN v_temp_arc a ON a.node_2 = g.node_parent
 				WHERE g.mapzone_id > 0
 				AND g.node_parent IS DISTINCT FROM 0
-			$sql$, v_mapzone_field, v_mapzone_table) USING v_expl_id_array;
+			$sql$, v_mapzone_field, v_mapzone_table);
 
 			-- forceClosed
 			EXECUTE format($sql$
