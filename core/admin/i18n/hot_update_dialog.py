@@ -41,7 +41,7 @@ _COL_LANGUAGE = 3
 _COL_CREATED = 4
 _COL_UPDATED = 5
 _TRANSLATABLE_KINDS = frozenset({"WS", "UD", "AM", "CM"})
-_MAX_VISIBLE_SCHEMA_ROWS = 4
+_MAX_VISIBLE_SCHEMA_ROWS = 5
 _NETWORK_DBTABLES = [
     "dbparam_user", "dbconfig_param_system", "dbconfig_form_fields", "dbconfig_typevalue",
     "dbfprocess", "dbmessage", "dbconfig_csv", "dbconfig_form_tabs", "dbconfig_report",
@@ -421,7 +421,7 @@ class GwAdminI18NHotUpdate:
             self.admin.dlg_i18n_hot_update = None
 
     def _apply_schema_table_height(self) -> None:
-        """Cap the schema table to four visible rows; scroll when there are more."""
+        """Cap the schema table to five visible rows; scroll when there are more."""
         table = self.dlg_qm.tbl_schemas
         row_h = table.verticalHeader().defaultSectionSize()
         visible_rows = _MAX_VISIBLE_SCHEMA_ROWS
