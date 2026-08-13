@@ -14,7 +14,7 @@ import os
 import re
 from functools import partial
 
-from qgis.PyQt.QtCore import Qt, QTimer
+from qgis.PyQt.QtCore import QEvent, QObject, Qt, QTimer
 from qgis.PyQt.QtGui import QStandardItem, QStandardItemModel
 from qgis.PyQt.QtWidgets import (
     QListWidget, QCompleter, QLineEdit, QVBoxLayout, QWidget,
@@ -24,7 +24,7 @@ from qgis.PyQt.QtWidgets import (
 from ...ui.ui_manager import GwAdminI18NHotUpdateUi
 from ...utils import tools_gw
 from qgis.PyQt.sip import isdeleted
-from ....libs import lib_vars, tools_qt, tools_db, tools_os
+from ....libs import lib_vars, tools_qt, tools_db, tools_os, tools_qgis
 from .. import _admin_catalog as admin_catalog
 from .language_shared_functions import I18N_SCHEMAS
 from . import language_shared_functions as i18n_service
@@ -139,6 +139,13 @@ class GwAdminI18NHotUpdate:
         if current:
             tools_qt.set_combo_value(self.dlg_qm.cmb_connection, current, 1)
         self._active_connection = current
+        schema = ""
+        get_schema = getattr(self.admin, "_get_selected_schema_name", None)
+        if get_schema:
+            schema = get_schema() or ""
+        if not schema:
+            schema = str(getattr(lib_vars, "schema_name", "") or "")
+        self._selected_schema = schema
         self._update_system_info()
 
     def _format_system_info(self) -> str:
@@ -394,6 +401,17 @@ class GwAdminI18NHotUpdate:
         row = pg_cursor.fetchone()
         return str(row[0]) if row and row[0] else default_language
 
+    def select_initial_schema(self) -> None:
+        if self._selected_schema:
+            for row in range(self._schema_model.rowCount()):
+                item = self._schema_model.item(row, _COL_SCHEMA)
+                if item and item.text() == self._selected_schema:
+                    self.dlg_qm.tbl_schemas.selectRow(row)
+                    self.dlg_qm.tbl_schemas.scrollTo(self.dlg_qm.tbl_schemas.model().index(row, 0))
+                    return
+        else:
+            self.dlg_qm.tbl_schemas.selectRow(0)
+
     def _setup_schema_table(self) -> None:
         self.dlg_qm.tbl_schemas.setModel(self._schema_model)
         self.dlg_qm.tbl_schemas.setAlternatingRowColors(True)
@@ -409,6 +427,7 @@ class GwAdminI18NHotUpdate:
             header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
         header.setMinimumSectionSize(48)
         selection = self.dlg_qm.tbl_schemas.selectionModel()
+        self.select_initial_schema()
         if selection is not None:
             selection.selectionChanged.connect(partial(self._on_schema_selection_changed))
         self._apply_schema_table_height()
