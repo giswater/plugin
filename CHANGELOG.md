@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Generate `resources/gis/locales.sqlite` from `locales.sql` when missing instead of tracking the sqlite file.
 - Document macOS QPIP native-library codesign workaround for Go2Epa / `hydraulic_engine` in README.
 - Refactor Go2Epa hydraulic_engine integration to share execute/import flow for WS and UD.
 - Require `hydraulic_engine>=0.7.0` and align Go2Epa runners with its EPANET/SWMM export API.
