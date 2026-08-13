@@ -1,1 +1,2 @@
 - Add Arc widgets (arc_id, set to arc, expression) to Gully to network dialog (link_to_gully).
+- Add Force node checkbox and node picker (UD) to Connect / Gully to network dialogs; link with exit_type NODE.

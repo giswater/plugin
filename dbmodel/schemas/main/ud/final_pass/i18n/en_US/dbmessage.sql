@@ -763,6 +763,8 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4672, 'FEATURE PATTERN: inp_junction & inp_connec tables.', NULL),
     (4674, 'INFO: There are %v_hydro_no_llegits% non-read hydrometers from %v_hydro_total% hydrometers in total (%v_percentage%% of the hydrometers)', NULL),
     (4676, 'The demand is OK: demand values sum to 1 per DMA because they are weight factors.', NULL),
-    (4678, 'Sys_code is not null and sys_code_autofill is activated.', NULL)
+    (4678, 'Sys_code is not null and sys_code_autofill is activated.', NULL),
+    (4680, 'Cannot force connection to a node while arcs are selected.', 'Clear the selected arcs and try again.'),
+    (4682, 'The %feature_type% with id %connec_id% has been successfully connected to the node with id %node_id%', NULL)
 ) AS v(id, error_message, hint_message)
 WHERE t.id = v.id;

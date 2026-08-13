@@ -14,12 +14,13 @@ from ... import global_vars
 
 class GwConnectLink(GwTask):
 
-    def __init__(self, description, connect_link_class, element_type, selected_arcs=None):
+    def __init__(self, description, connect_link_class, element_type, selected_arcs=None, selected_nodes=None):
 
         super().__init__(description)
         self.connect_link_class = connect_link_class
         self.element_type = element_type
         self.selected_arcs = selected_arcs or []
+        self.selected_nodes = selected_nodes or []
         self.json_result = None
 
     def run(self):
@@ -28,9 +29,10 @@ class GwConnectLink(GwTask):
 
         try:
             msg = "Task 'Connect link' execute function '{0}' with parameters: '{1}', '{2}'"
-            msg_params = ("_link_selected_features", self.element_type, f"selected_arcs={self.selected_arcs}",)
+            msg_params = ("_link_selected_features", self.element_type,
+                          f"selected_arcs={self.selected_arcs}, selected_nodes={self.selected_nodes}",)
             tools_log.log_info(msg, msg_params=msg_params)
-            result = self._link_selected_features(self.element_type, self.selected_arcs)
+            result = self._link_selected_features(self.element_type, self.selected_arcs, self.selected_nodes)
             self.connect_link_class.cancel_map_tool()
             return result
         except KeyError as e:
@@ -47,7 +49,7 @@ class GwConnectLink(GwTask):
         # Refresh psector's relations tables
         tools_gw.execute_class_function(GwPsectorUi, '_refresh_tables_relations')
 
-    def _link_selected_features(self, feature_type, selected_arcs=None):
+    def _link_selected_features(self, feature_type, selected_arcs=None, selected_nodes=None):
         """ Link selected @feature_type to the pipe """
         # Use individual processing for multiple connecs in "Set user click" mode
         user_click_with_multiple = (
@@ -56,9 +58,9 @@ class GwConnectLink(GwTask):
         )
 
         if user_click_with_multiple:
-            return self._link_features_individually(feature_type, selected_arcs)
+            return self._link_features_individually(feature_type, selected_arcs, selected_nodes)
         else:
-            return self._link_features_batch(feature_type, selected_arcs)
+            return self._link_features_batch(feature_type, selected_arcs, selected_nodes)
 
     def _check_user_click_mode(self):
         """ Check if user click mode is active by looking for temp_table entry """
@@ -66,7 +68,19 @@ class GwConnectLink(GwTask):
         result = tools_db.get_row(sql, is_thread=True)
         return result and result[0] > 0
 
-    def _link_features_individually(self, feature_type, selected_arcs=None):
+    def _append_node_extras(self, extras, selected_nodes=None):
+        """ Append forceNode / forcedNodes to the procedure extras JSON """
+        force_node = 'true' if tools_qt.is_checked(
+            self.connect_link_class.dlg_connect_link, "tab_none_force_node"
+        ) else 'false'
+        extras += f', "forceNode":{force_node}'
+        if selected_nodes:
+            nodes_str_list = [f'"{str(node)}"' for node in selected_nodes]
+            nodes_json = ', '.join(nodes_str_list)
+            extras += f', "forcedNodes":[{nodes_json}]'
+        return extras
+
+    def _link_features_individually(self, feature_type, selected_arcs=None, selected_nodes=None):
         """ 
         Process each feature individually (for user click mode)
         This method handles multiple connecs when "Set user click" is used.
@@ -106,6 +120,7 @@ class GwConnectLink(GwTask):
                 f'"linkcatId":"{linkcat_id}",'
                 f'"forceReconnect":{force_reconnect}'
             )
+            extras = self._append_node_extras(extras, selected_nodes)
 
             if selected_arcs:
                 # Convert list to proper JSON array format for forcedArcs
@@ -136,7 +151,7 @@ class GwConnectLink(GwTask):
 
         return success_count > 0
 
-    def _link_features_batch(self, feature_type, selected_arcs=None):
+    def _link_features_batch(self, feature_type, selected_arcs=None, selected_nodes=None):
         """ 
         Process all features in batch (normal mode)
         This is the standard processing mode - faster for multiple connecs
@@ -159,6 +174,7 @@ class GwConnectLink(GwTask):
             f'"linkcatId":"{linkcat_id}",'
             f'"forceReconnect":{force_reconnect}'
         )
+        extras = self._append_node_extras(extras, selected_nodes)
 
         if selected_arcs:
             # Convert list to proper JSON array format for forcedArcs

@@ -137,11 +137,20 @@ class GwConnectLinkButton(GwMaptool):
         else:
             tools_gw.open_dialog(self.dlg_connect_link, 'connect_link')
 
+        if self.project_type != 'ud':
+            gb_nodes = self.dlg_connect_link.findChild(QWidget, "groupBox_4")
+            if gb_nodes:
+                gb_nodes.hide()
+
         # Setup "Set to arc" button dropdown menu immediately (same as psector)
         self._setup_set_to_arc_button()
 
-        # Ensure arc field is read-only (database config may not work)
+        # Setup "Set to node" button (UD only)
+        self._setup_set_to_node_button()
+
+        # Ensure arc/node fields are read-only (database config may not work)
         self._make_arc_field_readonly()
+        self._make_node_field_readonly()
 
     def _setup_set_to_arc_button(self):
         """ Setup set to arc button with dropdown menu (same as psector) """
@@ -188,6 +197,26 @@ class GwConnectLinkButton(GwMaptool):
         if txt_arc_id and hasattr(txt_arc_id, 'setReadOnly'):
             txt_arc_id.setReadOnly(True)
 
+    def _make_node_field_readonly(self):
+        """ Make node field read-only (fallback if database config doesn't work) """
+        txt_node_id = self.dlg_connect_link.findChild(QWidget, "tab_none_node_id")
+        if txt_node_id and hasattr(txt_node_id, 'setReadOnly'):
+            txt_node_id.setReadOnly(True)
+
+    def _setup_set_to_node_button(self):
+        """ Setup set to node button (single click, UD only) """
+        btn_set_to_node = self.dlg_connect_link.findChild(QWidget, "tab_none_btn_set_to_node")
+        if not btn_set_to_node:
+            return
+
+        self.selected_node = None
+        try:
+            btn_set_to_node.clicked.disconnect()
+        except Exception:
+            pass
+        btn_set_to_node.clicked.connect(self._set_to_node)
+        self._update_set_to_arc_button_state()
+
     def _update_set_to_arc_button_state(self):
         """ Update "Set to arc" button enabled state based on connec table content """
         btn_set_to_arc = self.dlg_connect_link.findChild(QWidget, "tab_none_btn_set_to_arc")
@@ -201,6 +230,9 @@ class GwConnectLinkButton(GwMaptool):
                 btn_set_to_arc.setEnabled(has_connecs)
             if btn_expr_arc:
                 btn_expr_arc.setEnabled(has_connecs)
+            btn_set_to_node = self.dlg_connect_link.findChild(QWidget, "tab_none_btn_set_to_node")
+            if btn_set_to_node:
+                btn_set_to_node.setEnabled(has_connecs)
 
     def _cleanup_and_close(self):
         """ Cleanup all visual elements when dialog is closed (same pattern as psector) """
@@ -456,6 +488,8 @@ class GwConnectLinkButton(GwMaptool):
 
         # Extract arc IDs from selected features
         selected_arc_ids = [str(feature.attribute('arc_id')) for feature in selected_features]
+        self.selected_arcs = selected_arc_ids
+        self._clear_selected_node()
 
         # Update arc line edit field directly (same as mapzone forceClosed)
         txt_arc_id = self.dlg_connect_link.findChild(QWidget, "tab_none_arc_id")
@@ -614,6 +648,7 @@ class GwConnectLinkButton(GwMaptool):
             elif self.arc_id not in self.selected_arcs:
                 # Normal click on unselected arc - add it
                 self.selected_arcs.append(self.arc_id)
+                self._clear_selected_node()
             else:
                 # Normal click on already selected arc - do nothing
                 return
@@ -635,6 +670,7 @@ class GwConnectLinkButton(GwMaptool):
         elif idx == 1:  # "Set user click (single)"
             # Clear multiple selection for single mode
             self.selected_arcs = [self.arc_id]
+            self._clear_selected_node()
 
             # Get the snapped point (where connection will actually be made)
             snapped_point = self.snapper_manager.get_snapped_point(result)
@@ -655,6 +691,103 @@ class GwConnectLinkButton(GwMaptool):
         # Disconnect and restore snapping (only for single mode, without panning)
         tools_gw.disconnect_signal('connect_link', 'set_to_arc_ep_canvasClicked_set_arc_id')
         tools_gw.disconnect_signal('connect_link', 'set_to_arc_xyCoordinates_mouse_move_arc')
+        tools_qgis.disconnect_snapping(False, self.emit_point, self.vertex_marker)
+
+    def _clear_selected_node(self):
+        """ Clear forced node selection and field """
+        self.selected_node = None
+        txt_node_id = self.dlg_connect_link.findChild(QWidget, "tab_none_node_id")
+        if txt_node_id and hasattr(txt_node_id, 'setText'):
+            txt_node_id.setText('')
+
+    def _clear_selected_arcs(self):
+        """ Clear forced arc selection and field """
+        self.selected_arcs = []
+        txt_arc_id = self.dlg_connect_link.findChild(QWidget, "tab_none_arc_id")
+        if txt_arc_id and hasattr(txt_arc_id, 'setText'):
+            txt_arc_id.setText('')
+        if hasattr(self, 'rubber_band_line') and self.rubber_band_line:
+            tools_gw.reset_rubberband(self.rubber_band_line)
+        self.user_click_point = None
+        if hasattr(self, 'user_click_marker') and self.user_click_marker:
+            self.user_click_marker.hide()
+
+    def _set_to_node(self):
+        """ Snap a single node on the map """
+        if hasattr(self, 'emit_point') and self.emit_point is not None:
+            tools_gw.disconnect_signal('connect_link', 'set_to_node_ep_canvasClicked_set_node_id')
+            tools_gw.disconnect_signal('connect_link', 'set_to_node_xyCoordinates_mouse_move_node')
+
+        self.emit_point = QgsMapToolEmitPoint(self.canvas)
+        self.canvas.setMapTool(self.emit_point)
+        self.snapper_manager = GwSnapManager(self.iface)
+        self.snapper = self.snapper_manager.get_snapper()
+        self.layer_node = tools_qgis.get_layer_by_tablename("ve_node")
+
+        self.vertex_marker = self.snapper_manager.vertex_marker
+        self.previous_snapping = self.snapper_manager.get_snapping_options()
+
+        message = "Click on a node to force the connection."
+        title = "Connect to network"
+        tools_qgis.show_info(message, title=title)
+
+        tools_gw.connect_signal(self.canvas.xyCoordinates, self._mouse_move_node, 'connect_link',
+                                'set_to_node_xyCoordinates_mouse_move_node')
+        tools_gw.connect_signal(self.emit_point.canvasClicked, self._set_node_id,
+                                'connect_link', 'set_to_node_ep_canvasClicked_set_node_id')
+
+    def _mouse_move_node(self, point):
+        """ Mouse move event for node snapping """
+        if not self.layer_node or not self.snapper_manager:
+            return
+
+        self.iface.setActiveLayer(self.layer_node)
+        if self.vertex_marker:
+            self.vertex_marker.hide()
+        event_point = self.snapper_manager.get_event_point(point=point)
+        result = self.snapper_manager.snap_to_current_layer(event_point)
+        if result.isValid():
+            self.snapper_manager.add_marker(result, self.vertex_marker)
+
+    def _set_node_id(self, point, event):
+        """ Set node id from map click """
+        if event == 2:
+            tools_qgis.disconnect_snapping(True, self.emit_point, self.vertex_marker)
+            tools_qgis.disconnect_signal_selection_changed()
+            return
+
+        event_point = self.snapper_manager.get_event_point(point=point)
+        self.node_id = None
+
+        result = self.snapper_manager.snap_to_current_layer(event_point)
+        if result.isValid():
+            layer = self.snapper_manager.get_snapped_layer(result)
+            if layer == self.layer_node:
+                snapped_feat = self.snapper_manager.get_snapped_feature(result)
+                self.node_id = snapped_feat.attribute('node_id')
+                feature = tools_qt.get_feature_by_id(layer, self.node_id, 'node_id')
+                try:
+                    geometry = feature.geometry()
+                    if hasattr(self, 'rubber_band_line'):
+                        tools_gw.reset_rubberband(self.rubber_band_line)
+                        self.rubber_band_line.addGeometry(geometry, None)
+                        self.rubber_band_line.setColor(QColor(255, 0, 0, 100))
+                        self.rubber_band_line.setWidth(5)
+                        self.rubber_band_line.show()
+                except AttributeError:
+                    pass
+
+        if self.node_id is None:
+            return
+
+        self._clear_selected_arcs()
+        self.selected_node = str(self.node_id)
+        txt_node_id = self.dlg_connect_link.findChild(QWidget, "tab_none_node_id")
+        if txt_node_id and hasattr(txt_node_id, 'setText'):
+            txt_node_id.setText(str(self.node_id))
+
+        tools_gw.disconnect_signal('connect_link', 'set_to_node_ep_canvasClicked_set_node_id')
+        tools_gw.disconnect_signal('connect_link', 'set_to_node_xyCoordinates_mouse_move_node')
         tools_qgis.disconnect_snapping(False, self.emit_point, self.vertex_marker)
 
     # endregion
@@ -823,6 +956,22 @@ def accept(**kwargs):
                 selected_arc_feature = layer_arc.selectedFeatures()[0]  # Use the first selected arc
                 selected_arcs = [str(selected_arc_feature.attribute("arc_id"))]
 
+    force_node = tools_qt.is_checked(this.dlg_connect_link, "tab_none_force_node")
+    selected_nodes = []
+    if hasattr(this, 'selected_node') and this.selected_node:
+        selected_nodes = [this.selected_node]
+    else:
+        txt_node_id = this.dlg_connect_link.findChild(QWidget, "tab_none_node_id")
+        node_id_from_field = txt_node_id.text() if txt_node_id and hasattr(txt_node_id, 'text') else None
+        if node_id_from_field:
+            selected_nodes = [node_id_from_field.strip()]
+
+    if (force_node or selected_nodes) and selected_arcs:
+        message = "Cannot force connection to a node while arcs are selected."
+        title = "Connect to network"
+        tools_qgis.show_warning(message, title=title, dialog=this.dlg_connect_link)
+        return
+
     # Initialize an empty list
     this.ids = []
     model = this.tbl_ids.model()
@@ -849,7 +998,10 @@ def accept(**kwargs):
 
     # Create connect link task
     title = "Connect link"
-    this.connect_link_task = GwConnectLink(tools_qt.tr(title), this, this.feature_type, selected_arcs=selected_arcs)
+    this.connect_link_task = GwConnectLink(
+        tools_qt.tr(title), this, this.feature_type,
+        selected_arcs=selected_arcs, selected_nodes=selected_nodes
+    )
 
     # Add and trigger the task
     QgsApplication.taskManager().addTask(this.connect_link_task)

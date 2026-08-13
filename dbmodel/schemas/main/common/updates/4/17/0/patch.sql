@@ -380,3 +380,11 @@ SELECT a.arc_id, a.arccat_id, a.state AS state1,
 FROM dup a
 JOIN dup b ON a.geom_hash = b.geom_hash
 WHERE a.arc_id != b.arc_id' WHERE fid=479;
+
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
+VALUES (4680, 'Cannot force connection to a node while arcs are selected.', 'Clear the selected arcs and try again.', 2, true, 'ud', 'core', 'UI')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
+VALUES (4682, 'The %feature_type% with id %connec_id% has been successfully connected to the node with id %node_id%', NULL, 0, true, 'ud', 'core', 'AUDIT')
+ON CONFLICT (id) DO NOTHING;

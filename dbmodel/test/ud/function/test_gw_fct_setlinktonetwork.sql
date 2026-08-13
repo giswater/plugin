@@ -11,8 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 1 test
-SELECT plan(1);
+SELECT plan(12);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -38,20 +37,78 @@ SELECT is (
     'Check if gw_fct_setlinktonetwork returns status "Accepted"'
 );
 
--- TODO
--- gw_fct_setlinktonetwork
--- SELECT gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},
--- "feature":{"id":["10117","10118"]},"data":{"feature_type":"CONNEC", "forcedArcs":["2001","2002"]}}$$);
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3095"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC", "forceNode":true}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC forceNode returns status Accepted'
+);
 
--- SELECT gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},
--- "feature":{"id":["30012"]},"data":{"feature_type":"CONNEC"}}$$);
+SELECT is (
+    (SELECT exit_type FROM link WHERE feature_id = 3095 AND feature_type = 'CONNEC' AND state > 0 ORDER BY link_id DESC LIMIT 1),
+    'NODE',
+    'CONNEC forceNode creates link with exit_type NODE'
+);
 
--- SELECT gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},
--- "feature":{"id":["30014"]},"data":{"feature_type":"GULLY"}}$$);
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3094"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC", "forcedNodes":["84"]}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC forcedNodes returns status Accepted'
+);
 
+SELECT is (
+    (SELECT exit_type FROM link WHERE feature_id = 3094 AND feature_type = 'CONNEC' AND state > 0 ORDER BY link_id DESC LIMIT 1),
+    'NODE',
+    'CONNEC forcedNodes creates link with exit_type NODE'
+);
 
+SELECT is (
+    (SELECT exit_id::text FROM link WHERE feature_id = 3094 AND feature_type = 'CONNEC' AND state > 0 ORDER BY link_id DESC LIMIT 1),
+    '84',
+    'CONNEC forcedNodes sets exit_id to the forced node'
+);
 
--- Finish the test
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["30014"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"GULLY", "forceNode":true}}$$)::JSON)->>'status',
+    'Accepted',
+    'GULLY forceNode returns status Accepted'
+);
+
+SELECT is (
+    (SELECT exit_type FROM link WHERE feature_id = 30014 AND feature_type = 'GULLY' AND state > 0 ORDER BY link_id DESC LIMIT 1),
+    'NODE',
+    'GULLY forceNode creates link with exit_type NODE'
+);
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["30014"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"GULLY", "forcedNodes":["49"]}}$$)::JSON)->>'status',
+    'Accepted',
+    'GULLY forcedNodes returns status Accepted'
+);
+
+SELECT is (
+    (SELECT exit_type FROM link WHERE feature_id = 30014 AND feature_type = 'GULLY' AND state > 0 ORDER BY link_id DESC LIMIT 1),
+    'NODE',
+    'GULLY forcedNodes creates link with exit_type NODE'
+);
+
+SELECT is (
+    (SELECT exit_id::text FROM link WHERE feature_id = 30014 AND feature_type = 'GULLY' AND state > 0 ORDER BY link_id DESC LIMIT 1),
+    '49',
+    'GULLY forcedNodes sets exit_id to the forced node'
+);
+
+SELECT isnt (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3091"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "forcedNodes":["84"], "forcedArcs":["210"]}}$$)::JSON)->>'status',
+    'Accepted',
+    'forcedNodes + forcedArcs does not return Accepted'
+);
+
 SELECT finish();
 
 ROLLBACK;

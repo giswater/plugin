@@ -11004,6 +11004,14 @@
 			<translation>groupBox_3</translation>
 		</message>
 		<message>
+			<source>groupBox_4</source>
+			<translation>Nodes</translation>
+		</message>
+		<message>
+			<source>tooltip_groupBox_4</source>
+			<translation>groupBox_4</translation>
+		</message>
+		<message>
 			<source>tab_connect</source>
 			<translation>Link</translation>
 		</message>
