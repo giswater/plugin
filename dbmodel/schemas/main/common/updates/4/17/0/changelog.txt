@@ -1,3 +1,5 @@
+- Refactor gw_fct_getfeatures with shared list/filter helpers (gw_fct_build_filters_sql, gw_fct_resolve_list_query, gw_fct_build_canvas_filter_sql).
+- Add sys_message 4680 for GeoJSON output requiring the_geom in resolved tableName queries.
 - Materialize graph inundation temporal arcs into anl_graphinundation / v_anl_graphinundation for QGIS.
 - Fix performance on `sys_fprocess` queries.
 - Keep `link.userdefined_geom` when provided on `ve_link` edit; set TRUE on INSERT or geom change.

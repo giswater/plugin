@@ -43,6 +43,39 @@ BEGIN
     END LOOP;
 END $$;
 
+UPDATE sys_function
+   SET descript = 'Function for getting features filtering by sys_type, featureType or config_form_list tableName'
+ WHERE id = 3484;
+
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
+VALUES(4680, 'GeoJSON output requires a the_geom column in the resolved query for tableName %tableName%', 'Include the_geom in config_form_list.query_text', 2, true, 'utils', 'core', 'UI')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO sys_function (id, function_name, project_type, function_type, input_params, return_type, descript, sys_role, sample_query, "source", function_alias)
+VALUES(3566, 'gw_fct_build_filters_sql', 'utils', 'function', 'json, text', 'text', 'Build SQL AND clauses from filterFields json for list and feature queries', NULL, NULL, 'core', NULL)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO sys_function (id, function_name, project_type, function_type, input_params, return_type, descript, sys_role, sample_query, "source", function_alias)
+VALUES(3568, 'gw_fct_resolve_list_query', 'utils', 'function', 'text, integer', 'json', 'Resolve config_form_list query_text and metadata for a listname', NULL, NULL, 'core', NULL)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO sys_function (id, function_name, project_type, function_type, input_params, return_type, descript, sys_role, sample_query, "source", function_alias)
+VALUES(3570, 'gw_fct_build_canvas_filter_sql', 'utils', 'function', 'text, double precision, double precision, double precision, double precision, integer', 'text', 'Build SQL canvas extend filter for a geometry expression', NULL, NULL, 'core', NULL)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO config_param_user (parameter, value, cur_user)
+VALUES ('utils_language_ui', '{"status":true, "lang":"en_US"}', current_user)
+ON CONFLICT (parameter, cur_user) DO NOTHING;
+
+DO $patch$
+BEGIN
+    IF to_regprocedure('gw_fct_get_utils_language_ui()') IS NOT NULL THEN
+        ALTER FUNCTION gw_fct_get_utils_language_ui() VOLATILE;
+    END IF;
+END $patch$;
+
+
+
 INSERT INTO sys_param_user (
     id, formname, descript, sys_role, "label", dv_querytext, isenabled, layoutorder,
     project_type, isparent, isautoupdate, "datatype", widgettype, ismandatory,
