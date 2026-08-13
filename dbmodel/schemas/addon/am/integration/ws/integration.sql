@@ -15178,7 +15178,7 @@ AS WITH nodes AS MATERIALIZED (
          SELECT node.node_id,
             node_add.press_avg
            FROM PARENT_SCHEMA.node
-             JOIN PARENT_SCHEMA.node_add ON node.node_id = node_add.node_id
+             LEFT JOIN PARENT_SCHEMA.node_add ON node.node_id = node_add.node_id
              JOIN PARENT_SCHEMA.vf_node ON vf_node.node_id = node.node_id
         ), arcs AS MATERIALIZED (
          SELECT a_1.arc_id,
@@ -15196,7 +15196,7 @@ AS WITH nodes AS MATERIALIZED (
             n1.press_avg AS press1,
             a_1.state
            FROM PARENT_SCHEMA.arc a_1
-             JOIN nodes n1 ON n1.node_id = a_1.node_1
+             LEFT JOIN nodes n1 ON n1.node_id = a_1.node_1
         )
  SELECT a.arc_id,
     a.sector_id,
@@ -15216,11 +15216,11 @@ AS WITH nodes AS MATERIALIZED (
     arc_add.flow_avg,
     a.the_geom
    FROM arcs a
-     JOIN nodes n2 ON n2.node_id = a.node_2
+     LEFT JOIN nodes n2 ON n2.node_id = a.node_2
      JOIN PARENT_SCHEMA.vf_arc vf ON vf.arc_id = a.arc_id
      JOIN PARENT_SCHEMA.sector s ON s.sector_id = a.sector_id
      JOIN PARENT_SCHEMA.cat_arc cat ON cat.id::text = a.arccat_id::text
-     JOIN PARENT_SCHEMA.arc_add ON arc_add.arc_id = a.arc_id
+     LEFT JOIN PARENT_SCHEMA.arc_add ON arc_add.arc_id = a.arc_id
   WHERE a.state = 1;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES

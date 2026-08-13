@@ -108,6 +108,31 @@ class GwAssignation(GwTask):
         self._emit_report(tools_qt.tr("Getting pipe data from DB") + " (2/5)...")
         self.setProgress(10)
 
+        # Pin: feature_type + feature_id set (ARC) → skip spatial buffer
+        pinned_rows = tools_db.get_rows(
+            f"""
+            WITH max_date AS (
+                SELECT max(date)
+                FROM am.leaks)
+            SELECT l.id AS leak_id,
+                a.arc_id AS arc_id,
+                a.dnom::integer AS arc_diameter,
+                a.matcat_id AS arc_material,
+                ST_LENGTH(a.the_geom) AS arc_length
+            FROM am.leaks AS l
+            JOIN am.ext_arc_asset AS a ON
+                a.arc_id::text = l.feature_id::text
+                AND (l.date > a.builtdate OR a.builtdate IS NULL)
+            WHERE l.feature_id IS NOT NULL
+                AND l.feature_type IS NOT NULL
+                AND upper(trim(l.feature_type)) = 'ARC'
+                AND l.date > (
+                    (SELECT * FROM max_date) - INTERVAL '{self.years} year')::date
+            """,
+            is_thread=True
+        )
+
+        # Spatial: no ARC feature pin → buffer matching (current behaviour)
         rows = tools_db.get_rows(
             f"""
             WITH max_date AS (
@@ -127,9 +152,14 @@ class GwAssignation(GwTask):
             FROM am.leaks AS l
             JOIN am.ext_arc_asset AS a ON
                 (l.date > a.builtdate OR a.builtdate IS NULL)
-                AND ST_DWITHIN(l.the_geom, a.the_geom, {self.buffer})     
+                AND ST_DWITHIN(l.the_geom, a.the_geom, {self.buffer})
             WHERE l.date > (
                 (SELECT * FROM max_date) - INTERVAL '{self.years} year')::date
+                AND NOT (
+                    l.feature_id IS NOT NULL
+                    AND l.feature_type IS NOT NULL
+                    AND upper(trim(l.feature_type)) = 'ARC'
+                )
                 AND ST_LENGTH(
                     ST_INTERSECTION(ST_BUFFER(l.the_geom, {self.buffer}), a.the_geom)
                 ) > 0
@@ -144,11 +174,34 @@ class GwAssignation(GwTask):
         self._emit_report(tools_qt.tr("Assigning leaks to pipes") + " (3/5)...")
         self.setProgress(40)
 
-        leaks = {}
-        if not rows:
+        if not pinned_rows and not rows:
             self._emit_report(tools_qt.tr("No pipes were found near any leak within the specified time period."))
             return False
-        for row in rows:
+
+        arcs = {}
+        assigned_leak_ids = set()
+        self.by_feature = 0
+        self.by_material_diameter = 0
+        self.by_material = 0
+        self.by_diameter = 0
+        self.any_pipe = 0
+
+        for row in pinned_rows or []:
+            leak_id, arc_id, arc_diameter, arc_material, arc_length = row
+            if arc_id not in arcs:
+                arcs[arc_id] = {
+                    "id": arc_id,
+                    "material": arc_material,
+                    "diameter": arc_diameter,
+                    "length": arc_length,
+                    "leaks": 0,
+                }
+            arcs[arc_id]["leaks"] += 1
+            assigned_leak_ids.add(leak_id)
+            self.by_feature += 1
+
+        leaks = {}
+        for row in rows or []:
             (
                 leak_id,
                 leak_diameter,
@@ -186,12 +239,7 @@ class GwAssignation(GwTask):
                     ),
                 }
             )
-        self.assigned_leaks = len(leaks)
-        self.by_material_diameter = 0
-        self.by_material = 0
-        self.by_diameter = 0
-        self.any_pipe = 0
-        arcs = {}
+
         for leak_id, leak_arcs in leaks.items():
             def is_arc_valid(x, validation_type):
                 if validation_type == "material_diameter":
@@ -222,6 +270,8 @@ class GwAssignation(GwTask):
                 )
             )
             sum_indexes = sum([a["index"] for a in valid_arcs])
+            if sum_indexes == 0:
+                continue
             for arc in valid_arcs:
                 arc_id = arc["arc_id"]
                 if arc_id not in arcs:
@@ -233,6 +283,9 @@ class GwAssignation(GwTask):
                         "leaks": 0,
                     }
                 arcs[arc_id]["leaks"] += arc["index"] / sum_indexes
+            assigned_leak_ids.add(leak_id)
+
+        self.assigned_leaks = len(assigned_leak_ids)
         return arcs
 
     def _calculate_rleak(self, arcs):
@@ -352,6 +405,8 @@ class GwAssignation(GwTask):
             (tools_qt.tr('Leaks without pipes intersecting its buffer: '), f'{values["total_leaks"] - self.assigned_leaks}')
         ]
 
+        if self.by_feature:
+            final_report_values.append((tools_qt.tr('Leaks assigned by feature id: '), f'{self.by_feature}'))
         if self.by_material_diameter:
             final_report_values.append((tools_qt.tr('Leaks assigned by material and diameter: '), f'{self.by_material_diameter}'))
         if self.by_material:
