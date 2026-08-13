@@ -390,5 +390,32 @@ VALUES (4682, 'The %feature_type% with id %connec_id% has been successfully conn
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO config_typevalue (typevalue, id, idval, camelstyle, addparam)
-VALUES('layout_name_typevalue', 'lyt_connect_link_6', 'lyt_connect_link_6', 'lytConnectLink6', '{"lytOrientation": "vertical"}'::json)
+VALUES
+('layout_name_typevalue', 'lyt_link_configuration', 'lyt_link_configuration', 'lytLinkConfiguration', '{"lytOrientation": "vertical"}'::json),
+('layout_name_typevalue', 'lyt_feature_selection', 'lyt_feature_selection', 'lytFeatureSelection', '{"lytOrientation": "horizontal"}'::json),
+('layout_name_typevalue', 'lyt_arc_selection', 'lyt_arc_selection', 'lytArcSelection', '{"lytOrientation": "horizontal"}'::json),
+('layout_name_typevalue', 'lyt_node_selection', 'lyt_node_selection', 'lytNodeSelection', '{"lytOrientation": "horizontal"}'::json),
+('layout_name_typevalue', 'lyt_extra_filters', 'lyt_extra_filters', 'lytExtraFilters', '{"lytOrientation": "vertical"}'::json)
 ON CONFLICT (typevalue, id) DO NOTHING;
+
+UPDATE config_form_fields SET layoutname = 'lyt_link_configuration'
+WHERE formname = 'generic' AND formtype IN ('link_to_connec', 'link_to_gully') AND layoutname = 'lyt_connect_link_1';
+
+UPDATE config_form_fields SET layoutname = 'lyt_feature_selection'
+WHERE formname = 'generic' AND formtype IN ('link_to_connec', 'link_to_gully') AND layoutname = 'lyt_connect_link_2';
+
+UPDATE config_form_fields SET layoutname = 'lyt_connect_link_3'
+WHERE formname = 'generic' AND formtype IN ('link_to_connec', 'link_to_gully') AND columnname = 'tbl_ids';
+
+UPDATE config_form_fields SET layoutname = 'lyt_arc_selection'
+WHERE formname = 'generic' AND formtype IN ('link_to_connec', 'link_to_gully') AND layoutname = 'lyt_connect_link_4';
+
+UPDATE config_form_fields SET layoutname = 'lyt_node_selection'
+WHERE formname = 'generic' AND formtype IN ('link_to_connec', 'link_to_gully') AND layoutname = 'lyt_connect_link_5';
+
+UPDATE config_form_fields SET layoutname = 'lyt_extra_filters'
+WHERE formname = 'generic' AND formtype IN ('link_to_connec', 'link_to_gully') AND layoutname = 'lyt_connect_link_6';
+
+DELETE FROM config_typevalue
+WHERE typevalue = 'layout_name_typevalue'
+AND id IN ('lyt_connect_link_1', 'lyt_connect_link_2', 'lyt_connect_link_4', 'lyt_connect_link_5', 'lyt_connect_link_6');

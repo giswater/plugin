@@ -248,7 +248,8 @@ BEGIN
 
 	v_isnodedest = (v_forcenode IS TRUE OR v_isforcednodes IS TRUE);
 
-	-- extra filters from dialog (AND with distance / diameter / forced set)
+	-- extra filters from dialog (AND with distance / diameter / forced set).
+	-- Applied on new links, forceReconnect and forceNode; not when snapping an existing link.
 	v_extrafilters = ((p_data->>'data')::json)->'extraFilters';
 	v_extrafilters_arc := '';
 	v_extrafilters_node := '';
@@ -524,7 +525,7 @@ BEGIN
 					v_connect.the_geom::text, v_check_maxdistance, v_checkeddiam)
 					INTO v_connect.arc_id;
 
-				ELSIF v_link.the_geom IS NOT NULL THEN -- looking for closest arc from link's endpoint
+				ELSIF v_link.the_geom IS NOT NULL THEN -- existing link: snap from endpoint, extraFilters only with forceReconnect
 					EXECUTE format(
 					'WITH knn AS MATERIALIZED (
                             SELECT a.arc_id, a.arccat_id, ST_Distance(a.the_geom, ST_EndPoint(%L::geometry)) AS distance
@@ -542,9 +543,9 @@ BEGIN
                         %s
                         ORDER BY k.distance
                         LIMIT 1',
-					v_link.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id') || v_extrafilters_arc,
+					v_link.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id'),
 					v_link.the_geom::text, v_check_maxdistance, v_checkeddiam)
-					INTO v_connect.arc_id;
+						INTO v_connect.arc_id;
 
 					IF v_connect.arc_id IS NULL AND v_isforcedarcs THEN -- looking for closest arc from connect within forced set
 						EXECUTE format(
@@ -564,7 +565,7 @@ BEGIN
                         %s
                         ORDER BY k.distance
                         LIMIT 1',
-						v_connect.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id') || v_extrafilters_arc,
+						v_connect.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id'),
 						v_connect.the_geom::text, v_check_maxdistance, v_checkeddiam)
 						INTO v_connect.arc_id;
 					END IF;

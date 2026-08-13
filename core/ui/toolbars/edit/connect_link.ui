@@ -58,7 +58,7 @@
             </property>
             <layout class="QGridLayout" name="gridLayout_3">
              <item row="0" column="0">
-              <layout class="QGridLayout" name="lyt_connect_link_1"/>
+              <layout class="QGridLayout" name="lyt_link_configuration"/>
              </item>
             </layout>
            </widget>
@@ -70,7 +70,7 @@
             </property>
             <layout class="QGridLayout" name="gridLayout_8">
              <item row="0" column="0">
-              <layout class="QGridLayout" name="lyt_connect_link_6"/>
+              <layout class="QGridLayout" name="lyt_extra_filters"/>
              </item>
             </layout>
            </widget>
@@ -82,7 +82,7 @@
             </property>
             <layout class="QGridLayout" name="gridLayout_5">
              <item row="0" column="0">
-              <layout class="QGridLayout" name="lyt_connect_link_2"/>
+              <layout class="QGridLayout" name="lyt_feature_selection"/>
              </item>
              <item row="1" column="0">
               <layout class="QGridLayout" name="lyt_connect_link_3">
@@ -101,7 +101,7 @@
             </property>
             <layout class="QGridLayout" name="gridLayout_6">
              <item row="0" column="0">
-              <layout class="QGridLayout" name="lyt_connect_link_4"/>
+              <layout class="QGridLayout" name="lyt_arc_selection"/>
              </item>
             </layout>
            </widget>
@@ -113,7 +113,7 @@
             </property>
             <layout class="QGridLayout" name="gridLayout_7">
              <item row="0" column="0">
-              <layout class="QGridLayout" name="lyt_connect_link_5"/>
+              <layout class="QGridLayout" name="lyt_node_selection"/>
              </item>
             </layout>
            </widget>

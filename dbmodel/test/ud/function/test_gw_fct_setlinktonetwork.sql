@@ -11,7 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(16);
+SELECT plan(18);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -110,7 +110,31 @@ SELECT isnt (
 );
 
 UPDATE arc SET fluid_type = 3 WHERE state > 0;
-UPDATE arc SET fluid_type = 1 WHERE arc_id = (SELECT arc_id FROM connec WHERE connec_id = 3090);
+UPDATE arc SET fluid_type = 1
+WHERE arc_id = (
+    SELECT a.arc_id FROM arc a
+    JOIN connec c ON c.connec_id = 3090
+    WHERE a.state > 0 AND a.arc_id IS DISTINCT FROM c.arc_id
+    ORDER BY ST_Distance(a.the_geom, c.the_geom)
+    LIMIT 1
+);
+
+CREATE TEMP TABLE _t_connec_3090 AS
+SELECT arc_id FROM connec WHERE connec_id = 3090;
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3090"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "extraFilters":{"fluid_type":1}}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC extraFilters without forceReconnect returns status Accepted'
+);
+
+SELECT is (
+    (SELECT arc_id FROM connec WHERE connec_id = 3090),
+    (SELECT arc_id FROM _t_connec_3090),
+    'CONNEC extraFilters without forceReconnect does not move an existing link'
+);
 
 SELECT is (
     (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},

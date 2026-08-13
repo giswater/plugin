@@ -105,10 +105,10 @@ class GwConnectLinkButton(GwMaptool):
         self.extra_filter_fields = []
         fields = ((json_result or {}).get('body') or {}).get('data', {}).get('fields') or []
         for field in fields:
-            if field and field.get('layoutname') == 'lyt_connect_link_6':
+            if field and field.get('layoutname') == 'lyt_extra_filters':
                 self.extra_filter_fields.append(field)
 
-        extra_layout = self.dlg_connect_link.findChild(QGridLayout, "lyt_connect_link_6")
+        extra_layout = self.dlg_connect_link.findChild(QGridLayout, "lyt_extra_filters")
         gb_extra = self.dlg_connect_link.findChild(QWidget, "groupBox_5")
         if gb_extra and (extra_layout is None or extra_layout.count() == 0):
             gb_extra.hide()

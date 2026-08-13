@@ -565,17 +565,17 @@ INSERT INTO config_form_tableview (location_type,project_type,objectname,columnn
 
 -- Arc widgets on Connect Link dialog (gully) — same as link_to_connec (4.3.0)
 INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
-VALUES('generic', 'link_to_gully', 'tab_none', 'arc_id', 'lyt_connect_link_4', 1, 'text', 'text', 'Connect to arc:', 'Arc Id', NULL, false, NULL, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
+VALUES('generic', 'link_to_gully', 'tab_none', 'arc_id', 'lyt_arc_selection', 1, 'text', 'text', 'Connect to arc:', 'Arc Id', NULL, false, NULL, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
 ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
-VALUES('generic', 'link_to_gully', 'tab_none', 'btn_set_to_arc', 'lyt_connect_link_4', 2, NULL, 'button', NULL, 'Set to arc', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, '{
+VALUES('generic', 'link_to_gully', 'tab_none', 'btn_set_to_arc', 'lyt_arc_selection', 2, NULL, 'button', NULL, 'Set to arc', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, '{
   "icon": "155"
 }'::json, NULL, NULL, NULL, false, 0)
 ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
-VALUES('generic', 'link_to_gully', 'tab_none', 'btn_expr_arc', 'lyt_connect_link_4', 3, NULL, 'button', NULL, 'Select by Expression - Set closest point', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, '{
+VALUES('generic', 'link_to_gully', 'tab_none', 'btn_expr_arc', 'lyt_arc_selection', 3, NULL, 'button', NULL, 'Select by Expression - Set closest point', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, '{
   "icon": "178"
 }'::json, NULL, '{
   "functionName": "filter_expression_arc",
@@ -585,19 +585,19 @@ ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 -- Force node + Nodes picker (UD connect / gully to network)
 INSERT INTO config_typevalue (typevalue, id, idval, camelstyle, addparam)
-VALUES('layout_name_typevalue', 'lyt_connect_link_5', 'lyt_connect_link_5', 'lytConnectLink5', '{"lytOrientation": "horizontal"}'::json)
+VALUES('layout_name_typevalue', 'lyt_node_selection', 'lyt_node_selection', 'lytNodeSelection', '{"lytOrientation": "horizontal"}'::json)
 ON CONFLICT (typevalue, id) DO NOTHING;
 
 INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
 VALUES
-('generic', 'link_to_connec', 'tab_none', 'force_node', 'lyt_connect_link_1', 4, 'boolean', 'check', 'Force node:', 'Search closest node ignoring arcs (applies max distance)', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
-('generic', 'link_to_gully', 'tab_none', 'force_node', 'lyt_connect_link_1', 4, 'boolean', 'check', 'Force node:', 'Search closest node ignoring arcs (applies max distance)', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
-('generic', 'link_to_connec', 'tab_none', 'node_id', 'lyt_connect_link_5', 1, 'text', 'text', 'Connect to node:', 'Node Id', NULL, false, NULL, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
-('generic', 'link_to_gully', 'tab_none', 'node_id', 'lyt_connect_link_5', 1, 'text', 'text', 'Connect to node:', 'Node Id', NULL, false, NULL, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
-('generic', 'link_to_connec', 'tab_none', 'btn_set_to_node', 'lyt_connect_link_5', 2, NULL, 'button', NULL, 'Set to node', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, '{
+('generic', 'link_to_connec', 'tab_none', 'force_node', 'lyt_link_configuration', 4, 'boolean', 'check', 'Force node:', 'Search closest node ignoring arcs (applies max distance)', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
+('generic', 'link_to_gully', 'tab_none', 'force_node', 'lyt_link_configuration', 4, 'boolean', 'check', 'Force node:', 'Search closest node ignoring arcs (applies max distance)', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
+('generic', 'link_to_connec', 'tab_none', 'node_id', 'lyt_node_selection', 1, 'text', 'text', 'Connect to node:', 'Node Id', NULL, false, NULL, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
+('generic', 'link_to_gully', 'tab_none', 'node_id', 'lyt_node_selection', 1, 'text', 'text', 'Connect to node:', 'Node Id', NULL, false, NULL, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
+('generic', 'link_to_connec', 'tab_none', 'btn_set_to_node', 'lyt_node_selection', 2, NULL, 'button', NULL, 'Set to node', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, '{
   "icon": "137"
 }'::json, NULL, NULL, NULL, false, 0),
-('generic', 'link_to_gully', 'tab_none', 'btn_set_to_node', 'lyt_connect_link_5', 2, NULL, 'button', NULL, 'Set to node', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, '{
+('generic', 'link_to_gully', 'tab_none', 'btn_set_to_node', 'lyt_node_selection', 2, NULL, 'button', NULL, 'Set to node', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, '{
   "icon": "137"
 }'::json, NULL, NULL, NULL, false, 0)
 ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
@@ -605,6 +605,6 @@ ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 -- Extra filters example: fluid_type combo (nullable)
 INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
 VALUES
-('generic', 'link_to_connec', 'tab_none', 'fluid_type', 'lyt_connect_link_6', 0, 'integer', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT id, idval FROM om_typevalue WHERE typevalue = ''fluid_type''', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
-('generic', 'link_to_gully', 'tab_none', 'fluid_type', 'lyt_connect_link_6', 0, 'integer', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT id, idval FROM om_typevalue WHERE typevalue = ''fluid_type''', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
+('generic', 'link_to_connec', 'tab_none', 'fluid_type', 'lyt_extra_filters', 0, 'integer', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT id, idval FROM om_typevalue WHERE typevalue = ''fluid_type''', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
+('generic', 'link_to_gully', 'tab_none', 'fluid_type', 'lyt_extra_filters', 0, 'integer', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT id, idval FROM om_typevalue WHERE typevalue = ''fluid_type''', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
 ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;

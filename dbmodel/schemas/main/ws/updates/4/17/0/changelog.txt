@@ -1,1 +1,2 @@
-- Add Extra filters layout on Connect to network dialog (`extraFilters` on `gw_fct_linktonetwork`).
+- Rename Connect to network dialog layouts (`lyt_link_configuration`, `lyt_feature_selection`, `lyt_arc_selection`, `lyt_extra_filters`).
+- Add Extra filters layout on Connect to network dialog (`extraFilters` on `gw_fct_linktonetwork`). Extra filters retarget an existing link only with Force reconnect.
