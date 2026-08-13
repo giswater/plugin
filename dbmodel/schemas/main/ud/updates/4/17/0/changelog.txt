@@ -1,0 +1,3 @@
+- Keep `link.userdefined_geom` when provided on `ve_link` edit; set TRUE on INSERT or geom change.
+- Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
+- Add editable `userdefined_geom` checkbox to link info forms.

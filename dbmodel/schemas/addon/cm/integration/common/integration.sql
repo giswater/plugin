@@ -911,12 +911,6 @@ FOR EACH ROW EXECUTE FUNCTION cm.gw_trg_cm_campaign_x_feature_validate_type('lin
 
 -- Doc view triggers are now created dynamically per-feature in parent_schema/utils/ddlview.sql
 
-DROP TRIGGER IF EXISTS doc_path_prefix ON cm.doc;
-CREATE TRIGGER doc_path_prefix
-AFTER INSERT ON cm.doc
-FOR EACH ROW
-EXECUTE FUNCTION doc_path_prefix();
-
 DROP TRIGGER IF EXISTS trg_edit_view_campaign_node ON ve_PARENT_SCHEMA_camp_node;
 CREATE TRIGGER trg_edit_view_campaign_node INSTEAD OF INSERT OR UPDATE ON ve_PARENT_SCHEMA_camp_node
 FOR EACH ROW EXECUTE FUNCTION gw_trg_cm_edit_view_campaign('node');

@@ -6657,8 +6657,11 @@ def create_sqlite_conn(file_name):
     status = False
     cursor = None
     try:
-        db_path = f"{lib_vars.plugin_dir}{os.sep}resources{os.sep}gis{os.sep}{file_name}.sqlite"
+        gis_dir = f"{lib_vars.plugin_dir}{os.sep}resources{os.sep}gis"
+        db_path = f"{gis_dir}{os.sep}{file_name}.sqlite"
         tools_log.log_info(db_path)
+        if file_name == "locales" and not os.path.exists(db_path):
+            _create_locales_sqlite(gis_dir, db_path)
         if os.path.exists(db_path):
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
@@ -6670,6 +6673,31 @@ def create_sqlite_conn(file_name):
         tools_log.log_warning(str(e))
 
     return status, cursor
+
+
+def _create_locales_sqlite(gis_dir, db_path):
+    """Create locales.sqlite from the bundled SQL seed when the file is missing."""
+    seed_path = f"{gis_dir}{os.sep}locales.sql"
+    if not os.path.exists(seed_path):
+        msg = "Locales seed file not found"
+        tools_log.log_warning(msg, parameter=seed_path)
+        return
+
+    os.makedirs(gis_dir, exist_ok=True)
+    with open(seed_path, "r", encoding="utf-8") as f:
+        seed_sql = f.read()
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.executescript(seed_sql)
+        conn.commit()
+    except Exception:
+        conn.close()
+        if os.path.exists(db_path):
+            os.remove(db_path)
+        raise
+    conn.close()
+    msg = "Created locales database from seed"
+    tools_log.log_info(msg, parameter=db_path)
 
 
 def manage_user_config_folder(user_folder_dir):
