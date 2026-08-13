@@ -384,14 +384,13 @@ WHERE a.arc_id != b.arc_id' WHERE fid=479;
 INSERT INTO config_form_list (listname, query_text, device, listtype, listclass)
 	WITH missing_tableviews AS (
 		-- QTableView widgets reference a listname via linkedobject
-		-- (or columnname when linkedobject is empty).
 		SELECT DISTINCT listname
 		FROM (
 			SELECT
-				COALESCE(NULLIF(cff.linkedobject, ''), cff.columnname) AS listname
+				cff.linkedobject AS listname
 			FROM config_form_fields cff
 			WHERE cff.widgettype = 'tableview'
-				AND COALESCE(NULLIF(cff.linkedobject, ''), cff.columnname) IS NOT NULL
+				AND cff.linkedobject IS NOT NULL
 			UNION
 			-- Manager/QSqlTableModel objectnames used by set_tablemodel_config
 			-- (see core/**/*.py). v_ui_% covers mapzone/visit/doc managers;
