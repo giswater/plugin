@@ -251,50 +251,50 @@ UPDATE config_param_system
 	SET "label"='Cibs schema:'
 	WHERE "parameter"='admin_cibs_schema' AND "label"='cibs schema:';
 
-UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column rg_id.', except_msg='subcatchment(s) with null values on mandatory column rg_id.' 
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column rg_id.', except_msg='subcatchment(s) with null values on mandatory column rg_id.'
 WHERE fid=704 AND fprocess_name='Check subcatchment(s) with null values on mandatory column rg_id column.';
-    
-UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column area.', except_msg='subcatchment(s) with null values on mandatory column area.' 
+
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column area.', except_msg='subcatchment(s) with null values on mandatory column area.'
 WHERE fid=702 AND fprocess_name='Check subcatchment(s) with null values on mandatory column area column.';
 
-UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column width.', except_msg='subcatchment(s) with null values on mandatory column width.' 
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column width.', except_msg='subcatchment(s) with null values on mandatory column width.'
 WHERE fid=700 AND fprocess_name='Check subcatchment(s) with null values on mandatory column width column.';
 
 UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column slope.', except_msg='subcatchment(s) with null values on mandatory column slope.' WHERE fid=698;
-UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column clength.', except_msg='subcatchment(s) with null values on mandatory column clength.' 
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column clength.', except_msg='subcatchment(s) with null values on mandatory column clength.'
 WHERE fid=696 AND fprocess_name='Check subcatchment(s) with null values on mandatory column clength column.';
 
-UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column nimp.', except_msg='subcatchment(s) with null values on mandatory column nimp.' 
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column nimp.', except_msg='subcatchment(s) with null values on mandatory column nimp.'
 WHERE fid=694 AND fprocess_name='Check subcatchment(s) with null values on mandatory column nimp column.';
 
-UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column nperv.', except_msg='subcatchment(s) with null values on mandatory column nperv.' 
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column nperv.', except_msg='subcatchment(s) with null values on mandatory column nperv.'
 WHERE fid=692 AND fprocess_name='Check subcatchment(s) with null values on mandatory column nperv column.';
 
-UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column simp.', except_msg='subcatchment(s) with null values on mandatory column simp.' 
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column simp.', except_msg='subcatchment(s) with null values on mandatory column simp.'
 WHERE fid=690 AND fprocess_name='Check subcatchment(s) with null values on mandatory column simp column.';
 
-UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column sperv.', except_msg='subcatchment(s) with null values on mandatory column sperv.' 
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column sperv.', except_msg='subcatchment(s) with null values on mandatory column sperv.'
 WHERE fid=688 AND fprocess_name='Check subcatchment(s) with null values on mandatory column sperv column.';
 
-UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column zero.', except_msg='subcatchment(s) with null values on mandatory column zero.' 
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column zero.', except_msg='subcatchment(s) with null values on mandatory column zero.'
 WHERE fid=686 AND fprocess_name='Check subcatchment(s) with null values on mandatory column zero column.';
 
-UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column routeto.', except_msg='subcatchment(s) with null values on mandatory column routeto.' 
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column routeto.', except_msg='subcatchment(s) with null values on mandatory column routeto.'
 WHERE fid=684 AND fprocess_name='Check subcatchment(s) with null values on mandatory column routeto column.';
 
-UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column rted.', except_msg='subcatchment(s) with null values on mandatory column rted.' 
+UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column rted.', except_msg='subcatchment(s) with null values on mandatory column rted.'
 WHERE fid=682 AND fprocess_name='Check subcatchment(s) with null values on mandatory column rted column.';
 
-UPDATE config_param_system 
-SET "label" = "label" || ':' 
-WHERE "parameter" = 'help_domain' 
-  AND "label" IS NOT NULL 
+UPDATE config_param_system
+SET "label" = "label" || ':'
+WHERE "parameter" = 'help_domain'
+  AND "label" IS NOT NULL
   AND "label" LIKE '%:';
 
 DO $$
 BEGIN
   IF lower((SELECT "language" FROM sys_version LIMIT 1)) NOT ILIKE 'es_%' OR (SELECT "language" FROM sys_version LIMIT 1) IS NULL THEN
-    UPDATE sys_fprocess SET 
+    UPDATE sys_fprocess SET
     except_msg = 'raingages with null values at least in the mandatory columns for the rain type (form_type, intvl, scf, rgage_type).',
     info_msg = 'The mandatory columns for the rain type (form_type, intvl, scf, rgage_type) have been checked and no values are missing.'
     WHERE fid = 285 AND except_msg = 'raingages con valores nulos al menos en las columnas obligatorias para el tipo de lluvia (form_type, intvl, scf, rgage_type).';
@@ -342,14 +342,14 @@ SELECT
 	om_visit.webclient_id,
 	om_visit.expl_id
 FROM om_visit
-WHERE 
+WHERE
     EXISTS ( SELECT 1 FROM selector_sector ssec WHERE ssec.cur_user = CURRENT_USER AND ssec.sector_id = om_visit.sector_id)
     AND EXISTS ( SELECT 1 FROM selector_municipality sm WHERE sm.cur_user = CURRENT_USER AND sm.muni_id = om_visit.muni_id)
     AND EXISTS ( SELECT 1 FROM selector_expl se WHERE se.cur_user = CURRENT_USER AND se.expl_id = om_visit.expl_id);
 
 CREATE OR REPLACE VIEW v_ui_om_visit
-AS 
-SELECT 
+AS
+SELECT
     om_visit.id,
     om_visit_cat.name AS visit_catalog,
     om_visit.ext_code,
@@ -406,7 +406,7 @@ WHERE t.typevalue = 'sys_table_context'
 	);
 
 UPDATE sys_fprocess SET query_text='SELECT node_id, nodecat_id, the_geom, a.active, t_node.expl_id FROM t_node JOIN cat_node c ON id=nodecat_id JOIN cat_feature_node n ON n.id=c.node_type
-LEFT JOIN (SELECT node_id, a.active FROM t_node JOIN (SELECT NULLIF(((json_array_elements_text((graphconfig::json->>''use'')::json))::json->>''nodeParent''), '''')::integer AS node_id, 
+LEFT JOIN (SELECT node_id, a.active FROM t_node JOIN (SELECT NULLIF(((json_array_elements_text((graphconfig::json->>''use'')::json))::json->>''nodeParent''), '''')::integer AS node_id,
 active FROM dma WHERE graphconfig IS NOT NULL )a USING (node_id)) a USING (node_id) WHERE ''DMA'' = ANY(graph_delimiter) AND (a.node_id IS NULL
 OR node_id NOT IN (SELECT NULLIF(json_array_elements_text((graphconfig::json->>''ignore'')::json), '''')::integer FROM dma WHERE active IS TRUE)) AND t_node.state > 0 and verified <> 2 and a.active is false' WHERE fid=180;
 
@@ -450,10 +450,10 @@ UPDATE sys_fprocess SET query_text='with
 mec as ( -- links with startpoint close to connec
 SELECT l.link_id as arc_id, c.conneccat_id as arccat_id, l.the_geom, l.expl_id FROM connec c, link l
 WHERE l.state = 1 and c.state = 1 and ST_DWithin(ST_startpoint(l.the_geom), c.the_geom, 0.01) group by 1,2 ORDER BY 1 DESC
-), 
+),
 moc as ( -- links connected to connec
-SELECT link_id, feature_id, ''417'', l.state, l.the_geom 
-FROM link l JOIN connec c ON feature_id = connec_id WHERE l.state = 1 and l.feature_type = ''CONNEC'') 
+SELECT link_id, feature_id, ''417'', l.state, l.the_geom
+FROM link l JOIN connec c ON feature_id = connec_id WHERE l.state = 1 and l.feature_type = ''CONNEC'')
 select * from mec where arc_id not in (select link_id from moc)' WHERE fid=417;
 UPDATE sys_fprocess SET query_text='with q_arc as (
 WITH v_state_arc AS (
@@ -464,13 +464,13 @@ select * from arc JOIN v_state_arc USING (arc_id))
 SELECT b.* FROM (
 WITH v_state_node AS (SELECT node_id FROM selector_state, node
 WHERE node.state = selector_state.state_id AND selector_state.cur_user = CURRENT_USER)
-SELECT n1.node_id, n1.nodecat_id, n1.sector_id, n1.expl_id, n1.state, n1.the_geom  FROM q_arc, 
-(select * from node JOIN v_state_node USING (node_id)) n1 
-JOIN (SELECT node_1 node_id from q_arc UNION 
-select node_2 FROM q_arc) b USING (node_id) 
-WHERE st_dwithin(q_arc.the_geom, n1.the_geom,0.01) AND n1.node_id NOT IN 
+SELECT n1.node_id, n1.nodecat_id, n1.sector_id, n1.expl_id, n1.state, n1.the_geom  FROM q_arc,
+(select * from node JOIN v_state_node USING (node_id)) n1
+JOIN (SELECT node_1 node_id from q_arc UNION
+select node_2 FROM q_arc) b USING (node_id)
+WHERE st_dwithin(q_arc.the_geom, n1.the_geom,0.01) AND n1.node_id NOT IN
 (node_1, node_2)
-)b, selector_expl e 
+)b, selector_expl e
 where e.expl_id= b.expl_id AND cur_user=current_user' WHERE fid=432;
 UPDATE sys_fprocess SET query_text='WITH dup AS (
     SELECT arc_id, arccat_id, state, node_1, node_2, expl_id, the_geom,
@@ -533,3 +533,27 @@ BEGIN
     END LOOP;
 END $$;
 
+-- Add isvalidated to EPA results
+ALTER TABLE rpt_cat_result ADD COLUMN IF NOT EXISTS isvalidated boolean DEFAULT false;
+UPDATE rpt_cat_result SET isvalidated = false WHERE isvalidated IS NULL;
+ALTER TABLE rpt_cat_result ALTER COLUMN isvalidated SET DEFAULT false;
+ALTER TABLE rpt_cat_result ALTER COLUMN isvalidated SET NOT NULL;
+
+-- Remove DEPRECATED status (legacy; never assigned by Go2Epa UI/API)
+UPDATE rpt_cat_result SET status = 3 WHERE status = 0;  -- ARCHIVED
+DELETE FROM inp_typevalue WHERE typevalue = 'inp_result_status' AND id = '0';
+ALTER TABLE rpt_cat_result DROP CONSTRAINT IF EXISTS rpt_cat_result_status_check;
+ALTER TABLE rpt_cat_result ADD CONSTRAINT rpt_cat_result_status_check
+  CHECK (status = ANY (ARRAY[1, 2, 3, 4]));
+
+INSERT INTO config_form_tableview (location_type, project_type, objectname, columnname, columnindex, visible, width, alias, "style", addparam)
+SELECT
+    'epa_toolbar', 'utils', 'v_ui_rpt_cat_result', 'isvalidated',
+    (SELECT COALESCE(MAX(columnindex), 0) + 1 FROM config_form_tableview
+     WHERE location_type = 'epa_toolbar' AND project_type = 'utils' AND objectname = 'v_ui_rpt_cat_result'),
+    true, NULL, 'Isvalidated', NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM config_form_tableview
+    WHERE location_type = 'epa_toolbar' AND project_type = 'utils'
+      AND objectname = 'v_ui_rpt_cat_result' AND columnname = 'isvalidated'
+);
