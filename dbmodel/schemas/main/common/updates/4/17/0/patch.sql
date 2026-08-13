@@ -380,3 +380,51 @@ SELECT a.arc_id, a.arccat_id, a.state AS state1,
 FROM dup a
 JOIN dup b ON a.geom_hash = b.geom_hash
 WHERE a.arc_id != b.arc_id' WHERE fid=479;
+
+-- Add userdefined_geom checkbox to link info forms when missing
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN
+        SELECT
+            f.formname,
+            COALESCE((
+                SELECT MAX(c.layoutorder)
+                FROM config_form_fields c
+                WHERE c.formname = f.formname
+                  AND c.formtype = 'form_feature'
+                  AND c.tabname = 'tab_data'
+                  AND c.layoutname = 'lyt_data_1'
+            ), 0) AS max_layoutorder,
+            COALESCE((
+                SELECT MAX(c.web_layoutorder)
+                FROM config_form_fields c
+                WHERE c.formname = f.formname
+                  AND c.formtype = 'form_feature'
+                  AND c.tabname = 'tab_data'
+            ), 0) AS max_web_layoutorder
+        FROM config_form_fields f
+        WHERE f.formname LIKE 've_link%'
+          AND f.formtype = 'form_feature'
+          AND f.tabname = 'tab_data'
+        GROUP BY f.formname
+    LOOP
+        INSERT INTO config_form_fields (
+            formname, formtype, tabname, columnname, layoutname, layoutorder,
+            "datatype", widgettype, "label", tooltip, placeholder,
+            ismandatory, isparent, iseditable, isautoupdate, isfilter,
+            dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id,
+            dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction,
+            linkedobject, hidden, web_layoutorder
+        ) VALUES (
+            r.formname, 'form_feature', 'tab_data', 'userdefined_geom', 'lyt_data_1', r.max_layoutorder + 1,
+            'boolean', 'check', 'User defined:', 'When checked, connect to network ignores this link', NULL,
+            false, false, true, false, NULL,
+            NULL, NULL, NULL, NULL,
+            NULL, NULL, '{"setMultiline":false}'::json, NULL,
+            NULL, false, r.max_web_layoutorder + 1
+        )
+        ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+    END LOOP;
+END $$;
