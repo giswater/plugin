@@ -349,3 +349,43 @@ UPDATE config_form_fields SET dv_querytext = replace(dv_querytext, 've_exploitat
 WHERE dv_querytext ILIKE '%ve_exploitation%';
 UPDATE config_form_fields SET dv_querytext = replace(dv_querytext, 'exploitation', 'vf_exploitation')
 WHERE dv_querytext ILIKE '%exploitation%' AND dv_querytext NOT ILIKE '%vf_exploitation%' AND dv_querytext NOT ILIKE '%macroexploitation%';
+
+UPDATE config_form_fields
+  SET tooltip = replace(tooltip, '- id', '- Id')
+  WHERE tooltip LIKE '%- id%';
+
+UPDATE config_form_fields
+  SET tooltip = LEFT(tooltip, LENGTH(tooltip) - 1)
+  WHERE tooltip LIKE '%:';
+
+UPDATE config_form_fields
+  SET "label" = 'Workcat id end:', tooltip = 'Workcat id end'
+  WHERE "label" = 'Workcat id End:';
+
+UPDATE config_form_fields
+	SET "label"='Data quality'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='dataquality' AND "label"='Dataquality';
+
+UPDATE config_form_fields
+	SET "label"='Data quality obs.'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='dataquality_obs' AND "label"='Dataquality_obs';
+
+UPDATE config_form_fields
+	SET "label"='Cabinet:'
+	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='cabinet' AND "label"='cabinet';
+
+UPDATE config_form_fields
+	SET "label"='Place name:'
+	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='place_name' AND "label"='place_name';
+
+UPDATE config_form_fields
+	SET "label"='Lab code'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='lab_code' AND "label"='lab_code';
+
+UPDATE config_form_fields
+	SET tooltip='Date to'
+	WHERE (tooltip='' OR tooltip IS NULL) AND columnname = 'date_to';
+
+UPDATE config_form_fields
+	SET "label"=NULL
+	WHERE "label"=':';

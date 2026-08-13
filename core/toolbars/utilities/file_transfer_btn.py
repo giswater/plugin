@@ -229,12 +229,14 @@ class GwFileTransferButton(GwAction):
             indent = 2 if dlg.chk_format_json.isChecked() else None
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=indent)
-            msg = f"EPA Result Families exported successfully:\n{file_path}"
-            tools_qgis.show_info(msg)
+            msg = "EPA Result Families exported successfully:\n{0}"
+            msg_params = (file_path,)
+            tools_qgis.show_info(msg, msg_params=msg_params)
             self._save_export_epa_settings(dlg)
         except Exception as e:
-            msg = f"Failed to write export file:\n{str(e)}"
-            tools_qgis.show_warning(msg)
+            msg = "Failed to write export file:\n{0}"
+            msg_params = (str(e),)
+            tools_qgis.show_warning(msg, msg_params=msg_params)
 
     def _load_export_epa_settings(self, dlg):
         result_id = tools_gw.get_config_parser('btn_export_epa_families', 'result_id', 'user', 'session', False)

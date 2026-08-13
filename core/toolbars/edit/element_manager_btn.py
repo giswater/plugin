@@ -128,7 +128,7 @@ class GwElementManagerButton(GwAction):
             widgetname = table.objectName()
             columnname = table.property('columnname')
             if columnname is None:
-                msg = f"widget {0} has not columnname and cant be configured"
+                msg = "widget {0} has not columnname and cant be configured"
                 msg_params = (widgetname,)
                 tools_qgis.show_info(msg, 3, msg_params=msg_params)
                 continue

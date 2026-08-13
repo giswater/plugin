@@ -127,7 +127,9 @@ class GwConnectLinkButton(GwMaptool):
         self.dlg_connect_link.rejected.connect(lambda: close(**{'class': self, 'dialog': self.dlg_connect_link}))
 
         # Set window title from dialog depending of the current feature
-        self.dlg_connect_link.setWindowTitle(tools_qt.tr(f"{self.feature_type.capitalize()} to link"))
+        title = "{0} to link"
+        title_params = (self.feature_type.capitalize(),)
+        self.dlg_connect_link.setWindowTitle(tools_qt.tr(title, list_params=title_params))
 
         # Open dialog
         tools_gw.open_dialog(self.dlg_connect_link, 'connect_link')
@@ -520,7 +522,8 @@ class GwConnectLinkButton(GwMaptool):
         # Show instruction message for multiple selection mode
         if idx == 0:  # "Set closest point (multiple)"
             message = "Click on arcs to select them. Use Alt+click to unselect selected arcs."
-            tools_qgis.show_info(message, title='Connect to network')
+            title = "Connect to network"
+            tools_qgis.show_info(message, title=title)
 
         # Set signals
         tools_gw.connect_signal(self.canvas.xyCoordinates, self._mouse_move_arc, 'connect_link',
@@ -666,7 +669,8 @@ def add(**kwargs):
     # Check if selected id is not empty
     if selected_id is None or selected_id == '':
         message = "Please select a feature to add"
-        tools_qgis.show_warning(message, title='Connect to network')
+        title = "Connect to network"
+        tools_qgis.show_warning(message, title=title)
         return
 
     # Create expression filter
@@ -709,7 +713,8 @@ def remove(**kwargs):
 
         if not selected_rows:
             message = "Please select rows to remove from the table"
-            tools_qgis.show_warning(message, title='Connect to network')
+            title = "Connect to network"
+            tools_qgis.show_warning(message, title=title)
             return
 
         # Get IDs from selected rows
@@ -758,11 +763,17 @@ def remove(**kwargs):
 
         # Show success message
         removed_count = len(selected_ids)
-        tools_qgis.show_info(f"{removed_count} item(s) removed from the list: {', '.join(selected_ids)}")
+        msg = "{0} item(s) removed from the list: {1}"
+        msg_params = (removed_count, ", ".join(selected_ids))
+        tools_qgis.show_info(msg, msg_params=msg_params)
 
     except Exception as e:
-        tools_qgis.show_warning(f"Error removing items: {str(e)}")
-        tools_gw.log_info(f"Error in remove function: {str(e)}")
+        msg = "Error removing items: {0}"
+        msg_params = (e,)
+        tools_qgis.show_warning(msg, msg_params=msg_params)
+        msg = "Error in remove function: {0}"
+        msg_params = (e,)
+        tools_gw.log_info(msg, msg_params=msg_params)
 
 
 def accept(**kwargs):
@@ -781,7 +792,8 @@ def accept(**kwargs):
     # Check input values
     if this.linkcat == '':
         message = "Please fill link catalog field in the dialog"
-        tools_qgis.show_warning(message, title='Connect to network', dialog=this.dlg_connect_link)
+        title = "Connect to network"
+        tools_qgis.show_warning(message, title=title, dialog=this.dlg_connect_link)
         return
 
     # Get arc layer
@@ -815,7 +827,8 @@ def accept(**kwargs):
     # Check if table is empty
     if model.rowCount() == 0:
         message = "Please select a feature to add"
-        tools_qgis.show_warning(message, title='Connect to network', dialog=this.dlg_connect_link)
+        title = "Connect to network"
+        tools_qgis.show_warning(message, title=title, dialog=this.dlg_connect_link)
         return
 
     # Loop throught table rows
@@ -832,7 +845,8 @@ def accept(**kwargs):
         tools_db.execute_sql(sql_insert)
 
     # Create connect link task
-    this.connect_link_task = GwConnectLink("Connect link", this, this.feature_type, selected_arcs=selected_arcs)
+    title = "Connect link"
+    this.connect_link_task = GwConnectLink(tools_qt.tr(title), this, this.feature_type, selected_arcs=selected_arcs)
 
     # Add and trigger the task
     QgsApplication.taskManager().addTask(this.connect_link_task)

@@ -63,6 +63,8 @@ class GwConfigButton(GwAction):
             return False
 
         self._initial_ui_locale = tools_qgis.get_ui_language_locale()
+        self._initial_multilang_language = self._get_multilang_language()
+        self._multilang_language_changed = False
 
         # Get widget controls
         self._get_widget_controls()
@@ -90,6 +92,7 @@ class GwConfigButton(GwAction):
         self.dlg_config.btn_accept.clicked.connect(partial(self._update_values))
         self.dlg_config.key_escape.connect(partial(tools_gw.close_dialog, self.dlg_config))
         self.dlg_config.btn_cancel.clicked.connect(partial(tools_gw.close_dialog, self.dlg_config))
+        self.dlg_config.dlg_closed.connect(partial(self._on_config_closed))
         self.dlg_config.dlg_closed.connect(partial(tools_gw.save_settings, self.dlg_config))
 
         # Open form
@@ -198,10 +201,50 @@ class GwConfigButton(GwAction):
         if new_locale != getattr(self, '_initial_ui_locale', None):
             tools_qt._add_translator(True)
 
+        if self._multilang_language_has_changed():
+            self._multilang_language_changed = True
+
         msg = "Values has been updated"
         tools_qgis.show_info(msg)
         # Close dialog
         tools_gw.close_dialog(self.dlg_config)
+
+    def _get_multilang_language(self):
+        """Return current multilang_language preference for the user, or None."""
+        try:
+            schema_name = lib_vars.schema_name
+            if not schema_name or not tools_db.check_schema("multilang"):
+                return None
+            schema_esc = schema_name.replace('"', "").strip().replace("'", "''")
+            row = tools_db.get_row(
+                f"SELECT value FROM {schema_esc}.config_param_user "
+                "WHERE parameter = 'multilang_language' AND cur_user = current_user",
+                log_info=False,
+            )
+            if row and row[0] is not None:
+                value = str(row[0]).strip().lower()
+                if value in ('', 'default'):
+                    return None
+                return value
+        except Exception:
+            pass
+        return None
+
+    def _multilang_language_has_changed(self):
+        """True when multilang is enabled and the saved language differs from the initial one."""
+        if self._initial_multilang_language is None and self._get_multilang_language() is None:
+            return False
+        return self._get_multilang_language() != self._initial_multilang_language
+
+    def _on_config_closed(self):
+        """Inform the user that a QGIS restart is needed after a multilang language change."""
+        if not getattr(self, '_multilang_language_changed', False):
+            return
+        msg = (
+            "The multilang language has been changed. "
+            "To update the TOC and toolbar tooltips language, restart QGIS."
+        )
+        tools_qgis.show_info(msg)
 
     def _build_dialog_options(self, row, tab, list):
 

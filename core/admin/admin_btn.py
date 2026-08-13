@@ -58,23 +58,27 @@ from ...giswater_admin.engine import (
     resolve_network_graph,
 )
 from ...giswater_admin.engine.network_update import LockstepStep
+from ...giswater_admin.engine.version_guard import (
+    assert_network_no_downgrade,
+    assert_no_downgrade,
+)
 from ...giswater_admin.log_format import format_elapsed_mmss, format_lbl_time_status
 from ._qt_db_adapter import QtDbAdapter
 from . import _admin_catalog as admin_catalog
 
 
 def _admin_version_tuple(version) -> tuple:
-    """Major.minor.patch as ints for ordering; 4+ segments use first 3 (same as UI truncation)."""
-    parts = str(version).split('.')
-    if len(parts) >= 4:
-        parts = parts[:3]
+    """Major.minor.patch as ints for ordering; pad to 3 (same as engine _parse_version)."""
+    parts = str(version or "0.0.0").split(".")
     nums = []
-    for p in parts:
+    for p in parts[:3]:
         try:
             nums.append(int(p))
         except ValueError:
             nums.append(0)
-    return tuple(nums) if nums else (0,)
+    while len(nums) < 3:
+        nums.append(0)
+    return tuple(nums)
 
 
 _GIS_FORM_WIDGETS = (
@@ -775,7 +779,8 @@ class GwAdminButton:
         """Link CM to the selected WS/UD parent schema."""
         parent_schema, parent_type = self._resolve_parent_context(parent_schema, parent_type)
         if not parent_schema:
-            tools_qt.show_info_box("Select a WS or UD anchor in the network table.")
+            msg = "Select a WS or UD anchor in the network table."
+            tools_qt.show_info_box(msg)
             return
 
         msg = (
@@ -798,7 +803,8 @@ class GwAdminButton:
         """Load CM example data for the selected parent schema."""
         parent_schema, parent_type = self._resolve_parent_context(parent_schema, parent_type)
         if not parent_schema:
-            tools_qt.show_info_box("Select a WS or UD anchor in the network table.")
+            msg = "Select a WS or UD anchor in the network table."
+            tools_qt.show_info_box(msg)
             return
 
         msg = (
@@ -864,9 +870,9 @@ class GwAdminButton:
                 task.cancel()
 
     def _resolve_update_kind(self) -> str:
-        kind = self.project_type_selected or self.project_type
-        if not kind:
-            kind = self._get_selected_project_type()
+        # Schema-backed type wins; never prefer stale project_type_selected
+        # (e.g. after switching UD → WS in the schema combo, or create-project flips).
+        kind = self._get_selected_project_type() or self.project_type
         return str(kind or 'ws').lower()
 
     def _resolve_parent_context(self, parent_schema=None, parent_type=None):
@@ -887,6 +893,14 @@ class GwAdminButton:
             "ORDER BY id DESC LIMIT 1"
         )
         current_version = row[0] if row and row[0] else "0.0.0"
+        err = assert_no_downgrade(
+            str(current_version),
+            str(self.plugin_version),
+            label=f"schema '{schema_name}'",
+        )
+        if err:
+            tools_qgis.show_warning(err)
+            return
         bp = BuildParams(
             schema_name=schema_name,
             srid=str(row[2] if row and row[2] else self.project_epsg or "25831"),
@@ -951,8 +965,14 @@ class GwAdminButton:
             )
             return
 
+        graph = resolve_network_graph(anchor, admin_catalog._tools_db_fetch)
+        err = assert_network_no_downgrade(graph, str(self.plugin_version))
+        if err:
+            tools_qgis.show_warning(err)
+            return
+
         plan = plan_lockstep(
-            resolve_network_graph(anchor, admin_catalog._tools_db_fetch),
+            graph,
             self.sql_dir,
             str(self.plugin_version),
         )
@@ -1093,6 +1113,22 @@ class GwAdminButton:
                     parameter=peers,
                 )
                 return
+
+        current_for_guard = str(self.project_version or "0.0.0")
+        if schema_name:
+            row_guard = tools_db.get_row(
+                f"SELECT giswater FROM {schema_name}.sys_version ORDER BY id DESC LIMIT 1"
+            )
+            if row_guard and row_guard[0]:
+                current_for_guard = str(row_guard[0])
+        err = assert_no_downgrade(
+            current_for_guard,
+            str(self.plugin_version),
+            label=f"schema '{schema_name}'" if schema_name else "schema",
+        )
+        if err:
+            tools_qgis.show_warning(err)
+            return
 
         msg = "Are you sure to update the project schema to last version?"
         title = "Info"
@@ -1663,15 +1699,17 @@ class GwAdminButton:
 
         ok, credentials = self._prepare_connection_credentials(connection_name)
         if not ok:
-            err = lib_vars.session_vars.get('last_error') or (
-                "Connection Failed. Please, check connection parameters"
-            )
+            msg = "Connection Failed. Please, check connection parameters"
+            err = lib_vars.session_vars.get('last_error') or tools_qt.tr(msg)
             if self.is_service and not tools_db.is_db_auth_error(err):
-                msg = ("There is an error in the configuration of the pgservice file, "
-                       "please check it or consult your administrator")
                 if err:
-                    msg = f"{msg} ({err})"
-                self._apply_connection_failure(msg)
+                    msg = ("There is an error in the configuration of the pgservice file, "
+                           "please check it or consult your administrator ({0})")
+                    self._apply_connection_failure(tools_qt.tr(msg, list_params=(err,)))
+                else:
+                    msg = ("There is an error in the configuration of the pgservice file, "
+                           "please check it or consult your administrator")
+                    self._apply_connection_failure(tools_qt.tr(msg))
             else:
                 self._apply_connection_failure(err)
             return
@@ -1729,9 +1767,8 @@ class GwAdminButton:
 
         ok, credentials = self._prepare_connection_credentials(connection_name)
         if not ok:
-            err = lib_vars.session_vars.get("last_error") or (
-                "Connection failed. Please, check connection parameters"
-            )
+            msg = "Connection failed. Please, check connection parameters"
+            err = lib_vars.session_vars.get("last_error") or tools_qt.tr(msg)
             tools_qt.show_info_box(err, "Info")
             return False
 
@@ -1742,26 +1779,24 @@ class GwAdminButton:
                 if ok and tools_db.ping_database(credentials):
                     pass
                 else:
-                    tools_qt.show_info_box(
-                        err or "Connection failed. Please, check connection parameters",
-                        "Info",
-                    )
+                    msg = "Connection failed. Please, check connection parameters"
+                    title = "Info"
+                    tools_qt.show_info_box(err or msg, title)
                     return False
             else:
-                tools_qt.show_info_box(
-                    "Connection failed. Please, check connection parameters",
-                    "Info",
-                )
+                msg = "Connection failed. Please, check connection parameters"
+                title = "Info"
+                tools_qt.show_info_box(msg, title)
                 return False
 
         self.logged, credentials = tools_db.connect_to_database_credentials(
             credentials, max_attempts=0
         )
         if not self.logged:
-            err = lib_vars.session_vars.get("last_error") or (
-                "Connection failed. Please, check connection parameters"
-            )
-            tools_qt.show_info_box(err, "Info")
+            msg = "Connection failed. Please, check connection parameters"
+            err = lib_vars.session_vars.get("last_error") or msg
+            title = "Info"
+            tools_qt.show_info_box(err, title)
             return False
 
         tools_db.dao_db_credentials = credentials
@@ -1869,34 +1904,45 @@ class GwAdminButton:
                             self._schema_cache[connection_name] = sync_result
                             self._apply_admin_load_result(sync_result, connection_name)
                             return
-                    self._apply_connection_failure(
-                        err or "Connection Failed. Please, check connection parameters"
-                    )
+                    msg = "Connection Failed. Please, check connection parameters"
+                    self._apply_connection_failure(err or tools_qt.tr(msg))
                     return
                 if self.is_service:
-                    msg = ("There is an error in the configuration of the pgservice file, "
-                           "please check it or consult your administrator")
                     if err:
-                        msg = f"{msg} ({err})"
-                    self._apply_connection_failure(msg)
+                        msg = ("There is an error in the configuration of the pgservice file, "
+                               "please check it or consult your administrator ({0})")
+                        msg_params = (err,)
+                        self._apply_connection_failure(
+                            tools_qt.tr(msg, list_params=msg_params)
+                        )
+                    else:
+                        msg = ("There is an error in the configuration of the pgservice file, "
+                               "please check it or consult your administrator")
+                        self._apply_connection_failure(tools_qt.tr(msg))
                 else:
-                    msg = "Connection Failed. Please, check connection parameters"
                     if err:
-                        msg = f"{msg} ({err})"
-                    tools_qgis.show_message(msg, Qgis.MessageLevel.Warning)
+                        msg = "Connection Failed. Please, check connection parameters ({0})"
+                        msg_params = (err,)
+                    else:
+                        msg = "Connection Failed. Please, check connection parameters"
+                        msg_params = None
+                    tools_qgis.show_message(msg, Qgis.MessageLevel.Warning, msg_params=msg_params)
                     self._apply_connection_failure(
-                        msg, close_for_credentials=True, connection_name=connection_name
+                        tools_qt.tr(msg, list_params=msg_params),
+                        close_for_credentials=True, connection_name=connection_name
                     )
                 return
 
             ok, credentials = self._prepare_connection_credentials(connection_name)
             if not ok:
-                msg = lib_vars.session_vars.get('last_error') or "Connection Failed. Please, check connection parameters"
+                message = "Connection Failed. Please, check connection parameters"
+                msg = lib_vars.session_vars.get('last_error') or tools_qt.tr(message)
                 self._apply_connection_failure(msg)
                 return
             self.logged, credentials = tools_db.connect_to_database_credentials(credentials, max_attempts=0)
             if not self.logged:
-                msg = lib_vars.session_vars.get('last_error') or "Connection Failed. Please, check connection parameters"
+                message = "Connection Failed. Please, check connection parameters"
+                msg = lib_vars.session_vars.get('last_error') or tools_qt.tr(message)
                 if self.is_service and tools_db.is_db_auth_error(msg):
                     self._apply_connection_failure(msg)
                 elif self.is_service:
@@ -2284,8 +2330,9 @@ class GwAdminButton:
             self._manage_docker()
 
         if not connection_status and not self.is_service:
+            msg = "Connection Failed. Please, check connection parameters"
             self._apply_connection_failure(
-                "Connection Failed. Please, check connection parameters",
+                tools_qt.tr(msg),
                 close_for_credentials=True,
                 connection_name=last_connection,
             )
@@ -2588,17 +2635,29 @@ class GwAdminButton:
         return schema_name
 
     def _get_selected_project_type(self) -> str:
-        if getattr(self, 'project_type', None):
-            return str(self.project_type).lower()
+        """Return project type for the currently selected schema (catalog/sys_version).
+
+        Must not short-circuit on stale self.project_type — that value lags until
+        _set_info_project runs, and sync handlers fire before it.
+        """
         schema_name = self._get_selected_schema_name()
         if not schema_name:
-            return str(getattr(self, 'project_type_selected', '') or '').lower()
+            return str(
+                getattr(self, 'project_type', None)
+                or getattr(self, 'project_type_selected', '')
+                or ''
+            ).lower()
         if self._admin_catalog_cache and self._admin_catalog_cache.sys_version_schemas:
             schemas = self._admin_catalog_cache.sys_version_schemas
         else:
             schemas = admin_catalog.fetch_sys_version_schemas()
         pt = admin_catalog.project_type_for_schema(schemas, schema_name)
-        return str(pt or getattr(self, 'project_type_selected', '') or '').lower()
+        return str(
+            pt
+            or getattr(self, 'project_type', None)
+            or getattr(self, 'project_type_selected', '')
+            or ''
+        ).lower()
 
     def _set_project_type_paths(self, project_type: str):
         self.project_type_selected = project_type
@@ -2821,9 +2880,7 @@ class GwAdminButton:
     def _read_info_version(self):
         """Load merged common + ws/ud changelogs for pending upgrade versions."""
 
-        kind = (self.project_type_selected or self.project_type or 'ws')
-        if kind:
-            kind = str(kind).lower()
+        kind = self._resolve_update_kind()
         if kind not in ('ws', 'ud'):
             tools_log.log_warning(
                 "Changelog preview only supported for ws/ud project types",
@@ -3031,6 +3088,8 @@ class GwAdminButton:
                 self.lbl_schema_name.setText('')
             else:
                 self.project_type = last_dict_info['project_type']
+                if self.project_type:
+                    self._set_project_type_paths(str(self.project_type).lower())
                 self.project_epsg = last_dict_info['project_epsg']
                 self.project_version = last_dict_info['project_version']
                 self.project_language = last_dict_info['project_language']
@@ -3452,7 +3511,10 @@ class GwAdminButton:
                 if refresh:
                     refresh()
             else:
-                tools_qt.show_info_box(f"Delete schema failed: {fx.error}", "Error")
+                msg = "Delete schema failed: {0}"
+                msg_params = (fx.error,)
+                title = "Error"
+                tools_qt.show_info_box(msg, title, msg_params=msg_params)
 
     def _delete_other_schema(self, schema):
         """ Delete other schema """
@@ -3462,9 +3524,38 @@ class GwAdminButton:
         result = tools_qt.show_question(msg, "Info", force_action=True, msg_params=msg_params)
         if result:
             if schema == "multilang":
-                from .i18n_baseline_seed import multilang_user_param_provision_sql
+                from .i18n_baseline_seed import (
+                    multilang_user_param_provision_sql,
+                    multilang_views_provision_sql,
+                    run_multilang_function_sql,
+                )
 
-                tools_db.execute_sql(multilang_user_param_provision_sql(enable=False))
+                # Recreate plain views before DROP so nothing still joins multilang.*
+                _, views_ok = run_multilang_function_sql(
+                    multilang_views_provision_sql(enable=False),
+                    show_exception=True,
+                )
+                if not views_ok:
+                    msg = "Multilang views rollback failed."
+                    err = lib_vars.session_vars.get("last_error_msg") or (
+                        lib_vars.session_vars.get("last_error") or msg
+                    )
+                    title = "Error"
+                    tools_qt.show_info_box(err, title)
+                    return
+
+                _, params_ok = run_multilang_function_sql(
+                    multilang_user_param_provision_sql(enable=False),
+                    show_exception=True,
+                )
+                if not params_ok:
+                    msg = "Multilang user parameter rollback failed."
+                    err = lib_vars.session_vars.get("last_error_msg") or (
+                        lib_vars.session_vars.get("last_error") or msg
+                    )
+                    title = "Error"
+                    tools_qt.show_info_box(err, title)
+                    return
             fx = engine_drop_schema(QtDbAdapter(), schema, cascade=True, commit=True)
             if fx.ok:
                 msg = "Process finished successfully: Delete schema"
@@ -4271,7 +4362,7 @@ class GwAdminButton:
         msg = 'prefer'
         tools_qt.set_widget_text(self.dlg_credentials, self.dlg_credentials.cmb_sslmode, msg)
 
-        tools_gw.open_dialog(self.dlg_credentials, dlg_name='admin_credentials')
+        tools_gw.open_dialog(self.dlg_credentials, dlg_name='admin_credentials', skip_db_check=True)
 
     def _manage_user_params(self):
         """"""
@@ -4312,7 +4403,7 @@ class GwAdminButton:
             self._set_buttons_enabled()
         except Exception as e:
             tools_log.log_info(str(e))
-            tools_gw.open_dialog(self.dlg_readsql, dlg_name='admin')
+            tools_gw.open_dialog(self.dlg_readsql, dlg_name='admin', skip_db_check=True)
 
     def _set_buttons_enabled(self):
         """Hide schema CRUD for non-superusers; enable/disable when visible."""
@@ -4484,7 +4575,8 @@ class GwAdminButton:
     def _create_utils(self):
         """Create the (singleton) utils satellite schema via the engine."""
         if admin_catalog.schema_exists('utils'):
-            tools_qgis.show_message("Schema Utils already exist.", Qgis.MessageLevel.Info)
+            msg = "Schema Utils already exist."
+            tools_qgis.show_message(msg, Qgis.MessageLevel.Info)
             return
         self._run_create_utils_task('empty', 'Create utils schema')
 

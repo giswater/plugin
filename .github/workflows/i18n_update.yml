@@ -100,6 +100,7 @@ jobs:
           repository: giswater/plugin
           ref: ${{ github.ref }}
           path: plugin
+          submodules: recursive
 
       - name: Bootstrap sample network (ws, ud) with language no_TR
         working-directory: plugin/dbmodel
@@ -151,7 +152,6 @@ jobs:
         run: docker compose -f docker-compose.test.yml down
 
   trigger-generate-i18n:
-    needs: run-i18n-searcher
     runs-on: ubuntu-latest
     name: Trigger Generate i18n
     steps:

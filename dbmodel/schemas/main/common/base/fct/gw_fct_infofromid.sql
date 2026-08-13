@@ -163,12 +163,6 @@ v_order_id integer;
 v_flwreg_type text;
 v_arc_searchnodes double precision;
 v_talblenameorigin text;
-v_ui_lang text;
-v_ml_pref jsonb;
-v_ml_project_type text;
-v_i18n_lb text;
-v_i18n_tt text;
-v_tab_idx integer;
 
 
 BEGIN
@@ -413,7 +407,7 @@ BEGIN
 	-- Set layouts orientation
 	v_form_orientation = '"layouts": {';
 
-	SELECT array_agg(distinct layoutname) INTO v_layouts FROM config_form_fields  WHERE formtype = 'form_feature';
+	SELECT array_agg(distinct layoutname) INTO v_layouts FROM v_config_form_fields  WHERE formtype = 'form_feature';
 	layout_orientation_exist = false;
 
 	IF v_layouts IS NOT NULL THEN
@@ -642,36 +636,6 @@ BEGIN
 	ORDER BY orderby)a');
 
 	EXECUTE v_querystring INTO form_tabs;
-
-	-- Apply multilang UI translations for config_form_tabs
-	v_ml_pref := NULL;
-	v_ui_lang := NULL;
-	v_ml_project_type := NULL;
-	IF to_regnamespace('multilang') IS NOT NULL THEN
-		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
-		v_ui_lang := v_ml_pref->>'lang';
-		v_ml_project_type := v_ml_pref->>'project_type';
-	END IF;
-	IF v_ui_lang IS NOT NULL AND form_tabs IS NOT NULL THEN
-		FOR v_tab_idx IN 1..array_length(form_tabs, 1) LOOP
-			SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
-			FROM multilang.config_form_tabs i
-			WHERE i.project_type = v_ml_project_type
-			  AND i.formname = form_tabs[v_tab_idx]->>'formname'
-			  AND i.source = form_tabs[v_tab_idx]->>'tabName'
-			  AND i.context = 'config_form_tabs'
-			  AND i.lang = v_ui_lang
-			LIMIT 1;
-			IF v_i18n_lb IS NOT NULL THEN
-				form_tabs[v_tab_idx] := gw_fct_json_object_set_key(
-					form_tabs[v_tab_idx], 'tabLabel', v_i18n_lb);
-			END IF;
-			IF v_i18n_tt IS NOT NULL THEN
-				form_tabs[v_tab_idx] := gw_fct_json_object_set_key(
-					form_tabs[v_tab_idx], 'tooltip', v_i18n_tt);
-			END IF;
-		END LOOP;
-	END IF;
 
 	if v_tablename_aux is not null then
 		v_tablename = v_tablename_aux;

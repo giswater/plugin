@@ -338,3 +338,76 @@ UPDATE config_form_fields SET dv_querytext = replace(dv_querytext, 've_exploitat
 WHERE dv_querytext ILIKE '%ve_exploitation%';
 UPDATE config_form_fields SET dv_querytext = replace(dv_querytext, 'exploitation', 'vf_exploitation')
 WHERE dv_querytext ILIKE '%exploitation%' AND dv_querytext NOT ILIKE '%vf_exploitation%' AND dv_querytext NOT ILIKE '%macroexploitation%';
+
+UPDATE config_form_fields
+  SET tooltip = LEFT(tooltip, LENGTH(tooltip) - 1)
+  WHERE tooltip LIKE '%:';
+
+DO $$
+BEGIN
+  IF lower((SELECT language FROM sys_version LIMIT 1)) NOT ILIKE 'es_%' OR (SELECT language FROM sys_version LIMIT 1) IS NULL THEN
+    UPDATE config_form_fields
+      SET "label"='Pattern:',tooltip='Pattern'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='pattern_id' AND tabname='tab_epa' AND "label"='Patrón:';
+    UPDATE config_form_fields
+      SET "label"='Pattern:',tooltip='Pattern'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='pattern_id' AND tabname='tab_epa' AND "label"='Patrón:';
+    UPDATE config_form_fields
+      SET "label"='Head:',tooltip='Head'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='head' AND tabname='tab_epa' AND "label"='Carga hidráulica:';
+    UPDATE config_form_fields
+      SET "label"='Head:',tooltip='Head'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='head' AND tabname='tab_epa' AND "label"='Carga hidráulica:';
+    UPDATE config_form_fields
+      SET "label"='Emitter coefficient:',tooltip='Emitter coefficient'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='emitter_coeff' AND tabname='tab_epa' AND "label"='Coeficiente emisor:';
+    UPDATE config_form_fields
+      SET "label"='Emitter coefficient:',tooltip='Emitter coefficient'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='emitter_coeff' AND tabname='tab_epa' AND "label"='Coeficiente emisor:';
+    UPDATE config_form_fields
+      SET "label"='Pattern id:',tooltip='Pattern id'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='demand_pattern_id' AND tabname='tab_epa' AND "label"='Id del patrón:';
+    UPDATE config_form_fields
+      SET "label"='Pattern id:',tooltip='Pattern id'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='demand_pattern_id' AND tabname='tab_epa' AND "label"='Id del patrón:';
+    UPDATE config_form_fields
+      SET "label"='Demand:',tooltip='demand - Water demand'
+      WHERE formname='ve_epa_shortpipe' AND formtype='form_feature' AND columnname='demand' AND tabname='tab_epa' AND "label"='Demanda:';
+    UPDATE config_form_fields
+      SET "label"='Demand:',tooltip='demand - Water demand'
+      WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='demand' AND tabname='tab_epa' AND "label"='Demanda:';
+  END IF;
+END $$;
+
+UPDATE config_form_fields
+	SET "label"='Data quality'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='dataquality' AND "label"='Dataquality';
+
+UPDATE config_form_fields
+	SET "label"='Data quality obs.'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='dataquality_obs' AND "label"='Dataquality_obs';
+
+UPDATE config_form_fields
+	SET "label"='Cabinet:'
+	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='cabinet' AND "label"='cabinet';
+
+UPDATE config_form_fields
+	SET "label"='Place name:'
+	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='place_name' AND "label"='place_name';
+
+
+UPDATE config_form_fields
+  SET tooltip = replace(tooltip, '- id', '- Id')
+  WHERE tooltip LIKE '%- id%';
+
+UPDATE config_form_fields
+  SET "label" = 'Workcat id end:', tooltip = 'Workcat id end'
+  WHERE "label" = 'Workcat id End:';
+
+UPDATE config_form_fields
+	SET tooltip='Date to'
+	WHERE (tooltip='' OR tooltip IS NULL) AND columnname = 'date_to';
+
+UPDATE config_form_fields
+	SET "label"=NULL
+	WHERE "label"=':';

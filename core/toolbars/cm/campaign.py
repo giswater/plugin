@@ -79,10 +79,10 @@ class Campaign:
 
         # Populate combo date type (planned dates first, then real dates)
         rows = [
-            ['startdate', tools_qt.tr('Start date', 'cm')],
-            ['enddate', tools_qt.tr('End date', 'cm')],
-            ['real_startdate', tools_qt.tr('Real start date', 'cm')],
-            ['real_enddate', tools_qt.tr('Real end date', 'cm')]
+            ['startdate', tools_qt.tr('Start date')],
+            ['enddate', tools_qt.tr('End date')],
+            ['real_startdate', tools_qt.tr('Real start date')],
+            ['real_enddate', tools_qt.tr('Real end date')]
         ]
         tools_qt.fill_combo_values(self.manager_dialog.campaign_cmb_date_filter_type, rows, 1, sort_combo=False)
         # Default to planned Start date
@@ -108,6 +108,7 @@ class Campaign:
         self.manager_dialog.tbl_campaign.doubleClicked.connect(self.open_campaign)
         self.manager_dialog.campaign_btn_delete.clicked.connect(self.delete_selected_campaign)
         self.manager_dialog.campaign_btn_open.clicked.connect(self.open_campaign)
+        self.manager_dialog.campaign_btn_child.clicked.connect(self.create_child_campaign)
 
         self.manage_date_filter()
         tools_gw.open_dialog(self.manager_dialog, dlg_name="campaign_management")
@@ -140,6 +141,7 @@ class Campaign:
         :param parent: The parent widget for the dialog.
         """
         self.campaign_id = campaign_id
+        self._relations_loaded = False
 
         # In the edit_typevalue or another cm.edit_typevalue
         # INSERT INTO edit_typevalue (typevalue, id, idval, descript, addparam) VALUES('cm_campaing_type', '1', 'Review', NULL, NULL);
@@ -180,7 +182,7 @@ class Campaign:
 
         response = tools_gw.execute_procedure("gw_fct_cm_getcampaign", p_data, schema_name="cm")
         if not response or response.get("status") != "Accepted":
-            msg = tools_qt.tr("Failed to load campaign form.", context_name="cm")
+            msg = "Failed to load campaign form"
             tools_qgis.show_warning(msg)
             return
 
@@ -194,8 +196,9 @@ class Campaign:
         }
         dialog_class = dialog_map.get(mode)
         if not dialog_class:
-            msg = tools_qt.tr("Invalid campaign mode", context_name="cm")
-            tools_qgis.show_warning(f"{msg}: {mode}")
+            msg = "Invalid campaign mode: {0}"
+            msg_params = (mode,)
+            tools_qgis.show_warning(msg, msg_params=msg_params)
             return
         self.dialog = dialog_class(self)
         if parent:
@@ -266,8 +269,9 @@ class Campaign:
                 lambda: update_sector_combo(self.dialog)
             )
 
+        self._apply_child_campaign_field_locks()
+
         if campaign_id:
-            self._load_campaign_relations(campaign_id)
             self._check_and_disable_class_combos()
 
         tools_gw.add_icon(self.dialog.btn_insert, '111')
@@ -296,8 +300,8 @@ class Campaign:
                 # Connect to handler passing the combo itself
                 combo.currentIndexChanged.connect(partial(self._on_class_changed, combo))
                 combo.currentIndexChanged.connect(partial(self._update_feature_completer, self.dialog))
-                # Also call initially
-                self._on_class_changed(combo)
+                # Init tabs without persisting (avoid accidental setcampaign on open)
+                self._on_class_changed(combo, save=False)
 
         self.setup_tab_relations()
         self._check_enable_tab_relations()
@@ -371,6 +375,8 @@ class Campaign:
                         f"ORDER BY id"
                     )
                     self.populate_tableview(view, sql)
+
+        self._relations_loaded = True
 
     def create_widget_from_field(self, field: Dict[str, Any], response: Dict[str, Any]) -> Optional[QWidget]:
         """Create a Qt widget based on field metadata"""
@@ -470,10 +476,18 @@ class Campaign:
 
     def _on_tab_change(self, index: int):
         """Handle tab change events in the campaign dialog."""
-        # Get the tab object at the changed index
         tab = self.dialog.tab_widget.widget(index)
-        if tab.objectName() == "tab_relations" and self.is_new_campaign and not self.campaign_saved:
-            self.save_campaign(from_tab_change=True)
+        if not tab or tab.objectName() != "tab_relations":
+            return
+
+        # New campaigns must be persisted before relating features
+        if self.is_new_campaign and not self.campaign_saved:
+            if self.save_campaign(from_tab_change=True) is False:
+                return
+
+        # Lazy-load relation tables on first visit
+        if self.campaign_id and not self._relations_loaded:
+            self._load_campaign_relations(self.campaign_id)
 
     def save_campaign(self, from_tab_change: bool = False) -> Optional[bool]:
         """Save campaign data to the database. Updates ID and resets map on success."""
@@ -509,14 +523,14 @@ class Campaign:
                         list_mandatory.append(field['widgetname'])
 
         if list_mandatory:
-            msg = tools_qt.tr("Some mandatory values are missing. Please check the widgets marked in red.", context_name="cm")
+            msg = "Some mandatory values are missing. Please check the widgets marked in red."
             tools_qgis.show_warning(msg, dialog=self.dialog)
             return False
 
         result = tools_gw.execute_procedure("gw_fct_cm_setcampaign", body, schema_name="cm")
 
         if result.get("status") == "Accepted":
-            msg = tools_qt.tr("Campaign saved successfully.", context_name="cm")
+            msg = "Campaign saved successfully"
             tools_qgis.show_info(msg, dialog=self.dialog)
             self.campaign_saved = True
             self.is_new_campaign = False
@@ -544,7 +558,7 @@ class Campaign:
                 self.dialog.accept()
 
         else:
-            msg = tools_qt.tr("Failed to save campaign", context_name="cm")
+            msg = "Failed to save campaign"
             tools_qgis.show_warning(result.get("message", msg))
 
     def _cleanup_map_selection(self):
@@ -859,8 +873,8 @@ class Campaign:
             # Return None if there's any database error
             return None
 
-    def _on_class_changed(self, sender: Optional[QComboBox] = None):
-        """Called when the user changes the reviewclass or visitclass combo or when dialog opens"""
+    def _on_class_changed(self, sender: Optional[QComboBox] = None, *args, save: bool = True):
+        """Apply review/visit class tab rules. Persist only on real user changes (save=True)."""
         # If sender is not passed, try get it from signal
         if sender is None:
             sender = self.dialog.sender()
@@ -883,19 +897,12 @@ class Campaign:
             if self._is_reviewclass_for_all(selected_id):
                 self.dialog.tab_feature.setCurrentIndex(0)
 
-            # Force refresh completers for all relation tabs
-            for i in range(self.dialog.tab_feature.count()):
-                tab = self.dialog.tab_feature.widget(i)
-                if tab:
-                    self.dialog.tab_feature.setCurrentIndex(i)
-                    self._update_feature_completer(self.dialog)
-
         elif sender == self.visitclass_combo:
             feature_types = self.get_allowed_feature_types_from_visitclass("om_visitclass", selected_id)
         else:
             return
 
-        if self.campaign_id:          # campaign was already saved at least once
+        if save and self.campaign_id:
             self.save_campaign(True)  # from_tab_change=True => silent (doesn't close dialog)
 
         self._manage_tabs_enabled(feature_types)
@@ -1153,21 +1160,21 @@ class Campaign:
         """Delete the selected campaign"""
         selected = self.manager_dialog.tbl_campaign.selectionModel().selectedRows()
         if not selected:
-            msg = tools_qt.tr("Select a campaign to delete.", context_name="cm")
-            tools_qgis.show_warning(msg, dialog=self.manager_dialog)
+            msg = "Select a campaign to delete."
+            tools_qgis.show_warning(msg, dialog=self.manager_dialog, context_name="cm")
             return
 
         index = selected[0]
         campaign_id = index.data()
         if not str(campaign_id).isdigit():
-            msg = tools_qt.tr("Invalid campaign ID.", context_name="cm")
+            msg = "Invalid campaign ID"
             tools_qgis.show_warning(msg, dialog=self.manager_dialog)
             return
 
         # Confirm deletion
         count = len(selected)
 
-        msg = tools_qt.tr("Are you sure you want to delete {0} campaign(s)?", context_name="cm")
+        msg = "Are you sure you want to delete {0} campaign(s)?"
         msg_params = (count,)
         if not tools_qt.show_question(msg, msg_params=msg_params):
             return
@@ -1180,11 +1187,84 @@ class Campaign:
             sql = f"DELETE FROM cm.om_campaign WHERE campaign_id = {campaign_id}"
             if tools_db.execute_sql(sql):
                 success += 1
-        msg = tools_qt.tr("{0} campaign(s) deleted.", context_name="cm")
+        msg = "{0} campaign(s) deleted."
         msg_params = (count,)
         tools_qgis.show_info(msg, msg_params=msg_params, dialog=self.manager_dialog)
         tools_gw.refresh_selectors(is_cm=True)
         self.filter_campaigns()
+
+    def _apply_child_campaign_field_locks(self):
+        """Lock parent_id always; if set, only startdate/enddate/descript/status stay editable."""
+        parent_widget = self.get_widget_by_columnname(self.dialog, "parent_id")
+        if not parent_widget:
+            return
+
+        if isinstance(parent_widget, QLineEdit):
+            parent_widget.setReadOnly(True)
+        parent_widget.setEnabled(False)
+
+        parent_val = tools_qt.get_text(self.dialog, parent_widget)
+        if parent_val in (None, "", "null", "None"):
+            return
+
+        editable_columns = {"startdate", "enddate", "descript", "status"}
+        for field in self.fields_form:
+            columnname = field.get("columnname")
+            if not columnname or columnname == "parent_id" or columnname in editable_columns:
+                continue
+            widget = self.get_widget_by_columnname(self.dialog, columnname)
+            if not widget:
+                continue
+            if isinstance(widget, (QLineEdit, QTextEdit)):
+                widget.setReadOnly(True)
+            widget.setEnabled(False)
+
+    def create_child_campaign(self):
+        """Validate parent via DB, create child campaign, and open its dialog."""
+        selected = self.manager_dialog.tbl_campaign.selectionModel().selectedRows()
+        if not selected:
+            msg = "Select a campaign to create a child campaign."
+            tools_qgis.show_warning(msg, dialog=self.manager_dialog)
+            return
+
+        index = selected[0]
+        parent_id = index.data()
+        if not str(parent_id).isdigit():
+            msg = "Invalid campaign ID"
+            tools_qgis.show_warning(msg, dialog=self.manager_dialog)
+            return
+
+        parent_id = int(parent_id)
+        result = tools_gw.execute_procedure(
+            "gw_fct_create_child_campaign", parent_id, schema_name="cm"
+        )
+
+        if not result or result.get("status") != "Accepted":
+            db_message = result.get("message") if result else None
+            if isinstance(db_message, dict):
+                db_message = db_message.get("text")
+            if db_message:
+                msg = "{0}"
+                msg_params = (db_message,)
+                tools_qgis.show_warning(msg, msg_params=msg_params, dialog=self.manager_dialog)
+            else:
+                msg = "Failed to create child campaign"
+                tools_qgis.show_warning(msg, dialog=self.manager_dialog)
+            return
+
+        child_id = result.get("body", {}).get("campaign_id")
+        if not child_id:
+            msg = "Failed to create child campaign"
+            tools_qgis.show_warning(msg, dialog=self.manager_dialog)
+            return
+
+        try:
+            tools_gw.refresh_selectors(is_cm=True)
+        except Exception:
+            pass
+        self.filter_campaigns()
+
+        self.load_campaign_dialog(int(child_id), parent=self.manager_dialog)
 
     def open_campaign(self, index: Optional[QModelIndex] = None):
         """Open campaign from the clicked index safely (double click handler or button handler)."""
@@ -1200,7 +1280,7 @@ class Campaign:
         else:
             selected = self.manager_dialog.tbl_campaign.selectionModel().selectedRows()
             if not selected:
-                msg = tools_qt.tr("No campaign selected.", context_name="cm")
+                msg = "No campaign selected"
                 tools_qgis.show_warning(msg, dialog=self.manager_dialog)
                 return
 
@@ -1213,7 +1293,7 @@ class Campaign:
                     self.load_campaign_dialog(campaign_id, parent=self.manager_dialog)
                     self._check_and_disable_class_combos()
             except (ValueError, TypeError):
-                msg = tools_qt.tr("Invalid campaign ID.", context_name="cm")
+                msg = "Invalid campaign ID"
                 tools_qgis.show_warning(msg)
 
 
@@ -1278,8 +1358,9 @@ def update_expl_sector_combos(**kwargs: Any):
         update_sector_combo(dialog, saved_values)
 
     except Exception as e:
-        msg = tools_qt.tr("CRITICAL ERROR in update_expl_sector_combos", context_name="cm")
-        tools_qgis.show_warning(f"{msg}: {e}", dialog=dialog)
+        msg = "CRITICAL ERROR in update_expl_sector_combos: {0}"
+        msg_params = (e,)
+        tools_qgis.show_warning(msg, msg_params=msg_params, dialog=dialog)
 
 
 def update_sector_combo(dialog: QDialog, saved_values: Optional[Dict] = None):

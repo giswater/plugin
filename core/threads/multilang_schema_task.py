@@ -41,6 +41,9 @@ from ..admin.i18n_baseline_seed import (
     invalidate_baseline_fingerprint_cache,
     language_baselines_exist,
     multilang_user_param_provision_sql,
+    multilang_views_provision_sql,
+    multilang_json_error_message,
+    run_multilang_function_sql,
     normalize_language_folder,
     normalize_language_id,
     seed_sql_for_project_types,
@@ -189,8 +192,7 @@ class GwMultilangSchemaTask(GwTask):
         if not language_baselines_exist(sql_root, self.locale or self.lang_folder):
             msg = "No local i18n baseline SQL found for ({0}). Download plugin language files first."
             msg_params = (self.lang_folder,)
-            msg = tools_qt.tr(msg, list_params=msg_params)
-            self._set_task_error(msg)
+            self._set_task_error(tools_qt.tr(msg, list_params=msg_params))
             return False
 
         if not self._execute_sql(ensure_cat_language_sql(self.locale or self.lang_id)):
@@ -200,10 +202,12 @@ class GwMultilangSchemaTask(GwTask):
 
         target_types = self._translatable_project_types(sql_root)
         if not target_types:
-            tools_log.log_info(
+            msg = (
                 "Multilang seed: no project types with bundled baselines detected; "
-                f"only cat_language ensured for {self.lang_id}."
+                "only cat_language ensured for {0}."
             )
+            msg_params = (self.lang_id,)
+            tools_log.log_info(msg, msg_params=msg_params)
             if self._adapter is not None:
                 self._adapter.commit()
             return True
@@ -241,7 +245,9 @@ class GwMultilangSchemaTask(GwTask):
         except Exception as exc:  # noqa: BLE001
             self.exception = exc
             self._set_task_error(str(exc))
-            tools_log.log_info("Multilang SchemaBuilder exception", parameter=str(exc))
+            msg = "Multilang SchemaBuilder exception: {0}"
+            msg_params = (str(exc),)
+            tools_log.log_info(msg, msg_params=msg_params)
             return False
 
         if self.result.cancelled or not self.result.ok:
@@ -252,11 +258,19 @@ class GwMultilangSchemaTask(GwTask):
 
         target_types = self._translatable_project_types(sql_root)
         if not target_types:
-            tools_log.log_info(
-                "Multilang seed: no project types with bundled baselines detected; "
-                "skipping import."
-            )
+            msg = "Multilang seed: no project types with bundled baselines detected; skipping import."
+            tools_log.log_info(msg)
             self._finalize_addparam([])
+            if not self._provision_network_user_param(enable=True):
+                if self._adapter is not None:
+                    self._adapter.rollback()
+                return False
+            if not self._provision_network_views(enable=True):
+                if self._adapter is not None:
+                    self._adapter.rollback()
+                return False
+            if self._adapter is not None:
+                self._adapter.commit()
             return True
 
         if not self._ensure_cat_language():
@@ -283,12 +297,53 @@ class GwMultilangSchemaTask(GwTask):
                 self._adapter.rollback()
             return False
 
+        if not self._provision_network_views(enable=True):
+            if self._adapter is not None:
+                self._adapter.rollback()
+            return False
+
         if self._adapter is not None:
             self._adapter.commit()
         return True
 
+    def _execute_multilang_function(self, sql: str, *, label: str) -> bool:
+        json_result, ok = run_multilang_function_sql(
+            sql,
+            adapter=self._adapter,
+            is_thread=True,
+            show_exception=False,
+        )
+        if ok:
+            return True
+
+        msg = "{0} failed."
+        msg = msg.format(label)
+        err = (
+            lib_vars.session_vars.get("last_error_msg")
+            or lib_vars.session_vars.get("last_error")
+            or multilang_json_error_message(json_result, sql=sql)
+            or msg
+        )
+        self._set_task_error(err)
+        if json_result:
+            from ..utils import tools_gw
+
+            tools_gw.manage_json_exception(json_result, sql=sql, is_thread=True)
+        return False
+
     def _provision_network_user_param(self, *, enable: bool) -> bool:
-        return self._execute_sql(multilang_user_param_provision_sql(enable=enable))
+        msg = "Multilang user parameter provisioning"
+        return self._execute_multilang_function(
+            multilang_user_param_provision_sql(enable=enable),
+            label=msg,
+        )
+
+    def _provision_network_views(self, *, enable: bool) -> bool:
+        msg = "Multilang views provisioning"
+        return self._execute_multilang_function(
+            multilang_views_provision_sql(enable=enable),
+            label=msg,
+        )
 
     def _seed_project_types(
         self,
@@ -311,10 +366,9 @@ class GwMultilangSchemaTask(GwTask):
                 return False
             self._progress_cb_seed(idx, total, project_type, progress_base=progress_base)
             if not statements:
-                tools_log.log_info(
-                    f"Multilang seed: no baseline SQL for project_type={project_type} "
-                    f"(lang={lang}); skipping."
-                )
+                msg = "Multilang seed: no baseline SQL for project_type={0} (lang={1}); skipping."
+                msg_params = (project_type, lang)
+                tools_log.log_info(msg, msg_params=msg_params)
             else:
                 for sql in statements:
                     if self.isCanceled():
@@ -322,10 +376,9 @@ class GwMultilangSchemaTask(GwTask):
                     if not self._execute_sql(sql):
                         if self._adapter is not None:
                             err = self._adapter.last_error() or "seed SQL failed"
-                            self._set_task_error(
-                                f"Multilang seed failed for project_type "
-                                f"{project_type}: {err}"
-                            )
+                            msg = "Multilang seed failed for project_type {0}: {1}"
+                            msg_params = (project_type, err)
+                            self._set_task_error(tools_qt.tr(msg, list_params=msg_params))
                         return False
             seeded.append(project_type)
         self.seeded_project_types = seeded
@@ -356,9 +409,9 @@ class GwMultilangSchemaTask(GwTask):
             if self.isCanceled():
                 return False
             if not self._execute_sql(sql):
+                msg = "Failed to delete multilang rows for removed project types."
                 self._set_task_error(
-                    self._adapter.last_error() if self._adapter else
-                    "Failed to delete multilang rows for removed project types."
+                    self._adapter.last_error() if self._adapter else tools_qt.tr(msg)
                 )
                 return False
         return True
@@ -408,7 +461,10 @@ class GwMultilangSchemaTask(GwTask):
         if err and not lib_vars.session_vars.get("last_error_msg"):
             lib_vars.session_vars["last_error_msg"] = msg
         self.error = str(err or msg)
-        tools_log.log_warning("Multilang schema build failed", parameter=msg)
+        detail = self.error
+        msg = "Multilang schema build failed: {0}"
+        msg_params = (detail,)
+        tools_log.log_warning(msg, msg_params=msg_params)
 
     def _progress_cb_build(
         self,
@@ -457,9 +513,9 @@ class GwMultilangSchemaTask(GwTask):
         label = f"seed:{project_type}"
         self._last_progress_label = label
         if hasattr(self.admin, "schema_build_progress_hint"):
-            self.admin.schema_build_progress_hint = (
-                f"Seeding {project_type} ({seen}/{total})"
-            )
+            msg = "Seeding {0} ({1}/{2})"
+            msg_params = (project_type, seen, total)
+            self.admin.schema_build_progress_hint = tools_qt.tr(msg, list_params=msg_params)
         span = max(100 - progress_base, 1)
         pct = progress_base + int(round((seen / max(total, 1)) * span))
         if hasattr(self.admin, "progress_value"):
@@ -486,14 +542,18 @@ class GwMultilangSchemaTask(GwTask):
             if not result and self.result.ok:
                 self.admin.error_count = getattr(self.admin, "error_count", 0) + 1
                 if not lib_vars.session_vars.get("last_error_msg"):
+                    msg = "Multilang schema task failed during baseline seed."
                     self._set_task_error(
                         self._adapter.last_error() if self._adapter else
-                        "Multilang schema task failed during baseline seed."
+                        tools_qt.tr(msg)
                     )
+                
             try:
                 self.on_done(self.result)
             except Exception as exc:  # noqa: BLE001
-                tools_log.log_info("Multilang on_done callback raised", parameter=str(exc))
+                msg = "Multilang on_done callback raised: {0}"
+                msg_params = (str(exc),)
+                tools_log.log_info(msg, msg_params=msg_params)
 
         locale_out = self.locale if self._language_only else ""
         self.task_finished.emit(bool(result), locale_out, self.error or "")

@@ -9,13 +9,14 @@ UPDATE config_visit_parameter AS t SET descript = v.descript FROM (
 	VALUES
 	('clean_node', 'Clean of node'),
     ('defect_node', 'Defects of node'),
+    ('generic_incident', 'global incident'),
     ('incident_comment', 'incident_comment'),
     ('incident_type', 'incident type'),
     ('insp_observ', 'Inspection observations'),
-    ('photo', 'Photography'),
-    ('sediments_node', 'Sediments in node'),
     ('leak_arc', 'minor leak on arc'),
     ('leak_connec', 'minor leak on connec'),
-    ('leak_link', 'minor leak on link')
+    ('leak_link', 'minor leak on link'),
+    ('photo', 'Photography'),
+    ('sediments_node', 'Sediments in node')
 ) AS v(id, descript)
 WHERE t.id = v.id;

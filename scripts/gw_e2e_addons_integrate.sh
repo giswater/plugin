@@ -11,7 +11,8 @@ set -euo pipefail
 CONN="${CONN:?Set CONN to a postgresql URL}"
 WS="${WS:-ws}"
 UD="${UD:-ud}"
-SATELLITES="${SATELLITES:-utils,cibs}"
+# Set-but-empty means "no satellites" (i18n lane); only unset falls back to the default.
+SATELLITES="${SATELLITES-utils,cibs}"
 PARENT_PROFILE="${PARENT_PROFILE:-empty}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

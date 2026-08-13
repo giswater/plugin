@@ -399,3 +399,166 @@ AS SELECT cat_feature.id,
     cat_feature.custom_code_autofill
    FROM cat_feature
      JOIN cat_feature_node USING (id);
+
+UPDATE config_form_fields
+	SET "label"='Lab code'
+	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='lab_code' AND "label"='lab_code';
+
+CREATE OR REPLACE VIEW v_om_visit AS
+SELECT DISTINCT ON (visit_id)
+	visit_id,
+	code,
+	visitcat_id,
+	name,
+	visit_start,
+	visit_end,
+	user_name,
+	is_done,
+	feature_id,
+	feature_type,
+	the_geom::geometry(Point, SRID_VALUE) AS the_geom
+FROM (
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_node.node_id AS feature_id,
+		'NODE'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN node.the_geom
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_node ON om_visit_x_node.visit_id = om_visit.id
+	JOIN node ON node.node_id = om_visit_x_node.node_id
+	JOIN vf_node vf ON vf.node_id = node.node_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+	UNION
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_arc.arc_id AS feature_id,
+		'ARC'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN st_lineinterpolatepoint(arc.the_geom, 0.5::double precision)
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_arc ON om_visit_x_arc.visit_id = om_visit.id
+	JOIN arc ON arc.arc_id = om_visit_x_arc.arc_id
+	JOIN vf_arc vf ON vf.arc_id = arc.arc_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+	UNION
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_connec.connec_id AS feature_id,
+		'CONNEC'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN connec.the_geom
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_connec ON om_visit_x_connec.visit_id = om_visit.id
+	JOIN connec ON connec.connec_id = om_visit_x_connec.connec_id
+	JOIN vf_connec vf ON vf.connec_id = connec.connec_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+	UNION
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_gully.gully_id AS feature_id,
+		'GULLY'::text AS feature_type,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN gully.the_geom
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_gully ON om_visit_x_gully.visit_id = om_visit.id
+	JOIN gully ON gully.gully_id = om_visit_x_gully.gully_id
+	JOIN vf_gully vf ON vf.gully_id = gully.gully_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+) a;
+
+DROP VIEW IF EXISTS v_ui_rpt_cat_result;
+CREATE OR REPLACE VIEW v_ui_rpt_cat_result AS
+SELECT DISTINCT ON (rpt_cat_result.result_id)
+	rpt_cat_result.result_id,
+	e.exploitation_names AS expl_id,
+	rpt_cat_result.sector_id,
+	t2.idval AS network_type,
+	t1.idval AS status,
+	rpt_cat_result.iscorporate,
+	rpt_cat_result.descript,
+	rpt_cat_result.exec_date,
+	rpt_cat_result.cur_user,
+	rpt_cat_result.export_options,
+	rpt_cat_result.network_stats,
+	rpt_cat_result.inp_options,
+	rpt_cat_result.rpt_stats,
+	rpt_cat_result.addparam
+FROM rpt_cat_result
+	JOIN selector_expl s ON (s.expl_id = ANY(rpt_cat_result.expl_id) AND s.cur_user = CURRENT_USER) OR rpt_cat_result.expl_id = ARRAY[NULL::integer]
+	LEFT JOIN inp_typevalue t1 ON rpt_cat_result.status::text = t1.id::text
+	LEFT JOIN inp_typevalue t2 ON rpt_cat_result.network_type = t2.id
+	LEFT JOIN LATERAL (
+		SELECT array_agg(ex.name) AS exploitation_names
+		FROM unnest(rpt_cat_result.expl_id) AS x(expl_id)
+		JOIN exploitation ex ON ex.expl_id = x.expl_id
+	) e ON true
+WHERE t1.typevalue = 'inp_result_status'
+AND t2.typevalue = 'inp_options_networkmode';
+
+CREATE TRIGGER gw_trg_ui_rpt_cat_result INSTEAD OF INSERT OR DELETE OR UPDATE ON v_ui_rpt_cat_result
+FOR EACH ROW EXECUTE FUNCTION gw_trg_ui_rpt_cat_result();
+
+UPDATE sys_param_user
+	SET layoutorder=10
+	WHERE id='edit_gully_automatic_link';
+
+UPDATE config_param_system
+	SET layoutorder=12
+	WHERE "parameter"='admin_crm_schema';
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('node form','utils','tbl_doc_x_node','node_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('node form','utils','tbl_doc_x_node','doc_name',8,true,'Document Name');
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('connec form','utils','tbl_doc_x_connec','connec_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('connec form','utils','tbl_doc_x_connec','doc_name',8,true,'Document Name');
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('arc form','utils','tbl_doc_x_arc','arc_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('arc form','utils','tbl_doc_x_arc','doc_name',8,true,'Document Name');
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('gully form','utils','tbl_doc_x_gully','gully_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('gully form','utils','tbl_doc_x_gully','doc_name',8,true,'Document Name');

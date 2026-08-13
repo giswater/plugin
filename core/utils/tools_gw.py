@@ -505,10 +505,10 @@ def open_help_link(context, uiname, dlg=None):
     tools_os.open_file(file_path)
 
 
-def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, hide_config_widgets=False, plugin_dir=lib_vars.plugin_dir, plugin_name=lib_vars.plugin_name):
+def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, title_params=None, hide_config_widgets=False, plugin_dir=lib_vars.plugin_dir, plugin_name=lib_vars.plugin_name, skip_db_check=False):
     """ Open dialog """
     # Check database connection before opening dialog
-    if dlg_name not in ('admin_credentials', 'admin', 'load_menu') and not check_db_connection():
+    if skip_db_check is False and not check_db_connection():
         msg = "Database connection is not available"
         tools_qgis.show_warning(msg)
         return
@@ -519,7 +519,7 @@ def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, hide_config_w
 
     # Set window title
     if title is not None:
-        dlg.setWindowTitle(title)
+        dlg.setWindowTitle(tools_qt.tr(title, list_params=title_params))
 
     # Manage stay on top, maximize/minimize button and information button
     flags = Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinMaxButtonsHint | Qt.WindowType.Window
@@ -1050,13 +1050,15 @@ def add_layer_provider(gw_id: str, cfg, group="GW Layers", sub_group=None, alias
         layer = QgsVectorLayer(uri, gw_id, provider)
 
     else:
-        msg = f"Unsupported layer_type: {layer_type}"
-        tools_qgis.show_warning(msg)
+        msg = "Unsupported layer_type: {0}"
+        msg_params = (layer_type,)
+        tools_qgis.show_warning(msg, msg_params=msg_params)
         return
 
     if not layer.isValid():
-        msg = f"Invalid layer:\nprovider={provider}\nuri={uri}"
-        tools_qgis.show_warning(msg)
+        msg = "Invalid layer:\nprovider={0}\nuri={1}"
+        msg_params = (provider, uri)
+        tools_qgis.show_warning(msg, msg_params=msg_params)
         return
 
     if force_create_group:
@@ -1107,8 +1109,9 @@ def build_uri(gw_id: str, provider: str, cfg: dict) -> Optional[str]:
     builder = builders.get(provider)
 
     if not builder:
-        msg = f"No URI builder for provider: {provider}"
-        tools_qgis.show_warning(msg)
+        msg = "No URI builder for provider: {0}"
+        msg_params = (provider,)
+        tools_qgis.show_warning(msg, msg_params=msg_params)
         return None
 
     return builder(cfg)
@@ -1262,9 +1265,9 @@ def build_network_uri(cfg: dict, encoding: str = "query") -> str:
 
         return uri.uri(False)
 
-    raise ValueError(
-        f"Unsupported URI encoding: {encoding}"
-    )
+    msg = "Unsupported URI encoding: {0}"
+    msg_params = (encoding,)
+    raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
 
 def refresh_categorized_layer_symbology_classes(layer, addparam=None):
@@ -1308,7 +1311,9 @@ def refresh_categorized_layer_symbology_classes(layer, addparam=None):
             else:
                 src_symbol = QgsSymbol.defaultSymbol(layer.geometryType())
         except Exception as e:
-            print(f"Error getting source symbol: {e}")
+            msg = "Error getting source symbol: {0}"
+            msg_params = (e,)
+            print(tools_qt.tr(msg, list_params=msg_params))
             src_symbol = QgsSymbol.defaultSymbol(layer.geometryType())
 
     # Set solid line style to the source symbol
@@ -1426,7 +1431,8 @@ def hide_group_from_toc(group):
 
 def validate_qml(qml_content):
     if not qml_content:
-        return False, "QML is empty!"
+        msg = "QML is empty!"
+        return False, tools_qt.tr(msg)
     qml_content_no_spaces = qml_content.replace("\n", "").replace("\t", "")
     try:
         root = ET.fromstring(qml_content_no_spaces)  # noqa: F841
@@ -2239,11 +2245,11 @@ def manage_feature_cat():
     if not result:
         return None
 
-    msg = tools_qt.tr("Field child_layer of id: ")
+    missing_ids = []
     for value in result['body']['data']['values']:
         tablename = value['child_layer']
         if not tablename:
-            msg += f"{value['id']}, "
+            missing_ids.append(str(value['id']))
             continue
         elem = GwCatFeature(value['id'], value['feature_class'], value['feature_type'], value['shortcut_key'],
                             value['parent_layer'], value['child_layer'])
@@ -2252,9 +2258,9 @@ def manage_feature_cat():
 
     feature_cat = OrderedDict(sorted(feature_cat.items(), key=lambda t: t[0]))
 
-    if msg != tools_qt.tr("Field child_layer of id: "):
-        msg = "{0} is not defined in table cat_feature"
-        msg_params = (msg, )
+    if missing_ids:
+        msg = "Field child_layer of id: {0} is not defined in table cat_feature"
+        msg_params = (", ".join(missing_ids),)
         tools_qgis.show_warning(msg, msg_params=msg_params)
 
     return feature_cat
@@ -6651,8 +6657,11 @@ def create_sqlite_conn(file_name):
     status = False
     cursor = None
     try:
-        db_path = f"{lib_vars.plugin_dir}{os.sep}resources{os.sep}gis{os.sep}{file_name}.sqlite"
+        gis_dir = f"{lib_vars.plugin_dir}{os.sep}resources{os.sep}gis"
+        db_path = f"{gis_dir}{os.sep}{file_name}.sqlite"
         tools_log.log_info(db_path)
+        if file_name == "locales" and not os.path.exists(db_path):
+            _create_locales_sqlite(gis_dir, db_path)
         if os.path.exists(db_path):
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
@@ -6664,6 +6673,31 @@ def create_sqlite_conn(file_name):
         tools_log.log_warning(str(e))
 
     return status, cursor
+
+
+def _create_locales_sqlite(gis_dir, db_path):
+    """Create locales.sqlite from the bundled SQL seed when the file is missing."""
+    seed_path = f"{gis_dir}{os.sep}locales.sql"
+    if not os.path.exists(seed_path):
+        msg = "Locales seed file not found"
+        tools_log.log_warning(msg, parameter=seed_path)
+        return
+
+    os.makedirs(gis_dir, exist_ok=True)
+    with open(seed_path, "r", encoding="utf-8") as f:
+        seed_sql = f.read()
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.executescript(seed_sql)
+        conn.commit()
+    except Exception:
+        conn.close()
+        if os.path.exists(db_path):
+            os.remove(db_path)
+        raise
+    conn.close()
+    msg = "Created locales database from seed"
+    tools_log.log_info(msg, parameter=db_path)
 
 
 def manage_user_config_folder(user_folder_dir):
@@ -7212,8 +7246,9 @@ def _insert_feature(dialog, relation_id, relation_type, feature_type, ids=None, 
         return
 
     if not relation_id:
-        msg = f"{relation_type.title()} ID is missing."
-        tools_qgis.show_warning(msg)
+        msg = "{0} ID is missing."
+        msg_params = (relation_type.title(),)
+        tools_qgis.show_warning(msg, msg_params=msg_params)
         return
 
     # Toggle audit and topocontrol off during bulk insert for performance (only for campaign)
@@ -7421,7 +7456,8 @@ def load_tableview_lot(dialog, feature_type, lot_id, layers, ids=None):
     """Reload QTableView for campaign_lot_x_<feature_type> safely, avoiding recursive selectionChanged loop."""
 
     if not lot_id:
-        tools_qgis.show_warning("Lot ID not found.")
+        msg = "Lot ID not found."
+        tools_qgis.show_warning(msg)
         return
 
     class_object = dialog.parent()

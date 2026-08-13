@@ -11,11 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `observ` column to `inp_dscenario_%` tables.
 - Add `custom_code_autofill` column to `cat_feature` and `config_mapzones` tables.
+- Materialize graph inundation into `anl_graphinundation` / `v_anl_graphinundation` for QGIS temporal playback.
 - Extend `hydraulic_engine` Go2Epa path to UD (SWMM); fall back to classic EPA when the package is missing.
 - Allow Execute EPA on Linux for UD when `hydraulic_engine` is installed.
+- Add `btn_child` to campaign manager dialog to create a child campaign.
+- Add editable `userdefined_geom` checkbox to link info forms.
 
 ### Changed
 
+- Generate `resources/gis/locales.sqlite` from `locales.sql` when missing instead of tracking the sqlite file.
+- Keep `link.userdefined_geom` when provided on `ve_link` edit; set it to TRUE only on INSERT or when geometry changes.
+- Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
+- Document macOS QPIP native-library codesign workaround for Go2Epa / `hydraulic_engine` in README.
 - Refactor Go2Epa hydraulic_engine integration to share execute/import flow for WS and UD.
 - Require `hydraulic_engine>=0.7.0` and align Go2Epa runners with its EPANET/SWMM export API.
 
@@ -23,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix Go2Epa hydraulic-engine result import crash when JSON `message` is null (`NoneType` has no attribute `get`).
 - Fix EPANET-only `only_extrema` being passed to SWMM `export_result`.
+- Fix `gw_fct_setsearch` function to use `COALESCE` to handle NULL geometry in `ve_address` table.
+- Fix creation of temporary table `temp_ve_arc_geom_selector` to use `vf_arc` view.
+- Fix performance on `sys_fprocess` queries.
+- Fix open dialogs to skip database connection check when `skip_db_check` is True.
 
 ## [4.16.1] - 2026-07-31
 
@@ -34,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improve EPA Execute cancel behavior.
 - Improve general progress display in EPA Execute dialog.
+- `gw_fct_getgraphinundation` now inserts into Postgres instead of returning a large GeoJSON FeatureCollection.
 
 ### Fixed
 
@@ -44,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comment out repeated paths check for future consideration
 - Reorder utilities icons list.
 - Fix `gw_fct_linktonetwork` function to add `minPipeDiameter` variable for massive process and adjust diameter comparison logic.
+- Fix visits views to use selector filters.
 
 ## [4.16.0] - 2026-07-24
 

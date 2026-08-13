@@ -664,6 +664,19 @@ BEGIN
 		NEW.verified := (SELECT "value"::INTEGER FROM config_param_user WHERE "parameter"='edit_verified_vdefault' AND "cur_user"="current_user"() LIMIT 1);
 	END IF;
 
+	-- userdefined_geom: keep incoming value; TRUE on INSERT or when geom changed
+	IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+		IF NEW.userdefined_geom IS NOT NULL THEN
+			v_userdefined_geom := NEW.userdefined_geom;
+		ELSIF TG_OP = 'INSERT' THEN
+			v_userdefined_geom := TRUE;
+		ELSIF NOT COALESCE(ST_Equals(OLD.the_geom, NEW.the_geom), FALSE) THEN
+			v_userdefined_geom := TRUE;
+		ELSE
+			v_userdefined_geom := OLD.userdefined_geom;
+		END IF;
+	END IF;
+
 	-- upsert process
 	IF TG_OP ='INSERT' THEN
 
@@ -711,7 +724,7 @@ BEGIN
 			fluid_type, omzone_id, dqa_id, presszone_id, minsector_id, linkcat_id, workcat_id, workcat_id_end, builtdate, enddate,
 			uncertain, muni_id, verified, datasource, top_elev1, depth1, top_elev2, depth2, location_type, custom_length, annotation,
 			observ, comment, descript, link, num_value, dma_id, state_type, brand_id, model_id, uuid, dataquality, dataquality_obs)
-			VALUES (NEW.link_id, NEW.code, NEW.feature_type, NEW.feature_id, v_expl, NEW.exit_id, NEW.exit_type, TRUE, NEW.state, NEW.the_geom, v_sector,
+			VALUES (NEW.link_id, NEW.code, NEW.feature_type, NEW.feature_id, v_expl, NEW.exit_id, NEW.exit_type, v_userdefined_geom, NEW.state, NEW.the_geom, v_sector,
 			v_fluidtype, v_omzone, v_dqa, v_presszone, v_minsector, NEW.linkcat_id, NEW.workcat_id, NEW.workcat_id_end, NEW.builtdate, NEW.enddate,
 			NEW.uncertain, NEW.muni_id, NEW.verified, NEW.datasource, NEW.top_elev1, NEW.depth1, NEW.top_elev2, NEW.depth2, NEW.location_type,
 			NEW.custom_length, NEW.annotation, NEW.observ, NEW.comment, NEW.descript, NEW.link, NEW.num_value, v_dma, NEW.state_type, NEW.brand_id, NEW.model_id, NEW.uuid, NEW.dataquality, NEW.dataquality_obs);
@@ -733,10 +746,10 @@ BEGIN
 			INSERT INTO link (link_id, code, sys_code, feature_type, feature_id, expl_id, exit_id, exit_type, userdefined_geom, state, the_geom, sector_id, fluid_type, omzone_id,
 			linkcat_id, workcat_id, workcat_id_end, builtdate, enddate, uncertain, muni_id, verified, custom_length, datasource, top_elev1, y1, top_elev2, y2, link_type, location_type,
 			annotation, observ, comment, descript, link, num_value, drainzone_outfall, dwfzone_outfall, brand_id, model_id, uuid, omunit_id, treatment_type, dataquality, dataquality_obs)
-			VALUES (NEW.link_id, NEW.code, NEW.sys_code, NEW.feature_type, NEW.feature_id, v_expl, NEW.exit_id, NEW.exit_type, TRUE, NEW.state, NEW.the_geom, v_sector, v_fluidtype::integer, v_omzone,
+			VALUES (NEW.link_id, NEW.code, NEW.sys_code, NEW.feature_type, NEW.feature_id, v_expl, NEW.exit_id, NEW.exit_type, v_userdefined_geom, NEW.state, NEW.the_geom, v_sector, v_fluidtype::integer, v_omzone,
 			NEW.linkcat_id, NEW.workcat_id, NEW.workcat_id_end, NEW.builtdate, NEW.enddate, NEW.uncertain, NEW.muni_id, NEW.verified, NEW.custom_length, NEW.datasource,
 			NEW.top_elev1, NEW.y1, NEW.top_elev2, NEW.y2, NEW.link_type, NEW.location_type,
-			NEW.annotation, NEW.observ, NEW.comment, NEW.descript, NEW.link, NEW.num_value, NEW.drainzone_outfall, NEW.dwfzone_outfall, NEW.brand_id, NEW.model_id, NEW.uuid, COALESCE(NEW.treatment_type, 0)::integer, NEW.dataquality, NEW.dataquality_obs);
+			NEW.annotation, NEW.observ, NEW.comment, NEW.descript, NEW.link, NEW.num_value, NEW.drainzone_outfall, NEW.dwfzone_outfall, NEW.brand_id, NEW.model_id, NEW.uuid, NEW.omunit_id, COALESCE(NEW.treatment_type, 0)::integer, NEW.dataquality, NEW.dataquality_obs);
 		END IF;
 
 		IF v_man_table = 'VLINK' THEN
@@ -926,7 +939,8 @@ BEGIN
 		UPDATE link SET code = NEW.code, state = NEW.state, the_geom = NEW.the_geom, workcat_id = NEW.workcat_id, workcat_id_end = NEW.workcat_id_end, builtdate = NEW.builtdate,
 		enddate = NEW.enddate, uncertain = NEW.uncertain, muni_id = NEW.muni_id, sector_id=v_sector, verified = NEW.verified, custom_length = NEW.custom_length,
 		datasource = NEW.datasource, location_type=NEW.location_type, annotation=NEW.annotation, observ=NEW.observ, comment=NEW.comment,
-		descript=NEW.descript, link=NEW.link, num_value=NEW.num_value, state_type=NEW.state_type, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
+		descript=NEW.descript, link=NEW.link, num_value=NEW.num_value, state_type=NEW.state_type, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs,
+		userdefined_geom = v_userdefined_geom
 		WHERE link_id=NEW.link_id;
 
 		IF v_man_table = 'VLINK' THEN
