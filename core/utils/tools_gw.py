@@ -155,6 +155,52 @@ def normalize_label(label: str, add_colon: bool = False) -> str:
     return normalized
 
 
+def apply_layer_field_aliases(layer, table_name, aux_conn=None, is_thread=False):
+    """Set QGIS field aliases from translated v_config_form_fields.label."""
+
+    if layer is None or not table_name:
+        return
+
+    safe_name = str(table_name).replace("'", "''")
+    sql = (
+        "SELECT DISTINCT ON (columnname) columnname, label "
+        "FROM v_config_form_fields "
+        f"WHERE formname = '{safe_name}' "
+        "AND label IS NOT NULL AND btrim(label) <> '' "
+        "ORDER BY columnname, "
+        "CASE tabname WHEN 'tab_data' THEN 0 WHEN 'tab_none' THEN 1 ELSE 2 END, "
+        "layoutorder NULLS LAST"
+    )
+    rows = None
+    try:
+        rows = tools_db.get_rows(sql, is_thread=is_thread, aux_conn=aux_conn)
+        if rows is None:
+            sql = sql.replace("v_config_form_fields", "config_form_fields", 1)
+            rows = tools_db.get_rows(sql, is_thread=is_thread, aux_conn=aux_conn)
+    except Exception:
+        rows = None
+
+    configured = set()
+    for row in rows or []:
+        columnname = row[0]
+        label = row[1]
+        field_index = layer.fields().indexFromName(columnname)
+        if field_index == -1:
+            continue
+        layer.setFieldAlias(field_index, normalize_label(label, add_colon=False))
+        configured.add(columnname)
+
+    for field in layer.fields():
+        if field.name() in configured:
+            continue
+        field_index = layer.fields().indexFromName(field.name())
+        if field_index == -1:
+            continue
+        if layer.attributeAlias(field_index):
+            continue
+        layer.setFieldAlias(field_index, normalize_label(field.name(), add_colon=False))
+
+
 def parse_context_levels(context_value: Any) -> List[str]:
     """
     Parse a layer context and return ordered menu levels.
@@ -982,14 +1028,18 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
                     if isinstance(renderer, QgsCategorizedSymbolRenderer):
                         refresh_categorized_layer_symbology_classes(layer, addparam)
 
-        if not create_project:
-            if tablename and schema != 'am' and schema != 'cm':
-                # Set layer config
+        if tablename and schema != 'am' and schema != 'cm':
+            apply_layer_field_aliases(layer, tablename_og)
+            if not create_project:
                 feature = '"tableName":"' + str(tablename_og) + '", "isLayer":true'
                 extras = '"infoType":"' + str(lib_vars.project_vars['info_type']) + '"'
                 body = create_body(feature=feature, extras=extras)
                 json_result = execute_procedure('gw_fct_getinfofromid', body, schema_name=schema_name)
-                config_layer_attributes(json_result, layer, alias)
+                try:
+                    if json_result and json_result.get("status") == "Accepted":
+                        config_layer_attributes(json_result, layer, tablename_og)
+                except Exception:
+                    pass
 
     if visibility is not None:
         if visibility is False:
@@ -1076,6 +1126,9 @@ def add_layer_provider(gw_id: str, cfg, group="GW Layers", sub_group=None, alias
         sub_sub_group = sub_sub_group.capitalize()
 
     tools_qgis.add_layer_to_toc(layer, group, sub_group, create_groups=create_groups, sub_sub_group=sub_sub_group, custom_properties={"gw_id": gw_id_og})
+
+    if layer_type == "vector":
+        apply_layer_field_aliases(layer, gw_id_og)
 
     # Apply styles to layer
     set_layer_styles(gw_id_og, layer, schema_name)
@@ -1664,6 +1717,8 @@ def configure_layers_from_table_name(table_name):
             failed_layers.append(table)
             continue
 
+        apply_layer_field_aliases(layer, table)
+
         # Prepare feature for the API call
         feature = f'"tableName":"{table}"'
         body = create_body(feature=feature)
@@ -1679,7 +1734,7 @@ def configure_layers_from_table_name(table_name):
             failed_layers.append(table)
             continue
 
-        # Configure the layer attributes
+        # Configure widgets, visibility and constraints
         try:
             config_layer_attributes(json_result, layer, table)
         except Exception:
@@ -1694,12 +1749,25 @@ def configure_layers_from_table_name(table_name):
 
 
 def config_layer_attributes(json_result, layer, layer_name, thread=None):
+    """Configure layer widgets, visibility and constraints from getinfofromid JSON.
 
-    for field in json_result['body']['data']['fields']:
+    Field aliases are applied separately by apply_layer_field_aliases.
+    """
+
+    try:
+        fields = json_result['body']['data']['fields'] or []
+    except (TypeError, KeyError):
+        fields = []
+    if isinstance(fields, dict):
+        fields = list(fields.values()) if fields else []
+
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
         valuemap_values = {}
 
         # Get column index
-        field_index = layer.fields().indexFromName(field['columnname'])
+        field_index = layer.fields().indexFromName(field.get('columnname'))
 
         if field_index == -1:
             continue
@@ -1714,11 +1782,6 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
                     break
             config.setColumns(columns)
             layer.setAttributeTableConfig(config)
-
-        # Set alias column
-        if field['label']:
-            norm_label = normalize_label(field['label'], add_colon=False)
-            layer.setFieldAlias(field_index, norm_label)
 
         # widgetcontrols
         widgetcontrols = field.get('widgetcontrols')
@@ -1811,7 +1874,7 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
 
         if not use_vr:
             # Manage new values in ValueMap
-            if field['widgettype'] == 'combo':
+            if field.get('widgettype') == 'combo':
                 if 'comboIds' in field:
                     # Set values
                     for i in range(0, len(field['comboIds'])):
@@ -1819,11 +1882,11 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
                 # Set values into valueMap
                 editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': valuemap_values})
                 layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif field['widgettype'] == 'check':
+            elif field.get('widgettype') == 'check':
                 config = {'CheckedState': 'true', 'UncheckedState': 'false'}
                 editor_widget_setup = QgsEditorWidgetSetup('CheckBox', config)
                 layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif field['widgettype'] == 'datetime':
+            elif field.get('widgettype') == 'datetime':
                 config = {'allow_null': True,
                           'calendar_popup': True,
                           'display_format': 'yyyy-MM-dd',
@@ -1831,10 +1894,10 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
                           'field_iso_format': False}
                 editor_widget_setup = QgsEditorWidgetSetup('DateTime', config)
                 layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif field['widgettype'] == 'textarea':
+            elif field.get('widgettype') == 'textarea':
                 editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'True'})
                 layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif field['widgettype'] == 'list':
+            elif field.get('widgettype') == 'list':
                 editor_widget_setup = QgsEditorWidgetSetup('List', {})
                 layer.setEditorWidgetSetup(field_index, editor_widget_setup)
             else:
@@ -1842,18 +1905,13 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
                 layer.setEditorWidgetSetup(field_index, editor_widget_setup)
 
         # multiline: key comes from widgecontrol but it's used here in order to set false when key is missing
-        if field['widgettype'] == 'text':
+        if field.get('widgettype') == 'text':
             if field['widgetcontrols'] and 'setMultiline' in field['widgetcontrols']:
                 editor_widget_setup = QgsEditorWidgetSetup('TextEdit',
                                                            {'IsMultiline': field['widgetcontrols']['setMultiline']})
             else:
                 editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': False})
             layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-
-    for field in layer.fields():
-        if field.name() not in [field_json['columnname'] for field_json in json_result['body']['data']['fields']]:
-            field_index = layer.fields().indexFromName(field.name())
-            layer.setFieldAlias(field_index, normalize_label(field.name(), add_colon=False))
 
 
 def load_missing_layers(filter, group="GW Layers", sub_group=None):

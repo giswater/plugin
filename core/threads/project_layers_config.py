@@ -129,57 +129,81 @@ class GwProjectLayersConfig(GwTask):
                 config.setSuppress(1)
             layer.setEditFormConfig(config)
 
+    def _toc_layers_by_table(self):
+        """Map source table name -> layer for the current schema."""
+
+        schema_name = (self.schema_name or '').replace('"', '')
+        toc_layers = {}
+        for layer in tools_qgis.get_project_layers():
+            layer_source = tools_qgis.get_layer_source(layer)
+            schema = (layer_source.get('schema') or '').replace('"', '')
+            if schema != schema_name:
+                continue
+            table_name = tools_qgis.get_layer_source_table_name(layer)
+            if table_name and table_name not in toc_layers:
+                toc_layers[table_name] = layer
+        return toc_layers
+
     def _set_layer_config(self, layers):
         """ Set layer fields configured according to client configuration.
             At the moment manage:
                 Column names as alias, combos as ValueMap, typeahead as textedit"""
 
+        toc_layers = self._toc_layers_by_table()
+        layer_names = []
+        for layer_name in layers or []:
+            if layer_name and layer_name not in layer_names:
+                layer_names.append(layer_name)
+        for table_name in toc_layers:
+            if table_name not in layer_names:
+                layer_names.append(table_name)
+
         # Check only once if function 'gw_fct_getinfofromid' exists
         row = tools_db.check_function('gw_fct_getinfofromid', aux_conn=self.aux_conn, is_thread=True)
-        if row in (None, ''):
+        has_getinfofromid = row not in (None, '')
+        if not has_getinfofromid:
             msg = "Function not found in database: {0}"
             msg_params = ("gw_fct_getinfofromid",)
             tools_log.log_warning(msg, msg_params=msg_params)
-            return False
 
         msg_failed = ""
         msg_key = ""
-        total_layers = len(layers)
+        total_layers = len(layer_names)
         layer_number = 0
-        for layer_name in layers:
+        for layer_name in layer_names:
 
             if self.isCanceled():
                 return False
 
-            layer = tools_qgis.get_layer_by_tablename(layer_name)
+            layer = toc_layers.get(layer_name) or tools_qgis.get_layer_by_tablename(layer_name)
             if not layer:
                 continue
 
             layer_number = layer_number + 1
             self.setProgress((layer_number * 100) / total_layers)
 
-            feature = f'"tableName":"{layer_name}", "isLayer":true'
-            self.body = tools_gw.create_body(feature=feature)
-            self.json_result = tools_gw.execute_procedure('gw_fct_getinfofromid', self.body, aux_conn=self.aux_conn,
-                                                          is_thread=True, check_function=False)
-            if not self.json_result:
-                continue
-            if 'status' not in self.json_result:
-                continue
-            if self.json_result['status'] == 'Failed':
-                continue
-            if 'body' not in self.json_result:
-                msg = "Not '{0}'"
-                msg_params = ("body")
-                tools_log.log_info(msg, msg_params=msg_params)
-                continue
-            if 'data' not in self.json_result['body']:
-                msg = "Not '{0}'"
-                msg_params = ("body")
-                tools_log.log_info(msg, msg_params=msg_params)
+            tools_gw.apply_layer_field_aliases(
+                layer, layer_name, aux_conn=self.aux_conn, is_thread=True)
+
+            if not has_getinfofromid:
                 continue
 
-            tools_gw.config_layer_attributes(self.json_result, layer, layer_name, thread=self)
+            feature = f'"tableName":"{layer_name}", "isLayer":true'
+            self.body = tools_gw.create_body(feature=feature)
+            try:
+                self.json_result = tools_gw.execute_procedure('gw_fct_getinfofromid', self.body, aux_conn=self.aux_conn,
+                                                              is_thread=True, check_function=False)
+                if (self.json_result and self.json_result.get('status') != 'Failed'
+                        and self.json_result.get('body') and self.json_result['body'].get('data')):
+                    tools_gw.config_layer_attributes(self.json_result, layer, layer_name, thread=self)
+                elif self.json_result and 'body' not in self.json_result:
+                    msg = "Not '{0}'"
+                    msg_params = ("body",)
+                    tools_log.log_info(msg, msg_params=msg_params)
+            except Exception as error:
+                msg = "Error configuring layer '{0}': {1}"
+                msg_params = (layer_name, str(error))
+                self.exception = tools_qt.tr(msg, list_params=msg_params)
 
         if msg_failed != "":
             title = "Execute failed."
