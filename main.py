@@ -188,13 +188,17 @@ class Giswater(QObject):
             msg_params = ("self._set_info_button()",)
             tools_log.log_info(msg, parameter=str(e), msg_params=msg_params)
 
+        self._close_plugin_db()
+        self.load_project = None
+
+    def _close_plugin_db(self):
+        """Close this process's plugin dao/QSql. Does not touch other QGIS windows."""
         try:
             tools_db.close_plugin_db()
         except Exception as e:
+            msg = "Exception in unload when {0}"
             msg_params = ("tools_db.close_plugin_db()",)
             tools_log.log_info(msg, parameter=str(e), msg_params=msg_params)
-
-        self.load_project = None
 
     # region private functions
 
