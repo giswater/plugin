@@ -19,7 +19,7 @@ from .core.admin.admin_btn import GwAdminButton
 from .core.load_project import GwLoadProject
 from .core.utils import tools_gw
 from .core.utils.signal_manager import GwSignalManager
-from .libs import lib_vars, tools_qgis, tools_os, tools_log
+from .libs import lib_vars, tools_qgis, tools_os, tools_log, tools_db
 from .core.ui.dialog import GwDialog
 from .core.ui.main_window import GwMainWindow
 
@@ -186,6 +186,12 @@ class Giswater(QObject):
                 tools_gw.create_giswater_menu(False)
         except Exception as e:
             msg_params = ("self._set_info_button()",)
+            tools_log.log_info(msg, parameter=str(e), msg_params=msg_params)
+
+        try:
+            tools_db.close_plugin_db()
+        except Exception as e:
+            msg_params = ("tools_db.close_plugin_db()",)
             tools_log.log_info(msg, parameter=str(e), msg_params=msg_params)
 
         self.load_project = None
