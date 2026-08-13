@@ -78,7 +78,7 @@ SELECT is (
         "feature":{"id":["3090"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
         "forcedArcs":["%s"], "forceReconnect":true}}$$,
         (SELECT arc_id FROM _t_other_arc_3090)
-    ))::JSON)->>'status',
+    )::json)::JSON)->>'status',
     'Accepted',
     'forcedArcs with userdefined_geom TRUE returns Accepted'
 );
