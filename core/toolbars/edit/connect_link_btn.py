@@ -126,13 +126,16 @@ class GwConnectLinkButton(GwMaptool):
         self.dlg_connect_link.rejected.connect(self._cleanup_and_close)
         self.dlg_connect_link.rejected.connect(lambda: close(**{'class': self, 'dialog': self.dlg_connect_link}))
 
-        # Set window title from dialog depending of the current feature
-        title = "{0} to link"
-        title_params = (self.feature_type.capitalize(),)
-        self.dlg_connect_link.setWindowTitle(tools_qt.tr(title, list_params=title_params))
-
-        # Open dialog
-        tools_gw.open_dialog(self.dlg_connect_link, 'connect_link')
+        # Open dialog (gully overrides i18n title "Connect to network")
+        if self.feature_type == 'gully':
+            title = "Gully to network"
+            tools_gw.open_dialog(self.dlg_connect_link, 'connect_link', title=title)
+            title = "Gullies"
+            gb = self.dlg_connect_link.findChild(QWidget, "groupBox_2")
+            if gb:
+                gb.setTitle(tools_qt.tr(title))
+        else:
+            tools_gw.open_dialog(self.dlg_connect_link, 'connect_link')
 
         # Setup "Set to arc" button dropdown menu immediately (same as psector)
         self._setup_set_to_arc_button()

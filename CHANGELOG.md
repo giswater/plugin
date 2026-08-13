@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix creation of temporary table `temp_ve_arc_geom_selector` to use `vf_arc` view.
 - Fix performance on `sys_fprocess` queries.
 - Fix open dialogs to skip database connection check when `skip_db_check` is True.
+- Fix link_to_gully dialog adding widgets to select arcs by expression and by canvas clicking on the map.
 
 ## [4.16.1] - 2026-07-31
 
