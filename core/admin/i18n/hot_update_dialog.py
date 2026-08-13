@@ -485,6 +485,36 @@ class GwAdminI18NHotUpdate:
         filter_widget.setFixedHeight(needed_h)
         filter_widget.updateGeometry()
 
+    def _resolve_language_combo_selection(
+        self,
+        *,
+        previous: str | None,
+        available_locales: set[str],
+    ) -> str | None:
+        """Keep current selection when still valid; otherwise QGIS locale, then en_US."""
+        if previous and previous in available_locales:
+            return previous
+        if previous:
+            for candidate in (
+                normalize_language_folder(tools_qgis.get_locale()),
+                "en_US",
+            ):
+                if candidate in available_locales:
+                    return candidate
+            return None
+        saved = tools_gw.get_config_parser(
+            'i18n_generator', 'qm_lang_language', "user", "session", False,
+        )
+        if saved and saved in available_locales:
+            return saved
+        for candidate in (
+            normalize_language_folder(tools_qgis.get_locale()),
+            "en_US",
+        ):
+            if candidate in available_locales:
+                return candidate
+        return None
+
     def _populate_language_combo(self, *, mode: str) -> None:
         if mode == "multilang":
             cmb_language = self.dlg_qm.cmb_language_multilang
@@ -495,25 +525,34 @@ class GwAdminI18NHotUpdate:
             flag = "active"
             insert_default = False
 
-        cmb_language.clear()
-        rows_raw = i18n_service.list_locales_for_combo(flag=flag)
-        if rows_raw is None:
-            msg = "Config database file not found"
-            tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg)
-            return
-        rows = [[locale, name] for locale, name in rows_raw]
-        if not rows:
-            msg = "No active locales configured"
-            tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg)
-            return
-        if insert_default:
-            rows.insert(0, ("Default", "Default"))
-        tools_qt.fill_combo_values(cmb_language, rows)
-        language = tools_gw.get_config_parser(
-            'i18n_generator', 'qm_lang_language', "user", "session", False,
-        )
-        if language:
-            tools_qt.set_combo_value(cmb_language, language, 0, add_new=False)
+        previous = tools_qt.get_combo_value(self.dlg_qm, cmb_language, 0)
+
+        cmb_language.blockSignals(True)
+        try:
+            cmb_language.clear()
+            rows_raw = i18n_service.list_locales_for_combo(flag=flag)
+            if rows_raw is None:
+                msg = "Config database file not found"
+                tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg)
+                return
+            rows = [[locale, name] for locale, name in rows_raw]
+            if not rows:
+                msg = "No active locales configured"
+                tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg)
+                return
+            if insert_default:
+                rows.insert(0, ("Default", "Default"))
+            tools_qt.fill_combo_values(cmb_language, rows)
+
+            available_locales = {locale for locale, _name in rows}
+            language = self._resolve_language_combo_selection(
+                previous=previous,
+                available_locales=available_locales,
+            )
+            if language:
+                tools_qt.set_combo_value(cmb_language, language, 0, add_new=False)
+        finally:
+            cmb_language.blockSignals(False)
     
     def _save_language_selection(self, cmb_language, *_args) -> None:
         language = tools_qt.get_combo_value(self.dlg_qm, cmb_language, 0)
