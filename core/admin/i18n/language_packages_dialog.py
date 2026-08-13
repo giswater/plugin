@@ -61,7 +61,9 @@ class GwDownloadLanguageTask(GwTask):
             )
             if not ok:
                 self.failed_schema = schema
-                self.error = error or "Could not download language files"
+                msg = "Could not download language files ({0}): {1}"
+                msg_params = (self.locale, error or "unknown error")
+                tools_qt.show_info_box(msg, msg_params=msg_params)
                 return False
 
             self.setProgress(100)
@@ -274,7 +276,7 @@ class GwI18NLocalesTableBase(GwI18NManageLanguagesUi):
             for item in cells:
                 item.setFlags(item_flags)
             if self._col_version is not None:
-                version_item = QStandardItem(version or "")
+                version_item = QStandardItem(version if active else "")
                 version_item.setFlags(item_flags)
                 cells.append(version_item)
             self._locales_model.appendRow(cells)
