@@ -731,7 +731,7 @@ class GwMapzoneManager:
         """Opens the toolbox 'flood_analysis' and runs the SQL function to create the temporal layer."""
         mapzone_name = self.mapzone_mng_dlg.main_tab.tabText(self.mapzone_mng_dlg.main_tab.currentIndex()).lower()
 
-        # Call gw_fct_getgraphinundation
+        # Call gw_fct_getgraphinundation (materializes rows into anl_graphinundation)
         extras_params = f'"mapzone": "{mapzone_name}"'
         if selected_arc_id is not None:
             extras_params += f', "selected_arc_id": "{selected_arc_id}"'
@@ -742,41 +742,33 @@ class GwMapzoneManager:
             msg = "No valid data received from the SQL function."
             tools_qgis.show_warning(msg, dialog=self.mapzone_mng_dlg)
             return
-        line_data = json_result.get('body', {}).get('data', {}).get('line')
-        if not line_data:
-            msg = "No valid line data received from the SQL function."
-            tools_qgis.show_warning(msg, dialog=self.mapzone_mng_dlg)
-            return
 
-        line_layers = line_data if isinstance(line_data, list) else [line_data]
+        data = (json_result.get('body') or {}).get('data') or {}
+        layer_name = data.get('layerName') or 'Graphanalytics tstep process'
+        table_name = data.get('tableName') or 'v_anl_graphinundation'
 
-        # Extract mapzone_ids with data from json_result
-        valid_mapzone_ids = set()
-        for layer_data in line_layers:
-            features = (layer_data or {}).get('features', [])
-            if features is not None:
-                for feature in features:
-                    properties = feature.get('properties', {})
-                    mapzone_id = properties.get('mapzone_id')
-                    if mapzone_id is not None:
-                        valid_mapzone_ids.add(mapzone_id)
-        # Add the flooding data to temporal layer(s)
-        vlayer_list = []
-        for layer_data in line_layers:
-            layer_name = (layer_data or {}).get('layerName')
-            if not layer_name:
-                continue
-            vlayer = tools_qgis.get_layer_by_layername(layer_name)
-            if not vlayer or not vlayer.isValid():
-                continue
-            # Apply styling only to valid mapzones
+        # Reload Postgres layer (avoid huge GeoJSON / OGR memory layers)
+        tools_qgis.remove_layer(custom_properties={"gw_id": table_name}, group_name='GW Temporal Layers')
+        tools_gw.add_layer_database(
+            table_name, the_geom='the_geom', field_id='id',
+            group='GW Temporal Layers', alias=layer_name
+        )
+        vlayer = tools_qgis.get_layer_by_layername(layer_name)
+        if not vlayer or not vlayer.isValid():
+            vlayer = tools_qgis.get_layer_by_tablename(table_name, show_warning_=False)
+
+        if vlayer and vlayer.isValid():
+            try:
+                symbol = vlayer.renderer().symbol()
+                symbol.setWidth(1.5)
+                symbol.setColor(QColor(0, 0, 255))
+                symbol.setOpacity(0.7)
+            except Exception:
+                pass
             self._setup_temporal_layer(vlayer)
-            vlayer_list.append(vlayer)
-
-        if vlayer_list:
             msg = "Temporal layer created successfully."
             tools_qgis.show_success(msg, dialog=self.mapzone_mng_dlg)
-            tools_qgis.zoom_to_layer(vlayer_list[0])
+            tools_qgis.zoom_to_layer(vlayer)
         else:
             msg = "Failed to retrieve the temporal layer"
             tools_qgis.show_warning(msg, dialog=self.mapzone_mng_dlg)

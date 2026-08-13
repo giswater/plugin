@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `observ` column to `inp_dscenario_%` tables.
 - Add `custom_code_autofill` column to `cat_feature` and `config_mapzones` tables.
+- Materialize graph inundation into `anl_graphinundation` / `v_anl_graphinundation` for QGIS temporal playback.
 - Extend `hydraulic_engine` Go2Epa path to UD (SWMM); fall back to classic EPA when the package is missing.
 - Allow Execute EPA on Linux for UD when `hydraulic_engine` is installed.
 - Add `btn_child` to campaign manager dialog to create a child campaign.
@@ -44,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improve EPA Execute cancel behavior.
 - Improve general progress display in EPA Execute dialog.
+- `gw_fct_getgraphinundation` now inserts into Postgres instead of returning a large GeoJSON FeatureCollection.
 
 ### Fixed
 
