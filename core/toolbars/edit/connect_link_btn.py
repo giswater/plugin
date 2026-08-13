@@ -9,7 +9,7 @@ from functools import partial
 
 from qgis.PyQt.QtCore import QRect, Qt, QPoint
 from qgis.PyQt.QtGui import QColor
-from qgis.PyQt.QtWidgets import QApplication, QActionGroup, QWidget, QAction, QMenu
+from qgis.PyQt.QtWidgets import QApplication, QActionGroup, QWidget, QAction, QMenu, QGridLayout
 from qgis.core import QgsVectorLayer, QgsRectangle, QgsApplication, QgsFeatureRequest
 from qgis.gui import QgsMapToolEmitPoint, QgsVertexMarker
 
@@ -101,6 +101,17 @@ class GwConnectLinkButton(GwMaptool):
         self.dlg_connect_link = GwConnectLinkUi(self)
         tools_gw.load_settings(self.dlg_connect_link)
         tools_gw.manage_dlg_widgets(self, self.dlg_connect_link, json_result)
+
+        self.extra_filter_fields = []
+        fields = ((json_result or {}).get('body') or {}).get('data', {}).get('fields') or []
+        for field in fields:
+            if field and field.get('layoutname') == 'lyt_connect_link_6':
+                self.extra_filter_fields.append(field)
+
+        extra_layout = self.dlg_connect_link.findChild(QGridLayout, "lyt_connect_link_6")
+        gb_extra = self.dlg_connect_link.findChild(QWidget, "groupBox_5")
+        if gb_extra and (extra_layout is None or extra_layout.count() == 0):
+            gb_extra.hide()
 
         # Get dynamic widgets
         self.txt_id = self.dlg_connect_link.findChild(QWidget, "tab_none_id")

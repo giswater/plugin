@@ -42,6 +42,7 @@ SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1
 SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{"id":["100014"]},"data":{"feature_type":"GULLY"}}$$);
 SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{"id":["100013"]},"data":{"feature_type":"CONNEC", "forceNode":true}}$$);
 SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{"id":["100014"]},"data":{"feature_type":"GULLY", "forcedNodes":["1001"]}}$$);
+SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{"id":["100013"]},"data":{"feature_type":"CONNEC", "extraFilters":{"fluid_type":"1"}}}$$);
 
 SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1,"lang":"ES"},"feature":
 {"id":"SELECT array_to_json(array_agg(connec_id::text)) FROM ve_connec WHERE connec_id IS NOT NULL AND state=1"},"data":{"feature_type":"CONNEC"}}$$);
@@ -128,6 +129,19 @@ v_state_type integer;
 v_man_table text;
 
 v_min_arcdnom float;
+
+v_extrafilters json;
+v_extrafilters_arc text := '';
+v_extrafilters_node text := '';
+v_ef_key text;
+v_ef_value json;
+v_ef_rel text;
+v_ef_alias text;
+v_ef_coltype text;
+v_ef_isarray boolean;
+v_ef_text text;
+v_ef_arr text[];
+v_ef_frag text;
 
 BEGIN
 
@@ -233,6 +247,64 @@ BEGIN
 	END IF;
 
 	v_isnodedest = (v_forcenode IS TRUE OR v_isforcednodes IS TRUE);
+
+	-- extra filters from dialog (AND with distance / diameter / forced set)
+	v_extrafilters = ((p_data->>'data')::json)->'extraFilters';
+	v_extrafilters_arc := '';
+	v_extrafilters_node := '';
+	IF v_extrafilters IS NOT NULL AND json_typeof(v_extrafilters) = 'object' THEN
+		FOREACH v_ef_rel IN ARRAY ARRAY['arc', 'node']
+		LOOP
+			v_ef_alias := CASE WHEN v_ef_rel = 'arc' THEN 'a' ELSE 'n' END;
+			v_ef_frag := '';
+			FOR v_ef_key, v_ef_value IN SELECT * FROM json_each(v_extrafilters)
+			LOOP
+				IF v_ef_key !~ '^[a-zA-Z_][a-zA-Z0-9_]*$' THEN
+					CONTINUE;
+				END IF;
+				IF json_typeof(v_ef_value) IS NULL OR json_typeof(v_ef_value) = 'null' THEN
+					CONTINUE;
+				END IF;
+
+				v_ef_coltype := NULL;
+				v_ef_isarray := NULL;
+				SELECT format_type(a.atttypid, a.atttypmod), (t.typcategory = 'A')
+				INTO v_ef_coltype, v_ef_isarray
+				FROM pg_attribute a
+				JOIN pg_type t ON t.oid = a.atttypid
+				WHERE a.attrelid = to_regclass(v_ef_rel)
+				AND a.attname = v_ef_key
+				AND a.attnum > 0 AND NOT a.attisdropped;
+
+				IF v_ef_coltype IS NULL THEN
+					CONTINUE;
+				END IF;
+
+				IF json_typeof(v_ef_value) = 'array' THEN
+					v_ef_arr := ARRAY(SELECT json_array_elements_text(v_ef_value));
+					IF v_ef_arr IS NULL OR coalesce(array_length(v_ef_arr, 1), 0) = 0 THEN
+						CONTINUE;
+					END IF;
+					IF v_ef_isarray THEN
+						v_ef_frag := v_ef_frag || format(' AND %I.%I && %L::%s', v_ef_alias, v_ef_key, v_ef_arr, v_ef_coltype);
+					ELSE
+						v_ef_frag := v_ef_frag || format(' AND %I.%I = ANY(%L::%s[])', v_ef_alias, v_ef_key, v_ef_arr, v_ef_coltype);
+					END IF;
+				ELSE
+					v_ef_text := v_ef_value #>> '{}';
+					IF v_ef_text IS NULL OR v_ef_text = '' THEN
+						CONTINUE;
+					END IF;
+					v_ef_frag := v_ef_frag || format(' AND %I.%I = %L::%s', v_ef_alias, v_ef_key, v_ef_text, v_ef_coltype);
+				END IF;
+			END LOOP;
+			IF v_ef_rel = 'arc' THEN
+				v_extrafilters_arc := v_ef_frag;
+			ELSE
+				v_extrafilters_node := v_ef_frag;
+			END IF;
+		END LOOP;
+	END IF;
 
 	-- get values from feature array
 	IF v_feature_ids ILIKE '[%]' THEN
@@ -408,7 +480,7 @@ BEGIN
                         WHERE k.distance < %s
                         ORDER BY k.distance
                         LIMIT 1',
-					v_connect.the_geom::text, replace(v_forcednodes, 'node_id', 'n.node_id'),
+					v_connect.the_geom::text, replace(v_forcednodes, 'node_id', 'n.node_id') || v_extrafilters_node,
 					v_connect.the_geom::text, v_check_maxdistance)
 					INTO v_node_id;
 
@@ -448,7 +520,7 @@ BEGIN
                         %s
                         ORDER BY k.distance
                         LIMIT 1',
-					v_connect.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id'),
+					v_connect.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id') || v_extrafilters_arc,
 					v_connect.the_geom::text, v_check_maxdistance, v_checkeddiam)
 					INTO v_connect.arc_id;
 
@@ -470,7 +542,7 @@ BEGIN
                         %s
                         ORDER BY k.distance
                         LIMIT 1',
-					v_link.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id'),
+					v_link.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id') || v_extrafilters_arc,
 					v_link.the_geom::text, v_check_maxdistance, v_checkeddiam)
 					INTO v_connect.arc_id;
 
@@ -492,7 +564,7 @@ BEGIN
                         %s
                         ORDER BY k.distance
                         LIMIT 1',
-						v_connect.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id'),
+						v_connect.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id') || v_extrafilters_arc,
 						v_connect.the_geom::text, v_check_maxdistance, v_checkeddiam)
 						INTO v_connect.arc_id;
 					END IF;

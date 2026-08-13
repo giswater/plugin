@@ -64,6 +64,18 @@
            </widget>
           </item>
           <item>
+           <widget class="QGroupBox" name="groupBox_5">
+            <property name="title">
+             <string>Extra filters</string>
+            </property>
+            <layout class="QGridLayout" name="gridLayout_8">
+             <item row="0" column="0">
+              <layout class="QGridLayout" name="lyt_connect_link_6"/>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
            <widget class="QGroupBox" name="groupBox_2">
             <property name="title">
              <string>Connecs</string>

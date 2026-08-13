@@ -601,3 +601,10 @@ VALUES
   "icon": "137"
 }'::json, NULL, NULL, NULL, false, 0)
 ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+-- Extra filters example: fluid_type combo (nullable)
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
+VALUES
+('generic', 'link_to_connec', 'tab_none', 'fluid_type', 'lyt_connect_link_6', 0, 'integer', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT id, idval FROM om_typevalue WHERE typevalue = ''fluid_type''', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
+('generic', 'link_to_gully', 'tab_none', 'fluid_type', 'lyt_connect_link_6', 0, 'integer', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT id, idval FROM om_typevalue WHERE typevalue = ''fluid_type''', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;

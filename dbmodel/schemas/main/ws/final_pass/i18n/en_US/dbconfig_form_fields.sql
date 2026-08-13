@@ -385,6 +385,7 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip FROM (
     ('btn_set_to_arc', 'generic', 'link_to_connec', 'tab_none', NULL, 'Set to arc'),
     ('btn_snapping', 'generic', 'link_to_connec', 'tab_none', NULL, 'Select on canvas'),
     ('force_reconnect', 'generic', 'link_to_connec', 'tab_none', 'Force reconnect:', 'Re-search closest arc ignoring current connection (applies pipe diameter / max distance)'),
+    ('fluid_type', 'generic', 'link_to_connec', 'tab_none', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type'),
     ('id', 'generic', 'link_to_connec', 'tab_none', 'Connec Id:', 'Connec Id'),
     ('linkcat', 'generic', 'link_to_connec', 'tab_none', 'Link catalog:', 'Link catalog'),
     ('max_distance', 'generic', 'link_to_connec', 'tab_none', 'Max. distance:', 'Max. distance'),

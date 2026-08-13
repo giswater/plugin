@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Allow Execute EPA on Linux for UD when `hydraulic_engine` is installed.
 - Add `btn_child` to campaign manager dialog to create a child campaign.
 - Add Force node checkbox and node picker on UD Connect / Gully to network dialogs (`forceNode` / `forcedNodes`, `exit_type=NODE`).
+- Add Extra filters on Connect to network dialogs (`extraFilters` for arc/node KNN).
 
 ### Changed
 

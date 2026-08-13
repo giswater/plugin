@@ -5,6 +5,11 @@ General Public License as published by the Free Software Foundation, either vers
 or (at your option) any later version.
 """
 # -*- coding: utf-8 -*-
+import json
+
+from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtWidgets import QListWidget, QWidget
+
 from .task import GwTask
 from ..utils import tools_gw
 from ...libs import tools_log, tools_qt, tools_db, lib_vars
@@ -78,7 +83,53 @@ class GwConnectLink(GwTask):
             nodes_str_list = [f'"{str(node)}"' for node in selected_nodes]
             nodes_json = ', '.join(nodes_str_list)
             extras += f', "forcedNodes":[{nodes_json}]'
+        extras = self._append_extra_filters(extras)
         return extras
+
+    def _append_extra_filters(self, extras):
+        """ Append extraFilters from Extra filters layout widgets """
+        extra_filters = self._collect_extra_filters()
+        if extra_filters:
+            extras += f', "extraFilters":{json.dumps(extra_filters)}'
+        return extras
+
+    def _collect_extra_filters(self):
+        """ Read Extra filters widgets; skip empty / null values """
+        filters = {}
+        fields = getattr(self.connect_link_class, 'extra_filter_fields', None) or []
+        dlg = self.connect_link_class.dlg_connect_link
+        empty = (None, '', 'null', 'NULL')
+        for field in fields:
+            col = field.get('columnname')
+            wtype = field.get('widgettype')
+            widgetname = field.get('widgetname') or f"tab_none_{col}"
+            widget = dlg.findChild(QWidget, widgetname)
+            if not col or widget is None:
+                continue
+            if wtype == 'multiple_option':
+                list_widget = widget.findChild(QListWidget)
+                if not list_widget:
+                    continue
+                values = []
+                for i in range(list_widget.count()):
+                    v = list_widget.item(i).data(Qt.ItemDataRole.UserRole)
+                    if v not in empty:
+                        values.append(v)
+                if values:
+                    filters[col] = values
+            elif wtype == 'combo':
+                try:
+                    value = tools_qt.get_combo_value(dlg, widget, 0)
+                except (TypeError, IndexError):
+                    continue
+                if value in empty or value == -1:
+                    continue
+                filters[col] = value
+            else:
+                value = tools_qt.get_text(dlg, widget, return_string_null=False)
+                if value not in empty:
+                    filters[col] = value
+        return filters
 
     def _link_features_individually(self, feature_type, selected_arcs=None, selected_nodes=None):
         """ 

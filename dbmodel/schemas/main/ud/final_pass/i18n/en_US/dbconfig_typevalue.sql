@@ -126,6 +126,7 @@ UPDATE config_typevalue AS t SET idval = v.idval FROM (
     ('lyt_connect_link_3', 'layout_name_typevalue', 'lyt_connect_link_3'),
     ('lyt_connect_link_4', 'layout_name_typevalue', 'lyt_connect_link_4'),
     ('lyt_connect_link_5', 'layout_name_typevalue', 'lyt_connect_link_5'),
+    ('lyt_connect_link_6', 'layout_name_typevalue', 'lyt_connect_link_6'),
     ('lyt_connection_1', 'layout_name_typevalue', 'lyt_connection_1'),
     ('lyt_connection_2', 'layout_name_typevalue', 'lyt_connection_2'),
     ('lyt_connection_3', 'layout_name_typevalue', 'lyt_connection_3'),

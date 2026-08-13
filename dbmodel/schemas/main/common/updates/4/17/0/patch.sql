@@ -388,3 +388,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
 VALUES (4682, 'The %feature_type% with id %connec_id% has been successfully connected to the node with id %node_id%', NULL, 0, true, 'ud', 'core', 'AUDIT')
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO config_typevalue (typevalue, id, idval, camelstyle, addparam)
+VALUES('layout_name_typevalue', 'lyt_connect_link_6', 'lyt_connect_link_6', 'lytConnectLink6', '{"lytOrientation": "vertical"}'::json)
+ON CONFLICT (typevalue, id) DO NOTHING;

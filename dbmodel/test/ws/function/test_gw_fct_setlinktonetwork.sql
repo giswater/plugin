@@ -11,8 +11,8 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 1 test
-SELECT plan(1);
+-- Plan for 3 tests
+SELECT plan(3);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -38,18 +38,19 @@ SELECT is (
     'Check if gw_fct_setlinktonetwork returns status "Accepted"'
 );
 
--- TODO
--- gw_fct_setlinktonetwork
--- SELECT gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},
--- "feature":{"id":["3201","3200"]},"data":{"feature_type":"CONNEC", "forcedArcs":["2001","2002"]}}$$);
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3099"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "forceReconnect":true, "extraFilters":{"fluid_type":"St. Fluid"}}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC extraFilters.fluid_type returns status Accepted'
+);
 
--- SELECT gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},
--- "feature":{"id":["100013"]},"data":{"feature_type":"CONNEC"}}$$);
-
--- SELECT gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},
--- "feature":{"id":["100014"]},"data":{"feature_type":"GULLY"}}$$);
-
-
+SELECT is (
+    (SELECT a.fluid_type FROM connec c JOIN arc a ON a.arc_id = c.arc_id WHERE c.connec_id = 3099),
+    'St. Fluid',
+    'CONNEC extraFilters.fluid_type links to an arc with matching fluid_type'
+);
 
 -- Finish the test
 SELECT finish();

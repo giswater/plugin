@@ -11,7 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(12);
+SELECT plan(16);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -107,6 +107,42 @@ SELECT isnt (
     "forcedNodes":["84"], "forcedArcs":["210"]}}$$)::JSON)->>'status',
     'Accepted',
     'forcedNodes + forcedArcs does not return Accepted'
+);
+
+UPDATE arc SET fluid_type = 3 WHERE state > 0;
+UPDATE arc SET fluid_type = 1 WHERE arc_id = (SELECT arc_id FROM connec WHERE connec_id = 3090);
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3090"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "forceReconnect":true, "extraFilters":{"fluid_type":1}}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC extraFilters.fluid_type returns status Accepted'
+);
+
+SELECT is (
+    (SELECT a.fluid_type FROM connec c JOIN arc a ON a.arc_id = c.arc_id WHERE c.connec_id = 3090),
+    1,
+    'CONNEC extraFilters.fluid_type links to an arc with matching fluid_type'
+);
+
+UPDATE node SET fluid_type = 3 WHERE state > 0;
+UPDATE node SET fluid_type = 1 WHERE node_id = 84;
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3091"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "forceNode":true, "extraFilters":{"fluid_type":1}}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC forceNode extraFilters.fluid_type returns status Accepted'
+);
+
+SELECT is (
+    (SELECT n.fluid_type FROM link l JOIN node n ON n.node_id = l.exit_id
+     WHERE l.feature_id = 3091 AND l.feature_type = 'CONNEC' AND l.exit_type = 'NODE' AND l.state > 0
+     ORDER BY l.link_id DESC LIMIT 1),
+    1,
+    'CONNEC forceNode extraFilters.fluid_type links to a node with matching fluid_type'
 );
 
 SELECT finish();

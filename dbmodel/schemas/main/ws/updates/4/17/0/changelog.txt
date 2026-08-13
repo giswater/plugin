@@ -1,0 +1,1 @@
+- Add Extra filters layout on Connect to network dialog (`extraFilters` on `gw_fct_linktonetwork`).
