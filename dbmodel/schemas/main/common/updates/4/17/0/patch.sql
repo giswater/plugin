@@ -609,3 +609,40 @@ INSERT INTO sector (sector_id, code, "name", macrosector_id, active)
 VALUES (0, '0', 'Undefined', 0, true)
 ON CONFLICT (sector_id) DO NOTHING;
 
+-- Lookup tables for native QGIS ValueRelation.
+-- sys_table.context is the numeric config_typevalue.id (since 4.5.0), not the JSON.
+-- sys_feature_type stays HIDDEN (system catalog, not in Add Layers).
+-- macroexploitation: context MAP ZONES for Add Layers; no project_template so VR loads it into HIDDEN if missing.
+UPDATE sys_table
+SET project_template = '{"template": [1], "visibility": false, "levels_to_read": 1}'::json,
+    context = (
+        SELECT id FROM config_typevalue
+        WHERE typevalue = 'sys_table_context'
+          AND (idval = '["HIDDEN"]' OR addparam->>'orderBy' = '999')
+        LIMIT 1
+    ),
+    alias = COALESCE(alias, 'Feature type')
+WHERE id = 'sys_feature_type';
+
+UPDATE sys_table
+SET project_template = NULL,
+    context = (
+        SELECT id FROM config_typevalue
+        WHERE typevalue = 'sys_table_context'
+          AND idval = '["INVENTORY", "MAP ZONES"]'
+        LIMIT 1
+    ),
+    alias = COALESCE(alias, 'Macroexploitation'),
+    addparam = (COALESCE(addparam::jsonb, '{}'::jsonb) || '{"pkey": "macroexpl_id"}'::jsonb)::json
+WHERE id = 'macroexploitation';
+
+-- Native form: catalog table, not selector-filtered ve_macroexploitation
+UPDATE config_form_fields
+SET dv_querytext = 'SELECT macroexpl_id AS id, name AS idval FROM macroexploitation WHERE active IS TRUE',
+    widgetcontrols = (
+        COALESCE(widgetcontrols::jsonb, '{}'::jsonb)
+        || '{"valueRelation":{"nullValue":false, "layer": "macroexploitation", "activated": true, "keyColumn": "macroexpl_id", "valueColumn": "name", "filterExpression": "\"active\" = true"}}'::jsonb
+    )::json
+WHERE columnname = 'macroexpl_id'
+  AND formname IN ('ve_exploitation', 'exploitation');
+

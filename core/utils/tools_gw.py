@@ -1690,9 +1690,78 @@ def configure_layers_from_table_name(table_name):
     return True
 
 
+def _parse_widgetcontrols(widgetcontrols):
+    if isinstance(widgetcontrols, str):
+        try:
+            return json.loads(widgetcontrols) if widgetcontrols else None
+        except (ValueError, TypeError):
+            return None
+    return widgetcontrols
+
+
+def _cff_native_fields(formname, thread=None):
+    """Native form fields from config_form_fields (does not need v_config_form_fields)."""
+    if not formname:
+        return []
+    safe = str(formname).replace("'", "''")
+    sql = (
+        "SELECT columnname, label, widgettype, iseditable, hidden, ismandatory, widgetcontrols "
+        f"FROM config_form_fields WHERE formname = '{safe}' AND formtype = 'form_feature'"
+    )
+    aux_conn = getattr(thread, 'aux_conn', None) if thread else None
+    rows = tools_db.get_rows(sql, log_info=False, is_thread=thread is not None, aux_conn=aux_conn)
+    if not rows:
+        return []
+    fields = []
+    for columnname, label, widgettype, iseditable, hidden, ismandatory, widgetcontrols in rows:
+        fields.append({
+            'columnname': columnname,
+            'label': label,
+            'widgettype': widgettype,
+            'iseditable': iseditable,
+            'hidden': hidden,
+            'ismandatory': ismandatory,
+            'widgetcontrols': _parse_widgetcontrols(widgetcontrols),
+        })
+    return fields
+
+
+def _merge_cff_into_fields(layer_name, fields, thread=None):
+    """Overlay CFF so ValueRelation/aliases apply even if getinfofromid failed or stripped widgetcontrols."""
+    if not isinstance(fields, list):
+        fields = []
+    by_col = {f.get('columnname'): f for f in fields if isinstance(f, dict) and f.get('columnname')}
+    for cff in _cff_native_fields(layer_name, thread=thread):
+        col = cff['columnname']
+        if col not in by_col:
+            by_col[col] = cff
+            continue
+        existing = by_col[col]
+        cff_wc = cff.get('widgetcontrols') or {}
+        if cff_wc.get('valueRelation'):
+            wc = _parse_widgetcontrols(existing.get('widgetcontrols')) or {}
+            wc['valueRelation'] = cff_wc['valueRelation']
+            existing['widgetcontrols'] = wc
+            if cff.get('widgettype'):
+                existing['widgettype'] = cff['widgettype']
+        if not existing.get('label') and cff.get('label'):
+            existing['label'] = cff['label']
+        if not existing.get('widgettype') and cff.get('widgettype'):
+            existing['widgettype'] = cff['widgettype']
+    return list(by_col.values())
+
+
 def config_layer_attributes(json_result, layer, layer_name, thread=None):
 
-    for field in json_result['body']['data']['fields']:
+    try:
+        fields = json_result['body']['data']['fields']
+    except (KeyError, TypeError):
+        fields = []
+    if not isinstance(fields, list):
+        fields = []
+    fields = _merge_cff_into_fields(layer_name, fields, thread=thread)
+
+    for field in fields:
         valuemap_values = {}
 
         # Get column index
@@ -1719,6 +1788,12 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
 
         # widgetcontrols
         widgetcontrols = field.get('widgetcontrols')
+        if isinstance(widgetcontrols, str):
+            try:
+                widgetcontrols = json.loads(widgetcontrols) if widgetcontrols else None
+            except (ValueError, TypeError):
+                widgetcontrols = None
+            field['widgetcontrols'] = widgetcontrols
         if widgetcontrols:
             if widgetcontrols.get('setQgisConstraints') is True:
                 layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
@@ -1745,13 +1820,13 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
             # Set layer config
             layer.setEditFormConfig(config)
 
-        # delete old values on ValueMap
-        editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': valuemap_values})
-        layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-
         # Manage ValueRelation configuration
-        use_vr = 'widgetcontrols' in field and field['widgetcontrols'] \
-                 and 'valueRelation' in field['widgetcontrols'] and field['widgetcontrols']['valueRelation']
+        use_vr = bool(widgetcontrols and widgetcontrols.get('valueRelation'))
+
+        # Wipe stale ValueMap only for non-VR fields (empty ValueMap on text[] shows as List)
+        if not use_vr:
+            editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': valuemap_values})
+            layer.setEditorWidgetSetup(field_index, editor_widget_setup)
 
         if use_vr:
             value_relation = field['widgetcontrols']['valueRelation']
@@ -1761,8 +1836,9 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
                 if layer_obj is None:
                     add_to_toc = thread is None
                     layer_obj = load_layer_in_hidden_group(vr_layer, value_relation.get('keyColumn', ''), add_to_toc=add_to_toc)
-                    if thread:
-                        if layer_obj.name() not in [layer.name() for layer in thread.vr_layers_to_add]:
+                    if thread and layer_obj is not None:
+                        existing_names = [lyr.name() for lyr in thread.vr_layers_to_add if lyr is not None]
+                        if layer_obj.name() not in existing_names:
                             thread.vr_layers_to_add.add(layer_obj)
 
                 if layer_obj is None:
@@ -1803,12 +1879,13 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
                     thread.vr_errors.add(layer_name)
                     if 'layer' in value_relation:
                         thread.vr_missing.add(value_relation['layer'])
-                    thread.message = f"ValueRelation for {thread.vr_errors} switched to ValueMap because " \
+                    thread.message = f"ValueRelation for {thread.vr_errors} skipped because " \
                                         f"layers {thread.vr_missing} are not present on QGIS project"
 
         if not use_vr:
             # Manage new values in ValueMap
-            if field['widgettype'] == 'combo':
+            widgettype = field.get('widgettype')
+            if widgettype == 'combo':
                 if 'comboIds' in field:
                     # Set values
                     for i in range(0, len(field['comboIds'])):
@@ -1816,11 +1893,11 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
                 # Set values into valueMap
                 editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': valuemap_values})
                 layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif field['widgettype'] == 'check':
+            elif widgettype == 'check':
                 config = {'CheckedState': 'true', 'UncheckedState': 'false'}
                 editor_widget_setup = QgsEditorWidgetSetup('CheckBox', config)
                 layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif field['widgettype'] == 'datetime':
+            elif widgettype == 'datetime':
                 config = {'allow_null': True,
                           'calendar_popup': True,
                           'display_format': 'yyyy-MM-dd',
@@ -1828,10 +1905,10 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
                           'field_iso_format': False}
                 editor_widget_setup = QgsEditorWidgetSetup('DateTime', config)
                 layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif field['widgettype'] == 'textarea':
+            elif widgettype == 'textarea':
                 editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'True'})
                 layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif field['widgettype'] == 'list':
+            elif widgettype == 'list':
                 editor_widget_setup = QgsEditorWidgetSetup('List', {})
                 layer.setEditorWidgetSetup(field_index, editor_widget_setup)
             else:
@@ -1839,16 +1916,17 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
                 layer.setEditorWidgetSetup(field_index, editor_widget_setup)
 
         # multiline: key comes from widgecontrol but it's used here in order to set false when key is missing
-        if field['widgettype'] == 'text':
-            if field['widgetcontrols'] and 'setMultiline' in field['widgetcontrols']:
+        if field.get('widgettype') == 'text' and not use_vr:
+            if field.get('widgetcontrols') and 'setMultiline' in field['widgetcontrols']:
                 editor_widget_setup = QgsEditorWidgetSetup('TextEdit',
                                                            {'IsMultiline': field['widgetcontrols']['setMultiline']})
             else:
                 editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': False})
             layer.setEditorWidgetSetup(field_index, editor_widget_setup)
 
+    configured = [field_json['columnname'] for field_json in fields]
     for field in layer.fields():
-        if field.name() not in [field_json['columnname'] for field_json in json_result['body']['data']['fields']]:
+        if field.name() not in configured:
             field_index = layer.fields().indexFromName(field.name())
             layer.setFieldAlias(field_index, normalize_label(field.name(), add_colon=False))
 
@@ -1870,25 +1948,45 @@ def load_missing_layers(filter, group="GW Layers", sub_group=None):
                 add_layer_database(tablename, the_geom=the_geom, alias=alias, group=group, sub_group=sub_group)
 
 
+def _table_geometry_column(schema, table):
+    """Return geometry column name for schema.table, or None."""
+    if not schema or not table:
+        return None
+    schema = str(schema).replace('"', '').replace("'", "''")
+    table = str(table).replace('"', '').replace("'", "''")
+    row = tools_db.get_row(
+        "SELECT f_geometry_column FROM geometry_columns "
+        f"WHERE f_table_schema = '{schema}' AND f_table_name = '{table}' "
+        "ORDER BY CASE WHEN f_geometry_column = 'the_geom' THEN 0 ELSE 1 END LIMIT 1"
+    )
+    return row[0] if row and row[0] else None
+
+
 def load_layer_in_hidden_group(layer_name, key_column, add_to_toc=True):
-    """ Load a layer into the 'Hidden' group """
-    # Resolve schema and table name
+    """Load a VR lookup into HIDDEN. Keep geometry if the table has one; just leave it unchecked."""
     if '.' in layer_name:
         schema, table = layer_name.split('.', 1)
+        schema = schema.replace('"', '')
     else:
-        schema = lib_vars.schema_name
+        creds = tools_db.dao_db_credentials or {}
+        schema = (lib_vars.schema_name or creds.get('schema') or '').replace('"', '')
         table = layer_name
 
-    uri, _ = tools_db.get_uri(tablename=table)
+    key_column = key_column or 'id'
+    geom_col = _table_geometry_column(schema, table)
+    uri, status = tools_db.get_uri(tablename=table, geom=geom_col, schema_name=schema)
     if uri:
-        uri.setDataSource(schema, table, None, "", key_column)
+        if status is False or not geom_col:
+            uri.setDataSource(schema, table, '', None, key_column)
+        else:
+            uri.setDataSource(schema, table, geom_col, None, key_column)
         layer = QgsVectorLayer(uri.uri(False), layer_name, "postgres")
         if layer.isValid():
             if add_to_toc:
                 tools_qgis.add_layer_to_toc(layer, group="HIDDEN", create_groups=True, custom_properties={"gw_id": table})
+                tools_qgis.set_layer_visible(layer, recursive=False, visible=False)
             return layer
 
-    # Select the layer called 've_node'
     layer = tools_qgis.get_layer_by_tablename('ve_node')
     if layer:
         global_vars.iface.setActiveLayer(layer)

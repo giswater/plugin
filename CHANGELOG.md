@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Load missing ValueRelation lookup tables (`sys_feature_type`, `macroexploitation`) into the HIDDEN group so native QGIS forms do not fall back to a frozen ValueMap.
+- `ve_exploitation.macroexpl_id` ValueRelation uses `macroexploitation`, not `ve_macroexploitation`.
+- Do not auto-load `macroexploitation` into MAP ZONES; VR puts it in HIDDEN if missing (with geometry, unchecked). Add Layers shows it unchecked while in HIDDEN and checking moves the same layer to MAP ZONES.
+- Apply native ValueRelation as configured (including `allowMulti`) instead of wiping the widget with an empty ValueMap first (`cat_material.feature_type` / `featurecat_id`).
+- ConfigLayerFields now resolves geometryless catalog tables (`cat_material`, `cat_*`) so native forms actually get `getinfofromid` / CFF.
 - Native form widgets fall back to `config_form_fields` when `gw_fct_getinfofromid` fails (missing `v_config_form_fields`).
 - Fix Go2Epa hydraulic-engine result import crash when JSON `message` is null (`NoneType` has no attribute `get`).
 - Fix EPANET-only `only_extrema` being passed to SWMM `export_result`.
