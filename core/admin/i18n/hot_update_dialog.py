@@ -94,8 +94,8 @@ class GwAdminI18NHotUpdate:
         self._setup_schema_table()
         self._set_signals()
         self._setup_tables_filter()
-        self._populate_language_combo(mode="hot_update")
         self._refresh_schema_table()
+        self._populate_language_combo(mode="hot_update", first_insert=True)
         self._populate_language_combo(mode="multilang")
         self._last_tab_index = self.dlg_qm.tab_update_type.currentIndex()
         self.admin._manage_schemas_update_system_info = self._update_system_info
@@ -505,6 +505,14 @@ class GwAdminI18NHotUpdate:
         filter_widget.setFixedHeight(needed_h)
         filter_widget.updateGeometry()
 
+    def _combo_current_locale(self, cmb_language) -> str | None:
+        if cmb_language is None or cmb_language.count() <= 0:
+            return None
+        value = tools_qt.get_combo_value(self.dlg_qm, cmb_language, 0)
+        if value in (-1, None, "", "None"):
+            return None
+        return str(value)
+
     def _resolve_language_combo_selection(
         self,
         *,
@@ -512,21 +520,20 @@ class GwAdminI18NHotUpdate:
         available_locales: set[str],
     ) -> str | None:
         """Keep current selection when still valid; otherwise QGIS locale, then en_US."""
-        if previous and previous in available_locales:
-            return previous
-        if previous:
-            for candidate in (
-                normalize_language_folder(tools_qgis.get_locale()),
-                "en_US",
-            ):
-                if candidate in available_locales:
-                    return candidate
-            return None
+        if previous and previous not in (-1, "None"):
+            previous_norm = normalize_language_folder(str(previous))
+            if previous_norm in available_locales:
+                return previous_norm
+            for locale in available_locales:
+                if normalize_language_folder(locale) == previous_norm:
+                    return locale
         saved = tools_gw.get_config_parser(
             'i18n_generator', 'qm_lang_language', "user", "session", False,
         )
-        if saved and saved in available_locales:
-            return saved
+        if saved:
+            saved_norm = normalize_language_folder(str(saved))
+            if saved_norm in available_locales:
+                return saved_norm
         for candidate in (
             normalize_language_folder(tools_qgis.get_locale()),
             "en_US",
@@ -535,7 +542,13 @@ class GwAdminI18NHotUpdate:
                 return candidate
         return None
 
-    def _populate_language_combo(self, *, mode: str) -> None:
+    def _populate_language_combo(
+        self,
+        *,
+        mode: str,
+        first_insert: bool = False,
+        preferred_locale: str | None = None,
+    ) -> None:
         if mode == "multilang":
             cmb_language = self.dlg_qm.cmb_language_multilang
             flag = "active_multilang"
@@ -545,8 +558,15 @@ class GwAdminI18NHotUpdate:
             flag = "active"
             insert_default = False
 
-        previous = tools_qt.get_combo_value(self.dlg_qm, cmb_language, 0)
+        previous = self._combo_current_locale(cmb_language)
+        if preferred_locale:
+            previous = normalize_language_folder(preferred_locale)
+        elif first_insert and mode != "multilang":
+            schema_lang = self._select_language_from_table(self._selected_schema)
+            if schema_lang:
+                previous = normalize_language_folder(schema_lang)
 
+        language = None
         cmb_language.blockSignals(True)
         try:
             cmb_language.clear()
@@ -573,7 +593,9 @@ class GwAdminI18NHotUpdate:
                 tools_qt.set_combo_value(cmb_language, language, 0, add_new=False)
         finally:
             cmb_language.blockSignals(False)
-    
+        if language and (preferred_locale or first_insert):
+            self._save_language_selection(cmb_language)
+
     def _save_language_selection(self, cmb_language, *_args) -> None:
         language = tools_qt.get_combo_value(self.dlg_qm, cmb_language, 0)
         if language:
@@ -625,8 +647,9 @@ class GwAdminI18NHotUpdate:
             self._apply_dialog_height()
             if previous_schema:
                 self._select_schema_row(previous_schema)
-            else:
-                self._update_schema_label()
+            if not self._selected_schema_name():
+                self.select_initial_schema()
+            self._update_schema_label()
         finally:
             self.dlg_qm.btn_refresh.setEnabled(True)
 

@@ -366,11 +366,20 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
     def _is_dialog_offline(self) -> bool:
         return bool(getattr(self, "_offline", False))
 
-    def _refresh_manager_language_combos(self) -> None:
-        if hasattr(self._manager, "_populate_language_combo"):
-            self._manager._populate_language_combo(mode="hot_update")
-        if hasattr(self._manager, "_populate_language_combo_create_project"):
-            self._manager._populate_language_combo_create_project()
+    def _refresh_manager_language_combos(self, locale: str | None = None) -> None:
+        populate = getattr(self._manager, "_populate_language_combo", None)
+        if callable(populate):
+            kwargs = {"mode": "hot_update"}
+            if locale:
+                kwargs["preferred_locale"] = locale
+            populate(**kwargs)
+        populate_create = getattr(self._manager, "_populate_language_combo_create_project", None)
+        if callable(populate_create):
+            populate_create()
+            if locale:
+                cmb = getattr(self._manager, "cmb_locale", None)
+                if cmb is not None:
+                    tools_qt.set_combo_value(cmb, locale, 0, add_new=False)
 
     def _on_download(self) -> None:
         locale = self._require_selected_locale()
@@ -533,7 +542,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
         if not self._set_locale_active(locale, True, version=version):
             return
         self._update_locale_state(locale, active=True, version=version)
-        self._refresh_manager_language_combos()
+        self._refresh_manager_language_combos(locale)
 
         if not force:
             msg = "Language files downloaded and locale activated ({0})."

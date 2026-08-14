@@ -55,10 +55,13 @@ class GwI18NMultilangLanguagesDialog(GwI18NLocalesTableBase):
             return str(sql_dir)
         return os.path.join(lib_vars.plugin_dir, "dbmodel")
 
-    def _refresh_parent_multilang_combo(self) -> None:
+    def _refresh_parent_multilang_combo(self, locale: str | None = None) -> None:
         refresh = getattr(self._manager, "_populate_language_combo", None)
         if refresh:
-            refresh(mode="multilang")
+            kwargs = {"mode": "multilang"}
+            if locale:
+                kwargs["preferred_locale"] = locale
+            refresh(**kwargs)
 
     def _on_download(self) -> None:
         locale = self._require_selected_locale()
@@ -288,7 +291,7 @@ class GwI18NMultilangLanguagesDialog(GwI18NLocalesTableBase):
         if not self._set_locale_active(locale, True):
             return
         self._update_locale_state(locale, active=True, version=None)
-        self._refresh_parent_multilang_combo()
+        self._refresh_parent_multilang_combo(locale)
         if not force:
             msg = "Multilang translations seeded and locale activated ({0})."
             tools_qt.show_info_box(msg, msg_params=(locale,))
