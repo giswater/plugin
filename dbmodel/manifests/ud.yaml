@@ -90,7 +90,11 @@ phases:
   - id: load_sample
     type: sql_dir
     optional: true
+    description: "Sample 'user' data for ud. Locale catalogs in user/{{ locale }} (en_US, es_ES, ca_ES, es_CR)."
     steps:
+      - source: "schemas/main/ud/sample/user/{{ locale }}"
+        fallback_source: "schemas/main/ud/sample/user/en_US"
+        recursive: false
       - { source: "schemas/main/ud/sample/user", recursive: false }
 
   - id: load_inv
