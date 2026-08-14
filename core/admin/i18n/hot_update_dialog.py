@@ -3,28 +3,34 @@ This file is part of Giswater
 The program is free software: you can redistribute it and/or modify it under the terms of the GNU
 General Public License as published by the Free Software Foundation, either version 3 of the License,
 or (at your option) any later version.
+
+Hot-update dialog: apply downloaded translation SQL to a project schema.
+
+Also hosts the Multilang tab that sets the per-schema multilang language
+preference when the multilang satellite schema exists.
 """
 # -*- coding: utf-8 -*-
 import os
 import re
 from functools import partial
 
-from qgis.PyQt.QtCore import Qt, QTimer
+from qgis.PyQt.QtCore import QEvent, QObject, Qt, QTimer
 from qgis.PyQt.QtGui import QStandardItem, QStandardItemModel
 from qgis.PyQt.QtWidgets import (
     QListWidget, QCompleter, QLineEdit, QVBoxLayout, QWidget,
     QHeaderView, QSizePolicy, QScrollArea,
 )
 
-from ..ui.ui_manager import GwAdminI18NHotUpdateUi
-from ..utils import tools_gw
+from ...ui.ui_manager import GwAdminI18NHotUpdateUi
+from ...utils import tools_gw
 from qgis.PyQt.sip import isdeleted
-from ...libs import lib_vars, tools_qt, tools_db, tools_os
-from . import _admin_catalog as admin_catalog
-from .i18n_language_service import I18N_SCHEMAS
-from .i18n_languages import GwI18NManageLanguagesDialog
-from .i18n_multilang_languages import GwI18NMultilangLanguagesDialog
-from .i18n_baseline_seed import build_change_lang_sql, normalize_language_folder
+from ....libs import lib_vars, tools_qt, tools_db, tools_os, tools_qgis
+from .. import _admin_catalog as admin_catalog
+from .language_shared_functions import I18N_SCHEMAS
+from . import language_shared_functions as i18n_service
+from .language_packages_dialog import GwI18NManageLanguagesDialog
+from .multilang_languages_dialog import GwI18NMultilangLanguagesDialog
+from .multilang_seed_sql import build_change_lang_sql, normalize_language_folder
 
 
 _SCHEMA_COLUMNS = ("Schema", "Kind", "Version", "Language", "Created", "Last update")
@@ -35,7 +41,7 @@ _COL_LANGUAGE = 3
 _COL_CREATED = 4
 _COL_UPDATED = 5
 _TRANSLATABLE_KINDS = frozenset({"WS", "UD", "AM", "CM"})
-_MAX_VISIBLE_SCHEMA_ROWS = 4
+_MAX_VISIBLE_SCHEMA_ROWS = 5
 _NETWORK_DBTABLES = [
     "dbparam_user", "dbconfig_param_system", "dbconfig_form_fields", "dbconfig_typevalue",
     "dbfprocess", "dbmessage", "dbconfig_csv", "dbconfig_form_tabs", "dbconfig_report",
@@ -54,7 +60,7 @@ _HOT_UPDATE_TAB_INDEX = 0
 _MULTILANG_TAB_INDEX = 1
 
 
-class GwAdminI18NHotUpdate():
+class GwAdminI18NHotUpdate:
 
     def __init__(self, admin_btn):
         self.admin = admin_btn
@@ -88,8 +94,8 @@ class GwAdminI18NHotUpdate():
         self._setup_schema_table()
         self._set_signals()
         self._setup_tables_filter()
-        self._populate_language_combo(mode="hot_update")
         self._refresh_schema_table()
+        self._populate_language_combo(mode="hot_update", first_insert=True)
         self._populate_language_combo(mode="multilang")
         self._last_tab_index = self.dlg_qm.tab_update_type.currentIndex()
         self.admin._manage_schemas_update_system_info = self._update_system_info
@@ -134,6 +140,13 @@ class GwAdminI18NHotUpdate():
         if current:
             tools_qt.set_combo_value(self.dlg_qm.cmb_connection, current, 1)
         self._active_connection = current
+        schema = ""
+        get_schema = getattr(self.admin, "_get_selected_schema_name", None)
+        if get_schema:
+            schema = get_schema() or ""
+        if not schema:
+            schema = str(getattr(lib_vars, "schema_name", "") or "")
+        self._selected_schema = schema
         self._update_system_info()
 
     def _format_system_info(self) -> str:
@@ -338,7 +351,8 @@ class GwAdminI18NHotUpdate():
         if language:
             tools_qt.set_widget_text(self.dlg_qm, 'lbl_multilang_language', tools_qt.tr(msg, list_params=msg_params))
         else:
-            tools_qt.set_widget_text(self.dlg_qm, 'lbl_multilang_language', 'Select a schema to see the Multilang language currently used.')
+            msg = "Select a schema to see the Multilang language currently used."
+            tools_qt.set_widget_text(self.dlg_qm, 'lbl_multilang_language', tools_qt.tr(msg))
 
     def _select_language_from_table(self, schema_name: str = "") -> str:
         """Return the Language column from the selected schema table row."""
@@ -361,16 +375,19 @@ class GwAdminI18NHotUpdate():
         if not schema_name:
             return ""
 
-        # Get the default language from the schema table
-        status, cursor = tools_gw.create_sqlite_conn("locales")
+        # Display name for the schema's default language (locales.sqlite).
         default_language = self._select_language_from_table(schema_name)
-        sql = f"""SELECT name FROM locales WHERE locale = '{default_language}';"""
-        cursor.execute(sql)
-        row = cursor.fetchone()
-        default_language = str(row[0]) if row and row[0] else ''
+        status, cursor = tools_gw.create_sqlite_conn("locales")
+        if status and cursor is not None and default_language:
+            cursor.execute(
+                "SELECT name FROM locales WHERE locale = ?",
+                (default_language,),
+            )
+            row = cursor.fetchone()
+            default_language = str(row[0]) if row and row[0] else default_language
 
         schema_value = schema_name.replace("'", "''")
-        cursor = tools_db.dao.get_cursor()
+        pg_cursor = tools_db.dao.get_cursor()
         sql = f"""SELECT idval
                 FROM multilang.cat_language
                 WHERE id = (
@@ -381,9 +398,20 @@ class GwAdminI18NHotUpdate():
                       AND value IS NOT NULL
                       AND lower(btrim(value)) <> 'default'
                 );"""
-        cursor.execute(sql)
-        row = cursor.fetchone()
+        pg_cursor.execute(sql)
+        row = pg_cursor.fetchone()
         return str(row[0]) if row and row[0] else default_language
+
+    def select_initial_schema(self) -> None:
+        if self._selected_schema:
+            for row in range(self._schema_model.rowCount()):
+                item = self._schema_model.item(row, _COL_SCHEMA)
+                if item and item.text() == self._selected_schema:
+                    self.dlg_qm.tbl_schemas.selectRow(row)
+                    self.dlg_qm.tbl_schemas.scrollTo(self.dlg_qm.tbl_schemas.model().index(row, 0))
+                    return
+        else:
+            self.dlg_qm.tbl_schemas.selectRow(0)
 
     def _setup_schema_table(self) -> None:
         self.dlg_qm.tbl_schemas.setModel(self._schema_model)
@@ -400,6 +428,7 @@ class GwAdminI18NHotUpdate():
             header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
         header.setMinimumSectionSize(48)
         selection = self.dlg_qm.tbl_schemas.selectionModel()
+        self.select_initial_schema()
         if selection is not None:
             selection.selectionChanged.connect(partial(self._on_schema_selection_changed))
         self._apply_schema_table_height()
@@ -412,7 +441,7 @@ class GwAdminI18NHotUpdate():
             self.admin.dlg_i18n_hot_update = None
 
     def _apply_schema_table_height(self) -> None:
-        """Cap the schema table to four visible rows; scroll when there are more."""
+        """Cap the schema table to five visible rows; scroll when there are more."""
         table = self.dlg_qm.tbl_schemas
         row_h = table.verticalHeader().defaultSectionSize()
         visible_rows = _MAX_VISIBLE_SCHEMA_ROWS
@@ -476,39 +505,97 @@ class GwAdminI18NHotUpdate():
         filter_widget.setFixedHeight(needed_h)
         filter_widget.updateGeometry()
 
-    def _populate_language_combo(self, *, mode: str) -> None:
+    def _combo_current_locale(self, cmb_language) -> str | None:
+        if cmb_language is None or cmb_language.count() <= 0:
+            return None
+        value = tools_qt.get_combo_value(self.dlg_qm, cmb_language, 0)
+        if value in (-1, None, "", "None"):
+            return None
+        return str(value)
+
+    def _resolve_language_combo_selection(
+        self,
+        *,
+        previous: str | None,
+        available_locales: set[str],
+    ) -> str | None:
+        """Keep current selection when still valid; otherwise QGIS locale, then en_US."""
+        if previous and previous not in (-1, "None"):
+            previous_norm = normalize_language_folder(str(previous))
+            if previous_norm in available_locales:
+                return previous_norm
+            for locale in available_locales:
+                if normalize_language_folder(locale) == previous_norm:
+                    return locale
+        saved = tools_gw.get_config_parser(
+            'i18n_generator', 'qm_lang_language', "user", "session", False,
+        )
+        if saved:
+            saved_norm = normalize_language_folder(str(saved))
+            if saved_norm in available_locales:
+                return saved_norm
+        for candidate in (
+            normalize_language_folder(tools_qgis.get_locale()),
+            "en_US",
+        ):
+            if candidate in available_locales:
+                return candidate
+        return None
+
+    def _populate_language_combo(
+        self,
+        *,
+        mode: str,
+        first_insert: bool = False,
+        preferred_locale: str | None = None,
+    ) -> None:
         if mode == "multilang":
             cmb_language = self.dlg_qm.cmb_language_multilang
-            where_clause = "active_multilang = 1"
+            flag = "active_multilang"
             insert_default = True
         else:
             cmb_language = self.dlg_qm.cmb_language_hot_update
-            where_clause = "active = 1"
+            flag = "active"
             insert_default = False
 
-        cmb_language.clear()
-        status, cursor = tools_gw.create_sqlite_conn("locales")
-        if not status or cursor is None:
-            msg = "Config database file not found"
-            tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg)
-            return
-        cursor.execute(
-            f"SELECT locale, name FROM locales WHERE {where_clause} ORDER BY name"
-        )
-        rows = [[locale, name] for locale, name in cursor.fetchall()]
-        if not rows:
-            msg = "No active locales configured"
-            tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg)
-            return
-        if insert_default:
-            rows.insert(0, ("Default", "Default"))
-        tools_qt.fill_combo_values(cmb_language, rows)
-        language = tools_gw.get_config_parser(
-            'i18n_generator', 'qm_lang_language', "user", "session", False,
-        )
-        if language:
-            tools_qt.set_combo_value(cmb_language, language, 0, add_new=False)
-    
+        previous = self._combo_current_locale(cmb_language)
+        if preferred_locale:
+            previous = normalize_language_folder(preferred_locale)
+        elif first_insert and mode != "multilang":
+            schema_lang = self._select_language_from_table(self._selected_schema)
+            if schema_lang:
+                previous = normalize_language_folder(schema_lang)
+
+        language = None
+        cmb_language.blockSignals(True)
+        try:
+            cmb_language.clear()
+            rows_raw = i18n_service.list_locales_for_combo(flag=flag)
+            if rows_raw is None:
+                msg = "Config database file not found"
+                tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg)
+                return
+            rows = [[locale, name] for locale, name in rows_raw]
+            if not rows:
+                msg = "No active locales configured"
+                tools_qt.set_widget_text(self.dlg_qm, 'lbl_info', msg)
+                return
+            if insert_default:
+                rows.insert(0, ("Default", "Default"))
+            tools_qt.fill_combo_values(cmb_language, rows)
+
+            available_locales = {locale for locale, _name in rows}
+            language = self._resolve_language_combo_selection(
+                previous=previous,
+                available_locales=available_locales,
+            )
+            if language:
+                tools_qt.set_combo_value(cmb_language, language, 0, add_new=False)
+        finally:
+            cmb_language.blockSignals(False)
+        if language and (preferred_locale or first_insert):
+            self._save_language_selection(cmb_language)
+
     def _save_language_selection(self, cmb_language, *_args) -> None:
         language = tools_qt.get_combo_value(self.dlg_qm, cmb_language, 0)
         if language:
@@ -560,8 +647,9 @@ class GwAdminI18NHotUpdate():
             self._apply_dialog_height()
             if previous_schema:
                 self._select_schema_row(previous_schema)
-            else:
-                self._update_schema_label()
+            if not self._selected_schema_name():
+                self.select_initial_schema()
+            self._update_schema_label()
         finally:
             self.dlg_qm.btn_refresh.setEnabled(True)
 
@@ -589,12 +677,13 @@ class GwAdminI18NHotUpdate():
     def _update_schema_label(self) -> None:
         schema_name = self._selected_schema_name()
         if not schema_name:
-            self.dlg_qm.lbl_schema_selection.setText(
-                tools_qt.tr("Schema: select a row below"),
-            )
+            msg = "Schema: select a row below"
+            self.dlg_qm.lbl_schema_selection.setText(tools_qt.tr(msg))
             return
+        msg = "Schema: {0}"
+        msg_params = (schema_name,)
         self.dlg_qm.lbl_schema_selection.setText(
-            f"{tools_qt.tr('Schema')}: {schema_name}",
+            tools_qt.tr(msg, list_params=msg_params),
         )
 
     def _selected_schema_name(self) -> str:
@@ -685,7 +774,7 @@ class GwAdminI18NHotUpdate():
         if not tools_qt.show_question(msg, title, msg_params=msg_params):
             return
 
-        from .i18n_baseline_seed import build_multilang_user_preference_sql
+        from .multilang_seed_sql import build_multilang_user_preference_sql
 
         query = build_multilang_user_preference_sql(
             schema_name,
@@ -796,15 +885,12 @@ class GwAdminI18NHotUpdate():
             completer, model, widget, sorted(display_list, key=lambda x: x["idval"]),
         )
 
-    def _dbmodel_dir(self) -> str:
-        return os.path.join(lib_vars.plugin_dir, 'dbmodel')
-
     def _local_i18n_dir(self, kind: str, locale: str) -> str:
         schema_path = I18N_SCHEMAS.get(kind)
         if not schema_path:
             return ""
         folder = normalize_language_folder(locale)
-        return os.path.join(self._dbmodel_dir(), schema_path, folder)
+        return os.path.join(str(i18n_service.dbmodel_dir()), schema_path, folder)
 
     def _local_language_files_exist(self, locale: str, kind: str) -> bool:
         folder = self._local_i18n_dir(kind, locale)
@@ -908,7 +994,7 @@ class GwAdminI18NHotUpdate():
                 detail = error or os.path.basename(sql_path)
                 msg = "{0}.sql: {1}"
                 msg_params = (dbtable, detail)
-                messages.append(tools_qt.tr(msg, list_params=[msg_params]))
+                messages.append(tools_qt.tr(msg, list_params=msg_params))
                 if not tools_os.set_boolean(self.dev_commit, False):
                     break
 
