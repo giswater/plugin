@@ -543,7 +543,6 @@ BEGIN
 					FROM graphconfig g
 					JOIN node n ON n.node_id = g.node_parent
 					WHERE EXISTS (SELECT 1 FROM vf_exploitation vfe WHERE vfe.expl_id = ANY(array_append(n.expl_visibility, n.expl_id)))
-					AND EXISTS (SELECT 1 FROM temp_pgr_old_mapzone t WHERE t.mapzone_id = g.mapzone_id)
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id, pgr_arc_id)
 				SELECT
@@ -680,7 +679,6 @@ BEGIN
 					FROM graphconfig g
 					JOIN node n ON n.node_id = g.node_parent
 					WHERE EXISTS (SELECT 1 FROM vf_exploitation vfe WHERE vfe.expl_id = ANY(array_append(n.expl_visibility, n.expl_id)))
-					AND EXISTS (SELECT 1 FROM temp_pgr_old_mapzone t WHERE t.mapzone_id = g.mapzone_id)
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id, pgr_arc_id)
 				SELECT
