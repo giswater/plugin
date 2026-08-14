@@ -1751,6 +1751,81 @@ def _merge_cff_into_fields(layer_name, fields, thread=None):
     return list(by_col.values())
 
 
+def _apply_value_relation(layer, field_index, field, value_relation, layer_name, thread):
+    """Configure ValueRelation editor widget; load lookup layer if needed."""
+    try:
+        vr_layer = value_relation.get('layer', '')
+        layer_obj = tools_qgis.get_layer_by_tablename(vr_layer)
+        if layer_obj is None:
+            add_to_toc = thread is None
+            layer_obj = load_layer_in_hidden_group(vr_layer, value_relation.get('keyColumn', ''), add_to_toc=add_to_toc)
+            if thread and layer_obj is not None:
+                existing_names = [lyr.name() for lyr in thread.vr_layers_to_add if lyr is not None]
+                if layer_obj.name() not in existing_names:
+                    thread.vr_layers_to_add.add(layer_obj)
+
+        if layer_obj is None:
+            raise Exception(f"Layer '{vr_layer}' not found")
+
+        vr_filter_expression = value_relation.get('filterExpression', '') or ''
+        try:
+            vr_nof_columns = int(value_relation.get('nofColumns', 1))
+        except (ValueError, TypeError):
+            vr_nof_columns = 1
+
+        editor_widget_setup = QgsEditorWidgetSetup('ValueRelation', {
+            'Layer': str(layer_obj.id()),
+            'Key': str(value_relation.get('keyColumn', 'id')),
+            'Value': str(value_relation.get('valueColumn', 'idval')),
+            'AllowNull': tools_os.set_boolean(value_relation.get('nullValue'), False),
+            'FilterExpression': str(vr_filter_expression),
+            'AllowMulti': tools_os.set_boolean(value_relation.get('allowMulti'), False),
+            'UseCompleter': tools_os.set_boolean(value_relation.get('useCompleter'), False),
+            'NofColumns': vr_nof_columns,
+        })
+        layer.setEditorWidgetSetup(field_index, editor_widget_setup)
+
+    except Exception as e:
+        msg = "Failed to set ValueRelation for field '{0}': {1}"
+        msg_params = (field.get('columnname'), e)
+        tools_log.log_warning(msg, msg_params=msg_params)
+        if thread:
+            thread.exception = e
+            thread.vr_errors.add(layer_name)
+            if 'layer' in value_relation:
+                thread.vr_missing.add(value_relation['layer'])
+            thread.message = f"ValueRelation for {thread.vr_errors} skipped because " \
+                                f"layers {thread.vr_missing} are not present on QGIS project"
+
+
+def _apply_editor_widget(layer, field_index, field):
+    """Set non-ValueRelation editor widget from widgettype."""
+    widgettype = field.get('widgettype')
+    if widgettype == 'combo':
+        valuemap_values = {}
+        if 'comboIds' in field:
+            for i in range(0, len(field['comboIds'])):
+                valuemap_values[field['comboNames'][i]] = field['comboIds'][i]
+        editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': valuemap_values})
+    elif widgettype == 'check':
+        editor_widget_setup = QgsEditorWidgetSetup('CheckBox', {'CheckedState': 'true', 'UncheckedState': 'false'})
+    elif widgettype == 'datetime':
+        editor_widget_setup = QgsEditorWidgetSetup('DateTime', {
+            'allow_null': True,
+            'calendar_popup': True,
+            'display_format': 'yyyy-MM-dd',
+            'field_format': 'yyyy-MM-dd',
+            'field_iso_format': False,
+        })
+    elif widgettype == 'textarea':
+        editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'True'})
+    elif widgettype == 'list':
+        editor_widget_setup = QgsEditorWidgetSetup('List', {})
+    else:
+        editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'False'})
+    layer.setEditorWidgetSetup(field_index, editor_widget_setup)
+
+
 def config_layer_attributes(json_result, layer, layer_name, thread=None):
 
     try:
@@ -1762,8 +1837,6 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
     fields = _merge_cff_into_fields(layer_name, fields, thread=thread)
 
     for field in fields:
-        valuemap_values = {}
-
         # Get column index
         field_index = layer.fields().indexFromName(field['columnname'])
 
@@ -1786,20 +1859,13 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
             norm_label = normalize_label(field['label'], add_colon=False)
             layer.setFieldAlias(field_index, norm_label)
 
-        # widgetcontrols
-        widgetcontrols = field.get('widgetcontrols')
-        if isinstance(widgetcontrols, str):
-            try:
-                widgetcontrols = json.loads(widgetcontrols) if widgetcontrols else None
-            except (ValueError, TypeError):
-                widgetcontrols = None
-            field['widgetcontrols'] = widgetcontrols
-        if widgetcontrols:
-            if widgetcontrols.get('setQgisConstraints') is True:
-                layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
-                                         QgsFieldConstraints.ConstraintStrength.ConstraintStrengthSoft)
-                layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintUnique,
-                                         QgsFieldConstraints.ConstraintStrength.ConstraintStrengthHard)
+        widgetcontrols = _parse_widgetcontrols(field.get('widgetcontrols'))
+        field['widgetcontrols'] = widgetcontrols
+        if widgetcontrols and widgetcontrols.get('setQgisConstraints') is True:
+            layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
+                                     QgsFieldConstraints.ConstraintStrength.ConstraintStrengthSoft)
+            layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintUnique,
+                                     QgsFieldConstraints.ConstraintStrength.ConstraintStrengthHard)
 
         if field.get('ismandatory') is True:
             layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
@@ -1809,120 +1875,25 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
                                      QgsFieldConstraints.ConstraintStrength.ConstraintStrengthSoft)
 
         # Manage editability
-        # Get layer config
         config = layer.editFormConfig()
         try:
-            # Set field editability
             config.setReadOnly(field_index, not field['iseditable'])
         except KeyError:
             pass
         finally:
-            # Set layer config
             layer.setEditFormConfig(config)
 
-        # Manage ValueRelation configuration
         use_vr = bool(widgetcontrols and widgetcontrols.get('valueRelation'))
-
-        # Wipe stale ValueMap only for non-VR fields (empty ValueMap on text[] shows as List)
-        if not use_vr:
-            editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': valuemap_values})
-            layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-
         if use_vr:
-            value_relation = field['widgetcontrols']['valueRelation']
-            try:
-                vr_layer = value_relation.get('layer', '')
-                layer_obj = tools_qgis.get_layer_by_tablename(vr_layer)
-                if layer_obj is None:
-                    add_to_toc = thread is None
-                    layer_obj = load_layer_in_hidden_group(vr_layer, value_relation.get('keyColumn', ''), add_to_toc=add_to_toc)
-                    if thread and layer_obj is not None:
-                        existing_names = [lyr.name() for lyr in thread.vr_layers_to_add if lyr is not None]
-                        if layer_obj.name() not in existing_names:
-                            thread.vr_layers_to_add.add(layer_obj)
-
-                if layer_obj is None:
-                    raise Exception(f"Layer '{vr_layer}' not found")
-
-                vr_layer = layer_obj.id()  # Get layer id
-                # Get required keys with safe defaults
-                vr_key_column = value_relation.get('keyColumn', 'id')  # Get 'Key' with default
-                vr_value_column = value_relation.get('valueColumn', 'idval')  # Get 'Value' with default
-                vr_allow_nullvalue = tools_os.set_boolean(value_relation.get('nullValue'), False)
-                vr_filter_expression = value_relation.get('filterExpression', '')  # Get 'FilterExpression' with default
-                if vr_filter_expression is None:
-                    vr_filter_expression = ''
-                vr_allow_multi = tools_os.set_boolean(value_relation.get('allowMulti'), False)
-                vr_use_completer = tools_os.set_boolean(value_relation.get('useCompleter'), False)
-                try:
-                    vr_nof_columns = int(value_relation.get('nofColumns', 1))
-                except (ValueError, TypeError):
-                    vr_nof_columns = 1
-
-                # Create and apply ValueRelation config
-                editor_widget_setup = QgsEditorWidgetSetup('ValueRelation', {'Layer': str(vr_layer),
-                                                                             'Key': str(vr_key_column),
-                                                                             'Value': str(vr_value_column),
-                                                                             'AllowNull': vr_allow_nullvalue,
-                                                                             'FilterExpression': str(vr_filter_expression),
-                                                                             'AllowMulti': vr_allow_multi,
-                                                                             'UseCompleter': vr_use_completer,
-                                                                             'NofColumns': vr_nof_columns})
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-
-            except Exception as e:
-                msg = "Failed to set ValueRelation for field '{0}': {1}"
-                msg_params = (field.get('columnname'), e)
-                tools_log.log_warning(msg, msg_params=msg_params)
-                if thread:
-                    thread.exception = e
-                    thread.vr_errors.add(layer_name)
-                    if 'layer' in value_relation:
-                        thread.vr_missing.add(value_relation['layer'])
-                    thread.message = f"ValueRelation for {thread.vr_errors} skipped because " \
-                                        f"layers {thread.vr_missing} are not present on QGIS project"
-
-        if not use_vr:
-            # Manage new values in ValueMap
-            widgettype = field.get('widgettype')
-            if widgettype == 'combo':
-                if 'comboIds' in field:
-                    # Set values
-                    for i in range(0, len(field['comboIds'])):
-                        valuemap_values[field['comboNames'][i]] = field['comboIds'][i]
-                # Set values into valueMap
-                editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': valuemap_values})
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif widgettype == 'check':
-                config = {'CheckedState': 'true', 'UncheckedState': 'false'}
-                editor_widget_setup = QgsEditorWidgetSetup('CheckBox', config)
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif widgettype == 'datetime':
-                config = {'allow_null': True,
-                          'calendar_popup': True,
-                          'display_format': 'yyyy-MM-dd',
-                          'field_format': 'yyyy-MM-dd',
-                          'field_iso_format': False}
-                editor_widget_setup = QgsEditorWidgetSetup('DateTime', config)
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif widgettype == 'textarea':
-                editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'True'})
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif widgettype == 'list':
-                editor_widget_setup = QgsEditorWidgetSetup('List', {})
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            else:
-                editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'False'})
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-
-        # multiline: key comes from widgecontrol but it's used here in order to set false when key is missing
-        if field.get('widgettype') == 'text' and not use_vr:
-            if field.get('widgetcontrols') and 'setMultiline' in field['widgetcontrols']:
-                editor_widget_setup = QgsEditorWidgetSetup('TextEdit',
-                                                           {'IsMultiline': field['widgetcontrols']['setMultiline']})
-            else:
-                editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': False})
-            layer.setEditorWidgetSetup(field_index, editor_widget_setup)
+            _apply_value_relation(layer, field_index, field, widgetcontrols['valueRelation'], layer_name, thread)
+        else:
+            # Wipe stale ValueMap first (empty ValueMap on text[] shows as List)
+            layer.setEditorWidgetSetup(field_index, QgsEditorWidgetSetup('ValueMap', {'map': {}}))
+            _apply_editor_widget(layer, field_index, field)
+            if field.get('widgettype') == 'text':
+                wc = field.get('widgetcontrols') or {}
+                multiline = wc['setMultiline'] if 'setMultiline' in wc else False
+                layer.setEditorWidgetSetup(field_index, QgsEditorWidgetSetup('TextEdit', {'IsMultiline': multiline}))
 
     configured = [field_json['columnname'] for field_json in fields]
     for field in layer.fields():
