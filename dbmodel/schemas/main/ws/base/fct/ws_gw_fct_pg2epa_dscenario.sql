@@ -87,7 +87,7 @@ BEGIN
 		AND dscenario_id IN (SELECT unnest(v_userscenario)) AND n.dma_id IN (SELECT DISTINCT dma_id FROM temp_t_arc);
 
 		-- insert connec demands from dscenario into temp_t_demand linking object which is exported
-		IF v_networkmode IN(1,2,5) THEN
+		IF v_networkmode IN(1,2) THEN
 
 			-- demands for connec related to arcs
 			INSERT INTO temp_t_demand (dscenario_id, feature_id, demand, pattern_id, demand_type, source)

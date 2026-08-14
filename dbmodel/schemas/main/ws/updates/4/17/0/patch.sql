@@ -717,3 +717,7 @@ AS WITH sel_expl AS (
   WHERE (EXISTS ( SELECT 1
            FROM sel_expl
           WHERE sel_expl.expl_id = e.expl_id)) AND m.active IS TRUE;
+
+ALTER TABLE inp_typevalue DISABLE TRIGGER gw_trg_typevalue_config_fk;
+DELETE FROM inp_typevalue WHERE typevalue = 'inp_options_networkmode' AND id = '5';
+ALTER TABLE inp_typevalue ENABLE TRIGGER gw_trg_typevalue_config_fk;
