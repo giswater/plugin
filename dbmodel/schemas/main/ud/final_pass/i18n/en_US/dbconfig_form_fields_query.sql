@@ -19,4 +19,13 @@ WHERE t.columnname = v.columnname
   AND t.formname = v.formname
   AND t.formtype = v.formtype
   AND t.tabname = v.tabname;
+
+UPDATE config_form_fields AS t SET dv_querytext = v.text FROM (
+	VALUES
+	('profileMode', 'profile_interpolation', 'profile_interpolation', 'tab_none', 'SELECT ''SMOOTH'' AS id, ''SMOOTH'' AS idval UNION SELECT ''SHALLOW'', ''SHALLOW'' UNION SELECT ''DEEP'', ''DEEP'' UNION SELECT ''CENTERED'', ''CENTERED''')
+) AS v(columnname, formname, formtype, tabname, text)
+WHERE t.columnname = v.columnname
+  AND t.formname = v.formname
+  AND t.formtype = v.formtype
+  AND t.tabname = v.tabname;
 UPDATE config_param_system SET value = TRUE WHERE parameter = 'admin_config_control_trigger';
