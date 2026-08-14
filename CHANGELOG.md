@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix creation of temporary table `temp_ve_arc_geom_selector` to use `vf_arc` view.
 - Fix performance on `sys_fprocess` queries.
 - Fix open dialogs to skip database connection check when `skip_db_check` is True.
+- Mapzone manager create dialogs: `expl_id`/`sector_id`/`muni_id` arrays are optional with default Undefined (0); mapzone PK is empty, non-editable and assigned by `urn_id_seq`.
 
 ## [4.16.1] - 2026-07-31
 

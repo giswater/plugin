@@ -557,3 +557,55 @@ WHERE NOT EXISTS (
     WHERE location_type = 'epa_toolbar' AND project_type = 'utils'
       AND objectname = 'v_ui_rpt_cat_result' AND columnname = 'isvalidated'
 );
+
+-- Mapzone manager create/update forms: array fields are optional with default Undefined (0)
+UPDATE config_form_fields SET
+    ismandatory = false,
+    dv_querytext = 'SELECT expl_id AS id, name AS idval FROM exploitation WHERE expl_id >= 0',
+    widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"vdefault_value": "0"}'::jsonb)::json
+WHERE formtype = 'form_feature' AND tabname = 'tab_none'
+  AND widgettype = 'multiple_option' AND columnname = 'expl_id';
+
+UPDATE config_form_fields SET
+    ismandatory = false,
+    dv_querytext = 'SELECT sector_id AS id, name AS idval FROM sector WHERE sector_id >= 0',
+    widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"vdefault_value": "0"}'::jsonb)::json
+WHERE formtype = 'form_feature' AND tabname = 'tab_none'
+  AND widgettype = 'multiple_option' AND columnname = 'sector_id';
+
+UPDATE config_form_fields SET
+    ismandatory = false,
+    dv_querytext = 'SELECT muni_id AS id, name AS idval FROM v_municipality WHERE muni_id >= 0',
+    widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"vdefault_value": "0"}'::jsonb)::json
+WHERE formtype = 'form_feature' AND tabname = 'tab_none'
+  AND widgettype = 'multiple_option' AND columnname = 'muni_id';
+
+-- Mapzone PK is assigned by urn_id_seq; user must not fill it
+UPDATE config_form_fields SET
+    ismandatory = false,
+    iseditable = false
+WHERE formtype = 'form_feature' AND tabname = 'tab_none'
+  AND formname IN (
+      've_sector', 've_dma', 've_dqa', 've_presszone', 've_supplyzone',
+      've_macrodma', 've_macrodqa', 've_macrosector', 've_omzone',
+      've_macroomzone', 've_drainzone', 've_dwfzone'
+  )
+  AND columnname = replace(formname, 've_', '') || '_id';
+
+-- Undefined (0) catalog rows required so ARRAY[0] passes trigger @> checks
+INSERT INTO macroexploitation (macroexpl_id, code, "name", active)
+VALUES (0, '0', 'Undefined', true)
+ON CONFLICT (macroexpl_id) DO NOTHING;
+
+INSERT INTO exploitation (expl_id, code, "name", macroexpl_id, active)
+VALUES (0, '0', 'Undefined', 0, true)
+ON CONFLICT (expl_id) DO NOTHING;
+
+INSERT INTO macrosector (macrosector_id, code, "name", active)
+VALUES (0, '0', 'Undefined', true)
+ON CONFLICT (macrosector_id) DO NOTHING;
+
+INSERT INTO sector (sector_id, code, "name", macrosector_id, active)
+VALUES (0, '0', 'Undefined', 0, true)
+ON CONFLICT (sector_id) DO NOTHING;
+

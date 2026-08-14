@@ -3408,10 +3408,12 @@ def make_list_multiple_option(completer, model, widget, field, list_widget):
 
     result = None
     if field.get("queryText") and value is not None:
-        if field.get("queryTextFilter"):
-            sql = f"{field['queryText']} {field['queryTextFilter']}::text ilike '%{str(value)}%';"
-        else:
-            sql = f"{field['queryText']};"
+        query_text = field["queryText"].rstrip().rstrip(";")
+        escaped = str(value).replace("'", "''")
+        sql = (
+            f"SELECT id, idval FROM ({query_text}) a "
+            f"WHERE a.id::text ILIKE '%{escaped}%' OR a.idval::text ILIKE '%{escaped}%'"
+        )
         result = tools_db.get_rows(sql)
 
     if not result:

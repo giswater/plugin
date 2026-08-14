@@ -1869,9 +1869,8 @@ class GwMapzoneManager:
         layout = self.add_dlg.findChild(QGridLayout, 'lyt_main_1')
         self.add_dlg.actionEdit.setVisible(False)
 
-        # Disable widgets if updating
-        if force_action == "UPDATE":
-            tools_qt.set_widget_enabled(self.add_dlg, f'tab_none_{field_id}', False)
+        # PK is assigned by urn_id_seq on INSERT; never let the user edit it
+        tools_qt.set_widget_enabled(self.add_dlg, f'tab_none_{field_id}', False)
 
         # Populate netscenario_id
         if self.netscenario_id is not None:

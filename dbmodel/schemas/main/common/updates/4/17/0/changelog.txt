@@ -7,3 +7,4 @@
 - Add editable `userdefined_geom` checkbox to link info forms.
 - Add `isvalidated` boolean to `rpt_cat_result` and expose it on `v_ui_rpt_cat_result` / EPA manager tableview.
 - Remove unused `DEPRECATED` (`status=0`) from `inp_result_status`; migrate existing rows to `ARCHIVED`.
+- Mapzone manager: array expl/sector/muni not mandatory, default Undefined (0); PK empty/non-editable (URN).
