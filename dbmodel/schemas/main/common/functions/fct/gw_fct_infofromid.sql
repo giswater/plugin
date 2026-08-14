@@ -775,9 +775,8 @@ BEGIN
 			IF v_id IS NULL AND v_isepa IS true THEN
 			    v_id = '';
 			ELSIF v_id IS NULL AND v_tablename in  ('ve_dma', 've_dqa', 've_sector', 've_drainzone', 've_supplyzone', 've_macrodma', 've_macrodqa', 've_macrosector', 've_dwfzone', 've_omzone', 've_macroomzone', 've_presszone') THEN
-				v_zone = replace(v_tablename,'ve_','');
-				v_querystring = format('SELECT max(%I_id::integer)+1 FROM %I WHERE %I_id::text ~ ''^[0-9]+$''', v_zone, v_zone, v_zone);
-				EXECUTE v_querystring INTO v_id;
+				-- PK is assigned by urn_id_seq on INSERT; keep empty so the dialog does not consume nextval
+				v_id = '';
 			ELSIF v_id IS NULL AND v_tablename IN ('plan_netscenario_dma', 'plan_netscenario_presszone') THEN
 				v_zone = replace(v_tablename, 'plan_netscenario_', '');
 				v_querystring = format('SELECT coalesce(max(%I_id::integer)+1, 1) FROM %I WHERE %I_id::text ~ ''^[0-9]+$''', v_zone, v_tablename, v_zone);

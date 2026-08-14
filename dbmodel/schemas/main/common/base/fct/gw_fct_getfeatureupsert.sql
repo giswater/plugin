@@ -323,9 +323,9 @@ BEGIN
 			v_id = (SELECT nextval('urn_id_seq'));
 		END IF;
 	
-		IF v_tablename = 've_drainzone' THEN
-			v_drainzone_id :=v_id;
-		ELSIF v_tablename = 've_dwfzone' THEN
+		IF v_tablename = 've_drainzone' AND v_id ~ '^[0-9]+$' THEN
+			v_drainzone_id := v_id;
+		ELSIF v_tablename = 've_dwfzone' AND v_id ~ '^[0-9]+$' THEN
 			v_dwfzone_id := v_id;
 		END IF;
 
