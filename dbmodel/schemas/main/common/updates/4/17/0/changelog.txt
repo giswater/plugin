@@ -9,6 +9,7 @@
 - Remove unused `DEPRECATED` (`status=0`) from `inp_result_status`; migrate existing rows to `ARCHIVED`.
 - Mapzone manager: array expl/sector/muni not mandatory, default Undefined (0); PK empty/non-editable (URN).
 - Load sys_feature_type into HIDDEN for native ValueRelation; macroexploitation is not auto-loaded (context MAP ZONES, Add Layers promotes out of HIDDEN with geometry); macroexpl_id points at macroexploitation.
+- Strip leftover self-ValueRelation from mapzone PK text fields (ve_exploitation.expl_id, ve_dma.dma_id, ...).
 - Native form ValueRelation is applied as configured (allowMulti) without a prior empty ValueMap wipe.
 - ConfigLayerFields configures geometryless catalog tables (cat_material) instead of skipping them.
 - Native form config falls back to config_form_fields if v_config_form_fields / getinfofromid is missing.

@@ -561,7 +561,7 @@ WHERE NOT EXISTS (
 -- Mapzone manager create/update forms: array fields are optional with default Undefined (0)
 UPDATE config_form_fields SET
     ismandatory = false,
-    dv_querytext = 'SELECT expl_id AS id, name AS idval FROM exploitation WHERE expl_id >= 0',
+    dv_querytext = 'SELECT expl_id AS id, name AS idval FROM exploitation WHERE expl_id = 0 UNION ALL SELECT expl_id AS id, name AS idval FROM vf_exploitation',
     widgetcontrols = (COALESCE(widgetcontrols::jsonb, '{}'::jsonb) || '{"vdefault_value": "0"}'::jsonb)::json
 WHERE formtype = 'form_feature' AND tabname = 'tab_none'
   AND widgettype = 'multiple_option' AND columnname = 'expl_id';
@@ -645,4 +645,16 @@ SET dv_querytext = 'SELECT macroexpl_id AS id, name AS idval FROM macroexploitat
     )::json
 WHERE columnname = 'macroexpl_id'
   AND formname IN ('ve_exploitation', 'exploitation');
+
+-- PK text fields must not be ValueRelation (leftover self-VR from ~4.2 on expl_id/dma_id/...)
+UPDATE config_form_fields
+SET widgetcontrols = (widgetcontrols::jsonb - 'valueRelation')::json
+WHERE widgettype = 'text'
+  AND widgetcontrols::jsonb ? 'valueRelation'
+  AND widgetcontrols::jsonb -> 'valueRelation' ->> 'keyColumn' = columnname
+  AND widgetcontrols::jsonb -> 'valueRelation' ->> 'layer' IN (
+      formname,
+      've_' || formname,
+      replace(formname, 've_', '')
+  );
 
