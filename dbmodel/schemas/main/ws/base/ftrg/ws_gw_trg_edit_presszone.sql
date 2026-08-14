@@ -83,6 +83,16 @@ BEGIN
 			END IF;
 		END IF;
 
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
+		END IF;
+		IF NEW.sector_id IS NULL OR NEW.sector_id = '{}'::integer[] THEN
+			NEW.sector_id := ARRAY[0];
+		END IF;
+
 		INSERT INTO presszone (presszone_id, code, name, descript, active, presszone_type, expl_id, sector_id, muni_id, avg_press, head, graphconfig, stylesheet, link, lock_level, addparam, created_at, created_by, updated_at, updated_by)
 		VALUES (NEW.presszone_id, NEW.code, NEW.name, NEW.descript, NEW.active, NEW.presszone_type, NEW.expl_id, NEW.sector_id, NEW.muni_id, NEW.avg_press, 
 		NEW.head, NEW.graphconfig::json, NEW.stylesheet::json, NEW.link, NEW.lock_level, NEW.addparam::json, now(), current_user, now(), current_user);
@@ -102,6 +112,17 @@ BEGIN
 		IF v_view_name = 'EDIT' AND NEW.the_geom IS NOT NULL AND NEW.code IS NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'PRESSZONE', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
+
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
+		END IF;
+		IF NEW.sector_id IS NULL OR NEW.sector_id = '{}'::integer[] THEN
+			NEW.sector_id := ARRAY[0];
+		END IF;
+
 		UPDATE presszone
 		SET presszone_id=NEW.presszone_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, presszone_type=NEW.presszone_type, expl_id=NEW.expl_id, 
 		muni_id = NEW.muni_id, sector_id = NEW.sector_id, avg_press=NEW.avg_press, head = NEW.head, graphconfig=NEW.graphconfig::json, stylesheet=NEW.stylesheet::json,

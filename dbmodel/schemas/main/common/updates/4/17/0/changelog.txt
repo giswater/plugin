@@ -8,6 +8,7 @@
 - Add `isvalidated` boolean to `rpt_cat_result` and expose it on `v_ui_rpt_cat_result` / EPA manager tableview.
 - Remove unused `DEPRECATED` (`status=0`) from `inp_result_status`; migrate existing rows to `ARCHIVED`.
 - Mapzone manager: array expl/sector/muni not mandatory, default Undefined (0); PK empty/non-editable (URN).
+- Mapzone INSTEAD OF triggers default empty/null expl_id, muni_id, sector_id arrays to ARRAY[0] so QGIS insert does not violate NOT NULL.
 - Load sys_feature_type into HIDDEN for native ValueRelation; macroexploitation is not auto-loaded (context MAP ZONES, Add Layers promotes out of HIDDEN with geometry); macroexpl_id points at macroexploitation.
 - Strip leftover self-ValueRelation from mapzone PK text fields (ve_exploitation.expl_id, ve_dma.dma_id, ...).
 - Native form ValueRelation is applied as configured (allowMulti) without a prior empty ValueMap wipe.
