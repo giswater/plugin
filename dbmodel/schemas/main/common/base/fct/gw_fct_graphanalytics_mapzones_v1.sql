@@ -305,7 +305,7 @@ BEGIN
             FROM pgr_connectedcomponents($q$%s$q$)
         ),
         components AS (
-            SELECT c.component
+            SELECT DISTINCT c.component
             FROM connectedcomponents c
             WHERE cardinality($1) = 0
             OR EXISTS (
@@ -314,11 +314,11 @@ BEGIN
                 WHERE v.expl_visibility && $1
                 AND v.node_1 = c.node
             )
-            GROUP BY c.component
         )
         INSERT INTO temp_pgr_node (pgr_node_id)
         SELECT c.node
         FROM connectedcomponents c
+		JOIN v_temp_node n ON n.node_id = c.node -- only nodes that have exploitation visibility in vf_exploitation
         WHERE EXISTS (
             SELECT 1
             FROM components cc
