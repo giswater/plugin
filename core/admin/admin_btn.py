@@ -3243,6 +3243,8 @@ class GwAdminButton:
         tools_qt.set_widget_text(self.dlg_readsql_create_project, self.cmb_create_project_type, project_type)
         self._set_project_type_paths(project_type)
         self.connection_name = str(tools_qt.get_text(self.dlg_readsql, self.cmb_connection))
+        # Refresh after restore: session name is stale and combo may not change (no signal)
+        self._apply_dev_project_name()
 
         self._update_time_elapsed("", self.dlg_readsql_create_project)
 
