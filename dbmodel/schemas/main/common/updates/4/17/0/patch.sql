@@ -63,17 +63,12 @@ INSERT INTO sys_function (id, function_name, project_type, function_type, input_
 VALUES(3570, 'gw_fct_build_canvas_filter_sql', 'utils', 'function', 'text, double precision, double precision, double precision, double precision, integer', 'text', 'Build SQL canvas extend filter for a geometry expression', NULL, NULL, 'core', NULL)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO config_param_user (parameter, value, cur_user)
-VALUES ('utils_language_ui', '{"status":true, "lang":"en_US"}', current_user)
-ON CONFLICT (parameter, cur_user) DO NOTHING;
-
 DO $patch$
 BEGIN
     IF to_regprocedure('gw_fct_get_utils_language_ui()') IS NOT NULL THEN
         ALTER FUNCTION gw_fct_get_utils_language_ui() VOLATILE;
     END IF;
 END $patch$;
-
 
 
 INSERT INTO sys_param_user (
@@ -111,8 +106,6 @@ WHERE parameter = 'utils_language_ui'
   AND btrim(value::json->>'lang') <> ''
 ON CONFLICT (parameter, cur_user) DO UPDATE SET value = EXCLUDED.value;
 
-
-DELETE FROM config_param_user WHERE parameter = 'utils_language_ui';
 DELETE FROM sys_param_user WHERE id = 'utils_language_ui';
 
 
