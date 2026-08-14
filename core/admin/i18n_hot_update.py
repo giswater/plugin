@@ -41,13 +41,14 @@ _NETWORK_DBTABLES = [
     "dbfprocess", "dbmessage", "dbconfig_csv", "dbconfig_form_tabs", "dbconfig_report",
     "dbconfig_toolbox", "dbfunction", "dblabel", "dbtypevalue", "dbconfig_form_fields_feat",
     "dbconfig_form_tableview", "dbconfig_visit_parameter", "dbtable", "dbplan_price", "dbstyle",
-    "su_basic_tables", "dbjson", "dbconfig_form_fields_json",
+    "su_basic_tables", "dbjson", "dbconfig_form_fields_json", "dbconfig_form_fields_query",
 ]
 _TAB_DATA_LINE_RE = re.compile(r",\s*'tab_data'\s*,")
 _FORM_FIELDS_SQL = frozenset({
     "dbconfig_form_fields.sql",
     "dbconfig_form_fields_feat.sql",
     "dbconfig_form_fields_json.sql",
+    "dbconfig_form_fields_query.sql",
 })
 _HOT_UPDATE_TAB_INDEX = 0
 _MULTILANG_TAB_INDEX = 1
@@ -1022,7 +1023,8 @@ class GwAdminI18NHotUpdate():
             },
             "cm": {
                 "dbtables": ["dbconfig_form_fields", "dbconfig_form_tabs", "dbconfig_param_system",
-                             "dbtypevalue", "dbtable", "dbconfig_form_tableview", "dbfprocess", "dbconfig_form_fields_json"],
+                             "dbtypevalue", "dbtable", "dbconfig_form_tableview", "dbfprocess",
+                             "dbconfig_form_fields_json", "dbconfig_form_fields_query"],
                 "project_type": ["cm"]
             },
         }
