@@ -3486,6 +3486,35 @@ def add_multiple_option(field, dialog=None, complet_result=None, ignore_function
     return container
 
 
+def _multiple_option_selected(list_widget):
+    """Return (display texts, ids) already chosen in the multiple_option list."""
+    texts = set()
+    ids = set()
+    if list_widget is None:
+        return texts, ids
+    for i in range(list_widget.count()):
+        item = list_widget.item(i)
+        texts.add(str(item.text()))
+        key = item.data(Qt.ItemDataRole.UserRole)
+        if key is not None:
+            ids.add(str(key))
+    return texts, ids
+
+
+def _prune_completer_selected(completer, list_widget):
+    """Drop already-selected rows from the completer source model (no popup rebuild)."""
+    model = completer.model() if completer else None
+    if model is None or not hasattr(model, "removeRow"):
+        return
+    texts, ids = _multiple_option_selected(list_widget)
+    for row in range(model.rowCount() - 1, -1, -1):
+        idx = model.index(row, 0)
+        idval = idx.data()
+        key = idx.data(Qt.ItemDataRole.UserRole)
+        if str(idval) in texts or (key is not None and str(key) in ids):
+            model.removeRow(row)
+
+
 def make_list_multiple_option(completer, model, widget, field, list_widget):
     """
     Populate completer suggestions for multiple_option fields.
@@ -3517,12 +3546,14 @@ def make_list_multiple_option(completer, model, widget, field, list_widget):
     if not result:
         return False
 
-    existing_items = {list_widget.item(i).text() for i in range(list_widget.count())}
+    existing_texts, existing_ids = _multiple_option_selected(list_widget)
 
     display_list = []
     for data in result:
-        if data[1] not in existing_items:
-            display_list.append({"id": data[0], "idval": data[1]})
+        _id, idval = data[0], data[1]
+        if str(idval) in existing_texts or str(_id) in existing_ids:
+            continue
+        display_list.append({"id": _id, "idval": idval})
 
     tools_qt.set_completer_object(
         completer, model, widget,
@@ -3572,14 +3603,33 @@ def add_item_multiple_option(completer, widget, typeahead):
     _key = completer.completionModel().index(row, 0).data(Qt.ItemDataRole.UserRole)
     value = completer.completionModel().index(row, 0).data()
 
-    # Create and configure new list widget item
-    item = QListWidgetItem()
-    item.setText(value)  # Set display text
-    if _key:
-        item.setData(Qt.ItemDataRole.UserRole, _key)  # Store key in user role
-    widget.addItem(item)  # Add item to list widget
+    existing_texts, existing_ids = _multiple_option_selected(widget)
+    already_added = str(value) in existing_texts or (
+        _key is not None and str(_key) in existing_ids
+    )
+    if not already_added:
+        item = QListWidgetItem()
+        item.setText(value)
+        if _key:
+            item.setData(Qt.ItemDataRole.UserRole, _key)
+        widget.addItem(item)
 
-    typeahead.setText('')
+    _prune_completer_selected(completer, widget)
+
+    # QLineEdit fills the completer text after activated; clear on next tick
+    typeahead.setProperty("_gw_setting_from_completer", True)
+
+    def _clear_typeahead():
+        typeahead.clear()
+        popup = completer.popup()
+        if popup:
+            popup.hide()
+        source_model = completer.model()
+        if source_model is not None and hasattr(source_model, "clear"):
+            source_model.clear()
+        typeahead.setProperty("_gw_setting_from_completer", False)
+
+    QTimer.singleShot(0, _clear_typeahead)
 
 
 def fill_multiple_option(widget, field, index_to_show=1, index_to_compare=0):
