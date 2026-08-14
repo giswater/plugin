@@ -14,3 +14,4 @@
 - ConfigLayerFields configures geometryless catalog tables (cat_material) instead of skipping them.
 - Native form config falls back to config_form_fields if v_config_form_fields / getinfofromid is missing.
 - Update mapzone `code` via `gw_fct_generate_code` when `gw_fct_graphanalytics_mapzones_v1` writes geometry directly to the table.
+- Remove unused `edit_feature_auto_builtdate`; builtdate on insert uses only `edit_builtdate_vdefault`.

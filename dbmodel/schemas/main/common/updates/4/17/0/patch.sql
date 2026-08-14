@@ -658,3 +658,5 @@ WHERE widgettype = 'text'
       replace(formname, 've_', '')
   );
 
+DELETE FROM config_param_system WHERE parameter = 'edit_feature_auto_builtdate';
+
