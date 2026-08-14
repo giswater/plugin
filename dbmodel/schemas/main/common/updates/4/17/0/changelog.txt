@@ -8,4 +8,5 @@
 - Add `isvalidated` boolean to `rpt_cat_result` and expose it on `v_ui_rpt_cat_result` / EPA manager tableview.
 - Remove unused `DEPRECATED` (`status=0`) from `inp_result_status`; migrate existing rows to `ARCHIVED`.
 - Mapzone manager: array expl/sector/muni not mandatory, default Undefined (0); PK empty/non-editable (URN).
+- Native form config falls back to config_form_fields if v_config_form_fields / getinfofromid is missing.
 - Update mapzone `code` via `gw_fct_generate_code` when `gw_fct_graphanalytics_mapzones_v1` writes geometry directly to the table.
