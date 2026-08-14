@@ -31,11 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Auto-loaded ValueRelation lookups are recreated on the main thread via `add_layer_database`. Add Layers no longer moves the HIDDEN autoload: it deletes, reloads, and rebinds ValueRelations to the new `layer.id()`.
+- ConfigLayerFields no longer leaves an empty ValueMap on text catalog fields (`macroexploitation.name` / `descript`): that made attribute-table edits revert on blur while the edit buffer stayed dirty.
 - Clear the `multiple_option` typeahead after selecting a value and drop that value from the suggestion list.
 - Load missing ValueRelation lookup tables (`sys_feature_type`, `macroexploitation`) into the HIDDEN group so native QGIS forms do not fall back to a frozen ValueMap.
 - `ve_exploitation.macroexpl_id` ValueRelation uses `macroexploitation`, not `ve_macroexploitation`.
 - Strip leftover self-ValueRelation from mapzone PK text fields (`ve_exploitation.expl_id`, `ve_dma.dma_id`, …).
-- Do not auto-load `macroexploitation` into MAP ZONES; VR puts it in HIDDEN if missing (with geometry, unchecked). Add Layers shows it unchecked while in HIDDEN and checking moves the same layer to MAP ZONES.
+- Do not auto-load `macroexploitation` into MAP ZONES; VR puts it in HIDDEN if missing. Add Layers shows it unchecked while in HIDDEN; checking reloads it into MAP ZONES.
 - Apply native ValueRelation as configured (including `allowMulti`) instead of wiping the widget with an empty ValueMap first (`cat_material.feature_type` / `featurecat_id`).
 - ConfigLayerFields now resolves geometryless catalog tables (`cat_material`, `cat_*`) so native forms actually get `getinfofromid` / CFF.
 - Native form widgets fall back to `config_form_fields` when `gw_fct_getinfofromid` fails (missing `v_config_form_fields`).

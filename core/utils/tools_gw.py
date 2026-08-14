@@ -907,7 +907,8 @@ def set_completer_feature_id(widget, feature_type, viewname):
 
 
 def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group="GW Layers", sub_group=None, alias=None, sub_sub_group=None, schema=None,
-                        visibility=None, auth_id=None, extent=None, passwd=None, create_project=False, force_create_group=False, properties=None):
+                        visibility=None, auth_id=None, extent=None, passwd=None, create_project=False, force_create_group=False, properties=None,
+                        add_to_toc=True, aux_conn=None, is_thread=False):
     """
     Put selected layer into TOC
         :param tablename: Postgres table name (String)
@@ -921,6 +922,7 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
         :param visibility: Visibility of the layer (Boolean)
         :param auth_id: Auth ID of the layer (String)
         :param extent: Extent of the layer (QgsRectangle)
+        :param add_to_toc: Add the layer to the project (False = worker thread; caller adds later)
     """
 
     tablename_og = tablename
@@ -929,9 +931,9 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
     auth_id = tools_db.get_srid("ext_arc_asset" if schema_name == "am" else "ve_node", schema_name) if auth_id is None else auth_id
     extent = _get_extent_parameters(schema_name, "ext_arc_asset" if schema_name == "am" else "node") if extent is None else extent
 
-    field_id = field_id.replace(" ", "")
+    field_id = (field_id or "id").replace(" ", "")
     uri, status = tools_db.get_uri(tablename, the_geom, schema_name)
-    if status is False:
+    if status is False or not the_geom or the_geom == "None":
         uri.setDataSource(schema_name, f'{tablename}', '', None, field_id)
     else:
         uri.setDataSource(schema_name, f'{tablename}', the_geom, None, field_id)
@@ -958,20 +960,27 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
         if alias:
             tablename = alias
         layer = QgsRasterLayer(connString, tablename)
-        tools_qgis.add_layer_to_toc(layer, group, sub_group, create_groups=create_groups, custom_properties={"gw_id": tablename_og})
+        if add_to_toc:
+            tools_qgis.add_layer_to_toc(layer, group, sub_group, create_groups=create_groups, custom_properties={"gw_id": tablename_og})
+        else:
+            layer.setCustomProperty("gw_id", tablename_og)
 
     else:
         if alias:
             tablename = alias
         layer = QgsVectorLayer(uri.uri(), f'{tablename}', 'postgres')
-        tools_qgis.add_layer_to_toc(layer, group, sub_group, create_groups=create_groups, sub_sub_group=sub_sub_group, custom_properties={"gw_id": tablename_og})
+        if add_to_toc:
+            tools_qgis.add_layer_to_toc(layer, group, sub_group, create_groups=create_groups, sub_sub_group=sub_sub_group, custom_properties={"gw_id": tablename_og})
+        else:
+            layer.setCustomProperty("gw_id", tablename_og)
 
         # Apply styles to layer
         if schema_name != 'cm':
-            set_layer_styles(tablename_og, layer, schema_name if schema_name != "am" else None)
+            set_layer_styles(tablename_og, layer, schema_name if schema_name != "am" else None,
+                             aux_conn=aux_conn, is_thread=is_thread)
             # Get addparam from sys_table
             sql = f"SELECT addparam FROM sys_table WHERE id = '{tablename_og}'"
-            row = tools_db.get_row(sql)
+            row = tools_db.get_row(sql, is_thread=is_thread, aux_conn=aux_conn)
             if row:
                 addparam = row[0]
                 if addparam and addparam.get('refreshSymbology'):
@@ -979,16 +988,16 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
                     if isinstance(renderer, QgsCategorizedSymbolRenderer):
                         refresh_categorized_layer_symbology_classes(layer, addparam)
 
-        if not create_project:
+        if add_to_toc and not create_project:
             if tablename and schema != 'am' and schema != 'cm':
                 # Set layer config
                 feature = '"tableName":"' + str(tablename_og) + '", "isLayer":true'
                 extras = '"infoType":"' + str(lib_vars.project_vars['info_type']) + '"'
                 body = create_body(feature=feature, extras=extras)
                 json_result = execute_procedure('gw_fct_getinfofromid', body, schema_name=schema_name)
-                config_layer_attributes(json_result, layer, alias)
+                config_layer_attributes(json_result, layer, tablename_og)
 
-    if visibility is not None:
+    if add_to_toc and visibility is not None:
         if visibility is False:
             tools_qgis.set_layer_visible(layer, recursive=False, visible=False)
 
@@ -1009,11 +1018,13 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
 
     # Apply mapzone styling if this is a mapzone layer
     mapzone_tables = ['presszone', 'dma', 'sector', 'dqa', 'minsector', 've_presszone', 've_dma', 've_sector', 've_dqa', 've_minsector', 've_minsector_mincut']
-    if any(mapzone_table in tablename_og.lower() for mapzone_table in mapzone_tables):
+    if add_to_toc and any(mapzone_table in tablename_og.lower() for mapzone_table in mapzone_tables):
         set_style_mapzones(schema_name)
 
-    if create_project is False:
+    if add_to_toc and create_project is False:
         global_vars.iface.mapCanvas().refresh()
+
+    return layer
 
 
 def add_layer_provider(gw_id: str, cfg, group="GW Layers", sub_group=None, alias=None, sub_sub_group=None,
@@ -1089,6 +1100,8 @@ def add_layer_provider(gw_id: str, cfg, group="GW Layers", sub_group=None, alias
     if visibility is not None:
         if visibility is False:
             tools_qgis.set_layer_visible(layer, recursive=False, visible=False)
+
+    return layer
 
 
 def build_uri(gw_id: str, provider: str, cfg: dict) -> Optional[str]:
@@ -1426,7 +1439,74 @@ def hide_group_from_toc(group):
     if ltv is None:
         return
 
-    tools_qgis.hide_node_from_treeview(root.findGroup(group), root, ltv)
+    group_node = root.findGroup(group)
+    if group_node is None:
+        return
+    tools_qgis.hide_node_from_treeview(group_node, root, ltv)
+
+
+_vr_remove_guard = False
+_vr_loading_tables = set()
+
+
+def remove_map_layer_allow_vr_target(layer):
+    """Remove @layer even if it is a ValueRelation lookup (skips HIDDEN clone)."""
+    global _vr_remove_guard
+    if layer is None:
+        return
+    _vr_remove_guard = True
+    try:
+        QgsProject.instance().removeMapLayer(layer)
+    finally:
+        _vr_remove_guard = False
+
+
+def _node_is_under_hidden(node):
+    """Return True if @node is the HIDDEN group or nested under it."""
+    current = node
+    while current is not None:
+        if (current.name() or "").lower() == "hidden":
+            return True
+        parent = current.parent() if hasattr(current, "parent") else None
+        if parent is None or parent == current:
+            break
+        current = parent
+    return False
+
+
+def protect_value_relation_layers_on_remove(node, index_from, index_to):
+    """Clone ValueRelation lookup layers into HIDDEN before QGIS drops their TOC node."""
+    global _vr_remove_guard
+    if _vr_remove_guard or node is None:
+        return
+    if _node_is_under_hidden(node):
+        return
+
+    children = node.children()
+    if index_from < 0 or index_to >= len(children) or index_from > index_to:
+        return
+
+    moved = False
+    _vr_remove_guard = True
+    try:
+        for i in range(index_from, index_to + 1):
+            child = children[i]
+            if (child.name() or "").lower() == "hidden":
+                continue
+            for layer in tools_qgis.collect_tree_layers(child):
+                if not tools_qgis.layer_is_value_relation_target(layer):
+                    continue
+                if tools_qgis.is_layer_under_group(layer, "HIDDEN"):
+                    continue
+                if tools_qgis.ensure_layer_node_in_group(layer, "HIDDEN"):
+                    moved = True
+        if moved:
+            hide_group_from_toc("HIDDEN")
+            hidden_group = QgsProject.instance().layerTreeRoot().findGroup("HIDDEN")
+            if hidden_group:
+                hidden_group.setItemVisibilityChecked(False)
+    finally:
+        _vr_remove_guard = False
 
 
 def validate_qml(qml_content):
@@ -1441,7 +1521,7 @@ def validate_qml(qml_content):
         return False, str(e)
 
 
-def set_layer_styles(tablename, layer, schema_name):
+def set_layer_styles(tablename, layer, schema_name, aux_conn=None, is_thread=False):
     # Save current layer custom properties and remove them to avoid QML overwrite them
     custom_properties = {}
     layer_custom_properties = layer.customPropertyKeys()
@@ -1449,7 +1529,8 @@ def set_layer_styles(tablename, layer, schema_name):
         custom_properties[cp_key] = layer.customProperty(cp_key)
 
     body = f'$${{"data":{{"layername":"{tablename}"}}}}$$'
-    json_return = execute_procedure('gw_fct_getstyle', body, schema_name=schema_name)
+    json_return = execute_procedure('gw_fct_getstyle', body, schema_name=schema_name,
+                                    aux_conn=aux_conn, is_thread=is_thread)
     if json_return is None or json_return['status'] == 'Failed':
         return
     if 'styles' in json_return['body']:
@@ -1460,7 +1541,10 @@ def set_layer_styles(tablename, layer, schema_name):
             valid_qml, error_message = validate_qml(qml)
             if not valid_qml:
                 msg = "The QML file is invalid."
-                tools_qgis.show_warning(msg, parameter=error_message)
+                if not is_thread:
+                    tools_qgis.show_warning(msg, parameter=error_message)
+                else:
+                    tools_log.log_warning(msg, parameter=error_message)
             else:
                 style_manager = layer.styleManager()
 
@@ -1742,12 +1826,12 @@ def _merge_cff_into_fields(layer_name, fields, thread=None):
             wc = _parse_widgetcontrols(existing.get('widgetcontrols')) or {}
             wc['valueRelation'] = cff_wc['valueRelation']
             existing['widgetcontrols'] = wc
-            if cff.get('widgettype'):
-                existing['widgettype'] = cff['widgettype']
+        if cff.get('widgettype'):
+            existing['widgettype'] = cff['widgettype']
         if not existing.get('label') and cff.get('label'):
             existing['label'] = cff['label']
-        if not existing.get('widgettype') and cff.get('widgettype'):
-            existing['widgettype'] = cff['widgettype']
+        if 'iseditable' in cff:
+            existing['iseditable'] = cff['iseditable']
     return list(by_col.values())
 
 
@@ -1756,13 +1840,19 @@ def _apply_value_relation(layer, field_index, field, value_relation, layer_name,
     try:
         vr_layer = value_relation.get('layer', '')
         layer_obj = tools_qgis.get_layer_by_tablename(vr_layer)
+        if layer_obj is None and thread is not None:
+            layer_obj = (getattr(thread, 'vr_layer_by_table', None) or {}).get(vr_layer)
         if layer_obj is None:
             add_to_toc = thread is None
-            layer_obj = load_layer_in_hidden_group(vr_layer, value_relation.get('keyColumn', ''), add_to_toc=add_to_toc)
+            aux_conn = getattr(thread, 'aux_conn', None) if thread else None
+            layer_obj = load_layer_in_hidden_group(
+                vr_layer, value_relation.get('keyColumn', ''), add_to_toc=add_to_toc,
+                aux_conn=aux_conn, is_thread=thread is not None)
             if thread and layer_obj is not None:
-                existing_names = [lyr.name() for lyr in thread.vr_layers_to_add if lyr is not None]
-                if layer_obj.name() not in existing_names:
-                    thread.vr_layers_to_add.add(layer_obj)
+                if getattr(thread, 'vr_layer_by_table', None) is None:
+                    thread.vr_layer_by_table = {}
+                thread.vr_layer_by_table[vr_layer] = layer_obj
+                thread.vr_layers_to_add.add(layer_obj)
 
         if layer_obj is None:
             raise Exception(f"Layer '{vr_layer}' not found")
@@ -1775,6 +1865,7 @@ def _apply_value_relation(layer, field_index, field, value_relation, layer_name,
 
         editor_widget_setup = QgsEditorWidgetSetup('ValueRelation', {
             'Layer': str(layer_obj.id()),
+            'LayerName': str(layer_obj.name()),
             'Key': str(value_relation.get('keyColumn', 'id')),
             'Value': str(value_relation.get('valueColumn', 'idval')),
             'AllowNull': tools_os.set_boolean(value_relation.get('nullValue'), False),
@@ -1801,12 +1892,16 @@ def _apply_value_relation(layer, field_index, field, value_relation, layer_name,
 def _apply_editor_widget(layer, field_index, field):
     """Set non-ValueRelation editor widget from widgettype."""
     widgettype = field.get('widgettype')
+    wc = field.get('widgetcontrols') or {}
     if widgettype == 'combo':
-        valuemap_values = {}
-        if 'comboIds' in field:
-            for i in range(0, len(field['comboIds'])):
-                valuemap_values[field['comboNames'][i]] = field['comboIds'][i]
-        editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': valuemap_values})
+        combo_ids = field.get('comboIds') or []
+        combo_names = field.get('comboNames') or []
+        if combo_ids:
+            valuemap_values = {combo_names[i]: combo_ids[i] for i in range(len(combo_ids))}
+            editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': valuemap_values})
+        else:
+            # Empty ValueMap rejects every typed value (cell reverts, buffer may still dirty)
+            editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'False'})
     elif widgettype == 'check':
         editor_widget_setup = QgsEditorWidgetSetup('CheckBox', {'CheckedState': 'true', 'UncheckedState': 'false'})
     elif widgettype == 'datetime':
@@ -1817,12 +1912,11 @@ def _apply_editor_widget(layer, field_index, field):
             'field_format': 'yyyy-MM-dd',
             'field_iso_format': False,
         })
-    elif widgettype == 'textarea':
-        editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'True'})
     elif widgettype == 'list':
         editor_widget_setup = QgsEditorWidgetSetup('List', {})
     else:
-        editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'False'})
+        multiline = widgettype == 'textarea' or bool(wc.get('setMultiline'))
+        editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'True' if multiline else 'False'})
     layer.setEditorWidgetSetup(field_index, editor_widget_setup)
 
 
@@ -1870,9 +1964,6 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
         if field.get('ismandatory') is True:
             layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
                                      QgsFieldConstraints.ConstraintStrength.ConstraintStrengthHard)
-        else:
-            layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
-                                     QgsFieldConstraints.ConstraintStrength.ConstraintStrengthSoft)
 
         # Manage editability
         config = layer.editFormConfig()
@@ -1887,13 +1978,7 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
         if use_vr:
             _apply_value_relation(layer, field_index, field, widgetcontrols['valueRelation'], layer_name, thread)
         else:
-            # Wipe stale ValueMap first (empty ValueMap on text[] shows as List)
-            layer.setEditorWidgetSetup(field_index, QgsEditorWidgetSetup('ValueMap', {'map': {}}))
             _apply_editor_widget(layer, field_index, field)
-            if field.get('widgettype') == 'text':
-                wc = field.get('widgetcontrols') or {}
-                multiline = wc['setMultiline'] if 'setMultiline' in wc else False
-                layer.setEditorWidgetSetup(field_index, QgsEditorWidgetSetup('TextEdit', {'IsMultiline': multiline}))
 
     configured = [field_json['columnname'] for field_json in fields]
     for field in layer.fields():
@@ -1919,7 +2004,7 @@ def load_missing_layers(filter, group="GW Layers", sub_group=None):
                 add_layer_database(tablename, the_geom=the_geom, alias=alias, group=group, sub_group=sub_group)
 
 
-def _table_geometry_column(schema, table):
+def _table_geometry_column(schema, table, aux_conn=None, is_thread=False):
     """Return geometry column name for schema.table, or None."""
     if not schema or not table:
         return None
@@ -1928,13 +2013,44 @@ def _table_geometry_column(schema, table):
     row = tools_db.get_row(
         "SELECT f_geometry_column FROM geometry_columns "
         f"WHERE f_table_schema = '{schema}' AND f_table_name = '{table}' "
-        "ORDER BY CASE WHEN f_geometry_column = 'the_geom' THEN 0 ELSE 1 END LIMIT 1"
+        "ORDER BY CASE WHEN f_geometry_column = 'the_geom' THEN 0 ELSE 1 END LIMIT 1",
+        log_info=False, is_thread=is_thread, aux_conn=aux_conn
     )
     return row[0] if row and row[0] else None
 
 
-def load_layer_in_hidden_group(layer_name, key_column, add_to_toc=True):
-    """Load a VR lookup into HIDDEN. Keep geometry if the table has one; just leave it unchecked."""
+def _vr_layer_add_params(table, schema, key_column, aux_conn=None, is_thread=False):
+    """Resolve alias / geom / pkey the same way as gw_fct_getaddlayervalues."""
+    table_sql = str(table).replace("'", "''")
+    schema_sql = str(schema).replace("'", "''") if schema else ''
+    sql = (
+        f"SELECT alias, addparam FROM {schema_sql}.sys_table WHERE id = '{table_sql}'"
+        if schema_sql else
+        f"SELECT alias, addparam FROM sys_table WHERE id = '{table_sql}'"
+    )
+    row = tools_db.get_row(sql, log_info=False, is_thread=is_thread, aux_conn=aux_conn)
+    alias = table
+    pkey = key_column or 'id'
+    addparam = None
+    if row:
+        if row[0]:
+            alias = row[0]
+        addparam = row[1] if len(row) > 1 else None
+        if isinstance(addparam, str):
+            try:
+                addparam = json.loads(addparam)
+            except (TypeError, ValueError):
+                addparam = None
+        if addparam and addparam.get('pkey'):
+            pkey = addparam['pkey']
+    geom = _table_geometry_column(schema, table, aux_conn=aux_conn, is_thread=is_thread)
+    if geom and addparam and addparam.get('geom'):
+        geom = addparam['geom']
+    return alias, geom, pkey
+
+
+def load_layer_in_hidden_group(layer_name, key_column, add_to_toc=True, aux_conn=None, is_thread=False):
+    """Load a VR lookup via add_layer_database into HIDDEN (unchecked)."""
     if '.' in layer_name:
         schema, table = layer_name.split('.', 1)
         schema = schema.replace('"', '')
@@ -1943,20 +2059,38 @@ def load_layer_in_hidden_group(layer_name, key_column, add_to_toc=True):
         schema = (lib_vars.schema_name or creds.get('schema') or '').replace('"', '')
         table = layer_name
 
-    key_column = key_column or 'id'
-    geom_col = _table_geometry_column(schema, table)
-    uri, status = tools_db.get_uri(tablename=table, geom=geom_col, schema_name=schema)
-    if uri:
-        if status is False or not geom_col:
-            uri.setDataSource(schema, table, '', None, key_column)
-        else:
-            uri.setDataSource(schema, table, geom_col, None, key_column)
-        layer = QgsVectorLayer(uri.uri(False), layer_name, "postgres")
-        if layer.isValid():
+    existing = tools_qgis.get_layer_by_tablename(table) or tools_qgis.get_layer(custom_properties={"gw_id": table})
+    if existing:
+        return existing
+
+    if table in _vr_loading_tables:
+        return tools_qgis.get_layer_by_tablename(table)
+    _vr_loading_tables.add(table)
+    try:
+        alias, geom, pkey = _vr_layer_add_params(
+            table, schema, key_column, aux_conn=aux_conn, is_thread=is_thread)
+        layer = add_layer_database(
+            tablename=table,
+            the_geom=geom,
+            field_id=pkey,
+            group="HIDDEN",
+            alias=alias,
+            schema=schema,
+            visibility=False,
+            force_create_group=True,
+            add_to_toc=add_to_toc,
+            aux_conn=aux_conn,
+            is_thread=is_thread,
+        )
+        if layer and layer.isValid():
             if add_to_toc:
-                tools_qgis.add_layer_to_toc(layer, group="HIDDEN", create_groups=True, custom_properties={"gw_id": table})
-                tools_qgis.set_layer_visible(layer, recursive=False, visible=False)
+                hide_group_from_toc("HIDDEN")
+                hidden_group = QgsProject.instance().layerTreeRoot().findGroup("HIDDEN")
+                if hidden_group:
+                    hidden_group.setItemVisibilityChecked(False)
             return layer
+    finally:
+        _vr_loading_tables.discard(table)
 
     layer = tools_qgis.get_layer_by_tablename('ve_node')
     if layer:

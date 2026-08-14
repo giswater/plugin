@@ -34,6 +34,7 @@ class GwProjectLayersConfig(GwTask):
         self.vr_errors = None
         self.vr_missing = None
         self.vr_layers_to_add = None
+        self.vr_layer_by_table = None
 
     def run(self):
 
@@ -42,6 +43,8 @@ class GwProjectLayersConfig(GwTask):
         self.vr_errors = set()
         self.vr_missing = set()
         self.vr_layers_to_add = set()
+        self.vr_layer_by_table = {}
+        tools_qgis.refresh_value_relation_target_tables(aux_conn=self.aux_conn, is_thread=True)
         self._get_layers_to_config()
         self._set_layer_config(self.available_layers)
         self.setProgress(100)
@@ -58,12 +61,19 @@ class GwProjectLayersConfig(GwTask):
         sql += ");"
         tools_gw.manage_json_response(self.json_result, sql, None)
 
-        # Add ValueRelation layers to TOC (HIDDEN group) only when they were actually loaded
+        # Recreate VR lookups on the main thread (worker QgsVectorLayer is not a usable TOC layer)
         if self.vr_layers_to_add:
-            for layer in self.vr_layers_to_add:
-                gw_id = tools_qgis.get_layer_source_table_name(layer) or layer.name()
-                tools_qgis.add_layer_to_toc(layer, group="HIDDEN", create_groups=True, custom_properties={"gw_id": gw_id})
-                tools_qgis.set_layer_visible(layer, recursive=False, visible=False)
+            for old_layer in self.vr_layers_to_add:
+                table = old_layer.customProperty("gw_id") or tools_qgis.get_layer_source_table_name(old_layer)
+                old_id = old_layer.id()
+                new_layer = tools_gw.load_layer_in_hidden_group(table, '', add_to_toc=True)
+                if new_layer and new_layer.isValid():
+                    tools_qgis.rebind_value_relation_layer(old_id, new_layer)
+                else:
+                    gw_id = table or old_layer.name()
+                    tools_qgis.add_layer_to_toc(
+                        old_layer, group="HIDDEN", create_groups=True, custom_properties={"gw_id": gw_id})
+                    tools_qgis.set_layer_visible(old_layer, recursive=False, visible=False)
 
             tools_gw.hide_group_from_toc('HIDDEN')
             hidden_group = QgsProject.instance().layerTreeRoot().findGroup('HIDDEN')

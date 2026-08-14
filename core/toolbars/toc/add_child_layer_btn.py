@@ -165,20 +165,22 @@ class GwAddChildLayerButton(GwAction):
 
         if state == 2:
             layer = tools_qgis.get_layer(custom_properties={"gw_id": tablename}, tablename=tablename)
+            old_id = None
             if layer is not None and tools_qgis.is_layer_under_group(layer, "HIDDEN"):
-                if the_geom:
-                    tools_qgis.set_layer_geometry_column(layer, the_geom, field_id)
-                    tools_gw.set_layer_styles(tablename, layer, None)
-                tools_qgis.move_layer_to_group(layer, group, sub_group, sub_sub_group)
-                tools_qgis.set_layer_visible(layer, recursive=True, visible=True)
-            elif layer is None:
+                # Autoload is a worker-built layer; drop it and add like the button, then retarget VRs
+                old_id = layer.id()
+                tools_gw.remove_map_layer_allow_vr_target(layer)
+                layer = None
+            if layer is None:
                 schema = None
                 if group == "AM" or group == "CM":
                     schema = "am" if group == "AM" else "cm"
                 if provider_config:
-                    tools_gw.add_layer_provider(tablename, provider_config, group, sub_group, alias=alias, sub_sub_group=sub_sub_group, schema=schema)
+                    new_layer = tools_gw.add_layer_provider(tablename, provider_config, group, sub_group, alias=alias, sub_sub_group=sub_sub_group, schema=schema)
                 else:
-                    tools_gw.add_layer_database(tablename, the_geom, field_id, group, sub_group, alias=alias, sub_sub_group=sub_sub_group, schema=schema)
+                    new_layer = tools_gw.add_layer_database(tablename, the_geom, field_id, group, sub_group, alias=alias, sub_sub_group=sub_sub_group, schema=schema)
+                if old_id and new_layer:
+                    tools_qgis.rebind_value_relation_layer(old_id, new_layer)
         elif state == 0:
             layer = tools_qgis.get_layer(custom_properties={"gw_id": tablename}, tablename=tablename)
             if layer is None:
