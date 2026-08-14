@@ -34,6 +34,7 @@ class GwProjectLayersConfig(GwTask):
         self.vr_errors = None
         self.vr_missing = None
         self.vr_layers_to_add = None
+        self.vr_layer_by_table = None
 
     def run(self):
 
@@ -42,6 +43,8 @@ class GwProjectLayersConfig(GwTask):
         self.vr_errors = set()
         self.vr_missing = set()
         self.vr_layers_to_add = set()
+        self.vr_layer_by_table = {}
+        tools_qgis.refresh_value_relation_target_tables(aux_conn=self.aux_conn, is_thread=True)
         self._get_layers_to_config()
         self._set_layer_config(self.available_layers)
         self.setProgress(100)
@@ -58,15 +61,24 @@ class GwProjectLayersConfig(GwTask):
         sql += ");"
         tools_gw.manage_json_response(self.json_result, sql, None)
 
-        # Add ValueRelation layers to TOC (HIDDEN group)
-        for layer in self.vr_layers_to_add or []:
-            gw_id = tools_qgis.get_layer_source_table_name(layer) or layer.name()
-            tools_qgis.add_layer_to_toc(layer, group="HIDDEN", create_groups=True, custom_properties={"gw_id": gw_id})
+        # Recreate VR lookups on the main thread (worker QgsVectorLayer is not a usable TOC layer)
+        if self.vr_layers_to_add:
+            for old_layer in self.vr_layers_to_add:
+                table = old_layer.customProperty("gw_id") or tools_qgis.get_layer_source_table_name(old_layer)
+                old_id = old_layer.id()
+                new_layer = tools_gw.load_layer_in_hidden_group(table, '', add_to_toc=True)
+                if new_layer and new_layer.isValid():
+                    tools_qgis.rebind_value_relation_layer(old_id, new_layer)
+                else:
+                    gw_id = table or old_layer.name()
+                    tools_qgis.add_layer_to_toc(
+                        old_layer, group="HIDDEN", create_groups=True, custom_properties={"gw_id": gw_id})
+                    tools_qgis.set_layer_visible(old_layer, recursive=False, visible=False)
 
-        # Hide hidden group
-        root = QgsProject.instance().layerTreeRoot()
-        tools_gw.hide_group_from_toc('HIDDEN')
-        root.findGroup('HIDDEN').setItemVisibilityChecked(False)
+            tools_gw.hide_group_from_toc('HIDDEN')
+            hidden_group = QgsProject.instance().layerTreeRoot().findGroup('HIDDEN')
+            if hidden_group:
+                hidden_group.setItemVisibilityChecked(False)
 
         # Select the layer called 've_node'
         layer = tools_qgis.get_layer_by_tablename('ve_node')
@@ -105,15 +117,17 @@ class GwProjectLayersConfig(GwTask):
         self.available_layers = [layer[0] for layer in self.db_layers]
 
         self._set_form_suppress(self.available_layers)
+        project_schema = str(self.schema_name or "").replace('"', "").lower()
         all_layers_toc = tools_qgis.get_project_layers()
         for layer in all_layers_toc:
-            layer_source = tools_qgis.get_layer_source(layer)
-            # Filter to take only the layers of the current schema
-            schema = layer_source.get('schema')
-            if schema and schema.replace('"', '') == self.schema_name:
-                table_name = f"{tools_qgis.get_layer_source_table_name(layer)}"
-                if table_name not in self.available_layers:
-                    self.available_layers.append(table_name)
+            schema = tools_qgis.get_layer_schema(layer)
+            if not schema:
+                schema = (tools_qgis.get_layer_source(layer).get("schema") or "")
+            if str(schema).replace('"', "").lower() != project_schema:
+                continue
+            table_name = tools_qgis.get_layer_source_table_name(layer) or layer.customProperty("gw_id")
+            if table_name and table_name not in self.available_layers:
+                self.available_layers.append(table_name)
 
     def _set_form_suppress(self, layers_list):
         """ Set form suppress on "Hide form on add feature (global settings) """
@@ -153,6 +167,8 @@ class GwProjectLayersConfig(GwTask):
 
             layer = tools_qgis.get_layer_by_tablename(layer_name)
             if not layer:
+                layer = tools_qgis.get_layer(custom_properties={"gw_id": layer_name})
+            if not layer:
                 continue
 
             layer_number = layer_number + 1
@@ -162,24 +178,13 @@ class GwProjectLayersConfig(GwTask):
             self.body = tools_gw.create_body(feature=feature)
             self.json_result = tools_gw.execute_procedure('gw_fct_getinfofromid', self.body, aux_conn=self.aux_conn,
                                                           is_thread=True, check_function=False)
-            if not self.json_result:
-                continue
-            if 'status' not in self.json_result:
-                continue
-            if self.json_result['status'] == 'Failed':
-                continue
-            if 'body' not in self.json_result:
-                msg = "Not '{0}'"
-                msg_params = ("body")
-                tools_log.log_info(msg, msg_params=msg_params)
-                continue
-            if 'data' not in self.json_result['body']:
-                msg = "Not '{0}'"
-                msg_params = ("body")
-                tools_log.log_info(msg, msg_params=msg_params)
-                continue
+            if not self.json_result or 'status' not in self.json_result or self.json_result['status'] == 'Failed' \
+                    or 'body' not in self.json_result or 'data' not in self.json_result.get('body', {}):
+                payload = {'body': {'data': {'fields': []}}}
+            else:
+                payload = self.json_result
 
-            tools_gw.config_layer_attributes(self.json_result, layer, layer_name, thread=self)
+            tools_gw.config_layer_attributes(payload, layer, layer_name, thread=self)
 
         if msg_failed != "":
             title = "Execute failed."

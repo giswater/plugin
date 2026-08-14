@@ -305,7 +305,7 @@ BEGIN
             FROM pgr_connectedcomponents($q$%s$q$)
         ),
         components AS (
-            SELECT c.component
+            SELECT DISTINCT c.component
             FROM connectedcomponents c
             WHERE cardinality($1) = 0
             OR EXISTS (
@@ -314,11 +314,11 @@ BEGIN
                 WHERE v.expl_visibility && $1
                 AND v.node_1 = c.node
             )
-            GROUP BY c.component
         )
         INSERT INTO temp_pgr_node (pgr_node_id)
         SELECT c.node
         FROM connectedcomponents c
+		JOIN v_temp_node n ON n.node_id = c.node -- only nodes that have exploitation visibility in vf_exploitation
         WHERE EXISTS (
             SELECT 1
             FROM components cc
@@ -537,13 +537,11 @@ BEGIN
 					LEFT JOIN LATERAL json_array_elements_text(use_item->'toArc') AS elem_to_arc(value) ON TRUE
 					WHERE t.graphconfig IS NOT NULL
 					AND t.active
-					AND (cardinality($1) = 0 OR t.expl_id && $1)
 					%s
 				), graphconfig_filtered AS (
 					SELECT g.* 
 					FROM graphconfig g
-					JOIN node n ON n.node_id = g.node_parent
-					WHERE EXISTS (SELECT 1 FROM vf_exploitation vfe WHERE vfe.expl_id = ANY(array_append(n.expl_visibility, n.expl_id)))
+					JOIN temp_pgr_node n ON n.pgr_node_id = g.node_parent
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id, pgr_arc_id)
 				SELECT
@@ -554,34 +552,54 @@ BEGIN
 				FROM graphconfig_filtered
 				WHERE mapzone_id > 0
 				AND (node_parent IS DISTINCT FROM 0 OR to_arc IS DISTINCT FROM 0);
-			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux) USING v_expl_id_array;
+			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux);
 
 			-- forceClosed
 			EXECUTE format($sql$
+				WITH forceclosed AS (
+					SELECT
+						t.%I AS mapzone_id,
+						elem.value::int AS pgr_node_id
+					FROM %I t
+					JOIN LATERAL json_array_elements_text(t.graphconfig->'forceClosed') AS elem(value) ON TRUE
+					WHERE t.graphconfig IS NOT NULL
+						AND t.active
+						%s
+				), forceclosed_filtered AS (
+					SELECT f.*
+					FROM forceclosed f
+					JOIN temp_pgr_node n ON n.pgr_node_id = f.pgr_node_id
+				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id)
 				SELECT
-					t.%I,
+					mapzone_id,
 					'forceClosed',
-					elem.value::int
-				FROM %I t
-				JOIN LATERAL json_array_elements_text(t.graphconfig->'forceClosed') AS elem(value) ON TRUE
-				WHERE t.graphconfig IS NOT NULL
-					AND t.active
-					%s;
+					pgr_node_id
+				FROM forceclosed_filtered;
 			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux);
 
 			-- forceOpen
 			EXECUTE format($sql$
+				WITH forceopen AS (
+					SELECT
+						t.%I AS mapzone_id,
+						elem.value::int AS pgr_node_id
+					FROM %I t
+					JOIN LATERAL json_array_elements_text(t.graphconfig->'ignore') AS elem(value) ON TRUE
+					WHERE t.graphconfig IS NOT NULL
+						AND t.active
+						%s
+				), forceopen_filtered AS (
+					SELECT f.*
+					FROM forceopen f
+					JOIN temp_pgr_node n ON n.pgr_node_id = f.pgr_node_id
+				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id)
 				SELECT
-					t.%I,
+					mapzone_id,
 					'forceOpen',
-					elem.value::int
-				FROM %I t
-				JOIN LATERAL json_array_elements_text(t.graphconfig->'ignore') AS elem(value) ON TRUE
-				WHERE t.graphconfig IS NOT NULL
-					AND t.active
-					%s;
+					pgr_node_id
+				FROM forceopen_filtered;
 			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux);
 
 			-- update temp_pgr_node (nodeParent)
@@ -675,12 +693,10 @@ BEGIN
 					JOIN LATERAL json_array_elements(t.graphconfig->'use') AS use_item ON TRUE
 					WHERE t.graphconfig IS NOT NULL
 					AND t.active
-					AND (cardinality($1) = 0 OR t.expl_id && $1)
 				), graphconfig_filtered AS (
 					SELECT g.* 
 					FROM graphconfig g
-					JOIN node n ON n.node_id = g.node_parent
-					WHERE EXISTS (SELECT 1 FROM vf_exploitation vfe WHERE vfe.expl_id = ANY(array_append(n.expl_visibility, n.expl_id)))
+					JOIN temp_pgr_node n ON n.pgr_node_id = g.node_parent
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id, pgr_arc_id)
 				SELECT
@@ -692,32 +708,53 @@ BEGIN
 				LEFT JOIN v_temp_arc a ON a.node_2 = g.node_parent
 				WHERE g.mapzone_id > 0
 				AND g.node_parent IS DISTINCT FROM 0
-			$sql$, v_mapzone_field, v_mapzone_table) USING v_expl_id_array;
+			$sql$, v_mapzone_field, v_mapzone_table);
 
 			-- forceClosed
 			EXECUTE format($sql$
+				WITH forceclosed AS (
+					SELECT
+						t.%I AS mapzone_id,
+						elem.value::int AS pgr_arc_id
+					FROM %I t
+					JOIN LATERAL json_array_elements_text(t.graphconfig->'forceClosed') AS elem(value) ON TRUE
+					WHERE t.graphconfig IS NOT NULL
+						AND t.active
+				),
+				forceclosed_filtered AS (
+					SELECT f.*
+					FROM forceclosed f
+					JOIN temp_pgr_arc n ON n.pgr_arc_id = f.pgr_arc_id
+				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_arc_id)
 				SELECT
-					t.%I,
+					mapzone_id,
 					'forceClosed',
-					elem.value::int
-				FROM %I t
-				JOIN LATERAL json_array_elements_text(t.graphconfig->'forceClosed') AS elem(value) ON TRUE
-				WHERE t.graphconfig IS NOT NULL
-					AND t.active
+					pgr_arc_id
+				FROM forceclosed_filtered;
 			$sql$, v_mapzone_field, v_mapzone_table);
 
 			-- ignore
 			EXECUTE format($sql$
+				WITH forceopen AS (
+					SELECT
+						t.%I AS mapzone_id,
+						elem.value::int AS pgr_arc_id
+					FROM %I t
+					JOIN LATERAL json_array_elements_text(t.graphconfig->'ignore') AS elem(value) ON TRUE
+					WHERE t.graphconfig IS NOT NULL
+						AND t.active
+				), forceopen_filtered AS (
+					SELECT f.*
+					FROM forceopen f
+					JOIN temp_pgr_arc n ON n.pgr_arc_id = f.pgr_arc_id
+				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_arc_id)
 				SELECT
-					t.%I,
+					mapzone_id,
 					'forceOpen',
-					elem.value::int
-				FROM %I t
-				JOIN LATERAL json_array_elements_text(t.graphconfig->'ignore') AS elem(value) ON TRUE
-				WHERE t.graphconfig IS NOT NULL
-					AND t.active
+					pgr_arc_id
+				FROM forceopen_filtered;
 			$sql$, v_mapzone_field, v_mapzone_table);
 
 			-- update temp_pgr_node (nodeParent)
@@ -2361,9 +2398,15 @@ BEGIN
 				$sql$, v_mapzone_table, v_mapzone_field, v_class, v_mapzone_field);
 
 			ELSE
+				-- Direct table UPDATE bypasses ve_* triggers; regenerate code with the new geom
 				EXECUTE format($sql$
 					UPDATE %I m
 					SET
+						code = COALESCE(
+							NULLIF(btrim(m.code), ''),
+							gw_fct_generate_code('mapzone', %L, json_strip_nulls(json_build_object(%I, t.mapzone_id, 'the_geom', ST_AsGeoJSON(t.the_geom)::json))),
+							t.mapzone_id::text
+						),
 						expl_id = t.expl_id,
 						muni_id = t.muni_id,
 						the_geom = t.the_geom,
@@ -2375,7 +2418,7 @@ BEGIN
 					WHERE m.%I = t.mapzone_id
 						AND t.mapzone_id > 0
 					$sql$
-				, v_mapzone_table, v_mapzone_field);
+				, v_mapzone_table, v_class, v_mapzone_field, v_mapzone_field);
 			END IF;
 
 

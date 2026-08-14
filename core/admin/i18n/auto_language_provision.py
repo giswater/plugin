@@ -1,4 +1,9 @@
 """
+This file is part of Giswater
+The program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the License,
+or (at your option) any later version.
+
 Coordinator that ensures language packages after a Giswater database connection.
 
 Shows a non-dismissible progress dialog while downloads run; failures warn
@@ -8,21 +13,26 @@ without blocking project load.
 from __future__ import annotations
 
 from qgis.core import QgsApplication
-from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtCore import Qt, QTimer
 from qgis.PyQt.QtWidgets import QProgressDialog
 
-from ...libs import tools_log, tools_qgis, tools_qt
-from ..threads.i18n_provision_task import GwI18nProvisionTask
-from .i18n_language_service import LocaleRequirement, ProvisionResult
+from ....libs import tools_log, tools_qgis, tools_qt
+from ...threads.i18n_provision_task import GwI18nProvisionTask
+from .language_shared_functions import LocaleRequirement, ProvisionResult
 
 # Keep a module-level reference so GC does not cancel the task mid-flight.
 _active_task: GwI18nProvisionTask | None = None
 _active_dialog: QProgressDialog | None = None
+_active_timer: QTimer | None = None
+_provision_timed_out: bool = False
 _provision_started_for: set[str] = set()
+
+# Wall-clock limit for the provision dialog / downloads.
+_PROVISION_TIMEOUT_MS = 20000
 
 
 def _connection_key() -> str:
-    from ...libs import tools_db, lib_vars
+    from ....libs import tools_db, lib_vars
     from qgis.PyQt.QtCore import QSettings
 
     creds = getattr(tools_db, "dao_db_credentials", None) or {}
@@ -50,6 +60,19 @@ def _close_progress_dialog() -> None:
         pass
 
 
+def _stop_timeout_timer() -> None:
+    global _active_timer
+    timer = _active_timer
+    _active_timer = None
+    if timer is None:
+        return
+    try:
+        timer.stop()
+        timer.deleteLater()
+    except Exception:
+        pass
+
+
 def _show_progress_dialog() -> QProgressDialog:
     global _active_dialog
     _close_progress_dialog()
@@ -72,10 +95,62 @@ def _show_progress_dialog() -> QProgressDialog:
     return dlg
 
 
+def _show_provision_error(details: str | None = None) -> None:
+    if details:
+        msg = "Could not download language files. The project will continue to load. {0}"
+        msg_params = (details,)
+        tools_qgis.show_warning(msg, msg_params=msg_params, duration=20)
+        return
+    msg = "Could not download language files in time. The project will continue to load."
+    tools_qgis.show_warning(msg, duration=20)
+
+
+def _on_provision_timeout() -> None:
+    """Close the dialog and report an error if downloads exceed the time limit."""
+    global _provision_timed_out, _active_task
+
+    _provision_timed_out = True
+    _stop_timeout_timer()
+    _close_progress_dialog()
+
+    task = _active_task
+    if task is not None:
+        try:
+            task.cancel()
+        except Exception as exc:
+            msg = "Language provision cancel failed: {0}"
+            msg_params = (exc,)
+            tools_log.log_warning(msg, msg_params=msg_params)
+
+    msg = "Automatic language provisioning timed out after {0} seconds"
+    msg_params = (_PROVISION_TIMEOUT_MS // 1000,)
+    tools_log.log_warning(msg, msg_params=msg_params)
+    _show_provision_error()
+
+
+def _start_timeout_timer() -> None:
+    global _active_timer, _provision_timed_out
+    _stop_timeout_timer()
+    _provision_timed_out = False
+    timer = QTimer()
+    timer.setSingleShot(True)
+    timer.timeout.connect(_on_provision_timeout)
+    timer.start(_PROVISION_TIMEOUT_MS)
+    _active_timer = timer
+
+
 def _on_provision_finished(result: ProvisionResult) -> None:
-    global _active_task
+    global _active_task, _provision_timed_out
+
+    timed_out = _provision_timed_out
+    _provision_timed_out = False
+    _stop_timeout_timer()
     _close_progress_dialog()
     _active_task = None
+
+    if timed_out:
+        # Error already shown by the timeout handler.
+        return
 
     if not result.failed:
         return
@@ -84,10 +159,7 @@ def _on_provision_finished(result: ProvisionResult) -> None:
     msg = "Automatic language provisioning failed: {0}"
     msg_params = (details or "unknown error",)
     tools_log.log_warning(msg, msg_params=msg_params)
-
-    msg = "Could not download some language files. The project will continue to load. {0}"
-    msg_params = (details or "unknown error",)
-    tools_qgis.show_warning(msg, msg_params=msg_params, duration=20)
+    _show_provision_error(details or "unknown error")
 
 
 def ensure_language_packages_after_connection(
@@ -113,8 +185,8 @@ def ensure_language_packages_after_connection(
     requirements: list[LocaleRequirement] = []
     pending: list[LocaleRequirement] = []
     try:
-        from . import _admin_catalog as admin_catalog
-        from .i18n_language_service import (
+        from .. import _admin_catalog as admin_catalog
+        from .language_shared_functions import (
             collect_locale_requirements,
             locale_likely_needs_download,
         )
@@ -141,6 +213,7 @@ def ensure_language_packages_after_connection(
 
     if show_progress:
         _show_progress_dialog()
+        _start_timeout_timer()
 
     task = GwI18nProvisionTask(requirements=requirements, pending=pending)
     task.task_finished.connect(_on_provision_finished)

@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'result_id', 'expl_id', 'sector_id', 'dma_id', 'network_type', 'status',
         'iscorporate', 'descript', 'exec_date', 'cur_user', 'export_options', 'network_stats',
-        'inp_options', 'rpt_stats', 'addparam'
+        'inp_options', 'rpt_stats', 'addparam', 'isvalidated'
     ],
     'View v_ui_rpt_cat_result should have the correct columns'
 );
@@ -44,6 +44,7 @@ SELECT col_type_is('v_ui_rpt_cat_result', 'network_stats', 'json', 'Column netwo
 SELECT col_type_is('v_ui_rpt_cat_result', 'inp_options', 'json', 'Column inp_options should be json');
 SELECT col_type_is('v_ui_rpt_cat_result', 'rpt_stats', 'json', 'Column rpt_stats should be json');
 SELECT col_type_is('v_ui_rpt_cat_result', 'addparam', 'json', 'Column addparam should be json');
+SELECT col_type_is('v_ui_rpt_cat_result', 'isvalidated', 'bool', 'Column isvalidated should be bool');
 
 SELECT * FROM finish();
 

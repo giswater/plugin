@@ -32,14 +32,13 @@ from ..ui.ui_manager import GwAdminUi, GwAdminDbProjectUi, GwAdminRenameProjUi, 
     GwAdminFieldsUi, GwCredentialsUi, GwReplaceInFileUi, \
     GwAdminMarkdownGeneratorUi  # noqa: F401
     
-from .i18n_languages import GwI18NManageLanguagesDialog
+from .i18n.language_packages_dialog import GwI18NManageLanguagesDialog
+from .i18n import language_shared_functions as i18n_service
 
 from ..utils import tools_gw
 from ... import global_vars
-from .i18n_generator import GwI18NGenerator
 from .markdown_generator import GwAdminMarkdownGenerator
-from .i18n_manager import GwSchemaI18NManager
-from .i18n_hot_update import GwAdminI18NHotUpdate
+from .i18n.hot_update_dialog import GwAdminI18NHotUpdate
 from .import_osm import GwImportOsm
 from ...libs import lib_vars, tools_qt, tools_qgis, tools_log, tools_db, tools_os
 from ..ui.docker import GwDocker
@@ -58,23 +57,27 @@ from ...giswater_admin.engine import (
     resolve_network_graph,
 )
 from ...giswater_admin.engine.network_update import LockstepStep
+from ...giswater_admin.engine.version_guard import (
+    assert_network_no_downgrade,
+    assert_no_downgrade,
+)
 from ...giswater_admin.log_format import format_elapsed_mmss, format_lbl_time_status
 from ._qt_db_adapter import QtDbAdapter
 from . import _admin_catalog as admin_catalog
 
 
 def _admin_version_tuple(version) -> tuple:
-    """Major.minor.patch as ints for ordering; 4+ segments use first 3 (same as UI truncation)."""
-    parts = str(version).split('.')
-    if len(parts) >= 4:
-        parts = parts[:3]
+    """Major.minor.patch as ints for ordering; pad to 3 (same as engine _parse_version)."""
+    parts = str(version or "0.0.0").split(".")
     nums = []
-    for p in parts:
+    for p in parts[:3]:
         try:
             nums.append(int(p))
         except ValueError:
             nums.append(0)
-    return tuple(nums) if nums else (0,)
+    while len(nums) < 3:
+        nums.append(0)
+    return tuple(nums)
 
 
 _GIS_FORM_WIDGETS = (
@@ -371,7 +374,7 @@ class GwAdminButton:
             self.error_count += 1
         self.manage_process_result(project_name_schema, project_type, is_test=is_test)
         if result.ok and admin_catalog.schema_exists("multilang"):
-            from .i18n_baseline_seed import multilang_user_param_provision_sql
+            from .i18n.multilang_seed_sql import multilang_user_param_provision_sql
 
             tools_db.execute_sql(
                 multilang_user_param_provision_sql(
@@ -891,6 +894,14 @@ class GwAdminButton:
             "ORDER BY id DESC LIMIT 1"
         )
         current_version = row[0] if row and row[0] else "0.0.0"
+        err = assert_no_downgrade(
+            str(current_version),
+            str(self.plugin_version),
+            label=f"schema '{schema_name}'",
+        )
+        if err:
+            tools_qgis.show_warning(err)
+            return
         bp = BuildParams(
             schema_name=schema_name,
             srid=str(row[2] if row and row[2] else self.project_epsg or "25831"),
@@ -955,8 +966,14 @@ class GwAdminButton:
             )
             return
 
+        graph = resolve_network_graph(anchor, admin_catalog._tools_db_fetch)
+        err = assert_network_no_downgrade(graph, str(self.plugin_version))
+        if err:
+            tools_qgis.show_warning(err)
+            return
+
         plan = plan_lockstep(
-            resolve_network_graph(anchor, admin_catalog._tools_db_fetch),
+            graph,
             self.sql_dir,
             str(self.plugin_version),
         )
@@ -1097,6 +1114,22 @@ class GwAdminButton:
                     parameter=peers,
                 )
                 return
+
+        current_for_guard = str(self.project_version or "0.0.0")
+        if schema_name:
+            row_guard = tools_db.get_row(
+                f"SELECT giswater FROM {schema_name}.sys_version ORDER BY id DESC LIMIT 1"
+            )
+            if row_guard and row_guard[0]:
+                current_for_guard = str(row_guard[0])
+        err = assert_no_downgrade(
+            current_for_guard,
+            str(self.plugin_version),
+            label=f"schema '{schema_name}'" if schema_name else "schema",
+        )
+        if err:
+            tools_qgis.show_warning(err)
+            return
 
         msg = "Are you sure to update the project schema to last version?"
         title = "Info"
@@ -1314,8 +1347,7 @@ class GwAdminButton:
         self.dlg_readsql_create_project.btn_language.setToolTip(tools_qt.tr(msg))
 
         # Populate combo with all locales
-        status, sqlite_cur = tools_gw.create_sqlite_conn("locales")
-        list_locale = self._select_active_locales(sqlite_cur)
+        list_locale = self._select_active_locales()
         if global_vars.gw_dev_mode is True:
             list_locale.append(["no_TR", "Hardcoded (No translation)"])
         tools_qt.fill_combo_values(self.cmb_locale, list_locale)
@@ -1805,7 +1837,7 @@ class GwAdminButton:
     def _ensure_language_packages_for_connection(self, *, force: bool = False) -> None:
         """Start automatic language-file provisioning for the active DB connection."""
         try:
-            from .i18n_provision import ensure_language_packages_after_connection
+            from .i18n.auto_language_provision import ensure_language_packages_after_connection
             ensure_language_packages_after_connection(force=force)
         except Exception as exc:
             msg = "Automatic language provisioning failed to start: {0}"
@@ -2092,8 +2124,8 @@ class GwAdminButton:
 
         # DEPRECATED tab_dev — widgets/handlers kept for migration to another repo.
         # See: btn_create_utils, btn_update_utils, cmb_utils_ws/ud, btn_create_cibs,
-        # btn_adapt_cibs, cmb_cibs, btn_i18n, btn_translation, btn_create_qgis_template,
-        # btn_markdown_generator (tab_dev in admin.ui).
+        # btn_adapt_cibs, cmb_cibs, btn_create_qgis_template, btn_markdown_generator
+        # (tab_dev in admin.ui).
         tools_qt.remove_tab(self.dlg_readsql.tab_main, "tab_dev")
 
         for _gb_name in ('groupBox_2', 'groupBox', 'groupBox_cibs'):
@@ -2185,8 +2217,6 @@ class GwAdminButton:
 
         # i18n
         self.dlg_readsql.btn_manage_languages.clicked.connect(partial(self._manage_languages_hot_update))
-        self.dlg_readsql.btn_i18n.clicked.connect(partial(self._i18n_manager))
-        self.dlg_readsql.btn_translation.clicked.connect(partial(self._i18n_generator))
 
         # Markdown generator
         self.dlg_readsql.btn_markdown_generator.clicked.connect(partial(self._markdown_generator))
@@ -2225,20 +2255,6 @@ class GwAdminButton:
 
         qm_gen = GwAdminMarkdownGenerator()
         qm_gen.init_dialog()
-
-    def _i18n_manager(self):
-
-        manager = GwSchemaI18NManager()
-        manager.init_dialog()
-        dict_info = tools_gw.get_project_info(self._get_schema_name())
-        manager.pass_schema_info(dict_info)
-
-    def _i18n_generator(self):
-
-        generator = GwI18NGenerator()
-        generator.init_dialog()
-        dict_info = tools_gw.get_project_info(self._get_schema_name())
-        generator.pass_schema_info(dict_info)
 
     def _manage_languages_hot_update(self):
         """ Initialize the language functionalities """
@@ -2913,13 +2929,12 @@ class GwAdminButton:
     def _populate_language_combo_create_project(self):
         """Populate language combo for create project"""
         self.cmb_locale.clear()
-        status, cursor = tools_gw.create_sqlite_conn("locales")
-        if not status or cursor is None:
+        rows_raw = i18n_service.list_locales_for_combo(flag="active")
+        if rows_raw is None:
             msg = "Config database file not found"
             tools_qgis.show_warning(self.dlg_readsql_create_project, msg)
             return
-        cursor.execute("SELECT locale, name FROM locales WHERE active = 1 ORDER BY name")
-        rows = [[locale, name] for locale, name in cursor.fetchall()]
+        rows = [[locale, name] for locale, name in rows_raw]
         if not rows:
             msg = "No active locales configured"
             tools_qgis.show_warning(self.dlg_readsql_create_project, msg)
@@ -3211,6 +3226,8 @@ class GwAdminButton:
         tools_qt.set_widget_text(self.dlg_readsql_create_project, self.cmb_create_project_type, project_type)
         self._set_project_type_paths(project_type)
         self.connection_name = str(tools_qt.get_text(self.dlg_readsql, self.cmb_connection))
+        # Refresh after restore: session name is stale and combo may not change (no signal)
+        self._apply_dev_project_name()
 
         self._update_time_elapsed("", self.dlg_readsql_create_project)
 
@@ -3492,7 +3509,7 @@ class GwAdminButton:
         result = tools_qt.show_question(msg, "Info", force_action=True, msg_params=msg_params)
         if result:
             if schema == "multilang":
-                from .i18n_baseline_seed import (
+                from .i18n.multilang_seed_sql import (
                     multilang_user_param_provision_sql,
                     multilang_views_provision_sql,
                     run_multilang_function_sql,
@@ -3541,7 +3558,7 @@ class GwAdminButton:
 
     def _multilang_stored_seeded_schemas(self) -> set[str]:
         """Project types recorded at last multilang seed (prefer addparam)."""
-        from .i18n_baseline_seed import (
+        from .i18n.multilang_seed_sql import (
             fetch_seeded_project_types_from_multilang,
             parse_stored_seeded_project_types,
         )
@@ -3569,13 +3586,13 @@ class GwAdminButton:
 
     def _multilang_current_seed_targets(self, inventory_rows=None) -> set[str]:
         """Project types that should be present in multilang seed (ws/ud/am/cm)."""
-        from .i18n_baseline_seed import translatable_project_types_with_baseline
+        from .i18n.multilang_seed_sql import translatable_project_types_with_baseline
 
         return set(translatable_project_types_with_baseline(self.sql_dir))
 
     def _multilang_schemas_out_of_sync(self, inventory_rows=None) -> bool:
         """True when project types differ from the last multilang seed."""
-        from .i18n_baseline_seed import seeded_project_types_out_of_sync
+        from .i18n.multilang_seed_sql import seeded_project_types_out_of_sync
 
         if not admin_catalog.schema_exists("multilang"):
             return False
@@ -3585,7 +3602,7 @@ class GwAdminButton:
 
     def _multilang_baseline_changed(self) -> bool:
         """True when bundled en_US baseline SQL differs from the last seed."""
-        from .i18n_baseline_seed import baseline_needs_reseed
+        from .i18n.multilang_seed_sql import baseline_needs_reseed
 
         if not admin_catalog.schema_exists("multilang"):
             return False
@@ -4344,11 +4361,11 @@ class GwAdminButton:
                f"WHERE parameter = 'qgis_composers_folderpath' AND cur_user = current_user")
         tools_db.execute_sql(sql, commit=self.dev_commit)
 
-    def _select_active_locales(self, sqlite_cursor):
-
-        sql = "SELECT locale as id, name as idval FROM locales WHERE active = 1"
-        sqlite_cursor.execute(sql)
-        return sqlite_cursor.fetchall()
+    def _select_active_locales(self):
+        rows = i18n_service.list_locales_for_combo(flag="active")
+        if rows is None:
+            return []
+        return list(rows)
 
     def _save_custom_sql_path(self, dialog):
 
@@ -4698,7 +4715,7 @@ class GwAdminButton:
             msg = "Schema multilang already exists."
             tools_qgis.show_message(msg, Qgis.MessageLevel.Info)
             return False
-        from .i18n_baseline_seed import invalidate_baseline_fingerprint_cache
+        from .i18n.multilang_seed_sql import invalidate_baseline_fingerprint_cache
         invalidate_baseline_fingerprint_cache(self.sql_dir)
         bp = BuildParams(
             schema_name='multilang',
@@ -4750,7 +4767,7 @@ class GwAdminButton:
 
     def _update_i18n(self, on_done=None, manage_schemas_dlg=None):
         """Run multilang schema update and re-seed baseline translations."""
-        from .i18n_baseline_seed import invalidate_baseline_fingerprint_cache
+        from .i18n.multilang_seed_sql import invalidate_baseline_fingerprint_cache
         invalidate_baseline_fingerprint_cache(self.sql_dir)
         row = tools_db.get_row(
             "SELECT giswater, language, epsg FROM multilang.sys_version "

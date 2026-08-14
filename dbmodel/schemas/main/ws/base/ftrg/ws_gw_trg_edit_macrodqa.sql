@@ -39,9 +39,12 @@ BEGIN
 
 			IF NEW.the_geom IS NOT NULL THEN
 				IF NEW.expl_id IS NULL THEN
-					expl_id_int := (SELECT expl_id FROM exploitation WHERE active IS TRUE AND ST_DWithin(NEW.the_geom, exploitation.the_geom,0.001) LIMIT 1);
+					expl_id_int := (SELECT array_agg(expl_id) FROM exploitation WHERE active IS TRUE AND ST_DWithin(NEW.the_geom, exploitation.the_geom,0.001) LIMIT 1);
 					IF (expl_id_int IS NULL) THEN
-						expl_id_int := (SELECT "value" FROM config_param_user WHERE "parameter"='edit_exploitation_vdefault' AND "cur_user"="current_user"());
+						SELECT ARRAY["value"::integer] INTO expl_id_int
+						FROM config_param_user
+						WHERE "parameter"='edit_exploitation_vdefault' AND "cur_user"="current_user"()
+							AND "value" IS NOT NULL AND btrim("value") <> '';
 					END IF;
 				END IF;
 			END IF;
@@ -57,6 +60,16 @@ BEGIN
 		END IF;
 		IF NEW.code IS NULL THEN
 			NEW.code := v_macrodqa_id::text;
+		END IF;
+
+		IF expl_id_int IS NULL OR expl_id_int = '{}'::integer[] THEN
+			expl_id_int := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
+		END IF;
+		IF NEW.sector_id IS NULL OR NEW.sector_id = '{}'::integer[] THEN
+			NEW.sector_id := ARRAY[0];
 		END IF;
 
         -- FEATURE INSERT
@@ -81,6 +94,17 @@ BEGIN
 		IF v_view_name = 'EDIT' AND NEW.the_geom IS NOT NULL AND NEW.code IS NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'MACRODQA', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
+
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
+		END IF;
+		IF NEW.sector_id IS NULL OR NEW.sector_id = '{}'::integer[] THEN
+			NEW.sector_id := ARRAY[0];
+		END IF;
+
 		UPDATE macrodqa
 		SET macrodqa_id=NEW.macrodqa_id, code=NEW.code, "name"=NEW.name, descript=NEW.descript, active=NEW.active, expl_id=NEW.expl_id, sector_id=NEW.sector_id, 
 		muni_id=NEW.muni_id, stylesheet=NEW.stylesheet::json, link=NEW.link, lock_level=NEW.lock_level, addparam=NEW.addparam::json, updated_at=now(), updated_by = current_user

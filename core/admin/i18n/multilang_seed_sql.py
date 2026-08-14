@@ -1,10 +1,15 @@
 """
-Parse bundled i18n baseline SQL (UPDATE … FROM (VALUES …)) and build
-INSERT statements for the multilang satellite schema.
+This file is part of Giswater
+The program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the License,
+or (at your option) any later version.
 
-Initial scope: en_US only; baselines are loaded per project_type (ws, ud, am, cm).
+Parse bundled baseline SQL and build INSERT/DELETE statements that seed
+the multilang satellite schema.
+
+Baselines are loaded per project_type (ws, ud, am, cm). Also provides
+locale-name helpers and multilang admin-function SQL runners.
 """
-
 from __future__ import annotations
 
 import hashlib
@@ -29,6 +34,8 @@ _I18N_BASELINE_ROOTS: dict[str, str] = {
 TRANSLATABLE_PROJECT_TYPES: frozenset[str] = frozenset(_I18N_BASELINE_ROOTS.keys())
 
 # Baseline SQL file stem -> multilang schema table (mains_language_ui.md scope).
+# Adding a new entry also requires a matching extraction branch in
+# blocks_to_multilang_rows.
 BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
     "dbconfig_form_fields": "config_form_fields",
     "dbconfig_form_fields_feat": "config_form_fields",
@@ -507,11 +514,9 @@ def blocks_to_multilang_rows(
     *,
     project_type: str = "",
     lang: str = SEED_LANGUAGE_ID,
-    # Backward-compatible alias (ignored when project_type is set).
-    schema_name: str | None = None,
 ) -> list[MultilangRow]:
     rows: list[MultilangRow] = []
-    stamped_type = str(project_type or schema_name or "")
+    stamped_type = str(project_type or "")
     for block in blocks:
         for raw in block.rows:
             values: dict[str, Any] = {
@@ -548,40 +553,11 @@ def blocks_to_multilang_rows(
                     "formname": _cell(raw, block.value_aliases, "formname"),
                     "source": _cell(raw, block.value_aliases, "tabname"),
                 })
-            elif table == "dbconfig_form_tableview":
-                values.update({
-                    "source": _cell(raw, block.value_aliases, "objectname"),
-                    "columnname": _cell(raw, block.value_aliases, "columnname"),
-                })
-            elif table == "dbconfig_typevalue":
-                values.update({
-                    "formname": _cell(raw, block.value_aliases, "formname"),
-                    "source": _cell(raw, block.value_aliases, "source"),
-                })
-            elif table == "dbtypevalue":
-                values.update({
-                    "source": _cell(raw, block.value_aliases, "id"),
-                    "typevalue": _cell(raw, block.value_aliases, "typevalue"),
-                })
             elif table == "dbconfig_param_system":
                 values["source"] = _cell(raw, block.value_aliases, "parameter")
-            elif table in ("dbparam_user", "dbmessage", "dbfprocess", "dbconfig_report",
-                           "dbconfig_toolbox", "dbfunction", "dbtable", "dbconfig_visit_parameter"):
+            elif table in ("dbparam_user", "dbmessage", "dbfprocess", "dbfunction", "dbtable"):
                 key = "fid" if table == "dbfprocess" else "id"
                 values["source"] = _cell(raw, block.value_aliases, key)
-            elif table == "dbconfig_csv":
-                values["source"] = _cell(raw, block.value_aliases, "fid")
-            elif table == "dblabel":
-                values["source"] = _cell(raw, block.value_aliases, "id")
-            elif table == "dbplan_price":
-                values["source"] = _cell(raw, block.value_aliases, "id")
-            elif table == "dbjson":
-                hint = block.json_hints[0] if block.json_hints else next(iter(block.set_targets), "text")
-                values.update({
-                    "hint": hint,
-                    "source": _cell(raw, block.value_aliases, "id"),
-                    "text": _cell(raw, block.value_aliases, "text"),
-                })
             else:
                 continue
 
@@ -590,8 +566,6 @@ def blocks_to_multilang_rows(
                 if not i18n_col:
                     continue
                 if table == "dbconfig_form_fields_json" and i18n_col == "text":
-                    values["text"] = _cell(raw, block.value_aliases, v_alias)
-                elif table == "dbjson" and i18n_col == "text":
                     values["text"] = _cell(raw, block.value_aliases, v_alias)
                 else:
                     values[i18n_col] = _cell(raw, block.value_aliases, v_alias)
@@ -646,7 +620,7 @@ def build_insert_sql(
             literals = []
             for col in columns:
                 val = row.values.get(col)
-                as_json = col == "text" and table in ("dbjson", "config_form_fields_json")
+                as_json = col == "text" and table == "config_form_fields_json"
                 literals.append(_sql_literal(val, as_json=as_json))
             values_sql.append(f"({', '.join(literals)})")
 
@@ -897,12 +871,15 @@ def delete_project_type_seed_sql(project_types: Iterable[str]) -> list[str]:
 
 
 def _locale_display_name(lang_id: str, folder: str) -> str | None:
-    """Return display name from bundled config.sqlite locales table, if available."""
+    """Return display name from bundled locales.sqlite locales table, if available."""
     try:
         import sqlite3
 
-        plugin_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
-        db_path = os.path.join(plugin_dir, "resources", "gis", "config.sqlite")
+        # core/admin/i18n -> plugin root is three levels up.
+        plugin_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir)
+        )
+        db_path = os.path.join(plugin_dir, "resources", "gis", "locales.sqlite")
         if not os.path.isfile(db_path):
             return None
         with sqlite3.connect(db_path) as conn:
@@ -1067,7 +1044,7 @@ def run_multilang_function_sql(
     log_sql: bool = False,
 ) -> tuple[dict[str, Any] | None, bool]:
     """Execute a multilang admin function returning json and interpret its status."""
-    from ...libs import lib_vars, tools_db, tools_log
+    from ....libs import lib_vars, tools_db, tools_log
 
     json_result: dict[str, Any] | None = None
 
@@ -1117,7 +1094,7 @@ def run_multilang_function_sql(
         msg = "Multilang function failed"
         tools_log.log_warning(msg, parameter=err)
         if show_exception and not is_thread:
-            from ..utils import tools_gw
+            from ...utils import tools_gw
 
             tools_gw.manage_json_exception(json_result, sql=sql, is_thread=is_thread)
         return json_result, False
@@ -1129,7 +1106,7 @@ def run_multilang_function_sql(
         msg = "Multilang function returned unexpected status"
         tools_log.log_warning(msg, parameter=err)
         if show_exception and not is_thread:
-            from ..utils import tools_gw
+            from ...utils import tools_gw
 
             tools_gw.manage_json_exception(json_result, sql=sql, is_thread=is_thread)
         return json_result, False

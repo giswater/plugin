@@ -519,7 +519,8 @@ SELECT DISTINCT ON (rpt_cat_result.result_id)
 	rpt_cat_result.network_stats,
 	rpt_cat_result.inp_options,
 	rpt_cat_result.rpt_stats,
-	rpt_cat_result.addparam
+	rpt_cat_result.addparam,
+	rpt_cat_result.isvalidated
 FROM rpt_cat_result
 	JOIN selector_expl s ON (s.expl_id = ANY(rpt_cat_result.expl_id) AND s.cur_user = CURRENT_USER) OR rpt_cat_result.expl_id = ARRAY[NULL::integer]
 	LEFT JOIN inp_typevalue t1 ON rpt_cat_result.status::text = t1.id::text

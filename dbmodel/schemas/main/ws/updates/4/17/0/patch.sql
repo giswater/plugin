@@ -656,7 +656,8 @@ SELECT DISTINCT ON (rpt_cat_result.result_id)
 	rpt_cat_result.network_stats,
 	rpt_cat_result.inp_options,
 	rpt_cat_result.rpt_stats,
-	rpt_cat_result.addparam
+	rpt_cat_result.addparam,
+	rpt_cat_result.isvalidated
 FROM rpt_cat_result
 	JOIN selector_expl s ON (s.expl_id = ANY(rpt_cat_result.expl_id) AND s.cur_user = CURRENT_USER) OR rpt_cat_result.expl_id = ARRAY[NULL::integer]
 	LEFT JOIN inp_typevalue t1 ON rpt_cat_result.status::text = t1.id::text
@@ -675,3 +676,48 @@ FOR EACH ROW EXECUTE FUNCTION gw_trg_ui_rpt_cat_result();
 UPDATE config_param_system
 	SET layoutorder=12
 	WHERE "parameter"='admin_crm_schema';
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('node form','utils','tbl_doc_x_node','node_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('node form','utils','tbl_doc_x_node','doc_name',8,true,'Document Name');
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('connec form','utils','tbl_doc_x_connec','connec_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('connec form','utils','tbl_doc_x_connec','doc_name',8,true,'Document Name');
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('arc form','utils','tbl_doc_x_arc','arc_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('arc form','utils','tbl_doc_x_arc','doc_name',8,true,'Document Name');
+
+
+DROP VIEW IF EXISTS ve_macroexploitation;
+
+ALTER TABLE macroexploitation DROP COLUMN IF EXISTS the_geom;
+
+CREATE OR REPLACE VIEW ve_macroexploitation
+AS WITH sel_expl AS (
+         SELECT selector_expl.expl_id
+           FROM selector_expl
+          WHERE selector_expl.cur_user = CURRENT_USER
+        )
+ SELECT DISTINCT ON (m.macroexpl_id) m.macroexpl_id,
+    m.code,
+    m.name,
+    m.descript,
+    m.lock_level,
+    m.created_at,
+    m.created_by,
+    m.updated_at,
+    m.updated_by
+   FROM macroexploitation m
+     JOIN exploitation e USING (macroexpl_id)
+  WHERE (EXISTS ( SELECT 1
+           FROM sel_expl
+          WHERE sel_expl.expl_id = e.expl_id)) AND m.active IS TRUE;
+
+ALTER TABLE inp_typevalue DISABLE TRIGGER gw_trg_typevalue_config_fk;
+DELETE FROM inp_typevalue WHERE typevalue = 'inp_options_networkmode' AND id = '5';
+ALTER TABLE inp_typevalue ENABLE TRIGGER gw_trg_typevalue_config_fk;

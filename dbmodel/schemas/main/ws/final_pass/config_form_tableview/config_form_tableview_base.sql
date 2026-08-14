@@ -535,6 +535,7 @@ UPDATE config_form_tableview SET alias = 'Expl id' WHERE columnname = 'expl_id' 
 UPDATE config_form_tableview SET alias = 'Export options' WHERE columnname = 'export_options' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Inp options' WHERE columnname = 'inp_options' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Iscorporate' WHERE columnname = 'iscorporate' AND objectname = 'v_ui_rpt_cat_result';
+UPDATE config_form_tableview SET alias = 'Isvalidated' WHERE columnname = 'isvalidated' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Network stats' WHERE columnname = 'network_stats' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Network type' WHERE columnname = 'network_type' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Result id' WHERE columnname = 'result_id' AND objectname = 'v_ui_rpt_cat_result';

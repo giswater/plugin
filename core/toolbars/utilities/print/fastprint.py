@@ -95,7 +95,7 @@ class GwFastprint:
         self._check_whidget_exist(self.dlg_composer)
         self._load_composer_values(self.dlg_composer)
 
-        tools_gw.open_dialog(self.dlg_composer, dlg_name='fastprint')
+        tools_gw.open_dialog(self.dlg_composer, dlg_name='print')
 
         # Control if no have composers
         if composers_list != '"{}"':

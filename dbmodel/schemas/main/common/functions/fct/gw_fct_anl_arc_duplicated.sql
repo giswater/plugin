@@ -62,45 +62,48 @@ BEGIN
                        "data":{"function":"3040", "fid":"'||v_fid||'", "criticity":"4", "is_process":true, "is_header":"true"}}$$)';
 
 	-- Computing process
-	IF v_selectionmode = 'previousSelection' THEN
-		IF v_checktype = 'geometry' THEN
-			v_query_text := 'HAVING BOOL_OR(va1.arc_id = ANY(' || quote_literal(v_array) || ')) OR BOOL_OR(va2.arc_id = ANY(' || quote_literal(v_array) || '))';
-		ELSE
-			v_query_text := 'AND BOOL_OR(va.arc_id = ANY(' || quote_literal(v_array) || '))';
-		END IF;
-	ELSE
-		v_query_text := '';
-	END IF;
-
 	IF v_checktype='geometry' THEN
+		IF v_selectionmode = 'previousSelection' THEN
+			v_query_text := 'WHERE va1.arc_id = ANY(' || quote_literal(v_array) || ') AND va2.arc_id = ANY(' || quote_literal(v_array) || ')';
+		ELSE
+			v_query_text := '';
+		END IF;
+
 		EXECUTE format($sql$
 			CREATE TEMP TABLE temp_anl_arc AS
 			SELECT a.arc_id, a.arccat_id, a.state, ta.arc_id_aux, a.node_1, a.node_2, a.expl_id, a.the_geom
 			FROM (
 				SELECT va1.arc_id, MIN(va2.arc_id) AS arc_id_aux
 				FROM %I va1
-				JOIN %I va2
-					ON va1.arc_id <> va2.arc_id
-					AND va1.the_geom && va2.the_geom
-					AND ST_Equals(va1.the_geom, va2.the_geom)
+				JOIN %I va2 ON va1.the_geom && va2.the_geom
+						AND ST_Equals(va1.the_geom, va2.the_geom)
 				GROUP BY va1.arc_id
+				HAVING COUNT(*) > 1
 				%s
 			) ta
-			JOIN arc a ON a.arc_id = ta.arc_id
+			JOIN arc a ON ta.arc_id = a.arc_id
 			WHERE EXISTS (SELECT 1 FROM vf_arc vfa WHERE vfa.arc_id = a.arc_id)
 		$sql$, v_worklayer, v_worklayer, v_query_text);
+
 	ELSIF v_checktype='finalNodes' THEN
+		IF v_selectionmode = 'previousSelection' THEN
+			v_query_text := 'AND BOOL_OR(va.arc_id = ANY(' || quote_literal(v_array) || '))';
+		ELSE
+			v_query_text := '';
+		END IF;
+
 		EXECUTE format($sql$
 			CREATE TEMP TABLE temp_anl_arc AS
 			SELECT a.arc_id, a.arccat_id, a.state, ta.arc_id_aux, a.node_1, a.node_2, a.expl_id, a.the_geom
 			FROM (
-				SELECT va.node_1, va.node_2, min(va.arc_id) AS arc_id_aux
+				SELECT least(va.node_1,va.node_2) AS least_node_1, greatest(va.node_1,va.node_2) AS greatest_node_2, min(va.arc_id) AS arc_id_aux
 				FROM %I va
-				GROUP BY va.node_1, va.node_2
+				GROUP BY least(va.node_1,va.node_2), greatest(va.node_1,va.node_2)
 				HAVING COUNT(*) > 1
 				%s
 			) ta
-			JOIN arc a ON a.node_1 = ta.node_1 AND a.node_2 = ta.node_2
+			JOIN arc a ON (a.node_1 = ta.least_node_1 AND a.node_2 = ta.greatest_node_2)
+					OR (a.node_1 = ta.greatest_node_2 AND a.node_2 = ta.least_node_1)
 			WHERE EXISTS (SELECT 1 FROM vf_arc vfa WHERE vfa.arc_id = a.arc_id)
 		$sql$, v_worklayer, v_query_text);
 	END IF;

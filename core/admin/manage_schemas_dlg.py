@@ -18,7 +18,7 @@ from ..ui.ui_manager import GwAdminManageSchemasUi
 from ...libs import tools_qt
 from . import _admin_catalog as admin_catalog
 from ..utils import tools_gw
-from .i18n_multilang_languages import GwI18NMultilangLanguagesDialog
+from .i18n.multilang_languages_dialog import GwI18NMultilangLanguagesDialog
 
 _NETWORK_COLUMNS = (
     "Schema", "Kind", "Version", "Profile", "Linked", "Created", "Last update",
@@ -374,7 +374,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self.btn_refresh.setEnabled(False)
         try:
             # Re-read baseline fingerprint so Update reflects file changes on disk.
-            from .i18n_baseline_seed import invalidate_baseline_fingerprint_cache
+            from .i18n.multilang_seed_sql import invalidate_baseline_fingerprint_cache
             invalidate_baseline_fingerprint_cache(getattr(self.admin, "sql_dir", None))
 
             update_info = getattr(self.admin, "_manage_schemas_update_system_info", None)
