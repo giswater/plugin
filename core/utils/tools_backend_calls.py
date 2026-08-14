@@ -633,7 +633,6 @@ def refresh_attribute_table(**kwargs):
         feature = '"tableName":"' + str(layer_name) + '", "id":"", "isLayer":true'
         extras = f'"infoType":"{qgis_project_infotype}"'
         body = tools_gw.create_body(feature=feature, extras=extras)
-        tools_gw.apply_layer_field_aliases(layer, layer_name)
         result = tools_gw.execute_procedure('gw_fct_getinfofromid', body)
         if not result:
             continue
@@ -651,6 +650,9 @@ def refresh_attribute_table(**kwargs):
             if field['widgetcontrols'] is not None and field['widgetcontrols'].get('setMultiline'):
                 kwargs = {"layer": layer, "field": field, "fieldIndex": field_idx}
                 set_column_multiline(**kwargs)
+            # Set alias column
+            if field['label']:
+                layer.setFieldAlias(field_idx, field['label'])
 
             # Set field constraints
             if field['widgetcontrols'] and 'setQgisConstraints' in field['widgetcontrols']:
