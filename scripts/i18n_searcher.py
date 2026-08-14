@@ -422,11 +422,25 @@ def _wrap_assignment_text(field_name: str, text: str) -> str:
     return f'{field_name} = """{text}"""'
 
 
+def _decode_python_string_segment(quote: str, part: str) -> str:
+    """Evaluate one quoted Python segment so escapes match runtime.
+
+    ``msg = "Hello\\nWorld"`` must yield a real newline, the same string
+    ``tools_qt.tr`` looks up. Raw file text between quotes is not that string.
+    """
+    try:
+        decoded = ast.literal_eval(f"{quote}{part}{quote}")
+    except (SyntaxError, ValueError):
+        return part
+    return decoded if isinstance(decoded, str) else part
+
+
 def _extract_python_assignment_message(content: str) -> Optional[str]:
     """Extract one whole message from a msg/message/title assignment.
 
-    Keeps embedded newlines / ``\\n`` escapes as part of the same message
-    (including parenthesized concatenations and triple-quoted literals).
+    Keeps embedded newlines as part of the same message (parenthesized
+    concatenations and triple-quoted literals). Python escapes such as
+    ``\\n`` / ``\\t`` are decoded so the catalog key matches runtime.
     """
     match = _ASSIGN_PREFIX_RE.match(content)
     if not match:
@@ -438,7 +452,9 @@ def _extract_python_assignment_message(content: str) -> Optional[str]:
     segments = _QUOTED_SEGMENTS_RE.findall(rhs)
     if not segments:
         return None
-    return "".join(part for _quote, part in segments)
+    return "".join(
+        _decode_python_string_segment(quote, part) for quote, part in segments
+    )
 
 
 _FIELD_BY_KEY = {key: _parse_field_from_key(key) for key in _KEYS}
