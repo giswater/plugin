@@ -22,7 +22,7 @@ from qgis.PyQt.QtWidgets import (
 from ...ui.ui_manager import GwI18NManageLanguagesUi
 from ...utils import tools_gw
 from ....libs import lib_vars, tools_qt
-from .multilang_seed_sql import normalize_language_folder
+from .multilang_seed_sql import normalize_language_folder, normalize_language_id
 from . import language_shared_functions as i18n_service
 from ...threads.task import GwTask
 
@@ -424,6 +424,87 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
         if not i18n_service.language_files_exist(locale):
             self._on_download()
 
+    def update_schemas(self, locale: str) -> None:
+        from .. import _admin_catalog as admin_catalog
+        from .hot_update_dialog import apply_schema_hot_update
+
+        key = normalize_language_id(locale)
+        if not key:
+            return
+
+        matching = []
+        try:
+            for row in admin_catalog.fetch_schema_translation_info():
+                language = str(row.get("language") or "")
+                if normalize_language_id(language) != key:
+                    continue
+                matching.append(row)
+        except Exception:
+            return
+
+        if not matching:
+            return
+
+        schema_names = [str(row.get("schema") or "?") for row in matching]
+        msg = "Language ({0}) is used by {1} schema(s): {2}. Do you want to hot update them now?"
+        title = "Hot update schemas?"
+        msg_params = (locale, len(matching), ", ".join(schema_names))
+        if not tools_qt.show_question(msg, title, msg_params=msg_params):
+            return
+
+        add_tab_data = True
+        dlg_qm = getattr(self._manager, "dlg_qm", None)
+        chk_add_tab_data = getattr(dlg_qm, "chk_add_tab_data", None) if dlg_qm is not None else None
+        if chk_add_tab_data is not None:
+            add_tab_data = tools_qt.is_checked(dlg_qm, chk_add_tab_data)
+        dev_commit = getattr(self._manager, "dev_commit", None)
+        if dev_commit is None:
+            dev_commit = tools_gw.get_config_parser(
+                'system', 'force_commit', "user", "init", prefix=True,
+            )
+
+        updated = []
+        failed = []
+        self.setEnabled(False)
+        try:
+            for row in matching:
+                schema_name = str(row.get("schema") or "")
+                kind = str(row.get("kind") or "")
+                if not schema_name:
+                    continue
+                msg = "Hot updating {0}..."
+                msg_params = (schema_name,)
+                self.lbl_downloading.setText(tools_qt.tr(msg, list_params=msg_params))
+                ok, errors = apply_schema_hot_update(
+                    schema_name,
+                    locale,
+                    kind,
+                    add_tab_data=add_tab_data,
+                    dev_commit=dev_commit,
+                )
+                if ok:
+                    updated.append(schema_name)
+                else:
+                    detail = ", ".join(errors) if errors else schema_name
+                    failed.append(f"{schema_name}: {detail}")
+        finally:
+            self.lbl_downloading.setText("")
+            self.setEnabled(True)
+
+        refresh = getattr(self._manager, "_refresh_schema_table", None)
+        if callable(refresh):
+            refresh()
+
+        if failed:
+            msg = "Hot update finished with errors. Updated: {0}. Failed: {1}."
+            msg_params = (", ".join(updated) or "-", "; ".join(failed))
+            tools_qt.show_warning_box(msg, msg_params=msg_params)
+            return
+
+        msg = "Hot update completed for {0} schema(s) using language ({1})."
+        msg_params = (len(updated), locale)
+        tools_qt.show_info_box(msg, msg_params=msg_params)
+
     def load_locales(self) -> None:
         self.possible_locales = []
         self._offline = False
@@ -552,3 +633,5 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
             msg = "Language files updated and locale activated ({0})."
             msg_params = (locale,)
             tools_qt.show_info_box(msg, msg_params=msg_params)
+        
+        self.update_schemas(locale)

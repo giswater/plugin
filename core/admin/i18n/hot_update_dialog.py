@@ -885,21 +885,14 @@ class GwAdminI18NHotUpdate:
             completer, model, widget, sorted(display_list, key=lambda x: x["idval"]),
         )
 
-    def _local_i18n_dir(self, kind: str, locale: str) -> str:
-        schema_path = I18N_SCHEMAS.get(kind)
-        if not schema_path:
-            return ""
-        folder = normalize_language_folder(locale)
-        return os.path.join(str(i18n_service.dbmodel_dir()), schema_path, folder)
-
     def _local_language_files_exist(self, locale: str, kind: str) -> bool:
-        folder = self._local_i18n_dir(kind, locale)
+        folder = _local_i18n_dir(kind, locale)
         if not folder or not os.path.isdir(folder):
             return False
         return any(name.endswith('.sql') for name in os.listdir(folder))
 
     def _discover_dbtables(self, kind: str, locale: str) -> list[str]:
-        i18n_dir = self._local_i18n_dir(kind, locale)
+        i18n_dir = _local_i18n_dir(kind, locale)
         if not i18n_dir or not os.path.isdir(i18n_dir):
             return []
         return sorted(
@@ -972,11 +965,11 @@ class GwAdminI18NHotUpdate:
 
         dbtables = self._resolve_dbtables()
         if not dbtables:
-            folder = self._local_i18n_dir(self.project_type, self.language)
+            folder = _local_i18n_dir(self.project_type, self.language)
             return False, [folder or self.project_type]
 
         messages = []
-        i18n_dir = self._local_i18n_dir(self.project_type, self.language)
+        i18n_dir = _local_i18n_dir(self.project_type, self.language)
         if not i18n_dir or not os.path.isdir(i18n_dir):
             messages.append(i18n_dir or self.project_type)
             return False, messages
@@ -1003,30 +996,12 @@ class GwAdminI18NHotUpdate:
         return True, None
 
     def _execute_local_sql_file(self, filepath: str, schema_name: str) -> tuple[bool, str]:
-        try:
-            with open(filepath, encoding='utf-8') as handle:
-                sql = handle.read()
-        except OSError as exc:
-            return False, str(exc)
-
-        sql_schema = self._sql_schema_name(schema_name)
-        sql = sql.replace("SCHEMA_NAME", sql_schema)
-        if not self.add_tab_data and os.path.basename(filepath) in _FORM_FIELDS_SQL:
-            sql = self._strip_tab_data_rows(sql)
-
-        if not sql.strip():
-            return True, ""
-
-        ok = tools_db.execute_sql(
-            sql,
-            filepath=filepath,
-            commit=self.dev_commit,
-            is_thread=True,
-            show_exception=False,
+        return _execute_i18n_sql_file(
+            filepath,
+            schema_name,
+            add_tab_data=self.add_tab_data,
+            dev_commit=self.dev_commit,
         )
-        if ok:
-            return True, ""
-        return False, self._last_db_error() or os.path.basename(filepath)
 
     @staticmethod
     def _strip_tab_data_rows(sql: str) -> str:
@@ -1114,3 +1089,107 @@ class GwAdminI18NHotUpdate:
                 "project_type": ["cm"]
             },
         }
+
+
+def _local_i18n_dir(kind: str, locale: str) -> str:
+    schema_path = I18N_SCHEMAS.get(kind)
+    if not schema_path:
+        return ""
+    folder = normalize_language_folder(locale)
+    return os.path.join(str(i18n_service.dbmodel_dir()), schema_path, folder)
+
+
+def _execute_i18n_sql_file(
+    filepath: str,
+    schema_name: str,
+    *,
+    add_tab_data: bool,
+    dev_commit,
+) -> tuple[bool, str]:
+    try:
+        with open(filepath, encoding='utf-8') as handle:
+            sql = handle.read()
+    except OSError as exc:
+        return False, str(exc)
+
+    sql_schema = GwAdminI18NHotUpdate._sql_schema_name(schema_name)
+    sql = sql.replace("SCHEMA_NAME", sql_schema)
+    if not add_tab_data and os.path.basename(filepath) in _FORM_FIELDS_SQL:
+        sql = GwAdminI18NHotUpdate._strip_tab_data_rows(sql)
+
+    if not sql.strip():
+        return True, ""
+
+    ok = tools_db.execute_sql(
+        sql,
+        filepath=filepath,
+        commit=dev_commit,
+        is_thread=True,
+        show_exception=False,
+    )
+    if ok:
+        return True, ""
+    return False, GwAdminI18NHotUpdate._last_db_error() or os.path.basename(filepath)
+
+
+def apply_schema_hot_update(
+    schema_name: str,
+    language: str,
+    kind: str,
+    *,
+    add_tab_data: bool = True,
+    dev_commit=None,
+) -> tuple[bool, list[str] | None]:
+    """Apply all local i18n SQL files for language/kind to a schema, then change_lang."""
+    kind = str(kind or "").strip().lower()
+    i18n_dir = _local_i18n_dir(kind, language)
+    if not i18n_dir or not os.path.isdir(i18n_dir):
+        return False, [i18n_dir or kind]
+
+    discovered = {
+        os.path.splitext(name)[0]
+        for name in os.listdir(i18n_dir)
+        if name.endswith('.sql')
+    }
+    if not discovered:
+        return False, [i18n_dir]
+
+    preferred = GwAdminI18NHotUpdate.tables_dic().get(kind, {}).get("dbtables", [])
+    dbtables = [table for table in preferred if table in discovered]
+    dbtables.extend(sorted(discovered.difference(dbtables)))
+
+    messages = []
+    for dbtable in dbtables:
+        sql_path = os.path.join(i18n_dir, f"{dbtable}.sql")
+        if not os.path.isfile(sql_path):
+            continue
+        ok, error = _execute_i18n_sql_file(
+            sql_path, schema_name, add_tab_data=add_tab_data, dev_commit=dev_commit,
+        )
+        if not ok:
+            detail = error or os.path.basename(sql_path)
+            msg = "{0}.sql: {1}"
+            msg_params = (dbtable, detail)
+            messages.append(tools_qt.tr(msg, list_params=msg_params))
+            if not tools_os.set_boolean(dev_commit, False):
+                break
+
+    if messages:
+        return False, messages
+
+    query = build_change_lang_sql(
+        schema_name,
+        language,
+        multilang_exists=False,
+        project_type=kind,
+        sql_schema_name=GwAdminI18NHotUpdate._sql_schema_name(schema_name),
+    )
+    try:
+        cursor = tools_db.dao.get_cursor()
+        cursor.execute(query)
+        tools_db.dao.commit()
+        tools_qt._add_translator(True)
+    except Exception:
+        tools_db.dao.rollback()
+
+    return True, None
