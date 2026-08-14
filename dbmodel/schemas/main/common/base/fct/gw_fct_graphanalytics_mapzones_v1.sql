@@ -2359,9 +2359,15 @@ BEGIN
 				$sql$, v_mapzone_table, v_mapzone_field, v_class, v_mapzone_field);
 
 			ELSE
+				-- Direct table UPDATE bypasses ve_* triggers; regenerate code with the new geom
 				EXECUTE format($sql$
 					UPDATE %I m
 					SET
+						code = COALESCE(
+							NULLIF(btrim(m.code), ''),
+							gw_fct_generate_code('mapzone', %L, json_strip_nulls(json_build_object(%I, t.mapzone_id, 'the_geom', ST_AsGeoJSON(t.the_geom)::json))),
+							t.mapzone_id::text
+						),
 						expl_id = t.expl_id,
 						muni_id = t.muni_id,
 						the_geom = t.the_geom,
@@ -2373,7 +2379,7 @@ BEGIN
 					WHERE m.%I = t.mapzone_id
 						AND t.mapzone_id > 0
 					$sql$
-				, v_mapzone_table, v_mapzone_field);
+				, v_mapzone_table, v_class, v_mapzone_field, v_mapzone_field);
 			END IF;
 
 
