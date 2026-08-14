@@ -691,3 +691,29 @@ INSERT INTO config_form_tableview (location_type,project_type,objectname,columnn
 	VALUES ('arc form','utils','tbl_doc_x_arc','arc_uuid',8,true,'Node Uuid');
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
 	VALUES ('arc form','utils','tbl_doc_x_arc','doc_name',8,true,'Document Name');
+
+
+DROP VIEW IF EXISTS ve_macroexploitation;
+
+ALTER TABLE macroexploitation DROP COLUMN IF EXISTS the_geom;
+
+CREATE OR REPLACE VIEW ve_macroexploitation
+AS WITH sel_expl AS (
+         SELECT selector_expl.expl_id
+           FROM selector_expl
+          WHERE selector_expl.cur_user = CURRENT_USER
+        )
+ SELECT DISTINCT ON (m.macroexpl_id) m.macroexpl_id,
+    m.code,
+    m.name,
+    m.descript,
+    m.lock_level,
+    m.created_at,
+    m.created_by,
+    m.updated_at,
+    m.updated_by
+   FROM macroexploitation m
+     JOIN exploitation e USING (macroexpl_id)
+  WHERE (EXISTS ( SELECT 1
+           FROM sel_expl
+          WHERE sel_expl.expl_id = e.expl_id)) AND m.active IS TRUE;
