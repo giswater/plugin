@@ -63,8 +63,24 @@ SKIP_FOLDER_NAMES = frozenset({"packages", "resources"})
 TRANSLATABLE_JSON_KEYS = frozenset(
     {"label", "tooltip", "placeholder", "text", "comboNames", "vdefault_value"}
 )
+# Scan JSON blobs for these keys too, but extract inner SQL literals rather than the query.
+_JSON_BLOB_SCAN_KEYS = TRANSLATABLE_JSON_KEYS | {"dvQueryText"}
+_DVQUERY_KEY = "dvQueryText"
+# Prefer SQL-escaped ''text'' (JSON dumps) then 'text' (parsed JSON / DB text).
+# Content is [^']+ so ''a'' AS sort_order cannot span into a later AS idval.
+_DVQUERY_IDVAL_RE = re.compile(
+    r"(?:''([^']+)''|'([^']+)')\s+AS\s+idval\b",
+    re.IGNORECASE,
+)
+# UNION SELECT -999,'ALL VISIBLE SECTORS' — positional idval with no alias.
+_DVQUERY_UNION_LITERAL_RE = re.compile(
+    r"\bUNION(?:\s+ALL)?\s+SELECT\s+-?\d+\s*,\s*(?:''([^']+)''|'([^']+)')",
+    re.IGNORECASE,
+)
 # Tables whose extra_columns hold a content blob (org_text/text), not identity fields.
-_BLOB_CONTENT_TABLES = frozenset({"dbstyle", "dbjson", "dbconfig_form_fields_json"})
+_BLOB_CONTENT_TABLES = frozenset({
+    "dbstyle", "dbjson", "dbconfig_form_fields_json", "dbconfig_form_fields_query",
+})
 _SQL_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 _FIELDS = ("message", "msg", "title", "inf_text")
@@ -167,7 +183,7 @@ _PROJECT_TABLES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
             "dbfunction", "dbtypevalue", "dbconfig_form_tableview",
             "dbconfig_visit_parameter", "dbtable", "dbconfig_form_fields_feat",
             "su_basic_tables", "dblabel", "dbplan_price", "dbstyle", "dbjson",
-            "dbconfig_form_fields_json",
+            "dbconfig_form_fields_json", "dbconfig_form_fields_query",
         ),
         ("su_basic_tables", "su_feature"),
     ),
@@ -179,7 +195,7 @@ _PROJECT_TABLES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
             "dbfunction", "dbtypevalue", "dbconfig_form_tableview",
             "dbconfig_visit_parameter", "dbtable", "dbconfig_form_fields_feat",
             "su_basic_tables", "dblabel", "dbplan_price", "dbstyle", "dbjson",
-            "dbconfig_form_fields_json",
+            "dbconfig_form_fields_json", "dbconfig_form_fields_query",
         ),
         ("su_basic_tables", "su_feature"),
     ),
@@ -188,7 +204,7 @@ _PROJECT_TABLES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
         (
             "dbconfig_form_fields", "dbconfig_form_tabs", "dbconfig_param_system",
             "dbtypevalue", "dbfprocess", "dbtable", "dbconfig_form_tableview",
-            "dbconfig_form_fields_json",
+            "dbconfig_form_fields_json", "dbconfig_form_fields_query",
         ),
         (),
     ),
@@ -196,8 +212,8 @@ _PROJECT_TABLES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
 
 _TABLE_COLUMNS: dict[str, TableColumns] = {
     "dbconfig_form_fields": TableColumns(
-        ("formname", "formtype", "tabname", "source", "lb_en_us", "tt_en_us"),
-        ("formname", "formtype", "tabname", "columnname", "label", "tooltip"),
+        ("formname", "formtype", "tabname", "source", "lb_en_us", "tt_en_us", "pl_en_us"),
+        ("formname", "formtype", "tabname", "columnname", "label", "tooltip", "placeholder"),
     ),
     "dbparam_user": TableColumns(("source", "lb_en_us", "tt_en_us"), ("id", "label", "descript")),
     "dbconfig_param_system": TableColumns(
@@ -300,6 +316,7 @@ _ORIGIN_TABLES: dict[str, tuple[str, ...]] = {
     "dbplan_price": ("plan_price",),
     "dbstyle": ("sys_style",),
     "dbconfig_form_fields_json": ("config_form_fields",),
+    "dbconfig_form_fields_query": ("config_form_fields",),
     "dbconfig_form_fields_feat": ("config_form_fields",),
     "dbconfig_engine": ("config_engine", "config_engine_def"),
 }
@@ -838,6 +855,9 @@ def extract_py_candidates(
 # region UI dialogs and toolbars (_update_py_dialogs)
 
 _PYDIALOG_DEFAULT_PROJECT_TYPE = "utils"
+# Qt UI encodes a literal "&" as "&&"; XML stores that as "&amp;&amp;". Skip O&M
+# labels so amp/&& formatting does not create false pydialog diffs.
+_PYDIALOG_IGNORE_TEXTS = frozenset({"O&&M", "O&amp;&amp;M", "O&M", "O&amp;M"})
 
 
 def _pydialog_project_type(*, baseline_row: Optional[dict[str, Any]] = None) -> str:
@@ -1026,6 +1046,8 @@ def _scan_ui_dialogs(
             if not match:
                 continue
             message_text = match.group(1).strip()
+            if message_text in _PYDIALOG_IGNORE_TEXTS:
+                continue
             column = "tt_en_us" if in_tooltip_property else "lb_en_us"
             if not message_text and column == "lb_en_us":
                 continue
@@ -1058,6 +1080,11 @@ def _extract_pydialog_candidates(
         ("lb_en_us", "tt_en_us"),
         include_deleted=lambda dialog_key: dialog_key[0] != "dlg_admin",
     ):
+        ignored_texts = (
+            set(text_values.values()) | set(old_map.values()) | set(new_map.values())
+        ) & _PYDIALOG_IGNORE_TEXTS
+        if ignored_texts:
+            continue
         actual_source, dialog_name, toolbar_name = key
         findings.append(
             _pydialog_finding(
@@ -1695,6 +1722,37 @@ def group_records(findings: list[ExtractedString], detected_version: str) -> dic
 
 # region JSON / feat / dbstyle extractors
 
+def _unescape_sql_string(text: str) -> str:
+    """Turn SQL-escaped quotes (''text'') into a plain catalog string."""
+    return text.replace("''", "'")
+
+
+def _extract_dvquery_idval_texts(query: str) -> list[str]:
+    """User-facing combo labels embedded as string literals in dvQueryText SQL.
+
+    Matches ``'User selected expl' AS idval`` and positional
+    ``UNION SELECT -999,'ALL VISIBLE SECTORS'``. Skips sort_order, WHERE
+    predicates, and column aliases such as ``name AS idval``.
+    """
+    found: list[str] = []
+    seen: set[str] = set()
+
+    def _add(raw: str | None) -> None:
+        if not raw:
+            return
+        text = _unescape_sql_string(raw).strip()
+        if not text or text in seen:
+            return
+        seen.add(text)
+        found.append(text)
+
+    for match in _DVQUERY_IDVAL_RE.finditer(query):
+        _add(match.group(1) or match.group(2))
+    for match in _DVQUERY_UNION_LITERAL_RE.finditer(query):
+        _add(match.group(1) or match.group(2))
+    return found
+
+
 def _extract_translatable_strings(data: Any) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
 
@@ -1702,7 +1760,11 @@ def _extract_translatable_strings(data: Any) -> list[dict[str, Any]]:
         if isinstance(item, dict):
             entry: dict[str, Any] = {}
             for key, value in item.items():
-                if key in TRANSLATABLE_JSON_KEYS:
+                if key.lower() == _DVQUERY_KEY.lower() and isinstance(value, str):
+                    texts = _extract_dvquery_idval_texts(value)
+                    if texts:
+                        entry[_DVQUERY_KEY] = texts
+                elif key in TRANSLATABLE_JSON_KEYS:
                     if key == "comboNames" and isinstance(value, list):
                         entry[key] = value
                     elif isinstance(value, str):
@@ -1832,7 +1894,7 @@ def _extract_json_table(
         ]
 
     where_conditions = [
-        f"""{column}::text ILIKE '%%{key}":%%'""" for key in TRANSLATABLE_JSON_KEYS
+        f"""{column}::text ILIKE '%%{key}":%%'""" for key in _JSON_BLOB_SCAN_KEYS
     ]
     where_clause = " OR ".join(where_conditions)
     # Fetch literal DB text so extra_columns.text matches the schema exactly.
@@ -1864,38 +1926,110 @@ def _extract_json_table(
         datas = _extract_translatable_strings(payload)
         for i, data in enumerate(datas):
             for key, text in data.items():
-                if isinstance(text, list):
+                values: list[tuple[str, str]] = []
+                if key == _DVQUERY_KEY and isinstance(text, list):
+                    for j, item in enumerate(text):
+                        text_val = _normalize_json_text(str(item)).strip()
+                        if text_val:
+                            values.append((f"{key}_{i}_{j}", text_val))
+                elif isinstance(text, list):
                     text_val = ", ".join(_normalize_json_text(str(t)) for t in text).strip()
+                    if text_val:
+                        values.append((f"{key}_{i}", text_val))
                 elif isinstance(text, str):
                     text_val = _normalize_json_text(text)
-                else:
-                    continue
-                if not text_val:
-                    continue
-                hint = f"{key}_{i}"
-                if is_form_fields:
-                    expected.append({
-                        "source_code": "giswater",
-                        "project_type": project_type,
-                        "context": table_org,
-                        "formname": row["formname"],
-                        "formtype": row["formtype"],
-                        "tabname": row["tabname"],
-                        "source": row["columnname"],
-                        "hint": hint,
-                        "lb_en_us": text_val,
-                        "text": text_blob,
-                    })
-                else:
-                    expected.append({
-                        "source_code": "giswater",
-                        "project_type": project_type,
-                        "context": table_org,
-                        "hint": hint,
-                        "source": row["id"],
-                        "lb_en_us": text_val,
-                        "text": text_blob,
-                    })
+                    if text_val:
+                        values.append((f"{key}_{i}", text_val))
+                for hint, text_val in values:
+                    if is_form_fields:
+                        expected.append({
+                            "source_code": "giswater",
+                            "project_type": project_type,
+                            "context": table_org,
+                            "formname": row["formname"],
+                            "formtype": row["formtype"],
+                            "tabname": row["tabname"],
+                            "source": row["columnname"],
+                            "hint": hint,
+                            "lb_en_us": text_val,
+                            "text": text_blob,
+                        })
+                    else:
+                        expected.append({
+                            "source_code": "giswater",
+                            "project_type": project_type,
+                            "context": table_org,
+                            "hint": hint,
+                            "source": row["id"],
+                            "lb_en_us": text_val,
+                            "text": text_blob,
+                        })
+
+    return _compare_db_rows(
+        expected,
+        rows_i18n,
+        columns_i18n,
+        table_name=table_name,
+        table_org=table_org,
+        schema_org=schema_org,
+        project_type=project_type,
+    )
+
+
+def _extract_form_fields_query_table(
+    origin: OriginDb,
+    i18n_rows: list[dict],
+    table_name: str,
+    table_org: str,
+    schema_org: str,
+    project_type: str,
+) -> list[ExtractedString]:
+    """Hardcoded combo labels inside ``config_form_fields.dv_querytext``."""
+    pk_column_org = ["formname", "formtype", "tabname", "columnname"]
+    columns_i18n = [
+        "source_code", "project_type", "context", "formname", "formtype",
+        "tabname", "source", "hint", "lb_en_us", "text",
+    ]
+
+    query_org = (
+        f"SELECT {', '.join(pk_column_org)}, dv_querytext "
+        f"FROM {schema_org}.{table_org} "
+        f"WHERE dv_querytext IS NOT NULL AND btrim(dv_querytext) <> ''"
+    )
+    rows_org = origin.fetch_all(query_org)
+
+    rows_i18n = _filter_i18n_rows_by_context(
+        _clean_rows_i18n(
+            _filter_i18n_rows(i18n_rows, table_name, project_type),
+            columns_i18n,
+            project_type,
+            table_name,
+        ),
+        table_org,
+    )
+
+    expected: list[dict] = []
+    for row in rows_org:
+        text_blob = row.get("dv_querytext")
+        if text_blob in (None, "", "None"):
+            continue
+        text_blob = str(text_blob)
+        literals = _extract_dvquery_idval_texts(text_blob)
+        for i, text_val in enumerate(literals):
+            if not text_val:
+                continue
+            expected.append({
+                "source_code": "giswater",
+                "project_type": project_type,
+                "context": table_org,
+                "formname": row["formname"],
+                "formtype": row["formtype"],
+                "tabname": row["tabname"],
+                "source": row["columnname"],
+                "hint": f"{_DVQUERY_KEY}_{i}",
+                "lb_en_us": text_val,
+                "text": text_blob,
+            })
 
     return _compare_db_rows(
         expected,
@@ -1916,10 +2050,10 @@ def _extract_feat_table(
     project_type: str,
 ) -> list[ExtractedString]:
     pk_column_org = ["formname", "formtype", "tabname", "columnname"]
-    columns_org = ["label", "tooltip"]
+    columns_org = ["label", "tooltip", "placeholder"]
     columns_i18n = [
         "feature_type", "source_code", "project_type", "context",
-        "formtype", "tabname", "source", "lb_en_us", "tt_en_us", "formname",
+        "formtype", "tabname", "source", "lb_en_us", "tt_en_us", "pl_en_us", "formname",
     ]
 
     query_org = f"SELECT {', '.join(pk_column_org)}, {', '.join(columns_org)} FROM {schema_org}.config_form_fields"
@@ -1952,7 +2086,8 @@ def _extract_feat_table(
                 continue
             label = _normalize_cell_value(row.get("label", ""))
             tooltip = _normalize_cell_value(row.get("tooltip", ""))
-            if not label and not tooltip:
+            placeholder = _normalize_cell_value(row.get("placeholder", ""))
+            if not label and not tooltip and not placeholder:
                 continue
             expected.append({
                 "feature_type": feature_type,
@@ -1965,6 +2100,7 @@ def _extract_feat_table(
                 "formname": formname,
                 "lb_en_us": label,
                 "tt_en_us": tooltip,
+                "pl_en_us": placeholder,
             })
             repeated_rows.append(repeated_row)
 
@@ -2074,6 +2210,13 @@ def _extract_one_db_table(
         if table_name == "dbconfig_form_fields_feat":
             findings.extend(
                 _extract_feat_table(origin, table_i18n_rows, table_name, schema_org, project_type)
+            )
+            continue
+        if table_name == "dbconfig_form_fields_query":
+            findings.extend(
+                _extract_form_fields_query_table(
+                    origin, table_i18n_rows, table_name, table_org, schema_org, project_type
+                )
             )
             continue
         if "json" in table_name:

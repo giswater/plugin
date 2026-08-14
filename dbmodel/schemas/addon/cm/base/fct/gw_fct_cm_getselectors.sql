@@ -173,7 +173,8 @@ BEGIN
 						  	JOIN pg_roles u ON u.oid = m.member WHERE u.rolname = current_user) then
 
 		CREATE TEMP TABLE temp_om_campaign AS
-		select c.* from om_campaign c
+		select c.*, sy.idval as status_name from om_campaign c
+		LEFT JOIN cm.sys_typevalue sy ON sy.id::text = c.status::text AND sy.typevalue = 'campaign_status'::text
 		where c.active;
 
 		CREATE TEMP TABLE temp_om_campaign_lot AS
@@ -185,10 +186,11 @@ BEGIN
 	else
 
 		CREATE TEMP TABLE temp_om_campaign  AS
-		select c.* from om_campaign c
+		select c.*, sy.idval as status_name from om_campaign c
 		join cat_organization  using (organization_id)
 		join cat_team t using (organization_id)
 		join cat_user using (team_id)
+		LEFT JOIN cm.sys_typevalue sy ON sy.id::text = c.status::text AND sy.typevalue = 'campaign_status'::text
 		where c.active and username = current_user;
 
 		CREATE TEMP TABLE temp_om_campaign_lot AS

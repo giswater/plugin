@@ -407,7 +407,12 @@ BEGIN
 	-- Set layouts orientation
 	v_form_orientation = '"layouts": {';
 
-	SELECT array_agg(distinct layoutname) INTO v_layouts FROM v_config_form_fields  WHERE formtype = 'form_feature';
+	SELECT array_agg(distinct layoutname) INTO v_layouts
+	FROM config_form_fields
+	WHERE formtype = 'form_feature';
+	IF to_regclass('v_config_form_fields') IS NOT NULL THEN
+		SELECT array_agg(distinct layoutname) INTO v_layouts FROM v_config_form_fields WHERE formtype = 'form_feature';
+	END IF;
 	layout_orientation_exist = false;
 
 	IF v_layouts IS NOT NULL THEN

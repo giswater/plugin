@@ -40,6 +40,7 @@ TABLE_SPECIFIC_PK_COLUMNS: dict[str, tuple[str, ...]] = {
     "dbconfig_form_fields": ("formname", "formtype", "tabname", "source"),
     "dbconfig_form_fields_feat": ("feature_type", "formtype", "tabname", "source"),
     "dbconfig_form_fields_json": ("formname", "formtype", "tabname", "source", "hint"),
+    "dbconfig_form_fields_query": ("formname", "formtype", "tabname", "source", "hint"),
     "dbparam_user": ("source",),
     "dbconfig_param_system": ("source",),
     "dbconfig_typevalue": ("formname", "source"),
@@ -68,6 +69,7 @@ TABLE_SPECIFIC_PK_COLUMNS: dict[str, tuple[str, ...]] = {
 TABLE_EXTRA_COLUMNS: dict[str, tuple[str, ...]] = {
     "dbjson": ("text",),
     "dbconfig_form_fields_json": ("text",),
+    "dbconfig_form_fields_query": ("text",),
     "dbconfig_form_fields_feat": ("formname",),
     "dbstyle": ("org_text",),
 }

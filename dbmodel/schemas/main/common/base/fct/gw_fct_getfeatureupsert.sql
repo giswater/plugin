@@ -878,7 +878,9 @@ BEGIN
 						field_value = v_presszone_id;
 					end if;
 				WHEN 'sector_id' THEN
-					field_value = v_sector_id;
+					IF (aux_json->>'widgettype') <> 'multiple_option' THEN
+						field_value = v_sector_id;
+					END IF;
 				WHEN 'dma_id' THEN
 					if v_tablename = 'plan_netscenario_dma' then
 						field_value = v_id;
@@ -901,11 +903,15 @@ BEGIN
 				WHEN 'macroomzone_id' THEN
 					field_value = v_macroomzone_id;
 				WHEN 'expl_id' THEN
-					field_value = v_expl_id;
+					IF (aux_json->>'widgettype') <> 'multiple_option' THEN
+						field_value = v_expl_id;
+					END IF;
 				WHEN 'macroexpl_id' THEN
 					field_value = v_macroexploitation_id;
 				WHEN 'muni_id' THEN
-					field_value = v_muni_id;
+					IF (aux_json->>'widgettype') <> 'multiple_option' THEN
+						field_value = v_muni_id;
+					END IF;
 				WHEN 'district_id' THEN
 					field_value = v_district_id;
 

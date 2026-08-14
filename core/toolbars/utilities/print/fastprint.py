@@ -95,7 +95,7 @@ class GwFastprint:
         self._check_whidget_exist(self.dlg_composer)
         self._load_composer_values(self.dlg_composer)
 
-        tools_gw.open_dialog(self.dlg_composer, dlg_name='fastprint')
+        tools_gw.open_dialog(self.dlg_composer, dlg_name='print')
 
         # Control if no have composers
         if composers_list != '"{}"':
@@ -176,7 +176,9 @@ class GwFastprint:
             if type(item) is not QgsLayoutItemLabel or item is None:
                 widget.clear()
                 widget.setStyleSheet("border: 1px solid red")
-                widget.setPlaceholderText(f"Widget '{widget.property('columnname')}' not found in the composer")
+                msg = "Widget '{0}' not found in the composer"
+                msg_params = (widget.property('columnname'),)
+                widget.setPlaceholderText(tools_qt.tr(msg, list_params=msg_params))
             elif type(item) is QgsLayoutItemLabel and item is not None:
                 widget.setStyleSheet(None)
 

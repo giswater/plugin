@@ -71,6 +71,12 @@ class GwProjectCheckTask(GwTask):
             return
 
         # Show dialog with audit check project result
+        if self.result is None:
+            msg = "Check project failed: no response from database function '{0}'."
+            tools_qgis.show_warning(msg, parameter="gw_fct_setcheckproject")
+            self.setProgress(100)
+            return
+
         self._show_check_project_result(self.result)
 
         self.setProgress(100)
@@ -110,6 +116,8 @@ class GwProjectCheckTask(GwTask):
 
         # Execute function 'gw_fct_setcheckproject'
         result = self._execute_check_project_function(init_project, fields)
+        if result is None:
+            return False, None
 
         return True, result
 
@@ -171,6 +179,9 @@ class GwProjectCheckTask(GwTask):
 
     def _show_check_project_result(self, result):
         """ Show dialog with audit check project results """
+
+        if not result:
+            return False
 
         # Handle failed results
         if result.get('status') == 'Failed':

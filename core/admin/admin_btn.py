@@ -57,23 +57,27 @@ from ...giswater_admin.engine import (
     resolve_network_graph,
 )
 from ...giswater_admin.engine.network_update import LockstepStep
+from ...giswater_admin.engine.version_guard import (
+    assert_network_no_downgrade,
+    assert_no_downgrade,
+)
 from ...giswater_admin.log_format import format_elapsed_mmss, format_lbl_time_status
 from ._qt_db_adapter import QtDbAdapter
 from . import _admin_catalog as admin_catalog
 
 
 def _admin_version_tuple(version) -> tuple:
-    """Major.minor.patch as ints for ordering; 4+ segments use first 3 (same as UI truncation)."""
-    parts = str(version).split('.')
-    if len(parts) >= 4:
-        parts = parts[:3]
+    """Major.minor.patch as ints for ordering; pad to 3 (same as engine _parse_version)."""
+    parts = str(version or "0.0.0").split(".")
     nums = []
-    for p in parts:
+    for p in parts[:3]:
         try:
             nums.append(int(p))
         except ValueError:
             nums.append(0)
-    return tuple(nums) if nums else (0,)
+    while len(nums) < 3:
+        nums.append(0)
+    return tuple(nums)
 
 
 _GIS_FORM_WIDGETS = (
@@ -888,6 +892,14 @@ class GwAdminButton:
             "ORDER BY id DESC LIMIT 1"
         )
         current_version = row[0] if row and row[0] else "0.0.0"
+        err = assert_no_downgrade(
+            str(current_version),
+            str(self.plugin_version),
+            label=f"schema '{schema_name}'",
+        )
+        if err:
+            tools_qgis.show_warning(err)
+            return
         bp = BuildParams(
             schema_name=schema_name,
             srid=str(row[2] if row and row[2] else self.project_epsg or "25831"),
@@ -952,8 +964,14 @@ class GwAdminButton:
             )
             return
 
+        graph = resolve_network_graph(anchor, admin_catalog._tools_db_fetch)
+        err = assert_network_no_downgrade(graph, str(self.plugin_version))
+        if err:
+            tools_qgis.show_warning(err)
+            return
+
         plan = plan_lockstep(
-            resolve_network_graph(anchor, admin_catalog._tools_db_fetch),
+            graph,
             self.sql_dir,
             str(self.plugin_version),
         )
@@ -1094,6 +1112,22 @@ class GwAdminButton:
                     parameter=peers,
                 )
                 return
+
+        current_for_guard = str(self.project_version or "0.0.0")
+        if schema_name:
+            row_guard = tools_db.get_row(
+                f"SELECT giswater FROM {schema_name}.sys_version ORDER BY id DESC LIMIT 1"
+            )
+            if row_guard and row_guard[0]:
+                current_for_guard = str(row_guard[0])
+        err = assert_no_downgrade(
+            current_for_guard,
+            str(self.plugin_version),
+            label=f"schema '{schema_name}'" if schema_name else "schema",
+        )
+        if err:
+            tools_qgis.show_warning(err)
+            return
 
         msg = "Are you sure to update the project schema to last version?"
         title = "Info"
@@ -3190,6 +3224,8 @@ class GwAdminButton:
         tools_qt.set_widget_text(self.dlg_readsql_create_project, self.cmb_create_project_type, project_type)
         self._set_project_type_paths(project_type)
         self.connection_name = str(tools_qt.get_text(self.dlg_readsql, self.cmb_connection))
+        # Refresh after restore: session name is stale and combo may not change (no signal)
+        self._apply_dev_project_name()
 
         self._update_time_elapsed("", self.dlg_readsql_create_project)
 
