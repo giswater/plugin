@@ -653,3 +653,11 @@ WHERE widgettype = 'text'
 
 DELETE FROM config_param_system WHERE parameter = 'edit_feature_auto_builtdate';
 
+
+CREATE OR REPLACE VIEW ve_municipality
+AS SELECT DISTINCT m.muni_id,
+    m.name,
+    m.active,
+    m.the_geom
+   FROM v_municipality m
+   WHERE EXISTS (SELECT 1 FROM selector_municipality s WHERE s.muni_id = m.muni_id AND s.cur_user = CURRENT_USER);
