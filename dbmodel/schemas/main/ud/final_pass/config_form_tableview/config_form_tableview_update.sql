@@ -131,9 +131,22 @@ INSERT INTO config_form_list (listname, query_text, device, listtype, listclass)
 	FROM id_columns ic
 	WHERE ic.id_column IS NOT NULL;
 
-UPDATE config_form_tableview SET
-	alias = INITCAP(REPLACE(COALESCE(alias, columnname), '_', ' '));
-
+UPDATE config_form_tableview
+SET alias = 
+    REGEXP_REPLACE(
+      REGEXP_REPLACE(
+        REGEXP_REPLACE(
+          -- Step 1: Capitalize only the first letter of the sentence
+          UPPER(SUBSTRING(REPLACE(COALESCE(alias, columnname), '_', ' ') FROM 1 FOR 1))
+          || LOWER(SUBSTRING(REPLACE(COALESCE(alias, columnname), '_', ' ') FROM 2)),
+          
+          -- Step 2: Replace individual acronyms (case-insensitive flag 'gi')
+          '\yepa\y', 'EPA', 'gi'
+        ),
+        '\yid\y', 'ID', 'gi'
+      ),
+      '\ysku\y', 'SKU', 'gi'
+    );
 INSERT INTO config_form_tableview (
 	location_type,
 	project_type,
@@ -293,7 +306,20 @@ INSERT INTO config_form_tableview (
 				ELSE
 					false
 			END AS visible,
-			INITCAP(REPLACE(c.column_name, '_', ' ')) AS alias
+			REGEXP_REPLACE(
+				REGEXP_REPLACE(
+					REGEXP_REPLACE(
+					-- Step 1: Capitalize only the first letter of the sentence
+					UPPER(SUBSTRING(REPLACE(COALESCE(alias, columnname), '_', ' ') FROM 1 FOR 1))
+					|| LOWER(SUBSTRING(REPLACE(COALESCE(alias, columnname), '_', ' ') FROM 2)),
+					
+					-- Step 2: Replace individual acronyms (case-insensitive flag 'gi')
+					'\yepa\y', 'EPA', 'gi'
+					),
+					'\yid\y', 'ID', 'gi'
+				),
+				'\ysku\y', 'SKU', 'gi'
+			) AS alias
 		FROM object_sources os
 		JOIN information_schema.columns c
 			ON c.table_schema = current_schema()
