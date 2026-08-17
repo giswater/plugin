@@ -111,7 +111,6 @@ WHERE t.id = v.id AND t.typevalue = v.typevalue;
 UPDATE inp_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
 	VALUES
 	('#/L', 'inp_value_pollutants', '#/L', NULL),
-    ('0', 'inp_result_status', 'DEPRECATED', NULL),
     ('1', 'inp_options_networkmode', '1D SWMM', NULL),
     ('1', 'inp_result_status', 'PARTIAL', NULL),
     ('2', 'inp_options_networkmode', '1D/2D SWMM-IBER', NULL),
