@@ -3013,8 +3013,19 @@ class GwAdminButton:
         # Populate Table
         self.model_srid = QSqlQueryModel()
         self.model_srid.setQuery(sql, db=lib_vars.qgis_db_credentials)
+        self._set_srid_headers(self.model_srid)
         self.tbl_srid.setModel(self.model_srid)
         self.tbl_srid.show()
+
+    def _set_srid_headers(self, model):
+        """ Translate the SRID table headers without renaming the query fields """
+
+        msg = "Type"
+        model.setHeaderData(0, Qt.Orientation.Horizontal, tools_qt.tr(msg))
+        msg = "SRID"
+        model.setHeaderData(1, Qt.Orientation.Horizontal, tools_qt.tr(msg))
+        msg = "Description"
+        model.setHeaderData(2, Qt.Orientation.Horizontal, tools_qt.tr(msg))
 
     def _set_info_project(self):
         """"""

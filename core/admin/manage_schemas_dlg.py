@@ -23,6 +23,30 @@ from .i18n.multilang_languages_dialog import GwI18NMultilangLanguagesDialog
 _NETWORK_COLUMNS = (
     "Schema", "Kind", "Version", "Profile", "Linked", "Created", "Last update",
 )
+
+
+def _network_column_titles() -> list[str]:
+    """Translated labels for _NETWORK_COLUMNS.
+
+    Every literal needs its own ``msg`` assignment so i18n_searcher collects it.
+    """
+
+    titles = []
+    msg = "Schema"
+    titles.append(tools_qt.tr(msg))
+    msg = "Kind"
+    titles.append(tools_qt.tr(msg))
+    msg = "Version"
+    titles.append(tools_qt.tr(msg))
+    msg = "Profile"
+    titles.append(tools_qt.tr(msg))
+    msg = "Linked"
+    titles.append(tools_qt.tr(msg))
+    msg = "Created"
+    titles.append(tools_qt.tr(msg))
+    msg = "Last update"
+    titles.append(tools_qt.tr(msg))
+    return titles
 _COL_SCHEMA = 0
 _COL_LINKED = 4
 _COL_CREATED = 5
@@ -50,7 +74,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self._inventory_rows: list[dict] = []
         self._selected_network_parent = ""
         self._network_model = QStandardItemModel(0, len(_NETWORK_COLUMNS), self)
-        self._network_model.setHorizontalHeaderLabels(list(_NETWORK_COLUMNS))
+        self._network_model.setHorizontalHeaderLabels(_network_column_titles())
         self._scroll_area = None
         self._scroll_content = None
 
