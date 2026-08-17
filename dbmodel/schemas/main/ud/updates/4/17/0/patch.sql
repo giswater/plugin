@@ -404,6 +404,8 @@ UPDATE config_form_fields
 	SET "label"='Lab code'
 	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='lab_code' AND "label"='lab_code';
 
+DROP VIEW IF EXISTS v_om_visit;
+
 CREATE OR REPLACE VIEW v_om_visit AS
 SELECT DISTINCT ON (visit_id)
 	visit_id,
