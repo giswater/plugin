@@ -1832,6 +1832,8 @@ def _merge_cff_into_fields(layer_name, fields, thread=None):
             existing['label'] = cff['label']
         if 'iseditable' in cff:
             existing['iseditable'] = cff['iseditable']
+        if 'ismandatory' in cff:
+            existing['ismandatory'] = cff['ismandatory']
     return list(by_col.values())
 
 
@@ -1840,19 +1842,14 @@ def _apply_value_relation(layer, field_index, field, value_relation, layer_name,
     try:
         vr_layer = value_relation.get('layer', '')
         layer_obj = tools_qgis.get_layer_by_tablename(vr_layer)
-        if layer_obj is None and thread is not None:
-            layer_obj = (getattr(thread, 'vr_layer_by_table', None) or {}).get(vr_layer)
         if layer_obj is None:
-            add_to_toc = thread is None
-            aux_conn = getattr(thread, 'aux_conn', None) if thread else None
+            if thread is not None:
+                # Do not construct QgsVectorLayer off the GUI thread (breaks postgres layers in the project).
+                thread.vr_tables_to_add.add(vr_layer)
+                thread.vr_pending.append((layer, field_index, field, value_relation, layer_name))
+                return
             layer_obj = load_layer_in_hidden_group(
-                vr_layer, value_relation.get('keyColumn', ''), add_to_toc=add_to_toc,
-                aux_conn=aux_conn, is_thread=thread is not None)
-            if thread and layer_obj is not None:
-                if getattr(thread, 'vr_layer_by_table', None) is None:
-                    thread.vr_layer_by_table = {}
-                thread.vr_layer_by_table[vr_layer] = layer_obj
-                thread.vr_layers_to_add.add(layer_obj)
+                vr_layer, value_relation.get('keyColumn', ''), add_to_toc=True)
 
         if layer_obj is None:
             raise Exception(f"Layer '{vr_layer}' not found")
@@ -1955,6 +1952,7 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
 
         widgetcontrols = _parse_widgetcontrols(field.get('widgetcontrols'))
         field['widgetcontrols'] = widgetcontrols
+
         if widgetcontrols and widgetcontrols.get('setQgisConstraints') is True:
             layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
                                      QgsFieldConstraints.ConstraintStrength.ConstraintStrengthSoft)
@@ -1964,6 +1962,14 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
         if field.get('ismandatory') is True:
             layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
                                      QgsFieldConstraints.ConstraintStrength.ConstraintStrengthHard)
+
+        # CFF: not mandatory and not editable → DB/trigger fills it. Do not Hard-enforce
+        # provider PK NOT NULL/UNIQUE or native Add Feature OK stays grey on an empty field.
+        if field.get('iseditable') is False and field.get('ismandatory') is not True:
+            layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
+                                     QgsFieldConstraints.ConstraintStrength.ConstraintStrengthSoft)
+            layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintUnique,
+                                     QgsFieldConstraints.ConstraintStrength.ConstraintStrengthSoft)
 
         # Manage editability
         config = layer.editFormConfig()

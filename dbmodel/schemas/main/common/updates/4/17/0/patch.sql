@@ -574,9 +574,11 @@ WHERE formtype = 'form_feature' AND tabname = 'tab_none'
   AND widgettype = 'multiple_option' AND columnname = 'muni_id';
 
 -- Mapzone PK is assigned by urn_id_seq; user must not fill it
+-- widgettype text: UD 4.2.1 also flipped ve_sector.sector_id to list via columnname IN (expl_id, sector_id, muni_id)
 UPDATE config_form_fields SET
     ismandatory = false,
-    iseditable = false
+    iseditable = false,
+    widgettype = 'text'
 WHERE formtype = 'form_feature' AND tabname = 'tab_none'
   AND formname IN (
       've_sector', 've_dma', 've_dqa', 've_presszone', 've_supplyzone',
@@ -639,10 +641,11 @@ SET dv_querytext = 'SELECT macroexpl_id AS id, name AS idval FROM macroexploitat
 WHERE columnname = 'macroexpl_id'
   AND formname IN ('ve_exploitation', 'exploitation');
 
--- PK text fields must not be ValueRelation (leftover self-VR from ~4.2 on expl_id/dma_id/...)
+-- PK text/list fields must not be ValueRelation (leftover self-VR from ~4.2 on expl_id/dma_id/...)
+-- widgettype list: UD 4.2.1 also flipped ve_sector.sector_id via columnname IN (expl_id, sector_id, muni_id)
 UPDATE config_form_fields
 SET widgetcontrols = (widgetcontrols::jsonb - 'valueRelation')::json
-WHERE widgettype = 'text'
+WHERE widgettype IN ('text', 'list')
   AND widgetcontrols::jsonb ? 'valueRelation'
   AND widgetcontrols::jsonb -> 'valueRelation' ->> 'keyColumn' = columnname
   AND widgetcontrols::jsonb -> 'valueRelation' ->> 'layer' IN (
