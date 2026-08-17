@@ -416,6 +416,9 @@ SELECT DISTINCT ON (visit_id)
 	is_done,
 	feature_id,
 	feature_type,
+  feature_class,
+  featurecat_id,
+  feature_state,
 	the_geom::geometry(Point, SRID_VALUE) AS the_geom
 FROM (
 	SELECT
@@ -432,12 +435,17 @@ FROM (
 		CASE
 			WHEN om_visit.the_geom IS NULL THEN node.the_geom
 			ELSE om_visit.the_geom
-		END AS the_geom
+		END AS the_geom,
+		cat_feature.feature_class,
+		node.nodecat_id AS featurecat_id,
+		node.state AS feature_state
 	FROM om_visit
 	JOIN om_visit_x_node ON om_visit_x_node.visit_id = om_visit.id
 	JOIN node ON node.node_id = om_visit_x_node.node_id
 	JOIN vf_node vf ON vf.node_id = node.node_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_node ON cat_node.id = node.nodecat_id
+  JOIN cat_feature ON cat_feature.id = cat_node.node_type
 	UNION
 	SELECT
 		om_visit.id AS visit_id,
@@ -453,12 +461,17 @@ FROM (
 		CASE
 			WHEN om_visit.the_geom IS NULL THEN st_lineinterpolatepoint(arc.the_geom, 0.5::double precision)
 			ELSE om_visit.the_geom
-		END AS the_geom
+		END AS the_geom,
+		cat_feature.feature_class,
+		arc.arccat_id AS featurecat_id,
+		arc.state AS feature_state
 	FROM om_visit
 	JOIN om_visit_x_arc ON om_visit_x_arc.visit_id = om_visit.id
 	JOIN arc ON arc.arc_id = om_visit_x_arc.arc_id
 	JOIN vf_arc vf ON vf.arc_id = arc.arc_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_arc ON cat_arc.id = arc.arccat_id
+  JOIN cat_feature ON cat_feature.id = cat_arc.arc_type
 	UNION
 	SELECT
 		om_visit.id AS visit_id,
@@ -474,12 +487,43 @@ FROM (
 		CASE
 			WHEN om_visit.the_geom IS NULL THEN connec.the_geom
 			ELSE om_visit.the_geom
-		END AS the_geom
+		END AS the_geom,
+		cat_feature.feature_class,
+		connec.conneccat_id AS featurecat_id,
+		connec.state AS feature_state
 	FROM om_visit
 	JOIN om_visit_x_connec ON om_visit_x_connec.visit_id = om_visit.id
 	JOIN connec ON connec.connec_id = om_visit_x_connec.connec_id
 	JOIN vf_connec vf ON vf.connec_id = connec.connec_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_connec ON cat_connec.id = connec.conneccat_id
+  JOIN cat_feature ON cat_feature.id = cat_connec.connec_type
+  UNION
+  SELECT
+    om_visit.id AS visit_id,
+    om_visit.ext_code AS code,
+    om_visit.visitcat_id,
+    om_visit_cat.name,
+    om_visit.startdate AS visit_start,
+    om_visit.enddate AS visit_end,
+    om_visit.user_name,
+    om_visit.is_done,
+    om_visit_x_link.link_id AS feature_id,
+    'LINK'::text AS feature_type,
+    CASE
+      WHEN om_visit.the_geom IS NULL THEN link.the_geom
+      ELSE om_visit.the_geom
+    END AS the_geom,
+    cat_feature.feature_class,
+    link.linkcat_id AS featurecat_id,
+    link.state AS feature_state
+  FROM om_visit
+  JOIN om_visit_x_link ON om_visit_x_link.visit_id = om_visit.id
+  JOIN link ON link.link_id = om_visit_x_link.link_id
+  JOIN vf_link vf ON vf.link_id = link.link_id
+  JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_link ON cat_link.id = link.linkcat_id
+  JOIN cat_feature ON cat_feature.id = cat_link.link_type
 	UNION
 	SELECT
 		om_visit.id AS visit_id,
@@ -495,12 +539,17 @@ FROM (
 		CASE
 			WHEN om_visit.the_geom IS NULL THEN gully.the_geom
 			ELSE om_visit.the_geom
-		END AS the_geom
+		END AS the_geom,
+		cat_feature.feature_class,
+		gully.gullycat_id AS featurecat_id,
+		gully.state AS feature_state
 	FROM om_visit
 	JOIN om_visit_x_gully ON om_visit_x_gully.visit_id = om_visit.id
 	JOIN gully ON gully.gully_id = om_visit_x_gully.gully_id
 	JOIN vf_gully vf ON vf.gully_id = gully.gully_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_gully ON cat_gully.id = gully.gullycat_id
+  JOIN cat_feature ON cat_feature.id = cat_gully.gully_type
 ) a;
 
 DROP VIEW IF EXISTS v_ui_rpt_cat_result;
