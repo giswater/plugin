@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import os
+import re
 from pathlib import Path
+
+import pytest
 
 from giswater_admin.engine.builder import BuildParams, SchemaBuilder
 from giswater_admin.engine.cancel import CancelToken
-from giswater_admin.engine.manifest import Manifest, Phase, Profile, Step
+from giswater_admin.engine.manifest import Manifest, Phase, Profile, Step, load_manifest
 
 
 class _RecConn:
@@ -47,6 +51,8 @@ def _seed(root: Path) -> None:
     (root / "updates" / "4" / "9" / "0" / "ws" / "ddl.sql").write_text("-- update", encoding="utf-8")
     (root / "final_pass" / "ws" / "i18n" / "en_US").mkdir(parents=True)
     (root / "final_pass" / "ws" / "i18n" / "en_US" / "en_US.sql").write_text("-- en", encoding="utf-8")
+    (root / "final_pass" / "ws" / "i18n" / "es_ES").mkdir(parents=True)
+    (root / "final_pass" / "ws" / "i18n" / "es_ES" / "es_ES.sql").write_text("-- es", encoding="utf-8")
 
 
 def _manifest() -> Manifest:
@@ -97,7 +103,7 @@ def test_locale_fallback_used_when_locale_folder_missing(tmp_path: Path):
     assert any("en_US" in fx.path for fx in fp.files)
 
 
-def test_no_tr_skips_locale_fallback(tmp_path: Path):
+def test_no_tr_skips_i18n_fallback(tmp_path: Path):
     _seed(tmp_path)
     conn = _RecConn()
     params = BuildParams(
@@ -109,6 +115,21 @@ def test_no_tr_skips_locale_fallback(tmp_path: Path):
     assert result.ok
     fp = next(pr for pr in result.phases if pr.phase_id == "final_pass")
     assert fp.files == []
+
+
+def test_missing_es_locale_uses_es_ES_i18n(tmp_path: Path):
+    _seed(tmp_path)
+    conn = _RecConn()
+    params = BuildParams(
+        schema_name="ws_demo", sql_root=str(tmp_path),
+        plugin_version="4.9.0", profile="empty",
+        locale="es_CR",
+    )
+    result = SchemaBuilder(conn, _manifest(), params).run()
+    assert result.ok
+    fp = next(pr for pr in result.phases if pr.phase_id == "final_pass")
+    assert any("es_ES" in fx.path.replace("\\", "/") for fx in fp.files)
+    assert not any("es_CR" in fx.path.replace("\\", "/") for fx in fp.files)
 
 
 def test_stops_on_first_failure(tmp_path: Path):
@@ -162,9 +183,7 @@ def test_substitutions_applied_in_file_content(tmp_path: Path):
 
 def test_utils_integrate_ud_uses_parent_schema_for_sql(tmp_path: Path, dbmodel_path: Path):
     """Integration SQL must run against the ud parent, not the utils satellite schema."""
-    from giswater_admin.engine.manifest import load_manifest
     from giswater_admin.engine.templating import apply_subs
-    import os
 
     manifest_path = os.path.join(dbmodel_path, "manifests", "utils.yaml")
     if not os.path.isfile(manifest_path):
@@ -250,44 +269,54 @@ def _overlay_parents(root: Path, locale: str) -> dict[str, str]:
     return {Path(p).name: Path(p).parent.name for p in files}
 
 
-def test_shared_source_merges_locale_and_parent_by_basename(tmp_path: Path):
+_SAMPLE_ORDER = ["01.sql", "02.sql", "04.sql", "05.sql", "07.sql", "08.sql"]
+
+
+@pytest.mark.parametrize(
+    "locale, file_02, file_07",
+    [
+        ("es_ES", "es_ES", "es_ES"),
+        ("ca_ES", "ca_ES", "user"),
+        ("en_US", "en_US", "user"),
+        ("zz_ZZ", "en_US", "user"),
+        ("es_CR", "es_ES", "es_ES"),
+        ("es_MX", "es_ES", "es_ES"),
+        ("no_TR", "en_US", "user"),
+    ],
+)
+def test_sample_overlay_resolves_locale(tmp_path: Path, locale: str, file_02: str, file_07: str):
+    """Existing folders win; missing es_* → es_ES; anything else → en_US.
+
+    no_TR skips i18n fallback only; sample still uses en_US.
+    """
     _seed_sample_overlay(tmp_path)
-    order = ["01.sql", "02.sql", "04.sql", "05.sql", "07.sql", "08.sql"]
+    got = _overlay_parents(tmp_path, locale)
+    assert list(got) == _SAMPLE_ORDER
+    assert got["01.sql"] == "user"
+    assert got["02.sql"] == file_02
+    assert got["07.sql"] == file_07
 
-    es = _overlay_parents(tmp_path, "es_ES")
-    assert list(es) == order
-    assert es["02.sql"] == "es_ES" and es["07.sql"] == "es_ES"
 
-    ca = _overlay_parents(tmp_path, "ca_ES")
-    assert list(ca) == order
-    assert ca["02.sql"] == "ca_ES" and ca["07.sql"] == "user"
-
-    en = _overlay_parents(tmp_path, "en_US")
-    assert en["02.sql"] == "en_US" and en["07.sql"] == "user"
-
-    missing = _overlay_parents(tmp_path, "zz_ZZ")
-    assert missing["02.sql"] == "en_US" and missing["07.sql"] == "user"
-
-    cr = _overlay_parents(tmp_path, "es_CR")
-    assert cr["02.sql"] == "es_ES" and cr["07.sql"] == "es_ES"
-    assert "es_CR" not in "".join(cr.values())
-
+def test_sample_overlay_uses_es_CR_folder_when_present(tmp_path: Path):
+    _seed_sample_overlay(tmp_path)
     cr_dir = tmp_path / "sample" / "user" / "es_CR"
     cr_dir.mkdir()
     (cr_dir / "02.sql").write_text("-- cr 02", encoding="utf-8")
-    cr_exists = _overlay_parents(tmp_path, "es_CR")
-    assert cr_exists["02.sql"] == "es_CR" and cr_exists["07.sql"] == "user"
+    got = _overlay_parents(tmp_path, "es_CR")
+    assert list(got) == _SAMPLE_ORDER
+    assert got["02.sql"] == "es_CR" and got["07.sql"] == "user"
 
 
-def test_progress_reports_resolved_path_not_wanted_locale(tmp_path: Path):
-    """es_CR without a folder must log es_ES paths, not the wanted es_CR path."""
+def test_progress_label_is_the_file_that_ran(tmp_path: Path):
+    """Log path is the resolved file (es_ES fallback), not the wanted es_CR folder."""
     _seed_sample_overlay(tmp_path)
     labels: list[str] = []
 
     def cb(seen: int, total: int, label: str, fx=None) -> None:
-        shown = fx.path if fx is not None and getattr(fx, "path", None) else label
-        if shown.endswith(".sql"):
-            labels.append(shown.replace("\\", "/"))
+        if fx is not None and getattr(fx, "path", None):
+            assert label == fx.path
+        if str(label).endswith(".sql"):
+            labels.append(str(label).replace("\\", "/"))
 
     SchemaBuilder(
         _RecConn(),
@@ -301,3 +330,119 @@ def test_progress_reports_resolved_path_not_wanted_locale(tmp_path: Path):
     assert labels
     assert any("/es_ES/" in p for p in labels)
     assert all("/es_CR/" not in p for p in labels)
+
+
+def _real_builder(dbmodel_path: str, kind: str, locale: str, profile: str = "sample_full") -> SchemaBuilder:
+    return SchemaBuilder(
+        _RecConn(),
+        load_manifest(os.path.join(dbmodel_path, "manifests", f"{kind}.yaml")),
+        BuildParams(
+            schema_name=f"{kind}_demo",
+            sql_root=dbmodel_path,
+            plugin_version="4.15.0",
+            profile=profile,
+            locale=locale,
+        ),
+    )
+
+
+@pytest.mark.parametrize("kind", ["ws", "ud"])
+def test_real_load_sample_step_declares_overlay(dbmodel_path: str, kind: str):
+    step = load_manifest(os.path.join(dbmodel_path, "manifests", f"{kind}.yaml")).phase(
+        "load_sample"
+    ).steps[0]
+    assert "{{ locale }}" in step.source
+    assert step.fallback_source.endswith("en_US")
+    assert step.shared_source.endswith("sample/user")
+
+
+_LOCALE_DIR = re.compile(r"^[a-z]{2}_[A-Z]{2}$")
+_SAMPLE_NUM = re.compile(r"_(\d+)_")
+
+
+def _sql_files(folder: Path) -> list[Path]:
+    if not folder.is_dir():
+        return []
+    return sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() == ".sql")
+
+
+def _sample_numbers(folder: Path) -> set[str]:
+    nums: set[str] = set()
+    for path in _sql_files(folder):
+        match = _SAMPLE_NUM.search(path.name)
+        assert match, f"{path.name} in {folder} has no _NNN_ sample number"
+        nums.add(match.group(1))
+    return nums
+
+
+@pytest.mark.parametrize("kind", ["ws", "ud"])
+def test_real_sample_locale_folders_share_numbers_not_in_parent(dbmodel_path: str, kind: str):
+    """Every locale folder must carry the same overlay numbers; those stay out of sample/user/.
+
+    Today that is 003; later 008/009 or any other number — the test does not hardcode them.
+    """
+    user_dir = Path(dbmodel_path) / "schemas" / "main" / kind / "sample" / "user"
+    locale_dirs = sorted(
+        p for p in user_dir.iterdir() if p.is_dir() and _LOCALE_DIR.match(p.name)
+    )
+    assert locale_dirs, f"expected locale folders under {user_dir}"
+
+    numbers_by_dir = {d.name: _sample_numbers(d) for d in locale_dirs}
+    expected = numbers_by_dir[locale_dirs[0].name]
+    assert expected, f"{locale_dirs[0].name} has no overlay SQL"
+    for name, nums in numbers_by_dir.items():
+        assert nums == expected, (
+            f"{kind} locale {name} has numbers {sorted(nums)}, "
+            f"expected {sorted(expected)} (all locale folders must have the same overlay numbers)"
+        )
+
+    overlap = expected & _sample_numbers(user_dir)
+    assert not overlap, (
+        f"{kind} overlay numbers {sorted(overlap)} are in locale folders and also in "
+        f"sample/user/; translated files must not be duplicated in the shared parent"
+    )
+
+
+def _i18n_dir(dbmodel_path: str, kind: str, locale: str) -> Path:
+    return Path(dbmodel_path) / "schemas" / "main" / kind / "final_pass" / "i18n" / locale
+
+
+def _i18n_has_sql(dbmodel_path: str, kind: str, locale: str) -> bool:
+    folder = _i18n_dir(dbmodel_path, kind, locale)
+    return folder.is_dir() and any(folder.glob("*.sql"))
+
+
+def _real_i18n_step(builder: SchemaBuilder):
+    return next(s for s in builder.manifest.phase("final_pass_empty").steps if "i18n" in s.source)
+
+
+@pytest.mark.parametrize("kind", ["ws", "ud"])
+def test_real_i18n_missing_locale_uses_bundled_en_US(dbmodel_path: str, kind: str):
+    """en_US i18n is the only locale committed in git; downloaded packs are optional."""
+    assert _i18n_has_sql(dbmodel_path, kind, "en_US")
+    builder = _real_builder(dbmodel_path, kind, "zz_ZZ", profile="empty")
+    files = builder._files_for_step(_real_i18n_step(builder))
+    assert files
+    assert all("/en_US/" in p.replace("\\", "/") for p in files)
+    assert all("/zz_ZZ/" not in p.replace("\\", "/") for p in files)
+
+
+@pytest.mark.parametrize("kind", ["ws", "ud"])
+def test_real_i18n_missing_es_locale_uses_es_ES_when_downloaded(dbmodel_path: str, kind: str):
+    """es_* fallback needs es_ES on disk. Skip if that pack was never downloaded.
+
+    Use es_MX (not es_CR): a downloaded es_CR folder would be used as-is.
+    """
+    if not _i18n_has_sql(dbmodel_path, kind, "es_ES"):
+        pytest.skip("es_ES i18n SQL is not bundled; download it to exercise this fallback")
+    builder = _real_builder(dbmodel_path, kind, "es_MX", profile="empty")
+    files = builder._files_for_step(_real_i18n_step(builder))
+    assert files
+    assert all("/es_ES/" in p.replace("\\", "/") for p in files)
+    assert all("/es_MX/" not in p.replace("\\", "/") for p in files)
+
+
+@pytest.mark.parametrize("kind", ["ws", "ud"])
+def test_real_i18n_no_tr_skips_fallback(dbmodel_path: str, kind: str):
+    builder = _real_builder(dbmodel_path, kind, "no_TR", profile="empty")
+    assert builder._files_for_step(_real_i18n_step(builder)) == []

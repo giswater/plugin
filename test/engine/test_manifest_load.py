@@ -28,7 +28,7 @@ def test_loads_minimal_manifest(tmp_path: Path):
           - id: load_base
             type: sql_dir
             steps:
-              - { source: "ws/fct", shared_source: "ws" }
+              - { source: "ws/fct", recursive: false }
         profiles:
           empty: { phases: [load_base] }
         """,
@@ -39,8 +39,31 @@ def test_loads_minimal_manifest(tmp_path: Path):
     assert m.substitutions == {"FOO": "bar"}
     assert len(m.phases) == 1
     assert m.phase("load_base").steps[0].source == "ws/fct"
-    assert m.phase("load_base").steps[0].shared_source == "ws"
+    assert m.phase("load_base").steps[0].shared_source == ""
     assert m.profile("empty") == ("load_base",)
+
+
+def test_loads_sample_overlay_step_fields(tmp_path: Path):
+    path = _write(
+        tmp_path,
+        """
+        kind: ws
+        engine_version: 1
+        phases:
+          - id: load_sample
+            type: sql_dir
+            steps:
+              - source: "sample/user/{{ locale }}"
+                fallback_source: "sample/user/en_US"
+                shared_source: "sample/user"
+        profiles:
+          sample: { phases: [load_sample] }
+        """,
+    )
+    step = load_manifest(path).phase("load_sample").steps[0]
+    assert step.source == "sample/user/{{ locale }}"
+    assert step.fallback_source == "sample/user/en_US"
+    assert step.shared_source == "sample/user"
 
 
 def test_rejects_missing_kind(tmp_path: Path):
