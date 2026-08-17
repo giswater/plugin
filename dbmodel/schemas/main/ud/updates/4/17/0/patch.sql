@@ -577,3 +577,27 @@ UPDATE config_form_fields
   }
 }'::json
 	WHERE formname='cat_arc' AND formtype='form_feature' AND columnname='shape' AND tabname='tab_none';
+
+UPDATE config_form_fields
+SET widgetcontrols = replace(replace(widgetcontrols::text,
+        '"layer": "cat_grate"', '"layer": "cat_gully"'),
+        '"layer":"cat_grate"', '"layer":"cat_gully"')::json
+WHERE widgetcontrols::text LIKE '%cat_grate%';
+
+UPDATE config_form_fields
+SET widgetcontrols = replace(replace(replace(replace(widgetcontrols::text,
+        '"layer": "ve_dma"', '"layer": "ve_dwfzone"'),
+        '"layer":"ve_dma"', '"layer":"ve_dwfzone"'),
+        '"keyColumn": "dma_id"', '"keyColumn": "dwfzone_id"'),
+        '"keyColumn":"dma_id"', '"keyColumn":"dwfzone_id"')::json
+WHERE columnname = 'dwfzone_id'
+  AND widgetcontrols::text LIKE '%ve_dma%';
+
+UPDATE config_form_fields
+SET widgetcontrols = replace(replace(replace(replace(widgetcontrols::text,
+        '"layer": "ve_dma"', '"layer": "ve_omzone"'),
+        '"layer":"ve_dma"', '"layer":"ve_omzone"'),
+        '"keyColumn": "dma_id"', '"keyColumn": "omzone_id"'),
+        '"keyColumn":"dma_id"', '"keyColumn":"omzone_id"')::json
+WHERE columnname = 'omzone_id'
+  AND widgetcontrols::text LIKE '%ve_dma%';

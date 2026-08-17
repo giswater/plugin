@@ -69,7 +69,7 @@ UPDATE config_form_fields t SET dv_querytext = a.dv_querytext FROM (
 
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,layoutorder,"datatype",widgettype,"label",tooltip,placeholder,ismandatory,isparent,iseditable,isautoupdate,isfilter,dv_querytext,dv_orderby_id,dv_isnullvalue,dv_parent_id,dv_querytext_filterc,stylesheet,widgetcontrols,widgetfunction,linkedobject,hidden,web_layoutorder) VALUES
 	 ('ve_connec_samplepoint','form_feature','tab_data','sector_id','lyt_bot_1',1,'integer','combo','Sector id:','Sector_id - Hydraulic sector identifier related to the primary key of sector table',NULL,false,false,true,false,NULL,'SELECT sector_id as id,name as idval FROM sector WHERE sector_id IS NOT NULL AND active IS TRUE ',true,false,NULL,NULL,'{"label":"color:blue; font-weight:bold;"}','{"setMultiline": false, "labelPosition": "top", "valueRelation": {"layer": "ve_sector", "activated": true, "keyColumn": "sector_id", "nullValue": false, "valueColumn": "name", "filterExpression": null}}',NULL,NULL,false,4),
-	 ('ve_connec_samplepoint','form_feature','tab_data','dwfzone_id','lyt_bot_1',2,'integer','combo','Dwfzone','Dwfzone_id',NULL,false,false,true,false,NULL,'SELECT dwfzone_id as id, name as idval FROM dwfzone WHERE dwfzone_id = 0 UNION SELECT dwfzone_id as id, name as idval FROM dwfzone WHERE dwfzone_id IS NOT NULL AND active IS TRUE',true,false,'expl_id',' AND dwfzone.expl_id',NULL,'{"setMultiline": false, "labelPosition": "top", "valueRelation": {"layer": "ve_dma", "activated": true, "keyColumn": "dma_id", "nullValue": false, "valueColumn": "name", "filterExpression": null}}',NULL,NULL,false,5),
+	 ('ve_connec_samplepoint','form_feature','tab_data','dwfzone_id','lyt_bot_1',2,'integer','combo','Dwfzone','Dwfzone_id',NULL,false,false,true,false,NULL,'SELECT dwfzone_id as id, name as idval FROM dwfzone WHERE dwfzone_id = 0 UNION SELECT dwfzone_id as id, name as idval FROM dwfzone WHERE dwfzone_id IS NOT NULL AND active IS TRUE',true,false,'expl_id',' AND dwfzone.expl_id',NULL,'{"setMultiline": false, "labelPosition": "top", "valueRelation": {"layer": "ve_dwfzone", "activated": true, "keyColumn": "dwfzone_id", "nullValue": false, "valueColumn": "name", "filterExpression": null}}',NULL,NULL,false,5),
 	 ('ve_connec_samplepoint','form_feature','tab_data','state','lyt_bot_1',3,'smallint','combo','State:','State - Domain value of connect''s state.',NULL,false,true,false,false,NULL,'WITH psector_value AS (
   		SELECT value::integer AS psector_value
   		FROM config_param_user
@@ -389,3 +389,28 @@ UPDATE config_form_fields
 UPDATE config_form_fields
 	SET "label"=NULL
 	WHERE "label"=':';
+
+-- ValueRelation lookups auto-loaded into HIDDEN: stale layer names → Unavailable
+UPDATE config_form_fields
+SET widgetcontrols = replace(replace(widgetcontrols::text,
+        '"layer": "cat_grate"', '"layer": "cat_gully"'),
+        '"layer":"cat_grate"', '"layer":"cat_gully"')::json
+WHERE widgetcontrols::text LIKE '%cat_grate%';
+
+UPDATE config_form_fields
+SET widgetcontrols = replace(replace(replace(replace(widgetcontrols::text,
+        '"layer": "ve_dma"', '"layer": "ve_dwfzone"'),
+        '"layer":"ve_dma"', '"layer":"ve_dwfzone"'),
+        '"keyColumn": "dma_id"', '"keyColumn": "dwfzone_id"'),
+        '"keyColumn":"dma_id"', '"keyColumn":"dwfzone_id"')::json
+WHERE columnname = 'dwfzone_id'
+  AND widgetcontrols::text LIKE '%ve_dma%';
+
+UPDATE config_form_fields
+SET widgetcontrols = replace(replace(replace(replace(widgetcontrols::text,
+        '"layer": "ve_dma"', '"layer": "ve_omzone"'),
+        '"layer":"ve_dma"', '"layer":"ve_omzone"'),
+        '"keyColumn": "dma_id"', '"keyColumn": "omzone_id"'),
+        '"keyColumn":"dma_id"', '"keyColumn":"omzone_id"')::json
+WHERE columnname = 'omzone_id'
+  AND widgetcontrols::text LIKE '%ve_dma%';

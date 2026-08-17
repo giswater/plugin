@@ -33,8 +33,8 @@ class GwProjectLayersConfig(GwTask):
         self.json_result = None
         self.vr_errors = None
         self.vr_missing = None
-        self.vr_layers_to_add = None
-        self.vr_layer_by_table = None
+        self.vr_tables_to_add = None
+        self.vr_pending = None
 
     def run(self):
 
@@ -42,8 +42,8 @@ class GwProjectLayersConfig(GwTask):
         self.setProgress(0)
         self.vr_errors = set()
         self.vr_missing = set()
-        self.vr_layers_to_add = set()
-        self.vr_layer_by_table = {}
+        self.vr_tables_to_add = {}
+        self.vr_pending = []
         tools_qgis.refresh_value_relation_target_tables(aux_conn=self.aux_conn, is_thread=True)
         self._get_layers_to_config()
         self._set_layer_config(self.available_layers)
@@ -61,24 +61,27 @@ class GwProjectLayersConfig(GwTask):
         sql += ");"
         tools_gw.manage_json_response(self.json_result, sql, None)
 
-        # Recreate VR lookups on the main thread (worker QgsVectorLayer is not a usable TOC layer)
-        if self.vr_layers_to_add:
-            for old_layer in self.vr_layers_to_add:
-                table = old_layer.customProperty("gw_id") or tools_qgis.get_layer_source_table_name(old_layer)
-                old_id = old_layer.id()
-                new_layer = tools_gw.load_layer_in_hidden_group(table, '', add_to_toc=True)
-                if new_layer and new_layer.isValid():
-                    tools_qgis.rebind_value_relation_layer(old_id, new_layer)
-                else:
-                    gw_id = table or old_layer.name()
-                    tools_qgis.add_layer_to_toc(
-                        old_layer, group="HIDDEN", create_groups=True, custom_properties={"gw_id": gw_id})
-                    tools_qgis.set_layer_visible(old_layer, recursive=False, visible=False)
+        # Drop unavailable leftovers in HIDDEN (stale VR targets / wrong keyColumn).
+        hidden_group = QgsProject.instance().layerTreeRoot().findGroup('HIDDEN')
+        if hidden_group:
+            for node in list(hidden_group.findLayers()):
+                layer = node.layer()
+                if layer is not None and not layer.isValid():
+                    QgsProject.instance().removeMapLayer(layer.id())
 
+        # Load missing VR lookups on the GUI thread. Never construct QgsVectorLayer in the worker:
+        # the postgres provider is not thread-safe and kills project layers (Unavailable + duplicates).
+        if self.vr_tables_to_add:
+            for table, key_column in self.vr_tables_to_add.items():
+                tools_gw.load_layer_in_hidden_group(table, key_column, add_to_toc=True)
             tools_gw.hide_group_from_toc('HIDDEN')
             hidden_group = QgsProject.instance().layerTreeRoot().findGroup('HIDDEN')
             if hidden_group:
                 hidden_group.setItemVisibilityChecked(False)
+
+        if self.vr_pending:
+            for layer, field_index, field, value_relation, layer_name in self.vr_pending:
+                tools_gw._apply_value_relation(layer, field_index, field, value_relation, layer_name, thread=None)
 
         # Select the layer called 've_node'
         layer = tools_qgis.get_layer_by_tablename('ve_node')

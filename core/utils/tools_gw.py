@@ -1841,15 +1841,18 @@ def _apply_value_relation(layer, field_index, field, value_relation, layer_name,
     """Configure ValueRelation editor widget; load lookup layer if needed."""
     try:
         vr_layer = value_relation.get('layer', '')
+        vr_key = value_relation.get('keyColumn', '') or ''
         layer_obj = tools_qgis.get_layer_by_tablename(vr_layer)
+        if layer_obj is not None and not layer_obj.isValid():
+            layer_obj = None
         if layer_obj is None:
             if thread is not None:
                 # Do not construct QgsVectorLayer off the GUI thread (breaks postgres layers in the project).
-                thread.vr_tables_to_add.add(vr_layer)
+                if vr_key or vr_layer not in thread.vr_tables_to_add:
+                    thread.vr_tables_to_add[vr_layer] = vr_key
                 thread.vr_pending.append((layer, field_index, field, value_relation, layer_name))
                 return
-            layer_obj = load_layer_in_hidden_group(
-                vr_layer, value_relation.get('keyColumn', ''), add_to_toc=True)
+            layer_obj = load_layer_in_hidden_group(vr_layer, vr_key, add_to_toc=True)
 
         if layer_obj is None:
             raise Exception(f"Layer '{vr_layer}' not found")
@@ -2025,6 +2028,18 @@ def _table_geometry_column(schema, table, aux_conn=None, is_thread=False):
     return row[0] if row and row[0] else None
 
 
+def _relation_exists(schema, table, aux_conn=None, is_thread=False):
+    """True if schema.table exists (table, view or matview)."""
+    if not schema or not table:
+        return False
+    row = tools_db.get_row(
+        "SELECT to_regclass(%s)",
+        params=[f"{schema}.{table}"],
+        log_info=False, is_thread=is_thread, aux_conn=aux_conn,
+    )
+    return bool(row and row[0])
+
+
 def _vr_layer_add_params(table, schema, key_column, aux_conn=None, is_thread=False):
     """Resolve alias / geom / pkey the same way as gw_fct_getaddlayervalues."""
     table_sql = str(table).replace("'", "''")
@@ -2036,7 +2051,7 @@ def _vr_layer_add_params(table, schema, key_column, aux_conn=None, is_thread=Fal
     )
     row = tools_db.get_row(sql, log_info=False, is_thread=is_thread, aux_conn=aux_conn)
     alias = table
-    pkey = key_column or 'id'
+    pkey = (key_column or "").strip() or None
     addparam = None
     if row:
         if row[0]:
@@ -2047,8 +2062,10 @@ def _vr_layer_add_params(table, schema, key_column, aux_conn=None, is_thread=Fal
                 addparam = json.loads(addparam)
             except (TypeError, ValueError):
                 addparam = None
-        if addparam and addparam.get('pkey'):
+        if not pkey and addparam and addparam.get('pkey'):
             pkey = addparam['pkey']
+    if not pkey:
+        pkey = 'id'
     geom = _table_geometry_column(schema, table, aux_conn=aux_conn, is_thread=is_thread)
     if geom and addparam and addparam.get('geom'):
         geom = addparam['geom']
@@ -2066,8 +2083,16 @@ def load_layer_in_hidden_group(layer_name, key_column, add_to_toc=True, aux_conn
         table = layer_name
 
     existing = tools_qgis.get_layer_by_tablename(table) or tools_qgis.get_layer(custom_properties={"gw_id": table})
-    if existing:
+    if existing and existing.isValid():
         return existing
+    if existing:
+        QgsProject.instance().removeMapLayer(existing.id())
+
+    if not _relation_exists(schema, table, aux_conn=aux_conn, is_thread=is_thread):
+        msg = "ValueRelation lookup table not found: {0}"
+        msg_params = (f"{schema}.{table}",)
+        tools_log.log_warning(msg, msg_params=msg_params)
+        return None
 
     if table in _vr_loading_tables:
         return tools_qgis.get_layer_by_tablename(table)
@@ -2095,6 +2120,8 @@ def load_layer_in_hidden_group(layer_name, key_column, add_to_toc=True, aux_conn
                 if hidden_group:
                     hidden_group.setItemVisibilityChecked(False)
             return layer
+        if layer:
+            QgsProject.instance().removeMapLayer(layer.id())
     finally:
         _vr_loading_tables.discard(table)
 
