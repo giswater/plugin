@@ -682,3 +682,13 @@ AS SELECT DISTINCT m.muni_id,
     m.the_geom
    FROM v_municipality m
    WHERE EXISTS (SELECT 1 FROM selector_municipality s WHERE s.muni_id = m.muni_id AND s.cur_user = CURRENT_USER);
+
+UPDATE config_form_fields
+SET widgetcontrols = (
+    COALESCE(widgetcontrols::jsonb, '{}'::jsonb)
+    || '{"valueRelation": {"layer": "ve_municipality", "activated": true, "keyColumn": "muni_id", "nullValue": false, "valueColumn": "name", "filterExpression": null}}'::jsonb
+)::json
+WHERE columnname = 'muni_id'
+  AND formtype = 'form_feature'
+  AND tabname = 'tab_data'
+  AND widgettype = 'combo';
