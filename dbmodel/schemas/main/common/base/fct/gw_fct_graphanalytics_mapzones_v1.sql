@@ -539,7 +539,7 @@ BEGIN
 					AND t.active
 					%s
 				), mapzones_filtered AS (
-					SELECT DISTINCT mapzone_id
+					SELECT DISTINCT g.mapzone_id
 					FROM graphconfig g
 					JOIN temp_pgr_node n ON n.pgr_node_id = g.node_parent
 				)
