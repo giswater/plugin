@@ -563,3 +563,17 @@ INSERT INTO config_form_tableview (location_type,project_type,objectname,columnn
 	VALUES ('gully form','utils','tbl_doc_x_gully','gully_uuid',8,true,'Node Uuid');
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
 	VALUES ('gully form','utils','tbl_doc_x_gully','doc_name',8,true,'Document Name');
+
+UPDATE config_form_fields
+	SET widgetcontrols='{
+  "setMultiline": false,
+  "valueRelation": {
+    "nullValue": true,
+    "layer": "cat_arc_shape",
+    "activated": true,
+    "keyColumn": "id",
+    "valueColumn": "id",
+    "filterExpression": ""
+  }
+}'::json
+	WHERE formname='cat_arc' AND formtype='form_feature' AND columnname='shape' AND tabname='tab_none';
