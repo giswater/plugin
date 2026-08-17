@@ -7,38 +7,38 @@ or (at your option) any later version.
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('N/I', 'No information', '{NODE,ARC,CONNEC,ELEMENT,GULLY,LINK}', NULL, NULL, NULL, true);
-INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('Concrete', 'Concrete', '{NODE,ARC,CONNEC,ELEMENT,GULLY,LINK}', NULL, 0.0140, NULL, true);
-INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('Brick', 'Brick', '{NODE,ARC,CONNEC,GULLY,LINK}', NULL, 0.0140, NULL, true);
+INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('N/I', 'Sin información', '{NODE,ARC,CONNEC,ELEMENT,GULLY,LINK}', NULL, NULL, NULL, true);
+INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('Concrete', 'Hormigón', '{NODE,ARC,CONNEC,ELEMENT,GULLY,LINK}', NULL, 0.0140, NULL, true);
+INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('Brick', 'Ladrillo', '{NODE,ARC,CONNEC,GULLY,LINK}', NULL, 0.0140, NULL, true);
 INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('PEAD', 'PEAD', '{NODE,ARC,CONNEC,GULLY,LINK}', NULL, 0.0110, NULL, true);
 INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('PEC', 'PEC', '{ARC,CONNEC}', NULL, 0.0120, NULL, true);
 INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('PVC', 'PVC', '{NODE,ARC,CONNEC,GULLY,LINK}', NULL, 0.0110, NULL, true);
 INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('Virtual', 'Virtual', '{NODE,ARC,CONNEC,LINK}', NULL, 0.0120, NULL, true);
 INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('FD', 'FD', '{NODE,ELEMENT,GULLY}', NULL, NULL, NULL, true);
-INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('Iron', 'Iron', '{NODE,ELEMENT,GULLY}', NULL, NULL, NULL, true);
+INSERT INTO cat_material (id, descript, feature_type, featurecat_id, n, link, active) VALUES('Iron', 'Hierro', '{NODE,ELEMENT,GULLY}', NULL, NULL, NULL, true);
 
-INSERT INTO cat_element VALUES ('COVER70', 'ECOVER', 'FD', '70 cm', 'Cover iron Ø70cm', NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL);
-INSERT INTO cat_element VALUES ('COVER70X70', 'ECOVER', 'FD', '70x70cm', 'Cover iron 70x70cm', NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL);
-INSERT INTO cat_element VALUES ('STEP200', 'ESTEP', 'Iron', '20x20X20cm', 'Step iron 20x20cm', NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL);
+INSERT INTO cat_element VALUES ('COVER70', 'ECOVER', 'FD', '70 cm', 'Tapa de hierro Ø70cm', NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL);
+INSERT INTO cat_element VALUES ('COVER70X70', 'ECOVER', 'FD', '70x70cm', 'Tapa de hierro 70x70cm', NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL);
+INSERT INTO cat_element VALUES ('STEP200', 'ESTEP', 'Iron', '20x20X20cm', 'Peldaño de hierro 20x20cm', NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL);
 INSERT INTO cat_element VALUES ('PUMP_ABS', 'EPUMP', 'Iron', NULL, 'Model ABS AFP 1001 M300/4-43', NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL);
-INSERT INTO cat_element VALUES ('HYDROGEN SULFIDE SENSOR', 'EIOT_SENSOR', 'Iron', '10x10x10cm', 'Hydrogen sulfide sensor', NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL);
-INSERT INTO cat_element VALUES ('WEEL PROTECTOR', 'EPROTECTOR', 'Iron', '50x10x5cm', 'Weel protector', NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL);
+INSERT INTO cat_element VALUES ('HYDROGEN SULFIDE SENSOR', 'EIOT_SENSOR', 'Iron', '10x10x10cm', 'Sensor de sulfuro de hidrógeno', NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL);
+INSERT INTO cat_element VALUES ('WEEL PROTECTOR', 'EPROTECTOR', 'Iron', '50x10x5cm', 'Protector de pozo', NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL);
 INSERT INTO cat_element (id, element_type, matcat_id, geometry, descript, link, brand, "type", model, svg, active, geom1, geom2, isdoublegeom) VALUES('GATE-01', 'EGATE', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL);
 
-INSERT INTO cat_arc VALUES ('SIPHON-CC100', 'SIPHON', NULL, 'CIRCULAR', 1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Conduit', NULL, NULL, NULL, NULL, 0.10, 0.10, 1.30, 0.7854, 2.20, 0.15, 'm', 'A_CON_DN100', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('WACCEL-CC020', 'WACCEL', NULL, 'CIRCULAR', 0.2000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Conduit', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.26, 0.0314, 1.40, 0.03, 'm', 'A_PVC_DN20', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('WEIR_60', 'VARC', NULL, 'VIRTUAL', 0.6000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Weir', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.78, 0.2827, 1.80, 0.09, 'm', 'A_WEIR_60', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('PUMP_01', 'VARC', NULL, 'VIRTUAL', 0.1800, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Pump', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.24, 0.0254, 1.38, 0.03, 'm', 'A_PRE_PE_DN20', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('CC100', 'CONDUIT', NULL, 'CIRCULAR', 1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Conduit', NULL, NULL, NULL, NULL, 0.10, 0.10, 1.30, 0.7854, 2.20, 0.15, 'm', 'A_CON_DN100', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('CC040', 'CONDUIT', NULL, 'CIRCULAR', 0.4000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Conduit', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.52, 0.1257, 1.60, 0.06, 'm', 'A_PVC_DN40', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('CC060', 'CONDUIT', NULL, 'CIRCULAR', 0.6000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Conduit', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.78, 0.2827, 1.80, 0.09, 'm', 'A_PVC_DN60', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('CC080', 'CONDUIT', NULL, 'CIRCULAR', 0.8000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Conduit', NULL, NULL, NULL, NULL, 0.10, 0.10, 1.04, 0.5027, 2.00, 0.12, 'm', 'A_PVC_DN80', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('CC020', 'CONDUIT', NULL, 'CIRCULAR', 0.2000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Conduit', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.26, 0.0314, 1.40, 0.03, 'm', 'A_PVC_DN20', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('CC315', 'CONDUIT', NULL, 'CIRCULAR', 0.3150, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Conduit', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.42, 0.0920, 1.50, 0.06, 'm', 'A_PEC_DN315', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('EG150', 'CONDUIT', NULL, 'EGG', 1.5000, 1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Conduit', NULL, NULL, NULL, NULL, 0.10, 0.10, 1.15, 1.5000, 2.70, 0.22, 'm', 'A_CON_O150', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('RC150', 'CONDUIT', NULL, 'RECT_CLOSED', 1.5000, 1.5000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Conduit', NULL, NULL, NULL, NULL, 0.10, 0.10, 1.94, 2.2500, 2.70, 0.22, 'm', 'A_CON_R150', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('RC200', 'SIPHON', NULL, 'RECT_CLOSED', 2.0000, 2.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Conduit', NULL, NULL, NULL, NULL, 0.10, 0.10, 2.60, 4.0000, 3.20, 0.30, 'm', 'A_CON_R200', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
-INSERT INTO cat_arc VALUES ('PP020', 'PUMP_PIPE', NULL, 'FORCE_MAIN', 0.1800, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Pump pipe', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.26, 0.0314, 1.40, 0.03, 'm', 'A_PRE_PE_DN20', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('SIPHON-CC100', 'SIPHON', NULL, 'CIRCULAR', 1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Colector', NULL, NULL, NULL, NULL, 0.10, 0.10, 1.30, 0.7854, 2.20, 0.15, 'm', 'A_CON_DN100', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('WACCEL-CC020', 'WACCEL', NULL, 'CIRCULAR', 0.2000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Colector', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.26, 0.0314, 1.40, 0.03, 'm', 'A_PVC_DN20', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('WEIR_60', 'VARC', NULL, 'VIRTUAL', 0.6000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Vertedero', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.78, 0.2827, 1.80, 0.09, 'm', 'A_WEIR_60', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('PUMP_01', 'VARC', NULL, 'VIRTUAL', 0.1800, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Bomba', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.24, 0.0254, 1.38, 0.03, 'm', 'A_PRE_PE_DN20', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('CC100', 'CONDUIT', NULL, 'CIRCULAR', 1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Colector', NULL, NULL, NULL, NULL, 0.10, 0.10, 1.30, 0.7854, 2.20, 0.15, 'm', 'A_CON_DN100', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('CC040', 'CONDUIT', NULL, 'CIRCULAR', 0.4000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Colector', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.52, 0.1257, 1.60, 0.06, 'm', 'A_PVC_DN40', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('CC060', 'CONDUIT', NULL, 'CIRCULAR', 0.6000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Colector', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.78, 0.2827, 1.80, 0.09, 'm', 'A_PVC_DN60', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('CC080', 'CONDUIT', NULL, 'CIRCULAR', 0.8000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Colector', NULL, NULL, NULL, NULL, 0.10, 0.10, 1.04, 0.5027, 2.00, 0.12, 'm', 'A_PVC_DN80', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('CC020', 'CONDUIT', NULL, 'CIRCULAR', 0.2000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Colector', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.26, 0.0314, 1.40, 0.03, 'm', 'A_PVC_DN20', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('CC315', 'CONDUIT', NULL, 'CIRCULAR', 0.3150, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Colector', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.42, 0.0920, 1.50, 0.06, 'm', 'A_PEC_DN315', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('EG150', 'CONDUIT', NULL, 'EGG', 1.5000, 1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Colector', NULL, NULL, NULL, NULL, 0.10, 0.10, 1.15, 1.5000, 2.70, 0.22, 'm', 'A_CON_O150', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('RC150', 'CONDUIT', NULL, 'RECT_CLOSED', 1.5000, 1.5000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Colector', NULL, NULL, NULL, NULL, 0.10, 0.10, 1.94, 2.2500, 2.70, 0.22, 'm', 'A_CON_R150', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('RC200', 'SIPHON', NULL, 'RECT_CLOSED', 2.0000, 2.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Colector', NULL, NULL, NULL, NULL, 0.10, 0.10, 2.60, 4.0000, 3.20, 0.30, 'm', 'A_CON_R200', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
+INSERT INTO cat_arc VALUES ('PP020', 'PUMP_PIPE', NULL, 'FORCE_MAIN', 0.1800, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Tubería de impulsión', NULL, NULL, NULL, NULL, 0.10, 0.10, 0.26, 0.0314, 1.40, 0.03, 'm', 'A_PRE_PE_DN20', 'S_REP', 'S_NULL', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
 INSERT INTO cat_arc VALUES ('VIRTUAL', 'VARC', NULL, 'VIRTUAL', 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, NULL, 'Virtual', NULL, NULL, NULL, NULL, 0.00, 0.00, 0.00, 0.0000, 0.00, 0.00, 'm', 'VIRTUAL_M', 'VIRTUAL_M2', 'VIRTUAL_M3', true, NULL, NULL, NULL, NULL, 'N_CONNECTION', NULL);
 
 INSERT INTO cat_brand VALUES ('brand1', NULL, NULL, true, '{SIPHON, JUMP, VALVE, HIGHPOINT}');
@@ -68,38 +68,38 @@ INSERT INTO cat_link (id, link_type, matcat_id, active) VALUES ('CC020_D', 'COND
 INSERT INTO cat_feature (id, feature_class, feature_type, parent_layer, child_layer, active) VALUES ('SAMPLEPOINT', 'SAMPLEPOINT','CONNEC', 've_connec', 've_connec_samplepoint', true) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO cat_connec (id, connec_type, matcat_id, shape, geom1, geom2, geom3, geom4, geom_r, descript, link, brand_id, model_id, svg, active, "label", estimated_depth)
-VALUES('DIRECT-CONNECTION', 'CJOIN', NULL, 'CIRCULAR', 0.2000, 0.0000, 0.0000, 0.0000, NULL, 'Connec', NULL, NULL, NULL, NULL, true, NULL, NULL);
+VALUES('DIRECT-CONNECTION', 'CJOIN', NULL, 'CIRCULAR', 0.2000, 0.0000, 0.0000, 0.0000, NULL, 'Acometida', NULL, NULL, NULL, NULL, true, NULL, NULL);
 INSERT INTO cat_connec (id, connec_type, matcat_id, shape, geom1, geom2, geom3, geom4, geom_r, descript, link, brand_id, model_id, svg, active, "label", estimated_depth)
-VALUES('INSPECTION-CHAMBER', 'CJOIN', NULL, 'CIRCULAR', 0.2000, 0.0000, 0.0000, 0.0000, NULL, 'Connec', NULL, NULL, NULL, NULL, true, NULL, NULL);
+VALUES('INSPECTION-CHAMBER', 'CJOIN', NULL, 'CIRCULAR', 0.2000, 0.0000, 0.0000, 0.0000, NULL, 'Acometida', NULL, NULL, NULL, NULL, true, NULL, NULL);
 INSERT INTO cat_connec (id, connec_type, matcat_id, shape, geom1, geom2, geom3, geom4, geom_r, descript, link, brand_id, model_id, svg, active, "label", estimated_depth)
-VALUES('GREASE-TRAP', 'CJOIN', NULL, 'CIRCULAR', 0.2000, 0.0000, 0.0000, 0.0000, NULL, 'Connec', NULL, NULL, NULL, NULL, true, NULL, NULL);
+VALUES('GREASE-TRAP', 'CJOIN', NULL, 'CIRCULAR', 0.2000, 0.0000, 0.0000, 0.0000, NULL, 'Acometida', NULL, NULL, NULL, NULL, true, NULL, NULL);
 INSERT INTO cat_connec (id, connec_type, matcat_id, shape, geom1, geom2, geom3, geom4, geom_r, descript, link, brand_id, model_id, svg, active, "label", estimated_depth)
-VALUES('SAMPLING-CHAMBER', 'CJOIN', NULL, 'CIRCULAR', 0.2000, 0.0000, 0.0000, 0.0000, NULL, 'Connec', NULL, NULL, NULL, NULL, true, NULL, NULL);
+VALUES('SAMPLING-CHAMBER', 'CJOIN', NULL, 'CIRCULAR', 0.2000, 0.0000, 0.0000, 0.0000, NULL, 'Acometida', NULL, NULL, NULL, NULL, true, NULL, NULL);
 INSERT INTO cat_connec (id, connec_type, matcat_id, shape, geom1, geom2, geom3, geom4, geom_r, descript, link, brand_id, model_id, svg, active, "label", estimated_depth)
-VALUES ('VIRTUAL', 'VCONNEC', NULL, 'VIRTUAL', 0.3000, 0.0000, 0.0000, 0.0000, NULL, 'Virtual connec', NULL, NULL, NULL, NULL, true, NULL, NULL);
+VALUES ('VIRTUAL', 'VCONNEC', NULL, 'VIRTUAL', 0.3000, 0.0000, 0.0000, 0.0000, NULL, 'Acometida virtual', NULL, NULL, NULL, NULL, true, NULL, NULL);
 INSERT INTO cat_connec (id, connec_type, matcat_id, shape, geom1, geom2, geom3, geom4, geom_r, descript, link, brand_id, model_id, svg, active, "label", estimated_depth)
-VALUES ('SAMPLEPOINT', 'SAMPLEPOINT', NULL, 'CIRCULAR', 0.2500, 0.0000, 0.0000, 0.0000, NULL, 'Samplepoint', NULL, NULL, NULL, NULL, true, NULL, NULL);
+VALUES ('SAMPLEPOINT', 'SAMPLEPOINT', NULL, 'CIRCULAR', 0.2500, 0.0000, 0.0000, 0.0000, NULL, 'Punto de muestreo', NULL, NULL, NULL, NULL, true, NULL, NULL);
 
 
-INSERT INTO cat_node VALUES ('CHAMBER-01', 'CHAMBER', NULL, NULL, 3.00, 2.50, 3.00, 'Chamber 3x2.5x3m', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_CH300x250-H300', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('HIGH POINT-01', 'HIGHPOINT', NULL, NULL, 1.00, 1.00, NULL, 'High point', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD80-H160', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('JUMP-01', 'JUMP', NULL, NULL, 1.00, 1.00, NULL, 'Circular jump manhole ø100cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_JUMP100', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('NETGULLY-01', 'NETGULLY', NULL, NULL, 1.00, 1.00, NULL, 'Network gully', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD80-H160', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('SEW_STORAGE-01', 'SEWER_STORAGE', NULL, NULL, 5.00, 3.50, 4.75, 'Sewer storage 5x3.5x4.5m', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_STR500x350x475', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('VALVE-01', 'VALVE', NULL, NULL, 1.00, 1.00, NULL, 'Network valve', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_VAL_01', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('WEIR-01', 'WEIR', NULL, NULL, 1.50, 2.00, NULL, 'Rectangular weir 150x200cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'A_WEIR_60', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('NETINIT-01', 'NETINIT', NULL, NULL, 1.00, 1.00, NULL, 'Network init', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD100-H160', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('NETELEMENT-01', 'NETELEMENT', NULL, NULL, 1.00, 1.00, NULL, 'Netelement rectangular', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD100-H160', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('JUNCTION-01', 'JUNCTION', NULL, NULL, 1.00, 1.00, NULL, 'Juntion', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD100-H160', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('OUTFALL-01', 'OUTFALL', NULL, NULL, 2.00, 1.00, NULL, 'Outfall', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD100-H160', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('NODE-01', 'VIRTUAL_NODE', NULL, NULL, 1.00, 1.00, NULL, 'Virtual node', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD80-H160', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('VIR_NODE-01', 'VIRTUAL_NODE', NULL, NULL, 1.00, 1.00, NULL, 'Virtual node', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD80-H160', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('WWTP-01', 'WWTP', NULL, NULL, 1.00, 1.00, NULL, 'Wastewater treatment plant', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRQ150-H250', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('C_MANHOLE_100', 'CIRC_MANHOLE', NULL, NULL, 1.00, 1.00, NULL, 'Circular manhole ø100cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD100-H160', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('C_MANHOLE_80', 'CIRC_MANHOLE', NULL, NULL, 0.80, 1.00, NULL, 'Circular manhole ø80cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD80-H160', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('R_MANHOLE_100', 'RECT_MANHOLE', NULL, NULL, 1.00, 1.00, NULL, 'Rectangular manhole 100x100cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRQ100-H160', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('R_MANHOLE_150', 'RECT_MANHOLE', NULL, NULL, 1.50, 1.50, NULL, 'Rectangular manhole 150x150cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRQ150-H250', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('R_MANHOLE_200', 'RECT_MANHOLE', NULL, NULL, 2.00, 2.00, NULL, 'Rectangular manhole 200x200cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRQ200-H250', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('CHAMBER-01', 'CHAMBER', NULL, NULL, 3.00, 2.50, 3.00, 'Cámara 3x2.5x3m', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_CH300x250-H300', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('HIGH POINT-01', 'HIGHPOINT', NULL, NULL, 1.00, 1.00, NULL, 'Punto alto', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD80-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('JUMP-01', 'JUMP', NULL, NULL, 1.00, 1.00, NULL, 'Pozo de salto circular ø100cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_JUMP100', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('NETGULLY-01', 'NETGULLY', NULL, NULL, 1.00, 1.00, NULL, 'Imbornal de red', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD80-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('SEW_STORAGE-01', 'SEWER_STORAGE', NULL, NULL, 5.00, 3.50, 4.75, 'Depósito de retención 5x3.5x4.5m', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_STR500x350x475', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('VALVE-01', 'VALVE', NULL, NULL, 1.00, 1.00, NULL, 'Válvula de red', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_VAL_01', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('WEIR-01', 'WEIR', NULL, NULL, 1.50, 2.00, NULL, 'Vertedero rectangular 150x200cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'A_WEIR_60', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('NETINIT-01', 'NETINIT', NULL, NULL, 1.00, 1.00, NULL, 'Inicio de red', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD100-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('NETELEMENT-01', 'NETELEMENT', NULL, NULL, 1.00, 1.00, NULL, 'Elemento de red rectangular', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD100-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('JUNCTION-01', 'JUNCTION', NULL, NULL, 1.00, 1.00, NULL, 'Unión', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD100-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('OUTFALL-01', 'OUTFALL', NULL, NULL, 2.00, 1.00, NULL, 'Emisario', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD100-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('NODE-01', 'VIRTUAL_NODE', NULL, NULL, 1.00, 1.00, NULL, 'Nodo virtual', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD80-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('VIR_NODE-01', 'VIRTUAL_NODE', NULL, NULL, 1.00, 1.00, NULL, 'Nodo virtual', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD80-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('WWTP-01', 'WWTP', NULL, NULL, 1.00, 1.00, NULL, 'Estación depuradora de aguas residuales', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRQ150-H250', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('C_MANHOLE_100', 'CIRC_MANHOLE', NULL, NULL, 1.00, 1.00, NULL, 'Pozo circular ø100cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD100-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('C_MANHOLE_80', 'CIRC_MANHOLE', NULL, NULL, 0.80, 1.00, NULL, 'Pozo circular ø80cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD80-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('R_MANHOLE_100', 'RECT_MANHOLE', NULL, NULL, 1.00, 1.00, NULL, 'Pozo rectangular 100x100cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRQ100-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('R_MANHOLE_150', 'RECT_MANHOLE', NULL, NULL, 1.50, 1.50, NULL, 'Pozo rectangular 150x150cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRQ150-H250', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('R_MANHOLE_200', 'RECT_MANHOLE', NULL, NULL, 2.00, 2.00, NULL, 'Pozo rectangular 200x200cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRQ200-H250', true, NULL, NULL);
 
 INSERT INTO cat_owner VALUES ('owner1', NULL, NULL, true);
 INSERT INTO cat_owner VALUES ('owner2', NULL, NULL, true);
@@ -109,9 +109,9 @@ INSERT INTO cat_pavement VALUES ('Asphalt', NULL, NULL, 0.10, 'P_ASPHALT-10', tr
 INSERT INTO cat_pavement VALUES ('pavement1', NULL, NULL, 0.10, 'P_ASPHALT-10', true);
 INSERT INTO cat_pavement VALUES ('pavement2', NULL, NULL, 0.10, 'P_ASPHALT-10', true);
 
-INSERT INTO cat_soil VALUES ('soil1', 'soil 1', NULL, 7.00, 0.25, 0.60, 'S_EXC', 'S_REB', 'S_TRANS', 'S_TRENCH', true);
-INSERT INTO cat_soil VALUES ('soil2', 'soil 2', NULL, 7.00, 0.20, 0.25, 'S_EXC', 'S_REB', 'S_TRANS', 'S_TRENCH', true);
-INSERT INTO cat_soil VALUES ('soil3', 'soil 3', NULL, 5.00, 0.20, 0.00, 'S_EXC', 'S_REB', 'S_TRANS', 'S_TRENCH', true);
+INSERT INTO cat_soil VALUES ('soil1', 'suelo 1', NULL, 7.00, 0.25, 0.60, 'S_EXC', 'S_REB', 'S_TRANS', 'S_TRENCH', true);
+INSERT INTO cat_soil VALUES ('soil2', 'suelo 2', NULL, 7.00, 0.20, 0.25, 'S_EXC', 'S_REB', 'S_TRANS', 'S_TRENCH', true);
+INSERT INTO cat_soil VALUES ('soil3', 'suelo 3', NULL, 5.00, 0.20, 0.00, 'S_EXC', 'S_REB', 'S_TRANS', 'S_TRENCH', true);
 
 INSERT INTO cat_work VALUES ('work1', NULL, NULL, NULL, NULL, NULL, NULL, true);
 INSERT INTO cat_work VALUES ('work2', NULL, NULL, NULL, NULL, NULL, NULL, true);
@@ -206,5 +206,5 @@ INSERT INTO cat_element (id, element_type, active) VALUES ('PUMP-01', 'EPUMP', T
 
 UPDATE cat_link SET link_type='VLINK' WHERE id='VIRTUAL';
 
-INSERT INTO cat_node VALUES ('C_OUTMANHOLE_100', 'OUT_MANHOLE', NULL, NULL, 1.00, 1.00, NULL, 'Out manhole ø100cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD100-H160', true, NULL, NULL);
-INSERT INTO cat_node VALUES ('C_OUTMANHOLE_80', 'OUT_MANHOLE', NULL, NULL, 0.80, 1.00, NULL, 'Out manhole ø80cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD80-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('C_OUTMANHOLE_100', 'OUT_MANHOLE', NULL, NULL, 1.00, 1.00, NULL, 'Pozo de salida ø100cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD100-H160', true, NULL, NULL);
+INSERT INTO cat_node VALUES ('C_OUTMANHOLE_80', 'OUT_MANHOLE', NULL, NULL, 0.80, 1.00, NULL, 'Pozo de salida ø80cm', NULL, NULL, NULL, NULL, 2.00, 'u', 'N_PRD80-H160', true, NULL, NULL);
