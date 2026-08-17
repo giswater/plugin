@@ -538,20 +538,25 @@ BEGIN
 					WHERE t.graphconfig IS NOT NULL
 					AND t.active
 					%s
-				), graphconfig_filtered AS (
-					SELECT g.* 
+				), mapzones_filtered AS (
+					SELECT DISTINCT mapzone_id
 					FROM graphconfig g
 					JOIN temp_pgr_node n ON n.pgr_node_id = g.node_parent
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id, pgr_arc_id)
 				SELECT
-				mapzone_id,
-				'use',
-				node_parent,
-				to_arc
-				FROM graphconfig_filtered
-				WHERE mapzone_id > 0
-				AND (node_parent IS DISTINCT FROM 0 OR to_arc IS DISTINCT FROM 0);
+					g.mapzone_id,
+					'use',
+					g.node_parent,
+					g.to_arc
+				FROM graphconfig g
+				WHERE EXISTS (
+					SELECT 1
+					FROM mapzones_filtered m
+					WHERE m.mapzone_id = g.mapzone_id
+				)
+				AND g.mapzone_id > 0
+				AND (g.node_parent IS DISTINCT FROM 0 OR g.to_arc IS DISTINCT FROM 0);
 			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux);
 
 			-- forceClosed
@@ -565,17 +570,21 @@ BEGIN
 					WHERE t.graphconfig IS NOT NULL
 						AND t.active
 						%s
-				), forceclosed_filtered AS (
-					SELECT f.*
-					FROM forceclosed f
-					JOIN temp_pgr_node n ON n.pgr_node_id = f.pgr_node_id
+				), mapzones_filtered AS (
+					SELECT DISTINCT mapzone_id
+					FROM temp_pgr_graphconfig f
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id)
 				SELECT
-					mapzone_id,
+					f.mapzone_id,
 					'forceClosed',
-					pgr_node_id
-				FROM forceclosed_filtered;
+					f.pgr_node_id
+				FROM forceclosed f
+				WHERE EXISTS (
+					SELECT 1
+					FROM mapzones_filtered m
+					WHERE m.mapzone_id = f.mapzone_id
+				);
 			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux);
 
 			-- forceOpen
@@ -589,17 +598,21 @@ BEGIN
 					WHERE t.graphconfig IS NOT NULL
 						AND t.active
 						%s
-				), forceopen_filtered AS (
-					SELECT f.*
-					FROM forceopen f
-					JOIN temp_pgr_node n ON n.pgr_node_id = f.pgr_node_id
+				), mapzones_filtered AS (
+					SELECT DISTINCT mapzone_id
+					FROM temp_pgr_graphconfig f
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id)
 				SELECT
-					mapzone_id,
+					f.mapzone_id,
 					'forceOpen',
-					pgr_node_id
-				FROM forceopen_filtered;
+					f.pgr_node_id
+				FROM forceopen f
+				WHERE EXISTS (
+					SELECT 1
+					FROM mapzones_filtered m
+					WHERE m.mapzone_id = f.mapzone_id
+				);
 			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux);
 
 			-- update temp_pgr_node (nodeParent)
