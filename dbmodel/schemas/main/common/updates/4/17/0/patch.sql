@@ -656,6 +656,24 @@ WHERE widgettype IN ('text', 'list')
 
 DELETE FROM config_param_system WHERE parameter = 'edit_feature_auto_builtdate';
 
+-- Mapzone combos are no longer children of expl_id (mapzone.expl_id is integer[]).
+UPDATE config_form_fields
+SET dv_parent_id = NULL, dv_querytext_filterc = NULL
+WHERE dv_parent_id = 'expl_id'
+  AND columnname IN ('dma_id', 'presszone_id', 'dwfzone_id');
+
+UPDATE config_form_fields c
+SET isparent = false
+WHERE columnname = 'expl_id'
+  AND isparent IS TRUE
+  AND NOT EXISTS (
+    SELECT 1 FROM config_form_fields x
+    WHERE x.formname = c.formname
+      AND x.formtype = c.formtype
+      AND x.tabname = c.tabname
+      AND x.dv_parent_id = 'expl_id'
+  );
+
 
 CREATE OR REPLACE VIEW ve_municipality
 AS SELECT DISTINCT m.muni_id,

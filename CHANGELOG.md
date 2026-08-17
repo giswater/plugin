@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Drop `expl_id` parent filter on mapzone combos (`dma_id`, `presszone_id`, `dwfzone_id`); list all active mapzones like `sector_id` / `dqa_id`.
 - Auto-loaded ValueRelation lookups are created on the GUI thread only, using the VR `keyColumn` (not `id`). Invalid leftovers are dropped; missing tables are not added to HIDDEN.
 - UD `dwfzone_id` ValueRelation targets `ve_dwfzone` (not `ve_dma`); `gullycat_id` targets `cat_gully` (not `cat_grate`); `omzone_id` no longer points at `ve_dma`.
 - Add Layers no longer moves the HIDDEN autoload: it deletes, reloads, and rebinds ValueRelations to the new `layer.id()`.
