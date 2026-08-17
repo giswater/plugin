@@ -154,9 +154,9 @@ BEGIN
 	IF v_expl_x_user is false THEN
 		-- create auxiliar table temp_aux_sector_muni
 		CREATE TEMP TABLE temp_muni_sector_expl AS
-		SELECT DISTINCT muni_id, sector_id, expl_id FROM node WHERE state > 0
+		SELECT DISTINCT muni_id, sector_id, expl_id FROM node WHERE EXISTS (SELECT 1 FROM selector_state WHERE node.state = selector_state.state)
 		UNION
-		SELECT * FROM (SELECT DISTINCT muni_id, sector_id, unnest(expl_visibility) AS expl_id FROM node WHERE state > 0)
+		SELECT * FROM (SELECT DISTINCT muni_id, sector_id, unnest(expl_visibility) AS expl_id FROM node WHERE EXISTS (SELECT 1 FROM selector_state WHERE node.state = selector_state.state))
 		WHERE expl_id IS NOT NULL;
 
 		INSERT INTO temp_exploitation (expl_id, code, name, descript, macroexpl_id, active)
@@ -211,9 +211,9 @@ BEGIN
 		-- create auxiliar table temp_aux_sector_muni
 		CREATE TEMP TABLE temp_muni_sector_expl AS
 		SELECT DISTINCT muni_id, sector_id, expl_id FROM (
-			SELECT muni_id, sector_id, expl_id FROM node WHERE state > 0
+			SELECT muni_id, sector_id, expl_id FROM node WHERE EXISTS (SELECT 1 FROM selector_state WHERE node.state = selector_state.state)
 			UNION
-			SELECT muni_id, sector_id, unnest(expl_visibility) AS expl_id FROM node WHERE state > 0
+			SELECT muni_id, sector_id, unnest(expl_visibility) AS expl_id FROM node WHERE EXISTS (SELECT 1 FROM selector_state WHERE node.state = selector_state.state)
 		) n
 		WHERE expl_id IS NOT NULL
 		AND EXISTS (SELECT 1 FROM cat_manager cm
