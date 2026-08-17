@@ -289,6 +289,7 @@ class GwFeatureEndButton(GwAction):
             filter_ += " AND feature_state = 1 "
 
             tools_qt.fill_table(self.tbl_arc_x_relations, table_relations, filter_)
+            tools_gw.set_tablemodel_config(self.dlg_work, self.tbl_arc_x_relations, table_relations)
             self.tbl_arc_x_relations.doubleClicked.connect(
                 partial(self._open_selected_object, self.tbl_arc_x_relations))
             self.tbl_arc_x_relations.clicked.connect(
@@ -488,6 +489,7 @@ class GwFeatureEndButton(GwAction):
         # Attach model to table view
         widget.setModel(model)
         widget.show()
+        tools_gw.set_tablemodel_config(self.dlg_work, widget, table_name[len(f"{self.schema_name}."):])
 
     def _close_dialog_workcat_list(self, dlg=None):
         """ Close dialog """

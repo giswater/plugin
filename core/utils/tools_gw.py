@@ -4599,6 +4599,7 @@ def get_rows_by_feature_type(class_object, dialog, table_object, feature_type, f
 
     table_name = f"{class_object.schema_name}.{feature_type}"
     tools_qt.set_table_model(dialog, widget_name, table_name, expr_filter, columns_to_show)
+    set_tablemodel_config(dialog, widget_name, f"ve_{feature_type}")
 
 
 def load_tableview_feature_end(class_object, dialog, table_object, feature_type, feature_id=None, feature_idname=None, expr_filter=None):
@@ -4629,6 +4630,7 @@ def load_tableview_feature_end(class_object, dialog, table_object, feature_type,
     table_name = f"{class_object.schema_name}.{feature_type}"
     columns_to_show = [f"{feature_type}_id", "code", "sys_code", f"{feature_type}_type", "sector_id", "state", "state_type", "expl_id", "descript"]
     tools_qt.set_table_model(dialog, widget_name, table_name, expr_filter, columns_to_show)
+    set_tablemodel_config(dialog, widget_name, f"ve_{feature_type}")
 
 
 def get_project_type(schemaname=None):
@@ -6295,8 +6297,7 @@ def load_tableview_visit(dialog, feature_id, rel_feature_type):
     message = tools_qt.fill_table(qtable, f"{tablename}", expr, QSqlTableModel.EditStrategy.OnFieldChange)
     if message:
         tools_qgis.show_warning(message)
-    tableview = f'tbl_visit_x_{rel_feature_type}'
-    set_tablemodel_config(dialog, qtable, f"{tableview}")
+    set_tablemodel_config(dialog, qtable, f"{tablename}")
     tools_qgis.refresh_map_canvas()
 
 
