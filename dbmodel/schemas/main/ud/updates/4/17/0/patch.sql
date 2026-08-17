@@ -543,3 +543,12 @@ UPDATE sys_param_user
 UPDATE config_param_system
 	SET layoutorder=12
 	WHERE "parameter"='admin_crm_schema';
+
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_arc' AND columnname='sys_id';
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_connec' AND columnname='sys_id';
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_node' AND columnname='sys_id';
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_gully' AND columnname='sys_id';
