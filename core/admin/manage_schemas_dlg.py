@@ -23,7 +23,23 @@ from .i18n.multilang_languages_dialog import GwI18NMultilangLanguagesDialog
 _NETWORK_COLUMNS = (
     "Schema", "Kind", "Version", "Profile", "Linked", "Created", "Last update",
 )
-
+_COL_SCHEMA = 0
+_COL_LINKED = 4
+_COL_CREATED = 5
+_COL_UPDATED = 6
+_MAX_VISIBLE_NETWORK_ROWS = 4
+_FIXED_WIDTH = 1120
+_SATELLITE_GROUPS = (
+    "grb_utils", "grb_cibs", "grb_am", "grb_cm", "grb_i18n", "grb_audit",
+)
+_SATELLITE_INFO_LABELS = (
+    "lbl_utils_info",
+    "lbl_cibs_info",
+    "lbl_am_info",
+    "lbl_cm_info",
+    "lbl_audit_info",
+    "lbl_i18n_info",
+)
 
 def _network_column_titles() -> list[str]:
     """Translated labels for _NETWORK_COLUMNS.
@@ -47,23 +63,6 @@ def _network_column_titles() -> list[str]:
     msg = "Last update"
     titles.append(tools_qt.tr(msg))
     return titles
-_COL_SCHEMA = 0
-_COL_LINKED = 4
-_COL_CREATED = 5
-_COL_UPDATED = 6
-_MAX_VISIBLE_NETWORK_ROWS = 4
-_FIXED_WIDTH = 1120
-_SATELLITE_GROUPS = (
-    "grb_utils", "grb_cibs", "grb_am", "grb_cm", "grb_i18n", "grb_audit",
-)
-_SATELLITE_INFO_LABELS = (
-    "lbl_utils_info",
-    "lbl_cibs_info",
-    "lbl_am_info",
-    "lbl_cm_info",
-    "lbl_audit_info",
-    "lbl_i18n_info",
-)
 
 
 class GwManageSchemasDialog(GwAdminManageSchemasUi):
