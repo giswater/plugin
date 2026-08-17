@@ -54,14 +54,17 @@ class GwConfigCatalogButton:
         return [x["dnom"] for x in self._data.values()]
 
     def fill_table_widget(self, table_widget):
-        headers = [
-            "Arccat_id",
-            tools_qt.tr("Diameter"),
-            tools_qt.tr("Replacement cost"),
-            tools_qt.tr("Repair cost"),
-            tools_qt.tr("Compliance Grade"),
-            tools_qt.tr("Material"),
-        ]
+        msg = "Diameter"
+        diameter = tools_qt.tr(msg)
+        msg = "Replacement cost"
+        replacement_cost = tools_qt.tr(msg)
+        msg = "Repair cost"
+        repair_cost = tools_qt.tr(msg)
+        msg = "Compliance Grade"
+        compliance = tools_qt.tr(msg)
+        msg = "Material"
+        material = tools_qt.tr(msg)
+        headers = ["Arccat_id", diameter, replacement_cost, repair_cost, compliance, material]
         table_widget.setColumnCount(len(headers))
         table_widget.setHorizontalHeaderLabels(headers)
         for r, row in enumerate(self._data.values()):
@@ -131,14 +134,22 @@ class ConfigMaterial:
         self._unknown_material = unknown_material
 
     def fill_table_widget(self, table_widget):
+        msg = "Material"
+        material = tools_qt.tr(msg)
+        msg = "Prob. of Failure"
+        prob_failure = tools_qt.tr(msg)
+        msg = "Max. Longevity"
+        max_longevity = tools_qt.tr(msg)
+        msg = "Med. Longevity"
+        med_longevity = tools_qt.tr(msg)
+        msg = "Min. Longevity"
+        min_longevity = tools_qt.tr(msg)
+        msg = "Default Built Date"
+        built_date = tools_qt.tr(msg)
+        msg = "Compliance Grade"
+        compliance = tools_qt.tr(msg)
         headers = [
-            tools_qt.tr("Material"),
-            tools_qt.tr("Prob. of Failure"),
-            tools_qt.tr("Max. Longevity"),
-            tools_qt.tr("Med. Longevity"),
-            tools_qt.tr("Min. Longevity"),
-            tools_qt.tr("Default Built Date"),
-            tools_qt.tr("Compliance Grade"),
+            material, prob_failure, max_longevity, med_longevity, min_longevity, built_date, compliance,
         ]
         columns = [
             "material",
