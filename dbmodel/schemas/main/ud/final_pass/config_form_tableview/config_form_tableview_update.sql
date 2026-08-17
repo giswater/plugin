@@ -24,6 +24,11 @@ INSERT INTO config_form_list (listname, query_text, device, listtype, listclass)
 						'cat_mat_roughness',
 						'cat_work',
 						'inp_lid',
+						'om_visit_x_arc',
+						'om_visit_x_connec',
+						'om_visit_x_gully',
+						'om_visit_x_link',
+						'om_visit_x_node',
 						'plan_psector_x_arc',
 						'plan_psector_x_connec',
 						'plan_psector_x_gully',
@@ -32,6 +37,7 @@ INSERT INTO config_form_list (listname, query_text, device, listtype, listclass)
 						've_arc',
 						've_cat_dscenario',
 						've_connec',
+						've_element',
 						've_gully',
 						've_inp_controls',
 						've_inp_curve',
@@ -131,22 +137,6 @@ INSERT INTO config_form_list (listname, query_text, device, listtype, listclass)
 	FROM id_columns ic
 	WHERE ic.id_column IS NOT NULL;
 
-UPDATE config_form_tableview
-SET alias = 
-    REGEXP_REPLACE(
-      REGEXP_REPLACE(
-        REGEXP_REPLACE(
-          -- Step 1: Capitalize only the first letter of the sentence
-          UPPER(SUBSTRING(REPLACE(COALESCE(alias, columnname), '_', ' ') FROM 1 FOR 1))
-          || LOWER(SUBSTRING(REPLACE(COALESCE(alias, columnname), '_', ' ') FROM 2)),
-          
-          -- Step 2: Replace individual acronyms (case-insensitive flag 'gi')
-          '\yepa\y', 'EPA', 'gi'
-        ),
-        '\yid\y', 'ID', 'gi'
-      ),
-      '\ysku\y', 'SKU', 'gi'
-    );
 INSERT INTO config_form_tableview (
 	location_type,
 	project_type,
@@ -203,6 +193,11 @@ INSERT INTO config_form_tableview (
 					'cat_mat_roughness',
 					'cat_work',
 					'inp_lid',
+					'om_visit_x_arc',
+					'om_visit_x_connec',
+					'om_visit_x_gully',
+					'om_visit_x_link',
+					'om_visit_x_node',
 					'plan_psector_x_arc',
 					'plan_psector_x_connec',
 					'plan_psector_x_gully',
@@ -211,6 +206,7 @@ INSERT INTO config_form_tableview (
 					've_arc',
 					've_cat_dscenario',
 					've_connec',
+					've_element',
 					've_gully',
 					've_inp_controls',
 					've_inp_curve',
@@ -306,20 +302,7 @@ INSERT INTO config_form_tableview (
 				ELSE
 					false
 			END AS visible,
-			REGEXP_REPLACE(
-				REGEXP_REPLACE(
-					REGEXP_REPLACE(
-					-- Step 1: Capitalize only the first letter of the sentence
-					UPPER(SUBSTRING(REPLACE(COALESCE(alias, columnname), '_', ' ') FROM 1 FOR 1))
-					|| LOWER(SUBSTRING(REPLACE(COALESCE(alias, columnname), '_', ' ') FROM 2)),
-					
-					-- Step 2: Replace individual acronyms (case-insensitive flag 'gi')
-					'\yepa\y', 'EPA', 'gi'
-					),
-					'\yid\y', 'ID', 'gi'
-				),
-				'\ysku\y', 'SKU', 'gi'
-			) AS alias
+			c.column_name AS alias
 		FROM object_sources os
 		JOIN information_schema.columns c
 			ON c.table_schema = current_schema()
@@ -340,3 +323,38 @@ INSERT INTO config_form_tableview (
 		visible,
 		alias
 	FROM new_columns;
+
+-- Sentence-case aliases, then uppercase known acronyms as whole words
+-- only (\y): "epa" in "EPA types" becomes "EPA"; "Epanet" is left as is.
+UPDATE config_form_tableview AS t
+SET alias = r.txt
+FROM (
+	WITH RECURSIVE
+	acronyms AS (
+		SELECT row_number() OVER () AS ord, word
+		FROM unnest(ARRAY[
+			'epa'
+		]::text[]) AS word
+	),
+	src AS (
+		SELECT
+			ctid,
+			UPPER(SUBSTRING(REPLACE(COALESCE(alias, columnname), '_', ' ') FROM 1 FOR 1))
+			|| LOWER(SUBSTRING(REPLACE(COALESCE(alias, columnname), '_', ' ') FROM 2)) AS sentence
+		FROM config_form_tableview
+	),
+	chain AS (
+		SELECT ctid, sentence AS txt, 0 AS n FROM src
+		UNION ALL
+		SELECT
+			c.ctid,
+			regexp_replace(c.txt, '\y' || a.word || '\y', upper(a.word), 'gi'),
+			c.n + 1
+		FROM chain c
+		JOIN acronyms a ON a.ord = c.n + 1
+	)
+	SELECT DISTINCT ON (ctid) ctid, txt
+	FROM chain
+	ORDER BY ctid, n DESC
+) r
+WHERE t.ctid = r.ctid;

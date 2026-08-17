@@ -512,6 +512,19 @@ class GwImportSwmm:
         QgsApplication.taskManager().addTask(self.import_inp_task)
         QgsApplication.taskManager().triggerTask(self.import_inp_task)
 
+    def _arcs_column_titles(self) -> list[str]:
+        """Header labels for the arcs table. geom1..geom4 are EPA field names, left as is."""
+
+        msg = "EPA type"
+        epa_type = tools_qt.tr(msg)
+        msg = "SHAPE"
+        shape = tools_qt.tr(msg)
+        msg = "Arc catalog"
+        arc_catalog = tools_qt.tr(msg)
+        msg = "New catalog name"
+        new_catalog = tools_qt.tr(msg)
+        return [epa_type, shape, "geom1", "geom2", "geom3", "geom4", arc_catalog, new_catalog]
+
     def _fill_tables(self):
         # Fill nodes table
         tbl_nodes: QTableWidget = self.dlg_config.tbl_nodes
@@ -549,7 +562,7 @@ class GwImportSwmm:
         # Fill arcs table with the pipes
         tbl_arcs: QTableWidget = self.dlg_config.tbl_arcs
         tbl_arcs.setColumnCount(8)
-        tbl_arcs.setHorizontalHeaderLabels(["EPA type", "SHAPE", "geom1", "geom2", "geom3", "geom4", "Arc catalog", "New catalog name"])
+        tbl_arcs.setHorizontalHeaderLabels(self._arcs_column_titles())
 
         if self.catalogs.inp_conduits:
             self.tbl_elements["conduits"] = {}

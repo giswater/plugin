@@ -34,6 +34,28 @@ from .multilang_seed_sql import build_change_lang_sql, normalize_language_folder
 
 
 _SCHEMA_COLUMNS = ("Schema", "Kind", "Version", "Language", "Created", "Last update")
+
+
+def _schema_column_titles() -> list[str]:
+    """Translated labels for _SCHEMA_COLUMNS.
+
+    Every literal needs its own ``msg`` assignment so i18n_searcher collects it.
+    """
+
+    titles = []
+    msg = "Schema"
+    titles.append(tools_qt.tr(msg))
+    msg = "Kind"
+    titles.append(tools_qt.tr(msg))
+    msg = "Version"
+    titles.append(tools_qt.tr(msg))
+    msg = "Language"
+    titles.append(tools_qt.tr(msg))
+    msg = "Created"
+    titles.append(tools_qt.tr(msg))
+    msg = "Last update"
+    titles.append(tools_qt.tr(msg))
+    return titles
 _COL_SCHEMA = 0
 _COL_KIND = 1
 _COL_VERSION = 2
@@ -83,7 +105,7 @@ class GwAdminI18NHotUpdate:
         self.dlg_qm = GwAdminI18NHotUpdateUi(self)
         self._setup_status_label()
         self._schema_model = QStandardItemModel(0, len(_SCHEMA_COLUMNS), self.dlg_qm)
-        self._schema_model.setHorizontalHeaderLabels(list(_SCHEMA_COLUMNS))
+        self._schema_model.setHorizontalHeaderLabels(_schema_column_titles())
         tools_gw.load_settings(self.dlg_qm)
         self.dev_commit = tools_gw.get_config_parser(
             'system', 'force_commit', "user", "init", prefix=True,

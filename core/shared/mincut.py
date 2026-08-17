@@ -171,6 +171,7 @@ class GwMincut:
         message = tools_qt.fill_table(self.dlg_mincut.tbl_hydro, 'v_om_mincut_hydrometer', expr_filter=expr_filter)
         if message:
             tools_qgis.show_warning(message)
+        tools_gw.set_tablemodel_config(self.dlg_mincut, self.dlg_mincut.tbl_hydro, 'v_om_mincut_hydrometer')
 
         self._store_original_values()
         self._connect_change_signals()

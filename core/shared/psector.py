@@ -1658,6 +1658,7 @@ class GwPsector:
                f" LIKE '%{query}%' AND {field_id} NOT IN (SELECT price_id FROM {schema_name}.{tableright}"
                f" WHERE psector_id = '{psector_id}')")
         tools_db.fill_table_by_query(qtable, sql)
+        tools_gw.set_tablemodel_config(dialog, qtable, tableleft)
 
     def fill_table(self, dialog, widget, table_name, hidde=False, set_edit_triggers=QTableView.EditTrigger.NoEditTriggers,
                    expr=None, feature_type=None, field_id=None, refresh_table=True):
