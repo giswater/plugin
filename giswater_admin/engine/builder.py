@@ -382,7 +382,7 @@ class SchemaBuilder:
                 seen += 1
                 fx = sql_runner.execute_file(self.conn, path, subs, self.commit_each_file)
                 pr.files.append(fx)
-                self.progress_cb(seen, total, path, fx)
+                self.progress_cb(seen, total, fx.path, fx)
                 if not fx.ok:
                     return pr
         if not any_file and phase.optional:
@@ -404,7 +404,7 @@ class SchemaBuilder:
                         seen += 1
                         fx = sql_runner.execute_file(self.conn, path, self._subs, self.commit_each_file)
                         pr.files.append(fx)
-                        self.progress_cb(seen, total, path, fx)
+                        self.progress_cb(seen, total, fx.path, fx)
                         if not fx.ok:
                             return pr
         if not any_file and phase.optional:
@@ -424,7 +424,7 @@ class SchemaBuilder:
                 seen += 1
                 fx = sql_runner.execute_file(self.conn, path, self._subs, self.commit_each_file)
                 pr.files.append(fx)
-                self.progress_cb(seen, total, path, fx)
+                self.progress_cb(seen, total, fx.path, fx)
                 if not fx.ok:
                     return pr
         if not any_file and phase.optional:
@@ -455,7 +455,7 @@ class SchemaBuilder:
             subs = self._step_subs(step)
             fx = sql_runner.execute_file(self.conn, path, subs, self.commit_each_file)
             pr.files.append(fx)
-            self.progress_cb(seen, total, path, fx)
+            self.progress_cb(seen, total, fx.path, fx)
             if not fx.ok:
                 return pr
         return pr
@@ -489,25 +489,41 @@ class SchemaBuilder:
     # ---------------------------------------------------------- filesystem util
 
     def _files_for_step(self, step: Step) -> list[str]:
-        rendered = render(step.source, self._ctx)
-        folder = os.path.join(self.params.sql_root, rendered)
-        files = self._files_in(folder, step.recursive)
-        if not files and step.fallback_source and self.params.locale != "no_TR":
-            fb = os.path.join(self.params.sql_root, render(step.fallback_source, self._ctx))
-            files = self._files_in(fb, step.recursive)
-        return files
+        locale_files = self._locale_files(step)
+        if not step.shared_source:
+            return locale_files
+        by_name: dict[str, str] = {}
+        for path in self._files_in(self._path_of(step.shared_source), step.recursive):
+            by_name[os.path.basename(path)] = path
+        for path in locale_files:
+            by_name[os.path.basename(path)] = path
+        return [by_name[name] for name in sorted(by_name)]
+
+    def _locale_files(self, step: Step) -> list[str]:
+        path = self._path_of(step.source)
+        if os.path.exists(path):
+            return self._files_in(path, step.recursive)
+        fallback = self._fallback_source(step)
+        return self._files_in(self._path_of(fallback), step.recursive) if fallback else []
 
     def _files_in(self, folder: str, recursive: bool) -> list[str]:
         return sql_runner.list_sql_files(folder, recursive=recursive)
 
+    def _path_of(self, source: str) -> str:
+        return os.path.join(self.params.sql_root, render(source, self._ctx))
+
+    def _fallback_source(self, step: Step) -> str:
+        if (self.params.locale == "no_TR" and "i18n" in step.source) or not step.fallback_source:
+            return ""
+        if self.params.locale.startswith("es_"):
+            parent, sep, _ = step.fallback_source.replace("\\", "/").rpartition("/")
+            return f"{parent}{sep}es_ES" if sep else "es_ES"
+        return step.fallback_source
+
     def _resolve_file(self, step: Step) -> str | None:
-        primary = os.path.join(self.params.sql_root, render(step.source, self._ctx))
-        if os.path.isfile(primary):
-            return primary
-        if step.fallback_source and self.params.locale != "no_TR":
-            fb = os.path.join(self.params.sql_root, render(step.fallback_source, self._ctx))
-            if os.path.isfile(fb):
-                return fb
+        for source in (step.source, self._fallback_source(step)):
+            if source and os.path.isfile(path := self._path_of(source)):
+                return path
         return None
 
     def _integration_parent_schema(self) -> str:

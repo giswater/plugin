@@ -376,8 +376,9 @@ def build_progress_cb(
                 if timing_threshold_ms and fx.duration_ms < timing_threshold_ms:
                     return
                 ms = fx.duration_ms
+            shown = fx.path if fx is not None and getattr(fx, "path", None) else label
             out.progress(
-                format_file(seen, total, label, ms=ms, style=out.style)
+                format_file(seen, total, shown, ms=ms, style=out.style)
             )
 
     return progress

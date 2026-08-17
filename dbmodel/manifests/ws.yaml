@@ -98,10 +98,11 @@ phases:
   - id: load_sample
     type: sql_dir
     optional: true
-    description: "Sample 'user' data for ws. Locale catalogs in user/{{ locale }} (en_US, es_ES, ca_ES, es_CR)."
+    description: "Sample data: overlay existing locale folder; missing es_* → es_ES, else en_US."
     steps:
       - source: "schemas/main/ws/sample/user/{{ locale }}"
         fallback_source: "schemas/main/ws/sample/user/en_US"
+        shared_source: "schemas/main/ws/sample/user"
         recursive: false
 
   - id: load_inv

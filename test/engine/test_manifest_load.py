@@ -28,7 +28,7 @@ def test_loads_minimal_manifest(tmp_path: Path):
           - id: load_base
             type: sql_dir
             steps:
-              - { source: "ws/fct", recursive: false }
+              - { source: "ws/fct", shared_source: "ws" }
         profiles:
           empty: { phases: [load_base] }
         """,
@@ -39,6 +39,7 @@ def test_loads_minimal_manifest(tmp_path: Path):
     assert m.substitutions == {"FOO": "bar"}
     assert len(m.phases) == 1
     assert m.phase("load_base").steps[0].source == "ws/fct"
+    assert m.phase("load_base").steps[0].shared_source == "ws"
     assert m.profile("empty") == ("load_base",)
 
 
