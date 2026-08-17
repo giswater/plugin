@@ -19,4 +19,22 @@ WHERE t.columnname = v.columnname
   AND t.formname = v.formname
   AND t.formtype = v.formtype
   AND t.tabname = v.tabname;
+
+UPDATE config_form_fields AS t SET dv_querytext = v.text FROM (
+	VALUES
+	('mapzoneType', 'new_dma', 'form_catalog', 'tab_none', 'SELECT DISTINCT ''DMA'' as id, ''DMA'' as idval FROM vf_exploitation WHERE expl_id IS NOT NULL')
+) AS v(columnname, formname, formtype, tabname, text)
+WHERE t.columnname = v.columnname
+  AND t.formname = v.formname
+  AND t.formtype = v.formtype
+  AND t.tabname = v.tabname;
+
+UPDATE config_form_fields AS t SET dv_querytext = v.text FROM (
+	VALUES
+	('mapzoneType', 'new_presszone', 'form_catalog', 'tab_none', 'SELECT DISTINCT ''PRESSZONE'' as id, ''PRESSZONE'' as idval FROM vf_exploitation WHERE expl_id IS NOT NULL')
+) AS v(columnname, formname, formtype, tabname, text)
+WHERE t.columnname = v.columnname
+  AND t.formname = v.formname
+  AND t.formtype = v.formtype
+  AND t.tabname = v.tabname;
 UPDATE config_param_system SET value = TRUE WHERE parameter = 'admin_config_control_trigger';

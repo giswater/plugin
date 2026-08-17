@@ -225,6 +225,18 @@ BEGIN
 		FROM inp_dscenario_shortpipe d
 		WHERE t.arc_id = concat(d.node_id::text, '_n2a')  AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.to_arc IS NOT NULL;
 
+		-- updating values for shortpipes (as junction)
+		UPDATE temp_t_node t SET demand = d.demand FROM inp_dscenario_shortpipe d
+		WHERE t.node_id = d.node_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.demand IS NOT NULL AND epa_type = 'JUNCTION';
+		UPDATE temp_t_node t SET pattern_id = d.demand_pattern_id FROM inp_dscenario_shortpipe d
+		WHERE t.node_id = d.node_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.demand_pattern_id IS NOT NULL AND epa_type = 'JUNCTION';
+
+		-- updating values for shortpipes (as reservoir)
+		UPDATE temp_t_node t SET elev = d.head FROM inp_dscenario_shortpipe d
+		WHERE t.node_id = d.node_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.head IS NOT NULL AND epa_type = 'RESERVOIR';
+		UPDATE temp_t_node t SET pattern_id = d.pattern_id FROM inp_dscenario_shortpipe d
+		WHERE t.node_id = d.node_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.pattern_id IS NOT NULL AND epa_type = 'RESERVOIR';
+
 		-- updating values for frshortpipes
 		UPDATE temp_t_arc t SET status = d.status FROM inp_dscenario_frshortpipe d
 		WHERE t.arc_id = d.element_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.status IS NOT NULL;
@@ -281,6 +293,18 @@ BEGIN
 		UPDATE temp_t_arc t SET addparam = jsonb_set(addparam::jsonb, '{to_arc}', to_jsonb(to_arc), true)
 		FROM inp_dscenario_valve d
 		WHERE t.arc_id = concat(d.node_id::text, '_n2a')  AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.to_arc IS NOT NULL;
+
+		-- updating values for valves (as junction)
+		UPDATE temp_t_node t SET demand = d.demand FROM inp_dscenario_valve d
+		WHERE t.node_id = d.node_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.demand IS NOT NULL AND epa_type = 'JUNCTION';
+		UPDATE temp_t_node t SET pattern_id = d.demand_pattern_id FROM inp_dscenario_valve d
+		WHERE t.node_id = d.node_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.demand_pattern_id IS NOT NULL AND epa_type = 'JUNCTION';
+
+		-- updating values for valves (as reservoir)
+		UPDATE temp_t_node t SET elev = d.head FROM inp_dscenario_valve d
+		WHERE t.node_id = d.node_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.head IS NOT NULL AND epa_type = 'RESERVOIR';
+		UPDATE temp_t_node t SET pattern_id = d.pattern_id FROM inp_dscenario_valve d
+		WHERE t.node_id = d.node_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.pattern_id IS NOT NULL AND epa_type = 'RESERVOIR';
 
 		-- updating values for frvalve
 		UPDATE temp_t_arc t SET status = d.status FROM inp_dscenario_frvalve d

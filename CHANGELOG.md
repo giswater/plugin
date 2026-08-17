@@ -31,7 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Auto-loaded ValueRelation lookups are recreated on the main thread via `add_layer_database`. Add Layers no longer moves the HIDDEN autoload: it deletes, reloads, and rebinds ValueRelations to the new `layer.id()`.
+- Auto-loaded ValueRelation lookups are created on the GUI thread only, using the VR `keyColumn` (not `id`). Invalid leftovers are dropped; missing tables are not added to HIDDEN.
+- UD `dwfzone_id` ValueRelation targets `ve_dwfzone` (not `ve_dma`); `gullycat_id` targets `cat_gully` (not `cat_grate`); `omzone_id` no longer points at `ve_dma`.
+- Add Layers no longer moves the HIDDEN autoload: it deletes, reloads, and rebinds ValueRelations to the new `layer.id()`.
 - ConfigLayerFields no longer leaves an empty ValueMap on text catalog fields (`macroexploitation.name` / `descript`): that made attribute-table edits revert on blur while the edit buffer stayed dirty.
 - Clear the `multiple_option` typeahead after selecting a value and drop that value from the suggestion list.
 - Load missing ValueRelation lookup tables (`sys_feature_type`, `macroexploitation`) into the HIDDEN group so native QGIS forms do not fall back to a frozen ValueMap.

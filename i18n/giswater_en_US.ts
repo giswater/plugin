@@ -12707,6 +12707,38 @@ or they were created by another user:</translation>
 			<translation>btn_toggle_corporate</translation>
 		</message>
 		<message>
+			<source>btn_toggle_validated</source>
+			<translation>Toggle validated</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_toggle_validated</source>
+			<translation>btn_toggle_validated</translation>
+		</message>
+		<message>
+			<source>chk_archived</source>
+			<translation>Show archived</translation>
+		</message>
+		<message>
+			<source>tooltip_chk_archived</source>
+			<translation>chk_archived</translation>
+		</message>
+		<message>
+			<source>chk_corporate</source>
+			<translation>Show corporate</translation>
+		</message>
+		<message>
+			<source>tooltip_chk_corporate</source>
+			<translation>chk_corporate</translation>
+		</message>
+		<message>
+			<source>chk_validated</source>
+			<translation>Show validated</translation>
+		</message>
+		<message>
+			<source>tooltip_chk_validated</source>
+			<translation>chk_validated</translation>
+		</message>
+		<message>
 			<source>dlg_go2epa_manager</source>
 			<translation>Epa result management</translation>
 		</message>
@@ -12723,12 +12755,44 @@ or they were created by another user:</translation>
 			<translation>label</translation>
 		</message>
 		<message>
+			<source>lbl_date_exec_from</source>
+			<translation>From:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_date_exec_from</source>
+			<translation>lbl_date_exec_from</translation>
+		</message>
+		<message>
+			<source>lbl_expl</source>
+			<translation>Exploitation:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_expl</source>
+			<translation>lbl_expl</translation>
+		</message>
+		<message>
+			<source>lbl_network_type</source>
+			<translation>Network type:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_network_type</source>
+			<translation>lbl_network_type</translation>
+		</message>
+		<message>
 			<source>lbl_result_id</source>
 			<translation>Filter by: Result id</translation>
 		</message>
 		<message>
 			<source>tooltip_lbl_result_id</source>
 			<translation>lbl_result_id</translation>
+		</message>
+		<message>
+			<source>lbl_status</source>
+			<translation>Status:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_status</source>
+			<translation>lbl_status</translation>
 		</message>
 	</context>
 	<context>

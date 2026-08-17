@@ -552,3 +552,60 @@ DELETE FROM config_form_tableview
 	WHERE objectname='tbl_visit_x_node' AND columnname='sys_id';
 DELETE FROM config_form_tableview
 	WHERE objectname='tbl_visit_x_gully' AND columnname='sys_id';
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('node form','utils','tbl_doc_x_node','node_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('node form','utils','tbl_doc_x_node','doc_name',8,true,'Document Name');
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('connec form','utils','tbl_doc_x_connec','connec_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('connec form','utils','tbl_doc_x_connec','doc_name',8,true,'Document Name');
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('arc form','utils','tbl_doc_x_arc','arc_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('arc form','utils','tbl_doc_x_arc','doc_name',8,true,'Document Name');
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('gully form','utils','tbl_doc_x_gully','gully_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('gully form','utils','tbl_doc_x_gully','doc_name',8,true,'Document Name');
+
+UPDATE config_form_fields
+	SET widgetcontrols='{
+  "setMultiline": false,
+  "valueRelation": {
+    "nullValue": true,
+    "layer": "cat_arc_shape",
+    "activated": true,
+    "keyColumn": "id",
+    "valueColumn": "id",
+    "filterExpression": ""
+  }
+}'::json
+	WHERE formname='cat_arc' AND formtype='form_feature' AND columnname='shape' AND tabname='tab_none';
+
+UPDATE config_form_fields
+SET widgetcontrols = replace(replace(widgetcontrols::text,
+        '"layer": "cat_grate"', '"layer": "cat_gully"'),
+        '"layer":"cat_grate"', '"layer":"cat_gully"')::json
+WHERE widgetcontrols::text LIKE '%cat_grate%';
+
+UPDATE config_form_fields
+SET widgetcontrols = replace(replace(replace(replace(widgetcontrols::text,
+        '"layer": "ve_dma"', '"layer": "ve_dwfzone"'),
+        '"layer":"ve_dma"', '"layer":"ve_dwfzone"'),
+        '"keyColumn": "dma_id"', '"keyColumn": "dwfzone_id"'),
+        '"keyColumn":"dma_id"', '"keyColumn":"dwfzone_id"')::json
+WHERE columnname = 'dwfzone_id'
+  AND widgetcontrols::text LIKE '%ve_dma%';
+
+UPDATE config_form_fields
+SET widgetcontrols = replace(replace(replace(replace(widgetcontrols::text,
+        '"layer": "ve_dma"', '"layer": "ve_omzone"'),
+        '"layer":"ve_dma"', '"layer":"ve_omzone"'),
+        '"keyColumn": "dma_id"', '"keyColumn": "omzone_id"'),
+        '"keyColumn":"dma_id"', '"keyColumn":"omzone_id"')::json
+WHERE columnname = 'omzone_id'
+  AND widgetcontrols::text LIKE '%ve_dma%';
