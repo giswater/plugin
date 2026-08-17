@@ -28,6 +28,7 @@ v_forcetanksoninlets boolean;
 v_count integer;
 v_querytext text;
 v_exporthybriddma boolean;
+v_selecteddma integer;
 
 BEGIN
 
@@ -36,13 +37,14 @@ BEGIN
 
 
 	--  Get system & user variables
-	v_usedmapattern = (SELECT value FROM config_param_user WHERE parameter='inp_options_use_dma_pattern' AND cur_user=current_user);
-	v_buildupmode = (SELECT value FROM config_param_user WHERE parameter = 'inp_options_buildup_mode' AND cur_user=current_user);
+	v_usedmapattern = (SELECT value FROM config_param_user WHERE parameter='inp_options_use_dma_pattern' AND cur_user=current_user); -- TODO: check if this is needed
+	v_buildupmode = (SELECT value FROM config_param_user WHERE parameter = 'inp_options_buildup_mode' AND cur_user=current_user); -- TODO: check if this is needed
 	v_networkmode = (SELECT value FROM config_param_user WHERE parameter = 'inp_options_networkmode' AND cur_user=current_user);
 	v_minlength := (SELECT value FROM config_param_system WHERE parameter = 'epa_arc_minlength');
-	v_forcereservoirsoninlets := (SELECT value::json->>'forceReservoirsOnInlets' FROM config_param_user WHERE parameter = 'inp_options_debug' AND cur_user=current_user);
-	v_forcetanksoninlets := (SELECT value::json->>'forceTanksOnInlets' FROM config_param_user WHERE parameter = 'inp_options_debug' AND cur_user=current_user);
+	v_forcereservoirsoninlets := (SELECT value::json->>'forceReservoirsOnInlets' FROM config_param_user WHERE parameter = 'inp_options_debug' AND cur_user=current_user); -- TODO: check if this is needed
+	v_forcetanksoninlets := (SELECT value::json->>'forceTanksOnInlets' FROM config_param_user WHERE parameter = 'inp_options_debug' AND cur_user=current_user); -- TODO: check if this is needed
 	v_exporthybriddma := (SELECT value::boolean FROM config_param_system WHERE parameter = 'epa_export_hybrid_dma');
+	v_selecteddma := (SELECT value::integer FROM config_param_user WHERE parameter = 'inp_options_selecteddma' AND cur_user=current_user);
 
 	raise notice 'Delete previous values from same result';
 
@@ -79,7 +81,7 @@ BEGIN
 			LEFT JOIN cat_mat_roughness ON cat_mat_roughness.matcat_id = cat_material.id
 		';
 
-	IF v_networkmode = 1 OR v_networkmode = 5 THEN
+	IF v_networkmode = 1 OR v_selecteddma IS NOT NULL THEN
 		v_querytext = v_querytext || ' JOIN dma ON dma.dma_id = a.dma_id';
 	END IF;
 
@@ -97,8 +99,8 @@ BEGIN
 		END IF;
 	END IF;
 
-	IF v_networkmode = 5 THEN
-		v_querytext = v_querytext || ' AND dma.dma_id = (SELECT value::integer FROM config_param_user WHERE parameter = ''inp_options_selecteddma'' AND cur_user = current_user)';
+	IF v_selecteddma IS NOT NULL THEN
+		v_querytext = v_querytext || ' AND dma.dma_id = '||v_selecteddma;
 	END IF;
 
 	EXECUTE v_querytext;
@@ -366,6 +368,25 @@ BEGIN
 	WHERE temp_t_node.node_id=v.node_id::text AND EXISTS (SELECT 1 FROM t_numarcs WHERE t_numarcs.node_id=v.node_id::text
 	AND t_numarcs.numarcs = 1)
 	AND v.to_arc IS NULL;
+
+	IF v_selecteddma IS NOT NULL THEN
+		WITH to_update AS (
+			select
+				elem->>'nodeParent' AS node_parent,
+				jsonb_array_length(elem->'toArc') > 0 AS has_to_arc
+			FROM dma d
+			CROSS JOIN LATERAL jsonb_array_elements((d.graphconfig->'use')::jsonb) AS elem
+			where dma_id = v_selecteddma
+		)
+		UPDATE temp_t_node
+		SET epa_type = 'RESERVOIR',
+		top_elev = s.head, elev = s.head, pattern_id=s.pattern_id
+		FROM to_update v
+		JOIN ve_epa_shortpipe s ON s.node_id::text = v.node_parent
+		WHERE temp_t_node.node_id=s.node_id::text AND EXISTS (SELECT 1 FROM t_numarcs WHERE t_numarcs.node_id=s.node_id::text
+		AND t_numarcs.numarcs = 1)
+		AND v.has_to_arc IS TRUE;
+	END IF;
 
 	RETURN 1;
 
