@@ -847,6 +847,10 @@ UPDATE config_form_tableview SET alias = 'Result id' WHERE columnname = 'result_
 UPDATE config_form_tableview SET alias = 'Rpt stats' WHERE columnname = 'rpt_stats' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Sector id' WHERE columnname = 'sector_id' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Status' WHERE columnname = 'status' AND objectname = 'v_ui_rpt_cat_result';
+UPDATE config_form_tableview SET alias = 'Active' WHERE columnname = 'active' AND objectname = 'v_ui_style';
+UPDATE config_form_tableview SET alias = 'Category' WHERE columnname = 'category' AND objectname = 'v_ui_style';
+UPDATE config_form_tableview SET alias = 'Layer name' WHERE columnname = 'layername' AND objectname = 'v_ui_style';
+UPDATE config_form_tableview SET alias = 'Style type' WHERE columnname = 'styletype' AND objectname = 'v_ui_style';
 UPDATE config_form_tableview SET alias = 'Code' WHERE columnname = 'code' AND objectname = 'v_ui_workcat_x_feature';
 UPDATE config_form_tableview SET alias = 'Expl id' WHERE columnname = 'expl_id' AND objectname = 'v_ui_workcat_x_feature';
 UPDATE config_form_tableview SET alias = 'Expl name' WHERE columnname = 'expl_name' AND objectname = 'v_ui_workcat_x_feature';
