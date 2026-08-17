@@ -315,7 +315,7 @@ BEGIN
 			END IF;
 
 			-- getting value from geometry of mapzone
-			IF (NEW.sector_id IS NULL) THEN
+			IF (NEW.sector_id IS NULL) AND (SELECT is_dynamic FROM config_mapzones WHERE id = 'SECTOR') IS FALSE THEN
 				SELECT count(*) INTO v_count FROM sector WHERE ST_DWithin(NEW.the_geom, sector.the_geom,0.001) AND active IS TRUE;
 				IF v_count = 1 THEN
 					NEW.sector_id = (SELECT sector_id FROM sector WHERE ST_DWithin(NEW.the_geom, sector.the_geom,0.001) AND active IS TRUE LIMIT 1);
@@ -346,7 +346,7 @@ BEGIN
 			END IF;
 
 			-- getting value from geometry of mapzone
-			IF (NEW.omzone_id IS NULL) THEN
+			IF (NEW.omzone_id IS NULL) AND (SELECT is_dynamic FROM config_mapzones WHERE id = 'OMZONE') IS FALSE THEN
 				SELECT count(*) INTO v_count FROM omzone WHERE ST_DWithin(NEW.the_geom, omzone.the_geom,0.001) AND active IS TRUE ;
 				IF v_count = 1 THEN
 					NEW.omzone_id = (SELECT omzone_id FROM omzone WHERE ST_DWithin(NEW.the_geom, omzone.the_geom,0.001) AND active IS TRUE LIMIT 1);
