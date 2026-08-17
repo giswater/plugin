@@ -41,6 +41,7 @@ _SATELLITE_INFO_LABELS = (
     "lbl_i18n_info",
 )
 
+
 def _network_column_titles() -> list[str]:
     """Translated labels for _NETWORK_COLUMNS.
 
