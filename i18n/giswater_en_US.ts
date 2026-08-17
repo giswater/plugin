@@ -2899,6 +2899,22 @@ This operation cannot be undone.
 			<translation>Highlighting large dataset ({0} features) - this may take a moment...</translation>
 		</message>
 		<message>
+			<source>Hot update completed for {0} schema(s) using language ({1}).</source>
+			<translation>Hot update completed for {0} schema(s) using language ({1}).</translation>
+		</message>
+		<message>
+			<source>Hot update finished with errors. Updated: {0}. Failed: {1}.</source>
+			<translation>Hot update finished with errors. Updated: {0}. Failed: {1}.</translation>
+		</message>
+		<message>
+			<source>Hot update schemas?</source>
+			<translation>Hot update schemas?</translation>
+		</message>
+		<message>
+			<source>Hot updating {0}...</source>
+			<translation>Hot updating {0}...</translation>
+		</message>
+		<message>
 			<source>Hydraulic engine imported successfully</source>
 			<translation>Hydraulic engine imported successfully</translation>
 		</message>
@@ -3325,6 +3341,10 @@ uri={1}</translation>
 		<message>
 			<source>Language ({0}) is in use and cannot be deleted. Used by: {1}</source>
 			<translation>Language ({0}) is in use and cannot be deleted. Used by: {1}</translation>
+		</message>
+		<message>
+			<source>Language ({0}) is used by {1} schema(s): {2}. Do you want to hot update them now?</source>
+			<translation>Language ({0}) is used by {1} schema(s): {2}. Do you want to hot update them now?</translation>
 		</message>
 		<message>
 			<source>Language files</source>
