@@ -309,6 +309,7 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip, placeho
 ('top_elev1', '%_link%', 'form_feature', 'tab_data', 'Top Elev 1:', 'Top_elev1', NULL),
 ('top_elev2', '%_link%', 'form_feature', 'tab_data', 'Top elev 2:', 'Top_elev2', NULL),
 ('uncertain', '%_link%', 'form_feature', 'tab_data', 'Uncertain:', 'Uncertain - To set if the element''s location is uncertain', NULL),
+('userdefined_geom', '%_link%', 'form_feature', 'tab_data', 'User defined:', 'When checked, connect to network ignores this link', NULL),
 ('uuid', '%_link%', 'form_feature', 'tab_data', 'Uuid:', 'Uuid', NULL),
 ('workcat_id', '%_link%', 'form_feature', 'tab_data', 'Workcat id:', 'Workcat_id - Related to the catalog of work files (cat_work). File that registers the element', NULL),
 ('workcat_id_end', '%_link%', 'form_feature', 'tab_data', 'Workcat id end:', 'Workcat_id_end - Id of the  end of construction work.', 'Only when state is obsolete'),

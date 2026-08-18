@@ -6118,6 +6118,10 @@ Click OK to end set your Preview as the value on graphconfig field.</translation
 			<translation>Value in addparam must be in a json format</translation>
 		</message>
 		<message>
+			<source>ValueRelation lookup table not found: {0}</source>
+			<translation>ValueRelation lookup table not found: {0}</translation>
+		</message>
+		<message>
 			<source>Values for input flows not informed.</source>
 			<translation>Values for input flows not informed.</translation>
 		</message>

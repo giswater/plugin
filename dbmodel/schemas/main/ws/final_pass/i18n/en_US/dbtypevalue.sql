@@ -134,7 +134,6 @@ WHERE t.id = v.id AND t.typevalue = v.typevalue;
 UPDATE inp_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
 	VALUES
 	('0', 'inp_options_dscenario_priority', 'REMOVE ALL BASE DEMANDS & PAT.', NULL),
-    ('0', 'inp_result_status', 'DEPRECATED', NULL),
     ('1', '_inp_options_networkmode', 'NODE (BASIC NODARCS)', NULL),
     ('1', 'inp_iterative_function', 'NODES COUPLE CAPACITY', NULL),
     ('1', 'inp_options_buildup_mode', 'SUPPLY', NULL),
@@ -166,7 +165,6 @@ UPDATE inp_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
     ('4', 'inp_options_networkmode', 'NETWORK & CONNECS', NULL),
     ('4', 'inp_result_status', 'RUN FAILED', NULL),
     ('5', '_inp_value_demandtype', 'DMA-PATTERN PERIOD', NULL),
-    ('5', 'inp_options_networkmode', 'NETWORK DMA', NULL),
     ('ACTIVE', 'inp_value_status_valve', 'ACTIVE', NULL),
     ('ADDITIONAL', 'inp_typevalue_dscenario', 'ADDITIONAL', NULL),
     ('AFD', 'inp_value_opti_units', 'AFD', NULL),
