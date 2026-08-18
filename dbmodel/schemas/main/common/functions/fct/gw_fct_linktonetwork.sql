@@ -330,7 +330,7 @@ BEGIN
 	-- Main loop
 	IF v_isnodedest IS TRUE AND v_isforcedarcs IS TRUE THEN
 		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
-		"data":{"message":"4680", "function":"3188","fid": 217, "parameters":null, "is_process":true}}$$);' INTO v_audit_result;
+		"data":{"message":"4682", "function":"3188","fid": 217, "parameters":null, "is_process":true}}$$);' INTO v_audit_result;
 
 	ELSIF v_feature_array IS NOT NULL THEN
 
@@ -593,7 +593,7 @@ BEGIN
 				END IF;
 
 				IF (v_isnodedest IS FALSE AND v_connect.arc_id IS NULL) OR (v_isnodedest AND v_node_id IS NULL) THEN
-					EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "4684","function":"3188","fid": 217,"v_criticity": 2,
+					EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "4686","function":"3188","fid": 217,"v_criticity": 2,
 					"parameters":{"feature_type":"'||lower(v_feature_type)||'", "connect_id":"'||v_connect_id||'"}}}$$);';
 				ELSE
 
@@ -956,7 +956,7 @@ BEGIN
 						END IF;
 					END IF;
 					IF v_isnodedest THEN
-						EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "4682","function":"3188","fid": 217,"v_criticity": 4, 
+						EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "4684","function":"3188","fid": 217,"v_criticity": 4, 
 						"parameters":{"feature_type":"'||lower(v_feature_type)||'", "connec_id":"'||v_connect_id||'", "node_id":"'||v_node.node_id||'"}}}$$);';
 					ELSE
 						EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "4430","function":"3188","fid": 217,"v_criticity": 4, 

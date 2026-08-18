@@ -527,15 +527,15 @@ BEGIN
 END $$;
 
 INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
-VALUES (4680, 'Cannot force connection to a node while arcs are selected.', 'Clear the selected arcs and try again.', 2, true, 'ud', 'core', 'UI')
+VALUES (4682, 'Cannot force connection to a node while arcs are selected.', 'Clear the selected arcs and try again.', 2, true, 'ud', 'core', 'UI')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
-VALUES (4682, 'The %feature_type% with id %connec_id% has been successfully connected to the node with id %node_id%', NULL, 0, true, 'ud', 'core', 'AUDIT')
+VALUES (4684, 'The %feature_type% with id %connec_id% has been successfully connected to the node with id %node_id%', NULL, 0, true, 'ud', 'core', 'AUDIT')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
-VALUES (4684, 'No network feature found for %feature_type% with id %connect_id% matching the current filters.',
+VALUES (4686, 'No network feature found for %feature_type% with id %connect_id% matching the current filters.',
  'Relax extra filters, max distance or pipe diameter and try again.', 1, true, 'utils', 'core', 'AUDIT')
 ON CONFLICT (id) DO NOTHING;
 
