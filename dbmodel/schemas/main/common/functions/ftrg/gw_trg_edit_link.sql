@@ -454,6 +454,24 @@ BEGIN
 			END IF;
 		END IF;
 
+		-- skip inheriting dynamic mapzones (computed later by graphanalytics);
+		-- keep explicit NEW values, otherwise 0 (same fallback as node/arc/connec)
+		IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'SECTOR') IS TRUE THEN
+			v_sector := COALESCE(NEW.sector_id, 0);
+		END IF;
+
+		IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'DMA') IS TRUE THEN
+			v_dma := COALESCE(NEW.dma_id, 0);
+		END IF;
+
+		IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'OMZONE') IS TRUE THEN
+			v_omzone := COALESCE(NEW.omzone_id, 0);
+		END IF;
+
+		IF v_projectype = 'WS' AND (SELECT is_dynamic FROM config_mapzones WHERE id = 'PRESSZONE') IS TRUE THEN
+			v_presszone := COALESCE(NEW.presszone_id, 0);
+		END IF;
+
 		-- control of null exit_type
 		IF NEW.exit_type IS NULL THEN
 

@@ -293,7 +293,7 @@ UPDATE sys_function AS t SET descript = v.descript FROM (
     (3322, E'Function to set cost for removed material on specific psectors. \nChoose the material that has to be removed and the price that costs to remove 1 lineal meter of that material (this price has to exist in column ''id''\nof table plan_price. The result is the sum of meters of the chosen material to be removed and the total cost of it for the selected exploitation grouped by psector.\nThe result will be shown in tab Other of psectors.'),
     (3324, 'Function to get feature type change dialog'),
     (3328, 'Trigger to insert or update elements in v_ext_municipality table.'),
-    (3338, 'Retrieves GeoJSON data representing the inundation (flooding) graph for a specific area'),
+    (3338, 'Materializes graph inundation temporal arcs into anl_graphinundation and returns the layer metadata for QGIS'),
     (3340, 'Retrieves GeoJSON data with all the features from the selected psector '),
     (3342, 'Sets the selected value as "current" for the user in config_param_user(value) and return the id and name to set it on label'),
     (3344, 'Function to get calibration files from epatools'),
@@ -343,7 +343,7 @@ UPDATE sys_function AS t SET descript = v.descript FROM (
     (3478, 'A validation trigger that ensures a feature can only be added to a work lot if that same feature is also part of the lot''s parent campaign. If the feature is not in the campaign, the insertion into the lot is silently canceled'),
     (3480, 'Automatically copies feature data to a denormalized table when a feature is added to a work lot, and deletes it upon removal. NOTE: The INSERT logic is flawed'),
     (3482, 'Function to analyze network as a macro graph.'),
-    (3484, 'Function for getting features filtering by sys_type and mapzone, with optional ordering by parameter.'),
+    (3484, 'Function for getting features filtering by sys_type, featureType or config_form_list tableName'),
     (3486, 'Function to get a list of DMAs.'),
     (3488, 'Function to get DMA hydrometers.'),
     (3490, 'Update geometry values from child view into campaign table. Specific trigger because this process is too complex for dynamic trigger'),
@@ -371,6 +371,9 @@ UPDATE sys_function AS t SET descript = v.descript FROM (
     (3544, 'Builds a scada graph using node_1 and node_2 as input values.'),
     (3546, 'Exports the scada graph created into a JSON by using graph builder.'),
     (3548, 'Checks the consistency of de attributes of the scada graph'),
-    (3560, 'Creates a scada graph edge: insert, check/fix and export JSON.')
+    (3560, 'Creates a scada graph edge: insert, check/fix and export JSON.'),
+    (3566, 'Build SQL AND clauses from filterFields json for list and feature queries'),
+    (3568, 'Resolve config_form_list query_text and metadata for a listname'),
+    (3570, 'Build SQL canvas extend filter for a geometry expression')
 ) AS v(id, descript)
 WHERE t.id = v.id;

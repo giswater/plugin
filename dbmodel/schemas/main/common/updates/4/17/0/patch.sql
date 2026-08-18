@@ -656,6 +656,27 @@ WHERE widgettype IN ('text', 'list')
 
 DELETE FROM config_param_system WHERE parameter = 'edit_feature_auto_builtdate';
 
+-- Mapzone combos are no longer children of expl_id (mapzone.expl_id is integer[]).
+UPDATE config_form_fields
+SET dv_parent_id = NULL, dv_querytext_filterc = NULL
+WHERE columnname IN ('dma_id', 'presszone_id', 'dwfzone_id')
+  AND (
+      dv_parent_id = 'expl_id'
+      OR dv_querytext_filterc ILIKE '%expl_id%'
+  );
+
+UPDATE config_form_fields c
+SET isparent = false
+WHERE columnname = 'expl_id'
+  AND isparent IS TRUE
+  AND NOT EXISTS (
+    SELECT 1 FROM config_form_fields x
+    WHERE x.formname = c.formname
+      AND x.formtype = c.formtype
+      AND x.tabname = c.tabname
+      AND x.dv_parent_id = 'expl_id'
+  );
+
 
 CREATE OR REPLACE VIEW ve_municipality
 AS SELECT DISTINCT m.muni_id,
@@ -664,3 +685,13 @@ AS SELECT DISTINCT m.muni_id,
     m.the_geom
    FROM v_municipality m
    WHERE EXISTS (SELECT 1 FROM selector_municipality s WHERE s.muni_id = m.muni_id AND s.cur_user = CURRENT_USER);
+
+UPDATE config_form_fields
+SET widgetcontrols = (
+    COALESCE(widgetcontrols::jsonb, '{}'::jsonb)
+    || '{"valueRelation": {"layer": "ve_municipality", "activated": true, "keyColumn": "muni_id", "nullValue": false, "valueColumn": "name", "filterExpression": null}}'::jsonb
+)::json
+WHERE columnname = 'muni_id'
+  AND formtype = 'form_feature'
+  AND tabname = 'tab_data'
+  AND widgettype = 'combo';

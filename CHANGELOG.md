@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Drop `expl_id` parent filter on mapzone combos (`dma_id`, `presszone_id`, `dwfzone_id`); list all active mapzones like `sector_id` / `dqa_id`.
 - Auto-loaded ValueRelation lookups are created on the GUI thread only, using the VR `keyColumn` (not `id`). Invalid leftovers are dropped; missing tables are not added to HIDDEN.
 - UD `dwfzone_id` ValueRelation targets `ve_dwfzone` (not `ve_dma`); `gullycat_id` targets `cat_gully` (not `cat_grate`); `omzone_id` no longer points at `ve_dma`.
 - Add Layers no longer moves the HIDDEN autoload: it deletes, reloads, and rebinds ValueRelations to the new `layer.id()`.
@@ -51,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix open dialogs to skip database connection check when `skip_db_check` is True.
 - Mapzone manager create dialogs: `expl_id`/`sector_id`/`muni_id` arrays are optional with default Undefined (0); mapzone PK is empty, non-editable and assigned by `urn_id_seq`.
 - Update mapzone `code` via `gw_fct_generate_code` when `gw_fct_graphanalytics_mapzones_v1` writes geometry directly to the table.
+- Feature form `muni_id` uses ValueRelation on `ve_municipality` instead of a frozen ValueMap.
 
 ## [4.16.1] - 2026-07-31
 
