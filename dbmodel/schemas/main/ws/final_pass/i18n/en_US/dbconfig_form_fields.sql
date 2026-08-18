@@ -384,6 +384,7 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip, placeho
     ('btn_remove', 'generic', 'link_to_connec', 'tab_none', NULL, 'Remove', NULL),
     ('btn_set_to_arc', 'generic', 'link_to_connec', 'tab_none', NULL, 'Set to arc', NULL),
     ('btn_snapping', 'generic', 'link_to_connec', 'tab_none', NULL, 'Select on canvas', NULL),
+    ('fluid_type', 'generic', 'link_to_connec', 'tab_none', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL),
     ('force_reconnect', 'generic', 'link_to_connec', 'tab_none', 'Force reconnect:', 'Re-search closest arc ignoring current connection (applies pipe diameter / max distance)', NULL),
     ('id', 'generic', 'link_to_connec', 'tab_none', 'Connec Id:', 'Connec Id', NULL),
     ('linkcat', 'generic', 'link_to_connec', 'tab_none', 'Link catalog:', 'Link catalog', NULL),
