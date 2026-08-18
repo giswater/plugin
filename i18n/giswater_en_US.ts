@@ -761,6 +761,10 @@
 			<translation>Activate water netowrk snapshot</translation>
 		</message>
 		<message>
+			<source>Active</source>
+			<translation>Active</translation>
+		</message>
+		<message>
 			<source>Adapt schema to cibs</source>
 			<translation>Adapt schema to cibs</translation>
 		</message>
@@ -863,12 +867,20 @@ You can change it and use &apos;Update Style&apos; to create a personalized vers
 			<translation>Arc already selected</translation>
 		</message>
 		<message>
+			<source>Arc catalog</source>
+			<translation>Arc catalog</translation>
+		</message>
+		<message>
 			<source>Arc fusion</source>
 			<translation>Arc fusion</translation>
 		</message>
 		<message>
 			<source>Arc layer not found. Cannot start inundation from arc.</source>
 			<translation>Arc layer not found. Cannot start inundation from arc.</translation>
+		</message>
+		<message>
+			<source>Arcs</source>
+			<translation>Arcs</translation>
 		</message>
 		<message>
 			<source>Are you sure to execute vacuum on selected schema?</source>
@@ -1193,6 +1205,10 @@ You will need to restart QGIS or reload Giswater plugin to apply changes. Do you
 			<translation>Cibs schema does not exist. Create it first.</translation>
 		</message>
 		<message>
+			<source>cibs schema is not supported for parent_type=&apos;{0}&apos; in this dbmodel. Missing schemas/addon/cibs/integration/{1}/integration.sql.</source>
+			<translation>cibs schema is not supported for parent_type=&apos;{0}&apos; in this dbmodel. Missing schemas/addon/cibs/integration/{1}/integration.sql.</translation>
+		</message>
+		<message>
 			<source>Clicking an item will check/uncheck it. </source>
 			<translation>Clicking an item will check/uncheck it. </translation>
 		</message>
@@ -1259,6 +1275,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 			<translation>Close</translation>
 		</message>
 		<message>
+			<source>cm schema is not supported for parent_type=&apos;{0}&apos; in this dbmodel. Missing schemas/addon/cm/integration/{1}/integration.sql.</source>
+			<translation>cm schema is not supported for parent_type=&apos;{0}&apos; in this dbmodel. Missing schemas/addon/cm/integration/{1}/integration.sql.</translation>
+		</message>
+		<message>
 			<source>Column name already exists.</source>
 			<translation>Column name already exists.</translation>
 		</message>
@@ -1273,6 +1293,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 		<message>
 			<source>Completed with no exception and no result</source>
 			<translation>Completed with no exception and no result</translation>
+		</message>
+		<message>
+			<source>Compliance Grade</source>
+			<translation>Compliance Grade</translation>
 		</message>
 		<message>
 			<source>Composer disabled: atlas coverage layer must be &apos;v_plan_psector&apos;.</source>
@@ -1409,6 +1433,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 			<translation>Copy project - {0}</translation>
 		</message>
 		<message>
+			<source>Cost (€)</source>
+			<translation>Cost (€)</translation>
+		</message>
+		<message>
 			<source>Could not delete language files ({0}): {1}</source>
 			<translation>Could not delete language files ({0}): {1}</translation>
 		</message>
@@ -1533,6 +1561,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 			<translation>Create catalogs</translation>
 		</message>
 		<message>
+			<source>Created</source>
+			<translation>Created</translation>
+		</message>
+		<message>
 			<source>Created locales database from seed</source>
 			<translation>Created locales database from seed</translation>
 		</message>
@@ -1647,6 +1679,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 		<message>
 			<source>Current feature is planified. You should activate plan mode to work with it.</source>
 			<translation>Current feature is planified. You should activate plan mode to work with it.</translation>
+		</message>
+		<message>
+			<source>Current network cost (€):</source>
+			<translation>Current network cost (€):</translation>
 		</message>
 		<message>
 			<source>Current node is not located over an arc. Please, select option &apos;DRAG-DROP&apos;</source>
@@ -1765,6 +1801,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 			<translation>DEBUG: OPTIONS:</translation>
 		</message>
 		<message>
+			<source>Default Built Date</source>
+			<translation>Default Built Date</translation>
+		</message>
+		<message>
 			<source>Delete</source>
 			<translation>Delete</translation>
 		</message>
@@ -1843,6 +1883,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 		<message>
 			<source>Detail</source>
 			<translation>Detail</translation>
+		</message>
+		<message>
+			<source>Diameter</source>
+			<translation>Diameter</translation>
 		</message>
 		<message>
 			<source>Disconnect elements</source>
@@ -2033,6 +2077,10 @@ This operation cannot be undone.
 {0}</source>
 			<translation>EPA Result Families exported successfully:
 {0}</translation>
+		</message>
+		<message>
+			<source>EPA type</source>
+			<translation>EPA type</translation>
 		</message>
 		<message>
 			<source>Epa type is not defined for element {0}</source>
@@ -2417,6 +2465,10 @@ This operation cannot be undone.
 			<translation>Expression Error</translation>
 		</message>
 		<message>
+			<source>Extension</source>
+			<translation>Extension</translation>
+		</message>
+		<message>
 			<source>FAIL {0}</source>
 			<translation>FAIL {0}</translation>
 		</message>
@@ -2653,6 +2705,10 @@ This operation cannot be undone.
 		<message>
 			<source>Files defined in environment variables &apos;{0}&apos; and &apos;{1}&apos; not found.</source>
 			<translation>Files defined in environment variables &apos;{0}&apos; and &apos;{1}&apos; not found.</translation>
+		</message>
+		<message>
+			<source>File type</source>
+			<translation>File type</translation>
 		</message>
 		<message>
 			<source>Fill table</source>
@@ -3283,12 +3339,24 @@ uri={1}</translation>
 			<translation>Invert the current selection in the table</translation>
 		</message>
 		<message>
+			<source>Investment (€/year):</source>
+			<translation>Investment (€/year):</translation>
+		</message>
+		<message>
 			<source>is not defined in table cat_feature</source>
 			<translation>is not defined in table cat_feature</translation>
 		</message>
 		<message>
 			<source>It will then show the log of the process in the last tab.</source>
 			<translation>It will then show the log of the process in the last tab.</translation>
+		</message>
+		<message>
+			<source>IVI</source>
+			<translation>IVI</translation>
+		</message>
+		<message>
+			<source>IVI (Horizon year):</source>
+			<translation>IVI (Horizon year):</translation>
 		</message>
 		<message>
 			<source>Junctions couldn&apos;t be inserted!</source>
@@ -3331,6 +3399,10 @@ uri={1}</translation>
 			<translation>Key on returned json from ddbb is missed.</translation>
 		</message>
 		<message>
+			<source>Kind</source>
+			<translation>Kind</translation>
+		</message>
+		<message>
 			<source>Language</source>
 			<translation>Language</translation>
 		</message>
@@ -3369,6 +3441,10 @@ uri={1}</translation>
 		<message>
 			<source>Language provision pre-check failed: {0}</source>
 			<translation>Language provision pre-check failed: {0}</translation>
+		</message>
+		<message>
+			<source>Last update</source>
+			<translation>Last update</translation>
 		</message>
 		<message>
 			<source>Layer {0} does not found, therefore, not configured</source>
@@ -3413,6 +3489,14 @@ uri={1}</translation>
 		<message>
 			<source>Line number</source>
 			<translation>Line number</translation>
+		</message>
+		<message>
+			<source>Linked</source>
+			<translation>Linked</translation>
+		</message>
+		<message>
+			<source>Locale</source>
+			<translation>Locale</translation>
 		</message>
 		<message>
 			<source>Locale not found</source>
@@ -3483,6 +3567,18 @@ uri={1}</translation>
 			<translation>Marked values must be greater than 0</translation>
 		</message>
 		<message>
+			<source>Material</source>
+			<translation>Material</translation>
+		</message>
+		<message>
+			<source>Max. Longevity</source>
+			<translation>Max. Longevity</translation>
+		</message>
+		<message>
+			<source>Med. Longevity</source>
+			<translation>Med. Longevity</translation>
+		</message>
+		<message>
 			<source>Merge</source>
 			<translation>Merge</translation>
 		</message>
@@ -3521,6 +3617,10 @@ uri={1}</translation>
 		<message>
 			<source>Mincut task is already active!</source>
 			<translation>Mincut task is already active!</translation>
+		</message>
+		<message>
+			<source>Min. Longevity</source>
+			<translation>Min. Longevity</translation>
 		</message>
 		<message>
 			<source>...min_message_level</source>
@@ -3667,8 +3767,16 @@ uri={1}</translation>
 (This decision will not cancel the other selections, the process will keep running)</translation>
 		</message>
 		<message>
+			<source>Name</source>
+			<translation>Name</translation>
+		</message>
+		<message>
 			<source>New {0}</source>
 			<translation>New {0}</translation>
+		</message>
+		<message>
+			<source>New catalog name</source>
+			<translation>New catalog name</translation>
 		</message>
 		<message>
 			<source>New feature type is null. Please, select a valid value</source>
@@ -4385,6 +4493,10 @@ Do you want to proceed?</translation>
 			<translation>Priority Calculation (Global)</translation>
 		</message>
 		<message>
+			<source>Prob. of Failure</source>
+			<translation>Prob. of Failure</translation>
+		</message>
+		<message>
 			<source>Process finished.
 
 INP file created on:
@@ -4435,6 +4547,10 @@ Statistics file created on:
 		<message>
 			<source>Processing muni_id {0}</source>
 			<translation>Processing muni_id {0}</translation>
+		</message>
+		<message>
+			<source>Profile</source>
+			<translation>Profile</translation>
 		</message>
 		<message>
 			<source>Profile image path: {0}</source>
@@ -4629,12 +4745,28 @@ Statistics file created on:
 			<translation>Rename project - {0}</translation>
 		</message>
 		<message>
+			<source>Repair cost</source>
+			<translation>Repair cost</translation>
+		</message>
+		<message>
 			<source>Replace feature</source>
 			<translation>Replace feature</translation>
 		</message>
 		<message>
 			<source>Replace feature done successfully</source>
 			<translation>Replace feature done successfully</translation>
+		</message>
+		<message>
+			<source>Replacement cost</source>
+			<translation>Replacement cost</translation>
+		</message>
+		<message>
+			<source>Replacement rate (%/year):</source>
+			<translation>Replacement rate (%/year):</translation>
+		</message>
+		<message>
+			<source>REPLACEMENTS PER YEAR</source>
+			<translation>REPLACEMENTS PER YEAR</translation>
 		</message>
 		<message>
 			<source>Replacing template text</source>
@@ -4697,6 +4829,12 @@ Statistics file created on:
 			<translation>Running simulation...</translation>
 		</message>
 		<message>
+			<source>Sample projects are only allowed with locales en_US, es_ES, ca_ES or es_CR, and SRID 25831.
+Do you want to apply the required values and continue?</source>
+			<translation>Sample projects are only allowed with locales en_US, es_ES, ca_ES or es_CR, and SRID 25831.
+Do you want to apply the required values and continue?</translation>
+		</message>
+		<message>
 			<source>Save feature</source>
 			<translation>Save feature</translation>
 		</message>
@@ -4731,6 +4869,10 @@ Statistics file created on:
 		<message>
 			<source>Scale must be a number.</source>
 			<translation>Scale must be a number.</translation>
+		</message>
+		<message>
+			<source>Schema</source>
+			<translation>Schema</translation>
 		</message>
 		<message>
 			<source>Schema: {0}</source>
@@ -5023,6 +5165,10 @@ Do you want to copy its values to the current node?
 			<translation>Set rpt archived execution successful.</translation>
 		</message>
 		<message>
+			<source>SHAPE</source>
+			<translation>SHAPE</translation>
+		</message>
+		<message>
 			<source>Shift+Click to uncheck all</source>
 			<translation>Shift+Click to uncheck all</translation>
 		</message>
@@ -5087,6 +5233,10 @@ Do you want to copy its values to the current node?
 			<translation>SQL folder not found</translation>
 		</message>
 		<message>
+			<source>SRID</source>
+			<translation>SRID</translation>
+		</message>
+		<message>
 			<source>Started task &apos;{0}&apos;</source>
 			<translation>Started task &apos;{0}&apos;</translation>
 		</message>
@@ -5129,6 +5279,10 @@ Do you want to copy its values to the current node?
 		<message>
 			<source>SUCCESS IN DUPLICATING PSECTOR</source>
 			<translation>SUCCESS IN DUPLICATING PSECTOR</translation>
+		</message>
+		<message>
+			<source>SUMMARY</source>
+			<translation>SUMMARY</translation>
 		</message>
 		<message>
 			<source>Table not found</source>
@@ -5742,12 +5896,6 @@ Current psector: {1}</translation>
 			<translation>This feature has no log changes, please update this feature before.</translation>
 		</message>
 		<message>
-			<source>This functionality is only allowed with the locality &apos;en_US&apos; and SRID 25831.
-Do you want change it and continue?</source>
-			<translation>This functionality is only allowed with the locality &apos;en_US&apos; and SRID 25831.
-Do you want change it and continue?</translation>
-		</message>
-		<message>
 			<source>This parameter is mandatory. Please, set a value</source>
 			<translation>This parameter is mandatory. Please, set a value</translation>
 		</message>
@@ -5864,6 +6012,10 @@ Do you want to proceed?</translation>
 			<translation>Total municipalities processed: {0}</translation>
 		</message>
 		<message>
+			<source>Total replacement cost (€):</source>
+			<translation>Total replacement cost (€):</translation>
+		</message>
+		<message>
 			<source>translation canceled</source>
 			<translation>translation canceled</translation>
 		</message>
@@ -5888,6 +6040,10 @@ Do you want to proceed?</translation>
 			<translation>Try again</translation>
 		</message>
 		<message>
+			<source>Type</source>
+			<translation>Type</translation>
+		</message>
+		<message>
 			<source>Typeahead &apos;{0}&apos; doesn&apos;t have neither a queryText nor comboIds/comboNames.</source>
 			<translation>Typeahead &apos;{0}&apos; doesn&apos;t have neither a queryText nor comboIds/comboNames.</translation>
 		</message>
@@ -5898,6 +6054,10 @@ Do you want to proceed?</translation>
 		<message>
 			<source>Unable to activate psector. </source>
 			<translation>Unable to activate psector.</translation>
+		</message>
+		<message>
+			<source>Unable to find table</source>
+			<translation>Unable to find table</translation>
 		</message>
 		<message>
 			<source>Unable to highlight the snapped arc.</source>
@@ -6110,6 +6270,10 @@ Click OK to end set your Preview as the value on graphconfig field.</translation
 			<translation>Validating inputs...</translation>
 		</message>
 		<message>
+			<source>Value</source>
+			<translation>Value</translation>
+		</message>
+		<message>
 			<source>Value_distribution must be SIMPLE or HOURLY.</source>
 			<translation>Value_distribution must be SIMPLE or HOURLY.</translation>
 		</message>
@@ -6260,6 +6424,14 @@ Are you sure you want to delete these records?</translation>
 			<translation>widgettype not found. </translation>
 		</message>
 		<message>
+			<source>Without replacements</source>
+			<translation>Without replacements</translation>
+		</message>
+		<message>
+			<source>With replacements</source>
+			<translation>With replacements</translation>
+		</message>
+		<message>
 			<source>Workcat created successfully.</source>
 			<translation>Workcat created successfully.</translation>
 		</message>
@@ -6274,6 +6446,14 @@ Are you sure you want to delete these records?</translation>
 		<message>
 			<source>Wrong number of parameters for node {0} in config file.</source>
 			<translation>Wrong number of parameters for node {0} in config file.</translation>
+		</message>
+		<message>
+			<source>Year</source>
+			<translation>Year</translation>
+		</message>
+		<message>
+			<source>Year:</source>
+			<translation>Year:</translation>
 		</message>
 		<message>
 			<source>You are about to adapt schema &apos;{0}&apos; to cibs.
@@ -8336,7 +8516,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>lbl_locale</source>
-			<translation>Locale:</translation>
+			<translation>Language:</translation>
 		</message>
 		<message>
 			<source>tooltip_lbl_locale</source>
@@ -10698,22 +10878,6 @@ or they were created by another user:</translation>
 		<message>
 			<source>tooltip_groupBox_3</source>
 			<translation>groupBox_3</translation>
-		</message>
-		<message>
-			<source>groupBox_4</source>
-			<translation>Nodes</translation>
-		</message>
-		<message>
-			<source>tooltip_groupBox_4</source>
-			<translation>groupBox_4</translation>
-		</message>
-		<message>
-			<source>groupBox_5</source>
-			<translation>Extra filters</translation>
-		</message>
-		<message>
-			<source>tooltip_groupBox_5</source>
-			<translation>groupBox_5</translation>
 		</message>
 		<message>
 			<source>tab_connect</source>
