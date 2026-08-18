@@ -109,7 +109,7 @@ BEGIN
 	raise notice 'Inserting nodes on temp_t_node table';
 
 	-- the strategy of selector_sector is not used for nodes. The reason is to enable the posibility to export the sector=-1. In addition using this it's impossible to export orphan nodes
-	v_querytext = ' INSERT INTO temp_t_node (node_id, top_elev, elev, node_type, nodecat_id, epa_type, sector_id, state, state_type, annotation, the_geom, expl_id, dma_id, presszone_id, dqa_id, minsector_id, age, builtdate)
+	INSERT INTO temp_t_node (node_id, top_elev, elev, node_type, nodecat_id, epa_type, sector_id, state, state_type, annotation, the_geom, expl_id, dma_id, presszone_id, dqa_id, minsector_id, age, builtdate)
 		SELECT
 			n.node_id,
 			top_elev,
@@ -141,10 +141,7 @@ BEGIN
 			WHERE
 				a.node_1 = n.node_id::text
 				OR a.node_2 = n.node_id::text
-		)
-		';
-
-	EXECUTE v_querytext;
+		);
 
 	-- create link exit
 	IF v_networkmode in (3,4) THEN
@@ -153,13 +150,13 @@ BEGIN
 
 	IF v_networkmode = 4 THEN
 
-		EXECUTE ' INSERT INTO temp_t_node (node_id, top_elev, elev, node_type, nodecat_id, epa_type, sector_id, state, state_type, annotation, the_geom, expl_id, 
+		INSERT INTO temp_t_node (node_id, top_elev, elev, node_type, nodecat_id, epa_type, sector_id, state, state_type, annotation, the_geom, expl_id, 
 			dma_id, presszone_id, dqa_id, minsector_id, age, builtdate)
 			SELECT
 				c.connec_id,
 				top_elev,
 				top_elev - depth AS elev,
-				''CONNEC'',
+				'CONNEC',
 				conneccat_id,
 				epa_type,
 				c.sector_id,
@@ -183,27 +180,26 @@ BEGIN
 				SELECT 1
 				FROM temp_t_arc a
 				WHERE a.arc_id = c.arc_id::text
-			)'
-			;
+			);
 	END IF;
 
 	raise notice 'Inserting links on temp_t_arc table';
 	IF v_networkmode =  4 THEN
 		-- TODO: check if pjoint filter is needed and check JOINS
 		-- this need to be solved here in spite of fill_data functions because some kind of incosnstency done on this function on previous lines
-		EXECUTE 'INSERT INTO temp_t_arc (arc_id, node_1, node_2, arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation, roughness, length, diameter, the_geom,
+		INSERT INTO temp_t_arc (arc_id, node_1, node_2, arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation, roughness, length, diameter, the_geom,
 			expl_id, dma_id, presszone_id, dqa_id, minsector_id, status, minorloss, age, family, builtdate)
 			SELECT
-				concat(''CO'', c.connec_id) AS arc_id,
+				concat('CO', c.connec_id) AS arc_id,
 				c.connec_id AS node_1,
 				CASE
-					WHEN l.exit_type = ''ARC'' THEN concat(''VN'', l.link_id)
-					WHEN l.exit_type IN (''NODE'', ''CONNEC'') THEN l.exit_id::text
+					WHEN l.exit_type = 'ARC' THEN concat('VN', l.link_id)
+					WHEN l.exit_type IN ('NODE', 'CONNEC') THEN l.exit_id::text
 					ELSE COALESCE(vfc.p_pjoint_id, c.pjoint_id)::text
 				END AS node_2,
-				''LINK'' AS arc_type,
+				'LINK' AS arc_type,
 				conneccat_id,
-				''PIPE'' AS epa_type,
+				'PIPE' AS epa_type,
 				l.sector_id,
 				l.state,
 				l.state_type,
@@ -224,16 +220,17 @@ BEGIN
 				c.builtdate
 			FROM link l
 				JOIN vf_link vfl ON l.link_id = vfl.link_id
+				JOIN connec c ON c.connec_id = l.feature_id
+				JOIN vf_connec vfc ON vfc.connec_id = c.connec_id
 				JOIN inp_connec ON l.feature_id = inp_connec.connec_id
 				JOIN cat_link ON cat_link.id = l.linkcat_id
 				LEFT JOIN cat_mat_roughness ON cat_mat_roughness.matcat_id = cat_link.matcat_id
 				LEFT JOIN cat_material ON cat_material.id = cat_link.matcat_id
 			WHERE
-				(now()::date - (CASE WHEN c.builtdate IS NULL THEN ''1900-01-01''::date ELSE c.builtdate END)) / 365 >= cat_mat_roughness.init_age
-				AND (now()::date - (CASE WHEN c.builtdate IS NULL THEN ''1900-01-01''::date ELSE c.builtdate END)) / 365 <= cat_mat_roughness.end_age
+				(now()::date - (CASE WHEN c.builtdate IS NULL THEN '1900-01-01'::date ELSE c.builtdate END)) / 365 >= cat_mat_roughness.init_age
+				AND (now()::date - (CASE WHEN c.builtdate IS NULL THEN '1900-01-01'::date ELSE c.builtdate END)) / 365 <= cat_mat_roughness.end_age
 				AND COALESCE(vfc.p_pjoint_id, c.pjoint_id) IS NOT NULL
-				AND COALESCE(vfc.p_pjoint_type, c.pjoint_type) IS NOT NULL
-			';
+				AND COALESCE(vfc.p_pjoint_type, c.pjoint_type) IS NOT NULL;
 	END IF;
 
 	UPDATE temp_t_node SET "family" = q."family"
