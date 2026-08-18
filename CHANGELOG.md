@@ -15,12 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extend `hydraulic_engine` Go2Epa path to UD (SWMM); fall back to classic EPA when the package is missing.
 - Allow Execute EPA on Linux for UD when `hydraulic_engine` is installed.
 - Add `btn_child` to campaign manager dialog to create a child campaign.
+- Add Force node checkbox and node picker on UD Connect / Gully to network dialogs (`forceNode` / `forcedNodes`, `exit_type=NODE`).
+- Add Extra filters on Connect to network dialogs (`extraFilters` for arc/node KNN). Extra filters retarget an existing link only when Force reconnect is checked; new links are always created.
 - Add editable `userdefined_geom` checkbox to link info forms.
 - Add filters to EPA result manager (status, network type, exploitation, exec date from).
 - Add validated flag (`isvalidated`) to EPA results with toggle and filter in EPA result.
 
 ### Changed
 
+- Rename Connect / Gully to network dialog layouts (`lyt_link_configuration`, `lyt_feature_selection`, `lyt_arc_selection`, `lyt_node_selection`, `lyt_extra_filters`).
 - Generate `resources/gis/locales.sqlite` from `locales.sql` when missing instead of tracking the sqlite file.
 - Keep `link.userdefined_geom` when provided on `ve_link` edit; set it to TRUE only on INSERT or when geometry changes.
 - Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
@@ -31,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fix Connect to network Force reconnect + Extra filters: rebuild link from the connect, join `vf_arc`/`vf_node` inside KNN on `arc`/`node`, and log when no candidate is found.
 - Drop `expl_id` parent filter on mapzone combos (`dma_id`, `presszone_id`, `dwfzone_id`); list all active mapzones like `sector_id` / `dqa_id`.
 - Auto-loaded ValueRelation lookups are created on the GUI thread only, using the VR `keyColumn` (not `id`). Invalid leftovers are dropped; missing tables are not added to HIDDEN.
 - UD `dwfzone_id` ValueRelation targets `ve_dwfzone` (not `ve_dma`); `gullycat_id` targets `cat_gully` (not `cat_grate`); `omzone_id` no longer points at `ve_dma`.
@@ -50,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix creation of temporary table `temp_ve_arc_geom_selector` to use `vf_arc` view.
 - Fix performance on `sys_fprocess` queries.
 - Fix open dialogs to skip database connection check when `skip_db_check` is True.
+- Fix link_to_gully dialog adding widgets to select arcs by expression and by canvas clicking on the map.
 - Mapzone manager create dialogs: `expl_id`/`sector_id`/`muni_id` arrays are optional with default Undefined (0); mapzone PK is empty, non-editable and assigned by `urn_id_seq`.
 - Update mapzone `code` via `gw_fct_generate_code` when `gw_fct_graphanalytics_mapzones_v1` writes geometry directly to the table.
 - Feature form `muni_id` uses ValueRelation on `ve_municipality` instead of a frozen ValueMap.
