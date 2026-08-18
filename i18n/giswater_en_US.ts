@@ -1103,6 +1103,10 @@ You are going to lose previous information!</translation>
 			<translation>Cannot duplicate archived psector {0}. Please unarchive it first.</translation>
 		</message>
 		<message>
+			<source>Cannot force connection to a node while arcs are selected.</source>
+			<translation>Cannot force connection to a node while arcs are selected.</translation>
+		</message>
+		<message>
 			<source>Cannot merge archived psector {0}. Please unarchive it first.</source>
 			<translation>Cannot merge archived psector {0}. Please unarchive it first.</translation>
 		</message>
@@ -1245,6 +1249,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 		<message>
 			<source>Click on 2 places on the map, creating a line, then set the location of a point</source>
 			<translation>Click on 2 places on the map, creating a line, then set the location of a point</translation>
+		</message>
+		<message>
+			<source>Click on a node to force the connection.</source>
+			<translation>Click on a node to force the connection.</translation>
 		</message>
 		<message>
 			<source>Click on arcs to select them. Use Alt+click to unselect selected arcs.</source>
@@ -2929,6 +2937,10 @@ This operation cannot be undone.
 		<message>
 			<source>Group &apos;{0}&apos; not found in layer tree.</source>
 			<translation>Group &apos;{0}&apos; not found in layer tree.</translation>
+		</message>
+		<message>
+			<source>Gullies</source>
+			<translation>Gullies</translation>
 		</message>
 		<message>
 			<source>Gully to network</source>
@@ -10878,6 +10890,22 @@ or they were created by another user:</translation>
 		<message>
 			<source>tooltip_groupBox_3</source>
 			<translation>groupBox_3</translation>
+		</message>
+		<message>
+			<source>groupBox_4</source>
+			<translation>Nodes</translation>
+		</message>
+		<message>
+			<source>tooltip_groupBox_4</source>
+			<translation>groupBox_4</translation>
+		</message>
+		<message>
+			<source>groupBox_5</source>
+			<translation>Extra filters</translation>
+		</message>
+		<message>
+			<source>tooltip_groupBox_5</source>
+			<translation>groupBox_5</translation>
 		</message>
 		<message>
 			<source>tab_connect</source>

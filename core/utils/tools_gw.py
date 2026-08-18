@@ -1969,13 +1969,11 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
             layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
                                      QgsFieldConstraints.ConstraintStrength.ConstraintStrengthHard)
 
-        # CFF: not mandatory and not editable → DB/trigger fills it. Do not Hard-enforce
-        # provider PK NOT NULL/UNIQUE or native Add Feature OK stays grey on an empty field.
+        # Soft NotNull: empty PK must not grey native Add Feature OK.
         if field.get('iseditable') is False and field.get('ismandatory') is not True:
             layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
                                      QgsFieldConstraints.ConstraintStrength.ConstraintStrengthSoft)
-            layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintUnique,
-                                     QgsFieldConstraints.ConstraintStrength.ConstraintStrengthSoft)
+            layer.removeFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintUnique)
 
         # Manage editability
         config = layer.editFormConfig()

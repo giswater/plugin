@@ -24,7 +24,7 @@ on:
         required: false
         default: ""
       source_event:
-        description: "Original trigger of Update i18n (schedule, release, workflow_dispatch). Auto-set when chained."
+        description: "Original trigger of Update i18n (schedule, release, pull_request, workflow_dispatch). Auto-set when chained."
         required: false
         default: ""
         type: string
@@ -231,7 +231,23 @@ jobs:
           fi
 
           git commit -m "$COMMIT_MSG"
-          git push origin HEAD
+          REMOTE_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "${REMOTE_BRANCH}"
+            if ! git rebase "origin/${REMOTE_BRANCH}"; then
+              git rebase --abort || true
+              echo "::error::Rebase conflict while publishing translation ZIPs onto origin/${REMOTE_BRANCH}."
+              exit 1
+            fi
+            if git push origin HEAD; then
+              break
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::Failed to push translation ZIPs after 5 attempts (remote moved)."
+              exit 1
+            fi
+            echo "Push rejected (attempt ${attempt}/5); retrying after rebase onto origin/${REMOTE_BRANCH}..."
+          done
 
       - name: Extract en_US files into plugin
         run: |
@@ -303,7 +319,22 @@ jobs:
           fi
 
           git commit -m "chore(i18n): update bundled en_US files"
-          git push origin "HEAD:refs/heads/${BRANCH}"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "${BRANCH}"
+            if ! git rebase "origin/${BRANCH}"; then
+              git rebase --abort || true
+              echo "::error::Rebase conflict while updating en_US files onto origin/${BRANCH}."
+              exit 1
+            fi
+            if git push origin "HEAD:refs/heads/${BRANCH}"; then
+              break
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::Failed to push en_US files after 5 attempts (remote moved)."
+              exit 1
+            fi
+            echo "Push rejected (attempt ${attempt}/5); retrying after rebase onto origin/${BRANCH}..."
+          done
 
       - name: Cleanup GitHub App session
         if: always()

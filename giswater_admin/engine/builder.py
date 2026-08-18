@@ -8,6 +8,7 @@ directly. No Qt, no QGIS, no global state.
 from __future__ import annotations
 
 import datetime as _dt
+import fnmatch
 import logging
 import os
 from dataclasses import dataclass, field
@@ -491,13 +492,22 @@ class SchemaBuilder:
     def _files_for_step(self, step: Step) -> list[str]:
         locale_files = self._locale_files(step)
         if not step.shared_source:
-            return locale_files
+            return self._exclude_files(locale_files, step)
         by_name: dict[str, str] = {}
         for path in self._files_in(self._path_of(step.shared_source), step.recursive):
             by_name[os.path.basename(path)] = path
         for path in locale_files:
             by_name[os.path.basename(path)] = path
-        return [by_name[name] for name in sorted(by_name)]
+        return self._exclude_files([by_name[name] for name in sorted(by_name)], step)
+
+    @staticmethod
+    def _exclude_files(files: list[str], step: Step) -> list[str]:
+        if not step.exclude:
+            return files
+        return [
+            path for path in files
+            if not any(fnmatch.fnmatch(os.path.basename(path), pat) for pat in step.exclude)
+        ]
 
     def _locale_files(self, step: Step) -> list[str]:
         path = self._path_of(step.source)

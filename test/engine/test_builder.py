@@ -446,3 +446,30 @@ def test_real_i18n_missing_es_locale_uses_es_ES_when_downloaded(dbmodel_path: st
 def test_real_i18n_no_tr_skips_fallback(dbmodel_path: str, kind: str):
     builder = _real_builder(dbmodel_path, kind, "no_TR", profile="empty")
     assert builder._files_for_step(_real_i18n_step(builder)) == []
+
+
+@pytest.mark.parametrize("kind", ["ws", "ud"])
+def test_sample_final_pass_skips_cff_clone_locale(dbmodel_path: str, kind: str):
+    builder = _real_builder(dbmodel_path, kind, "en_US", profile="sample_full")
+    cff = next(
+        s for s in builder.manifest.phase("final_pass").steps
+        if s.source.endswith("config_form_fields")
+    )
+    names = [os.path.basename(p) for p in builder._files_for_step(cff)]
+    assert "99_cff_clone_locale.sql" not in names
+    assert "00_cff_init.sql" in names
+    assert "01_cff_base.sql" in names
+
+
+@pytest.mark.parametrize("kind", ["ws", "ud"])
+def test_empty_final_pass_runs_cff_clone_locale(dbmodel_path: str, kind: str):
+    builder = _real_builder(dbmodel_path, kind, "en_US", profile="empty")
+    names = [
+        os.path.basename(p)
+        for s in builder.manifest.phase("final_pass_empty").steps
+        for p in builder._files_for_step(s)
+    ]
+    assert "99_cff_clone_locale.sql" in names
+    assert "00_cff_init.sql" in names
+    assert "01_cff_base.sql" in names
+    assert "01_cff_arc.sql" not in names

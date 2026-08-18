@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fix `gw_fct_linkexitgenerator` to filter links by sector_id > 0 when is called from `gw_fct_pg2epa_fill_data` function.
+- Do not mark read-only non-mandatory fields Unique: QGIS paste was inventing `_1` / `1,2,3` (ConfigLayerFields still uses Soft NotNull so native Add Feature OK stays enabled on empty PKs).
 - Fix Connect to network Force reconnect + Extra filters: rebuild link from the connect, join `vf_arc`/`vf_node` inside KNN on `arc`/`node`, and log when no candidate is found.
 - Drop `expl_id` parent filter on mapzone combos (`dma_id`, `presszone_id`, `dwfzone_id`); list all active mapzones like `sector_id` / `dqa_id`.
 - Auto-loaded ValueRelation lookups are created on the GUI thread only, using the VR `keyColumn` (not `id`). Invalid leftovers are dropped; missing tables are not added to HIDDEN.
