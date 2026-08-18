@@ -44,6 +44,9 @@ BEGIN
 	v_isembebed :=  ((p_data ->> 'data')::json->>'parameters')::json->> 'isEmbebed';
 	v_verified_exceptions :=  ((p_data ->> 'data')::json->>'parameters')::json->> 'verifiedExceptions';
 
+	IF v_fid IS NULL THEN v_fid = 225; END IF;
+	IF v_verified_exceptions IS NULL THEN v_verified_exceptions = false; END IF;
+
 	IF v_isembebed IS FALSE OR v_isembebed IS NULL THEN -- create temporal tables if function is not embebed
 		EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"fid":'||v_fid||', "project_type":"'||v_project_type||'", "action":"CREATE", "group":"EPAMAIN"}}}$$)';
 	END IF;
