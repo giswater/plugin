@@ -58,6 +58,8 @@ class Step:
 
     ``shared_source``: extra folder merged by basename (shared < fallback <
     locale). Locales only need the files they translate.
+
+    ``exclude``: fnmatch patterns against the filename (e.g. ``99_*.sql``).
     """
 
     source: str
@@ -66,6 +68,7 @@ class Step:
     shared_source: str = ""
     schema_override: str = ""
     aux_override: str = ""
+    exclude: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -234,6 +237,11 @@ def _parse_step(raw: Any, phase_id: str, path: str) -> Step:
         raise ManifestError(
             f"Step in phase '{phase_id}' is missing 'source' (str): {raw} in {path}"
         )
+    excl = raw.get("exclude") or []
+    if excl and not (isinstance(excl, list) and all(isinstance(x, str) for x in excl)):
+        raise ManifestError(
+            f"Step in phase '{phase_id}' 'exclude' must be a list of strings: {raw} in {path}"
+        )
     return Step(
         source=src,
         recursive=bool(raw.get("recursive", False)),
@@ -241,4 +249,5 @@ def _parse_step(raw: Any, phase_id: str, path: str) -> Step:
         shared_source=str(raw.get("shared_source", "")),
         schema_override=str(raw.get("schema_override", "")),
         aux_override=str(raw.get("aux_override", "")),
+        exclude=tuple(excl),
     )

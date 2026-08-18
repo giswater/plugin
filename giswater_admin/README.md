@@ -110,7 +110,7 @@ flowchart TB
 
 | Type | Behavior |
 |------|----------|
-| `sql_dir` | Run every `*.sql` in listed folders (optional `recursive`, `shared_source`) |
+| `sql_dir` | Run every `*.sql` in listed folders (optional `recursive`, `shared_source`, `exclude`) |
 | `version_walk` | Walk `updates/<M>/<m>/<p>/` semver-ordered; `roots:` for ws/ud (common then kind) |
 | `sql_function` | `SELECT schema.fn($${JSON}$$)` (e.g. `lastprocess`) |
 | `sql_file` | Single file with optional `fallback_source` |
