@@ -308,6 +308,7 @@ BEGIN
 
 			-- remove deprecated parameters on config_param_system
 			DELETE FROM config_param_system WHERE parameter = 'om_mincut_enable_alerts';
+			DELETE FROM config_param_system WHERE parameter = 'edit_feature_auto_builtdate';
 
 			-- fk for ext tables or utils schema
 			PERFORM gw_fct_admin_schema_utils_fk();

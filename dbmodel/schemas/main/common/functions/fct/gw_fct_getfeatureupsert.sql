@@ -323,9 +323,9 @@ BEGIN
 			v_id = (SELECT nextval('urn_id_seq'));
 		END IF;
 	
-		IF v_tablename = 've_drainzone' THEN
-			v_drainzone_id :=v_id;
-		ELSIF v_tablename = 've_dwfzone' THEN
+		IF v_tablename = 've_drainzone' AND v_id ~ '^[0-9]+$' THEN
+			v_drainzone_id := v_id;
+		ELSIF v_tablename = 've_dwfzone' AND v_id ~ '^[0-9]+$' THEN
 			v_dwfzone_id := v_id;
 		END IF;
 
@@ -560,7 +560,6 @@ BEGIN
 			SELECT value INTO v_sector_id FROM config_param_user WHERE parameter = 'edit_sector_vdefault' and cur_user = current_user;
 			SELECT value INTO v_expl_id FROM config_param_user WHERE parameter = 'edit_exploitation_vdefault' and cur_user = current_user;
 			SELECT value INTO v_muni_id FROM config_param_user WHERE parameter = 'edit_municipality_vdefault' and cur_user = current_user;
-
 		END IF;
 
 		-- If we are in a psector, all features must be inserted in a specific explotation
@@ -569,50 +568,120 @@ BEGIN
 			SELECT expl_id INTO v_expl_id FROM plan_psector WHERE psector_id::text = v_current_psector;
 		END IF;
 
-		-- Presszone
-		IF v_project_type = 'WS' AND v_presszone_id IS NULL THEN
-			SELECT count(*) into count_aux FROM presszone WHERE ST_DWithin(v_reduced_geometry, presszone.the_geom,0.001) AND active IS TRUE ;
-			IF count_aux = 1 THEN
-				v_presszone_id = (SELECT presszone_id FROM presszone WHERE ST_DWithin(v_reduced_geometry, presszone.the_geom,0.001) AND active IS TRUE LIMIT 1);
-			ELSE
-				v_presszone_id =(SELECT presszone_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
-				order by ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
-			END IF;
-		END IF;
-
-		-- Sector ID
+		-- set mapzones defaults (dynamic)
 		IF v_sector_id IS NULL THEN
-			SELECT count(*) into count_aux FROM sector WHERE ST_DWithin(v_reduced_geometry, sector.the_geom,0.001) AND active IS TRUE ;
-			IF count_aux = 1 THEN
-				v_sector_id = (SELECT sector_id FROM sector WHERE ST_DWithin(v_reduced_geometry, sector.the_geom,0.001) AND active IS TRUE LIMIT 1);
+			IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'SECTOR') IS TRUE THEN
+				v_sector_id := 0;
 			ELSE
-				v_sector_id =(SELECT sector_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
-				order by ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
+				SELECT count(*) into count_aux FROM sector WHERE ST_DWithin(v_reduced_geometry, sector.the_geom,0.001) AND active IS TRUE ;
+				IF count_aux = 1 THEN
+					v_sector_id := (SELECT sector_id FROM sector WHERE ST_DWithin(v_reduced_geometry, sector.the_geom,0.001) AND active IS TRUE LIMIT 1);
+				ELSE
+					v_sector_id := (SELECT sector_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
+					ORDER BY ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
+				END IF;
 			END IF;
 		END IF;
 
-		-- Dma ID
 		IF v_dma_id IS NULL THEN
-			SELECT count(*) into count_aux FROM dma WHERE ST_DWithin(v_reduced_geometry, dma.the_geom,0.001) AND active IS TRUE ;
-			IF count_aux = 1 THEN
-				v_dma_id = (SELECT dma_id FROM dma WHERE ST_DWithin(v_reduced_geometry, dma.the_geom,0.001) AND active IS TRUE LIMIT 1);
+			IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'DMA') IS TRUE THEN
+				v_dma_id := 0;
 			ELSE
-				v_dma_id =(SELECT dma_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
-				order by ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
+				SELECT count(*) into count_aux FROM dma WHERE ST_DWithin(v_reduced_geometry, dma.the_geom,0.001) AND active IS TRUE ;
+				IF count_aux = 1 THEN
+					v_dma_id := (SELECT dma_id FROM dma WHERE ST_DWithin(v_reduced_geometry, dma.the_geom,0.001) AND active IS TRUE LIMIT 1);
+				ELSE
+					v_dma_id := (SELECT dma_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
+					ORDER BY ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
+				END IF;
 			END IF;
 		END IF;
 
 		IF v_omzone_id IS NULL THEN
-			SELECT count(*) into count_aux FROM omzone WHERE ST_DWithin(v_reduced_geometry, omzone.the_geom,0.001) AND active IS TRUE ;
-			IF count_aux = 1 THEN
-				v_omzone_id = (SELECT omzone_id FROM omzone WHERE ST_DWithin(v_reduced_geometry, omzone.the_geom,0.001) AND active IS TRUE LIMIT 1);
+			IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'OMZONE') IS TRUE THEN
+				v_omzone_id := 0;
 			ELSE
-				v_omzone_id =(SELECT omzone_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
-				order by ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
+				SELECT count(*) into count_aux FROM omzone WHERE ST_DWithin(v_reduced_geometry, omzone.the_geom,0.001) AND active IS TRUE ;
+				IF count_aux = 1 THEN
+					v_omzone_id := (SELECT omzone_id FROM omzone WHERE ST_DWithin(v_reduced_geometry, omzone.the_geom,0.001) AND active IS TRUE LIMIT 1);
+				ELSE
+					v_omzone_id := (SELECT omzone_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
+					ORDER BY ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
+				END IF;
 			END IF;
 		END IF;
 
-		-- Expl ID
+		IF v_project_type = 'WS' THEN
+			IF v_presszone_id IS NULL THEN
+				IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'PRESSZONE') IS TRUE THEN
+					v_presszone_id := 0;
+				ELSE
+					SELECT count(*) into count_aux FROM presszone WHERE ST_DWithin(v_reduced_geometry, presszone.the_geom,0.001) AND active IS TRUE ;
+					IF count_aux = 1 THEN
+						v_presszone_id := (SELECT presszone_id FROM presszone WHERE ST_DWithin(v_reduced_geometry, presszone.the_geom,0.001) AND active IS TRUE LIMIT 1);
+					ELSE
+						v_presszone_id := (SELECT presszone_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
+						ORDER BY ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
+					END IF;
+				END IF;
+			END IF;
+
+			IF v_dqa_id IS NULL THEN
+				IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'DQA') IS TRUE THEN
+					v_dqa_id := 0;
+				ELSE
+					SELECT count(*) into count_aux FROM dqa WHERE ST_DWithin(v_reduced_geometry, dqa.the_geom,0.001) AND active IS TRUE ;
+					IF count_aux = 1 THEN
+						v_dqa_id := (SELECT dqa_id FROM dqa WHERE ST_DWithin(v_reduced_geometry, dqa.the_geom,0.001) AND active IS TRUE LIMIT 1);
+					ELSE
+						v_dqa_id := (SELECT dqa_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
+						ORDER BY ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
+					END IF;
+				END IF;
+			END IF;
+
+			IF v_supplyzone_id IS NULL THEN
+				IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'SUPPLYZONE') IS TRUE THEN
+					v_supplyzone_id := 0;
+				ELSE
+					SELECT count(*) into count_aux FROM supplyzone WHERE ST_DWithin(v_reduced_geometry, supplyzone.the_geom,0.001) AND active IS TRUE ;
+					IF count_aux = 1 THEN
+						v_supplyzone_id := (SELECT supplyzone_id FROM supplyzone WHERE ST_DWithin(v_reduced_geometry, supplyzone.the_geom,0.001) AND active IS TRUE LIMIT 1);
+					ELSE
+						v_supplyzone_id := (SELECT supplyzone_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
+						ORDER BY ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
+					END IF;
+				END IF;
+			END IF;
+
+			IF v_macrodma_id IS NULL THEN
+				v_macrodma_id = (SELECT macrodma_id FROM dma WHERE dma_id=v_dma_id);
+			END IF;
+		ELSE
+			IF v_dwfzone_id IS NULL THEN
+				IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'DWFZONE') IS TRUE THEN
+					v_dwfzone_id := 0;
+				ELSE
+					SELECT count(*) into count_aux FROM dwfzone WHERE ST_DWithin(v_reduced_geometry, dwfzone.the_geom,0.001) AND active IS TRUE ;
+					IF count_aux = 1 THEN
+						v_dwfzone_id := (SELECT dwfzone_id FROM dwfzone WHERE ST_DWithin(v_reduced_geometry, dwfzone.the_geom,0.001) AND active IS TRUE LIMIT 1);
+					ELSE
+						v_dwfzone_id := (SELECT dwfzone_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
+						ORDER BY ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
+					END IF;
+				END IF;
+			END IF;
+
+			IF v_drainzone_id IS NULL THEN
+				v_drainzone_id = (SELECT drainzone_id FROM dwfzone WHERE dwfzone_id=v_dwfzone_id);
+			END IF;
+		END IF;
+
+		-- Municipality
+		IF v_muni_id IS NULL THEN
+			v_muni_id := (SELECT muni_id FROM v_municipality WHERE ST_DWithin(v_reduced_geometry, v_municipality.the_geom,0.001) AND active IS TRUE LIMIT 1);
+		END IF;
+
 		IF v_expl_id IS NULL THEN
 			SELECT count(*) into count_aux FROM exploitation WHERE ST_DWithin(v_reduced_geometry, exploitation.the_geom,0.001) AND active IS TRUE ;
 			IF count_aux = 1 THEN
@@ -623,50 +692,12 @@ BEGIN
 			END IF;
 		END IF;
 
-		IF v_project_type = 'WS' AND v_supplyzone_id IS NULL THEN
-			SELECT count(*) into count_aux FROM supplyzone WHERE ST_DWithin(v_reduced_geometry, supplyzone.the_geom,0.001) AND active IS TRUE ;
-			IF count_aux = 1 THEN
-				v_supplyzone_id = (SELECT supplyzone_id FROM supplyzone WHERE ST_DWithin(v_reduced_geometry, supplyzone.the_geom,0.001) AND active IS TRUE LIMIT 1);
-			ELSE
-				v_supplyzone_id =(SELECT supplyzone_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
-				order by ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
-			END IF;
+		IF v_project_type = 'WS' AND v_minsector_id IS NULL THEN
+			v_minsector_id = 0;
 		END IF;
 
-		IF v_project_type = 'UD' AND v_dwfzone_id IS NULL THEN
-			SELECT count(*) into count_aux FROM dwfzone WHERE ST_DWithin(v_reduced_geometry, dwfzone.the_geom,0.001) AND active IS TRUE ;
-			IF count_aux = 1 THEN
-				v_dwfzone_id = (SELECT dwfzone_id FROM dwfzone WHERE ST_DWithin(v_reduced_geometry, dwfzone.the_geom,0.001) AND active IS TRUE LIMIT 1);
-			ELSE
-				v_dwfzone_id =(SELECT dwfzone_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
-				order by ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
-			END IF;
-		END IF;
-
-		IF v_project_type = 'UD' AND v_drainzone_id IS NULL THEN
-			SELECT count(*) into count_aux FROM drainzone WHERE ST_DWithin(v_reduced_geometry, drainzone.the_geom,0.001) AND active IS TRUE ;
-			IF count_aux = 1 THEN
-				v_drainzone_id = (SELECT drainzone_id FROM drainzone WHERE ST_DWithin(v_reduced_geometry, drainzone.the_geom,0.001) AND active IS TRUE LIMIT 1);
-			ELSE
-				v_drainzone_id =(SELECT drainzone_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
-				order by ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
-			END IF;
-		END IF;
-
-		IF v_project_type = 'UD' AND v_omunit_id IS NULL THEN
-			SELECT count(*) into count_aux FROM omunit WHERE ST_DWithin(v_reduced_geometry, omunit.the_geom, 0.001);
-			IF count_aux = 1 THEN
-				v_omunit_id = (SELECT omunit_id FROM omunit WHERE ST_DWithin(v_reduced_geometry, omunit.the_geom, 0.001) LIMIT 1);
-			ELSE
-				v_omunit_id =(SELECT omunit_id FROM ve_arc WHERE ST_DWithin(v_reduced_geometry, ve_arc.the_geom, v_proximity_buffer)
-				order by ST_Distance (v_reduced_geometry, ve_arc.the_geom) LIMIT 1);
-			END IF;
-		END IF;
-
-
-		-- Macrodma
-		IF v_project_type = 'WS' THEN
-			v_macrodma_id := (SELECT macrodma_id FROM dma WHERE dma_id=v_dma_id);
+		IF v_project_type = 'WS' AND v_omunit_id IS NULL THEN
+			v_omunit_id = 0;
 		END IF;
 
 		-- macroomzone
@@ -677,11 +708,6 @@ BEGIN
 
 		-- Macroexploitation
 		v_macroexploitation_id := (SELECT macroexpl_id FROM exploitation WHERE expl_id=v_expl_id);
-
-		-- Municipality
-		IF v_muni_id IS NULL THEN
-			v_muni_id := (SELECT muni_id FROM v_municipality WHERE ST_DWithin(v_reduced_geometry, v_municipality.the_geom,0.001) AND active IS TRUE LIMIT 1);
-		END IF;
 
 		-- District
 		v_district_id := (SELECT district_id FROM v_district WHERE ST_DWithin(v_reduced_geometry, v_district.the_geom,0.001) LIMIT 1);
@@ -878,7 +904,9 @@ BEGIN
 						field_value = v_presszone_id;
 					end if;
 				WHEN 'sector_id' THEN
-					field_value = v_sector_id;
+					IF (aux_json->>'widgettype') <> 'multiple_option' THEN
+						field_value = v_sector_id;
+					END IF;
 				WHEN 'dma_id' THEN
 					if v_tablename = 'plan_netscenario_dma' then
 						field_value = v_id;
@@ -901,11 +929,15 @@ BEGIN
 				WHEN 'macroomzone_id' THEN
 					field_value = v_macroomzone_id;
 				WHEN 'expl_id' THEN
-					field_value = v_expl_id;
+					IF (aux_json->>'widgettype') <> 'multiple_option' THEN
+						field_value = v_expl_id;
+					END IF;
 				WHEN 'macroexpl_id' THEN
 					field_value = v_macroexploitation_id;
 				WHEN 'muni_id' THEN
-					field_value = v_muni_id;
+					IF (aux_json->>'widgettype') <> 'multiple_option' THEN
+						field_value = v_muni_id;
+					END IF;
 				WHEN 'district_id' THEN
 					field_value = v_district_id;
 
@@ -1004,10 +1036,6 @@ BEGIN
 				-- builtdate
 				WHEN 'builtdate' THEN
 					SELECT (a->>'vdef') INTO field_value FROM json_array_elements(v_values_array) AS a WHERE (a->>'param') = (aux_json->>'columnname');
-					--if using automatic current builtdate and vdefault is null, set value to now
-					IF (SELECT value::boolean FROM config_param_system WHERE parameter='edit_feature_auto_builtdate') IS TRUE AND field_value IS NULL  THEN
-						EXECUTE 'SELECT date(now())' INTO field_value;
-					END IF;
 
 				WHEN 'inventory' THEN
 					field_value = v_catfeature.inventory_vdefault;

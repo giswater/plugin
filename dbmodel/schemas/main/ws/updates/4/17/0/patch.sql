@@ -526,7 +526,9 @@ BEGIN
       WHERE formname='ve_epa_valve' AND formtype='form_feature' AND columnname='demand' AND tabname='tab_epa' AND "label"='Demanda:';
   END IF;
 END $$;
+
 DROP VIEW IF EXISTS v_om_visit;
+
 CREATE OR REPLACE VIEW v_om_visit AS
 SELECT DISTINCT ON (visit_id)
 	visit_id,
@@ -539,6 +541,9 @@ SELECT DISTINCT ON (visit_id)
 	is_done,
 	feature_id,
 	feature_type,
+  feature_class,
+  featurecat_id,
+  feature_state,
 	the_geom
 FROM (
 	SELECT
@@ -552,6 +557,9 @@ FROM (
 		om_visit.is_done,
 		om_visit_x_node.node_id AS feature_id,
 		'NODE'::text AS feature_type,
+    cat_feature.feature_class,
+    node.nodecat_id AS featurecat_id,
+    node.state AS feature_state,
 		CASE
 			WHEN om_visit.the_geom IS NULL THEN node.the_geom
 			ELSE om_visit.the_geom
@@ -561,6 +569,8 @@ FROM (
 	JOIN node ON node.node_id = om_visit_x_node.node_id
 	JOIN vf_node vf ON vf.node_id = node.node_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_node ON cat_node.id = node.nodecat_id
+  JOIN cat_feature ON cat_feature.id = cat_node.node_type
 	UNION
 	SELECT
 		om_visit.id AS visit_id,
@@ -573,6 +583,9 @@ FROM (
 		om_visit.is_done,
 		om_visit_x_arc.arc_id AS feature_id,
 		'ARC'::text AS feature_type,
+    cat_feature.feature_class,
+    arc.arccat_id AS featurecat_id,
+    arc.state AS feature_state,
 		CASE
 			WHEN om_visit.the_geom IS NULL THEN st_lineinterpolatepoint(arc.the_geom, 0.5::double precision)
 			ELSE om_visit.the_geom
@@ -582,6 +595,8 @@ FROM (
 	JOIN arc ON arc.arc_id = om_visit_x_arc.arc_id
 	JOIN vf_arc vf ON vf.arc_id = arc.arc_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_arc ON cat_arc.id = arc.arccat_id
+  JOIN cat_feature ON cat_feature.id = cat_arc.arc_type
 	UNION
 	SELECT
 		om_visit.id AS visit_id,
@@ -594,6 +609,9 @@ FROM (
 		om_visit.is_done,
 		om_visit_x_connec.connec_id AS feature_id,
 		'CONNEC'::text AS feature_type,
+    cat_feature.feature_class,
+    connec.conneccat_id AS featurecat_id,
+    connec.state AS feature_state,
 		CASE
 			WHEN om_visit.the_geom IS NULL THEN connec.the_geom
 			ELSE om_visit.the_geom
@@ -603,6 +621,34 @@ FROM (
 	JOIN connec ON connec.connec_id = om_visit_x_connec.connec_id
 	JOIN vf_connec vf ON vf.connec_id = connec.connec_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_connec ON cat_connec.id = connec.conneccat_id
+  JOIN cat_feature ON cat_feature.id = cat_connec.connec_type
+  UNION
+	SELECT
+		om_visit.id AS visit_id,
+		om_visit.ext_code AS code,
+		om_visit.visitcat_id,
+		om_visit_cat.name,
+		om_visit.startdate AS visit_start,
+		om_visit.enddate AS visit_end,
+		om_visit.user_name,
+		om_visit.is_done,
+		om_visit_x_link.link_id AS feature_id,
+		'LINK'::text AS feature_type,
+    cat_feature.feature_class,
+    link.linkcat_id AS featurecat_id,
+    link.state AS feature_state,
+		CASE
+			WHEN om_visit.the_geom IS NULL THEN link.the_geom
+			ELSE om_visit.the_geom
+		END AS the_geom
+	FROM om_visit
+	JOIN om_visit_x_link ON om_visit_x_link.visit_id = om_visit.id
+	JOIN link ON link.link_id = om_visit_x_link.link_id
+	JOIN vf_link vf ON vf.link_id = link.link_id
+	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_link ON cat_link.id = link.linkcat_id
+  JOIN cat_feature ON cat_feature.id = cat_link.link_type
 ) a;
 
 UPDATE sys_fprocess SET query_text='WITH base AS (
@@ -656,7 +702,8 @@ SELECT DISTINCT ON (rpt_cat_result.result_id)
 	rpt_cat_result.network_stats,
 	rpt_cat_result.inp_options,
 	rpt_cat_result.rpt_stats,
-	rpt_cat_result.addparam
+	rpt_cat_result.addparam,
+	rpt_cat_result.isvalidated
 FROM rpt_cat_result
 	JOIN selector_expl s ON (s.expl_id = ANY(rpt_cat_result.expl_id) AND s.cur_user = CURRENT_USER) OR rpt_cat_result.expl_id = ARRAY[NULL::integer]
 	LEFT JOIN inp_typevalue t1 ON rpt_cat_result.status::text = t1.id::text
@@ -690,6 +737,37 @@ INSERT INTO config_form_tableview (location_type,project_type,objectname,columnn
 	VALUES ('arc form','utils','tbl_doc_x_arc','arc_uuid',8,true,'Node Uuid');
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
 	VALUES ('arc form','utils','tbl_doc_x_arc','doc_name',8,true,'Document Name');
+
+
+DROP VIEW IF EXISTS ve_macroexploitation;
+
+ALTER TABLE macroexploitation DROP COLUMN IF EXISTS the_geom;
+
+CREATE OR REPLACE VIEW ve_macroexploitation
+AS WITH sel_expl AS (
+         SELECT selector_expl.expl_id
+           FROM selector_expl
+          WHERE selector_expl.cur_user = CURRENT_USER
+        )
+ SELECT DISTINCT ON (m.macroexpl_id) m.macroexpl_id,
+    m.code,
+    m.name,
+    m.descript,
+    m.lock_level,
+    m.created_at,
+    m.created_by,
+    m.updated_at,
+    m.updated_by
+   FROM macroexploitation m
+     JOIN exploitation e USING (macroexpl_id)
+  WHERE (EXISTS ( SELECT 1
+           FROM sel_expl
+          WHERE sel_expl.expl_id = e.expl_id)) AND m.active IS TRUE;
+
+ALTER TABLE inp_typevalue DISABLE TRIGGER gw_trg_typevalue_config_fk;
+DELETE FROM inp_typevalue WHERE typevalue = 'inp_options_networkmode' AND id = '5';
+ALTER TABLE inp_typevalue ENABLE TRIGGER gw_trg_typevalue_config_fk;
+
 
 -- Extra filters example: fluid_type combo (nullable)
 INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)

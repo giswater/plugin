@@ -24,7 +24,7 @@ SELECT columns_are(
         'result_id', 'exec_date', 'q_timestep', 'q_tolerance', 'cur_user', 'inp_options',
         'rpt_stats', 'export_options', 'network_stats', 'status', 'iscorporate', 'addparam',
         'expl_id', 'network_type', 'sector_id', 'descript', 'inp_file', 'dma_id',
-        'flow_units', 'quality_units', 'is_twin', 'parent_id'
+        'flow_units', 'quality_units', 'is_twin', 'parent_id', 'isvalidated'
     ],
     'Table rpt_cat_result should have the correct columns'
 );
@@ -52,6 +52,7 @@ SELECT col_type_is('rpt_cat_result', 'flow_units', 'text', 'Column flow_units sh
 SELECT col_type_is('rpt_cat_result', 'quality_units', 'text', 'Column quality_units should be text');
 SELECT col_type_is('rpt_cat_result', 'is_twin', 'bool', 'Column is_twin should be bool');
 SELECT col_type_is('rpt_cat_result', 'parent_id', 'varchar(16)', 'Column parent_id should be varchar(16)');
+SELECT col_type_is('rpt_cat_result', 'isvalidated', 'bool', 'Column isvalidated should be bool');
 -- Finish
 SELECT * FROM finish();
 

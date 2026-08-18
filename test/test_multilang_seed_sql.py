@@ -1,33 +1,37 @@
-"""Tests for i18n baseline SQL parsing and multilang row conversion."""
+"""Tests for multilang baseline SQL parsing and row conversion."""
 
 from __future__ import annotations
 
 import os
 import unittest
 
-from core.admin.i18n_baseline_seed import (
+from core.admin.i18n.multilang_seed_sql import (
     BASELINE_TO_MULTILANG_TABLE,
     MULTILANG_UI_TABLES,
     MultilangRow,
-    _TABLE_CONFLICT_KEYS,
-    _dedupe_rows_by_conflict_key,
     baseline_needs_reseed,
     blocks_to_multilang_rows,
     build_insert_sql,
     compute_baseline_fingerprint,
-    delete_schema_seed_sql,
-    load_baseline_rows,
+    delete_project_type_seed_sql,
+    load_baseline_rows_for_project_type,
     parse_sql_value_tuple,
-    parse_stored_seeded_schemas,
+    parse_stored_seeded_project_types,
     parse_update_blocks,
-    seed_sql_for_schema,
-    seeded_schemas_out_of_sync,
+    rows_for_project_type,
+    seed_sql_for_project_types,
+    seeded_project_types_out_of_sync,
     split_value_tuples,
-    translatable_schema_names_from_inventory,
+    translatable_project_types_with_baseline,
 )
 
 
-class TestI18nBaselineSeed(unittest.TestCase):
+def _sql_root() -> str:
+    plugin_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(plugin_dir, "dbmodel")
+
+
+class TestMultilangSeedSql(unittest.TestCase):
 
     def test_target_table_mapping(self):
         self.assertEqual(len(MULTILANG_UI_TABLES), 9)
@@ -74,7 +78,7 @@ class TestI18nBaselineSeed(unittest.TestCase):
         rows = blocks_to_multilang_rows(
             "dbparam_user",
             blocks,
-            schema_name="ws_0630",
+            project_type="ws",
         )
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].table, "sys_param_user")
@@ -102,7 +106,7 @@ class TestI18nBaselineSeed(unittest.TestCase):
         rows = blocks_to_multilang_rows(
             "dbfprocess",
             blocks,
-            schema_name="ws_0630",
+            project_type="ws",
         )
         self.assertEqual(rows[0].table, "sys_fprocess")
         self.assertEqual(rows[0].values["in"], "info text")
@@ -114,7 +118,7 @@ class TestI18nBaselineSeed(unittest.TestCase):
 
     def test_build_insert_sql_dedupes_sys_message_conflict_keys(self):
         duplicate_key = {
-            "schema_name": "ws_0630",
+            "project_type": "ws",
             "context": "sys_message",
             "source": "42",
             "lang": "en_us",
@@ -135,11 +139,11 @@ class TestI18nBaselineSeed(unittest.TestCase):
         self.assertIn("'second'", inserts[0])
         self.assertNotIn("'first'", inserts[0])
 
-    def test_seed_sql_for_schema_uses_ui_tables_only(self):
-        plugin_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        sql_root = os.path.join(plugin_dir, "dbmodel")
-
-        statements = seed_sql_for_schema(sql_root, "ws_0630", project_type="ws")
+    def test_seed_sql_for_project_types_uses_ui_tables_only(self):
+        results = seed_sql_for_project_types(_sql_root(), ["ws"])
+        self.assertEqual(len(results), 1)
+        project_type, statements = results[0]
+        self.assertEqual(project_type, "ws")
         self.assertGreater(len(statements), 0)
         joined = "\n".join(statements)
         self.assertIn("INSERT INTO multilang.config_form_fields", joined)
@@ -161,7 +165,7 @@ class TestI18nBaselineSeed(unittest.TestCase):
         rows = blocks_to_multilang_rows(
             "dbconfig_form_fields_feat",
             blocks,
-            schema_name="ws_demo",
+            project_type="ws",
         )
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].table, "config_form_fields")
@@ -173,10 +177,8 @@ class TestI18nBaselineSeed(unittest.TestCase):
         self.assertEqual(rows[0].values["tt"], "Pipe diameter")
 
     def test_load_baseline_rows_includes_feat_form_field_patterns(self):
-        plugin_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        sql_root = os.path.join(plugin_dir, "dbmodel")
-
-        rows = load_baseline_rows(sql_root, schema_name="ws_demo", project_type="ws")
+        template = load_baseline_rows_for_project_type(_sql_root(), "ws")
+        rows = rows_for_project_type(template, "ws")
         feat_rows = [
             row for row in rows
             if row.table == "config_form_fields"
@@ -198,7 +200,7 @@ class TestI18nBaselineSeed(unittest.TestCase):
         rows = blocks_to_multilang_rows(
             "dbconfig_form_fields_json",
             blocks,
-            schema_name="ws_demo",
+            project_type="ws",
         )
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].table, "config_form_fields_json")
@@ -214,10 +216,8 @@ class TestI18nBaselineSeed(unittest.TestCase):
         self.assertIn("'{\"text\":\"Accept\"}'::json", inserts[0])
 
     def test_load_baseline_rows_includes_form_field_json(self):
-        plugin_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        sql_root = os.path.join(plugin_dir, "dbmodel")
-
-        rows = load_baseline_rows(sql_root, schema_name="ws_demo", project_type="ws")
+        template = load_baseline_rows_for_project_type(_sql_root(), "ws")
+        rows = rows_for_project_type(template, "ws")
         json_rows = [
             row for row in rows
             if row.table == "config_form_fields_json"
@@ -227,44 +227,41 @@ class TestI18nBaselineSeed(unittest.TestCase):
         ]
         self.assertTrue(json_rows)
 
-    def test_seeded_schemas_out_of_sync(self):
-        self.assertFalse(seeded_schemas_out_of_sync({"ws_a"}, {"ws_a"}))
-        self.assertTrue(seeded_schemas_out_of_sync({"ws_a", "ud_b"}, {"ws_a"}))
+    def test_seeded_project_types_out_of_sync(self):
+        self.assertFalse(seeded_project_types_out_of_sync({"ws"}, {"ws"}))
+        self.assertTrue(seeded_project_types_out_of_sync({"ws", "ud"}, {"ws"}))
 
-    def test_parse_stored_seeded_schemas(self):
-        payload = {"seeded_schemas": ["ws_0630", "ud_demo"]}
-        self.assertEqual(parse_stored_seeded_schemas(payload), {"ws_0630", "ud_demo"})
-
-    def test_translatable_schema_names_from_inventory(self):
-        plugin_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        sql_root = os.path.join(plugin_dir, "dbmodel")
-        inventory = [
-            {"schema": "ws_0630", "kind": "WS"},
-            {"schema": "cm", "kind": "CM"},
-            {"schema": "multilang", "kind": "MULTILANG"},
-            {"schema": "audit", "kind": "AUDIT"},
-        ]
-        satellite_schemas = frozenset({"multilang", "utils", "cibs", "audit"})
-        names = translatable_schema_names_from_inventory(
-            inventory,
-            sql_root,
-            satellite_schemas=satellite_schemas,
+    def test_parse_stored_seeded_project_types(self):
+        payload = {"seeded_project_types": ["ws", "ud"]}
+        self.assertEqual(parse_stored_seeded_project_types(payload), {"ws", "ud"})
+        # Backward-compatible key.
+        legacy = {"seeded_schemas": ["ws_0630", "ud_demo"]}
+        self.assertEqual(
+            parse_stored_seeded_project_types(legacy),
+            {"ws_0630", "ud_demo"},
         )
-        self.assertEqual(names, {"ws_0630", "cm"})
 
-    def test_delete_schema_seed_sql(self):
-        statements = delete_schema_seed_sql(["ws_old"])
+    def test_translatable_project_types_with_baseline(self):
+        names = translatable_project_types_with_baseline(_sql_root())
+        self.assertIn("ws", names)
+        self.assertIn("ud", names)
+        self.assertNotIn("audit", names)
+
+    def test_delete_project_type_seed_sql(self):
+        statements = delete_project_type_seed_sql(["ws"])
         self.assertEqual(len(statements), len(MULTILANG_UI_TABLES))
         self.assertTrue(all("DELETE FROM multilang." in sql for sql in statements))
-        self.assertTrue(all("schema_name = 'ws_old'" in sql for sql in statements))
+        self.assertTrue(all("project_type = 'ws'" in sql for sql in statements))
         self.assertTrue(any("DELETE FROM multilang.config_form_fields" in sql for sql in statements))
 
     def test_seed_sql_uses_project_type_baseline(self):
-        plugin_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        sql_root = os.path.join(plugin_dir, "dbmodel")
-
-        ws_rows = load_baseline_rows(sql_root, schema_name="ws_demo", project_type="ws")
-        ud_rows = load_baseline_rows(sql_root, schema_name="ws_demo", project_type="ud")
+        sql_root = _sql_root()
+        ws_rows = rows_for_project_type(
+            load_baseline_rows_for_project_type(sql_root, "ws"), "ws",
+        )
+        ud_rows = rows_for_project_type(
+            load_baseline_rows_for_project_type(sql_root, "ud"), "ud",
+        )
         self.assertGreater(len(ws_rows), 0)
         self.assertGreater(len(ud_rows), 0)
 
@@ -272,8 +269,10 @@ class TestI18nBaselineSeed(unittest.TestCase):
         ud_param = {row.values["source"] for row in ud_rows if row.table == "sys_param_user"}
         self.assertNotEqual(ws_param, ud_param)
 
-        self.assertEqual(seed_sql_for_schema(sql_root, "audit_demo", project_type="audit"), [])
-        self.assertGreater(len(seed_sql_for_schema(sql_root, "ws_demo", project_type="ws")), 0)
+        audit_results = seed_sql_for_project_types(sql_root, ["audit"])
+        self.assertEqual(audit_results[0][1], [])
+        ws_results = seed_sql_for_project_types(sql_root, ["ws"])
+        self.assertGreater(len(ws_results[0][1]), 0)
 
     def test_out_of_scope_baseline_file_is_ignored(self):
         sql = """
@@ -287,13 +286,12 @@ class TestI18nBaselineSeed(unittest.TestCase):
         rows = blocks_to_multilang_rows(
             "dbconfig_csv",
             blocks,
-            schema_name="ud_demo",
+            project_type="ud",
         )
         self.assertEqual(rows, [])
 
     def test_baseline_fingerprint_stable(self):
-        plugin_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        sql_root = os.path.join(plugin_dir, "dbmodel")
+        sql_root = _sql_root()
         fp1 = compute_baseline_fingerprint(sql_root)
         fp2 = compute_baseline_fingerprint(sql_root)
         self.assertEqual(fp1, fp2)

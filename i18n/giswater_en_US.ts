@@ -585,10 +585,6 @@
 			<translation>{0} --&gt; {1} --&gt; {2}</translation>
 		</message>
 		<message>
-			<source>{0} ({1}) - {2} - Updating {3}...</source>
-			<translation>{0} ({1}) - {2} - Updating {3}...</translation>
-		</message>
-		<message>
 			<source>{0}: {1} Python function: tools_gw.set_widgets. WHERE columname=&apos;{2}&apos; AND widgetname=&apos;{3}&apos; AND widgettype=&apos;{4}&apos;</source>
 			<translation>{0}: {1} Python function: tools_gw.set_widgets. WHERE columname=&apos;{2}&apos; AND widgetname=&apos;{3}&apos; AND widgettype=&apos;{4}&apos;</translation>
 		</message>
@@ -789,8 +785,10 @@
 			<translation>Alert</translation>
 		</message>
 		<message>
-			<source>All dialogs updated correctly</source>
-			<translation>All dialogs updated correctly</translation>
+			<source>
+
+ALL DONE! INP successfully imported.</source>
+			<translation>ALL DONE! INP successfully imported.</translation>
 		</message>
 		<message>
 			<source>ALL DONE! INP successfully imported.</source>
@@ -799,10 +797,6 @@
 		<message>
 			<source>All layers have been successfully refreshed.</source>
 			<translation>All layers have been successfully refreshed.</translation>
-		</message>
-		<message>
-			<source>All messages updated correctly</source>
-			<translation>All messages updated correctly</translation>
 		</message>
 		<message>
 			<source>All the values in the column &apos;atlas_id&apos; from the table &apos;plan_psector&apos; have to be INTEGER. This is not the case for your table, please fix this before continuing.</source>
@@ -821,12 +815,16 @@
 			<translation>An error occurred saving the workorder.</translation>
 		</message>
 		<message>
-			<source>An error occurred while adding the style for layer &apos;{0}&apos;:\n{1}</source>
-			<translation>An error occurred while adding the style for layer &apos;{0}&apos;:\n{1}</translation>
+			<source>An error occurred while adding the style for layer &apos;{0}&apos;:
+{1}</source>
+			<translation>An error occurred while adding the style for layer &apos;{0}&apos;:
+{1}</translation>
 		</message>
 		<message>
-			<source>A new style has been added to &apos;{0}&apos; for the layer &apos;{1}&apos; using the &apos;GwBasic&apos; style information.\nYou can change it and use &apos;Update Style&apos; to create a personalized version.</source>
-			<translation>A new style has been added to &apos;{0}&apos; for the layer &apos;{1}&apos; using the &apos;GwBasic&apos; style information.\nYou can change it and use &apos;Update Style&apos; to create a personalized version.</translation>
+			<source>A new style has been added to &apos;{0}&apos; for the layer &apos;{1}&apos; using the &apos;GwBasic&apos; style information.
+You can change it and use &apos;Update Style&apos; to create a personalized version.</source>
+			<translation>A new style has been added to &apos;{0}&apos; for the layer &apos;{1}&apos; using the &apos;GwBasic&apos; style information.
+You can change it and use &apos;Update Style&apos; to create a personalized version.</translation>
 		</message>
 		<message>
 			<source>Any connec_id found with this customer_code</source>
@@ -851,6 +849,10 @@
 		<message>
 			<source>Apply Multilang translation ({0}) to schema ({1})?</source>
 			<translation>Apply Multilang translation ({0}) to schema ({1})?</translation>
+		</message>
+		<message>
+			<source>Apply to Multilang</source>
+			<translation>Apply to Multilang</translation>
 		</message>
 		<message>
 			<source>Apply translation ({0}) to schema ({1}) using local SQL files?</source>
@@ -929,16 +931,24 @@
 			<translation>Are you sure you want to delete these records: ({0})?</translation>
 		</message>
 		<message>
-			<source>Are you sure you want to delete these records: ({0})?\nThis will also delete the database user(s): {1}</source>
-			<translation>Are you sure you want to delete these records: ({0})?\nThis will also delete the database user(s): {1}</translation>
+			<source>Are you sure you want to delete these records: ({0})?
+This will also delete the database user(s): {1}</source>
+			<translation>Are you sure you want to delete these records: ({0})?
+This will also delete the database user(s): {1}</translation>
 		</message>
 		<message>
-			<source>Are you sure you want to delete these records?\nSome events have documents</source>
-			<translation>Are you sure you want to delete these records?\nSome events have documents</translation>
+			<source>Are you sure you want to delete these records?
+Some events have documents</source>
+			<translation>Are you sure you want to delete these records?
+Some events have documents</translation>
 		</message>
 		<message>
-			<source>Are you sure you want to delete the style group &apos;{0}&apos;?\n\nThis will also delete all related entries in the sys_style table.Confirm Cascade Delete</source>
-			<translation>Are you sure you want to delete the style group &apos;{0}&apos;?\n\nThis will also delete all related entries in the sys_style table.Confirm Cascade Delete</translation>
+			<source>Are you sure you want to delete the style group &apos;{0}&apos;?
+
+This will also delete all related entries in the sys_style table.Confirm Cascade Delete</source>
+			<translation>Are you sure you want to delete the style group &apos;{0}&apos;?
+
+This will also delete all related entries in the sys_style table.Confirm Cascade Delete</translation>
 		</message>
 		<message>
 			<source>Are you sure you want to disconnect this elements?</source>
@@ -961,12 +971,16 @@
 			<translation>Are you sure you want to replace selected feature with a new one?</translation>
 		</message>
 		<message>
-			<source>Are you sure you want to replace selected feature with a new one?\n If you have different addfields in your feature, they will be deleted.</source>
-			<translation>Are you sure you want to replace selected feature with a new one?\n If you have different addfields in your feature, they will be deleted.</translation>
+			<source>Are you sure you want to replace selected feature with a new one?
+If you have different addfields in your feature, they will be deleted.</source>
+			<translation>Are you sure you want to replace selected feature with a new one?
+If you have different addfields in your feature, they will be deleted.</translation>
 		</message>
 		<message>
-			<source>Are you sure you want to update the style of {0} ({1}) with the symbology of the layer in the project? \nYou are going to lose previous information!</source>
-			<translation>Are you sure you want to update the style of {0} ({1}) with the symbology of the layer in the project? \nYou are going to lose previous information!</translation>
+			<source>Are you sure you want to update the style of {0} ({1}) with the symbology of the layer in the project? 
+You are going to lose previous information!</source>
+			<translation>Are you sure you want to update the style of {0} ({1}) with the symbology of the layer in the project? 
+You are going to lose previous information!</translation>
 		</message>
 		<message>
 			<source>A rollback on schema will be done.</source>
@@ -999,6 +1013,10 @@
 		<message>
 			<source>Automatic language provisioning failed to start: {0}</source>
 			<translation>Automatic language provisioning failed to start: {0}</translation>
+		</message>
+		<message>
+			<source>Automatic language provisioning timed out after {0} seconds</source>
+			<translation>Automatic language provisioning timed out after {0} seconds</translation>
 		</message>
 		<message>
 			<source>&lt;b&gt;Key: &lt;/b&gt;{0}&lt;br&gt;&lt;b&gt;Key container: &lt;/b&gt;body/data/ &lt;br&gt;&lt;b&gt;Python file: &lt;/b&gt;{1} &lt;br&gt;&lt;b&gt;Python function:&lt;/b&gt; {2} &lt;br&gt;</source>
@@ -1105,12 +1123,16 @@
 			<translation>Category updated successfully!</translation>
 		</message>
 		<message>
-			<source>CAUTION! Deleting a dscenario will delete data from features related to the dscenario.\nAre you sure you want to delete these records?</source>
-			<translation>CAUTION! Deleting a dscenario will delete data from features related to the dscenario.\nAre you sure you want to delete these records?</translation>
+			<source>CAUTION! Deleting a dscenario will delete data from features related to the dscenario.
+Are you sure you want to delete these records?</source>
+			<translation>CAUTION! Deleting a dscenario will delete data from features related to the dscenario.
+Are you sure you want to delete these records?</translation>
 		</message>
 		<message>
-			<source>CAUTION! Deleting a netscenario will delete data from features related to the netscenario.\nAre you sure you want to delete these records?</source>
-			<translation>CAUTION! Deleting a netscenario will delete data from features related to the netscenario.\nAre you sure you want to delete these records?</translation>
+			<source>CAUTION! Deleting a netscenario will delete data from features related to the netscenario.
+Are you sure you want to delete these records?</source>
+			<translation>CAUTION! Deleting a netscenario will delete data from features related to the netscenario.
+Are you sure you want to delete these records?</translation>
 		</message>
 		<message>
 			<source>Change epa_type</source>
@@ -1121,8 +1143,10 @@
 			<translation>Changes applied to &quot;{0}&quot; successfully.</translation>
 		</message>
 		<message>
-			<source>Changes on this page are dangerous and can break Giswater plugin in various ways. \nYou will need to restart QGIS or reload Giswater plugin to apply changes. Do you want continue?</source>
-			<translation>Changes on this page are dangerous and can break Giswater plugin in various ways. \nYou will need to restart QGIS or reload Giswater plugin to apply changes. Do you want continue?</translation>
+			<source>Changes on this page are dangerous and can break Giswater plugin in various ways. 
+You will need to restart QGIS or reload Giswater plugin to apply changes. Do you want continue?</source>
+			<translation>Changes on this page are dangerous and can break Giswater plugin in various ways. 
+You will need to restart QGIS or reload Giswater plugin to apply changes. Do you want continue?</translation>
 		</message>
 		<message>
 			<source>Changes saved.</source>
@@ -1153,6 +1177,10 @@
 			<translation>Checking any item will uncheck all other items unless Shift is pressed.</translation>
 		</message>
 		<message>
+			<source>Check project failed: no response from database function &apos;{0}&apos;.</source>
+			<translation>Check project failed: no response from database function &apos;{0}&apos;.</translation>
+		</message>
+		<message>
 			<source>Choose dscenario</source>
 			<translation>Choose dscenario</translation>
 		</message>
@@ -1169,20 +1197,34 @@
 			<translation>Clicking an item will check/uncheck it. </translation>
 		</message>
 		<message>
-			<source>Clicking an item will check/uncheck it.\nChecking any item will not uncheck any other item.\nThis behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</source>
-			<translation>Clicking an item will check/uncheck it.\nChecking any item will not uncheck any other item.\nThis behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</translation>
+			<source>Clicking an item will check/uncheck it.
+Checking any item will not uncheck any other item.
+This behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</source>
+			<translation>Clicking an item will check/uncheck it.
+Checking any item will not uncheck any other item.
+This behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</translation>
 		</message>
 		<message>
-			<source>Clicking an item will check/uncheck it.\nChecking any item will uncheck all other items.\nThis behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</source>
-			<translation>Clicking an item will check/uncheck it.\nChecking any item will uncheck all other items.\nThis behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</translation>
+			<source>Clicking an item will check/uncheck it.
+Checking any item will uncheck all other items.
+This behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</source>
+			<translation>Clicking an item will check/uncheck it.
+Checking any item will uncheck all other items.
+This behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</translation>
 		</message>
 		<message>
-			<source>Clicking an item will check/uncheck it.\nChecking any item will uncheck all other items unless Shift is pressed.\nThis behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</source>
-			<translation>Clicking an item will check/uncheck it.\nChecking any item will uncheck all other items unless Shift is pressed.\nThis behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</translation>
+			<source>Clicking an item will check/uncheck it.
+Checking any item will uncheck all other items unless Shift is pressed.
+This behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</source>
+			<translation>Clicking an item will check/uncheck it.
+Checking any item will uncheck all other items unless Shift is pressed.
+This behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</translation>
 		</message>
 		<message>
-			<source>Clicking an item will check/uncheck it.\nThis behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</source>
-			<translation>Clicking an item will check/uncheck it.\nThis behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</translation>
+			<source>Clicking an item will check/uncheck it.
+This behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</source>
+			<translation>Clicking an item will check/uncheck it.
+This behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector_{0}&apos;).</translation>
 		</message>
 		<message>
 			<source>Click on 2 places on the map, creating a line, then set the location of a point</source>
@@ -1285,8 +1327,10 @@
 			<translation>Config file not found at: {0}</translation>
 		</message>
 		<message>
-			<source>Configuration file couldn&apos;t be imported:\n{0}</source>
-			<translation>Configuration file couldn&apos;t be imported:\n{0}</translation>
+			<source>Configuration file couldn&apos;t be imported:
+{0}</source>
+			<translation>Configuration file couldn&apos;t be imported:
+{0}</translation>
 		</message>
 		<message>
 			<source>Configuration file not found, please make sure it is located in the correct directory and try again: {0}</source>
@@ -1311,10 +1355,6 @@
 		<message>
 			<source>Connec management</source>
 			<translation>Connec management</translation>
-		</message>
-		<message>
-			<source>Connected to {0}</source>
-			<translation>Connected to {0}</translation>
 		</message>
 		<message>
 			<source>Connecting...</source>
@@ -1347,6 +1387,10 @@
 		<message>
 			<source>Connect link task is already active!</source>
 			<translation>Connect link task is already active!</translation>
+		</message>
+		<message>
+			<source>Connec to network</source>
+			<translation>Connec to network</translation>
 		</message>
 		<message>
 			<source>Connect to network</source>
@@ -1385,8 +1429,12 @@
 			<translation>Could not download language files ({0}): {1}</translation>
 		</message>
 		<message>
-			<source>Could not download some language files. The project will continue to load. {0}</source>
-			<translation>Could not download some language files. The project will continue to load. {0}</translation>
+			<source>Could not download language files in time. The project will continue to load.</source>
+			<translation>Could not download language files in time. The project will continue to load.</translation>
+		</message>
+		<message>
+			<source>Could not download language files. The project will continue to load. {0}</source>
+			<translation>Could not download language files. The project will continue to load. {0}</translation>
 		</message>
 		<message>
 			<source>Could not extract language files: Unknown error</source>
@@ -1483,6 +1531,10 @@
 		<message>
 			<source>Create catalogs</source>
 			<translation>Create catalogs</translation>
+		</message>
+		<message>
+			<source>Created locales database from seed</source>
+			<translation>Created locales database from seed</translation>
 		</message>
 		<message>
 			<source>Create example</source>
@@ -1757,6 +1809,10 @@
 			<translation>Delete multilang translations</translation>
 		</message>
 		<message>
+			<source>Delete multilang translations for ({0})</source>
+			<translation>Delete multilang translations for ({0})</translation>
+		</message>
+		<message>
 			<source>Delete multilang translations for ({0})?</source>
 			<translation>Delete multilang translations for ({0})?</translation>
 		</message>
@@ -1771,6 +1827,10 @@
 		<message>
 			<source>Delete Workorder(s)</source>
 			<translation>Delete Workorder(s)</translation>
+		</message>
+		<message>
+			<source>Deleting multilang translations for ({0})...</source>
+			<translation>Deleting multilang translations for ({0})...</translation>
 		</message>
 		<message>
 			<source>Demand</source>
@@ -1825,6 +1885,10 @@
 			<translation>DOWNGRADE NODE</translation>
 		</message>
 		<message>
+			<source>Download cancelled or timed out</source>
+			<translation>Download cancelled or timed out</translation>
+		</message>
+		<message>
 			<source>Downloading language files for ({0})...</source>
 			<translation>Downloading language files for ({0})...</translation>
 		</message>
@@ -1849,12 +1913,14 @@
 			<translation>Do you want to insert {0} selected features? (First 50: {1} ...)</translation>
 		</message>
 		<message>
-			<source>Do you want to insert the selected features? {0}</source>
-			<translation>Do you want to insert the selected features? {0}</translation>
+			<source>Do you want to insert the selected features?
+{0}</source>
+			<translation>Do you want to insert the selected features?
+{0}</translation>
 		</message>
 		<message>
-			<source>Do you want to insert the selected features?\n{0}</source>
-			<translation>Do you want to insert the selected features?\n{0}</translation>
+			<source>Do you want to insert the selected features? {0}</source>
+			<translation>Do you want to insert the selected features? {0}</translation>
 		</message>
 		<message>
 			<source>Do you want to overwrite custom values?</source>
@@ -1869,8 +1935,14 @@
 			<translation>Do you want to proceed?</translation>
 		</message>
 		<message>
-			<source>Do you want to save changes to dscenario &quot;{0}&quot;?\nThis operation cannot be undone.\n\n(Please note that any changes made to node elevations cannot be saved to dscenarios.)</source>
-			<translation>Do you want to save changes to dscenario &quot;{0}&quot;?\nThis operation cannot be undone.\n\n(Please note that any changes made to node elevations cannot be saved to dscenarios.)</translation>
+			<source>Do you want to save changes to dscenario &quot;{0}&quot;?
+This operation cannot be undone.
+
+(Please note that any changes made to node elevations cannot be saved to dscenarios.)</source>
+			<translation>Do you want to save changes to dscenario &quot;{0}&quot;?
+This operation cannot be undone.
+
+(Please note that any changes made to node elevations cannot be saved to dscenarios.)</translation>
 		</message>
 		<message>
 			<source>Do you want to seed multilang translations for ({0})?</source>
@@ -1957,8 +2029,10 @@
 			<translation>EPA model finished. </translation>
 		</message>
 		<message>
-			<source>EPA Result Families exported successfully:\n{0}</source>
-			<translation>EPA Result Families exported successfully:\n{0}</translation>
+			<source>EPA Result Families exported successfully:
+{0}</source>
+			<translation>EPA Result Families exported successfully:
+{0}</translation>
 		</message>
 		<message>
 			<source>Epa type is not defined for element {0}</source>
@@ -2001,22 +2075,6 @@
 			<translation>Error connecting to database (settings)</translation>
 		</message>
 		<message>
-			<source>Error connecting to i18n dataabse</source>
-			<translation>Error connecting to i18n dataabse</translation>
-		</message>
-		<message>
-			<source>Error connecting to i18n database</source>
-			<translation>Error connecting to i18n database</translation>
-		</message>
-		<message>
-			<source>Error connecting to origin database</source>
-			<translation>Error connecting to origin database</translation>
-		</message>
-		<message>
-			<source>Error: Could not extract message from line: {0}</source>
-			<translation>Error: Could not extract message from line: {0}</translation>
-		</message>
-		<message>
 			<source>Error creating auxiliary connection for vacuum</source>
 			<translation>Error creating auxiliary connection for vacuum</translation>
 		</message>
@@ -2047,18 +2105,6 @@
 		<message>
 			<source>Error deleting records</source>
 			<translation>Error deleting records</translation>
-		</message>
-		<message>
-			<source>Error deleting row</source>
-			<translation>Error deleting row</translation>
-		</message>
-		<message>
-			<source>Error deleting row: {0} - Query: {1}</source>
-			<translation>Error deleting row: {0} - Query: {1}</translation>
-		</message>
-		<message>
-			<source>Error deleting rows: {0}</source>
-			<translation>Error deleting rows: {0}</translation>
 		</message>
 		<message>
 			<source>ERROR: DIVIDER &apos;{0}&apos; has no coordinates in [COORDINATES] section.</source>
@@ -2097,18 +2143,6 @@
 			<translation>Error executing vacuum: {0}</translation>
 		</message>
 		<message>
-			<source>Error fetching existing primary keys</source>
-			<translation>Error fetching existing primary keys</translation>
-		</message>
-		<message>
-			<source>Error fetching existing primary keys: {0}</source>
-			<translation>Error fetching existing primary keys: {0}</translation>
-		</message>
-		<message>
-			<source>Error finding string</source>
-			<translation>Error finding string</translation>
-		</message>
-		<message>
 			<source>Error fusing arcs</source>
 			<translation>Error fusing arcs</translation>
 		</message>
@@ -2135,10 +2169,6 @@
 		<message>
 			<source>Error getting source symbol: {0}</source>
 			<translation>Error getting source symbol: {0}</translation>
-		</message>
-		<message>
-			<source>Error getting table values: {0}</source>
-			<translation>Error getting table values: {0}</translation>
 		</message>
 		<message>
 			<source>Error getting UI language locale: {0}</source>
@@ -2205,14 +2235,6 @@
 			<translation>Error reading configuration file: {0}</translation>
 		</message>
 		<message>
-			<source>Error reading file</source>
-			<translation>Error reading file</translation>
-		</message>
-		<message>
-			<source>Error reading file {0}: {1}</source>
-			<translation>Error reading file {0}: {1}</translation>
-		</message>
-		<message>
 			<source>Error removing items: {0}</source>
 			<translation>Error removing items: {0}</translation>
 		</message>
@@ -2261,16 +2283,8 @@
 			<translation>Error updating expl_id: {0}</translation>
 		</message>
 		<message>
-			<source>Error updating messages</source>
-			<translation>Error updating messages</translation>
-		</message>
-		<message>
 			<source>Error updating table</source>
 			<translation>Error updating table</translation>
-		</message>
-		<message>
-			<source>Error updating table: {0}\n</source>
-			<translation>Error updating table: {0}\n</translation>
 		</message>
 		<message>
 			<source>EXCEPTION</source>
@@ -2361,8 +2375,10 @@
 			<translation>Execute EPA software......</translation>
 		</message>
 		<message>
-			<source>Execute EPA software......\n\n</source>
-			<translation>Execute EPA software......\n\n</translation>
+			<source>Execute EPA software......
+
+</source>
+			<translation>Execute EPA software......</translation>
 		</message>
 		<message>
 			<source>Execute failed.</source>
@@ -2529,8 +2545,10 @@
 			<translation>Failed to update styles</translation>
 		</message>
 		<message>
-			<source>Failed to write export file:\n{0}</source>
-			<translation>Failed to write export file:\n{0}</translation>
+			<source>Failed to write export file:
+{0}</source>
+			<translation>Failed to write export file:
+{0}</translation>
 		</message>
 		<message>
 			<source>Failing data: {0}</source>
@@ -2641,6 +2659,10 @@
 			<translation>Fill table</translation>
 		</message>
 		<message>
+			<source>Filter</source>
+			<translation>Filter</translation>
+		</message>
+		<message>
 			<source>Filter by code</source>
 			<translation>Filter by code</translation>
 		</message>
@@ -2687,10 +2709,6 @@
 		<message>
 			<source>For select on canvas is mandatory to load v_asset_arc_input layer</source>
 			<translation>For select on canvas is mandatory to load v_asset_arc_input layer</translation>
-		</message>
-		<message>
-			<source>From {0}, updating {1}...</source>
-			<translation>From {0}, updating {1}...</translation>
 		</message>
 		<message>
 			<source>Function {0} error: {1} from last function is invalid</source>
@@ -2857,6 +2875,10 @@
 			<translation>Group &apos;{0}&apos; not found in layer tree.</translation>
 		</message>
 		<message>
+			<source>Gully to network</source>
+			<translation>Gully to network</translation>
+		</message>
+		<message>
 			<source>gw_fct_set_rpt_archived execution failed. See logs for more details...</source>
 			<translation>gw_fct_set_rpt_archived execution failed. See logs for more details...</translation>
 		</message>
@@ -2875,6 +2897,22 @@
 		<message>
 			<source>Highlighting large dataset ({0} features) - this may take a moment...</source>
 			<translation>Highlighting large dataset ({0} features) - this may take a moment...</translation>
+		</message>
+		<message>
+			<source>Hot update completed for {0} schema(s) using language ({1}).</source>
+			<translation>Hot update completed for {0} schema(s) using language ({1}).</translation>
+		</message>
+		<message>
+			<source>Hot update finished with errors. Updated: {0}. Failed: {1}.</source>
+			<translation>Hot update finished with errors. Updated: {0}. Failed: {1}.</translation>
+		</message>
+		<message>
+			<source>Hot update schemas?</source>
+			<translation>Hot update schemas?</translation>
+		</message>
+		<message>
+			<source>Hot updating {0}...</source>
+			<translation>Hot updating {0}...</translation>
 		</message>
 		<message>
 			<source>Hydraulic engine imported successfully</source>
@@ -3109,16 +3147,8 @@
 			<translation>Incompatible version of PostgreSQL</translation>
 		</message>
 		<message>
-			<source>Incorrect languages, make sure to have the giswater project in english</source>
-			<translation>Incorrect languages, make sure to have the giswater project in english</translation>
-		</message>
-		<message>
 			<source>Incorrect option ({0}) for scenario {1}.</source>
 			<translation>Incorrect option ({0}) for scenario {1}.</translation>
-		</message>
-		<message>
-			<source>Incorrect user or password</source>
-			<translation>Incorrect user or password</translation>
 		</message>
 		<message>
 			<source>Incorrect valve status ({0}) for arc {1}.</source>
@@ -3149,8 +3179,10 @@
 			<translation>In order to create a qgis project you have to create a schema first.</translation>
 		</message>
 		<message>
-			<source>INP file couldn&apos;t be imported:\n{0}</source>
-			<translation>INP file couldn&apos;t be imported:\n{0}</translation>
+			<source>INP file couldn&apos;t be imported:
+{0}</source>
+			<translation>INP file couldn&apos;t be imported:
+{0}</translation>
 		</message>
 		<message>
 			<source>INP file not found</source>
@@ -3173,8 +3205,10 @@
 			<translation>Integrate utils requires a WS or UD anchor.</translation>
 		</message>
 		<message>
-			<source>Interpolate tool.\nTo modify columns (top_elev, ymax, elev among others) to be interpolated set variable edit_node_interpolate on table config_param_user</source>
-			<translation>Interpolate tool.\nTo modify columns (top_elev, ymax, elev among others) to be interpolated set variable edit_node_interpolate on table config_param_user</translation>
+			<source>Interpolate tool.
+To modify columns (top_elev, ymax, elev among others) to be interpolated set variable edit_node_interpolate on table config_param_user</source>
+			<translation>Interpolate tool.
+To modify columns (top_elev, ymax, elev among others) to be interpolated set variable edit_node_interpolate on table config_param_user</translation>
 		</message>
 		<message>
 			<source>Invalid {0} &apos;{1}&apos; provided. No configuration performed.</source>
@@ -3205,8 +3239,12 @@
 			<translation>Invalid diameters: {1}.</translation>
 		</message>
 		<message>
-			<source>Invalid layer:\nprovider={0}\nuri={1}</source>
-			<translation>Invalid layer:\nprovider={0}\nuri={1}</translation>
+			<source>Invalid layer:
+provider={0}
+uri={1}</source>
+			<translation>Invalid layer:
+provider={0}
+uri={1}</translation>
 		</message>
 		<message>
 			<source>Invalid lot ID</source>
@@ -3305,6 +3343,10 @@
 			<translation>Language ({0}) is in use and cannot be deleted. Used by: {1}</translation>
 		</message>
 		<message>
+			<source>Language ({0}) is used by {1} schema(s): {2}. Do you want to hot update them now?</source>
+			<translation>Language ({0}) is used by {1} schema(s): {2}. Do you want to hot update them now?</translation>
+		</message>
+		<message>
 			<source>Language files</source>
 			<translation>Language files</translation>
 		</message>
@@ -3319,6 +3361,10 @@
 		<message>
 			<source>Language files updated and locale activated ({0}).</source>
 			<translation>Language files updated and locale activated ({0}).</translation>
+		</message>
+		<message>
+			<source>Language provision cancel failed: {0}</source>
+			<translation>Language provision cancel failed: {0}</translation>
 		</message>
 		<message>
 			<source>Language provision pre-check failed: {0}</source>
@@ -3371,6 +3417,10 @@
 		<message>
 			<source>Locale not found</source>
 			<translation>Locale not found</translation>
+		</message>
+		<message>
+			<source>Locales seed file not found</source>
+			<translation>Locales seed file not found</translation>
 		</message>
 		<message>
 			<source>Log file</source>
@@ -3609,12 +3659,12 @@
 			<translation>Municipality with ID: {0} deleted from selection</translation>
 		</message>
 		<message>
-			<source>Municipality with id[{0}] is already imported on om_streetaxis.\n\rDo you want to overwrite it?\n\r(This decision will not cancel the other selections, the process will keep running)</source>
-			<translation>Municipality with id[{0}] is already imported on om_streetaxis.\n\rDo you want to overwrite it?\n\r(This decision will not cancel the other selections, the process will keep running)</translation>
-		</message>
-		<message>
-			<source>\n</source>
-			<translation>\n</translation>
+			<source>Municipality with id[{0}] is already imported on om_streetaxis.
+Do you want to overwrite it?
+(This decision will not cancel the other selections, the process will keep running)</source>
+			<translation>Municipality with id[{0}] is already imported on om_streetaxis.
+Do you want to overwrite it?
+(This decision will not cancel the other selections, the process will keep running)</translation>
 		</message>
 		<message>
 			<source>New {0}</source>
@@ -3635,10 +3685,6 @@
 		<message>
 			<source>n must be at least one</source>
 			<translation>n must be at least one</translation>
-		</message>
-		<message>
-			<source>\n\nALL DONE! INP successfully imported.</source>
-			<translation>\n\nALL DONE! INP successfully imported.</translation>
 		</message>
 		<message>
 			<source>No action found</source>
@@ -3833,10 +3879,6 @@
 			<translation>No SQL context available.</translation>
 		</message>
 		<message>
-			<source>Not &apos;{0}&apos;</source>
-			<translation>Not &apos;{0}&apos;</translation>
-		</message>
-		<message>
 			<source>No teams available to switch to.</source>
 			<translation>No teams available to switch to.</translation>
 		</message>
@@ -3851,10 +3893,6 @@
 		<message>
 			<source>No valid data received from the SQL function.</source>
 			<translation>No valid data received from the SQL function.</translation>
-		</message>
-		<message>
-			<source>No valid line data received from the SQL function.</source>
-			<translation>No valid line data received from the SQL function.</translation>
 		</message>
 		<message>
 			<source>No valid psector IDs found</source>
@@ -3911,6 +3949,10 @@
 		<message>
 			<source>Only one record can be selected</source>
 			<translation>Only one record can be selected</translation>
+		</message>
+		<message>
+			<source>Only PARTIAL or COMPLETED results can be validated</source>
+			<translation>Only PARTIAL or COMPLETED results can be validated</translation>
 		</message>
 		<message>
 			<source>Only rows with values are allowed to be deleted.</source>
@@ -4057,16 +4099,36 @@
 			<translation>Pipes with invalid arccat_ids: {0}.</translation>
 		</message>
 		<message>
-			<source>Pipes with invalid arccat_ids: {0}.\nInvalid arccat_ids: {1}.\n\nAn arccat_id is considered invalid if it is not listed in the catalog configuration table. As a result, these pipes will NOT be assigned a priority value.\n\nDo you want to proceed?</source>
-			<translation>Pipes with invalid arccat_ids: {0}.\nInvalid arccat_ids: {1}.\n\nAn arccat_id is considered invalid if it is not listed in the catalog configuration table. As a result, these pipes will NOT be assigned a priority value.\n\nDo you want to proceed?</translation>
+			<source>Pipes with invalid arccat_ids: {0}.
+Invalid arccat_ids: {1}.
+
+An arccat_id is considered invalid if it is not listed in the catalog configuration table. As a result, these pipes will NOT be assigned a priority value.
+
+Do you want to proceed?</source>
+			<translation>Pipes with invalid arccat_ids: {0}.
+Invalid arccat_ids: {1}.
+
+An arccat_id is considered invalid if it is not listed in the catalog configuration table. As a result, these pipes will NOT be assigned a priority value.
+
+Do you want to proceed?</translation>
 		</message>
 		<message>
 			<source>Pipes with invalid diameters: {0}.</source>
 			<translation>Pipes with invalid diameters: {0}.</translation>
 		</message>
 		<message>
-			<source>Pipes with invalid diameters: {0}.\nInvalid diameters: {1}.\n\nA diameter value is considered invalid if it is zero, negative, NULL or greater than the maximum diameter in the configuration table. As a result, these pipes will NOT be assigned a priority value.\n\nDo you want to proceed?</source>
-			<translation>Pipes with invalid diameters: {0}.\nInvalid diameters: {1}.\n\nA diameter value is considered invalid if it is zero, negative, NULL or greater than the maximum diameter in the configuration table. As a result, these pipes will NOT be assigned a priority value.\n\nDo you want to proceed?</translation>
+			<source>Pipes with invalid diameters: {0}.
+Invalid diameters: {1}.
+
+A diameter value is considered invalid if it is zero, negative, NULL or greater than the maximum diameter in the configuration table. As a result, these pipes will NOT be assigned a priority value.
+
+Do you want to proceed?</source>
+			<translation>Pipes with invalid diameters: {0}.
+Invalid diameters: {1}.
+
+A diameter value is considered invalid if it is zero, negative, NULL or greater than the maximum diameter in the configuration table. As a result, these pipes will NOT be assigned a priority value.
+
+Do you want to proceed?</translation>
 		</message>
 		<message>
 			<source>Pipes with invalid materials: {0}.qtd</source>
@@ -4077,8 +4139,14 @@
 			<translation>Pipes with invalid materials: {2}.</translation>
 		</message>
 		<message>
-			<source>Pipes with invalid pressures: {0}.\nThese pipes have no pressure information for their nodes. This will result in them receiving the maximum longevity value for their material, which may affect the final priority value.\n\nDo you want to proceed?</source>
-			<translation>Pipes with invalid pressures: {0}.\nThese pipes have no pressure information for their nodes. This will result in them receiving the maximum longevity value for their material, which may affect the final priority value.\n\nDo you want to proceed?</translation>
+			<source>Pipes with invalid pressures: {0}.
+These pipes have no pressure information for their nodes. This will result in them receiving the maximum longevity value for their material, which may affect the final priority value.
+
+Do you want to proceed?</source>
+			<translation>Pipes with invalid pressures: {0}.
+These pipes have no pressure information for their nodes. This will result in them receiving the maximum longevity value for their material, which may affect the final priority value.
+
+Do you want to proceed?</translation>
 		</message>
 		<message>
 			<source>Planified features cannot be replaced</source>
@@ -4317,16 +4385,36 @@
 			<translation>Priority Calculation (Global)</translation>
 		</message>
 		<message>
-			<source>Process completed</source>
-			<translation>Process completed</translation>
+			<source>Process finished.
+
+INP file created on:
+{0}
+
+Report file created on:
+{1}</source>
+			<translation>Process finished.
+
+INP file created on:
+{0}
+
+Report file created on:
+{1}</translation>
 		</message>
 		<message>
-			<source>Process finished.\n\nINP file created on:\n{0}\n\nReport file created on:\n{1}</source>
-			<translation>Process finished.\n\nINP file created on:\n{0}\n\nReport file created on:\n{1}</translation>
-		</message>
-		<message>
-			<source>Process finished.\n\nINP file created on:\n{0}\n\nStatistics file created on:\n{1}</source>
-			<translation>Process finished.\n\nINP file created on:\n{0}\n\nStatistics file created on:\n{1}</translation>
+			<source>Process finished.
+
+INP file created on:
+{0}
+
+Statistics file created on:
+{1}</source>
+			<translation>Process finished.
+
+INP file created on:
+{0}
+
+Statistics file created on:
+{1}</translation>
 		</message>
 		<message>
 			<source>Process finished successfully</source>
@@ -4645,6 +4733,10 @@
 			<translation>Scale must be a number.</translation>
 		</message>
 		<message>
+			<source>Schema: {0}</source>
+			<translation>Schema: {0}</translation>
+		</message>
+		<message>
 			<source>Schema audit not found, please create it first</source>
 			<translation>Schema audit not found, please create it first</translation>
 		</message>
@@ -4671,6 +4763,10 @@
 		<message>
 			<source>Schema name</source>
 			<translation>Schema name</translation>
+		</message>
+		<message>
+			<source>Schema: select a row below</source>
+			<translation>Schema: select a row below</translation>
 		</message>
 		<message>
 			<source>Schema Utils already exist.</source>
@@ -4735,6 +4831,10 @@
 		<message>
 			<source>Select a schema</source>
 			<translation>Select a schema</translation>
+		</message>
+		<message>
+			<source>Select a schema to see the Multilang language currently used.</source>
+			<translation>Select a schema to see the Multilang language currently used.</translation>
 		</message>
 		<message>
 			<source>Select a UD schema to integrate.</source>
@@ -4821,8 +4921,14 @@
 			<translation>Selected snapped feature_id to copy values from</translation>
 		</message>
 		<message>
-			<source>Selected snapped feature_id to copy values from: {0}\nDo you want to copy its values to the current node?\n\n{1}</source>
-			<translation>Selected snapped feature_id to copy values from: {0}\nDo you want to copy its values to the current node?\n\n{1}</translation>
+			<source>Selected snapped feature_id to copy values from: {0}
+Do you want to copy its values to the current node?
+
+{1}</source>
+			<translation>Selected snapped feature_id to copy values from: {0}
+Do you want to copy its values to the current node?
+
+{1}</translation>
 		</message>
 		<message>
 			<source>Selected styles updated successfully!</source>
@@ -5009,10 +5115,6 @@
 			<translation>Style group &apos;{0}&apos; and related entries have been deleted.</translation>
 		</message>
 		<message>
-			<source>Successful connection to {0} database</source>
-			<translation>Successful connection to {0} database</translation>
-		</message>
-		<message>
 			<source>Successfully assigned team &apos;{0}&apos; to {1} user(s).</source>
 			<translation>Successfully assigned team &apos;{0}&apos; to {1} user(s).</translation>
 		</message>
@@ -5053,8 +5155,9 @@
 			<translation>Task &apos;{0}&apos; completed</translation>
 		</message>
 		<message>
-			<source>Task {0} completed\n</source>
-			<translation>Task {0} completed\n</translation>
+			<source>Task {0} completed
+</source>
+			<translation>Task {0} completed</translation>
 		</message>
 		<message>
 			<source>Task &apos;{0}&apos; Exception: {1}</source>
@@ -5273,8 +5376,16 @@
 			<translation>The flow data timestep must be a multiple of the desired timestep.</translation>
 		</message>
 		<message>
-			<source>The following fields differ between the selected arcs. You are about to merge them using the selected values.\n\n{0}\n\nDo you want to continue?</source>
-			<translation>The following fields differ between the selected arcs. You are about to merge them using the selected values.\n\n{0}\n\nDo you want to continue?</translation>
+			<source>The following fields differ between the selected arcs. You are about to merge them using the selected values.
+
+{0}
+
+Do you want to continue?</source>
+			<translation>The following fields differ between the selected arcs. You are about to merge them using the selected values.
+
+{0}
+
+Do you want to continue?</translation>
 		</message>
 		<message>
 			<source>The fourth tab is the &apos;Nodes&apos; tab, where you can select the catalog for each type of node on the network.</source>
@@ -5329,8 +5440,12 @@
 			<translation>The pattern &quot;{0}&quot; has been renamed to &quot;{1}&quot; to avoid a collision with an existing pattern.</translation>
 		</message>
 		<message>
-			<source>The procedure will delete features on database unless it is a node that doesn&apos;t divide arcs.\nPlease ensure that features has no undelete value on true.\nOn the other hand you must know that traceability table will storage precedent information.</source>
-			<translation>The procedure will delete features on database unless it is a node that doesn&apos;t divide arcs.\nPlease ensure that features has no undelete value on true.\nOn the other hand you must know that traceability table will storage precedent information.</translation>
+			<source>The procedure will delete features on database unless it is a node that doesn&apos;t divide arcs.
+Please ensure that features has no undelete value on true.
+On the other hand you must know that traceability table will storage precedent information.</source>
+			<translation>The procedure will delete features on database unless it is a node that doesn&apos;t divide arcs.
+Please ensure that features has no undelete value on true.
+On the other hand you must know that traceability table will storage precedent information.</translation>
 		</message>
 		<message>
 			<source>The process has been executed. Files generated:</source>
@@ -5489,20 +5604,30 @@
 			<translation>There were velocities &gt;50 in the rpt file. You have activated the option to force the import so they have been set to 50.</translation>
 		</message>
 		<message>
-			<source>The rpt file is not valid to import. Because columns on rpt file are overlaped, it seems you need to improve your simulation. Please ckeck and fix it before continue. \n{0}</source>
-			<translation>The rpt file is not valid to import. Because columns on rpt file are overlaped, it seems you need to improve your simulation. Please ckeck and fix it before continue. \n{0}</translation>
+			<source>The rpt file is not valid to import. Because columns on rpt file are overlaped, it seems you need to improve your simulation. Please ckeck and fix it before continue. 
+{0}</source>
+			<translation>The rpt file is not valid to import. Because columns on rpt file are overlaped, it seems you need to improve your simulation. Please ckeck and fix it before continue. 
+{0}</translation>
 		</message>
 		<message>
-			<source>The rpt file is not valid to import. Because columns on rpt file are overlapped, it seems you need to improve your simulation. Please check and fix it before continuing.\n{0}</source>
-			<translation>The rpt file is not valid to import. Because columns on rpt file are overlapped, it seems you need to improve your simulation. Please check and fix it before continuing.\n{0}</translation>
+			<source>The rpt file is not valid to import. Because columns on rpt file are overlapped, it seems you need to improve your simulation. Please check and fix it before continuing.
+{0}</source>
+			<translation>The rpt file is not valid to import. Because columns on rpt file are overlapped, it seems you need to improve your simulation. Please check and fix it before continuing.
+{0}</translation>
 		</message>
 		<message>
-			<source>The rpt file is not valid to import. Because velocity has not numeric value (&gt;50), it seems you need to improve your simulation. Please ckeck and fix it before continue. \n{0}</source>
-			<translation>The rpt file is not valid to import. Because velocity has not numeric value (&gt;50), it seems you need to improve your simulation. Please ckeck and fix it before continue. \n{0}</translation>
+			<source>The rpt file is not valid to import. Because velocity has not numeric value (&gt;50), it seems you need to improve your simulation. Please ckeck and fix it before continue. 
+{0}</source>
+			<translation>The rpt file is not valid to import. Because velocity has not numeric value (&gt;50), it seems you need to improve your simulation. Please ckeck and fix it before continue. 
+{0}</translation>
 		</message>
 		<message>
-			<source>The rpt file is not valid to import. Because velocity has not numeric value (&gt;50), it seems you need to improve your simulation. Please ckeck and fix it before continue. \nNote: You can force the import by activating the variable &apos;{0}&apos; on the {1} file. \n{2}</source>
-			<translation>The rpt file is not valid to import. Because velocity has not numeric value (&gt;50), it seems you need to improve your simulation. Please ckeck and fix it before continue. \nNote: You can force the import by activating the variable &apos;{0}&apos; on the {1} file. \n{2}</translation>
+			<source>The rpt file is not valid to import. Because velocity has not numeric value (&gt;50), it seems you need to improve your simulation. Please ckeck and fix it before continue. 
+Note: You can force the import by activating the variable &apos;{0}&apos; on the {1} file. 
+{2}</source>
+			<translation>The rpt file is not valid to import. Because velocity has not numeric value (&gt;50), it seems you need to improve your simulation. Please ckeck and fix it before continue. 
+Note: You can force the import by activating the variable &apos;{0}&apos; on the {1} file. 
+{2}</translation>
 		</message>
 		<message>
 			<source>The rule &apos;{0}&apos; is already on database. Skipping...</source>
@@ -5511,10 +5636,6 @@
 		<message>
 			<source>The [SCENARIOS] section of the configuration file is empty.</source>
 			<translation>The [SCENARIOS] section of the configuration file is empty.</translation>
-		</message>
-		<message>
-			<source>The schema ({0}) does not exists</source>
-			<translation>The schema ({0}) does not exists</translation>
 		</message>
 		<message>
 			<source>The schema &apos;{0}&apos; is being used in production! It can&apos;t be deleted.</source>
@@ -5533,8 +5654,12 @@
 			<translation>The second tab is the &apos;Features&apos; tab, where you can select the corresponding feature classes for each type of feature on the network.</translation>
 		</message>
 		<message>
-			<source>The selected node is planified in another psector.\nNode psector: {0}\nCurrent psector: {1}</source>
-			<translation>The selected node is planified in another psector.\nNode psector: {0}\nCurrent psector: {1}</translation>
+			<source>The selected node is planified in another psector.
+Node psector: {0}
+Current psector: {1}</source>
+			<translation>The selected node is planified in another psector.
+Node psector: {0}
+Current psector: {1}</translation>
 		</message>
 		<message>
 			<source>The selected node should have exactly two linked arcs.</source>
@@ -5559,10 +5684,6 @@
 		<message>
 			<source>The sum of weights must equal 1. Please adjust the values accordingly.</source>
 			<translation>The sum of weights must equal 1. Please adjust the values accordingly.</translation>
-		</message>
-		<message>
-			<source>The table ({0}) does not exists</source>
-			<translation>The table ({0}) does not exists</translation>
 		</message>
 		<message>
 			<source>The table &apos;plan_psector&apos; contains NULL values in the column &apos;atlas_id&apos;. Please fix this before continuing.</source>
@@ -5621,8 +5742,10 @@
 			<translation>This feature has no log changes, please update this feature before.</translation>
 		</message>
 		<message>
-			<source>This functionality is only allowed with the locality &apos;en_US&apos; and SRID 25831.\nDo you want change it and continue?</source>
-			<translation>This functionality is only allowed with the locality &apos;en_US&apos; and SRID 25831.\nDo you want change it and continue?</translation>
+			<source>This functionality is only allowed with the locality &apos;en_US&apos; and SRID 25831.
+Do you want change it and continue?</source>
+			<translation>This functionality is only allowed with the locality &apos;en_US&apos; and SRID 25831.
+Do you want change it and continue?</translation>
 		</message>
 		<message>
 			<source>This parameter is mandatory. Please, set a value</source>
@@ -5669,12 +5792,16 @@
 			<translation>This will also delete the database user(s):</translation>
 		</message>
 		<message>
-			<source>!!!!! THIS WILL DELETE ALL DATA IN THE DATABASE !!!!!\nARE YOU SURE YOU WANT TO PROCEED?</source>
-			<translation>!!!!! THIS WILL DELETE ALL DATA IN THE DATABASE !!!!!\nARE YOU SURE YOU WANT TO PROCEED?</translation>
+			<source>!!!!! THIS WILL DELETE ALL DATA IN THE DATABASE !!!!!
+ARE YOU SURE YOU WANT TO PROCEED?</source>
+			<translation>!!!!! THIS WILL DELETE ALL DATA IN THE DATABASE !!!!!
+ARE YOU SURE YOU WANT TO PROCEED?</translation>
 		</message>
 		<message>
-			<source>This will modify your inp file, so a backup will be created.\nDo you want to proceed?</source>
-			<translation>This will modify your inp file, so a backup will be created.\nDo you want to proceed?</translation>
+			<source>This will modify your inp file, so a backup will be created.
+Do you want to proceed?</source>
+			<translation>This will modify your inp file, so a backup will be created.
+Do you want to proceed?</translation>
 		</message>
 		<message>
 			<source>This wizard will help with the process of importing a network from a {0} INP file into the Giswater database.</source>
@@ -5707,6 +5834,10 @@
 		<message>
 			<source>Toggle Active</source>
 			<translation>Toggle Active</translation>
+		</message>
+		<message>
+			<source>Toggle validated</source>
+			<translation>Toggle validated</translation>
 		</message>
 		<message>
 			<source>To make the result id {0} corporate, is necessary to make not corporate the following result ids: {1}. Do you want to proceed?</source>
@@ -5781,10 +5912,6 @@
 			<translation>Unexpected languages payload from ({0})</translation>
 		</message>
 		<message>
-			<source>Unexpected languages payload from {0}</source>
-			<translation>Unexpected languages payload from {0}</translation>
-		</message>
-		<message>
 			<source>Unhandled Error</source>
 			<translation>Unhandled Error</translation>
 		</message>
@@ -5813,20 +5940,20 @@
 			<translation>Unsafe path in ZIP archive: {0}</translation>
 		</message>
 		<message>
-			<source>Unsuported geometry type</source>
-			<translation>Unsuported geometry type</translation>
+			<source>Unset corporate before unvalidating this result</source>
+			<translation>Unset corporate before unvalidating this result</translation>
 		</message>
 		<message>
-			<source>Unsupported compare mode: {0}</source>
-			<translation>Unsupported compare mode: {0}</translation>
+			<source>Unsuported geometry type</source>
+			<translation>Unsuported geometry type</translation>
 		</message>
 		<message>
 			<source>Unsupported layer_type: {0}</source>
 			<translation>Unsupported layer_type: {0}</translation>
 		</message>
 		<message>
-			<source>Unsupported operation: {0}</source>
-			<translation>Unsupported operation: {0}</translation>
+			<source>Unsupported locales combo flag: {0}</source>
+			<translation>Unsupported locales combo flag: {0}</translation>
 		</message>
 		<message>
 			<source>Unsupported project type for hydraulic engine: {0}</source>
@@ -5945,6 +6072,28 @@
 			<translation>User not found</translation>
 		</message>
 		<message>
+			<source>Using this form you can configure graphconfig field for the selected mapzone.
+
+How does it work?
+1- Select the header of the mapzone using the nodeParent selection tool.
+2- Select the direction of the water using the toArc selection tool. Multiple selection is allowed.
+3- Press ADD to visualize your configuration on the Preview. If there are more headers, repeat the process and they will be added to the Preview.
+4- If you want to configure a node that will always be closed for this mapzone, select it using the forceClosed tool and ADD.
+To remove some wrong configuration, you have to select the affected nodeParent and click REMOVE. This node and its related toArc will be deleted from the Preview.
+
+Click OK to end set your Preview as the value on graphconfig field.</source>
+			<translation>Using this form you can configure graphconfig field for the selected mapzone.
+
+How does it work?
+1- Select the header of the mapzone using the nodeParent selection tool.
+2- Select the direction of the water using the toArc selection tool. Multiple selection is allowed.
+3- Press ADD to visualize your configuration on the Preview. If there are more headers, repeat the process and they will be added to the Preview.
+4- If you want to configure a node that will always be closed for this mapzone, select it using the forceClosed tool and ADD.
+To remove some wrong configuration, you have to select the affected nodeParent and click REMOVE. This node and its related toArc will be deleted from the Preview.
+
+Click OK to end set your Preview as the value on graphconfig field.</translation>
+		</message>
+		<message>
 			<source>Utils schema does not exist. Create it first.</source>
 			<translation>Utils schema does not exist. Create it first.</translation>
 		</message>
@@ -6021,8 +6170,10 @@
 			<translation>Warning: Are you sure to continue?. This button will update your plugin qgis templates file replacing all strings defined on the config/dev.config file. Be sure your config file is OK before continue</translation>
 		</message>
 		<message>
-			<source>WARNING: This will remove the &apos;utils_workspace_current&apos; variable for your user!\nAre you sure you want to delete these records?</source>
-			<translation>WARNING: This will remove the &apos;utils_workspace_current&apos; variable for your user!\nAre you sure you want to delete these records?</translation>
+			<source>WARNING: This will remove the &apos;utils_workspace_current&apos; variable for your user!
+Are you sure you want to delete these records?</source>
+			<translation>WARNING: This will remove the &apos;utils_workspace_current&apos; variable for your user!
+Are you sure you want to delete these records?</translation>
 		</message>
 		<message>
 			<source>We are downloading the necessary language files. Please do not close QGIS.</source>
@@ -6063,6 +6214,10 @@
 		<message>
 			<source>Widget {0} is not configured or have a bad config</source>
 			<translation>Widget {0} is not configured or have a bad config</translation>
+		</message>
+		<message>
+			<source>Widget &apos;{0}&apos; not found in the composer</source>
+			<translation>Widget &apos;{0}&apos; not found in the composer</translation>
 		</message>
 		<message>
 			<source>Widget &apos;{0}&apos; not found in the dialog.</source>
@@ -6117,8 +6272,12 @@
 			<translation>Wrong number of parameters for node {0} in config file.</translation>
 		</message>
 		<message>
-			<source>You are about to adapt schema &apos;{0}&apos; to cibs.\n\nAre you sure you want to continue?</source>
-			<translation>You are about to adapt schema &apos;{0}&apos; to cibs.\n\nAre you sure you want to continue?</translation>
+			<source>You are about to adapt schema &apos;{0}&apos; to cibs.
+
+Are you sure you want to continue?</source>
+			<translation>You are about to adapt schema &apos;{0}&apos; to cibs.
+
+Are you sure you want to continue?</translation>
 		</message>
 		<message>
 			<source>You are about to delete the result</source>
@@ -6129,12 +6288,20 @@
 			<translation>You are about to import the INP file in TESTING MODE. This will delete all the data in the database related to the network you are importing. Are you sure you want to proceed?</translation>
 		</message>
 		<message>
-			<source>You are about to integrate AM with the following WS schema: {0}\n\nAre you sure you want to continue?</source>
-			<translation>You are about to integrate AM with the following WS schema: {0}\n\nAre you sure you want to continue?</translation>
+			<source>You are about to integrate AM with the following WS schema: {0}
+
+Are you sure you want to continue?</source>
+			<translation>You are about to integrate AM with the following WS schema: {0}
+
+Are you sure you want to continue?</translation>
 		</message>
 		<message>
-			<source>You are about to perform this action aiming to the following schema: {0}\n\nAre you sure you want to continue?</source>
-			<translation>You are about to perform this action aiming to the following schema: {0}\n\nAre you sure you want to continue?</translation>
+			<source>You are about to perform this action aiming to the following schema: {0}
+
+Are you sure you want to continue?</source>
+			<translation>You are about to perform this action aiming to the following schema: {0}
+
+Are you sure you want to continue?</translation>
 		</message>
 		<message>
 			<source>You are going to change the epa_type. With this operation you will lose information about current epa_type values of this object. Would you like to continue?</source>
@@ -6177,8 +6344,10 @@
 			<translation>You can save the current configuration to a file and load it later, or load the last saved configuration.</translation>
 		</message>
 		<message>
-			<source>You can&apos;t delete these mincuts because they aren&apos;t planified \nor they were created by another user:</source>
-			<translation>You can&apos;t delete these mincuts because they aren&apos;t planified \nor they were created by another user:</translation>
+			<source>You can&apos;t delete these mincuts because they aren&apos;t planified 
+or they were created by another user:</source>
+			<translation>You can&apos;t delete these mincuts because they aren&apos;t planified 
+or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>You closed a valve, this will modify the current mapzones and it may take a little bit of time.</source>
@@ -7350,14 +7519,6 @@
 			<translation>btn_gis_folder</translation>
 		</message>
 		<message>
-			<source>btn_i18n</source>
-			<translation>Multilang manager</translation>
-		</message>
-		<message>
-			<source>tooltip_btn_i18n</source>
-			<translation>btn_i18n</translation>
-		</message>
-		<message>
 			<source>btn_import_osm_streetaxis</source>
 			<translation>Import OSM Streetaxis</translation>
 		</message>
@@ -7430,14 +7591,6 @@
 			<translation>btn_schema_rename</translation>
 		</message>
 		<message>
-			<source>btn_translation</source>
-			<translation>Translation files</translation>
-		</message>
-		<message>
-			<source>tooltip_btn_translation</source>
-			<translation>btn_translation</translation>
-		</message>
-		<message>
 			<source>btn_update_asset</source>
 			<translation>Update</translation>
 		</message>
@@ -7508,14 +7661,6 @@
 		<message>
 			<source>tooltip_grb_files_generator</source>
 			<translation>grb_files_generator</translation>
-		</message>
-		<message>
-			<source>grb_i18n</source>
-			<translation>Multilang</translation>
-		</message>
-		<message>
-			<source>tooltip_grb_i18n</source>
-			<translation>grb_i18n</translation>
 		</message>
 		<message>
 			<source>grb_load_cf</source>
@@ -7946,7 +8091,7 @@
 		</message>
 		<message>
 			<source>tooltip_stylesheet</source>
-			<translation>&amp;lt;html&amp;gt;&amp;lt;head/&amp;gt;&amp;lt;body&amp;gt;&amp;lt;p&amp;gt;{&amp;amp;quot;label&amp;amp;quot;:&amp;amp;quot;color:green; font-weight:bold;&amp;amp;quot;,&amp;amp;quot;widget&amp;amp;quot;:{&amp;amp;quot;enabled&amp;amp;quot;:&amp;amp;quot;color:black; font-weight:bold;&amp;amp;quot;,&amp;amp;quot;disabled&amp;amp;quot;:&amp;amp;quot;color:black; font-weight:bold;&amp;amp;quot;}}&amp;lt;/p&amp;gt;&amp;lt;/body&amp;gt;&amp;lt;/html&amp;gt;</translation>
+			<translation>{&quot;label&quot;:&quot;color:green; font-weight:bold;&quot;,&quot;widget&quot;:{&quot;enabled&quot;:&quot;color:black; font-weight:bold;&quot;,&quot;disabled&quot;:&quot;color:black; font-weight:bold;&quot;}}</translation>
 		</message>
 		<message>
 			<source>tab_create</source>
@@ -8557,157 +8702,6 @@
 		<message>
 			<source>tooltip_txt_filter</source>
 			<translation>txt_filter</translation>
-		</message>
-	</context>
-	<context>
-		<name>admin_i18n_manager</name>
-		<message>
-			<source>title</source>
-			<translation>Dialog</translation>
-		</message>
-		<message>
-			<source>btn_close</source>
-			<translation>Close</translation>
-		</message>
-		<message>
-			<source>tooltip_btn_close</source>
-			<translation>btn_close</translation>
-		</message>
-		<message>
-			<source>btn_connection</source>
-			<translation>Test connection</translation>
-		</message>
-		<message>
-			<source>tooltip_btn_connection</source>
-			<translation>btn_connection</translation>
-		</message>
-		<message>
-			<source>btn_search</source>
-			<translation>Search</translation>
-		</message>
-		<message>
-			<source>tooltip_btn_search</source>
-			<translation>btn_search</translation>
-		</message>
-		<message>
-			<source>chk_all</source>
-			<translation>Check All</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_all</source>
-			<translation>chk_all</translation>
-		</message>
-		<message>
-			<source>chk_am_dialogs</source>
-			<translation>Check for am tables</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_am_dialogs</source>
-			<translation>chk_am_dialogs</translation>
-		</message>
-		<message>
-			<source>chk_cm_dialogs</source>
-			<translation>Check for cm tables</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_cm_dialogs</source>
-			<translation>chk_cm_dialogs</translation>
-		</message>
-		<message>
-			<source>chk_db_dialogs</source>
-			<translation>Check dialogs for DB tables</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_db_dialogs</source>
-			<translation>chk_db_dialogs</translation>
-		</message>
-		<message>
-			<source>chk_for_su_tables</source>
-			<translation>Check for basic DB tables (cat_feature...)</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_for_su_tables</source>
-			<translation>chk_for_su_tables</translation>
-		</message>
-		<message>
-			<source>chk_py_dialogs</source>
-			<translation>Check for PY Dialogs</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_py_dialogs</source>
-			<translation>chk_py_dialogs</translation>
-		</message>
-		<message>
-			<source>chk_py_messages</source>
-			<translation>Check for PY Messages</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_py_messages</source>
-			<translation>chk_py_messages</translation>
-		</message>
-		<message>
-			<source>dlg_admin_i18n_manager</source>
-			<translation>Dialog</translation>
-		</message>
-		<message>
-			<source>tooltip_dlg_admin_i18n_manager</source>
-			<translation>dlg_admin_i18n_manager</translation>
-		</message>
-		<message>
-			<source>grb_i18n_conn</source>
-			<translation>i18n Conection</translation>
-		</message>
-		<message>
-			<source>tooltip_grb_i18n_conn</source>
-			<translation>grb_i18n_conn</translation>
-		</message>
-		<message>
-			<source>grp_search_options</source>
-			<translation>Search Options</translation>
-		</message>
-		<message>
-			<source>tooltip_grp_search_options</source>
-			<translation>grp_search_options</translation>
-		</message>
-		<message>
-			<source>lbl_database</source>
-			<translation>Database:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_database</source>
-			<translation>lbl_database</translation>
-		</message>
-		<message>
-			<source>lbl_host</source>
-			<translation>Host:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_host</source>
-			<translation>lbl_host</translation>
-		</message>
-		<message>
-			<source>lbl_pass</source>
-			<translation>Password:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_pass</source>
-			<translation>lbl_pass</translation>
-		</message>
-		<message>
-			<source>lbl_port</source>
-			<translation>Port:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_port</source>
-			<translation>lbl_port</translation>
-		</message>
-		<message>
-			<source>lbl_user</source>
-			<translation>User:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_user</source>
-			<translation>lbl_user</translation>
 		</message>
 	</context>
 	<context>
@@ -9406,308 +9400,6 @@
 		<message>
 			<source>tooltip_lbl_rename_copy</source>
 			<translation>lbl_rename_copy</translation>
-		</message>
-	</context>
-	<context>
-		<name>admin_translation</name>
-		<message>
-			<source>title</source>
-			<translation>Dialog</translation>
-		</message>
-		<message>
-			<source>btn_close</source>
-			<translation>Close</translation>
-		</message>
-		<message>
-			<source>tooltip_btn_close</source>
-			<translation>btn_close</translation>
-		</message>
-		<message>
-			<source>btn_connection</source>
-			<translation>Test connection</translation>
-		</message>
-		<message>
-			<source>tooltip_btn_connection</source>
-			<translation>btn_connection</translation>
-		</message>
-		<message>
-			<source>btn_translate</source>
-			<translation>Translate</translation>
-		</message>
-		<message>
-			<source>tooltip_btn_translate</source>
-			<translation>btn_translate</translation>
-		</message>
-		<message>
-			<source>chk_am_files</source>
-			<translation>Translate am files</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_am_files</source>
-			<translation>chk_am_files</translation>
-		</message>
-		<message>
-			<source>chk_audit_files</source>
-			<translation>Translate audit files</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_audit_files</source>
-			<translation>chk_audit_files</translation>
-		</message>
-		<message>
-			<source>chk_cm_files</source>
-			<translation>Translate cm files</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_cm_files</source>
-			<translation>chk_cm_files</translation>
-		</message>
-		<message>
-			<source>chk_i18n_files</source>
-			<translation>Translate i18n translations</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_i18n_files</source>
-			<translation>chk_i18n_files</translation>
-		</message>
-		<message>
-			<source>chk_py_msg</source>
-			<translation>Translate ui and py messages</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_py_msg</source>
-			<translation>chk_py_msg</translation>
-		</message>
-		<message>
-			<source>chk_relative_langs</source>
-			<translation>Enable fallback to similar locales. </translation>
-		</message>
-		<message>
-			<source>tooltip_chk_relative_langs</source>
-			<translation>chk_relative_langs</translation>
-		</message>
-		<message>
-			<source>dlg_admin_translation</source>
-			<translation>Dialog</translation>
-		</message>
-		<message>
-			<source>tooltip_dlg_admin_translation</source>
-			<translation>dlg_admin_translation</translation>
-		</message>
-		<message>
-			<source>groupBox</source>
-			<translation>Connection information</translation>
-		</message>
-		<message>
-			<source>tooltip_groupBox</source>
-			<translation>groupBox</translation>
-		</message>
-		<message>
-			<source>groupBox_2</source>
-			<translation>Translate files</translation>
-		</message>
-		<message>
-			<source>tooltip_groupBox_2</source>
-			<translation>groupBox_2</translation>
-		</message>
-		<message>
-			<source>groupBox_3</source>
-			<translation>Parameters</translation>
-		</message>
-		<message>
-			<source>tooltip_groupBox_3</source>
-			<translation>groupBox_3</translation>
-		</message>
-		<message>
-			<source>label</source>
-			<translation>If a translation is missing in the specific target dialect (e.g., es_ES), the system searches other regional variants (e.g., es_CR, es_AR). If a match is found, that translation is applied.</translation>
-		</message>
-		<message>
-			<source>tooltip_label</source>
-			<translation>label</translation>
-		</message>
-		<message>
-			<source>lbl_database</source>
-			<translation>Data base:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_database</source>
-			<translation>lbl_database</translation>
-		</message>
-		<message>
-			<source>lbl_host</source>
-			<translation>Host:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_host</source>
-			<translation>lbl_host</translation>
-		</message>
-		<message>
-			<source>lbl_language</source>
-			<translation>Language:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_language</source>
-			<translation>lbl_language</translation>
-		</message>
-		<message>
-			<source>lbl_pass</source>
-			<translation>Password:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_pass</source>
-			<translation>lbl_pass</translation>
-		</message>
-		<message>
-			<source>lbl_port</source>
-			<translation>Port:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_port</source>
-			<translation>lbl_port</translation>
-		</message>
-		<message>
-			<source>lbl_user</source>
-			<translation>User:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_user</source>
-			<translation>lbl_user</translation>
-		</message>
-	</context>
-	<context>
-		<name>admin_update_translation</name>
-		<message>
-			<source>title</source>
-			<translation>Dialog</translation>
-		</message>
-		<message>
-			<source>btn_close</source>
-			<translation>Close</translation>
-		</message>
-		<message>
-			<source>tooltip_btn_close</source>
-			<translation>btn_close</translation>
-		</message>
-		<message>
-			<source>btn_connection</source>
-			<translation>Test connection</translation>
-		</message>
-		<message>
-			<source>tooltip_btn_connection</source>
-			<translation>btn_connection</translation>
-		</message>
-		<message>
-			<source>btn_translate</source>
-			<translation>Translate</translation>
-		</message>
-		<message>
-			<source>tooltip_btn_translate</source>
-			<translation>btn_translate</translation>
-		</message>
-		<message>
-			<source>chk_add_tab_data</source>
-			<translation>Translate tab_data</translation>
-		</message>
-		<message>
-			<source>tooltip_chk_add_tab_data</source>
-			<translation>chk_add_tab_data</translation>
-		</message>
-		<message>
-			<source>dlg_admin_update_translation</source>
-			<translation>Dialog</translation>
-		</message>
-		<message>
-			<source>tooltip_dlg_admin_update_translation</source>
-			<translation>dlg_admin_update_translation</translation>
-		</message>
-		<message>
-			<source>grb_dest_conn</source>
-			<translation>Destiny connection</translation>
-		</message>
-		<message>
-			<source>tooltip_grb_dest_conn</source>
-			<translation>grb_dest_conn</translation>
-		</message>
-		<message>
-			<source>grb_i18n_conn</source>
-			<translation>i18n Conection</translation>
-		</message>
-		<message>
-			<source>tooltip_grb_i18n_conn</source>
-			<translation>grb_i18n_conn</translation>
-		</message>
-		<message>
-			<source>grb_parameters</source>
-			<translation>Parameters</translation>
-		</message>
-		<message>
-			<source>tooltip_grb_parameters</source>
-			<translation>grb_parameters</translation>
-		</message>
-		<message>
-			<source>lbl_database</source>
-			<translation>Database:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_database</source>
-			<translation>lbl_database</translation>
-		</message>
-		<message>
-			<source>lbl_host</source>
-			<translation>Host:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_host</source>
-			<translation>lbl_host</translation>
-		</message>
-		<message>
-			<source>lbl_language</source>
-			<translation>Language:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_language</source>
-			<translation>lbl_language</translation>
-		</message>
-		<message>
-			<source>lbl_pass</source>
-			<translation>Password:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_pass</source>
-			<translation>lbl_pass</translation>
-		</message>
-		<message>
-			<source>lbl_port</source>
-			<translation>Port:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_port</source>
-			<translation>lbl_port</translation>
-		</message>
-		<message>
-			<source>lbl_project_type</source>
-			<translation>Project type:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_project_type</source>
-			<translation>lbl_project_type</translation>
-		</message>
-		<message>
-			<source>lbl_schema_update</source>
-			<translation>Schema name:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_schema_update</source>
-			<translation>lbl_schema_update</translation>
-		</message>
-		<message>
-			<source>lbl_user</source>
-			<translation>User:</translation>
-		</message>
-		<message>
-			<source>tooltip_lbl_user</source>
-			<translation>lbl_user</translation>
 		</message>
 	</context>
 	<context>
@@ -10766,7 +10458,7 @@
 		</message>
 		<message>
 			<source>grb_admin_om</source>
-			<translation>O&amp;amp;&amp;amp;M</translation>
+			<translation>O&amp;&amp;M</translation>
 		</message>
 		<message>
 			<source>tooltip_grb_admin_om</source>
@@ -10886,7 +10578,7 @@
 		</message>
 		<message>
 			<source>grb_om</source>
-			<translation>O&amp;amp;&amp;amp;M</translation>
+			<translation>O&amp;&amp;M</translation>
 		</message>
 		<message>
 			<source>tooltip_grb_om</source>
@@ -13051,6 +12743,38 @@
 			<translation>btn_toggle_corporate</translation>
 		</message>
 		<message>
+			<source>btn_toggle_validated</source>
+			<translation>Toggle validated</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_toggle_validated</source>
+			<translation>btn_toggle_validated</translation>
+		</message>
+		<message>
+			<source>chk_archived</source>
+			<translation>Show archived</translation>
+		</message>
+		<message>
+			<source>tooltip_chk_archived</source>
+			<translation>chk_archived</translation>
+		</message>
+		<message>
+			<source>chk_corporate</source>
+			<translation>Show corporate</translation>
+		</message>
+		<message>
+			<source>tooltip_chk_corporate</source>
+			<translation>chk_corporate</translation>
+		</message>
+		<message>
+			<source>chk_validated</source>
+			<translation>Show validated</translation>
+		</message>
+		<message>
+			<source>tooltip_chk_validated</source>
+			<translation>chk_validated</translation>
+		</message>
+		<message>
 			<source>dlg_go2epa_manager</source>
 			<translation>Epa result management</translation>
 		</message>
@@ -13067,12 +12791,44 @@
 			<translation>label</translation>
 		</message>
 		<message>
+			<source>lbl_date_exec_from</source>
+			<translation>From:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_date_exec_from</source>
+			<translation>lbl_date_exec_from</translation>
+		</message>
+		<message>
+			<source>lbl_expl</source>
+			<translation>Exploitation:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_expl</source>
+			<translation>lbl_expl</translation>
+		</message>
+		<message>
+			<source>lbl_network_type</source>
+			<translation>Network type:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_network_type</source>
+			<translation>lbl_network_type</translation>
+		</message>
+		<message>
 			<source>lbl_result_id</source>
 			<translation>Filter by: Result id</translation>
 		</message>
 		<message>
 			<source>tooltip_lbl_result_id</source>
 			<translation>lbl_result_id</translation>
+		</message>
+		<message>
+			<source>lbl_status</source>
+			<translation>Status:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_status</source>
+			<translation>lbl_status</translation>
 		</message>
 	</context>
 	<context>
@@ -18400,7 +18156,7 @@
 		</message>
 		<message>
 			<source>lbl_total1</source>
-			<translation>&amp;lt;html&amp;gt;&amp;lt;head/&amp;gt;&amp;lt;body&amp;gt;&amp;lt;p&amp;gt;&amp;lt;span style=&amp;quot; font-weight:600;&amp;quot;&amp;gt;Total numbers:&amp;lt;/span&amp;gt;&amp;lt;/p&amp;gt;&amp;lt;/body&amp;gt;&amp;lt;/html&amp;gt;</translation>
+			<translation>Total numbers:</translation>
 		</message>
 		<message>
 			<source>tooltip_lbl_total1</source>
@@ -18408,7 +18164,7 @@
 		</message>
 		<message>
 			<source>lbl_total2</source>
-			<translation>&amp;lt;html&amp;gt;&amp;lt;head/&amp;gt;&amp;lt;body&amp;gt;&amp;lt;p&amp;gt;&amp;lt;span style=&amp;quot; font-weight:600;&amp;quot;&amp;gt;Total numbers:&amp;lt;/span&amp;gt;&amp;lt;/p&amp;gt;&amp;lt;/body&amp;gt;&amp;lt;/html&amp;gt;</translation>
+			<translation>Total numbers:</translation>
 		</message>
 		<message>
 			<source>tooltip_lbl_total2</source>

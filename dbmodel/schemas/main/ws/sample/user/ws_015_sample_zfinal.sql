@@ -125,7 +125,7 @@ UPDATE om_visit SET ext_code = concat('EXT', 1000 + id);
 UPDATE ext_plot set muni_id = 2 where id::integer < 40;
 
 UPDATE macroexploitation SET name ='macroexpl-01', lock_level = 1 WHERE macroexpl_id = 1;
-INSERT INTO macroexploitation (macroexpl_id, "name", descript, lock_level, active, the_geom) VALUES(2, 'Other', 'Macroexploitation used for test', 1, true, NULL);
+INSERT INTO macroexploitation (macroexpl_id, "name", descript, lock_level, active) VALUES(2, 'Other', 'Macroexploitation used for test', 1, true);
 
 UPDATE config_param_system SET isenabled = false where parameter = ' basic_selector_tab_municipality';
 

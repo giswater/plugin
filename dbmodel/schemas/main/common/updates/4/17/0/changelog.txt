@@ -1,5 +1,20 @@
+- Refactor gw_fct_getfeatures with shared list/filter helpers (gw_fct_build_filters_sql, gw_fct_resolve_list_query, gw_fct_build_canvas_filter_sql).
+- Add sys_message 4680 for GeoJSON output requiring the_geom in resolved tableName queries.
+- Materialize graph inundation temporal arcs into anl_graphinundation / v_anl_graphinundation for QGIS.
 - Fix performance on `sys_fprocess` queries.
 - Fix `gw_fct_linktonetwork` Force reconnect + Extra filters: rebuild link geometry from the connect, join `vf_arc`/`vf_node` inside KNN on `arc`/`node`, and log when no candidate is found.
 - Keep `link.userdefined_geom` when provided on `ve_link` edit; set TRUE on INSERT or geom change.
 - Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
 - Add editable `userdefined_geom` checkbox to link info forms.
+- Add `isvalidated` boolean to `rpt_cat_result` and expose it on `v_ui_rpt_cat_result` / EPA manager tableview.
+- Remove unused `DEPRECATED` (`status=0`) from `inp_result_status`; migrate existing rows to `ARCHIVED`.
+- Mapzone manager: array expl/sector/muni not mandatory, default Undefined (0); PK empty/non-editable (URN).
+- Mapzone INSTEAD OF triggers default empty/null expl_id, muni_id, sector_id arrays to ARRAY[0] so QGIS insert does not violate NOT NULL.
+- Load sys_feature_type into HIDDEN for native ValueRelation; macroexploitation is not auto-loaded (context MAP ZONES, Add Layers promotes out of HIDDEN with geometry); macroexpl_id points at macroexploitation.
+- Strip leftover self-ValueRelation from mapzone PK text fields (ve_exploitation.expl_id, ve_dma.dma_id, ...).
+- Native form ValueRelation is applied as configured (allowMulti) without a prior empty ValueMap wipe.
+- ConfigLayerFields configures geometryless catalog tables (cat_material) instead of skipping them.
+- Native form config falls back to config_form_fields if v_config_form_fields / getinfofromid is missing.
+- Update mapzone `code` via `gw_fct_generate_code` when `gw_fct_graphanalytics_mapzones_v1` writes geometry directly to the table.
+- Feature form muni_id combo uses ValueRelation on ve_municipality instead of QGIS ValueMap.
+- Remove unused `edit_feature_auto_builtdate`; builtdate on insert uses only `edit_builtdate_vdefault`.
