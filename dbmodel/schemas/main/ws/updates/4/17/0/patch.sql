@@ -767,3 +767,10 @@ AS WITH sel_expl AS (
 ALTER TABLE inp_typevalue DISABLE TRIGGER gw_trg_typevalue_config_fk;
 DELETE FROM inp_typevalue WHERE typevalue = 'inp_options_networkmode' AND id = '5';
 ALTER TABLE inp_typevalue ENABLE TRIGGER gw_trg_typevalue_config_fk;
+
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_arc' AND columnname='sys_id';
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_connec' AND columnname='sys_id';
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_node' AND columnname='sys_id';

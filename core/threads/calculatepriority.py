@@ -307,10 +307,14 @@ class GwCalculatePriority(GwTask):
         return msg.format(qtd=null_pressures)
 
     def _ivi_report(self, ivi):
-        title = tools_qt.tr("IVI")
-        year_header = tools_qt.tr("Year")
-        without_replacements_header = tools_qt.tr("Without replacements")
-        with_replacements_header = tools_qt.tr("With replacements")
+        msg = "IVI"
+        title = tools_qt.tr(msg)
+        msg = "Year"
+        year_header = tools_qt.tr(msg)
+        msg = "Without replacements"
+        without_replacements_header = tools_qt.tr(msg)
+        msg = "With replacements"
+        with_replacements_header = tools_qt.tr(msg)
         columns = [
             [year_header],
             [without_replacements_header],
@@ -350,10 +354,14 @@ class GwCalculatePriority(GwTask):
         if not by_year:
             return ""
 
-        title = tools_qt.tr("REPLACEMENTS PER YEAR")
-        year_h = tools_qt.tr("Year")
-        arcs_h = tools_qt.tr("Arcs")
-        cost_h = tools_qt.tr("Cost (€)")
+        msg = "REPLACEMENTS PER YEAR"
+        title = tools_qt.tr(msg)
+        msg = "Year"
+        year_h = tools_qt.tr(msg)
+        msg = "Arcs"
+        arcs_h = tools_qt.tr(msg)
+        msg = "Cost (€)"
+        cost_h = tools_qt.tr(msg)
 
         columns = [[year_h], [arcs_h], [cost_h]]
         for year in sorted(by_year):
@@ -1207,13 +1215,20 @@ class GwCalculatePriority(GwTask):
         return row[0]
 
     def _summary(self, arcs):
-        title = tools_qt.tr("SUMMARY")
-        investment_header = tools_qt.tr("Investment (€/year):")
-        year_header = tools_qt.tr("Year:")
-        current_network_cost_header = tools_qt.tr("Current network cost (€):")
-        total_replacement_cost_header = tools_qt.tr("Total replacement cost (€):")
-        ivi_header = tools_qt.tr("IVI (Horizon year):")
-        replacement_rate_header = tools_qt.tr("Replacement rate (%/year):")
+        msg = "SUMMARY"
+        title = tools_qt.tr(msg)
+        msg = "Investment (€/year):"
+        investment_header = tools_qt.tr(msg)
+        msg = "Year:"
+        year_header = tools_qt.tr(msg)
+        msg = "Current network cost (€):"
+        current_network_cost_header = tools_qt.tr(msg)
+        msg = "Total replacement cost (€):"
+        total_replacement_cost_header = tools_qt.tr(msg)
+        msg = "IVI (Horizon year):"
+        ivi_header = tools_qt.tr(msg)
+        msg = "Replacement rate (%/year):"
+        replacement_rate_header = tools_qt.tr(msg)
         current_cost = sum(arc["current_cost_constr"] for arc in arcs)
 
         replacement_cost = self._replacement_cost(arcs)

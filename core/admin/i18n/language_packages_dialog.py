@@ -27,7 +27,23 @@ from . import language_shared_functions as i18n_service
 from ...threads.task import GwTask
 
 
-_LOCALE_COLUMNS = ("Active", "Locale", "Name")
+def _locale_column_titles(with_version: bool) -> list[str]:
+    """Translated labels for the locales table, plus the advanced-user version column.
+
+    Every literal needs its own ``msg`` assignment so i18n_searcher collects it.
+    """
+
+    titles = []
+    msg = "Active"
+    titles.append(tools_qt.tr(msg))
+    msg = "Locale"
+    titles.append(tools_qt.tr(msg))
+    msg = "Name"
+    titles.append(tools_qt.tr(msg))
+    if with_version:
+        msg = "Version"
+        titles.append(tools_qt.tr(msg))
+    return titles
 _COL_ACTIVE = 0
 _COL_LOCALE = 1
 _COL_NAME = 2
@@ -93,12 +109,9 @@ class GwI18NLocalesTableBase(GwI18NManageLanguagesUi):
         self._busy_locales = set()
         self._advanced_user = None
 
-        columns = list(_LOCALE_COLUMNS)
-        if self._is_advanced_user():
-            columns.append("Version")
-            self._col_version = len(columns) - 1
-        else:
-            self._col_version = None
+        with_version = self._is_advanced_user()
+        columns = _locale_column_titles(with_version)
+        self._col_version = len(columns) - 1 if with_version else None
 
         self._locales_model = QStandardItemModel(0, len(columns), self)
         self._locales_model.setHorizontalHeaderLabels(columns)

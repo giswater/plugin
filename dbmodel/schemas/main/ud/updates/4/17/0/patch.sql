@@ -595,6 +595,14 @@ UPDATE config_param_system
 	SET layoutorder=12
 	WHERE "parameter"='admin_crm_schema';
 
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_arc' AND columnname='sys_id';
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_connec' AND columnname='sys_id';
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_node' AND columnname='sys_id';
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_gully' AND columnname='sys_id';
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
 	VALUES ('node form','utils','tbl_doc_x_node','node_uuid',8,true,'Node Uuid');
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)

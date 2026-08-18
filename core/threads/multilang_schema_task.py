@@ -474,16 +474,17 @@ class GwMultilangSchemaTask(GwTask):
         fx: Any = None,
     ) -> None:
         self._last_progress_label = label
-        if label == "done":
+        shown = fx.path if fx is not None and getattr(fx, "path", None) else label
+        if shown == "done":
             tools_log.log_info(format_done(seen, total, style=self._log_style))
-        elif not label.startswith("phase:"):
-            tools_log.log_info(format_file(seen, total, label, style=self._log_style))
+        elif not str(shown).startswith("phase:"):
+            tools_log.log_info(format_file(seen, total, shown, style=self._log_style))
 
         if hasattr(self.admin, "schema_build_progress_hint"):
             self.admin.schema_build_progress_hint = format_progress_status(
                 seen,
                 total,
-                label,
+                shown,
                 sql_root=self._log_style.sql_root,
             )
 

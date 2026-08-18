@@ -255,19 +255,24 @@ class GwAdminButton:
         tools_log.log_info(msg, msg_params=msg_params)
 
         if self.rdb_sample_full.isChecked() or self.rdb_sample_inv.isChecked():
-            if self.locale not in ('en_US', 'no_TR', 'es_CR', 'es_ES') or str(self.project_epsg) != '25831':
-                msg = ("This functionality is only allowed with the locality 'en_US' and SRID 25831."
-                       "\nDo you want change it and continue?")
+            sample_locales = ('en_US', 'es_ES', 'ca_ES', 'es_CR', 'no_TR')
+            locale_ok = self.locale in sample_locales
+            srid_ok = str(self.project_epsg) == '25831'
+            if not locale_ok or not srid_ok:
+                msg = ("Sample projects are only allowed with locales en_US, es_ES, ca_ES or es_CR, and SRID 25831."
+                       "\nDo you want to apply the required values and continue?")
                 title = "Info Message"
                 result = tools_qt.show_question(msg, title, force_action=True)
                 if result:
-                    self.project_epsg = '25831'
-                    project_srid = '25831'
-                    self.locale = 'en_US'
-                    project_locale = 'en_US'
-                    self.folder_locale = os.path.join(self.folder_final_pass, 'i18n')
-                    tools_qt.set_widget_text(self.dlg_readsql_create_project, 'srid_id', '25831')
-                    tools_qt.set_combo_value(self.cmb_locale, 'en_US', 0)
+                    if not srid_ok:
+                        self.project_epsg = '25831'
+                        project_srid = '25831'
+                        tools_qt.set_widget_text(self.dlg_readsql_create_project, 'srid_id', '25831')
+                    if not locale_ok:
+                        self.locale = 'en_US'
+                        project_locale = 'en_US'
+                        self.folder_locale = os.path.join(self.folder_final_pass, 'i18n')
+                        tools_qt.set_combo_value(self.cmb_locale, 'en_US', 0)
                 else:
                     return
 
@@ -518,10 +523,11 @@ class GwAdminButton:
             )
         ):
             msg = (
-                f"cm schema is not supported for parent_type='{pt_norm}' in this dbmodel. "
-                f"Missing schemas/addon/cm/integration/{pt_norm}/integration.sql."
+                "cm schema is not supported for parent_type='{0}' in this dbmodel. "
+                "Missing schemas/addon/cm/integration/{1}/integration.sql."
             )
-            tools_qgis.show_message(msg, Qgis.MessageLevel.Warning)
+            msg_params = (pt_norm, pt_norm)
+            tools_qgis.show_message(msg, Qgis.MessageLevel.Warning, msg_params=msg_params)
             return
 
         # Map step list -> profile. The legacy task ran one step at a
@@ -614,10 +620,11 @@ class GwAdminButton:
                 )
             ):
                 msg = (
-                    f"cibs schema is not supported for parent_type='{pt_norm}' in this dbmodel. "
-                    f"Missing schemas/addon/cibs/integration/{pt_norm}/integration.sql."
+                    "cibs schema is not supported for parent_type='{0}' in this dbmodel. "
+                    "Missing schemas/addon/cibs/integration/{1}/integration.sql."
                 )
-                tools_qgis.show_message(msg, Qgis.MessageLevel.Warning)
+                msg_params = (pt_norm, pt_norm)
+                tools_qgis.show_message(msg, Qgis.MessageLevel.Warning, msg_params=msg_params)
                 return
 
         register_is_new = "true" if profile == "empty" else "false"
@@ -3011,8 +3018,19 @@ class GwAdminButton:
         # Populate Table
         self.model_srid = QSqlQueryModel()
         self.model_srid.setQuery(sql, db=lib_vars.qgis_db_credentials)
+        self._set_srid_headers(self.model_srid)
         self.tbl_srid.setModel(self.model_srid)
         self.tbl_srid.show()
+
+    def _set_srid_headers(self, model):
+        """ Translate the SRID table headers without renaming the query fields """
+
+        msg = "Type"
+        model.setHeaderData(0, Qt.Orientation.Horizontal, tools_qt.tr(msg))
+        msg = "SRID"
+        model.setHeaderData(1, Qt.Orientation.Horizontal, tools_qt.tr(msg))
+        msg = "Description"
+        model.setHeaderData(2, Qt.Orientation.Horizontal, tools_qt.tr(msg))
 
     def _set_info_project(self):
         """"""

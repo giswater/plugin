@@ -79,6 +79,9 @@ geom_types_dict: Dict = {
     "polygon": Qgis.GeometryType.Polygon
 }
 
+# Filter functions that load the data of the linked object into the QTableView on their own
+FILL_TABLE_FUNCTIONS: Tuple[str, ...] = ("filter_table", "filter_table_mincut")
+
 
 class ThemeManager:
     """Theme-aware colors and reusable stylesheet helpers."""
@@ -4629,6 +4632,7 @@ def get_rows_by_feature_type(class_object, dialog, table_object, feature_type, f
 
     table_name = f"{class_object.schema_name}.{feature_type}"
     tools_qt.set_table_model(dialog, widget_name, table_name, expr_filter, columns_to_show)
+    set_tablemodel_config(dialog, widget_name, f"ve_{feature_type}")
 
 
 def load_tableview_feature_end(class_object, dialog, table_object, feature_type, feature_id=None, feature_idname=None, expr_filter=None):
@@ -4659,6 +4663,7 @@ def load_tableview_feature_end(class_object, dialog, table_object, feature_type,
     table_name = f"{class_object.schema_name}.{feature_type}"
     columns_to_show = [f"{feature_type}_id", "code", "sys_code", f"{feature_type}_type", "sector_id", "state", "state_type", "expl_id", "descript"]
     tools_qt.set_table_model(dialog, widget_name, table_name, expr_filter, columns_to_show)
+    set_tablemodel_config(dialog, widget_name, f"ve_{feature_type}")
 
 
 def get_project_type(schemaname=None):
@@ -6059,55 +6064,96 @@ def set_tablemodel_config(dialog, widget, table_name, sort_order=Qt.SortOrder.As
     if not rows:
         return widget
 
-    # Create a dictionary to store the desired column positions
-    column_order = {}
-    for row in rows:
-        column_order[row['columnname']] = row['columnindex']
+    model = widget.model()
+    if model is None:
+        return widget
 
     # Clear columns_dict
     widget.setProperty('columns', None)
 
-    # Reorder columns in the widget according to columnindex
     header = widget.horizontalHeader()
-    for i, (column_name, column_index) in enumerate(sorted(column_order.items(), key=lambda item: item[1])):
-        col_idx = tools_qt.get_col_index_by_col_name(widget, column_name)
-        if col_idx is not None:
-            current_visual_index = header.visualIndex(col_idx)
-            if current_visual_index != i:
-                header.moveSection(current_visual_index, i)
 
-    columns_dict: Dict[str, str] = {}
-    for row in rows:
-        col_idx = tools_qt.get_col_index_by_col_name(widget, row['columnname'])
-        if col_idx is None:
-            continue
-        columns_dict[str(row['alias'] if row['alias'] else row['columnname'])] = str(row['columnname'])
-        if not row['visible']:
-            columns_to_delete.append(col_idx)
-        else:
-            style = row.get('style')
-            if style:
-                stretch = style.get('stretch')
-                if stretch is not None:
-                    stretch = QHeaderView.ResizeMode.Stretch if stretch else QHeaderView.ResizeMode.Interactive
-                    widget.horizontalHeader().setSectionResizeMode(col_idx, stretch)
-            width = row['width']
-            if width is None:
-                width = 100
-            widget.setColumnWidth(col_idx, width)
-            if row['alias'] is not None:
-                widget.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, row['alias'])
-    widget.setProperty('columns', columns_dict)
-    # Set order
-    if isinstance(widget.model(), QStandardItemModel) is False:
-        widget.model().setSort(0, sort_order)
-        widget.model().select()
-    # Delete columns
-    for column in columns_to_delete:
-        if column is not None:
-            widget.hideColumn(column)
+    # Every section move, resize or alias applied below makes an automatic resize mode measure the
+    # cells of the table again. Work with fixed sections and restore the modes once, at the end
+    resize_modes = [header.sectionResizeMode(i) for i in range(header.count())]
+    modes_to_apply = {i for i, mode in enumerate(resize_modes)
+                      if mode in (QHeaderView.ResizeMode.ResizeToContents, QHeaderView.ResizeMode.Stretch)}
+    for col_idx in modes_to_apply:
+        header.setSectionResizeMode(col_idx, QHeaderView.ResizeMode.Interactive)
+
+    updates_enabled = widget.updatesEnabled()
+    widget.setUpdatesEnabled(False)
+    try:
+        # Index of every column of the model, to avoid searching the headers once per configured column
+        col_indexes = _get_model_col_indexes(model)
+
+        # Reorder columns in the widget according to columnindex
+        column_order = sorted(((row['columnname'], row['columnindex']) for row in rows), key=lambda item: item[1])
+        for i, (column_name, column_index) in enumerate(column_order):
+            col_idx = col_indexes.get(column_name)
+            if col_idx is not None:
+                current_visual_index = header.visualIndex(col_idx)
+                if current_visual_index != i:
+                    header.moveSection(current_visual_index, i)
+
+        columns_dict: Dict[str, str] = {}
+        for row in rows:
+            col_idx = col_indexes.get(row['columnname'])
+            if col_idx is None:
+                continue
+            columns_dict[str(row['alias'] if row['alias'] else row['columnname'])] = str(row['columnname'])
+            if not row['visible']:
+                columns_to_delete.append(col_idx)
+            else:
+                style = row.get('style')
+                if style:
+                    stretch = style.get('stretch')
+                    if stretch is not None:
+                        stretch = QHeaderView.ResizeMode.Stretch if stretch else QHeaderView.ResizeMode.Interactive
+                        if col_idx < len(resize_modes):
+                            resize_modes[col_idx] = stretch
+                            modes_to_apply.add(col_idx)
+                        else:
+                            header.setSectionResizeMode(col_idx, stretch)
+                width = row['width']
+                if width is None:
+                    width = 100
+                widget.setColumnWidth(col_idx, width)
+                if row['alias'] is not None:
+                    model.setHeaderData(col_idx, Qt.Orientation.Horizontal, row['alias'])
+        widget.setProperty('columns', columns_dict)
+        # Set order
+        if isinstance(model, QStandardItemModel) is False:
+            model.setSort(0, sort_order)
+            model.select()
+        # Delete columns
+        for column in columns_to_delete:
+            if column is not None:
+                widget.hideColumn(column)
+    finally:
+        for col_idx in sorted(modes_to_apply):
+            header.setSectionResizeMode(col_idx, resize_modes[col_idx])
+        widget.setUpdatesEnabled(updates_enabled)
 
     return widget
+
+
+def _get_model_col_indexes(model) -> Dict[str, int]:
+    """ Return a dict with the index of every column of @model, keyed by column name """
+
+    col_indexes: Dict[str, int] = {}
+    try:
+        record = model.record(0)
+        for i in range(record.count()):
+            col_indexes.setdefault(record.fieldName(i), i)
+    except AttributeError:
+        # Models without records (e.g. QStandardItemModel) are indexed by header text
+        for i in range(model.columnCount()):
+            header_text = model.headerData(i, Qt.Orientation.Horizontal)
+            if header_text is not None:
+                col_indexes.setdefault(str(header_text), i)
+
+    return col_indexes
 
 
 def add_icon(widget, icon, folder="dialogs"):
@@ -6154,6 +6200,9 @@ def add_tableview_header(widget: QWidget, fields: Optional[List[Dict[str, Any]]]
     model.clear()
     widget.setModel(model)
     widget.horizontalHeader().setStretchLastSection(True)
+    # Sizing the columns while the rows are loaded is what takes the longest on big tables, so make
+    # sure the header samples a few rows instead of measuring the cells of a thousand of them
+    widget.horizontalHeader().setResizeContentsPrecision(tools_qt.RESIZE_CONTENTS_PRECISION)
     try:
         # Get headers
         headers = []
@@ -6180,16 +6229,23 @@ def fill_tableview_rows(widget, fields: List[Dict[str, Any]]):
     if not fields:
         return widget
     model = widget.model()
+    if model is None:
+        return widget
 
     for item in fields:
+        get_values = getattr(item, 'values', None)
+        if get_values is None:
+            continue
         row = []
-        for value in item.values():
+        for value in get_values():
             if value is None:
                 value = ""
-            if issubclass(type(value), dict):
+            elif isinstance(value, dict):
                 value = json.dumps(value)
-            row.append(QStandardItem(str(value)))
-        if len(row) > 0:
+            elif not isinstance(value, str):
+                value = str(value)
+            row.append(QStandardItem(value))
+        if row:
             model.appendRow(row)
 
     return widget
@@ -6274,8 +6330,7 @@ def load_tableview_visit(dialog, feature_id, rel_feature_type):
     message = tools_qt.fill_table(qtable, f"{tablename}", expr, QSqlTableModel.EditStrategy.OnFieldChange)
     if message:
         tools_qgis.show_warning(message)
-    tableview = f'tbl_visit_x_{rel_feature_type}'
-    set_tablemodel_config(dialog, qtable, f"{tableview}")
+    set_tablemodel_config(dialog, qtable, f"{tablename}")
     tools_qgis.refresh_map_canvas()
 
 
@@ -7911,27 +7966,36 @@ def _get_extent_parameters(schema_name, table_name="node", geom_name="the_geom")
     return rectangle
 
 
-def fill_tbl(complet_result, dialog, widgetname, linkedobject, filter_fields):
-    """ Put filter widgets into layout and set headers into QTableView """
+def fill_tbl(complet_result, dialog, widgetname, linkedobject, filter_fields, fill_data=True):
+    """ Put filter widgets into layout and set headers into QTableView
+    :param fill_data: Get the data of @linkedobject and load it into the QTableView (bool). Set it to False when the
+    data is going to be loaded right after by the filter widgets, to avoid querying and loading the whole list twice
+    """
 
-    complet_list = _get_list(complet_result, filter_fields, linkedobject)
     tab_name = 'tab_none'
-    if complet_list in (False, None):
-        return False, False
-    data = complet_list['body']['data']
-    headers = complet_list['body']['form'].get('headers')
-    fields = data['fields']
-
-    if data.get('hidden'):
-        return False, False
     short_name = f'{tab_name}_{widgetname}' if tab_name not in widgetname else widgetname
     widget = dialog.findChild(QTableView, short_name)
     if widget is None:
         return False, False
-    widget = add_tableview_header(widget, fields, headers)
-    widget = fill_tableview_rows(widget, fields)
-    widget = set_tablemodel_config(dialog, widget, short_name, Qt.SortOrder.DescendingOrder)
-    tools_qt.set_tableview_config(widget, edit_triggers=QTableView.EditTrigger.DoubleClicked)
+
+    complet_list = None
+    if fill_data:
+        complet_list = _get_list(complet_result, filter_fields, linkedobject)
+        if complet_list in (False, None):
+            return False, False
+        data = complet_list['body']['data']
+        headers = complet_list['body']['form'].get('headers')
+        fields = data['fields']
+
+        if data.get('hidden'):
+            return False, False
+        widget = add_tableview_header(widget, fields, headers)
+        widget = fill_tableview_rows(widget, fields)
+        widget = set_tablemodel_config(dialog, widget, short_name, Qt.SortOrder.DescendingOrder)
+        tools_qt.set_tableview_config(widget, edit_triggers=QTableView.EditTrigger.DoubleClicked)
+    elif widget.model() is None:
+        # Whoever loads the data afterwards expects the QTableView to already have a model
+        widget = add_tableview_header(widget)
 
     widget_list = []
     widget_list.extend(dialog.findChildren(QComboBox, QRegularExpression(f"{tab_name}_")))
@@ -8019,6 +8083,7 @@ def set_filter_listeners(complet_result, dialog, widget_list, columnname, widget
                         -> widget.currentIndexChanged.connect(partial(getattr(tools_backend_calls, widgetfunction), **kwargs))
        module = tools_backend_calls -> def open_rpt_result(**kwargs)
                                     -> def filter_table(self, **kwargs)
+    :return: True when the emitted filter has loaded the data into the QTableView (bool)
      """
 
     model = None
@@ -8030,6 +8095,7 @@ def set_filter_listeners(complet_result, dialog, widget_list, columnname, widget
     # widget, we will emit only the one of the last widget. This is enough for the correct filtering of the
     # QTableView and we gain in performance
     last_widget = None
+    last_function_name = ""
     for widget in widget_list:
         if widget.property('isfilter') is not True:
             continue
@@ -8077,7 +8143,7 @@ def set_filter_listeners(complet_result, dialog, widget_list, columnname, widget
                             msg = "widget {0} has associated function {1}, but {2} not exist"
                             msg_params = (widget.property('widgetname'), function_name, function_name,)
                             tools_qgis.show_message(msg, Qgis.MessageLevel.Critical, msg_params=msg_params)
-                            return widget
+                            return False
                     else:
                         msg = "Parameter functionName is null for button"
                         tools_qgis.show_message(msg, Qgis.MessageLevel.Critical, parameter=widget.objectName())
@@ -8092,7 +8158,7 @@ def set_filter_listeners(complet_result, dialog, widget_list, columnname, widget
                     msg = "widget {0} has associated function {1}, but {2} not exist"
                     msg_params = (widget.property('widgetname'), function_name, function_name,)
                     tools_qgis.show_message(msg, Qgis.MessageLevel.Critical, msg_params=msg_params)
-                    return widget
+                    return False
                 if 'parameters' in widgetfunction[i]:
                     func_params = widgetfunction[i]['parameters']
 
@@ -8114,14 +8180,20 @@ def set_filter_listeners(complet_result, dialog, widget_list, columnname, widget
                     continue
 
             last_widget = widget
+            last_function_name = function_name
 
     # Emit signal changed
+    data_loaded = False
     if last_widget is not None:
         if type(last_widget) is QLineEdit:
             text = tools_qt.get_text(dialog, last_widget, False, False)
             last_widget.textChanged.emit(text)
+            data_loaded = last_function_name in FILL_TABLE_FUNCTIONS
         elif isinstance(last_widget, QComboBox):
             last_widget.currentIndexChanged.emit(last_widget.currentIndex())
+            data_loaded = last_function_name in FILL_TABLE_FUNCTIONS
+
+    return data_loaded
 
 
 def manage_dlg_widgets(class_object, dialog, complet_result):

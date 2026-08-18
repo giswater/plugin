@@ -192,11 +192,12 @@ BEGIN
 		v_limit = 10;
 	END IF;
 
-	EXECUTE 'SELECT count(*)/'||v_limit||' FROM (' || v_query_result || ') a'
-		INTO v_lastpage;
-
 	-- add limit
 	IF v_device != 4 AND v_limit != -1 THEN
+		-- the list is truncated, so the total amount of rows has to be counted apart
+		EXECUTE 'SELECT count(*)/'||v_limit||' FROM (' || v_query_result || ') a'
+			INTO v_lastpage;
+
 	    v_query_result := v_query_result || ' LIMIT '|| v_limit;
 	END IF;
 
@@ -211,7 +212,8 @@ BEGIN
 	EXECUTE 'SELECT array_to_json(array_agg(row_to_json(a))) FROM (' || v_query_result || ') a'
 		INTO v_result_list;
 
-	RAISE NOTICE '--- gw_fct_getlist - List: % ---', v_result_list;
+	-- the list is not raised because sending the whole result as a notice slows down large lists
+	RAISE NOTICE '--- gw_fct_getlist - List rows: % ---', coalesce(json_array_length(v_result_list), 0);
 
 	-- Building headers
 	i = 1;
@@ -251,6 +253,11 @@ BEGIN
 	v_headers_json = array_to_json (v_headers_params);
 
 	-- building pageinfo
+	-- when the whole list is returned the rows are already there, no need to count them on the database
+	IF v_lastpage IS NULL THEN
+		v_lastpage := coalesce(json_array_length(v_result_list), 0) / v_limit;
+	END IF;
+
 	v_pageinfo := json_build_object('orderBy',v_orderby, 'orderType', v_ordertype, 'currentPage', v_page, 'lastPage', v_lastpage);
 
 	EXECUTE 'SELECT listclass FROM config_form_list WHERE listname = $1 LIMIT 1'

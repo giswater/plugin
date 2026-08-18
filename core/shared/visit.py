@@ -1402,13 +1402,14 @@ class GwVisit(QObject):
         self.dlg_event.tbl_docs_x_event.horizontalHeader().setStretchLastSection(True)
         self.dlg_event.tbl_docs_x_event.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
-        # Get columns name and set headers of model with that
-        columns_name = tools_db.get_columns_list('om_visit_event_photo')
-        headers = []
-        for x in columns_name:
-            headers.append(x[0])
-        headers = ['value', 'filetype', 'fextension']
-        model.setHorizontalHeaderLabels(headers)
+        # Set headers matching the columns selected below
+        msg = "Value"
+        value_title = tools_qt.tr(msg)
+        msg = "File type"
+        filetype_title = tools_qt.tr(msg)
+        msg = "Extension"
+        extension_title = tools_qt.tr(msg)
+        model.setHorizontalHeaderLabels([value_title, filetype_title, extension_title])
 
         # Get values in order to populate model
         visit_id = tools_qt.get_text(self.dlg_add_visit, self.dlg_add_visit.visit_id)

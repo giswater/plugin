@@ -54,11 +54,16 @@ class ManifestError(ValueError):
 
 @dataclass(frozen=True)
 class Step:
-    """One source spec inside an ``sql_dir`` / ``sql_file`` phase."""
+    """One source spec inside an ``sql_dir`` / ``sql_file`` phase.
+
+    ``shared_source``: extra folder merged by basename (shared < fallback <
+    locale). Locales only need the files they translate.
+    """
 
     source: str
     recursive: bool = False
     fallback_source: str = ""
+    shared_source: str = ""
     schema_override: str = ""
     aux_override: str = ""
 
@@ -233,6 +238,7 @@ def _parse_step(raw: Any, phase_id: str, path: str) -> Step:
         source=src,
         recursive=bool(raw.get("recursive", False)),
         fallback_source=str(raw.get("fallback_source", "")),
+        shared_source=str(raw.get("shared_source", "")),
         schema_override=str(raw.get("schema_override", "")),
         aux_override=str(raw.get("aux_override", "")),
     )

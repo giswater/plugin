@@ -377,8 +377,9 @@ class GwToolBoxButton(GwAction):
                 i = 0
                 dict_keys = {}
                 for key in field['value'][0].keys():
+                    # Keys stay untranslated, they index the report values below
                     dict_keys[i] = f"{key}"
-                    self.dlg_reports.tbl_reports.setHorizontalHeaderItem(i, QTableWidgetItem(f"{key}"))
+                    self.dlg_reports.tbl_reports.setHorizontalHeaderItem(i, QTableWidgetItem(tools_qt.tr(f"{key}")))
                     i = i + 1
 
                 for row in range(numrows):
@@ -465,7 +466,7 @@ class GwToolBoxButton(GwAction):
                     while self.add_columns.get(i) is not None and self.add_columns.get(i)[0] not in skipped_dict:
                         if self.add_columns.get(i)[1] not in ('', 'null', None):
                             dict_keys[i - skipped] = self.add_columns.get(i)[1]
-                            self.dlg_reports.tbl_reports.setHorizontalHeaderItem(i - skipped, QTableWidgetItem(f"{self.add_columns.get(i)[0]}"))
+                            self.dlg_reports.tbl_reports.setHorizontalHeaderItem(i - skipped, QTableWidgetItem(tools_qt.tr(f"{self.add_columns.get(i)[0]}")))
                         else:
                             skipped += 1
                             if self.add_columns.get(i)[0] not in skipped_dict:
@@ -478,7 +479,7 @@ class GwToolBoxButton(GwAction):
                     tot_skipped = 0
                     # Add usual columns
                     dict_keys[i] = f"{key}"
-                    self.dlg_reports.tbl_reports.setHorizontalHeaderItem(i, QTableWidgetItem(f"{key}"))
+                    self.dlg_reports.tbl_reports.setHorizontalHeaderItem(i, QTableWidgetItem(tools_qt.tr(f"{key}")))
                     i = i + 1
 
                 # Set actual rows/cols for table
