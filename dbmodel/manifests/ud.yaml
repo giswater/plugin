@@ -90,8 +90,12 @@ phases:
   - id: load_sample
     type: sql_dir
     optional: true
+    description: "Sample data: overlay existing locale folder; missing es_* → es_ES, else en_US."
     steps:
-      - { source: "schemas/main/ud/sample/user", recursive: false }
+      - source: "schemas/main/ud/sample/user/{{ locale }}"
+        fallback_source: "schemas/main/ud/sample/user/en_US"
+        shared_source: "schemas/main/ud/sample/user"
+        recursive: false
 
   - id: load_inv
     type: sql_dir

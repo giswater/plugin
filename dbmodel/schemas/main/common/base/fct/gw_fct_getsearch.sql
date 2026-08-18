@@ -64,7 +64,7 @@ BEGIN
 
 	v_filter = replace(coalesce(v_filter, ''), '''', '''''');
 
-	FOR rec_tab IN SELECT * FROM config_form_tabs WHERE formname='search' ORDER BY orderby
+	FOR rec_tab IN SELECT * FROM v_config_form_tabs WHERE formname='search' ORDER BY orderby
 	LOOP
 		FOR v_parameter, v_tab_params, v_label IN
 			SELECT parameter, value, label

@@ -15,7 +15,7 @@ from qgis.PyQt.QtGui import QIcon, QKeySequence
 from qgis.PyQt.QtWidgets import QMenu, QPushButton, QTreeWidget, QTreeWidgetItem, QHeaderView
 from qgis.core import QgsApplication
 
-from .admin.i18n_languages import GwI18NManageLanguagesDialog
+from .admin.i18n.language_packages_dialog import GwI18NManageLanguagesDialog
 from .ui.ui_manager import GwLoadMenuUi
 from .utils import tools_gw
 from .. import global_vars
@@ -154,7 +154,7 @@ class GwMenuLoad(QObject):
             return
 
         icon_folder = f"{lib_vars.plugin_dir}{os.sep}icons"
-        icon_path = f"{icon_folder}{os.sep}dialogs{os.sep}184.svg"
+        icon_path = f"{icon_folder}{os.sep}dialogs{os.sep}184.png"
         language_icon = QIcon(icon_path)
         title = "Language"
         action_language = self.main_menu.addAction(tools_qt.tr(title))
@@ -210,7 +210,7 @@ class GwMenuLoad(QObject):
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
         # Open dialog
-        tools_gw.open_dialog(self.dlg_manage_menu, dlg_name='load_menu', title="Advanced Menu")
+        tools_gw.open_dialog(self.dlg_manage_menu, dlg_name='load_menu', title="Advanced Menu", skip_db_check=True)
 
     def _reset_position_dialog(self):
         """ Reset position dialog x/y """

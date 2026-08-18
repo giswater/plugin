@@ -11,8 +11,8 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 9 test
-SELECT plan(9);
+-- Plan for 14 test
+SELECT plan(14);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -93,6 +93,68 @@ SELECT is(
     "feature":{"tableName":"ve_cat_dscenario", "id":"1"}, "data":{"filterFields":{}, "pageInfo":{}}}$$)::JSON)->>'status',
     'Accepted',
     'Check if gw_fct_getinfofromid tableName --> ve_cat_dscenario returns status "Accepted"'
+);
+
+-- Mapzone manager CREATE form: PK empty / not editable; array fields default to Undefined (0)
+SELECT is(
+    (SELECT f->>'value'
+     FROM json_array_elements((
+         gw_fct_getinfofromid($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{},
+         "feature":{"tableName":"ve_drainzone"}, "data":{"filterFields":{}, "pageInfo":{}}}$$)::json
+     )->'body'->'data'->'fields') f
+     WHERE f->>'columnname' = 'drainzone_id'),
+    '',
+    've_drainzone INSERT drainzone_id value is empty'
+);
+
+SELECT is(
+    (SELECT f->>'ismandatory'
+     FROM json_array_elements((
+         gw_fct_getinfofromid($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{},
+         "feature":{"tableName":"ve_drainzone"}, "data":{"filterFields":{}, "pageInfo":{}}}$$)::json
+     )->'body'->'data'->'fields') f
+     WHERE f->>'columnname' = 'drainzone_id'),
+    'false',
+    've_drainzone INSERT drainzone_id is not mandatory'
+);
+
+SELECT is(
+    (SELECT f->>'iseditable'
+     FROM json_array_elements((
+         gw_fct_getinfofromid($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{},
+         "feature":{"tableName":"ve_drainzone"}, "data":{"filterFields":{}, "pageInfo":{}}}$$)::json
+     )->'body'->'data'->'fields') f
+     WHERE f->>'columnname' = 'drainzone_id'),
+    'false',
+    've_drainzone INSERT drainzone_id is not editable'
+);
+
+SELECT ok(
+    COALESCE((
+        SELECT bool_and(
+            (f->>'ismandatory') = 'false'
+            AND f->>'selectedId' = '0'
+            AND EXISTS (SELECT 1 FROM json_array_elements_text(f->'comboIds') x WHERE x = '0')
+        )
+        FROM json_array_elements((
+            gw_fct_getinfofromid($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{},
+            "feature":{"tableName":"ve_drainzone"}, "data":{"filterFields":{}, "pageInfo":{}}}$$)::json
+        )->'body'->'data'->'fields') f
+        WHERE f->>'columnname' IN ('expl_id', 'sector_id', 'muni_id')
+          AND f->>'widgettype' = 'multiple_option'
+    ), false),
+    've_drainzone INSERT array fields default to Undefined (0) and are not mandatory'
+);
+
+SELECT is(
+    (SELECT f->>'value'
+     FROM json_array_elements((
+         gw_fct_getinfofromid($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{},
+         "feature":{"tableName":"ve_sector"}, "data":{"filterFields":{}, "pageInfo":{}}}$$)::json
+     )->'body'->'data'->'fields') f
+     WHERE f->>'columnname' = 'sector_id'),
+    '',
+    've_sector INSERT sector_id value is empty'
 );
 
 -- Finish the test

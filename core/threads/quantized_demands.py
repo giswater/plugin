@@ -15,7 +15,7 @@ from qgis.core import QgsTask
 from qgis.PyQt.QtCore import pyqtSignal
 
 from .task import GwTask
-from ...libs import tools_os
+from ...libs import tools_os, tools_qt
 from ...resources.epatools.utils import anl_quantized_demands
 
 
@@ -54,7 +54,8 @@ class GwQuantizedDemands(GwTask):
             return False
 
         try:
-            self.status.emit("Creating quantized model...")
+            message = "Creating quantized model..."
+            self.status.emit(tools_qt.tr(message))
             model = QuantizedModel(
                 self.input_file,
                 self.flow_list,
@@ -63,32 +64,35 @@ class GwQuantizedDemands(GwTask):
                 self.leak_flow,
                 self.hourly_consumption,
             )
-            msg = "Process finished."
 
             inppath = Path(self.output_folder) / f"{self.file_name}.inp"
             if self.isCanceled():
                 self.status.emit("")
-                self.ended.emit("Task canceled.")
+                message = "Task canceled."
+                self.ended.emit(tools_qt.tr(message))
                 return False
-            self.status.emit("Saving INP file...")
+            message = "Saving INP file..."
+            self.status.emit(tools_qt.tr(message))
             write_inpfile(model.quantized_network, inppath)
-            msg += f"\n\nINP file created on:\n{inppath}"
 
             csvpath = Path(self.output_folder) / f"{self.file_name}.csv"
             if self.isCanceled():
                 self.status.emit("")
-                self.ended.emit("Task canceled.")
+                message = "Task canceled."
+                self.ended.emit(tools_qt.tr(message))
                 return False
             self.write_statistics(model, csvpath)
-            msg += f"\n\nStatistics file created on:\n{csvpath}"
 
             if self.isCanceled():
                 self.status.emit("")
-                self.ended.emit("Task canceled.")
+                message = "Task canceled."
+                self.ended.emit(tools_qt.tr(message))
                 return False
 
             self.status.emit("")
-            self.ended.emit(msg)
+            msg = "Process finished.\n\nINP file created on:\n{0}\n\nStatistics file created on:\n{1}"
+            msg_params = (inppath, csvpath)
+            self.ended.emit(tools_qt.tr(msg, list_params=msg_params))
             return True
 
         except Exception as e:
@@ -100,7 +104,8 @@ class GwQuantizedDemands(GwTask):
         wntr_sim = tools_os.get_dep("wntr.sim")
         EpanetSimulator = wntr_sim.EpanetSimulator
 
-        self.status.emit("Running simulation...")
+        msg = "Running simulation..."
+        self.status.emit(tools_qt.tr(msg))
         sim = EpanetSimulator(model.quantized_network)
         results = {}
         results["input"] = model.input_model.results
@@ -110,7 +115,8 @@ class GwQuantizedDemands(GwTask):
             self.status.emit("")
             return
 
-        self.status.emit("Saving statistics file...")
+        msg = "Saving statistics file..."
+        self.status.emit(tools_qt.tr(msg))
         statistics = {}
         for origin in ["input", "output"]:
             links = results[origin].link["velocity"]
@@ -325,7 +331,9 @@ class FlowTable:
             lines = f.readlines()
 
         if len(lines) != 1:
-            raise ValueError(f"{file_name} must contain just one line.")
+            msg = "{0} must contain just one line."
+            msg_params = (file_name,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         self._flow_values = [float(x) for x in lines[0].split(" ")]
 
@@ -345,9 +353,8 @@ class InputFlow:
     def get_volume_per_timestep(self, leak_flow, model_timestep=10):
         steps, remainder = divmod(self.flow_list_timestep, model_timestep)
         if remainder:
-            raise ValueError(
-                "The flow data timestep must be a multiple of the desired timestep."
-            )
+            msg = "The flow data timestep must be a multiple of the desired timestep."
+            raise ValueError(tools_qt.tr(msg))
 
         volume_list = []
 
@@ -431,17 +438,17 @@ class VolumeTable:
             lines = f.readlines()
 
         if len(lines) != number_of_lines:
-            raise ValueError(
-                f"{file_name} must contain {number_of_lines} line{'' if number_of_lines == 1 else 's'}."
-            )
+            msg = "{0} must contain {1} line{2}."
+            msg_params = (file_name, number_of_lines, '' if number_of_lines == 1 else 's')
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         self._volume_values = [[float(i) for i in line.split(" ")] for line in lines]
 
     def get_random(self, hour: int) -> float:
         if not (0 <= hour <= 23):
-            raise ValueError(
-                f"The hour value must be between 0 and 23, inclusive. Value supplied: {hour}"
-            )
+            msg = "The hour value must be between 0 and 23, inclusive. Value supplied: {0}"
+            msg_params = (hour,)
+            raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         if not self._hourly_distribution:
             return choice(self._volume_values[0])

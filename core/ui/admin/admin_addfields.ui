@@ -308,7 +308,7 @@
                 <item row="9" column="2">
                  <widget class="QPlainTextEdit" name="stylesheet">
                   <property name="toolTip">
-                   <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;{&amp;quot;label&amp;quot;:&amp;quot;color:green; font-weight:bold;&amp;quot;,&amp;quot;widget&amp;quot;:{&amp;quot;enabled&amp;quot;:&amp;quot;color:black; font-weight:bold;&amp;quot;,&amp;quot;disabled&amp;quot;:&amp;quot;color:black; font-weight:bold;&amp;quot;}}&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                   <string>{"label":"color:green; font-weight:bold;","widget":{"enabled":"color:black; font-weight:bold;","disabled":"color:black; font-weight:bold;"}}</string>
                   </property>
                  </widget>
                 </item>

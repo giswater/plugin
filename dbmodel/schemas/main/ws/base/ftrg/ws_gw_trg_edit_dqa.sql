@@ -82,6 +82,16 @@ BEGIN
 			SELECT macrodqa_id INTO v_mapzone_id FROM macrodqa WHERE name = NEW.macrodqa;
 		END IF;
 
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
+		END IF;
+		IF NEW.sector_id IS NULL OR NEW.sector_id = '{}'::integer[] THEN
+			NEW.sector_id := ARRAY[0];
+		END IF;
+
 		INSERT INTO dqa (dqa_id, code, name, descript, active, dqa_type, macrodqa_id, expl_id, sector_id, muni_id, avg_press, pattern_id, graphconfig, stylesheet, link, lock_level, addparam, created_at, created_by, updated_at, updated_by)
 		VALUES (v_dqa_id, NEW.code, NEW.name, NEW.descript, NEW.active, NEW.dqa_type, NEW.macrodqa_id, NEW.expl_id, NEW.sector_id, NEW.muni_id, NEW.avg_press, NEW.pattern_id,
 		NEW.graphconfig::json, NEW.stylesheet::json, NEW.link, NEW.lock_level, NEW.addparam::json, now(), current_user, now(), current_user);
@@ -108,6 +118,17 @@ BEGIN
 		ELSIF v_view_name = 'UI' THEN
 			SELECT macrodqa_id INTO v_mapzone_id FROM macrodqa WHERE name = NEW.macrodqa;
 		END IF;
+
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
+		END IF;
+		IF NEW.sector_id IS NULL OR NEW.sector_id = '{}'::integer[] THEN
+			NEW.sector_id := ARRAY[0];
+		END IF;
+
 		UPDATE dqa
 		SET dqa_id=NEW.dqa_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, dqa_type=NEW.dqa_type, macrodqa_id=v_mapzone_id, expl_id=NEW.expl_id,
 		sector_id=NEW.sector_id, muni_id=NEW.muni_id, avg_press=NEW.avg_press, pattern_id=NEW.pattern_id, graphconfig=NEW.graphconfig::json,

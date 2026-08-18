@@ -139,30 +139,7 @@ BEGIN
             EXECUTE 'CREATE OR REPLACE TEMPORARY VIEW temp_ve_arc_geom_selector AS
                 SELECT a.the_geom
                 FROM arc a
-                WHERE EXISTS (
-                        SELECT 1
-                        FROM selector_state ss
-                        WHERE ss.cur_user = current_user
-                          AND ss.state_id = a.state
-                    )
-                  AND EXISTS (
-                        SELECT 1
-                        FROM selector_sector ssec
-                        WHERE ssec.cur_user = current_user
-                          AND ssec.sector_id = a.sector_id
-                    )
-                  AND EXISTS (
-                        SELECT 1
-                        FROM selector_municipality sm
-                        WHERE sm.cur_user = current_user
-                          AND sm.muni_id = a.muni_id
-                    )
-                  AND EXISTS (
-                        SELECT 1
-                        FROM selector_expl se
-                        WHERE se.cur_user = current_user
-                          AND (se.expl_id = a.expl_id OR se.expl_id = ANY (a.expl_visibility))
-                    )';
+                JOIN vf_arc vf ON vf.arc_id = a.arc_id';
 
             CREATE TEMP TABLE IF NOT EXISTS temp_exploitation (
                 expl_id int4 NULL,

@@ -445,8 +445,8 @@ class GwGo2EpaButton(GwAction):
         if tools_qt.is_checked(self.dlg_go2epa, self.dlg_go2epa.chk_import_result) or tools_qt.is_checked(self.dlg_go2epa, self.dlg_go2epa.chk_exec):
             file_rpt = tools_qt.get_text(self.dlg_go2epa, self.dlg_go2epa.txt_file_rpt)
             if not file_rpt or file_rpt == 'null':
-                message = tools_qt.tr("RPT file path is required when importing results or executing EPA")
-                tools_qgis.show_warning(message)
+                msg = "RPT file path is required when importing results or executing EPA"
+                tools_qgis.show_warning(msg)
                 return
         # Save user values
         self._save_user_values()

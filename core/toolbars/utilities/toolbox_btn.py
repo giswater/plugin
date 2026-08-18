@@ -96,7 +96,7 @@ class GwToolBoxButton(GwAction):
                 self.dlg_functions.finished.connect(signal)
 
         # Open form and set title
-        tools_gw.open_dialog(self.dlg_functions, dlg_name='toolbox')
+        tools_gw.open_dialog(self.dlg_functions, dlg_name='toolbox_tool')
         self.dlg_functions.setWindowTitle(f"{self.function_selected}")
         return self.dlg_functions
 
@@ -264,7 +264,7 @@ class GwToolBoxButton(GwAction):
             QgsApplication.taskManager().addTask(self.report_thread)
             QgsApplication.taskManager().triggerTask(self.report_thread)
 
-            tools_gw.open_dialog(self.dlg_reports, dlg_name='reports')
+            tools_gw.open_dialog(self.dlg_reports, dlg_name='toolbox_reports')
             self.dlg_reports.setWindowTitle(f"{function_name}")
 
         elif self.TRV_PROCESSES.lower() in index.parent().parent().data().lower():
@@ -307,7 +307,7 @@ class GwToolBoxButton(GwAction):
             self.dlg_functions.btn_cancel.clicked.connect(partial(self.remove_layers))
 
             # Open form and set title
-            tools_gw.open_dialog(self.dlg_functions, dlg_name='toolbox')
+            tools_gw.open_dialog(self.dlg_functions, dlg_name='toolbox_tool')
             self.dlg_functions.setWindowTitle(f"{self.function_selected}")
 
     def _report_finished(self, status, json_result):
@@ -377,8 +377,9 @@ class GwToolBoxButton(GwAction):
                 i = 0
                 dict_keys = {}
                 for key in field['value'][0].keys():
+                    # Keys stay untranslated, they index the report values below
                     dict_keys[i] = f"{key}"
-                    self.dlg_reports.tbl_reports.setHorizontalHeaderItem(i, QTableWidgetItem(f"{key}"))
+                    self.dlg_reports.tbl_reports.setHorizontalHeaderItem(i, QTableWidgetItem(tools_qt.tr(f"{key}")))
                     i = i + 1
 
                 for row in range(numrows):
@@ -465,7 +466,7 @@ class GwToolBoxButton(GwAction):
                     while self.add_columns.get(i) is not None and self.add_columns.get(i)[0] not in skipped_dict:
                         if self.add_columns.get(i)[1] not in ('', 'null', None):
                             dict_keys[i - skipped] = self.add_columns.get(i)[1]
-                            self.dlg_reports.tbl_reports.setHorizontalHeaderItem(i - skipped, QTableWidgetItem(f"{self.add_columns.get(i)[0]}"))
+                            self.dlg_reports.tbl_reports.setHorizontalHeaderItem(i - skipped, QTableWidgetItem(tools_qt.tr(f"{self.add_columns.get(i)[0]}")))
                         else:
                             skipped += 1
                             if self.add_columns.get(i)[0] not in skipped_dict:
@@ -478,7 +479,7 @@ class GwToolBoxButton(GwAction):
                     tot_skipped = 0
                     # Add usual columns
                     dict_keys[i] = f"{key}"
-                    self.dlg_reports.tbl_reports.setHorizontalHeaderItem(i, QTableWidgetItem(f"{key}"))
+                    self.dlg_reports.tbl_reports.setHorizontalHeaderItem(i, QTableWidgetItem(tools_qt.tr(f"{key}")))
                     i = i + 1
 
                 # Set actual rows/cols for table
@@ -635,6 +636,7 @@ class GwToolBoxButton(GwAction):
             dialog.setWindowTitle(result['alias'])
             dialog.txt_info.setText(str(result['descript']))
 
+            # Hide input layer and selection type group boxes if no feature type
             if not result['functionparams'].get('featureType'):
                 dialog.grb_input_layer.setVisible(False)
                 dialog.grb_selection_type.setVisible(False)
@@ -643,7 +645,13 @@ class GwToolBoxButton(GwAction):
                 self._populate_cmb_type(feature_types)
                 self.dlg_functions.cmb_feature_type.currentIndexChanged.connect(partial(self._populate_layer_combo, feature_types))
                 self._populate_layer_combo(feature_types)
+
             tools_gw.build_dialog_options(dialog, result, 0, self.function_list, self.temp_layers_added, module)
+
+            # Hide parameters group box if no input params were built
+            param_layout = dialog.findChild(QGridLayout, 'grl_option_parameters')
+            dialog.grb_parameters.setVisible(bool(param_layout and param_layout.count()))
+
             self._load_settings_values(dialog, result)
             self._load_parametric_values(dialog, result)
             for combo in dialog.findChildren(QComboBox):

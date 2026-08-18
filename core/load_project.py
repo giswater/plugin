@@ -148,6 +148,14 @@ class GwLoadProject(QObject):
         lib_vars.project_epsg = tools_qgis.get_epsg()
         tools_gw.connect_signal(QgsProject.instance().crsChanged, tools_gw.set_epsg,
                                 'load_project', 'project_read_crsChanged_set_epsg')
+        tools_gw.disconnect_signal('load_project', 'project_read_willRemoveChildren_protect_vr')
+        tools_qgis.refresh_value_relation_target_tables()
+        tools_gw.connect_signal(
+            QgsProject.instance().layerTreeRoot().willRemoveChildren,
+            tools_gw.protect_value_relation_layers_on_remove,
+            'load_project',
+            'project_read_willRemoveChildren_protect_vr'
+        )
         global_vars.project_loaded = True
 
         # Set indexing strategy for snapping so that it uses less memory if possible
@@ -303,8 +311,8 @@ class GwLoadProject(QObject):
         if missing_layers:
             if show_warning:
                 title = "Giswater plugin cannot be loaded"
-                msg = f"QGIS project seems to be a Giswater project, but layer(s) {0} are missing"
-                msg_params = ([k for k, v in missing_layers.items()],)
+                msg = "QGIS project seems to be a Giswater project, but layer(s) {0} are missing"
+                msg_params = (", ".join(k for k, v in missing_layers.items()),)
                 tools_qgis.show_warning(msg, 20, title=title, msg_params=msg_params)
             return False
 

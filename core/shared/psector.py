@@ -336,7 +336,9 @@ class GwPsector:
         # set window title
         if psector_id is not None:
             psector_name = tools_qt.get_text(self.dlg_plan_psector, "tab_general_name")
-            self.dlg_plan_psector.setWindowTitle(f"Plan psector - {psector_name} ({psector_id})")
+            title = "Plan psector - {0} ({1})"
+            msg_params = (psector_name, psector_id)
+            self.dlg_plan_psector.setWindowTitle(tools_qt.tr(title, list_params=msg_params))
 
         # get widgets from general tab
         widget_list = self.dlg_plan_psector.tab_general.findChildren(QWidget)
@@ -588,7 +590,8 @@ class GwPsector:
             self.dlg_psector_rapport.chk_composer.setChecked(False)
             self.dlg_psector_rapport.cmb_templates.setEnabled(False)
             self.dlg_psector_rapport.txt_composer_path.setEnabled(False)
-            self._set_composer_warning('Composer disabled: no layouts available.')
+            msg = "Composer disabled: no layouts available."
+            self._set_composer_warning(msg)
             return
         else:
             # If composer configured, enable composer pdf file widgets
@@ -641,26 +644,29 @@ class GwPsector:
         layout_name = tools_qt.get_text(self.dlg_psector_rapport, self.dlg_psector_rapport.cmb_templates)
 
         if not layout_name or layout_name in ('null', '-1'):
-            self._set_composer_warning("Composer disabled: select a template.")
+            msg = "Composer disabled: select a template."
+            self._set_composer_warning(msg)
             return None
 
         layout = layout_manager.layoutByName(layout_name)
 
         if layout is None:
-            self._set_composer_warning("Composer disabled: layout not found.")
+            msg = "Composer disabled: layout not found."
+            self._set_composer_warning(msg)
             return None
 
         atlas = layout.atlas()
         coverage_layer = atlas.coverageLayer() if atlas else None
 
         if atlas is None or not atlas.enabled() or coverage_layer is None:
-            self._set_composer_warning(
-                "Composer disabled: atlas must be enabled with coverage layer 'v_plan_psector'.")
+            msg = "Composer disabled: atlas must be enabled with coverage layer 'v_plan_psector'."
+            self._set_composer_warning(msg)
             return None
 
         coverage_layer_table = (tools_qgis.get_layer_source_table_name(coverage_layer) or "").lower()
         if coverage_layer_table != "v_plan_psector":
-            self._set_composer_warning("Composer disabled: atlas coverage layer must be 'v_plan_psector'.")
+            msg = "Composer disabled: atlas coverage layer must be 'v_plan_psector'."
+            self._set_composer_warning(msg)
             return None
 
         total_text_items = 0
@@ -669,7 +675,8 @@ class GwPsector:
                 total_text_items += 1
 
         if total_text_items == 0:
-            self._set_composer_warning("Composer disabled: file is empty.")
+            msg = "Composer disabled: file is empty."
+            self._set_composer_warning(msg)
             return None
 
         return layout
@@ -680,7 +687,7 @@ class GwPsector:
         if not label:
             return
 
-        label.setText(message)
+        label.setText(tools_qt.tr(message))
         label.setVisible(bool(message))
         if message:
             label.setStyleSheet('color: red')
@@ -796,7 +803,8 @@ class GwPsector:
             tools_log.log_warning(str(e))
             msg = "Cannot create file, check if selected composer is the correct composer"
             tools_qgis.show_warning(msg, parameter=path, dialog=self.dlg_plan_psector)
-            self._set_composer_warning("Composer disabled: export failed, check layout configuration.")
+            msg = "Composer disabled: export failed, check layout configuration."
+            self._set_composer_warning(msg)
             return False
         finally:
             designer_window.close()
@@ -1101,7 +1109,7 @@ class GwPsector:
     def _validate_psector_fields(self) -> bool:
         """Validate numeric fields and parent_id"""
 
-        msg = tools_qt.tr("Psector could not be updated because of the following errors: ")
+        errors = []
         scale = tools_qt.get_text(self.dlg_plan_psector, "tab_general_scale", return_string_null=False)
         atlas_id = tools_qt.get_text(self.dlg_plan_psector, "tab_general_atlas_id", return_string_null=False)
         parent_id = tools_qt.get_text(self.dlg_plan_psector, "tab_general_parent_id", return_string_null=False)
@@ -1111,32 +1119,39 @@ class GwPsector:
             try:
                 float(rotation)
             except ValueError:
-                msg += tools_qt.tr("Rotation must be a number.")
+                msg = "Rotation must be a number."
+                errors.append(tools_qt.tr(msg))
 
         if scale != "":
             try:
                 float(scale)
             except ValueError:
-                msg += tools_qt.tr("Scale must be a number.")
+                msg = "Scale must be a number."
+                errors.append(tools_qt.tr(msg))
 
         if atlas_id != "":
             try:
                 int(atlas_id)
             except ValueError:
-                msg += tools_qt.tr("Atlas ID must be an integer.")
+                msg = "Atlas ID must be an integer."
+                errors.append(tools_qt.tr(msg))
 
         if parent_id != "":
             try:
                 int(parent_id)
             except ValueError:
-                msg += tools_qt.tr("Parent ID must be an integer.")
+                msg = "Parent ID must be an integer."
+                errors.append(tools_qt.tr(msg))
 
         if parent_id is not None and parent_id != "":
             if not self._validate_parent_id(parent_id):
-                msg += tools_qt.tr("Parent ID does not exist.")
+                msg = "Parent ID does not exist."
+                errors.append(tools_qt.tr(msg))
 
-        if msg != tools_qt.tr("Psector could not be updated because of the following errors: "):
-            tools_qgis.show_warning(msg, dialog=self.dlg_plan_psector)
+        if errors:
+            msg = "Psector could not be updated because of the following errors: {0}"
+            msg_params = (" ".join(errors),)
+            tools_qgis.show_warning(msg, dialog=self.dlg_plan_psector, msg_params=msg_params)
             return False
 
         return True
@@ -1318,8 +1333,10 @@ class GwPsector:
         msg = ""
         if json_result['message']['level'] == 1:
             if from_toggle:
-                msg += tools_qt.tr('Unable to activate psector. ')
-            msg += tools_qt.tr("There are some topological inconsistences on psector '{0}'. Would you like to see the log?")
+                message = "Unable to activate psector. "
+                msg += tools_qt.tr(message)
+            message = "There are some topological inconsistences on psector '{0}'. Would you like to see the log?"
+            msg += tools_qt.tr(message)
             msg_params = (psector_name,)
             function = partial(self.show_psector_topoerror_log, json_result, psector_id)
             tools_qgis.show_message_function(msg, function, message_level=Qgis.MessageLevel.Warning, duration=0, text_params=msg_params, dialog=self.dlg_plan_psector)
@@ -1641,6 +1658,7 @@ class GwPsector:
                f" LIKE '%{query}%' AND {field_id} NOT IN (SELECT price_id FROM {schema_name}.{tableright}"
                f" WHERE psector_id = '{psector_id}')")
         tools_db.fill_table_by_query(qtable, sql)
+        tools_gw.set_tablemodel_config(dialog, qtable, tableleft)
 
     def fill_table(self, dialog, widget, table_name, hidde=False, set_edit_triggers=QTableView.EditTrigger.NoEditTriggers,
                    expr=None, feature_type=None, field_id=None, refresh_table=True):
@@ -2011,31 +2029,38 @@ class GwPsector:
         """ Show custom context menu """
         menu = QMenu(qtableview)
 
-        action_open = QAction("Open", qtableview)
+        title = "Open"
+        action_open = QAction(tools_qt.tr(title), qtableview)
         action_open.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QTableView, qtableview.objectName(), pos))
         menu.addAction(action_open)
 
-        action_actual_psector = QAction("Psector actual", qtableview)
+        title = "Psector actual"
+        action_actual_psector = QAction(tools_qt.tr(title), qtableview)
         action_actual_psector.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_update_psector"))
         menu.addAction(action_actual_psector)
 
-        action_show = QAction("Show", qtableview)
+        title = "Show"
+        action_show = QAction(tools_qt.tr(title), qtableview)
         action_show.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_show"))
         menu.addAction(action_show)
 
-        action_toggle_active = QAction("Toggle active", qtableview)
+        title = "Toggle active"
+        action_toggle_active = QAction(tools_qt.tr(title), qtableview)
         action_toggle_active.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_toggle_active"))
         menu.addAction(action_toggle_active)
 
-        action_merge = QAction("Merge", qtableview)
+        title = "Merge"
+        action_merge = QAction(tools_qt.tr(title), qtableview)
         action_merge.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_merge"))
         menu.addAction(action_merge)
 
-        action_duplicate = QAction("Duplicate", qtableview)
+        title = "Duplicate"
+        action_duplicate = QAction(tools_qt.tr(title), qtableview)
         action_duplicate.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_duplicate"))
         menu.addAction(action_duplicate)
 
-        action_delete = QAction("Delete", qtableview)
+        title = "Delete"
+        action_delete = QAction(tools_qt.tr(title), qtableview)
         action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete"))
         menu.addAction(action_delete)
 
@@ -2060,8 +2085,9 @@ class GwPsector:
             active = qtbl_psm.model().record(row).value("active")
             archived = qtbl_psm.model().record(row).value("archived")
             if archived is True:
-                msg = f"Cannot set the active state of archived psector {psector_id}. Please unarchive it first."
-                tools_qgis.show_warning(msg, dialog=dialog)
+                msg = "Cannot set the active state of archived psector {0}. Please unarchive it first."
+                msg_params = (psector_id,)
+                tools_qgis.show_warning(msg, dialog=dialog, msg_params=msg_params)
                 return
 
             if active:
@@ -2157,8 +2183,9 @@ class GwPsector:
             self.set_label_current_psector(dialog, result=result)
         else:
             # If the procedure fails, show a warning
-            msg = f"Failed to set psector {scenario_id} as current"
-            tools_qgis.show_warning(msg, dialog=dialog)
+            msg = "Failed to set psector {0} as current"
+            msg_params = (scenario_id,)
+            tools_qgis.show_warning(msg, dialog=dialog, msg_params=msg_params)
 
         cur_psector = tools_gw.get_config_value('plan_psector_current')
         sql = f"DELETE FROM selector_psector WHERE psector_id = {scenario_id} AND cur_user = current_user; "
@@ -2213,7 +2240,7 @@ class GwPsector:
         try:
             is_checked = self.dlg_psector_mng.chk_filter_canvas.isChecked()
         except RuntimeError:
-            msg = tools_qt.tr("Please close all 'Psector manager' dialogs and try again")
+            msg = "Please close all 'Psector manager' dialogs and try again"
             tools_qgis.show_warning(msg, dialog=self.dlg_psector_mng)
             return
 
@@ -2513,11 +2540,13 @@ class GwPsector:
         """ Show custom context menu """
         menu = QMenu(self.tbl_om_result_cat)
 
-        action_set_current = QAction("Current Result", self.tbl_om_result_cat)
+        title = "Current Result"
+        action_set_current = QAction(tools_qt.tr(title), self.tbl_om_result_cat)
         action_set_current.triggered.connect(partial(self.update_price_vdefault))
         menu.addAction(action_set_current)
 
-        action_delete = QAction("Delete", self.tbl_om_result_cat)
+        title = "Delete"
+        action_delete = QAction(tools_qt.tr(title), self.tbl_om_result_cat)
         action_delete.triggered.connect(partial(self.delete_merm, self.dlg_merm))
         menu.addAction(action_delete)
 
@@ -2576,8 +2605,9 @@ class GwPsector:
             archived = self.qtbl_psm.model().record(row).value("archived")
             id_feature = self.qtbl_psm.model().record(row).value("psector_id")
             if archived is True:
-                msg = f"Cannot merge archived psector {id_feature}. Please unarchive it first."
-                tools_qgis.show_warning(msg, dialog=self.dlg_psector_mng)
+                msg = "Cannot merge archived psector {0}. Please unarchive it first."
+                msg_params = (id_feature,)
+                tools_qgis.show_warning(msg, dialog=self.dlg_psector_mng, msg_params=msg_params)
                 return
 
         # Get selected dscenario id
@@ -2609,8 +2639,9 @@ class GwPsector:
         # psector_name = self.qtbl_psm.model().record(row).value("name")
         archived = self.qtbl_psm.model().record(row).value("archived")
         if archived is True:
-            msg = f"Cannot duplicate archived psector {psector_id}. Please unarchive it first."
-            tools_qgis.show_warning(msg, dialog=self.dlg_psector_mng)
+            msg = "Cannot duplicate archived psector {0}. Please unarchive it first."
+            msg_params = (psector_id,)
+            tools_qgis.show_warning(msg, dialog=self.dlg_psector_mng, msg_params=msg_params)
             return
         self.duplicate_psector = GwPsectorDuplicate()
         self.duplicate_psector.is_duplicated.connect(partial(self.fill_table, self.dlg_psector_mng, self.qtbl_psm, 'v_ui_plan_psector'))
@@ -2968,7 +2999,9 @@ class GwPsector:
                     if f"{feature_id}" in feature_ids and f"{state}" == "1":
                         selection_model.select(index, (QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows))
         except Exception as e:
-            tools_log.log_warning(f"Error in _manage_selection_changed: {e}")
+            msg = "Error in _manage_selection_changed: {0}"
+            msg_params = (e,)
+            tools_log.log_warning(msg, msg_params=msg_params)
 
     def callback_values(self):
         return self, self.dlg_plan_psector, "psector"

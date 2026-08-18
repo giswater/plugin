@@ -401,14 +401,6 @@ AS SELECT cat_feature.id,
      JOIN cat_feature_node USING (id);
 
 UPDATE config_form_fields
-	SET "label"='Cabinet:'
-	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='cabinet' AND "label"='cabinet';
-
-UPDATE config_form_fields
-	SET "label"='Place name:'
-	WHERE formname='ve_connec_samplepoint' AND formtype='form_feature' AND tabname='tab_data' AND columnname='place_name' AND "label"='place_name';
-
-UPDATE config_form_fields
 	SET "label"='Lab code'
 	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='lab_code' AND "label"='lab_code';
 
@@ -1020,6 +1012,9 @@ SELECT DISTINCT ON (visit_id)
 	is_done,
 	feature_id,
 	feature_type,
+  feature_class,
+  featurecat_id,
+  feature_state,
 	the_geom::geometry(Point, SRID_VALUE) AS the_geom
 FROM (
 	SELECT
@@ -1036,12 +1031,17 @@ FROM (
 		CASE
 			WHEN om_visit.the_geom IS NULL THEN node.the_geom
 			ELSE om_visit.the_geom
-		END AS the_geom
+		END AS the_geom,
+		cat_feature.feature_class,
+		node.nodecat_id AS featurecat_id,
+		node.state AS feature_state
 	FROM om_visit
 	JOIN om_visit_x_node ON om_visit_x_node.visit_id = om_visit.id
 	JOIN node ON node.node_id = om_visit_x_node.node_id
 	JOIN vf_node vf ON vf.node_id = node.node_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_node ON cat_node.id = node.nodecat_id
+  JOIN cat_feature ON cat_feature.id = cat_node.node_type
 	UNION
 	SELECT
 		om_visit.id AS visit_id,
@@ -1057,12 +1057,17 @@ FROM (
 		CASE
 			WHEN om_visit.the_geom IS NULL THEN st_lineinterpolatepoint(arc.the_geom, 0.5::double precision)
 			ELSE om_visit.the_geom
-		END AS the_geom
+		END AS the_geom,
+		cat_feature.feature_class,
+		arc.arccat_id AS featurecat_id,
+		arc.state AS feature_state
 	FROM om_visit
 	JOIN om_visit_x_arc ON om_visit_x_arc.visit_id = om_visit.id
 	JOIN arc ON arc.arc_id = om_visit_x_arc.arc_id
 	JOIN vf_arc vf ON vf.arc_id = arc.arc_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_arc ON cat_arc.id = arc.arccat_id
+  JOIN cat_feature ON cat_feature.id = cat_arc.arc_type
 	UNION
 	SELECT
 		om_visit.id AS visit_id,
@@ -1078,12 +1083,43 @@ FROM (
 		CASE
 			WHEN om_visit.the_geom IS NULL THEN connec.the_geom
 			ELSE om_visit.the_geom
-		END AS the_geom
+		END AS the_geom,
+		cat_feature.feature_class,
+		connec.conneccat_id AS featurecat_id,
+		connec.state AS feature_state
 	FROM om_visit
 	JOIN om_visit_x_connec ON om_visit_x_connec.visit_id = om_visit.id
 	JOIN connec ON connec.connec_id = om_visit_x_connec.connec_id
 	JOIN vf_connec vf ON vf.connec_id = connec.connec_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_connec ON cat_connec.id = connec.conneccat_id
+  JOIN cat_feature ON cat_feature.id = cat_connec.connec_type
+  UNION
+  SELECT
+    om_visit.id AS visit_id,
+    om_visit.ext_code AS code,
+    om_visit.visitcat_id,
+    om_visit_cat.name,
+    om_visit.startdate AS visit_start,
+    om_visit.enddate AS visit_end,
+    om_visit.user_name,
+    om_visit.is_done,
+    om_visit_x_link.link_id AS feature_id,
+    'LINK'::text AS feature_type,
+    CASE
+      WHEN om_visit.the_geom IS NULL THEN link.the_geom
+      ELSE om_visit.the_geom
+    END AS the_geom,
+    cat_feature.feature_class,
+    link.linkcat_id AS featurecat_id,
+    link.state AS feature_state
+  FROM om_visit
+  JOIN om_visit_x_link ON om_visit_x_link.visit_id = om_visit.id
+  JOIN link ON link.link_id = om_visit_x_link.link_id
+  JOIN vf_link vf ON vf.link_id = link.link_id
+  JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_link ON cat_link.id = link.linkcat_id
+  JOIN cat_feature ON cat_feature.id = cat_link.link_type
 	UNION
 	SELECT
 		om_visit.id AS visit_id,
@@ -1099,12 +1135,17 @@ FROM (
 		CASE
 			WHEN om_visit.the_geom IS NULL THEN gully.the_geom
 			ELSE om_visit.the_geom
-		END AS the_geom
+		END AS the_geom,
+		cat_feature.feature_class,
+		gully.gullycat_id AS featurecat_id,
+		gully.state AS feature_state
 	FROM om_visit
 	JOIN om_visit_x_gully ON om_visit_x_gully.visit_id = om_visit.id
 	JOIN gully ON gully.gully_id = om_visit_x_gully.gully_id
 	JOIN vf_gully vf ON vf.gully_id = gully.gully_id
 	JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
+  JOIN cat_gully ON cat_gully.id = gully.gullycat_id
+  JOIN cat_feature ON cat_feature.id = cat_gully.gully_type
 ) a;
 
 CREATE OR REPLACE VIEW vf_link AS
@@ -1911,3 +1952,149 @@ AS SELECT ve_arc.arc_id,
 
 ALTER TABLE rpt_inp_raingage DROP CONSTRAINT IF EXISTS rpt_inp_raingage_result_id_fkey;
 ALTER TABLE rpt_inp_raingage ADD CONSTRAINT rpt_inp_raingage_result_id_fkey FOREIGN KEY (result_id) REFERENCES rpt_cat_result(result_id) ON UPDATE CASCADE ON DELETE CASCADE;
+DROP VIEW IF EXISTS v_ui_rpt_cat_result;
+CREATE OR REPLACE VIEW v_ui_rpt_cat_result AS
+SELECT DISTINCT ON (rpt_cat_result.result_id)
+	rpt_cat_result.result_id,
+	e.exploitation_names AS expl_id,
+	rpt_cat_result.sector_id,
+	t2.idval AS network_type,
+	t1.idval AS status,
+	rpt_cat_result.iscorporate,
+	rpt_cat_result.descript,
+	rpt_cat_result.exec_date,
+	rpt_cat_result.cur_user,
+	rpt_cat_result.export_options,
+	rpt_cat_result.network_stats,
+	rpt_cat_result.inp_options,
+	rpt_cat_result.rpt_stats,
+	rpt_cat_result.addparam,
+	rpt_cat_result.isvalidated
+FROM rpt_cat_result
+	JOIN selector_expl s ON (s.expl_id = ANY(rpt_cat_result.expl_id) AND s.cur_user = CURRENT_USER) OR rpt_cat_result.expl_id = ARRAY[NULL::integer]
+	LEFT JOIN inp_typevalue t1 ON rpt_cat_result.status::text = t1.id::text
+	LEFT JOIN inp_typevalue t2 ON rpt_cat_result.network_type = t2.id
+	LEFT JOIN LATERAL (
+		SELECT array_agg(ex.name) AS exploitation_names
+		FROM unnest(rpt_cat_result.expl_id) AS x(expl_id)
+		JOIN exploitation ex ON ex.expl_id = x.expl_id
+	) e ON true
+WHERE t1.typevalue = 'inp_result_status'
+AND t2.typevalue = 'inp_options_networkmode';
+
+CREATE TRIGGER gw_trg_ui_rpt_cat_result INSTEAD OF INSERT OR DELETE OR UPDATE ON v_ui_rpt_cat_result
+FOR EACH ROW EXECUTE FUNCTION gw_trg_ui_rpt_cat_result();
+
+UPDATE sys_param_user
+	SET layoutorder=10
+	WHERE id='edit_gully_automatic_link';
+
+UPDATE config_param_system
+	SET layoutorder=12
+	WHERE "parameter"='admin_crm_schema';
+
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_arc' AND columnname='sys_id';
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_connec' AND columnname='sys_id';
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_node' AND columnname='sys_id';
+DELETE FROM config_form_tableview
+	WHERE objectname='tbl_visit_x_gully' AND columnname='sys_id';
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('node form','utils','tbl_doc_x_node','node_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('node form','utils','tbl_doc_x_node','doc_name',8,true,'Document Name');
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('connec form','utils','tbl_doc_x_connec','connec_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('connec form','utils','tbl_doc_x_connec','doc_name',8,true,'Document Name');
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('arc form','utils','tbl_doc_x_arc','arc_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('arc form','utils','tbl_doc_x_arc','doc_name',8,true,'Document Name');
+
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('gully form','utils','tbl_doc_x_gully','gully_uuid',8,true,'Node Uuid');
+INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
+	VALUES ('gully form','utils','tbl_doc_x_gully','doc_name',8,true,'Document Name');
+
+UPDATE config_form_fields
+	SET widgetcontrols='{
+  "setMultiline": false,
+  "valueRelation": {
+    "nullValue": true,
+    "layer": "cat_arc_shape",
+    "activated": true,
+    "keyColumn": "id",
+    "valueColumn": "id",
+    "filterExpression": ""
+  }
+}'::json
+	WHERE formname='cat_arc' AND formtype='form_feature' AND columnname='shape' AND tabname='tab_none';
+
+UPDATE config_form_fields
+SET widgetcontrols = replace(replace(widgetcontrols::text,
+        '"layer": "cat_grate"', '"layer": "cat_gully"'),
+        '"layer":"cat_grate"', '"layer":"cat_gully"')::json
+WHERE widgetcontrols::text LIKE '%cat_grate%';
+
+UPDATE config_form_fields
+SET widgetcontrols = replace(replace(replace(replace(widgetcontrols::text,
+        '"layer": "ve_dma"', '"layer": "ve_dwfzone"'),
+        '"layer":"ve_dma"', '"layer":"ve_dwfzone"'),
+        '"keyColumn": "dma_id"', '"keyColumn": "dwfzone_id"'),
+        '"keyColumn":"dma_id"', '"keyColumn":"dwfzone_id"')::json
+WHERE columnname = 'dwfzone_id'
+  AND widgetcontrols::text LIKE '%ve_dma%';
+
+UPDATE config_form_fields
+SET widgetcontrols = replace(replace(replace(replace(widgetcontrols::text,
+        '"layer": "ve_dma"', '"layer": "ve_omzone"'),
+        '"layer":"ve_dma"', '"layer":"ve_omzone"'),
+        '"keyColumn": "dma_id"', '"keyColumn": "omzone_id"'),
+        '"keyColumn":"dma_id"', '"keyColumn":"omzone_id"')::json
+WHERE columnname = 'omzone_id'
+  AND widgetcontrols::text LIKE '%ve_dma%';
+
+-- Arc widgets on Connect Link dialog (gully) — same as link_to_connec (4.3.0)
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
+VALUES('generic', 'link_to_gully', 'tab_none', 'arc_id', 'lyt_arc_selection', 1, 'text', 'text', 'Connect to arc:', 'Arc Id', NULL, false, NULL, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
+VALUES('generic', 'link_to_gully', 'tab_none', 'btn_set_to_arc', 'lyt_arc_selection', 2, NULL, 'button', NULL, 'Set to arc', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, '{
+  "icon": "155"
+}'::json, NULL, NULL, NULL, false, 0)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
+VALUES('generic', 'link_to_gully', 'tab_none', 'btn_expr_arc', 'lyt_arc_selection', 3, NULL, 'button', NULL, 'Select by Expression - Set closest point', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, '{
+  "icon": "178"
+}'::json, NULL, '{
+  "functionName": "filter_expression_arc",
+  "module": "connect_link_btn"
+}'::json, NULL, false, 0)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+-- Force node + Nodes picker (UD connect / gully to network)
+INSERT INTO config_typevalue (typevalue, id, idval, camelstyle, addparam)
+VALUES('layout_name_typevalue', 'lyt_node_selection', 'lyt_node_selection', 'lytNodeSelection', '{"lytOrientation": "horizontal"}'::json)
+ON CONFLICT (typevalue, id) DO NOTHING;
+
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
+VALUES
+('generic', 'link_to_connec', 'tab_none', 'force_node', 'lyt_link_configuration', 4, 'boolean', 'check', 'Force node:', 'Search closest node ignoring arcs (applies max distance)', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
+('generic', 'link_to_gully', 'tab_none', 'force_node', 'lyt_link_configuration', 4, 'boolean', 'check', 'Force node:', 'Search closest node ignoring arcs (applies max distance)', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
+('generic', 'link_to_connec', 'tab_none', 'node_id', 'lyt_node_selection', 1, 'text', 'text', 'Connect to node:', 'Node Id', NULL, false, NULL, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
+('generic', 'link_to_gully', 'tab_none', 'node_id', 'lyt_node_selection', 1, 'text', 'text', 'Connect to node:', 'Node Id', NULL, false, NULL, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
+('generic', 'link_to_connec', 'tab_none', 'btn_set_to_node', 'lyt_node_selection', 2, NULL, 'button', NULL, 'Set to node', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, '{
+  "icon": "137"
+}'::json, NULL, NULL, NULL, false, 0),
+('generic', 'link_to_gully', 'tab_none', 'btn_set_to_node', 'lyt_node_selection', 2, NULL, 'button', NULL, 'Set to node', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, '{
+  "icon": "137"
+}'::json, NULL, NULL, NULL, false, 0)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+

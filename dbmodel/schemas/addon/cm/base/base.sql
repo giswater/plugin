@@ -876,30 +876,39 @@ CREATE TABLE cm.config_qindex_suspicious (
 );
 
 
-CREATE OR REPLACE VIEW v_ui_campaign AS
-WITH campaign_reviewvisit AS (SELECT ocr.campaign_id, omr.idval FROM om_campaign_review ocr
-	LEFT JOIN om_reviewclass omr ON ocr.reviewclass_id = omr.id
-	UNION
-	SELECT ocr.campaign_id, omr.idval FROM om_campaign_visit ocr
-	LEFT JOIN om_reviewclass omr ON ocr.visitclass_id = omr.id)
-	SELECT
-	c.campaign_id,
-	c."name",
-	c.startdate,
-	c.enddate,
-	c.real_startdate,
-	c.real_enddate,
-	st.idval AS campaign_type,
-	crv.idval AS campaign_class,
-	c.descript,
-	c.active,
-	c.organization_id,
-	c.workcat_id,
-	c.status,
-	c.the_geom
-	FROM om_campaign c
-	LEFT JOIN campaign_reviewvisit crv USING (campaign_id)
-	LEFT JOIN sys_typevalue st ON st.id = c.campaign_type::TEXT	AND st.typevalue = 'campaign_type';
+CREATE OR REPLACE VIEW cm.v_ui_campaign
+AS WITH campaign_reviewvisit AS (
+         SELECT ocr.campaign_id,
+            omr.idval
+           FROM cm.om_campaign_review ocr
+             LEFT JOIN cm.om_reviewclass omr ON ocr.reviewclass_id = omr.id
+        UNION
+         SELECT ocr.campaign_id,
+            omr.idval
+           FROM cm.om_campaign_visit ocr
+             LEFT JOIN cm.om_reviewclass omr ON ocr.visitclass_id = omr.id
+        )
+ SELECT c.campaign_id,
+    c.name,
+    sy.idval as status,
+    c.descript,
+    c.organization_id,
+    co.orgname,
+    c.startdate,
+    c.enddate,
+    c.real_startdate,
+    c.real_enddate,
+    st.idval AS campaign_type,
+    crv.idval AS campaign_class,
+    c.active,
+    c.workcat_id,
+    c.the_geom
+   FROM cm.om_campaign c
+     LEFT JOIN campaign_reviewvisit crv USING (campaign_id)
+     LEFT JOIN cm.sys_typevalue st ON st.id::text = c.campaign_type::text AND st.typevalue = 'campaign_type'::text
+     LEFT JOIN cm.sys_typevalue sy ON sy.id::text = c.status::text AND sy.typevalue = 'campaign_status'::text
+     join cm.cat_organization co using (organization_id);
+
 
 CREATE OR REPLACE VIEW v_ui_campaign_lot AS
 	SELECT
@@ -1000,7 +1009,7 @@ INSERT INTO config_param_system VALUES ('basic_selector_tab_lot',
 
 
 INSERT INTO config_param_system VALUES ('basic_selector_tab_campaign',
-'{"table":"temp_om_campaign","selector":"selector_campaign","table_id":"campaign_id","selector_id":"campaign_id","label":"campaign_id, '' - '', name","orderBy":"campaign_id","manageAll":true,"query_filter":"","typeaheadFilter":" AND lower(concat(id'' - '', name))","selectionMode":"keepPreviousUsingShift", "orderbyCheck":false}',
+'{"table":"temp_om_campaign","selector":"selector_campaign","table_id":"campaign_id","selector_id":"campaign_id","label":"campaign_id, '' - '', name, '' - ('', status_name,'')''","orderBy":"campaign_id","manageAll":true,"query_filter":"","typeaheadFilter":" AND lower(concat(id'' - '', name))","selectionMode":"keepPreviousUsingShift", "orderbyCheck":false}',
 'Variable to configura all options related to search for the specificic tab','Selector variables',null, null, true, null, 'utils', null, null, 'json','text');
 
 INSERT INTO config_param_system ("parameter", value, descript, "label", dv_querytext, dv_filterbyfield, isenabled, layoutorder, project_type, dv_isparent, isautoupdate, "datatype", widgettype, ismandatory, iseditable, dv_orderby_id, dv_isnullvalue, stylesheet, widgetcontrols, placeholder, standardvalue, layoutname)

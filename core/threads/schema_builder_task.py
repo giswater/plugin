@@ -101,7 +101,9 @@ class GwSchemaBuilderTask(GwTask):
             self.result = builder.run()
         except Exception as e:  # noqa: BLE001 - boundary
             self.exception = e
-            tools_log.log_info("SchemaBuilder exception", parameter=str(e))
+            msg = "SchemaBuilder exception: {0}"
+            msg_params = (str(e),)
+            tools_log.log_info(msg, msg_params=msg_params)
             return False
 
         if self.result.cancelled:
@@ -122,9 +124,12 @@ class GwSchemaBuilderTask(GwTask):
                 if err and not lib_vars.session_vars.get("last_error_msg"):
                     lib_vars.session_vars["last_error_msg"] = msg
                 self.db_exception = (err, "", failure.path)
-                tools_log.log_warning("SchemaBuilder failed", parameter=msg)
+                message = "SchemaBuilder failed: {0}"
+                msg_params = (msg,)
+                tools_log.log_warning(message, msg_params=msg_params)
             else:
-                tools_log.log_warning("SchemaBuilder failed without first_failure")
+                message = "SchemaBuilder failed without first_failure"
+                tools_log.log_warning(message)
             return False
 
         return True
@@ -140,18 +145,19 @@ class GwSchemaBuilderTask(GwTask):
     ) -> None:
         self._last_progress_label = label
 
-        if label == "done":
+        shown = fx.path if fx is not None and getattr(fx, "path", None) else label
+        if shown == "done":
             tools_log.log_info(format_done(seen, total, style=self._log_style))
-        elif not label.startswith("phase:"):
+        elif not str(shown).startswith("phase:"):
             tools_log.log_info(
-                format_file(seen, total, label, style=self._log_style)
+                format_file(seen, total, shown, style=self._log_style)
             )
 
         if hasattr(self.admin, "schema_build_progress_hint"):
             self.admin.schema_build_progress_hint = format_progress_status(
                 seen,
                 total,
-                label,
+                shown,
                 sql_root=self._log_style.sql_root,
             )
 
@@ -188,7 +194,9 @@ class GwSchemaBuilderTask(GwTask):
             try:
                 self.on_done(self.result)
             except Exception as e:  # noqa: BLE001
-                tools_log.log_info("on_done callback raised", parameter=str(e))
+                msg = "{0} callback raised: {1}"
+                msg_params = ('on_done', str(e))
+                tools_log.log_info(msg, msg_params=msg_params)
 
         self.task_finished.emit(bool(result))
 

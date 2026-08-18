@@ -125,7 +125,7 @@ UPDATE om_visit SET ext_code = concat('EXT', 1000 + id);
 UPDATE ext_plot set muni_id = 2 where id::integer < 40;
 
 UPDATE macroexploitation SET name ='macroexpl-01', lock_level = 1 WHERE macroexpl_id = 1;
-INSERT INTO macroexploitation (macroexpl_id, "name", descript, lock_level, active, the_geom) VALUES(2, 'Other', 'Macroexploitation used for test', 1, true, NULL);
+INSERT INTO macroexploitation (macroexpl_id, "name", descript, lock_level, active) VALUES(2, 'Other', 'Macroexploitation used for test', 1, true);
 
 UPDATE config_param_system SET isenabled = false where parameter = ' basic_selector_tab_municipality';
 
@@ -219,3 +219,9 @@ UPDATE arc SET presszone_id = 5 WHERE arc_id = 114026;
 UPDATE arc SET presszone_id = 5 WHERE arc_id = 114145;
 
 UPDATE arc SET presszone_id = 6 WHERE presszone_id = 0 AND expl_id = 2;
+
+-- Extra filters example (sample only): fluid_type combo (nullable)
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
+VALUES
+('generic', 'link_to_connec', 'tab_none', 'fluid_type', 'lyt_extra_filters', 0, 'string', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT fluid_type as id, fluid_type as idval FROM man_type_fluid WHERE ((featurecat_id is null AND ''ARC''=ANY(feature_type)) ) AND active IS TRUE ', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;

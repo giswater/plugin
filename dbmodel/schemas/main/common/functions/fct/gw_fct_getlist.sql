@@ -153,149 +153,22 @@ BEGIN
 
 --  Creating the list fields
 ----------------------------
-	-- control not existing table
-	IF v_tablename IN (SELECT table_name FROM information_schema.tables WHERE table_schema = v_schemaname) THEN
+	SELECT gw_fct_resolve_list_query(v_tablename, v_device) INTO v_data;
+	v_query_result := v_data->>'queryText';
+	v_default := v_data->'vdefault';
+	v_listtype := v_data->>'listtype';
+	v_the_geom := v_data->>'theGeomCol';
 
-		-- Get idname column
-		EXECUTE 'SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) WHERE  i.indrelid = $1::regclass AND i.indisprimary'
-			INTO v_idname
-			USING v_tablename;
+	v_query_result := v_query_result || gw_fct_build_filters_sql(v_filter_values, v_listtype);
 
-		-- For views it suposse pk is the first column
-		IF v_idname ISNULL THEN
-			EXECUTE 'SELECT a.attname FROM pg_attribute a   JOIN pg_class t on a.attrelid = t.oid  JOIN pg_namespace s on t.relnamespace = s.oid WHERE a.attnum > 0   AND NOT a.attisdropped
-				AND t.relname = $1
-				AND s.nspname = $2
-				ORDER BY a.attnum LIMIT 1'
-					INTO v_idname
-					USING v_tablename, v_schemaname;
-		END IF;
-
-		-- Getting geometry column
-		EXECUTE 'SELECT attname FROM pg_attribute a
-		JOIN pg_class t on a.attrelid = t.oid
-		JOIN pg_namespace s on t.relnamespace = s.oid
-		WHERE a.attnum > 0
-		AND NOT a.attisdropped
-		AND t.relname = $1
-		AND s.nspname = $2
-		AND left (pg_catalog.format_type(a.atttypid, a.atttypmod), 8)=''geometry''
-		ORDER BY a.attnum'
-			USING v_tablename, v_schemaname
-			INTO v_the_geom;
-
-		--  get querytext
-		EXECUTE 'SELECT query_text, vdefault, listtype FROM config_form_list WHERE listname = $1 AND device = $2'
-			INTO v_query_result, v_default, v_listtype
-			USING v_tablename, v_device;
-
-		-- if v_device is not configured on config_form_list table
-		IF v_query_result IS NULL THEN
-			EXECUTE 'SELECT query_text, vdefault, listtype FROM config_form_list WHERE listname = $1 LIMIT 1'
-				INTO v_query_result, v_default, v_listtype
-				USING v_tablename;
-		END IF;
-
-		-- if v_tablename is not configured on config_form_list table
-		IF v_query_result IS NULL THEN
-			v_query_result = 'SELECT * FROM '||v_tablename||' WHERE '||v_idname||' IS NOT NULL ';
-		END IF;
-
-	ELSE
-		--  get querytext
-		EXECUTE 'SELECT query_text, vdefault, listtype FROM config_form_list WHERE listname = $1 AND device = $2'
-			INTO v_query_result, v_default, v_listtype
-			USING v_tablename, v_device;
-
-		-- if v_device is not configured on config_form_list table
-		IF v_query_result IS NULL THEN
-			EXECUTE 'SELECT query_text, vdefault, listtype FROM config_form_list WHERE listname = $1 LIMIT 1'
-				INTO v_query_result, v_default, v_listtype
-				USING v_tablename;
-		END IF;
-	END IF;
-
-	--  add filters (fields)
-	SELECT array_agg(row_to_json(a)) into v_text from json_each(v_filter_values) a;
-
-	IF v_text IS NOT NULL THEN
-		FOREACH text IN ARRAY v_text
-		LOOP
-			-- Get field and value from json
-			SELECT v_text [i] into v_json_field;
-
-			v_fields:= string_to_array((SELECT (v_json_field ->> 'key')), ', ') ;
-			v_value:= (SELECT (v_json_field ->> 'value')) ;
-			v_length := array_length(v_fields, 1);
-
-			if (v_length = 1) then
-				v_field:= v_fields [1];
-			end if;
-
-			-- Getting the type of the filter
-			IF (SELECT v_value WHERE v_value ILIKE '%'||'filterType'||'%') IS NOT NULL then
-				v_type = v_value::json->>'filterType';
-			else
-				v_type = 'text';
-			END IF;
-
-			-- Getting the sign of the filter
-			IF (SELECT v_value WHERE v_value ILIKE '%'||'filterSign'||'%') IS NOT NULL then
-			    -- Getting the type of the filter
-				v_sign = v_value::json->>'filterSign';
-				v_value = v_value::json->>'value';
-				IF upper(v_sign) IN ('LIKE', 'ILIKE') THEN
-					v_value = '%'||v_value||'%';
-				END IF;
-			ELSE
-				IF v_listtype = 'attributeTable' THEN
-					v_sign = 'ILIKE';
-				ELSIF v_sign IS NULL THEN
-					v_sign = '=';
-				END IF;
-			END IF;
-
-			i=i+1;
-
-			if v_length = 1 then
-
-				IF v_value IS NOT NULL AND v_field != 'limit' then
-
-				 	IF upper(v_type) = 'BETWEEN' then
-				 		v_query_result := v_query_result || ' AND "'||v_field||'"::'||v_type||' '||v_sign||' '||v_value||'::'||v_type||' ';
-				 	else
-				 		v_query_result := v_query_result || ' AND "'||v_field||'"::'||v_type||' '||v_sign||' '''||v_value||'''::'||v_type||' ';
-
-				 	end if;
-				END IF;
-			else
-				v_query_result := v_query_result || ' AND (';
-				FOR i IN array_lower(v_fields, 1)..array_upper(v_fields, 1) loop
-					v_logical := 'OR';
-			        if i = 1 then
-			        	v_logical := '';
-			        end if;
-			       	v_query_result := v_query_result || ' '||v_logical||' "'||v_fields[i]||'"::'||v_type||' '||v_sign||' '''||v_value||'''::'||v_type||' ';
-			    END LOOP;
-				v_query_result := v_query_result || ')';
-			end if;
-			-- creating the query_text
-
-		END LOOP;
-	END IF;
-
-	-- add extend filter
 	IF v_the_geom IS NOT NULL AND v_canvasextend IS NOT NULL THEN
-
-		-- getting coordinates values
 		v_x1 = v_canvasextend->>'x1';
 		v_y1 = v_canvasextend->>'y1';
 		v_x2 = v_canvasextend->>'x2';
 		v_y2 = v_canvasextend->>'y2';
 
-		-- adding on the query text the extend filter
-		v_query_result := v_query_result || ' AND ST_dwithin ( '|| v_tablename || '.' || v_the_geom || ',' ||
-		'ST_MakePolygon(ST_GeomFromText(''LINESTRING ('||v_x1||' '||v_y1||', '||v_x1||' '||v_y2||', '||v_x2||' '||v_y2||', '||v_x2||' '||v_y1||', '||v_x1||' '||v_y1||')'','||v_srid||')),1)';
+		v_query_result := v_query_result || gw_fct_build_canvas_filter_sql(
+			v_tablename || '.' || v_the_geom, v_x1, v_y1, v_x2, v_y2, v_srid);
 	END IF;
 
 	-- add orderby
@@ -319,11 +192,12 @@ BEGIN
 		v_limit = 10;
 	END IF;
 
-	EXECUTE 'SELECT count(*)/'||v_limit||' FROM (' || v_query_result || ') a'
-		INTO v_lastpage;
-
 	-- add limit
 	IF v_device != 4 AND v_limit != -1 THEN
+		-- the list is truncated, so the total amount of rows has to be counted apart
+		EXECUTE 'SELECT count(*)/'||v_limit||' FROM (' || v_query_result || ') a'
+			INTO v_lastpage;
+
 	    v_query_result := v_query_result || ' LIMIT '|| v_limit;
 	END IF;
 
@@ -338,7 +212,8 @@ BEGIN
 	EXECUTE 'SELECT array_to_json(array_agg(row_to_json(a))) FROM (' || v_query_result || ') a'
 		INTO v_result_list;
 
-	RAISE NOTICE '--- gw_fct_getlist - List: % ---', v_result_list;
+	-- the list is not raised because sending the whole result as a notice slows down large lists
+	RAISE NOTICE '--- gw_fct_getlist - List rows: % ---', coalesce(json_array_length(v_result_list), 0);
 
 	-- Building headers
 	i = 1;
@@ -378,6 +253,11 @@ BEGIN
 	v_headers_json = array_to_json (v_headers_params);
 
 	-- building pageinfo
+	-- when the whole list is returned the rows are already there, no need to count them on the database
+	IF v_lastpage IS NULL THEN
+		v_lastpage := coalesce(json_array_length(v_result_list), 0) / v_limit;
+	END IF;
+
 	v_pageinfo := json_build_object('orderBy',v_orderby, 'orderType', v_ordertype, 'currentPage', v_page, 'lastPage', v_lastpage);
 
 	EXECUTE 'SELECT listclass FROM config_form_list WHERE listname = $1 LIMIT 1'

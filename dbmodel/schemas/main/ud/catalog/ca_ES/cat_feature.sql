@@ -51,7 +51,8 @@ INSERT INTO cat_arc_shape (id, epa) VALUES
 ('CALAIX', 'RECT_CLOSED'),
 ('FORÇADA', 'FORCE_MAIN'),
 ('CIRCULAR', 'CIRCULAR'),
-('VIRTUAL', 'VIRTUAL')
+('VIRTUAL', 'VIRTUAL'),
+('PERSONALITZAT', 'CUSTOM')
 ON CONFLICT (id) DO UPDATE SET epa = EXCLUDED.epa;
 
 INSERT INTO cat_feature (id, feature_class, feature_type, active, parent_layer, child_layer) VALUES
