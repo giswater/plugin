@@ -437,6 +437,11 @@ INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, 
 VALUES (4682, 'The %feature_type% with id %connec_id% has been successfully connected to the node with id %node_id%', NULL, 0, true, 'ud', 'core', 'AUDIT')
 ON CONFLICT (id) DO NOTHING;
 
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
+VALUES (4684, 'No network feature found for %feature_type% with id %connect_id% matching the current filters.',
+ 'Relax extra filters, max distance or pipe diameter and try again.', 1, true, 'utils', 'core', 'AUDIT')
+ON CONFLICT (id) DO NOTHING;
+
 INSERT INTO config_typevalue (typevalue, id, idval, camelstyle, addparam)
 VALUES
 ('layout_name_typevalue', 'lyt_link_configuration', 'lyt_link_configuration', 'lytLinkConfiguration', '{"lytOrientation": "vertical"}'::json),

@@ -765,6 +765,7 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4676, 'The demand is OK: demand values sum to 1 per DMA because they are weight factors.', NULL),
     (4678, 'Sys_code is not null and sys_code_autofill is activated.', NULL),
     (4680, 'Cannot force connection to a node while arcs are selected.', 'Clear the selected arcs and try again.'),
-    (4682, 'The %feature_type% with id %connec_id% has been successfully connected to the node with id %node_id%', NULL)
+    (4682, 'The %feature_type% with id %connec_id% has been successfully connected to the node with id %node_id%', NULL),
+    (4684, 'No network feature found for %feature_type% with id %connect_id% matching the current filters.', 'Relax extra filters, max distance or pipe diameter and try again.')
 ) AS v(id, error_message, hint_message)
 WHERE t.id = v.id;

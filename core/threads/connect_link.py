@@ -19,13 +19,21 @@ from ... import global_vars
 
 class GwConnectLink(GwTask):
 
-    def __init__(self, description, connect_link_class, element_type, selected_arcs=None, selected_nodes=None):
+    def __init__(self, description, connect_link_class, element_type, selected_arcs=None, selected_nodes=None,
+                 extra_filters=None, force_reconnect=False, force_node=False,
+                 pipe_diameter=None, max_distance=None, linkcat_id=None):
 
         super().__init__(description)
         self.connect_link_class = connect_link_class
         self.element_type = element_type
         self.selected_arcs = selected_arcs or []
         self.selected_nodes = selected_nodes or []
+        self.extra_filters = extra_filters or {}
+        self.force_reconnect = force_reconnect
+        self.force_node = force_node
+        self.pipe_diameter = pipe_diameter
+        self.max_distance = max_distance
+        self.linkcat_id = linkcat_id
         self.json_result = None
 
     def run(self):
@@ -75,9 +83,7 @@ class GwConnectLink(GwTask):
 
     def _append_node_extras(self, extras, selected_nodes=None):
         """ Append forceNode / forcedNodes to the procedure extras JSON """
-        force_node = 'true' if tools_qt.is_checked(
-            self.connect_link_class.dlg_connect_link, "tab_none_force_node"
-        ) else 'false'
+        force_node = 'true' if self.force_node else 'false'
         extras += f', "forceNode":{force_node}'
         if selected_nodes:
             nodes_str_list = [f'"{str(node)}"' for node in selected_nodes]
@@ -87,18 +93,17 @@ class GwConnectLink(GwTask):
         return extras
 
     def _append_extra_filters(self, extras):
-        """ Append extraFilters from Extra filters layout widgets """
-        extra_filters = self._collect_extra_filters()
-        if extra_filters:
-            extras += f', "extraFilters":{json.dumps(extra_filters)}'
+        """ Append extraFilters collected on the GUI thread """
+        if self.extra_filters:
+            extras += f', "extraFilters":{json.dumps(self.extra_filters)}'
         return extras
 
-    def _collect_extra_filters(self):
-        """ Read Extra filters widgets; skip empty / null values """
+    @staticmethod
+    def collect_extra_filters(dlg, fields):
+        """ Read Extra filters widgets on the GUI thread; skip empty / null values """
         filters = {}
-        fields = getattr(self.connect_link_class, 'extra_filter_fields', None) or []
-        dlg = self.connect_link_class.dlg_connect_link
-        empty = (None, '', 'null', 'NULL')
+        fields = fields or []
+        empty = (None, '', 'null', 'NULL', -1, '-1')
         for field in fields:
             col = field.get('columnname')
             wtype = field.get('widgettype')
@@ -122,7 +127,7 @@ class GwConnectLink(GwTask):
                     value = tools_qt.get_combo_value(dlg, widget, 0)
                 except (TypeError, IndexError):
                     continue
-                if value in empty or value == -1:
+                if value in empty:
                     continue
                 filters[col] = value
             else:
@@ -130,6 +135,9 @@ class GwConnectLink(GwTask):
                 if value not in empty:
                     filters[col] = value
         return filters
+
+    def _json_quoted_or_null(self, value):
+        return 'null' if not value else f'"{value}"'
 
     def _link_features_individually(self, feature_type, selected_arcs=None, selected_nodes=None):
         """ 
@@ -157,12 +165,10 @@ class GwConnectLink(GwTask):
             # Process single connec
             feature_id = f'"id":[{connec_id}]'
 
-            pipe_diameter = 'null' if not self.connect_link_class.pipe_diameter.text() else f'"{self.connect_link_class.pipe_diameter.text()}"'
-            max_distance = 'null' if not self.connect_link_class.max_distance.text() else f'"{self.connect_link_class.max_distance.text()}"'
-            linkcat_id = tools_qt.get_combo_value(self.connect_link_class.dlg_connect_link, "tab_none_linkcat")
-            force_reconnect = 'true' if tools_qt.is_checked(
-                self.connect_link_class.dlg_connect_link, "tab_none_force_reconnect"
-            ) else 'false'
+            pipe_diameter = self._json_quoted_or_null(self.pipe_diameter)
+            max_distance = self._json_quoted_or_null(self.max_distance)
+            linkcat_id = self.linkcat_id if self.linkcat_id is not None else ''
+            force_reconnect = 'true' if self.force_reconnect else 'false'
 
             extras = (
                 f'"feature_type":"{feature_type.upper()}",'
@@ -211,12 +217,10 @@ class GwConnectLink(GwTask):
         # Get selected features from layers of selected @feature_type
         feature_id = f'"id":{self.connect_link_class.ids}'
 
-        pipe_diameter = 'null' if not self.connect_link_class.pipe_diameter.text() else f'"{self.connect_link_class.pipe_diameter.text()}"'
-        max_distance = 'null' if not self.connect_link_class.max_distance.text() else f'"{self.connect_link_class.max_distance.text()}"'
-        linkcat_id = tools_qt.get_combo_value(self.connect_link_class.dlg_connect_link, "tab_none_linkcat")
-        force_reconnect = 'true' if tools_qt.is_checked(
-            self.connect_link_class.dlg_connect_link, "tab_none_force_reconnect"
-        ) else 'false'
+        pipe_diameter = self._json_quoted_or_null(self.pipe_diameter)
+        max_distance = self._json_quoted_or_null(self.max_distance)
+        linkcat_id = self.linkcat_id if self.linkcat_id is not None else ''
+        force_reconnect = 'true' if self.force_reconnect else 'false'
 
         extras = (
             f'"feature_type":"{feature_type.upper()}",'

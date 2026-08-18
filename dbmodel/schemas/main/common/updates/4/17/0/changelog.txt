@@ -1,4 +1,5 @@
 - Fix performance on `sys_fprocess` queries.
+- Fix `gw_fct_linktonetwork` Force reconnect + Extra filters: rebuild link geometry from the connect, join `vf_arc`/`vf_node` inside KNN on `arc`/`node`, and log when no candidate is found.
 - Keep `link.userdefined_geom` when provided on `ve_link` edit; set TRUE on INSERT or geom change.
 - Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
 - Add editable `userdefined_geom` checkbox to link info forms.

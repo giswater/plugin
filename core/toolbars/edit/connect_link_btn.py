@@ -1007,11 +1007,20 @@ def accept(**kwargs):
         sql_insert = f"INSERT INTO temp_table (fid, geom_point, cur_user) VALUES (485, {the_geom}, current_user);"
         tools_db.execute_sql(sql_insert)
 
+    extra_filters = GwConnectLink.collect_extra_filters(
+        this.dlg_connect_link, getattr(this, 'extra_filter_fields', None)
+    )
+    force_reconnect = tools_qt.is_checked(this.dlg_connect_link, "tab_none_force_reconnect")
+    pipe_diameter = this.pipe_diameter.text() if this.pipe_diameter else None
+    max_distance = this.max_distance.text() if this.max_distance else None
+
     # Create connect link task
     title = "Connect link"
     this.connect_link_task = GwConnectLink(
         tools_qt.tr(title), this, this.feature_type,
-        selected_arcs=selected_arcs, selected_nodes=selected_nodes
+        selected_arcs=selected_arcs, selected_nodes=selected_nodes,
+        extra_filters=extra_filters, force_reconnect=force_reconnect, force_node=force_node,
+        pipe_diameter=pipe_diameter, max_distance=max_distance, linkcat_id=this.linkcat
     )
 
     # Add and trigger the task

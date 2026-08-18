@@ -29,6 +29,12 @@ Main workflows:
 - Redraw an existing link when target feature have been changed
 - Reverse link geom when need in order to repair it
 
+extraFilters (data.extraFilters, keys = column names on arc / node)
+-------------------------------------------------------------------
+AND predicates on the KNN CTE (with maxDistance / pipeDiameter / forced set). Applied on new links,
+forceReconnect and forceNode. Not applied when snapping an existing link without forceReconnect.
+Only TABLE columns are used; keys that exist only on ve_arc/ve_node are skipped.
+
 
 EXAMPLES
 --------
@@ -248,8 +254,7 @@ BEGIN
 
 	v_isnodedest = (v_forcenode IS TRUE OR v_isforcednodes IS TRUE);
 
-	-- extra filters from dialog (AND with distance / diameter / forced set).
-	-- Applied on new links, forceReconnect and forceNode; not when snapping an existing link.
+	-- extraFilters: AND a.col / n.col on TABLE columns only. Skip unknown keys. Same JSON compiled for arc and node.
 	v_extrafilters = ((p_data->>'data')::json)->'extraFilters';
 	v_extrafilters_arc := '';
 	v_extrafilters_node := '';
@@ -267,8 +272,6 @@ BEGIN
 					CONTINUE;
 				END IF;
 
-				v_ef_coltype := NULL;
-				v_ef_isarray := NULL;
 				SELECT format_type(a.atttypid, a.atttypmod), (t.typcategory = 'A')
 				INTO v_ef_coltype, v_ef_isarray
 				FROM pg_attribute a
@@ -473,6 +476,7 @@ BEGIN
 				END IF;
 
 				IF v_isnodedest THEN
+					-- forceNode / forcedNodes: KNN from connect on node JOIN vf_node; extraFilters_node is in the CTE WHERE
 					v_arc := null;
 					v_node := null;
 					v_node_id := null;
@@ -483,6 +487,7 @@ BEGIN
 					'WITH knn AS MATERIALIZED (
                             SELECT n.node_id, ST_Distance(n.the_geom, %L::geometry) AS distance
                             FROM node n
+                            JOIN vf_node vn ON vn.node_id = n.node_id
                             WHERE n.state > 0
                             %s
                             ORDER BY n.the_geom <-> %L::geometry
@@ -490,7 +495,6 @@ BEGIN
                         )
                         SELECT k.node_id
                         FROM knn k
-                        JOIN vf_node vn ON vn.node_id = k.node_id
                         WHERE k.distance < %s
                         ORDER BY k.distance
                         LIMIT 1',
@@ -516,11 +520,14 @@ BEGIN
 						END IF;
 					END IF;
 
-				ELSIF v_link.the_geom IS NULL OR v_force_reconnect THEN -- looking for closest arc from connect
+				ELSIF v_link.the_geom IS NULL OR v_force_reconnect THEN
+					-- new link or forceReconnect: KNN from connect. extraFilters apply here (and on forceNode above).
+					-- FROM arc JOIN vf_arc inside the CTE so selector is applied before LIMIT 200 and <-> uses arc gist.
 					EXECUTE format(
 					'WITH knn AS MATERIALIZED (
                             SELECT a.arc_id, a.arccat_id, ST_Distance(a.the_geom, %L::geometry) AS distance
                             FROM arc a
+                            JOIN vf_arc va ON va.arc_id = a.arc_id
                             WHERE a.state > 0
                             %s
                             ORDER BY a.the_geom <-> %L::geometry
@@ -529,7 +536,6 @@ BEGIN
                         SELECT k.arc_id
                         FROM knn k
                         JOIN cat_arc ca ON ca.id = k.arccat_id
-                        JOIN vf_arc va ON va.arc_id = k.arc_id
                         WHERE k.distance < %s
                         %s
                         ORDER BY k.distance
@@ -538,11 +544,13 @@ BEGIN
 					v_connect.the_geom::text, v_check_maxdistance, v_checkeddiam)
 					INTO v_connect.arc_id;
 
-				ELSIF v_link.the_geom IS NOT NULL THEN -- existing link: snap from endpoint, extraFilters only with forceReconnect
+				ELSIF v_link.the_geom IS NOT NULL THEN
+					-- existing link, no forceReconnect: snap from old endpoint. extraFilters intentionally omitted.
 					EXECUTE format(
 					'WITH knn AS MATERIALIZED (
                             SELECT a.arc_id, a.arccat_id, ST_Distance(a.the_geom, ST_EndPoint(%L::geometry)) AS distance
                             FROM arc a
+                            JOIN vf_arc va ON va.arc_id = a.arc_id
                             WHERE a.state > 0
                             %s
                             ORDER BY a.the_geom <-> ST_EndPoint(%L::geometry)
@@ -551,7 +559,6 @@ BEGIN
                         SELECT k.arc_id
                         FROM knn k
                         JOIN cat_arc ca ON ca.id = k.arccat_id
-                        JOIN vf_arc va ON va.arc_id = k.arc_id
                         WHERE k.distance < %s
                         %s
                         ORDER BY k.distance
@@ -565,6 +572,7 @@ BEGIN
 						'WITH knn AS MATERIALIZED (
                             SELECT a.arc_id, a.arccat_id, ST_Distance(a.the_geom, %L::geometry) AS distance
                             FROM arc a
+                            JOIN vf_arc va ON va.arc_id = a.arc_id
                             WHERE a.state > 0
                             %s
                             ORDER BY a.the_geom <-> %L::geometry
@@ -573,7 +581,6 @@ BEGIN
                         SELECT k.arc_id
                         FROM knn k
                         JOIN cat_arc ca ON ca.id = k.arccat_id
-                        JOIN vf_arc va ON va.arc_id = k.arc_id
                         WHERE k.distance < %s
                         %s
                         ORDER BY k.distance
@@ -586,7 +593,8 @@ BEGIN
 				END IF;
 
 				IF (v_isnodedest IS FALSE AND v_connect.arc_id IS NULL) OR (v_isnodedest AND v_node_id IS NULL) THEN
-				--pass
+					EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "4684","function":"3188","fid": 217,"v_criticity": 2,
+					"parameters":{"feature_type":"'||lower(v_feature_type)||'", "connect_id":"'||v_connect_id||'"}}}$$);';
 				ELSE
 
 					-- get ve_arc information
@@ -684,10 +692,12 @@ BEGIN
 
 						IF v_point_aux IS NULL THEN
 
-							-- getting the appropiate vertex of link to check distance againts arc
-							select geom INTO v_link_point from (select (st_dumppoints(the_geom)).geom, (st_dumppoints(the_geom)).path, the_geom
-							from link where link.link_id = v_link.link_id) a where path[1] = st_numpoints(the_geom)-1;
-							v_point_aux := St_closestpoint(v_arc.the_geom, v_link_point);
+							IF v_force_reconnect IS NOT TRUE THEN
+								-- getting the appropiate vertex of link to check distance againts arc
+								select geom INTO v_link_point from (select (st_dumppoints(the_geom)).geom, (st_dumppoints(the_geom)).path, the_geom
+								from link where link.link_id = v_link.link_id) a where path[1] = st_numpoints(the_geom)-1;
+								v_point_aux := St_closestpoint(v_arc.the_geom, v_link_point);
+							END IF;
 
 							-- profilactic control for v_point_aux
 							IF v_point_aux IS NULL THEN
@@ -710,7 +720,17 @@ BEGIN
 
 						END IF;
 
-						IF v_link.the_geom IS NULL AND v_pjointtype='ARC' THEN
+						IF v_force_reconnect AND v_pjointtype='ARC' THEN
+							v_link.the_geom := st_setsrid(ST_makeline(v_connect.the_geom, v_point_aux), ST_SRID(v_connect.the_geom));
+
+							IF v_isforcedarcs THEN
+								EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "1117","function":"3188","fid": 217,"v_criticity": 4, 
+								"parameters":{"arc_id":"'||v_connect.arc_id||'"}}}$$);';
+							ELSE
+								EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "1119","function":"3188","fid": 217,"v_criticity": 4}}$$);';
+							END IF;
+
+						ELSIF v_link.the_geom IS NULL AND v_pjointtype='ARC' THEN
 
 							IF v_link.the_geom IS NULL THEN
 								SELECT the_geom INTO v_link.the_geom FROM link WHERE feature_id = v_connect_id AND feature_type=v_feature_type AND state=1 LIMIT 1;

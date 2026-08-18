@@ -11,7 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(23);
+SELECT plan(27);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -212,6 +212,41 @@ SELECT is (
     (SELECT a.fluid_type FROM connec c JOIN arc a ON a.arc_id = c.arc_id WHERE c.connec_id = 3090),
     1,
     'CONNEC extraFilters.fluid_type links to an arc with matching fluid_type'
+);
+
+SELECT is (
+    (SELECT l.exit_id::text FROM link l
+     WHERE l.feature_id = 3090 AND l.feature_type = 'CONNEC' AND l.state > 0
+     ORDER BY l.link_id DESC LIMIT 1),
+    (SELECT arc_id::text FROM connec WHERE connec_id = 3090),
+    'CONNEC extraFilters+forceReconnect sets link.exit_id to the new arc'
+);
+
+SELECT ok (
+    (SELECT ST_DWithin(ST_EndPoint(l.the_geom), a.the_geom, 0.01)
+     FROM link l
+     JOIN connec c ON c.connec_id = 3090
+     JOIN arc a ON a.arc_id = c.arc_id
+     WHERE l.feature_id = 3090 AND l.feature_type = 'CONNEC' AND l.state > 0
+     ORDER BY l.link_id DESC LIMIT 1),
+    'CONNEC extraFilters+forceReconnect endpoint lies on the target arc'
+);
+
+CREATE TEMP TABLE _t_connec_3090_nocand AS
+SELECT arc_id FROM connec WHERE connec_id = 3090;
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3090"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "forceReconnect":true, "extraFilters":{"fluid_type":99999}}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC extraFilters with no matching arc returns status Accepted'
+);
+
+SELECT is (
+    (SELECT arc_id FROM connec WHERE connec_id = 3090),
+    (SELECT arc_id FROM _t_connec_3090_nocand),
+    'CONNEC extraFilters with no matching arc does not move the existing link'
 );
 
 UPDATE node SET fluid_type = 3 WHERE state > 0;
