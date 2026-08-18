@@ -88,7 +88,7 @@ BEGIN
 	v_querytext := v_querytext ||
 		' WHERE (now()::date - (CASE WHEN builtdate IS NULL THEN ''1900-01-01''::date ELSE builtdate END))/365 >= cat_mat_roughness.init_age
 		AND (now()::date - (CASE WHEN builtdate IS NULL THEN ''1900-01-01''::date ELSE builtdate END))/365 <= cat_mat_roughness.end_age
-		AND sector_id > 0
+		AND a.sector_id > 0
 		AND st_length(a.the_geom) >= '||v_minlength;
 
 	IF v_networkmode = 1 THEN
