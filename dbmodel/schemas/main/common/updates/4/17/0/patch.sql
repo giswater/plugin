@@ -359,6 +359,500 @@ FROM om_visit
 LEFT JOIN om_visit_cat ON om_visit.visitcat_id = om_visit_cat.id
 LEFT JOIN exploitation ON exploitation.expl_id = om_visit.expl_id;
 
+CREATE OR REPLACE VIEW vf_node AS
+SELECT
+  n.node_id,
+  pp.state AS p_state
+FROM
+  node n
+  LEFT JOIN LATERAL (
+    SELECT
+      x.state
+    FROM
+      (
+        SELECT
+          1
+        WHERE
+          (
+            EXISTS (
+              SELECT
+                1
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+      ) gate
+      CROSS JOIN LATERAL (
+        SELECT
+          pp_1.state
+        FROM
+          plan_psector_x_node pp_1
+        WHERE
+          pp_1.node_id = n.node_id
+          AND (
+            pp_1.psector_id IN (
+              SELECT
+                sp.psector_id
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+        ORDER BY
+          pp_1.psector_id DESC
+        LIMIT
+          1
+      ) x
+  ) pp ON TRUE
+WHERE
+  (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_state ss
+      WHERE
+        ss.cur_user = CURRENT_USER
+        AND ss.state_id = COALESCE(pp.state, n.state)
+    )
+  )
+  AND (
+    (
+      n.sector_id IN (
+        SELECT
+          ssec.sector_id
+        FROM
+          selector_sector ssec
+        WHERE
+          ssec.cur_user = CURRENT_USER
+      )
+    )
+    OR (
+      EXISTS (
+        SELECT
+          1
+        FROM
+          node_x_sector_visibility sv
+          JOIN selector_sector ssec ON ssec.sector_id = sv.sector_id
+          AND ssec.cur_user = CURRENT_USER
+        WHERE
+          sv.node_id = n.node_id
+      )
+    )
+    OR pp.state IS NOT NULL
+  )
+  AND (
+    (
+      n.muni_id IN (
+        SELECT
+          sm.muni_id
+        FROM
+          selector_municipality sm
+        WHERE
+          sm.cur_user = CURRENT_USER
+      )
+    )
+    OR (
+      EXISTS (
+        SELECT
+          1
+        FROM
+          node_x_municipality_visibility mv
+          JOIN selector_municipality sm ON sm.muni_id = mv.muni_id
+          AND sm.cur_user = CURRENT_USER
+        WHERE
+          mv.node_id = n.node_id
+      )
+    )
+  )
+  AND (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_expl se
+      WHERE
+        se.cur_user = CURRENT_USER
+        AND (
+          se.expl_id = n.expl_id
+          OR (se.expl_id = ANY (n.expl_visibility))
+        )
+    )
+  );
+
+CREATE OR REPLACE VIEW vf_arc AS
+SELECT
+  a.arc_id,
+  pp.state AS p_state
+FROM
+  arc a
+  LEFT JOIN LATERAL (
+    SELECT
+      x.state
+    FROM
+      (
+        SELECT
+          1
+        WHERE
+          (
+            EXISTS (
+              SELECT
+                1
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+      ) gate
+      CROSS JOIN LATERAL (
+        SELECT
+          pp_1.state
+        FROM
+          plan_psector_x_arc pp_1
+        WHERE
+          pp_1.arc_id = a.arc_id
+          AND (
+            pp_1.psector_id IN (
+              SELECT
+                sp.psector_id
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+        ORDER BY
+          pp_1.psector_id DESC
+        LIMIT
+          1
+      ) x
+  ) pp ON TRUE
+WHERE
+  (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_state ss
+      WHERE
+        ss.cur_user = CURRENT_USER
+        AND ss.state_id = COALESCE(pp.state, a.state)
+    )
+  )
+  AND (
+    (
+      a.sector_id IN (
+        SELECT
+          ssec.sector_id
+        FROM
+          selector_sector ssec
+        WHERE
+          ssec.cur_user = CURRENT_USER
+      )
+    )
+    OR pp.state IS NOT NULL
+  )
+  AND (
+    a.muni_id IN (
+      SELECT
+        sm.muni_id
+      FROM
+        selector_municipality sm
+      WHERE
+        sm.cur_user = CURRENT_USER
+    )
+  )
+  AND (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_expl se
+      WHERE
+        se.cur_user = CURRENT_USER
+        AND (
+          se.expl_id = a.expl_id
+          OR (se.expl_id = ANY (a.expl_visibility))
+        )
+    )
+  );
+
+CREATE OR REPLACE VIEW vf_element AS
+SELECT
+  e.element_id,
+  pp.state AS p_state
+FROM
+  element e
+  LEFT JOIN man_frelem mf ON e.element_id = mf.element_id
+  LEFT JOIN LATERAL (
+    SELECT
+      pp_1.state
+    FROM
+      plan_psector_x_node pp_1
+    WHERE
+      pp_1.node_id = mf.node_id
+      AND (
+        pp_1.psector_id IN (
+          SELECT
+            sp.psector_id
+          FROM
+            selector_psector sp
+          WHERE
+            sp.cur_user = CURRENT_USER
+        )
+      )
+    ORDER BY
+      pp_1.psector_id DESC
+    LIMIT
+      1
+  ) pp ON TRUE
+WHERE
+  (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_state ss
+      WHERE
+        ss.cur_user = CURRENT_USER
+        AND ss.state_id = COALESCE(pp.state, e.state)
+    )
+  )
+  AND (
+    (
+      e.sector_id IN (
+        SELECT
+          ssec.sector_id
+        FROM
+          selector_sector ssec
+        WHERE
+          ssec.cur_user = CURRENT_USER
+      )
+    )
+    OR (
+      EXISTS (
+        SELECT
+          1
+        FROM
+          element_x_sector_visibility sv
+          JOIN selector_sector ssec ON ssec.sector_id = sv.sector_id
+          AND ssec.cur_user = CURRENT_USER
+        WHERE
+          sv.element_id = e.element_id
+      )
+    )
+    OR pp.state IS NOT NULL
+  )
+  AND (
+    (
+      e.muni_id IN (
+        SELECT
+          sm.muni_id
+        FROM
+          selector_municipality sm
+        WHERE
+          sm.cur_user = CURRENT_USER
+      )
+    )
+    OR (
+      EXISTS (
+        SELECT
+          1
+        FROM
+          element_x_municipality_visibility mv
+          JOIN selector_municipality sm ON sm.muni_id = mv.muni_id
+          AND sm.cur_user = CURRENT_USER
+        WHERE
+          mv.element_id = e.element_id
+      )
+    )
+  )
+  AND (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_expl se
+      WHERE
+        se.cur_user = CURRENT_USER
+        AND (
+          se.expl_id = e.expl_id
+          OR (se.expl_id = ANY (e.expl_visibility))
+        )
+    )
+  );
+
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"SAVE-DROP", "rootViews":["ve_element"], "batchId":2}}$$);
+
+CREATE OR REPLACE VIEW ve_element
+AS WITH sector_visibility_agg AS (
+         SELECT element_x_sector_visibility.element_id,
+            array_agg(element_x_sector_visibility.sector_id ORDER BY element_x_sector_visibility.sector_id) AS sector_visibility
+           FROM element_x_sector_visibility
+          GROUP BY element_x_sector_visibility.element_id
+        ), muni_visibility_agg AS (
+         SELECT element_x_municipality_visibility.element_id,
+            array_agg(element_x_municipality_visibility.muni_id ORDER BY element_x_municipality_visibility.muni_id) AS muni_visibility
+           FROM element_x_municipality_visibility
+          GROUP BY element_x_municipality_visibility.element_id
+        )
+ SELECT e.element_id,
+    e.code,
+    e.sys_code,
+    e.top_elev,
+    cat_element.element_type,
+    e.elementcat_id,
+    e.num_elements,
+    e.epa_type,
+    e.state,
+    e.state_type,
+    e.expl_id,
+    e.muni_id,
+    e.sector_id,
+    e.omzone_id,
+    e.function_type,
+    e.category_type,
+    e.location_type,
+    e.observ,
+    e.comment,
+    cat_element.link,
+    e.workcat_id,
+    e.workcat_id_end,
+    e.builtdate,
+    e.enddate,
+    e.ownercat_id,
+    e.brand_id,
+    e.model_id,
+    e.serial_number,
+    e.asset_id,
+    e.verified,
+    e.datasource,
+    e.label_x,
+    e.label_y,
+    e.label_rotation,
+    e.rotation,
+    e.inventory,
+    e.publish,
+    e.trace_featuregeom,
+    e.lock_level,
+    e.expl_visibility,
+    e.created_at,
+    e.created_by,
+    e.updated_at,
+    e.updated_by,
+    e.the_geom,
+    vf.p_state,
+    e.uuid,
+    sva.sector_visibility,
+    mva.muni_visibility,
+    e.dataquality,
+    e.dataquality_obs,
+    vst.is_operative
+   FROM element e
+     JOIN vf_element vf ON vf.element_id = e.element_id
+     JOIN cat_element ON e.elementcat_id::text = cat_element.id::text
+     LEFT JOIN sector_visibility_agg sva ON sva.element_id = e.element_id
+     LEFT JOIN muni_visibility_agg mva ON mva.element_id = e.element_id
+    LEFT JOIN value_state_type vst ON vst.id = e.state_type;
+
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE", "batchId":2}}$$);
+
+UPDATE sys_fprocess
+	SET query_text='SELECT * FROM t_gully WHERE arc_id IS NULL'
+	WHERE fid=455;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT * FROM temp_t_node WHERE top_elev = 0'
+	WHERE fid=165;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT * FROM temp_t_node WHERE top_elev IS NULL'
+	WHERE fid=164;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT * FROM t_arc WHERE sys_elev1 = NULL OR sys_elev2 = NULL'
+	WHERE fid=284;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT *
+FROM t_arc a
+JOIN cat_arc c ON c.id = a.matcat_id  
+WHERE a.matcat_id IS null
+AND sys_type !=''VARC'''
+	WHERE fid=569;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT * FROM t_node WHERE epa_type !=''UNDEFINED'' AND sys_elev IS NULL'
+	WHERE fid=584;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT *
+FROM t_arc a
+JOIN cat_arc c ON c.id = a.cat_matcat_id  
+WHERE a.cat_matcat_id IS null
+AND sys_type !=''VARC'''
+	WHERE fid=430;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT n.node_id, nodecat_id, the_geom, n.expl_id
+FROM (
+	SELECT node_1 node_id, sector_id
+	FROM t_arc
+	WHERE epa_type !=''UNDEFINED''
+	UNION 
+	SELECT node_2, sector_id
+	FROM t_arc
+	WHERE epa_type !=''UNDEFINED''
+)a
+JOIN (
+	SELECT node_id, nodecat_id, the_geom, expl_id
+	FROM t_node
+	WHERE epa_type = ''UNDEFINED''
+) n USING (node_id) 
+WHERE n.node_id IS NOT NULL'
+	WHERE fid=379;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT node_id, nodecat_id, expl_id, t_node.the_geom, ''Node sink'' FROM t_node WHERE epa_type !=''UNDEFINED'' AND node_id IN
+	(SELECT node_1 FROM (SELECT arc_id, node_1, node_2 FROM t_arc JOIN cat_arc c ON c.id = arccat_id 
+	JOIN cat_arc_shape s ON c.shape = s.id WHERE slope < 0 AND s.epa != ''FORCE_MAIN'')a
+	EXCEPT 
+	SELECT node_1 FROM (SELECT arc_id, node_1, node_2 FROM t_arc JOIN cat_arc c ON c.id = arccat_id 
+	JOIN cat_arc_shape s ON c.shape = s.id WHERE slope > 0)a)'
+	WHERE fid=113;
+
+UPDATE sys_fprocess
+	SET query_text='
+SELECT * FROM (
+SELECT node_id, nodecat_id, n.the_geom, n.expl_id FROM t_node n  
+JOIN t_arc a1 ON node_id=a1.node_1  AND n.epa_type IN (''SHORTPIPE'', ''VALVE'', ''PUMP'')
+UNION ALL 
+SELECT node_id, nodecat_id, n.the_geom, n.expl_id FROM t_node n  
+JOIN t_arc a1 ON node_id=a1.node_2  AND n.epa_type IN (''SHORTPIPE'', ''VALVE'', ''PUMP''))a 
+GROUP by node_id, nodecat_id, the_geom, expl_id HAVING count(*) > 2'
+	WHERE fid=166;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT *FROM (
+SELECT node_id, nodecat_id, t_node.the_geom, t_node.expl_id FROM t_node 
+JOIN t_arc a1 ON node_id=a1.node_1 WHERE t_node.epa_type IN (''VALVE'', ''PUMP'') UNION ALL
+SELECT node_id, nodecat_id, t_node.the_geom, t_node.expl_id FROM t_node 
+JOIN t_arc a1 ON node_id=a1.node_1 WHERE t_node.epa_type IN (''VALVE'', ''PUMP''))a 
+GROUP by node_id, nodecat_id, the_geom, expl_id HAVING count(*) < 2'
+	WHERE fid=167;
+
+UPDATE sys_fprocess
+	SET query_text='SELECT n.node_id, n.nodecat_id, n.the_geom, n.expl_id FROM t_node n WHERE NOT EXISTS (SELECT 1 FROM t_arc a WHERE a.node_1 = n.node_id) AND NOT EXISTS (SELECT 1 FROM t_arc a WHERE a.node_2 = n.node_id)
+AND epa_type !=''UNDEFINED'' AND is_operative'
+	WHERE fid=228;
+
+UPDATE sys_fprocess SET
+fprocess_name = 'Check roughness configuration'
+WHERE fid = 377;
 -- Fix sys_table_context 27/28/29 when 4.5.0 renumbered with a non-C
 -- collation (Linux ICU): OM ANALYTICS siblings were assigned the wrong
 -- numeric id vs the C-collation / i18n baseline.

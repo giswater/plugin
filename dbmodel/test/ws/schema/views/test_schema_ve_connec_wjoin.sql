@@ -44,7 +44,7 @@ SELECT columns_are(
         'dqa_style', 'supplyzone_style', 'lock_level', 'expl_visibility', 'xcoord', 'ycoord',
         'lat', 'long', 'created_at', 'created_by', 'updated_at', 'updated_by',
         'the_geom', 'p_state', 'uuid', 'uncertain', 'xyz_date', 'top_floor',
-        'wjoin_type', 'dataquality', 'dataquality_obs'
+        'wjoin_type', 'dataquality', 'dataquality_obs', 'p_arc_id', 'p_pjoint_id', 'p_pjoint_type'
     ],
     'View ve_connec_wjoin should have the correct columns'
 );
@@ -192,6 +192,9 @@ SELECT col_type_is('ve_connec_wjoin', 'wjoin_type', 'text', 'Column wjoin_type s
 
 SELECT col_type_is('ve_connec_wjoin', 'dataquality', 'int4', 'Column dataquality should be int4');
 SELECT col_type_is('ve_connec_wjoin', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
+SELECT col_type_is('ve_connec_wjoin', 'p_arc_id', 'int4', 'Column p_arc_id should be int4');
+SELECT col_type_is('ve_connec_wjoin', 'p_pjoint_id', 'int4', 'Column p_pjoint_id should be int4');
+SELECT col_type_is('ve_connec_wjoin', 'p_pjoint_type', 'varchar(16)', 'Column p_pjoint_type should be varchar(16)');
 
 SELECT * FROM finish();
 

@@ -404,7 +404,601 @@ UPDATE config_form_fields
 	SET "label"='Lab code'
 	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='lab_code' AND "label"='lab_code';
 
+
+
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"SAVE-DROP", "rootViews":["ve_connec"], "batchId":4}}$$);
+
 DROP VIEW IF EXISTS v_om_visit;
+DROP VIEW IF EXISTS vf_connec;
+CREATE OR REPLACE VIEW vf_connec AS
+SELECT
+  c.connec_id,
+  pp.state AS p_state,
+  pp.arc_id AS p_arc_id,
+  pp.exit_id AS p_pjoint_id,
+  pp.exit_type AS p_pjoint_type
+FROM
+  connec c
+  LEFT JOIN LATERAL (
+    SELECT
+      x.state,
+      x.arc_id,
+      x.exit_id,
+      x.exit_type
+    FROM
+      (
+        SELECT
+          1
+        WHERE
+          (
+            EXISTS (
+              SELECT
+                1
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+      ) gate
+      CROSS JOIN LATERAL (
+        SELECT
+          pp_1.state,
+          pp_1.arc_id,
+          l.exit_id,
+          l.exit_type
+        FROM
+          plan_psector_x_connec pp_1
+          LEFT JOIN link l ON l.link_id = pp_1.link_id
+          AND l.state = 2
+        WHERE
+          pp_1.connec_id = c.connec_id
+          AND (
+            pp_1.psector_id IN (
+              SELECT
+                sp.psector_id
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+        ORDER BY
+          pp_1.psector_id DESC,
+          pp_1.state DESC
+        LIMIT
+          1
+      ) x
+  ) pp ON TRUE
+WHERE
+  (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_state ss
+      WHERE
+        ss.cur_user = CURRENT_USER
+        AND ss.state_id = COALESCE(pp.state, c.state)
+    )
+  )
+  AND (
+    (
+      c.sector_id IN (
+        SELECT
+          ssec.sector_id
+        FROM
+          selector_sector ssec
+        WHERE
+          ssec.cur_user = CURRENT_USER
+      )
+    )
+    OR pp.state IS NOT NULL
+  )
+  AND (
+    c.muni_id IN (
+      SELECT
+        sm.muni_id
+      FROM
+        selector_municipality sm
+      WHERE
+        sm.cur_user = CURRENT_USER
+    )
+  )
+  AND (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_expl se
+      WHERE
+        se.cur_user = CURRENT_USER
+        AND (
+          se.expl_id = c.expl_id
+          OR (se.expl_id = ANY (c.expl_visibility))
+        )
+    )
+  );
+
+-- ve_connec source
+
+CREATE OR REPLACE VIEW ve_connec
+AS WITH typevalue AS (
+         SELECT edit_typevalue.typevalue,
+            edit_typevalue.id,
+            edit_typevalue.idval
+           FROM edit_typevalue
+          WHERE edit_typevalue.typevalue::text = ANY (ARRAY['sector_type'::character varying::text, 'drainzone_type'::character varying::text, 'omzone_type'::character varying::text, 'dwfzone_type'::character varying::text])
+        ), sector_table AS (
+         SELECT sector.sector_id,
+            sector.macrosector_id,
+            sector.stylesheet,
+            t.id AS sector_type
+           FROM sector
+             LEFT JOIN typevalue t ON t.id::text = sector.sector_type::text AND t.typevalue::text = 'sector_type'::text
+        ), omzone_table AS (
+         SELECT omzone.omzone_id,
+            omzone.macroomzone_id,
+            omzone.stylesheet,
+            t.id AS omzone_type
+           FROM omzone
+             LEFT JOIN typevalue t ON t.id::text = omzone.omzone_type::text AND t.typevalue::text = 'omzone_type'::text
+        ), drainzone_table AS (
+         SELECT drainzone.drainzone_id,
+            drainzone.stylesheet,
+            t.id AS drainzone_type
+           FROM drainzone
+             LEFT JOIN typevalue t ON t.id::text = drainzone.drainzone_type::text AND t.typevalue::text = 'drainzone_type'::text
+        ), dwfzone_table AS (
+         SELECT dwfzone.dwfzone_id,
+            dwfzone.stylesheet,
+            t.id AS dwfzone_type,
+            dwfzone.drainzone_id
+           FROM dwfzone
+             LEFT JOIN typevalue t ON t.id::text = dwfzone.dwfzone_type::text AND t.typevalue::text = 'dwfzone_type'::text
+        )
+ SELECT c.connec_id,
+    c.code,
+    c.sys_code,
+    c.top_elev,
+    c.y1,
+    c.y2,
+    cat_feature.feature_class AS sys_type,
+    c.connec_type::text AS connec_type,
+    c.matcat_id,
+    c.conneccat_id,
+    c.customer_code,
+    c.connec_depth,
+    c.connec_length,
+    c.state,
+    c.state_type,
+    c.arc_id,
+    c.expl_id,
+    exploitation.macroexpl_id,
+    c.muni_id,
+    c.sector_id,
+    sector_table.macrosector_id,
+    sector_table.sector_type,
+    dwfzone_table.drainzone_id,
+    drainzone_table.drainzone_type,
+    c.drainzone_outfall,
+    c.dwfzone_id,
+    dwfzone_table.dwfzone_type,
+    c.dwfzone_outfall,
+    c.omzone_id,
+    omzone_table.macroomzone_id,
+    omzone_table.omzone_type,
+    c.dma_id,
+    c.omunit_id,
+    c.minsector_id,
+    c.soilcat_id,
+    c.function_type,
+    c.category_type,
+    c.location_type,
+    c.fluid_type,
+    c.n_hydrometer,
+    c.n_inhabitants,
+    c.demand,
+    c.descript,
+    c.annotation,
+    c.observ,
+    c.comment,
+    c.link::text AS link,
+    c.num_value,
+    c.district_id,
+    c.postcode,
+    c.streetaxis_id,
+    c.postnumber,
+    c.postcomplement,
+    c.streetaxis2_id,
+    c.postnumber2,
+    c.postcomplement2,
+    vm.region_id,
+    vm.province_id,
+    c.block_code,
+    c.plot_id,
+    c.workcat_id,
+    c.workcat_id_end,
+    c.workcat_id_plan,
+    c.builtdate,
+    c.enddate,
+    c.ownercat_id,
+    c.om_state,
+    c.pjoint_id,
+    c.pjoint_type,
+    c.access_type,
+    c.placement_type,
+    c.accessibility,
+    c.brand_id,
+    c.model_id,
+    c.asset_id,
+    c.adate,
+    c.adescript,
+    c.verified,
+    c.uncertain,
+    c.datasource,
+    cat_connec.label,
+    c.label_x,
+    c.label_y,
+    c.label_rotation,
+    c.rotation,
+    c.label_quadrant,
+    cat_connec.svg,
+    c.inventory,
+    c.publish,
+    vst.is_operative,
+    sector_table.stylesheet ->> 'featureColor'::text AS sector_style,
+    drainzone_table.stylesheet ->> 'featureColor'::text AS drainzone_style,
+    dwfzone_table.stylesheet ->> 'featureColor'::text AS dwfzone_style,
+    omzone_table.stylesheet ->> 'featureColor'::text AS omzone_style,
+    c.lock_level,
+    c.expl_visibility,
+    ( SELECT st_x(c.the_geom) AS st_x) AS xcoord,
+    ( SELECT st_y(c.the_geom) AS st_y) AS ycoord,
+    ( SELECT st_y(st_transform(c.the_geom, 4326)) AS st_y) AS lat,
+    ( SELECT st_x(st_transform(c.the_geom, 4326)) AS st_x) AS long,
+    date_trunc('second'::text, c.created_at) AS created_at,
+    c.created_by,
+    date_trunc('second'::text, c.updated_at) AS updated_at,
+    c.updated_by,
+    c.the_geom,
+    c.diagonal,
+    vf.p_state,
+    c.uuid,
+    c.treatment_type,
+    c.xyz_date,
+    c.has_treatment,
+    c.dataquality,
+    c.dataquality_obs,
+    vf.p_arc_id,
+    vf.p_pjoint_id,
+    vf.p_pjoint_type
+   FROM connec c
+     JOIN vf_connec vf ON vf.connec_id = c.connec_id
+     JOIN cat_connec ON cat_connec.id::text = c.conneccat_id::text
+     JOIN cat_feature ON cat_feature.id::text = c.connec_type::text
+     JOIN exploitation ON c.expl_id = exploitation.expl_id
+     JOIN v_municipality vm ON c.muni_id = vm.muni_id
+     JOIN value_state_type vst ON vst.id = c.state_type
+     JOIN sector_table ON sector_table.sector_id = c.sector_id
+     LEFT JOIN omzone_table ON omzone_table.omzone_id = c.omzone_id
+     LEFT JOIN drainzone_table ON c.omzone_id = drainzone_table.drainzone_id
+     LEFT JOIN dwfzone_table ON c.dwfzone_id = dwfzone_table.dwfzone_id;
+
+
+CREATE TRIGGER gw_trg_edit_connec INSTEAD OF
+INSERT
+    OR
+DELETE
+    OR
+UPDATE
+    ON
+    ve_connec FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_connec('parent');
+
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE", "batchId":4}}$$);
+
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"SAVE-DROP", "rootViews":["ve_gully"], "batchId":5}}$$);
+
+DROP VIEW IF EXISTS vf_gully;
+CREATE OR REPLACE VIEW vf_gully AS
+SELECT
+  g.gully_id,
+  pp.state AS p_state,
+  pp.arc_id AS p_arc_id,
+  pp.exit_id AS p_pjoint_id,
+  pp.exit_type AS p_pjoint_type
+FROM
+  gully g
+  LEFT JOIN LATERAL (
+    SELECT
+      x.state,
+      x.arc_id,
+      x.exit_id,
+      x.exit_type
+    FROM
+      (
+        SELECT
+          1
+        WHERE
+          (
+            EXISTS (
+              SELECT
+                1
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+      ) gate
+      CROSS JOIN LATERAL (
+        SELECT
+          pp_1.state,
+          pp_1.arc_id,
+          l.exit_id,
+          l.exit_type
+        FROM
+          plan_psector_x_gully pp_1
+          LEFT JOIN link l ON l.link_id = pp_1.link_id
+          AND l.state = 2
+        WHERE
+          pp_1.gully_id = g.gully_id
+          AND (
+            pp_1.psector_id IN (
+              SELECT
+                sp.psector_id
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+        ORDER BY
+          pp_1.psector_id DESC,
+          pp_1.state DESC
+        LIMIT
+          1
+      ) x
+  ) pp ON TRUE
+WHERE
+  (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_state ss
+      WHERE
+        ss.cur_user = CURRENT_USER
+        AND ss.state_id = COALESCE(pp.state, g.state)
+    )
+  )
+  AND (
+    (
+      g.sector_id IN (
+        SELECT
+          ssec.sector_id
+        FROM
+          selector_sector ssec
+        WHERE
+          ssec.cur_user = CURRENT_USER
+      )
+    )
+    OR pp.state IS NOT NULL
+  )
+  AND (
+    g.muni_id IN (
+      SELECT
+        sm.muni_id
+      FROM
+        selector_municipality sm
+      WHERE
+        sm.cur_user = CURRENT_USER
+    )
+  )
+  AND (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_expl se
+      WHERE
+        se.cur_user = CURRENT_USER
+        AND (
+          se.expl_id = g.expl_id
+          OR (se.expl_id = ANY (g.expl_visibility))
+        )
+    )
+  );
+
+
+CREATE OR REPLACE VIEW ve_gully
+AS WITH typevalue AS (
+         SELECT edit_typevalue.typevalue,
+            edit_typevalue.id,
+            edit_typevalue.idval
+           FROM edit_typevalue
+          WHERE edit_typevalue.typevalue::text = ANY (ARRAY['sector_type'::character varying::text, 'drainzone_type'::character varying::text, 'omzone_type'::character varying::text, 'dwfzone_type'::character varying::text])
+        ), sector_table AS (
+         SELECT sector.sector_id,
+            sector.macrosector_id,
+            sector.stylesheet,
+            t.id AS sector_type
+           FROM sector
+             LEFT JOIN typevalue t ON t.id::text = sector.sector_type::text AND t.typevalue::text = 'sector_type'::text
+        ), omzone_table AS (
+         SELECT omzone.omzone_id,
+            omzone.macroomzone_id,
+            omzone.stylesheet,
+            t.id AS omzone_type
+           FROM omzone
+             LEFT JOIN typevalue t ON t.id::text = omzone.omzone_type::text AND t.typevalue::text = 'omzone_type'::text
+        ), drainzone_table AS (
+         SELECT drainzone.drainzone_id,
+            drainzone.stylesheet,
+            t.id AS drainzone_type
+           FROM drainzone
+             LEFT JOIN typevalue t ON t.id::text = drainzone.drainzone_type::text AND t.typevalue::text = 'drainzone_type'::text
+        ), dwfzone_table AS (
+         SELECT dwfzone.dwfzone_id,
+            dwfzone.stylesheet,
+            t.id AS dwfzone_type,
+            dwfzone.drainzone_id
+           FROM dwfzone
+             LEFT JOIN typevalue t ON t.id::text = dwfzone.dwfzone_type::text AND t.typevalue::text = 'dwfzone_type'::text
+        ), inp_network_mode AS (
+         SELECT config_param_user.value
+           FROM config_param_user
+          WHERE config_param_user.parameter::text = 'inp_options_networkmode'::text AND config_param_user.cur_user::text = CURRENT_USER
+        )
+ SELECT gully.gully_id,
+    gully.code,
+    gully.sys_code,
+    gully.top_elev,
+    COALESCE(gully.width, cat_gully.width) AS width,
+    COALESCE(gully.length, cat_gully.length) AS length,
+    COALESCE(gully.ymax, cat_gully.ymax) AS ymax,
+    gully.sandbox,
+    gully.matcat_id,
+    gully.gully_type,
+    cat_feature.feature_class AS sys_type,
+    gully.gullycat_id,
+    cat_gully.matcat_id AS cat_gully_matcat,
+    gully.units,
+    gully.units_placement,
+    gully.groove,
+    gully.groove_height,
+    gully.groove_length,
+    gully.siphon,
+    gully.siphon_type,
+    gully.odorflap,
+    gully._connec_arccat_id AS connec_arccat_id,
+    gully.connec_length,
+    COALESCE(((gully.top_elev - gully.ymax + gully.sandbox + gully.connec_y2) / 2::numeric)::numeric(12,3), gully.connec_depth) AS connec_depth,
+    COALESCE(gully._connec_matcat_id, cc.matcat_id::text) AS connec_matcat_id,
+    gully.top_elev - gully.ymax + gully.sandbox AS connec_y1,
+    gully.connec_y2,
+    gully.arc_id,
+    gully.epa_type,
+    gully.state,
+    gully.state_type,
+    gully.expl_id,
+    exploitation.macroexpl_id,
+    gully.muni_id,
+    sector_table.sector_id,
+    sector_table.macrosector_id,
+    sector_table.sector_type,
+    dwfzone_table.drainzone_id,
+    drainzone_table.drainzone_type,
+    gully.drainzone_outfall,
+    dwfzone_table.dwfzone_id,
+    dwfzone_table.dwfzone_type,
+    gully.dwfzone_outfall,
+    omzone_table.omzone_id,
+    omzone_table.macroomzone_id,
+    gully.dma_id,
+    omzone_table.omzone_type,
+    gully.omunit_id,
+    gully.minsector_id,
+    gully.soilcat_id,
+    gully.function_type,
+    gully.category_type,
+    gully.location_type,
+    gully.fluid_type,
+    gully.descript,
+    gully.annotation,
+    gully.observ,
+    gully.comment,
+    concat(cat_feature.link_path, gully.link) AS link,
+    gully.num_value,
+    gully.district_id,
+    gully.postcode,
+    gully.streetaxis_id,
+    gully.postnumber,
+    gully.postcomplement,
+    gully.streetaxis2_id,
+    gully.postnumber2,
+    gully.postcomplement2,
+    vm.region_id,
+    vm.province_id,
+    gully.workcat_id,
+    gully.workcat_id_end,
+    gully.workcat_id_plan,
+    gully.builtdate,
+    gully.enddate,
+    gully.ownercat_id,
+    gully.om_state,
+    gully.pjoint_id,
+    gully.pjoint_type,
+    gully.placement_type,
+    gully.access_type,
+    gully.brand_id,
+    gully.model_id,
+    gully.asset_id,
+    gully.adate,
+    gully.adescript,
+    gully.verified,
+    gully.uncertain,
+    gully.datasource,
+    cat_gully.label,
+    gully.label_x,
+    gully.label_y,
+    gully.label_rotation,
+    gully.rotation,
+    gully.label_quadrant,
+    cat_gully.svg,
+    gully.inventory,
+    gully.publish,
+    vst.is_operative,
+        CASE
+            WHEN gully.sector_id > 0 AND vst.is_operative = true AND gully.epa_type::text = 'GULLY'::character varying(16)::text AND inp_network_mode.value = '2'::text THEN gully.epa_type
+            ELSE NULL::character varying(16)
+        END AS inp_type,
+    sector_table.stylesheet ->> 'featureColor'::text AS sector_style,
+    omzone_table.stylesheet ->> 'featureColor'::text AS omzone_style,
+    drainzone_table.stylesheet ->> 'featureColor'::text AS drainzone_style,
+    dwfzone_table.stylesheet ->> 'featureColor'::text AS dwfzone_style,
+    gully.lock_level,
+    gully.expl_visibility,
+    date_trunc('second'::text, gully.created_at) AS created_at,
+    gully.created_by,
+    date_trunc('second'::text, gully.updated_at) AS updated_at,
+    gully.updated_by,
+    gully.the_geom,
+    vf.p_state,
+    gully.uuid,
+    gully.treatment_type,
+    gully.xyz_date,
+    gully.has_treatment,
+    gully.dataquality,
+    gully.dataquality_obs,
+    vf.p_arc_id,
+    vf.p_pjoint_id,
+    vf.p_pjoint_type
+   FROM gully
+     JOIN vf_gully vf ON vf.gully_id = gully.gully_id
+     JOIN cat_gully ON gully.gullycat_id::text = cat_gully.id::text
+     JOIN exploitation ON gully.expl_id = exploitation.expl_id
+     JOIN cat_feature ON gully.gully_type::text = cat_feature.id::text
+     LEFT JOIN cat_connec cc ON cc.id::text = gully._connec_arccat_id::text
+     JOIN value_state_type vst ON vst.id = gully.state_type
+     JOIN v_municipality vm ON gully.muni_id = vm.muni_id
+     JOIN sector_table ON gully.sector_id = sector_table.sector_id
+     LEFT JOIN omzone_table ON gully.omzone_id = omzone_table.omzone_id
+     LEFT JOIN drainzone_table ON gully.omzone_id = drainzone_table.drainzone_id
+     LEFT JOIN dwfzone_table ON gully.dwfzone_id = dwfzone_table.dwfzone_id
+     LEFT JOIN inp_network_mode ON true;
+
+CREATE TRIGGER gw_trg_edit_gully INSTEAD OF
+INSERT
+    OR
+DELETE
+    OR
+UPDATE
+    ON
+    ve_gully FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_gully('parent');
+
+
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE", "batchId":5}}$$);
 
 CREATE OR REPLACE VIEW v_om_visit AS
 SELECT DISTINCT ON (visit_id)
@@ -554,6 +1148,810 @@ FROM (
   JOIN cat_feature ON cat_feature.id = cat_gully.gully_type
 ) a;
 
+CREATE OR REPLACE VIEW vf_link AS
+SELECT
+  l.link_id,
+  pp.state AS p_state
+FROM
+  link l
+  LEFT JOIN LATERAL (
+    SELECT
+      x.psector_id
+    FROM
+      (
+        SELECT
+          1
+        WHERE
+          (
+            EXISTS (
+              SELECT
+                1
+              FROM
+                selector_psector sp
+              WHERE
+                sp.cur_user = CURRENT_USER
+            )
+          )
+      ) gate
+      CROSS JOIN LATERAL (
+        SELECT
+          p.psector_id
+        FROM
+          (
+            SELECT
+              pp1.psector_id
+            FROM
+              plan_psector_x_connec pp1
+            WHERE
+              pp1.connec_id = l.feature_id
+              AND (
+                pp1.psector_id IN (
+                  SELECT
+                    sp.psector_id
+                  FROM
+                    selector_psector sp
+                  WHERE
+                    sp.cur_user = CURRENT_USER
+                )
+              )
+            UNION ALL
+            SELECT
+              pg1.psector_id
+            FROM
+              plan_psector_x_gully pg1
+            WHERE
+              pg1.gully_id = l.feature_id
+              AND (
+                pg1.psector_id IN (
+                  SELECT
+                    sp.psector_id
+                  FROM
+                    selector_psector sp
+                  WHERE
+                    sp.cur_user = CURRENT_USER
+                )
+              )
+          ) p
+        ORDER BY
+          p.psector_id DESC
+        LIMIT
+          1
+      ) x
+  ) last_ps ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT
+      x.state
+    FROM
+      (
+        SELECT
+          1
+        WHERE
+          last_ps.psector_id IS NOT NULL
+      ) gate
+      CROSS JOIN LATERAL (
+        SELECT
+          p.state
+        FROM
+          (
+            SELECT
+              pp2.state
+            FROM
+              plan_psector_x_connec pp2
+            WHERE
+              pp2.link_id = l.link_id
+              AND pp2.psector_id = last_ps.psector_id
+            UNION ALL
+            SELECT
+              pg2.state
+            FROM
+              plan_psector_x_gully pg2
+            WHERE
+              pg2.link_id = l.link_id
+              AND pg2.psector_id = last_ps.psector_id
+          ) p
+        LIMIT
+          1
+      ) x
+  ) pp ON TRUE
+WHERE
+  (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_state ss
+      WHERE
+        ss.cur_user = CURRENT_USER
+        AND ss.state_id = COALESCE(pp.state, l.state)
+    )
+  )
+  AND (
+    (
+      l.sector_id IN (
+        SELECT
+          ssec.sector_id
+        FROM
+          selector_sector ssec
+        WHERE
+          ssec.cur_user = CURRENT_USER
+      )
+    )
+    OR pp.state IS NOT NULL
+  )
+  AND (
+    l.muni_id IN (
+      SELECT
+        sm.muni_id
+      FROM
+        selector_municipality sm
+      WHERE
+        sm.cur_user = CURRENT_USER
+    )
+  )
+  AND (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        selector_expl se
+      WHERE
+        se.cur_user = CURRENT_USER
+        AND (
+          se.expl_id = l.expl_id
+          OR (se.expl_id = ANY (l.expl_visibility))
+        )
+    )
+  );
+
+CREATE OR REPLACE VIEW ve_inp_junction
+AS SELECT n.node_id,
+    n.top_elev,
+    n.custom_top_elev,
+    n.ymax,
+    n.elev,
+    n.custom_elev,
+    n.sys_elev,
+    n.nodecat_id,
+    n.sector_id,
+    n.macrosector_id,
+    n.state,
+    n.state_type,
+    n.annotation,
+    n.expl_id,
+    inp_junction.y0,
+    inp_junction.ysur,
+    inp_junction.apond,
+    inp_junction.outfallparam::text AS outfallparam,
+    n.the_geom,
+    n.p_state
+   FROM ve_node n
+     JOIN inp_junction USING (node_id)
+  WHERE n.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_conduit
+AS SELECT ve_arc.arc_id,
+    ve_arc.node_1,
+    ve_arc.node_2,
+    ve_arc.y1,
+    ve_arc.elev1,
+    ve_arc.custom_elev1,
+    ve_arc.sys_elev1,
+    ve_arc.y2,
+    ve_arc.elev2,
+    ve_arc.custom_elev2,
+    ve_arc.sys_elev2,
+    ve_arc.arccat_id,
+    ve_arc.matcat_id,
+    ve_arc.cat_shape,
+    ve_arc.cat_geom1,
+    ve_arc.gis_length,
+    ve_arc.sector_id,
+    ve_arc.macrosector_id,
+    ve_arc.state,
+    ve_arc.state_type,
+    ve_arc.annotation,
+    ve_arc.inverted_slope,
+    ve_arc.custom_length,
+    ve_arc.expl_id,
+    inp_conduit.barrels,
+    inp_conduit.culvert,
+    inp_conduit.kentry,
+    inp_conduit.kexit,
+    inp_conduit.kavg,
+    inp_conduit.flap,
+    inp_conduit.q0,
+    inp_conduit.qmax,
+    inp_conduit.seepage,
+    inp_conduit.custom_n,
+    ve_arc.the_geom,
+    ve_arc.p_state
+   FROM ve_arc
+     JOIN inp_conduit USING (arc_id)
+  WHERE ve_arc.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_divider
+AS SELECT ve_node.node_id,
+    ve_node.top_elev,
+    ve_node.custom_top_elev,
+    ve_node.ymax,
+    ve_node.elev,
+    ve_node.custom_elev,
+    ve_node.sys_elev,
+    ve_node.nodecat_id,
+    ve_node.sector_id,
+    ve_node.macrosector_id,
+    ve_node.state,
+    ve_node.state_type,
+    ve_node.annotation,
+    ve_node.expl_id,
+    inp_divider.divider_type,
+    inp_divider.arc_id,
+    inp_divider.curve_id,
+    inp_divider.qmin,
+    inp_divider.ht,
+    inp_divider.cd,
+    inp_divider.y0,
+    inp_divider.ysur,
+    inp_divider.apond,
+    ve_node.the_geom,
+    ve_node.p_state
+   FROM ve_node
+     JOIN inp_divider ON ve_node.node_id = inp_divider.node_id
+  WHERE ve_node.is_operative = true;
+
+CREATE OR REPLACE VIEW ve_inp_dwf
+AS WITH inp_options_dwfscenario_current AS (
+         SELECT config_param_user.value::integer AS dwfscenario_id
+           FROM config_param_user
+          WHERE config_param_user.cur_user::text = CURRENT_USER AND config_param_user.parameter::text = 'inp_options_dwfscenario_current'::text
+         LIMIT 1
+        )
+ SELECT i.dwfscenario_id,
+    i.node_id,
+    i.value,
+    i.pat1,
+    i.pat2,
+    i.pat3,
+    i.pat4,
+    ve_inp_junction.p_state
+   FROM inp_dwf i
+     JOIN ve_inp_junction USING (node_id)
+     JOIN inp_options_dwfscenario_current iodc ON iodc.dwfscenario_id = i.dwfscenario_id;
+
+CREATE OR REPLACE VIEW ve_inp_frorifice
+AS SELECT f.element_id,
+    f.node_id,
+    f.to_arc,
+    f.flwreg_length,
+    ori.orifice_type,
+    ori.offsetval,
+    ori.cd,
+    ori.orate,
+    ori.flap,
+    ori.shape,
+    ori.geom1,
+    ori.geom2,
+    ori.geom3,
+    ori.geom4,
+    f.the_geom,
+    vf.p_state
+   FROM ve_man_frelem f
+     JOIN vf_element vf ON vf.element_id = f.element_id
+     JOIN inp_frorifice ori ON ori.element_id = f.element_id
+     JOIN value_state_type vst ON vst.id = f.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_froutlet
+AS SELECT f.element_id,
+    f.node_id,
+    f.to_arc,
+    f.flwreg_length,
+    ou.outlet_type,
+    ou.offsetval,
+    ou.curve_id,
+    ou.cd1,
+    ou.cd2,
+    ou.flap,
+    f.the_geom,
+    vf.p_state
+   FROM ve_man_frelem f
+     JOIN vf_element vf ON vf.element_id = f.element_id
+     JOIN inp_froutlet ou ON ou.element_id = f.element_id
+     JOIN value_state_type vst ON vst.id = f.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_frpump
+AS SELECT f.element_id,
+    f.node_id,
+    f.to_arc,
+    f.flwreg_length,
+    p.curve_id,
+    p.status,
+    p.startup,
+    p.shutoff,
+    f.the_geom,
+    vf.p_state
+   FROM ve_man_frelem f
+     JOIN vf_element vf ON vf.element_id = f.element_id
+     JOIN inp_frpump p ON p.element_id = f.element_id
+     JOIN value_state_type vst ON vst.id = f.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_frweir
+AS SELECT f.element_id,
+    f.node_id,
+    f.to_arc,
+    f.flwreg_length,
+    w.weir_type,
+    w.offsetval,
+    w.cd,
+    w.ec,
+    w.cd2,
+    w.flap,
+    w.geom1,
+    w.geom2,
+    w.geom3,
+    w.geom4,
+    w.surcharge,
+    w.road_width,
+    w.road_surf,
+    w.coef_curve,
+    f.the_geom,
+    vf.p_state
+   FROM ve_man_frelem f
+     JOIN vf_element vf ON vf.element_id = f.element_id
+     JOIN inp_frweir w ON w.element_id = f.element_id
+     JOIN value_state_type vst ON vst.id = f.state_type
+  WHERE vst.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_gully
+AS SELECT g.gully_id,
+    g.code,
+    g.top_elev,
+    g.gully_type,
+    g.gullycat_id,
+    (g.width / 100::numeric)::numeric(12,2) AS grate_width,
+    (g.length / 100::numeric)::numeric(12,2) AS grate_length,
+    g.arc_id,
+    g.sector_id,
+    g.expl_id,
+    g.state,
+    g.state_type,
+    g.the_geom,
+    g.units,
+    g.units_placement,
+    g.groove,
+    g.groove_height,
+    g.groove_length,
+    g.pjoint_id,
+    g.pjoint_type,
+        CASE
+            WHEN g.units_placement::text = 'LENGTH-SIDE'::text THEN (COALESCE(g.units::integer, 1)::numeric * g.width / 100::numeric)::numeric(12,3)
+            WHEN g.units_placement::text = 'WIDTH-SIDE'::text THEN (COALESCE(g.units::integer, 1)::numeric * g.length / 100::numeric)::numeric(12,3)
+            ELSE (cat_gully.width / 100::numeric)::numeric(12,3)
+        END AS total_width,
+        CASE
+            WHEN g.units_placement::text = 'LENGTH-SIDE'::text THEN (COALESCE(g.units::integer, 1)::numeric * g.width / 100::numeric)::numeric(12,3)
+            WHEN g.units_placement::text = 'WIDTH-SIDE'::text THEN (COALESCE(g.units::integer, 1)::numeric * g.length / 100::numeric)::numeric(12,3)
+            ELSE (cat_gully.length / 100::numeric)::numeric(12,3)
+        END AS total_length,
+    g.ymax - COALESCE(g.sandbox, 0::numeric) AS depth,
+    g.annotation,
+    i.outlet_type,
+    i.custom_top_elev,
+    i.custom_width,
+    i.custom_length,
+    i.custom_depth,
+    i.gully_method,
+    i.weir_cd,
+    i.orifice_cd,
+    i.custom_a_param,
+    i.custom_b_param,
+    i.efficiency,
+    g.p_state
+   FROM ve_gully g
+     JOIN inp_gully i USING (gully_id)
+     JOIN cat_gully ON g.gullycat_id::text = cat_gully.id::text
+  WHERE g.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_inflows
+AS SELECT inp_inflows.node_id,
+    inp_inflows.order_id,
+    inp_inflows.timser_id,
+    inp_inflows.sfactor,
+    inp_inflows.base,
+    inp_inflows.pattern_id,
+    ve_inp_junction.p_state
+   FROM inp_inflows
+     JOIN ve_inp_junction USING (node_id);
+
+CREATE OR REPLACE VIEW ve_inp_inflows_poll
+AS SELECT inp_inflows_poll.node_id,
+    inp_inflows_poll.poll_id,
+    inp_inflows_poll.timser_id,
+    inp_inflows_poll.form_type,
+    inp_inflows_poll.mfactor,
+    inp_inflows_poll.sfactor,
+    inp_inflows_poll.base,
+    inp_inflows_poll.pattern_id,
+    ve_inp_junction.p_state
+   FROM inp_inflows_poll
+     JOIN ve_inp_junction USING (node_id);
+
+CREATE OR REPLACE VIEW ve_inp_inlet
+AS SELECT ve_node.node_id,
+    ve_node.node_type,
+    ve_node.top_elev,
+    ve_node.ymax,
+    ve_node.elev,
+    ve_node.custom_elev,
+    ve_node.sys_elev,
+    ve_node.nodecat_id,
+    ve_node.sector_id,
+    ve_node.macrosector_id,
+    ve_node.state,
+    ve_node.state_type,
+    ve_node.annotation,
+    ve_node.expl_id,
+    ve_node.the_geom,
+    ve_node.ymax - COALESCE(ve_node.elev, 0::numeric) AS depth,
+    inp_inlet.y0,
+    inp_inlet.ysur,
+    inp_inlet.apond,
+    inp_inlet.inlet_type,
+    inp_inlet.outlet_type,
+    inp_inlet.gully_method,
+    inp_inlet.custom_top_elev,
+    inp_inlet.custom_depth,
+    inp_inlet.inlet_length,
+    inp_inlet.inlet_width,
+    inp_inlet.cd1,
+    inp_inlet.cd2,
+    inp_inlet.efficiency,
+    ve_node.p_state
+   FROM ve_node
+     JOIN inp_inlet USING (node_id)
+  WHERE ve_node.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_netgully
+AS SELECT n.node_id,
+    n.code,
+    n.top_elev,
+    n.custom_top_elev,
+    n.ymax,
+    n.elev,
+    n.custom_elev,
+    n.sys_elev,
+    n.node_type,
+    n.nodecat_id,
+    man_netgully.gullycat_id,
+    (cat_gully.width / 100::numeric)::numeric(12,3) AS grate_width,
+    (cat_gully.length / 100::numeric)::numeric(12,3) AS grate_length,
+    n.sector_id,
+    n.macrosector_id,
+    n.expl_id,
+    n.state,
+    n.state_type,
+    n.the_geom,
+    man_netgully.units,
+    man_netgully.units_placement,
+    man_netgully.groove,
+    man_netgully.groove_height,
+    man_netgully.groove_length,
+        CASE
+            WHEN man_netgully.units_placement::text = 'LENGTH-SIDE'::text THEN (COALESCE(man_netgully.units::integer, 1)::numeric * cat_gully.width / 100::numeric)::numeric(12,3)
+            WHEN man_netgully.units_placement::text = 'WIDTH-SIDE'::text THEN (COALESCE(man_netgully.units::integer, 1)::numeric * cat_gully.length / 100::numeric)::numeric(12,3)
+            ELSE (cat_gully.width / 100::numeric)::numeric(12,3)
+        END AS total_width,
+        CASE
+            WHEN man_netgully.units_placement::text = 'LENGTH-SIDE'::text THEN (COALESCE(man_netgully.units::integer, 1)::numeric * cat_gully.width / 100::numeric)::numeric(12,3)
+            WHEN man_netgully.units_placement::text = 'WIDTH-SIDE'::text THEN (COALESCE(man_netgully.units::integer, 1)::numeric * cat_gully.length / 100::numeric)::numeric(12,3)
+            ELSE (cat_gully.length / 100::numeric)::numeric(12,3)
+        END AS total_length,
+    n.ymax - COALESCE(man_netgully.sander_depth, 0::numeric) AS depth,
+    n.annotation,
+    i.y0,
+    i.ysur,
+    i.apond,
+    i.outlet_type,
+    i.custom_width,
+    i.custom_length,
+    i.custom_depth,
+    i.gully_method,
+    i.weir_cd,
+    i.orifice_cd,
+    i.custom_a_param,
+    i.custom_b_param,
+    i.efficiency,
+    n.p_state
+   FROM ve_node n
+     JOIN inp_netgully i USING (node_id)
+     LEFT JOIN man_netgully USING (node_id)
+     LEFT JOIN cat_gully ON man_netgully.gullycat_id::text = cat_gully.id::text
+  WHERE n.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_orifice
+AS SELECT ve_arc.arc_id,
+    ve_arc.node_1,
+    ve_arc.node_2,
+    ve_arc.y1,
+    ve_arc.elev1,
+    ve_arc.custom_elev1,
+    ve_arc.sys_elev1,
+    ve_arc.y2,
+    ve_arc.elev2,
+    ve_arc.custom_elev2,
+    ve_arc.sys_elev2,
+    ve_arc.arccat_id,
+    ve_arc.gis_length,
+    ve_arc.sector_id,
+    ve_arc.macrosector_id,
+    ve_arc.state,
+    ve_arc.state_type,
+    ve_arc.annotation,
+    ve_arc.inverted_slope,
+    ve_arc.custom_length,
+    ve_arc.expl_id,
+    inp_orifice.ori_type,
+    inp_orifice.offsetval,
+    inp_orifice.cd,
+    inp_orifice.orate,
+    inp_orifice.flap,
+    inp_orifice.shape,
+    inp_orifice.geom1,
+    inp_orifice.geom2,
+    inp_orifice.geom3,
+    inp_orifice.geom4,
+    ve_arc.the_geom,
+    ve_arc.p_state
+   FROM ve_arc
+     JOIN inp_orifice USING (arc_id)
+  WHERE ve_arc.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_outfall
+AS SELECT ve_node.node_id,
+    ve_node.top_elev,
+    ve_node.custom_top_elev,
+    ve_node.ymax,
+    ve_node.elev,
+    ve_node.custom_elev,
+    ve_node.sys_elev,
+    ve_node.nodecat_id,
+    ve_node.sector_id,
+    ve_node.macrosector_id,
+    ve_node.state,
+    ve_node.state_type,
+    ve_node.annotation,
+    ve_node.expl_id,
+    inp_outfall.outfall_type,
+    inp_outfall.stage,
+    inp_outfall.curve_id,
+    inp_outfall.timser_id,
+    inp_outfall.gate,
+    inp_outfall.route_to,
+    ve_node.the_geom,
+    ve_node.p_state
+   FROM ve_node
+     JOIN inp_outfall USING (node_id)
+  WHERE ve_node.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_outlet
+AS SELECT ve_arc.arc_id,
+    ve_arc.node_1,
+    ve_arc.node_2,
+    ve_arc.y1,
+    ve_arc.elev1,
+    ve_arc.custom_elev1,
+    ve_arc.sys_elev1,
+    ve_arc.y2,
+    ve_arc.elev2,
+    ve_arc.custom_elev2,
+    ve_arc.sys_elev2,
+    ve_arc.arccat_id,
+    ve_arc.gis_length,
+    ve_arc.sector_id,
+    ve_arc.macrosector_id,
+    ve_arc.state,
+    ve_arc.state_type,
+    ve_arc.annotation,
+    ve_arc.inverted_slope,
+    ve_arc.custom_length,
+    ve_arc.expl_id,
+    inp_outlet.outlet_type,
+    inp_outlet.offsetval,
+    inp_outlet.curve_id,
+    inp_outlet.cd1,
+    inp_outlet.cd2,
+    inp_outlet.flap,
+    ve_arc.the_geom,
+    ve_arc.p_state
+   FROM ve_arc
+     JOIN inp_outlet USING (arc_id)
+  WHERE ve_arc.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_pgully
+AS SELECT g.gully_id,
+    g.code,
+    g.top_elev,
+    g.gully_type,
+    g.gullycat_id,
+    (COALESCE(g.width, cat_gully.width) / 100::numeric)::numeric(12,2) AS grate_width,
+    (COALESCE(g.length, cat_gully.length) / 100::numeric)::numeric(12,2) AS grate_length,
+    g.arc_id,
+    g.sector_id,
+    g.expl_id,
+    g.state,
+    g.state_type,
+    polygon.the_geom,
+    g.units,
+    g.units_placement,
+    g.groove,
+    g.groove_height,
+    g.groove_length,
+    g.pjoint_id,
+    g.pjoint_type,
+        CASE
+            WHEN g.units_placement::text = 'LENGTH-SIDE'::text THEN (COALESCE(g.units::integer, 1)::numeric * COALESCE(g.width, cat_gully.width) / 100::numeric)::numeric(12,3)
+            WHEN g.units_placement::text = 'WIDTH-SIDE'::text THEN (COALESCE(g.units::integer, 1)::numeric * COALESCE(g.length, cat_gully.length) / 100::numeric)::numeric(12,3)
+            ELSE (cat_gully.width / 100::numeric)::numeric(12,3)
+        END AS total_width,
+        CASE
+            WHEN g.units_placement::text = 'LENGTH-SIDE'::text THEN (COALESCE(g.units::integer, 1)::numeric * COALESCE(g.width, cat_gully.width) / 100::numeric)::numeric(12,3)
+            WHEN g.units_placement::text = 'WIDTH-SIDE'::text THEN (COALESCE(g.units::integer, 1)::numeric * COALESCE(g.length, cat_gully.length) / 100::numeric)::numeric(12,3)
+            ELSE (cat_gully.length / 100::numeric)::numeric(12,3)
+        END AS total_length,
+    COALESCE(g.ymax, cat_gully.ymax) - COALESCE(g.sandbox, 0::numeric) AS depth,
+    g.annotation,
+    i.outlet_type,
+    i.custom_top_elev,
+    i.custom_width,
+    i.custom_length,
+    i.custom_depth,
+    i.gully_method,
+    i.weir_cd,
+    i.orifice_cd,
+    i.custom_a_param,
+    i.custom_b_param,
+    i.efficiency,
+    vf.p_state,
+    vf.p_arc_id,
+    vf.p_pjoint_id,
+    vf.p_pjoint_type
+   FROM gully g
+     JOIN vf_gully vf ON vf.gully_id = g.gully_id
+     JOIN inp_gully i ON i.gully_id = g.gully_id
+     JOIN cat_gully ON g.gullycat_id::text = cat_gully.id::text
+     JOIN polygon ON polygon.feature_id = g.gully_id
+     JOIN value_state_type vst ON vst.id = g.state_type
+  WHERE vst.is_operative IS TRUE AND g.epa_type::text = 'PGULLY'::text;
+
+CREATE OR REPLACE VIEW ve_inp_pump
+AS SELECT ve_arc.arc_id,
+    ve_arc.node_1,
+    ve_arc.node_2,
+    ve_arc.y1,
+    ve_arc.elev1,
+    ve_arc.custom_elev1,
+    ve_arc.sys_elev1,
+    ve_arc.y2,
+    ve_arc.elev2,
+    ve_arc.custom_elev2,
+    ve_arc.sys_elev2,
+    ve_arc.arccat_id,
+    ve_arc.gis_length,
+    ve_arc.sector_id,
+    ve_arc.macrosector_id,
+    ve_arc.state,
+    ve_arc.state_type,
+    ve_arc.annotation,
+    ve_arc.inverted_slope,
+    ve_arc.custom_length,
+    ve_arc.expl_id,
+    inp_pump.curve_id,
+    inp_pump.status,
+    inp_pump.startup,
+    inp_pump.shutoff,
+    ve_arc.the_geom,
+    ve_arc.p_state
+   FROM ve_arc
+     JOIN inp_pump USING (arc_id)
+  WHERE ve_arc.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_storage
+AS SELECT ve_node.node_id,
+    ve_node.top_elev,
+    ve_node.custom_top_elev,
+    ve_node.ymax,
+    ve_node.elev,
+    ve_node.custom_elev,
+    ve_node.sys_elev,
+    ve_node.nodecat_id,
+    ve_node.sector_id,
+    ve_node.macrosector_id,
+    ve_node.state,
+    ve_node.state_type,
+    ve_node.annotation,
+    ve_node.expl_id,
+    inp_storage.storage_type,
+    inp_storage.curve_id,
+    inp_storage.a1,
+    inp_storage.a2,
+    inp_storage.a0,
+    inp_storage.fevap,
+    inp_storage.sh,
+    inp_storage.hc,
+    inp_storage.imd,
+    inp_storage.y0,
+    inp_storage.ysur,
+    ve_node.the_geom,
+    ve_node.p_state
+   FROM ve_node
+     JOIN inp_storage USING (node_id)
+  WHERE ve_node.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_virtual
+AS SELECT ve_arc.arc_id,
+    ve_arc.node_1,
+    ve_arc.node_2,
+    ve_arc.arccat_id,
+    ve_arc.gis_length,
+    ve_arc.sector_id,
+    ve_arc.macrosector_id,
+    ve_arc.state,
+    ve_arc.state_type,
+    ve_arc.expl_id,
+    inp_virtual.fusion_node,
+    inp_virtual.add_length,
+    ve_arc.the_geom,
+    ve_arc.p_state
+   FROM ve_arc
+     JOIN inp_virtual ON ve_arc.arc_id::text = inp_virtual.arc_id::text
+  WHERE ve_arc.is_operative IS TRUE;
+
+CREATE OR REPLACE VIEW ve_inp_weir
+AS SELECT ve_arc.arc_id,
+    ve_arc.node_1,
+    ve_arc.node_2,
+    ve_arc.y1,
+    ve_arc.elev1,
+    ve_arc.custom_elev1,
+    ve_arc.sys_elev1,
+    ve_arc.y2,
+    ve_arc.elev2,
+    ve_arc.custom_elev2,
+    ve_arc.sys_elev2,
+    ve_arc.arccat_id,
+    ve_arc.gis_length,
+    ve_arc.sector_id,
+    ve_arc.macrosector_id,
+    ve_arc.state,
+    ve_arc.state_type,
+    ve_arc.annotation,
+    ve_arc.inverted_slope,
+    ve_arc.custom_length,
+    ve_arc.expl_id,
+    inp_weir.weir_type,
+    inp_weir.offsetval,
+    inp_weir.cd,
+    inp_weir.ec,
+    inp_weir.cd2,
+    inp_weir.flap,
+    inp_weir.geom1,
+    inp_weir.geom2,
+    inp_weir.geom3,
+    inp_weir.geom4,
+    inp_weir.surcharge,
+    ve_arc.the_geom,
+    inp_weir.road_width,
+    inp_weir.road_surf,
+    inp_weir.coef_curve,
+    ve_arc.p_state
+   FROM ve_arc
+     JOIN inp_weir USING (arc_id)
+  WHERE ve_arc.is_operative IS TRUE;
+
+ALTER TABLE rpt_inp_raingage DROP CONSTRAINT IF EXISTS rpt_inp_raingage_result_id_fkey;
+ALTER TABLE rpt_inp_raingage ADD CONSTRAINT rpt_inp_raingage_result_id_fkey FOREIGN KEY (result_id) REFERENCES rpt_cat_result(result_id) ON UPDATE CASCADE ON DELETE CASCADE;
 DROP VIEW IF EXISTS v_ui_rpt_cat_result;
 CREATE OR REPLACE VIEW v_ui_rpt_cat_result AS
 SELECT DISTINCT ON (rpt_cat_result.result_id)

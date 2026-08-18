@@ -190,9 +190,9 @@ BEGIN
 		IF v_expl_x_user is false then
 			-- create auxiliar table temp_aux_sector_muni
 			CREATE TEMP TABLE temp_muni_sector_expl AS
-			SELECT DISTINCT muni_id, sector_id, expl_id FROM node WHERE state > 0
+			SELECT DISTINCT muni_id, sector_id, expl_id FROM node WHERE EXISTS (SELECT 1 FROM selector_state WHERE node.state = selector_state.state_id)
 			UNION
-			SELECT * FROM (SELECT DISTINCT muni_id, sector_id, unnest(expl_visibility) AS expl_id FROM node WHERE state > 0) sub
+			SELECT * FROM (SELECT DISTINCT muni_id, sector_id, unnest(expl_visibility) AS expl_id FROM node WHERE EXISTS (SELECT 1 FROM selector_state WHERE node.state = selector_state.state_id)) sub
 			WHERE expl_id is not null;
 
 			INSERT INTO temp_exploitation (expl_id, code, name, descript, macroexpl_id, active)
@@ -213,7 +213,7 @@ BEGIN
 			SELECT sector_id, code, name, descript, expl_id, muni_id, macrosector_id, parent_id, active
 			FROM sector
 			WHERE active
-			AND sector_id > 0
+			AND sector_id >= 0
 			ORDER BY sector_id;
 
 			INSERT INTO temp_macrosector (macrosector_id, code, name, descript, expl_id, muni_id, active)
@@ -246,9 +246,9 @@ BEGIN
 		ELSE
 			CREATE TEMP TABLE temp_muni_sector_expl AS
 			SELECT DISTINCT muni_id, sector_id, expl_id FROM (
-				SELECT muni_id, sector_id, expl_id FROM node WHERE state > 0
+				SELECT muni_id, sector_id, expl_id FROM node WHERE EXISTS (SELECT 1 FROM selector_state WHERE node.state = selector_state.state_id)
 				UNION
-				SELECT muni_id, sector_id, unnest(expl_visibility) AS expl_id FROM node WHERE state > 0
+				SELECT muni_id, sector_id, unnest(expl_visibility) AS expl_id FROM node WHERE EXISTS (SELECT 1 FROM selector_state WHERE node.state = selector_state.state_id)
 			) n
 			WHERE expl_id IS NOT NULL
 			AND EXISTS (SELECT 1 FROM cat_manager cm
@@ -283,7 +283,7 @@ BEGIN
 			FROM temp_muni_sector_expl t
 			JOIN temp_exploitation e USING (expl_id)
 			JOIN sector s ON s.sector_id = t.sector_id
-			WHERE s.active AND s.sector_id > 0
+			WHERE s.active AND s.sector_id >= 0
 			ORDER BY s.sector_id
 			ON CONFLICT (sector_id) DO NOTHING;
 
