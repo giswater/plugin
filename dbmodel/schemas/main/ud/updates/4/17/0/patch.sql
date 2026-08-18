@@ -1908,3 +1908,6 @@ AS SELECT ve_arc.arc_id,
    FROM ve_arc
      JOIN inp_weir USING (arc_id)
   WHERE ve_arc.is_operative IS TRUE;
+
+ALTER TABLE rpt_inp_raingage DROP CONSTRAINT IF EXISTS rpt_inp_raingage_result_id_fkey;
+ALTER TABLE rpt_inp_raingage ADD CONSTRAINT rpt_inp_raingage_result_id_fkey FOREIGN KEY (result_id) REFERENCES rpt_cat_result(result_id) ON UPDATE CASCADE ON DELETE CASCADE;
