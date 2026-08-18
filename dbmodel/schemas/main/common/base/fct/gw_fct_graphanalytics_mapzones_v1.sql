@@ -571,7 +571,7 @@ BEGIN
 						AND t.active
 						%s
 				), mapzones_filtered AS (
-					SELECT DISTINCT mapzone_id
+					SELECT DISTINCT f.mapzone_id
 					FROM temp_pgr_graphconfig f
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id)
@@ -599,7 +599,7 @@ BEGIN
 						AND t.active
 						%s
 				), mapzones_filtered AS (
-					SELECT DISTINCT mapzone_id
+					SELECT DISTINCT f.mapzone_id
 					FROM temp_pgr_graphconfig f
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id)
@@ -706,8 +706,8 @@ BEGIN
 					JOIN LATERAL json_array_elements(t.graphconfig->'use') AS use_item ON TRUE
 					WHERE t.graphconfig IS NOT NULL
 					AND t.active
-				), graphconfig_filtered AS (
-					SELECT g.* 
+				), mapzones_filtered AS (
+					SELECT DISTINCT g.mapzone_id
 					FROM graphconfig g
 					JOIN temp_pgr_node n ON n.pgr_node_id = g.node_parent
 				)
@@ -717,9 +717,14 @@ BEGIN
 					'use',
 					g.node_parent,
 					a.arc_id
-				FROM graphconfig_filtered g
+				FROM graphconfig g
 				LEFT JOIN v_temp_arc a ON a.node_2 = g.node_parent
-				WHERE g.mapzone_id > 0
+				WHERE EXISTS (
+					SELECT 1
+					FROM mapzones_filtered m
+					WHERE m.mapzone_id = g.mapzone_id
+				)
+				AND g.mapzone_id > 0
 				AND g.node_parent IS DISTINCT FROM 0
 			$sql$, v_mapzone_field, v_mapzone_table);
 
@@ -733,18 +738,21 @@ BEGIN
 					JOIN LATERAL json_array_elements_text(t.graphconfig->'forceClosed') AS elem(value) ON TRUE
 					WHERE t.graphconfig IS NOT NULL
 						AND t.active
-				),
-				forceclosed_filtered AS (
-					SELECT f.*
-					FROM forceclosed f
-					JOIN temp_pgr_arc n ON n.pgr_arc_id = f.pgr_arc_id
+				), mapzones_filtered AS (
+					SELECT DISTINCT f.mapzone_id
+					FROM temp_pgr_graphconfig f
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_arc_id)
 				SELECT
-					mapzone_id,
+					f.mapzone_id,
 					'forceClosed',
-					pgr_arc_id
-				FROM forceclosed_filtered;
+					f.pgr_arc_id
+				FROM forceclosed f
+				WHERE EXISTS (
+					SELECT 1
+					FROM mapzones_filtered m
+					WHERE m.mapzone_id = f.mapzone_id
+				);
 			$sql$, v_mapzone_field, v_mapzone_table);
 
 			-- ignore
@@ -757,17 +765,21 @@ BEGIN
 					JOIN LATERAL json_array_elements_text(t.graphconfig->'ignore') AS elem(value) ON TRUE
 					WHERE t.graphconfig IS NOT NULL
 						AND t.active
-				), forceopen_filtered AS (
-					SELECT f.*
-					FROM forceopen f
-					JOIN temp_pgr_arc n ON n.pgr_arc_id = f.pgr_arc_id
+				), mapzones_filtered AS (
+					SELECT DISTINCT f.mapzone_id
+					FROM temp_pgr_graphconfig f
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_arc_id)
 				SELECT
-					mapzone_id,
+					f.mapzone_id,
 					'forceOpen',
-					pgr_arc_id
-				FROM forceopen_filtered;
+					f.pgr_arc_id
+				FROM forceopen f
+				WHERE EXISTS (
+					SELECT 1
+					FROM mapzones_filtered m
+					WHERE m.mapzone_id = f.mapzone_id
+				);
 			$sql$, v_mapzone_field, v_mapzone_table);
 
 			-- update temp_pgr_node (nodeParent)
