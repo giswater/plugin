@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_frpump',
     ARRAY[
         'element_id', 'node_id', 'to_arc', 'flwreg_length', 'curve_id', 'status',
-        'startup', 'shutoff', 'the_geom'
+        'startup', 'shutoff', 'the_geom', 'p_state'
     ],
     'View ve_inp_frpump should have the correct columns'
 );
@@ -37,6 +37,7 @@ SELECT col_type_is('ve_inp_frpump', 'status', 'varchar(3)', 'Column status shoul
 SELECT col_type_is('ve_inp_frpump', 'startup', 'numeric(12,4)', 'Column startup should be numeric(12,4)');
 SELECT col_type_is('ve_inp_frpump', 'shutoff', 'numeric(12,4)', 'Column shutoff should be numeric(12,4)');
 SELECT col_type_is('ve_inp_frpump', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_frpump', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

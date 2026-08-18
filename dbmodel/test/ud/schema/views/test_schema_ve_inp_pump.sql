@@ -25,7 +25,7 @@ SELECT columns_are(
         'sys_elev1', 'y2', 'elev2', 'custom_elev2', 'sys_elev2', 'arccat_id',
         'gis_length', 'sector_id', 'macrosector_id', 'state', 'state_type', 'annotation',
         'inverted_slope', 'custom_length', 'expl_id', 'curve_id', 'status', 'startup',
-        'shutoff', 'the_geom'
+        'shutoff', 'the_geom', 'p_state'
     ],
     'View ve_inp_pump should have the correct columns'
 );
@@ -57,6 +57,7 @@ SELECT col_type_is('ve_inp_pump', 'status', 'varchar(3)', 'Column status should 
 SELECT col_type_is('ve_inp_pump', 'startup', 'numeric(12,4)', 'Column startup should be numeric(12,4)');
 SELECT col_type_is('ve_inp_pump', 'shutoff', 'numeric(12,4)', 'Column shutoff should be numeric(12,4)');
 SELECT col_type_is('ve_inp_pump', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_pump', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

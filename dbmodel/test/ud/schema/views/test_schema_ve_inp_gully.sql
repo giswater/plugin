@@ -26,7 +26,8 @@ SELECT columns_are(
         'the_geom', 'units', 'units_placement', 'groove', 'groove_height', 'groove_length',
         'pjoint_id', 'pjoint_type', 'total_width', 'total_length', 'depth', 'annotation',
         'outlet_type', 'custom_top_elev', 'custom_width', 'custom_length', 'custom_depth', 'gully_method',
-        'weir_cd', 'orifice_cd', 'custom_a_param', 'custom_b_param', 'efficiency'
+        'weir_cd', 'orifice_cd', 'custom_a_param', 'custom_b_param', 'efficiency',
+        'p_state', 'p_arc_id', 'p_pjoint_id', 'p_pjoint_type'
     ],
     'View ve_inp_gully should have the correct columns'
 );
@@ -67,6 +68,10 @@ SELECT col_type_is('ve_inp_gully', 'orifice_cd', 'float8', 'Column orifice_cd sh
 SELECT col_type_is('ve_inp_gully', 'custom_a_param', 'float8', 'Column custom_a_param should be float8');
 SELECT col_type_is('ve_inp_gully', 'custom_b_param', 'float8', 'Column custom_b_param should be float8');
 SELECT col_type_is('ve_inp_gully', 'efficiency', 'float8', 'Column efficiency should be float8');
+SELECT col_type_is('ve_inp_gully', 'p_state', 'int2', 'Column p_state should be int2');
+SELECT col_type_is('ve_inp_gully', 'p_arc_id', 'int4', 'Column p_arc_id should be int4');
+SELECT col_type_is('ve_inp_gully', 'p_pjoint_id', 'int4', 'Column p_pjoint_id should be int4');
+SELECT col_type_is('ve_inp_gully', 'p_pjoint_type', 'varchar(16)', 'Column p_pjoint_type should be varchar(16)');
 
 SELECT * FROM finish();
 
