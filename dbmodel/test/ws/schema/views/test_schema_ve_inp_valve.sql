@@ -25,7 +25,7 @@ SELECT columns_are(
         'sector_id', 'dma_id', 'state', 'state_type', 'annotation', 'nodarc_id',
         'valve_type', 'setting', 'curve_id', 'minorloss', 'to_arc', 'status',
         'cat_dint', 'custom_dint', 'add_settings', 'init_quality', 'head', 'pattern_id',
-        'demand', 'demand_pattern_id', 'emitter_coeff', 'the_geom'
+        'demand', 'demand_pattern_id', 'emitter_coeff', 'the_geom', 'p_state'
     ],
     'View ve_inp_valve should have the correct columns'
 );
@@ -59,6 +59,7 @@ SELECT col_type_is('ve_inp_valve', 'demand', 'numeric(12,6)', 'Column demand sho
 SELECT col_type_is('ve_inp_valve', 'demand_pattern_id', 'varchar(16)', 'Column demand_pattern_id should be varchar(16)');
 SELECT col_type_is('ve_inp_valve', 'emitter_coeff', 'float8', 'Column emitter_coeff should be float8');
 SELECT col_type_is('ve_inp_valve', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_valve', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 
