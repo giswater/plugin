@@ -24,7 +24,7 @@ SELECT columns_are(
         'node_id', 'top_elev', 'custom_top_elev', 'ymax', 'elev', 'custom_elev',
         'sys_elev', 'nodecat_id', 'sector_id', 'macrosector_id', 'state', 'state_type',
         'annotation', 'expl_id', 'y0', 'ysur', 'apond', 'outfallparam',
-        'the_geom'
+        'the_geom', 'p_state'
     ],
     'View ve_inp_junction should have the correct columns'
 );
@@ -49,6 +49,7 @@ SELECT col_type_is('ve_inp_junction', 'ysur', 'numeric(12,4)', 'Column ysur shou
 SELECT col_type_is('ve_inp_junction', 'apond', 'numeric(12,4)', 'Column apond should be numeric(12,4)');
 SELECT col_type_is('ve_inp_junction', 'outfallparam', 'text', 'Column outfallparam should be text');
 SELECT col_type_is('ve_inp_junction', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_junction', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 
