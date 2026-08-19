@@ -407,7 +407,7 @@ BEGIN
 			WHERE  parameter = 'basic_search_network_gully';
 
 
-			UPDATE config_mapzone SET is_dynamic = FALSE; -- set is_dynamic to FALSE for all mapzones (only for new projects)
+			UPDATE config_mapzones SET is_dynamic = FALSE; -- set is_dynamic to FALSE for all mapzones (only for new projects)
 
 		ELSIF v_isnew IS FALSE THEN
 
