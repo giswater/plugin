@@ -130,7 +130,8 @@ DECLARE
         'sys_message',
         'sys_function',
         'sys_fprocess',
-        'sys_table'
+        'sys_table',
+        'sys_label'
     ];
     v_table text;
 BEGIN
@@ -165,7 +166,8 @@ INSERT INTO sys_table (id, descript, sys_role, "source") VALUES
 ('v_sys_message', 'System messages (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
 ('v_sys_function', 'System functions (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
 ('v_sys_fprocess', 'System processes (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
-('v_sys_table', 'System tables (allows multilingual and integration with network schemas)', 'role_basic', 'core')
+('v_sys_table', 'System tables (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_sys_label', 'System labels (allows multilingual and integration with network schemas)', 'role_basic', 'core')
 ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE cat_feature ADD custom_code_autofill bool DEFAULT false NULL;

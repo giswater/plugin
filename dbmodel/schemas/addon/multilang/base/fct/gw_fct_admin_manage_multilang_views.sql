@@ -37,7 +37,8 @@ DECLARE
         'sys_message',
         'sys_function',
         'sys_fprocess',
-        'sys_table'
+        'sys_table',
+        'sys_label'
     ];
 BEGIN
     v_prev_search_path := current_setting('search_path');

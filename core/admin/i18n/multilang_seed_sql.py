@@ -47,6 +47,7 @@ BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
     "dbparam_user": "sys_param_user",
     "dbconfig_form_tabs": "config_form_tabs",
     "dbconfig_param_system": "config_param_system",
+    "dblabel": "sys_label",
 }
 
 MULTILANG_UI_TABLES: tuple[str, ...] = tuple(sorted(set(BASELINE_TO_MULTILANG_TABLE.values())))
@@ -123,6 +124,7 @@ _TABLE_CONFLICT_KEYS: dict[str, tuple[str, ...]] = {
     "sys_message": ("project_type", "context", "source", "lang"),
     "sys_param_user": ("project_type", "context", "source", "lang"),
     "sys_table": ("project_type", "context", "source", "lang"),
+    "sys_label": ("project_type", "context", "source", "lang"),
 }
 
 # Multilang columns that must be double-quoted in generated SQL.
@@ -556,6 +558,8 @@ def blocks_to_multilang_rows(
                 })
             elif table == "dbconfig_param_system":
                 values["source"] = _cell(raw, block.value_aliases, "parameter")
+            elif table == "dblabel":
+                values["source"] = _cell(raw, block.value_aliases, "id")
             elif table in ("dbparam_user", "dbmessage", "dbfprocess", "dbfunction", "dbtable"):
                 key = "fid" if table == "dbfprocess" else "id"
                 values["source"] = _cell(raw, block.value_aliases, key)

@@ -35,7 +35,7 @@ def _sql_root() -> str:
 class TestMultilangSeedSql(unittest.TestCase):
 
     def test_target_table_mapping(self):
-        self.assertEqual(len(MULTILANG_UI_TABLES), 9)
+        self.assertEqual(len(MULTILANG_UI_TABLES), 10)
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbparam_user"],
             "sys_param_user",
@@ -52,6 +52,7 @@ class TestMultilangSeedSql(unittest.TestCase):
             BASELINE_TO_MULTILANG_TABLE["dbfprocess"],
             "sys_fprocess",
         )
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dblabel"], "sys_label")
 
     def test_parse_sql_value_tuple_basic(self):
         values = parse_sql_value_tuple("(385, 'Import inp', NULL)")
@@ -148,6 +149,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertGreater(len(statements), 0)
         joined = "\n".join(statements)
         self.assertIn("INSERT INTO multilang.config_form_fields", joined)
+        self.assertIn("INSERT INTO multilang.sys_label", joined)
         self.assertNotIn("INSERT INTO multilang.dbparam_user", joined)
         self.assertNotIn("INSERT INTO multilang.dbjson", joined)
         for statement in statements:
@@ -327,6 +329,35 @@ class TestMultilangSeedSql(unittest.TestCase):
             project_type="ud",
         )
         self.assertEqual(rows, [])
+
+    def test_parse_dblabel_maps_idval_to_vl(self):
+        sql = """
+        UPDATE sys_label AS t SET idval = v.idval FROM (
+            VALUES
+            (1001, 'INFO')
+        ) AS v(id, idval)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dblabel", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "sys_label")
+        self.assertEqual(rows[0].values["source"], "1001")
+        self.assertEqual(rows[0].values["vl"], "INFO")
+        self.assertEqual(rows[0].values["context"], "sys_label")
+
+        inserts = build_insert_sql("sys_label", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.sys_label", inserts[0])
+        self.assertIn(" vl ", inserts[0])
+
+
+    def test_load_baseline_rows_includes_new_ui_tables(self):
+        template = load_baseline_rows_for_project_type(_sql_root(), "ws")
+        rows = rows_for_project_type(template, "ws")
+        tables = {row.table for row in rows}
+        self.assertIn("sys_label", tables)
+
 
     def test_baseline_fingerprint_stable(self):
         sql_root = _sql_root()

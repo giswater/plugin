@@ -101,14 +101,14 @@ BEGIN
 	IF v_is_header THEN
 
 		IF v_label_id IS NOT NULL THEN
-			SELECT * INTO rec_cat_label FROM sys_label  WHERE sys_label.id=v_label_id;
+			SELECT * INTO rec_cat_label FROM v_sys_label  WHERE v_sys_label.id=v_label_id;
 			FOR _key, _value IN SELECT * FROM json_each_text(v_parameters)
 			LOOP
 				rec_cat_label.idval = concat(rec_cat_label.idval, ' ', _value);
 			END LOOP;
 		ELSE
 			-- get label from sys_function, upper()
-			-- get separator from sys_label
+			-- get separator from v_sys_label
 
 			SELECT function_alias INTO v_function_alias FROM v_sys_function WHERE id=v_function_id;
 
@@ -141,7 +141,7 @@ BEGIN
 
 		EXECUTE v_querytext;
 
-		SELECT idval INTO v_separator FROM sys_label WHERE id = COALESCE(v_header_separator_id, 2030);
+		SELECT idval INTO v_separator FROM v_sys_label WHERE id = COALESCE(v_header_separator_id, 2030);
 		IF v_cur_user IS NOT NULL THEN
 			v_querytext := 'INSERT INTO '||COALESCE(v_temp_table, '')||'audit_check_data (fid, result_id, criticity, error_message, fcount, table_id, column_id, cur_user)
 			VALUES ('||v_fid||','||quote_nullable(v_result_id)||','||quote_nullable(v_criticity)||','||quote_literal(v_separator)||', '||quote_nullable(v_fcount)||', '||quote_nullable(v_table_id)||', '||quote_nullable(v_column_id)||', '||v_cur_user||');';
@@ -159,7 +159,7 @@ BEGIN
     END IF;
 
 	IF v_header_separator_id IS NOT NULL THEN
-        SELECT idval INTO v_separator FROM sys_label WHERE id = COALESCE(v_header_separator_id, 2030);
+        SELECT idval INTO v_separator FROM v_sys_label WHERE id = COALESCE(v_header_separator_id, 2030);
 
 		IF v_cur_user IS NOT NULL THEN
 			v_querytext := 'INSERT INTO '||COALESCE(v_temp_table, '')||'audit_check_data (fid, result_id, criticity, error_message, fcount, table_id, column_id, cur_user)
@@ -214,7 +214,7 @@ BEGIN
 	-- add specified headers
 	IF v_prefix_id IS NOT NULL THEN
 		-- select label record
-		SELECT * INTO rec_cat_label FROM sys_label  WHERE sys_label.id=v_prefix_id;
+		SELECT * INTO rec_cat_label FROM v_sys_label  WHERE v_sys_label.id=v_prefix_id;
 		IF rec_cat_label IS NULL THEN
 			RETURN json_build_object('status', 'Failed', 'message', json_build_object('level', 1, 'text', 'Header does not exist'))::json;
 		END IF;
