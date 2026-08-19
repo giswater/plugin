@@ -14,7 +14,7 @@ CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_admin_manage_multilang_views(
 RETURNS json AS
 $BODY$
 /*
-Recreate UI translation views (v_*) in WS/UD/CM schemas.
+Recreate UI translation views (v_*) in WS/UD/CM/AM schemas.
 When p_enable is TRUE, views LEFT JOIN multilang.* and COALESCE translated columns.
 When FALSE, views are dropped and recreated as plain SELECT * copies of the base tables.
 When p_schema_name is NULL, all eligible schemas are updated.
@@ -39,7 +39,8 @@ DECLARE
         'sys_fprocess',
         'sys_table',
         'sys_label',
-        'config_csv'
+        'config_csv',
+        'config_form_tableview'
     ];
 BEGIN
     v_prev_search_path := current_setting('search_path');
@@ -71,7 +72,7 @@ BEGIN
                 v_schema.schema_name
             ) INTO v_project_type;
 
-            IF v_project_type NOT IN ('WS', 'UD', 'CM') THEN
+            IF v_project_type NOT IN ('WS', 'UD', 'CM', 'AM') THEN
                 CONTINUE;
             END IF;
 

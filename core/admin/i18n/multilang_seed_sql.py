@@ -49,6 +49,7 @@ BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
     "dbconfig_param_system": "config_param_system",
     "dblabel": "sys_label",
     "dbconfig_csv": "config_csv",
+    "dbconfig_form_tableview": "config_form_tableview",
 }
 
 MULTILANG_UI_TABLES: tuple[str, ...] = tuple(sorted(set(BASELINE_TO_MULTILANG_TABLE.values())))
@@ -59,7 +60,9 @@ _CORE_BASELINE_FILES: tuple[str, ...] = tuple(BASELINE_TO_MULTILANG_TABLE.keys()
 _PROJECT_TYPE_TABLES: dict[str, tuple[str, ...]] = {
     "ws": _CORE_BASELINE_FILES,
     "ud": _CORE_BASELINE_FILES,
-    "am": (),
+    "am": (
+        "dbconfig_form_tableview",
+    ),
     "cm": (
         "dbconfig_form_fields",
         "dbconfig_form_fields_json",
@@ -67,6 +70,7 @@ _PROJECT_TYPE_TABLES: dict[str, tuple[str, ...]] = {
         "dbconfig_param_system",
         "dbfprocess",
         "dbtable",
+        "dbconfig_form_tableview",
     ),
 }
 
@@ -127,6 +131,7 @@ _TABLE_CONFLICT_KEYS: dict[str, tuple[str, ...]] = {
     "sys_table": ("project_type", "context", "source", "lang"),
     "sys_label": ("project_type", "context", "source", "lang"),
     "config_csv": ("project_type", "context", "source", "lang"),
+    "config_form_tableview": ("project_type", "context", "source", "columnname", "lang"),
 }
 
 # Multilang columns that must be double-quoted in generated SQL.
@@ -564,6 +569,11 @@ def blocks_to_multilang_rows(
                 values["source"] = _cell(raw, block.value_aliases, "id")
             elif table == "dbconfig_csv":
                 values["source"] = _cell(raw, block.value_aliases, "fid")
+            elif table == "dbconfig_form_tableview":
+                values.update({
+                    "source": _cell(raw, block.value_aliases, "objectname"),
+                    "columnname": _cell(raw, block.value_aliases, "columnname"),
+                })
             elif table in ("dbparam_user", "dbmessage", "dbfprocess", "dbfunction", "dbtable"):
                 key = "fid" if table == "dbfprocess" else "id"
                 values["source"] = _cell(raw, block.value_aliases, key)
@@ -581,6 +591,8 @@ def blocks_to_multilang_rows(
 
             if values.get("source") is not None:
                 values["source"] = str(values["source"])
+            if values.get("columnname") is not None:
+                values["columnname"] = str(values["columnname"])
 
             target_table = BASELINE_TO_MULTILANG_TABLE.get(table)
             if not target_table:

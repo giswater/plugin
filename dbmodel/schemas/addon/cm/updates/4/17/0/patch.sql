@@ -16,7 +16,8 @@ DECLARE
         'config_form_tabs',
         'config_param_system',
         'sys_param_user',
-        'sys_table'
+        'sys_table',
+        'config_form_tableview'
     ];
     v_table text;
 BEGIN

@@ -6047,9 +6047,14 @@ def set_tablemodel_config(dialog, widget, table_name, sort_order=Qt.SortOrder.As
         return widget
 
     if schema_name is not None:
-        config_table = f"{schema_name}.config_form_tableview"
+        schema = schema_name
     else:
-        config_table = f"{lib_vars.schema_name}.config_form_tableview"
+        schema = lib_vars.schema_name
+
+    config_rel = "v_config_form_tableview"
+    if not _relation_exists(schema, config_rel):
+        config_rel = "config_form_tableview"
+    config_table = f"{schema}.{config_rel}"
 
     # Set width and alias of visible columns
     columns_to_delete = []

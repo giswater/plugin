@@ -191,6 +191,17 @@ BEGIN
                AND ml.lang = %s',
             v_context, v_pt_expr, v_lang_expr
         );
+    ELSIF p_table = 'config_form_tableview' THEN
+        v_context := 'config_form_tableview';
+        v_join := format(
+            'LEFT JOIN multilang.config_form_tableview ml
+                ON ml.source = t.objectname
+               AND ml.columnname = t.columnname
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
     ELSE
         RAISE EXCEPTION 'Unsupported multilang view table: %', p_table;
     END IF;
@@ -246,7 +257,7 @@ BEGIN
                 WHEN a.attname = 'info_msg' AND p_table = 'sys_fprocess'
                     THEN 'COALESCE(ml."in", t.info_msg)'
                 WHEN a.attname = 'alias'
-                    AND p_table IN ('sys_table', 'config_csv')
+                    AND p_table IN ('sys_table', 'config_csv', 'config_form_tableview')
                     THEN 'COALESCE(ml.al, t.alias)'
                 WHEN a.attname = 'idval' AND p_table = 'sys_label'
                     THEN 'COALESCE(ml.vl, t.idval)'

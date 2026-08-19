@@ -87,10 +87,13 @@ class GwResultManagerButton(GwAction):
             "cat_result",
             schema_name="am",
         )
+        tableview = "v_config_form_tableview"
+        if not tools_gw._relation_exists("am", tableview):
+            tableview = "config_form_tableview"
         rows = tools_db.get_rows(
-            """
+            f"""
             select columnname, alias
-            from am.config_form_tableview
+            from am.{tableview}
             where objectname = 'cat_result'
             """
         )
