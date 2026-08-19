@@ -54,8 +54,8 @@ UPDATE config_param_system
 
 UPDATE config_param_system SET value =
 '{"status":true, "values":[
-{"sourceTable":"ve_node_tank", "query":"UPDATE inp_inlet t SET maxlevel = hmax, diameter=sqrt(4*area/3.14159) FROM ve_node_tank s "},
-{"sourceTable":"ve_node_pr_reduc_valve", "query":"UPDATE inp_valve t SET setting = pressure_exit FROM ve_node_pr_reduc_valve s "}]}'
+{"sourceTable":"ve_node_tank", "query":"UPDATE inp_inlet t SET maxlevel = CASE WHEN s.hmax IS NOT NULL THEN s.hmax ELSE t.maxlevel END, diameter = CASE WHEN s.area IS NOT NULL THEN sqrt(4 * s.area / 3.14159) ELSE t.diameter END FROM ve_node_tank s "},
+{"sourceTable":"ve_node_pr_reduc_valve", "query":"UPDATE inp_valve t SET setting = CASE WHEN s.pressure_exit IS NOT NULL THEN s.pressure_exit ELSE t.setting END FROM ve_node_pr_reduc_valve s "}]}'
 WHERE parameter = 'epa_automatic_man2inp_values';
 
 
