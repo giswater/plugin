@@ -51,9 +51,6 @@ BEGIN
 		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'DWFZONE', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
-		IF NEW.code IS NULL THEN
-			NEW.code := NEW.dwfzone_id::text;
-		END IF;
 
 		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
 			NEW.expl_id := ARRAY[0];
