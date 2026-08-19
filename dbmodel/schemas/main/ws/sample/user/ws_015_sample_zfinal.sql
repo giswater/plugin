@@ -225,3 +225,6 @@ INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutn
 VALUES
 ('generic', 'link_to_connec', 'tab_none', 'fluid_type', 'lyt_extra_filters', 0, 'string', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT fluid_type as id, fluid_type as idval FROM man_type_fluid WHERE ((featurecat_id is null AND ''ARC''=ANY(feature_type)) ) AND active IS TRUE ', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
 ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+UPDATE config_mapzones SET is_dynamic = TRUE
+WHERE id IN ('MACROSECTOR', 'MACRODMA', 'MACROOMZONE', 'SECTOR', 'DMA', 'OMZONE', 'MACRODQA', 'PRESSZONE', 'DQA', 'SUPPLYZONE');

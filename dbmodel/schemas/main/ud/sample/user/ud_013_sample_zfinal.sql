@@ -205,3 +205,6 @@ VALUES
 ('generic', 'link_to_connec', 'tab_none', 'fluid_type', 'lyt_extra_filters', 0, 'integer', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT id, idval FROM om_typevalue WHERE typevalue = ''fluid_type''', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
 ('generic', 'link_to_gully', 'tab_none', 'fluid_type', 'lyt_extra_filters', 0, 'integer', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT id, idval FROM om_typevalue WHERE typevalue = ''fluid_type''', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
 ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+UPDATE config_mapzones SET is_dynamic = TRUE
+WHERE id IN ('MACROSECTOR', 'MACRODMA', 'MACROOMZONE', 'SECTOR', 'DMA', 'OMZONE', 'DWFZONE');
