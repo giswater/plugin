@@ -1281,3 +1281,13 @@ WHERE columnname = 'muni_id'
   AND formtype = 'form_feature'
   AND tabname = 'tab_data'
   AND widgettype = 'combo';
+
+-- om_scada_graph: unique (object_1, object_2) and drop leftover duplicate edges
+DELETE FROM om_scada_graph a
+USING om_scada_graph b
+WHERE a.edge_id > b.edge_id
+  AND a.object_1 = b.object_1
+  AND a.object_2 = b.object_2;
+
+CREATE UNIQUE INDEX IF NOT EXISTS om_scada_graph_object_1_object_2_uidx
+ON om_scada_graph (object_1, object_2);
