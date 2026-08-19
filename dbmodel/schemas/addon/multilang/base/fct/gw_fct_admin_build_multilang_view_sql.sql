@@ -218,6 +218,22 @@ BEGIN
                AND mla.lang = %3$s',
             v_context, v_pt_expr, v_lang_expr
         );
+    ELSIF p_table = 'config_toolbox' THEN
+        v_context := 'config_toolbox';
+        v_join := format(
+            'LEFT JOIN multilang.config_json ml
+                ON ml.source = t.id::text
+               AND ml.hint = ''inputparams''
+               AND ml.context = %1$L
+               AND ml.project_type = %2$s
+               AND ml.lang = %3$s
+            LEFT JOIN multilang.config_toolbox mla
+                ON mla.source = t.id::text
+               AND mla.context = %1$L
+               AND mla.project_type = %2$s
+               AND mla.lang = %3$s',
+            v_context, v_pt_expr, v_lang_expr
+        );
     ELSE
         RAISE EXCEPTION 'Unsupported multilang view table: %', p_table;
     END IF;
@@ -277,15 +293,20 @@ BEGIN
                 WHEN a.attname = 'alias'
                     AND p_table IN ('sys_table', 'config_csv', 'config_form_tableview')
                     THEN 'COALESCE(ml.al, t.alias)'
-                WHEN a.attname = 'alias' AND p_table = 'config_report'
+                WHEN a.attname = 'alias'
+                    AND p_table IN ('config_report', 'config_toolbox')
                     THEN 'COALESCE(mla.al, t.alias)'
                 WHEN a.attname = 'idval' AND p_table = 'sys_label'
                     THEN 'COALESCE(ml.vl, t.idval)'
                 WHEN a.attname = 'widgetcontrols' AND p_table = 'config_form_fields'
                     THEN '(COALESCE(t.widgetcontrols::jsonb, ''{}''::jsonb)
                            || COALESCE(mlj.text, mljp.text, ''{}''::jsonb))::json'
+                WHEN a.attname = 'observ' AND p_table = 'config_toolbox'
+                    THEN 'COALESCE(mla.ob, t.observ)'
                 WHEN a.attname = 'filterparam' AND p_table = 'config_report'
                     THEN 'COALESCE(ml.text, t.filterparam::jsonb)::json'
+                WHEN a.attname = 'inputparams' AND p_table = 'config_toolbox'
+                    THEN 'COALESCE(ml.text, t.inputparams::jsonb)::json'
                 ELSE NULL
             END AS inner_sql
         ) x

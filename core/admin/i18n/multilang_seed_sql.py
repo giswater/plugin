@@ -52,6 +52,7 @@ BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
     "dbconfig_form_tableview": "config_form_tableview",
     "dbjson": "config_json",
     "dbconfig_report": "config_report",
+    "dbconfig_toolbox": "config_toolbox",
 }
 
 MULTILANG_UI_TABLES: tuple[str, ...] = tuple(sorted(set(BASELINE_TO_MULTILANG_TABLE.values())))
@@ -136,6 +137,7 @@ _TABLE_CONFLICT_KEYS: dict[str, tuple[str, ...]] = {
     "config_form_tableview": ("project_type", "context", "source", "columnname", "lang"),
     "config_json": ("project_type", "context", "source", "hint", "lang"),
     "config_report": ("project_type", "context", "source", "lang"),
+    "config_toolbox": ("project_type", "context", "source", "lang"),
 }
 
 # Multilang columns that must be double-quoted in generated SQL.
@@ -586,7 +588,7 @@ def blocks_to_multilang_rows(
                 })
             elif table in (
                 "dbparam_user", "dbmessage", "dbfprocess", "dbfunction", "dbtable",
-                "dbconfig_report",
+                "dbconfig_report", "dbconfig_toolbox",
             ):
                 key = "fid" if table == "dbfprocess" else "id"
                 values["source"] = _cell(raw, block.value_aliases, key)

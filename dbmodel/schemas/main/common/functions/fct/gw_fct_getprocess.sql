@@ -91,8 +91,8 @@ BEGIN
 	DROP TABLE IF EXISTS temp_sys_function;
 	DROP TABLE IF EXISTS temp_config_toolbox;
 
-	CREATE TEMP TABLE IF NOT EXISTS temp_sys_function AS SELECT*FROM sys_function;
-	CREATE TEMP TABLE IF NOT EXISTS temp_config_toolbox AS SELECT*FROM config_toolbox;
+	CREATE TEMP TABLE IF NOT EXISTS temp_sys_function AS SELECT * FROM v_sys_function;
+	CREATE TEMP TABLE IF NOT EXISTS temp_config_toolbox AS SELECT*FROM v_config_toolbox;
 
 	IF v_projectype = 'ws' then
 

@@ -134,7 +134,8 @@ DECLARE
         'sys_label',
         'config_csv',
         'config_form_tableview',
-        'config_report'
+        'config_report',
+        'config_toolbox'
     ];
     v_table text;
 BEGIN
@@ -173,7 +174,8 @@ INSERT INTO sys_table (id, descript, sys_role, "source") VALUES
 ('v_sys_label', 'System labels (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
 ('v_config_csv', 'CSV import configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
 ('v_config_form_tableview', 'Tableview column configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
-('v_config_report', 'Report configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core')
+('v_config_report', 'Report configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_config_toolbox', 'Toolbox configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core')
 ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE cat_feature ADD custom_code_autofill bool DEFAULT false NULL;

@@ -70,7 +70,10 @@ class GwToolBoxButton(GwAction):
         json_result = tools_gw.execute_procedure('gw_fct_getprocess', body)
         if not json_result or json_result['status'] == 'Failed':
             return False
-        sql = f"SELECT alias FROM config_toolbox WHERE id = {func_id}"
+        toolbox_table = "v_config_toolbox"
+        if not tools_gw._relation_exists(lib_vars.schema_name, toolbox_table):
+            toolbox_table = "config_toolbox"
+        sql = f"SELECT alias FROM {toolbox_table} WHERE id = {func_id}"
         self.function_selected = f"{tools_db.get_row(sql)[0]}"
         self.last_process_data = json_result['body']['data']
         status = self._populate_functions_dlg(self.dlg_functions, json_result['body']['data'])

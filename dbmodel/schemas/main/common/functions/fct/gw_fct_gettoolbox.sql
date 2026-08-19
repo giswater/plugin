@@ -104,10 +104,10 @@ BEGIN
 
 	-- get om toolbox parameters
 	v_querystring = concat('SELECT array_to_json(array_agg(row_to_json(a))) FROM (
-			 SELECT config_toolbox.id, alias, function_name as functionname
-			 FROM sys_function
-			 JOIN config_toolbox USING (id)
-			 WHERE alias ILIKE ''%', v_filter ,'%'' AND sys_role =''role_om'' AND config_toolbox.active IS TRUE
+			 SELECT v_config_toolbox.id, alias, function_name as functionname
+			 FROM v_sys_function
+			 JOIN v_config_toolbox USING (id)
+			 WHERE alias ILIKE ''%', v_filter ,'%'' AND sys_role =''role_om'' AND v_config_toolbox.active IS TRUE
 			 AND sys_role IN  (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 			 AND (project_type=',quote_literal(v_projectype),' or project_type=''utils'')
 			 AND ',v_device,' = ANY(device)) a');
@@ -118,10 +118,10 @@ BEGIN
 
 	-- get edit toolbox parameters
 	v_querystring = concat('SELECT array_to_json(array_agg(row_to_json(a))) FROM (
-			 SELECT config_toolbox.id, alias, function_name as functionname
-			 FROM sys_function
-			 JOIN config_toolbox USING (id)
-			 WHERE alias ILIKE ''%', v_filter ,'%'' AND sys_role =''role_edit'' AND config_toolbox.active IS TRUE
+			 SELECT v_config_toolbox.id, alias, function_name as functionname
+			 FROM v_sys_function
+			 JOIN v_config_toolbox USING (id)
+			 WHERE alias ILIKE ''%', v_filter ,'%'' AND sys_role =''role_edit'' AND v_config_toolbox.active IS TRUE
 			 AND sys_role IN  (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 			 AND ( project_type=',quote_literal(v_projectype),' or project_type=''utils'')
 			 AND ',v_device,' = ANY(device)) a');
@@ -132,10 +132,10 @@ BEGIN
 
 	-- get epa toolbox parameters
 	v_querystring = concat('SELECT array_to_json(array_agg(row_to_json(a))) FROM (
-			SELECT config_toolbox.id, alias, function_name as functionname
-			FROM sys_function
-			JOIN config_toolbox USING (id)
-			WHERE alias ILIKE ''%', v_filter ,'%'' AND sys_role =''role_epa'' AND config_toolbox.active IS TRUE
+			SELECT v_config_toolbox.id, alias, function_name as functionname
+			FROM v_sys_function
+			JOIN v_config_toolbox USING (id)
+			WHERE alias ILIKE ''%', v_filter ,'%'' AND sys_role =''role_epa'' AND v_config_toolbox.active IS TRUE
 			AND sys_role IN  (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 			AND ( project_type=',quote_literal(v_projectype),' or project_type=''utils'')
 			AND ',v_device,' = ANY(device)) a');
@@ -146,10 +146,10 @@ BEGIN
 
 	-- get master toolbox parameters
 	v_querystring = concat('SELECT array_to_json(array_agg(row_to_json(a))) FROM (
-			 SELECT config_toolbox.id, alias, function_name as functionname
-			 FROM sys_function
-			 JOIN config_toolbox USING (id)
-			 WHERE alias ILIKE ''%', v_filter ,'%'' AND sys_role =''role_plan'' AND config_toolbox.active IS TRUE
+			 SELECT v_config_toolbox.id, alias, function_name as functionname
+			 FROM v_sys_function
+			 JOIN v_config_toolbox USING (id)
+			 WHERE alias ILIKE ''%', v_filter ,'%'' AND sys_role =''role_plan'' AND v_config_toolbox.active IS TRUE
 			 AND sys_role IN  (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 			 AND (project_type=',quote_literal(v_projectype),' OR project_type=''utils'')
 			 AND ',v_device,' = ANY(device)) a');
@@ -161,10 +161,10 @@ BEGIN
 	-- get admin toolbox parameters
 	v_querystring = concat('
 		SELECT array_to_json(array_agg(row_to_json(a))) FROM (
-			 SELECT config_toolbox.id, alias, function_name as functionname
-			 FROM sys_function
-			 JOIN config_toolbox USING (id)
-			 WHERE alias ILIKE ''%', v_filter ,'%'' AND sys_role =''role_admin'' AND config_toolbox.active IS TRUE
+			 SELECT v_config_toolbox.id, alias, function_name as functionname
+			 FROM v_sys_function
+			 JOIN v_config_toolbox USING (id)
+			 WHERE alias ILIKE ''%', v_filter ,'%'' AND sys_role =''role_admin'' AND v_config_toolbox.active IS TRUE
 			 AND sys_role IN  (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 			 AND (project_type=',quote_literal(v_projectype),' or project_type=''utils'')
 			 AND ',v_device,' = ANY(device)
@@ -179,10 +179,10 @@ BEGIN
 	-- get cm toolbox parameters
 	v_querystring = concat('
 		SELECT array_to_json(array_agg(row_to_json(a))) FROM (
-			 SELECT config_toolbox.id, alias, function_name as functionname
-			 FROM sys_function
-			 JOIN config_toolbox USING (id)
-			 WHERE alias ILIKE ''%', v_filter ,'%'' AND sys_role =''role_cm'' AND config_toolbox.active IS TRUE
+			 SELECT v_config_toolbox.id, alias, function_name as functionname
+			 FROM v_sys_function
+			 JOIN v_config_toolbox USING (id)
+			 WHERE alias ILIKE ''%', v_filter ,'%'' AND sys_role =''role_cm'' AND v_config_toolbox.active IS TRUE
 			 AND sys_role IN  (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 			 AND (project_type=',quote_literal(v_projectype),' or project_type=''utils'')
 			 AND ',v_device,' = ANY(device)
