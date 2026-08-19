@@ -25,16 +25,13 @@ logger = logging.getLogger(__name__)
 
 ProgressCb = Callable[[int, int, str, Optional[sql_runner.FileExec]], None]
 
-# DDL phases run as role_system so created objects are owned by role_system.
-# load_base is excluded: init.sql creates roles/schema as the installer (needs CREATE
-# on the database) and ends with SET ROLE role_system for the rest of the phase.
-# updates/load_sample are excluded: legacy patches use DISABLE TRIGGER ALL, which
-# requires superuser to touch RI_ConstraintTrigger system triggers.
-# reload_fct_ftrg is excluded: upgrade patches applied as superuser may re-own
-# functions; only the installer can CREATE OR REPLACE them on the next upgrade.
-_ROLE_SYSTEM_PHASES = frozenset()
-# init.sql ends with SET ROLE role_system; restore installer before superuser phases.
-_RESET_ROLE_AFTER_PHASES = frozenset({"load_base"})
+# load_base / load_base_schema run as the installer: init.sql creates roles and the
+# schema (needs CREATE ON DATABASE) and ends with SET ROLE role_system.
+# Every later phase SET ROLE role_system so objects stay owned by role_system
+# (table owner can DISABLE TRIGGER USER; DROP/ALTER SCHEMA need owner identity).
+_INSTALLER_PHASES = frozenset({"load_base", "load_base_schema"})
+# init.sql ends with SET ROLE role_system; restore installer before the next phase.
+_RESET_ROLE_AFTER_PHASES = _INSTALLER_PHASES
 
 # On a fresh database role_system does not exist yet; init.sql creates it.
 # pg_has_role(..., 'role_system', ...) errors if the role is missing — guard first.
@@ -237,47 +234,56 @@ class SchemaBuilder:
         phase_ids = self.manifest.profile(self.params.profile)
         result = BuildResult(profile=self.params.profile)
 
-        if self.params.run_mode in ("upgrade", "upgrade_step"):
-            err = assert_no_downgrade(
-                self.params.project_version,
-                self.params.plugin_version,
-                label=f"schema '{self.params.schema_name}'",
-            )
-            if err:
-                result.phases.append(
-                    PhaseResult(
-                        phase_id="version_guard",
-                        files=[
-                            sql_runner.FileExec(
-                                path="version_guard",
-                                ok=False,
-                                error=err,
-                            )
-                        ],
-                    )
+        try:
+            if self.params.run_mode in ("upgrade", "upgrade_step"):
+                err = assert_no_downgrade(
+                    self.params.project_version,
+                    self.params.plugin_version,
+                    label=f"schema '{self.params.schema_name}'",
                 )
-                self.progress_cb(0, 0, "done", None)
-                return result
+                if err:
+                    result.phases.append(
+                        PhaseResult(
+                            phase_id="version_guard",
+                            files=[
+                                sql_runner.FileExec(
+                                    path="version_guard",
+                                    ok=False,
+                                    error=err,
+                                )
+                            ],
+                        )
+                    )
+                    self.progress_cb(0, 0, "done", None)
+                    return result
 
-        plan = self._plan(phase_ids)
-        total = sum(item[1] for item in plan)
-        seen = 0
+            plan = self._plan(phase_ids)
+            total = sum(item[1] for item in plan)
+            seen = 0
 
-        for phase, count in plan:
-            if self._is_cancelled():
+            for phase, count in plan:
+                if self._is_cancelled():
+                    result.cancelled = True
+                    break
+                self.progress_cb(seen, total, f"phase:{phase.id}", None)
+                pr = self._run_phase(phase, seen, total)
+                result.phases.append(pr)
+                seen += count
+                if not pr.ok:
+                    break  # stop on first failure
+
+            if self._is_cancelled() and not result.cancelled:
                 result.cancelled = True
-                break
-            self.progress_cb(seen, total, f"phase:{phase.id}", None)
-            pr = self._run_phase(phase, seen, total)
-            result.phases.append(pr)
-            seen += count
-            if not pr.ok:
-                break  # stop on first failure
-
-        if self._is_cancelled() and not result.cancelled:
-            result.cancelled = True
-        self.progress_cb(seen, total, "done", None)
-        return result
+            self.progress_cb(seen, total, "done", None)
+            return result
+        finally:
+            # Shared QGIS connection must not stay SET ROLE role_system.
+            sql_runner.execute_inline(
+                self.conn,
+                _RESET_ROLE_SQL,
+                label="run:reset_role",
+                commit=self.commit_each_file,
+            )
 
     # ----------------------------------------------------------------- planning
 
@@ -320,7 +326,9 @@ class SchemaBuilder:
     # ------------------------------------------------------------------- phases
 
     def _run_phase(self, phase: Phase, seen: int, total: int) -> PhaseResult:
-        use_role_system = phase.id in _ROLE_SYSTEM_PHASES
+        use_role_system = (
+            phase.id not in _INSTALLER_PHASES and self._count_files(phase) > 0
+        )
         if use_role_system:
             fx = sql_runner.execute_inline(
                 self.conn,
@@ -688,4 +696,12 @@ def drop_schema(
     safe = schema.replace('"', '').replace(';', '')
     cascade_kw = "CASCADE" if cascade else "RESTRICT"
     sql = f'DROP SCHEMA IF EXISTS "{safe}" {cascade_kw};'
-    return sql_runner.execute_inline(conn, sql, label=f"drop:{safe}", commit=commit)
+    sql_runner.execute_inline(
+        conn, _ENSURE_ROLE_SYSTEM_SQL, label=f"drop:{safe}:set_role_system", commit=False
+    )
+    try:
+        return sql_runner.execute_inline(conn, sql, label=f"drop:{safe}", commit=commit)
+    finally:
+        sql_runner.execute_inline(
+            conn, _RESET_ROLE_SQL, label=f"drop:{safe}:reset_role", commit=False
+        )

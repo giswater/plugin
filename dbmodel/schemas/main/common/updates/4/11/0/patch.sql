@@ -61,9 +61,9 @@ DELETE FROM config_form_fields WHERE formname='ve_exploitation' AND formtype='fo
 
 UPDATE plan_psector SET status = 3 WHERE status = 4;
 
-ALTER TABLE plan_typevalue DISABLE TRIGGER ALL;
+ALTER TABLE plan_typevalue DISABLE TRIGGER USER;
 DELETE FROM plan_typevalue WHERE typevalue='psector_status' AND id='4';
-ALTER TABLE plan_typevalue ENABLE TRIGGER ALL;
+ALTER TABLE plan_typevalue ENABLE TRIGGER USER;
 
 INSERT INTO sys_function (id, function_name, project_type, function_type, input_params, return_type, descript, sys_role, sample_query, "source", function_alias)
 VALUES (3542, 'gw_fct_admin_manage_view_dependencies', 'utils', 'function', 'json', 'json',

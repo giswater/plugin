@@ -20,7 +20,7 @@ gw config        get | set
 
 ## db init
 
-Once per database, before the first schema create. Extensions: `postgis` → `postgis_raster` → `tablefunc` → `pgrouting` → `unaccent`.
+Once per database, before the first schema create. Superuser only. Installs extensions (`postgis` → `postgis_raster` → `tablefunc` → `pgrouting` → `unaccent`), creates Giswater roles if missing, and `GRANT CREATE ON DATABASE` to `role_system`.
 
 | Flag | Notes |
 |------|-------|
@@ -76,7 +76,7 @@ gw schema addon drop --type utils --yes --cascade --conn "$CONN"
 
 ## schema list
 
-Read-only. No superuser required.
+Read-only. No superuser / role_system required.
 
 ```bash
 gw schema list --conn "$CONN" --json

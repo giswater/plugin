@@ -455,7 +455,7 @@ Published images: `ghcr.io/giswater/gw-db:main-pg16-ws` (and `ud`, PG 17/18).
 
 ### Prerequisites
 
-- PostgreSQL access with privileges to create schemas, roles, and extensions (superuser or equivalent for `init-db`).
+- PostgreSQL access: superuser for `gw db init` (extensions, roles, `GRANT CREATE ON DATABASE` to `role_system`). Schema create/update/drop afterwards: superuser or a `role_system` member.
 
 ### Mandatory project setup
 

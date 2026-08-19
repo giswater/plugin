@@ -20,7 +20,7 @@ Command cheat sheet: [commands.md](commands.md).
 - **Only ready MCP Postgres servers.** `GetMcpTools` pattern `postgres` → `serverStatus: ready`. Ignore other `mcp.json` entries.
 - **Flags after the subcommand.** `--json`, `--conn`, `--dbmodel-path`, `-v` belong on `schema main create …`, not on `gw` itself.
 - **New command tree only.** `schema main create`, `db init`, `network update`. No legacy aliases (`create --kind`, `init-db`, `status`).
-- Mutating commands need a PostgreSQL **superuser**. Drop requires `--yes`. Isolated `schema main update` is blocked on networked schemas → `network update`. No downgrades.
+- Mutating schema commands need a PostgreSQL **superuser** or membership in **role_system**. `db init` still needs a superuser. Drop requires `--yes`. Isolated `schema main update` is blocked on networked schemas → `network update`. No downgrades.
 - **Non-dev DBs:** confirm with the user before create/update/drop unless the dbname is an obvious local playground (`giswater`, `giswater_dev`, `lab`). Treat named/production MCP databases as client data.
 - Never echo passwords. Pass `--conn` only as a Shell env var.
 

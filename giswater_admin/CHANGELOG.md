@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Schema create/update/drop, addon integrate, and `network update` accept a PostgreSQL superuser **or** a login that is a member of `role_system`. `db init` still requires a superuser and now bootstraps Giswater roles plus `GRANT CREATE ON DATABASE` to `role_system`.
+- SchemaBuilder runs post-init phases as `role_system` (and always `RESET ROLE` at the end) so objects stay owned by `role_system`.
+
 ## [0.4.0] - 2026-07-23
 
 ### Added

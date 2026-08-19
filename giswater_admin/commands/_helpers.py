@@ -21,16 +21,25 @@ from ..log_format import format_done, format_file, format_phase
 from ..output import Out
 
 
-class SuperuserRequired(RuntimeError):
+class SchemaAdminRequired(RuntimeError):
+    """Raised when a CLI command requires superuser or role_system membership."""
+
+
+class SuperuserRequired(SchemaAdminRequired):
     """Raised when a CLI command requires a PostgreSQL superuser session."""
 
 
-_SUPERUSER_SQL = """
+_PRIVILEGE_SQL = """
 SELECT
   current_user,
   COALESCE((
     SELECT rolsuper FROM pg_roles WHERE rolname = current_user
-  ), FALSE)
+  ), FALSE),
+  CASE
+    WHEN EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_system')
+    THEN pg_has_role(current_user, 'role_system', 'member')
+    ELSE FALSE
+  END
 """
 
 
@@ -83,12 +92,13 @@ def open_conn(
     args: argparse.Namespace,
     out: Out | None = None,
     *,
-    require_superuser: bool = True,
+    require_superuser: bool = False,
+    require_schema_admin: bool = True,
 ) -> ConnectionLike:
     info = conn_mod.resolve(args.conn, args.config)
     conn = conn_mod.open_connection(info, autocommit=False)
     if require_superuser:
-        user, is_super = user_is_superuser(conn)
+        user, is_super, _is_role_system = session_privileges(conn)
         if not is_super:
             conn.close()
             msg = (
@@ -98,24 +108,44 @@ def open_conn(
             if out is not None:
                 out.error(msg)
             raise SuperuserRequired(msg)
+        return conn
+    if require_schema_admin:
+        user, is_super, is_role_system = session_privileges(conn)
+        if not is_super and not is_role_system:
+            conn.close()
+            msg = (
+                "Giswater CLI requires a PostgreSQL superuser or membership "
+                f"in role_system. Connected as '{user}' "
+                "(superuser=false, role_system=false)."
+            )
+            if out is not None:
+                out.error(msg)
+            raise SchemaAdminRequired(msg)
     return conn
 
 
-def user_is_superuser(conn: Any) -> tuple[str, bool]:
-    """Return ``(current_user, is_superuser)``."""
+def session_privileges(conn: Any) -> tuple[str, bool, bool]:
+    """Return ``(current_user, is_superuser, is_role_system_member)``."""
     try:
         with conn.raw.cursor() as cur:  # type: ignore[attr-defined]
-            cur.execute(_SUPERUSER_SQL)
+            cur.execute(_PRIVILEGE_SQL)
             row = cur.fetchone()
     except Exception:  # noqa: BLE001
         try:
             conn.rollback()
         except Exception:  # noqa: BLE001
             pass
-        return ("", False)
+        return ("", False, False)
     if not row:
-        return ("", False)
-    return (str(row[0]), bool(row[1]))
+        return ("", False, False)
+    is_role_system = bool(row[2]) if len(row) > 2 else False
+    return (str(row[0]), bool(row[1]), is_role_system)
+
+
+def user_is_superuser(conn: Any) -> tuple[str, bool]:
+    """Return ``(current_user, is_superuser)``."""
+    user, is_super, _is_role_system = session_privileges(conn)
+    return (user, is_super)
 
 
 def safe_target_repr(args: argparse.Namespace) -> str:

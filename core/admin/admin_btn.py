@@ -2660,17 +2660,18 @@ class GwAdminButton:
             self._set_project_type_paths(project_type)
 
     def _can_administer_schemas(self) -> bool:
-        """True only for the connection superuser (or force_superuser override)."""
+        """True for superuser, role_system member, or force_superuser override."""
         force_superuser = tools_gw.get_config_parser(
             'system', 'force_superuser', 'user', 'init', False, force_reload=True
         )
         if tools_os.set_boolean(force_superuser, False):
             return True
-        conn_user = getattr(self, 'username', None)
-        if conn_user:
-            return tools_db.check_super_user(conn_user)
-        db_user = tools_db.get_current_user()
-        return bool(db_user) and tools_db.check_super_user(db_user)
+        conn_user = getattr(self, 'username', None) or tools_db.get_current_user()
+        if not conn_user:
+            return False
+        return tools_db.check_super_user(conn_user) or tools_db.check_role_user(
+            "role_system", conn_user
+        )
 
     def _update_admin_status_bar(self):
         """Single source of truth for lbl_status / lbl_status_text."""
@@ -4407,7 +4408,7 @@ class GwAdminButton:
             tools_gw.open_dialog(self.dlg_readsql, dlg_name='admin', skip_db_check=True)
 
     def _set_buttons_enabled(self):
-        """Hide schema CRUD for non-superusers; enable/disable when visible."""
+        """Hide schema CRUD unless superuser or role_system; enable/disable when visible."""
 
         can_admin = self.form_enabled and self._can_administer_schemas()
         self._set_schema_crud_visible(can_admin)

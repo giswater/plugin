@@ -287,7 +287,7 @@ BEGIN
                             ' || v_param_name || ' '||v_config_datatype||',
                             CONSTRAINT ' || v_feature_childtable_name || '_'|| v_feature_type|| '_fk FOREIGN KEY ('|| v_feature_type|| '_id) REFERENCES '|| v_schemaname ||'.'|| v_feature_type|| '('|| v_feature_type|| '_id) ON DELETE CASCADE
                         )';
-                EXECUTE 'ALTER TABLE ' || v_feature_childtable_name || ' OWNER TO role_admin';
+                EXECUTE 'ALTER TABLE ' || v_feature_childtable_name || ' OWNER TO role_system';
                 EXECUTE 'CREATE INDEX ' || v_feature_childtable_name || '_'|| v_feature_type|| '_id_index ON ' || v_feature_childtable_name || ' USING btree ('|| v_feature_type|| '_id)';
                 -- log
                 INSERT INTO audit_check_data (fid, result_id, criticity, error_message)
@@ -607,7 +607,7 @@ BEGIN
                                 ' || v_param_name || ' '||v_config_datatype||',
                                 CONSTRAINT ' || v_feature_childtable_name || '_'|| v_feature_type|| '_fk FOREIGN KEY ('|| v_feature_type|| '_id) REFERENCES '|| v_schemaname ||'.'|| v_feature_type|| '('|| v_feature_type|| '_id) ON DELETE CASCADE
                             )';
-                    EXECUTE 'ALTER TABLE ' || v_feature_childtable_name || ' OWNER TO role_admin';
+                    EXECUTE 'ALTER TABLE ' || v_feature_childtable_name || ' OWNER TO role_system';
                     EXECUTE 'CREATE INDEX ' || v_feature_childtable_name || '_'|| v_feature_type|| '_id_index ON ' || v_feature_childtable_name || ' USING btree ('|| v_feature_type|| '_id)';
 
                     -- log

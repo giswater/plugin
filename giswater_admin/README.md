@@ -346,7 +346,7 @@ gw config set database.config /path/conn.yaml
 gw config set database.conn null   # clear URL
 ```
 
-**Superuser:** mutating commands (`db init`, `schema` create/integrate/update/drop, `network update`, and `--check` with a live connection) require a PostgreSQL **superuser**. Read-only commands (`schema list`, `network show`) work with any role that can `SELECT` Giswater schemas and `pg_catalog`.
+**Privileges:** `db init` requires a PostgreSQL **superuser** (creates extensions, roles, and `GRANT CREATE ON DATABASE … TO role_system`). After that, mutating schema commands (`schema` create/integrate/update/drop, `network update`, and `--check` with a live connection) accept a superuser **or** a login that is a member of `role_system`. Read-only commands (`schema list`, `network show`) work with any role that can `SELECT` Giswater schemas and `pg_catalog`.
 
 ### Linux / macOS
 
@@ -457,7 +457,7 @@ Use `--version X.Y.Z` everywhere (replaces `--plugin-version` / `--to-version`).
 
 ### `db init`
 
-Creates extensions in order: `postgis` → `postgis_raster` → `tablefunc` → `pgrouting` → `unaccent` (optional `postgres_fdw` with `--with-fdw`). Run **once per database** before the first schema create.
+Creates extensions in order: `postgis` → `postgis_raster` → `tablefunc` → `pgrouting` → `unaccent` (optional `postgres_fdw` with `--with-fdw`). Also creates the Giswater role hierarchy if missing and `GRANT CREATE ON DATABASE` to `role_system` so a `role_system` member can create schemas afterwards. Requires a PostgreSQL **superuser**. Run **once per database** before the first schema create.
 
 | Option | Description |
 |--------|-------------|
@@ -568,7 +568,7 @@ gw schema addon drop --type utils --yes --cascade --conn "$CONN"
 
 #### `schema list`
 
-Read-only inventory of schemas with `sys_version`. No superuser required.
+Read-only inventory of schemas with `sys_version`. No superuser / role_system required.
 
 | Option | Description |
 |--------|-------------|

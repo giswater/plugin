@@ -98,7 +98,7 @@ Compatible with Windows, Mac, and Linux OS.
   role_crm   (standalone)
   ```
 
-  **Installer requirements:** connect as a PostgreSQL superuser (or equivalent: `CREATEROLE` + `CREATE` on the target database). The build creates missing roles, (re)applies the role hierarchy on every schema create (`GRANT` is idempotent), grants `role_system` to the installer when superuser, creates the project schema `AUTHORIZATION role_system`, and runs restrictive grants (no blanket `ALL` on tables — see [`gw_fct_admin_role_permissions`](dbmodel/schemas/main/common/base/fct/gw_fct_admin_role_permissions.sql)).
+  **Installer requirements:** `gw db init` must run as a PostgreSQL superuser (extensions, roles, `GRANT CREATE ON DATABASE … TO role_system`). After that, schema create/update/drop can run as that superuser **or** as a login granted `role_system`. A `role_system` member can `CREATE SCHEMA … AUTHORIZATION role_system`, run DDL via `SET ROLE role_system`, and drop/rename schemas it owns. Restrictive object grants are applied by [`gw_fct_admin_role_permissions`](dbmodel/schemas/main/common/base/fct/gw_fct_admin_role_permissions.sql).
 
   **Manual bootstrap** (only if you must prepare roles before the first schema build, e.g. restricted DBA workflow):
 
@@ -219,7 +219,7 @@ Use the provided example projects, pre-loaded with datasets for testing. Find se
 
 ### Requirements
 
-Ensure you have the permissions to connect to PostgreSQL and that your user has superuser rights for database administration tasks (e.g., creating schemas, roles, backups).
+Ensure you have the permissions to connect to PostgreSQL. Database bootstrap (`gw db init`, extensions, roles) needs superuser rights. After that, schema administration can be done by a login that is a member of `role_system`.
 
 ### Project Setup
 
