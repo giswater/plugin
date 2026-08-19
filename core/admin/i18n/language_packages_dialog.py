@@ -289,7 +289,8 @@ class GwI18NLocalesTableBase(GwI18NManageLanguagesUi):
             for item in cells:
                 item.setFlags(item_flags)
             if self._col_version is not None:
-                version_item = QStandardItem(version if active else "")
+                version_text = str(version) if active and version else ""
+                version_item = QStandardItem(version_text)
                 version_item.setFlags(item_flags)
                 cells.append(version_item)
             self._locales_model.appendRow(cells)
@@ -330,7 +331,15 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
             event.ignore()
             return
         self._save_download_options()
+        self._persist_locale_versions()
         super(GwI18NLocalesTableBase, self).closeEvent(event)
+
+    def _persist_locale_versions(self) -> None:
+        """Write installed package versions to SQLite so they survive a reopen."""
+        for locale, name, active, version in self.possible_locales:
+            if not active or not version:
+                continue
+            i18n_service.set_locale_active(locale, True, version=str(version), name=name)
 
     def init_dialog(self):
         """Constructor."""

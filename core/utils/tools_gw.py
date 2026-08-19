@@ -7882,7 +7882,7 @@ def _check_user_params(section, parameter, file_name, prefix=False):
     (would dirty the git checkout). Only seed missing keys in the user-folder copy.
     """
 
-    if section == "i18n_generator" or parameter == "dev_commit":
+    if section in ("i18n_generator", "i18n_languages") or parameter == "dev_commit":
         return
 
     inv_key = _inventory_key_for_user_param(parameter, prefix)

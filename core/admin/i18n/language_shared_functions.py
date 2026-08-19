@@ -483,6 +483,34 @@ def download_language_files(
     return True, None, None
 
 
+def _coerce_locale_version(version) -> str | None:
+    if version is None:
+        return None
+    text = str(version).strip()
+    return text or None
+
+
+def _find_locales_row(cursor, locale: str):
+    """Return ``(locale_key, active, version)`` matching folder or lowercase id."""
+    folder = normalize_language_folder(locale)
+    cursor.execute(
+        "SELECT locale, active, version FROM locales WHERE locale = ? "
+        "ORDER BY id LIMIT 1",
+        (folder,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        cursor.execute(
+            "SELECT locale, active, version FROM locales WHERE lower(locale) = ? "
+            "ORDER BY id LIMIT 1",
+            (normalize_language_id(locale),),
+        )
+        row = cursor.fetchone()
+    if not row:
+        return None
+    return str(row[0]), row[1], _coerce_locale_version(row[2])
+
+
 def get_installed_locale_meta(locale: str) -> tuple[bool, str | None]:
     """Return (active, version) from the config SQLite ``locales`` table."""
     from ...utils import tools_gw
@@ -490,23 +518,11 @@ def get_installed_locale_meta(locale: str) -> tuple[bool, str | None]:
     status, cursor = tools_gw.create_sqlite_conn("locales")
     if not status or cursor is None:
         return False, None
-    cursor.execute(
-        "SELECT active, version FROM locales WHERE locale = ? "
-        "ORDER BY id LIMIT 1",
-        (normalize_language_folder(locale),),
-    )
-    row = cursor.fetchone()
-    if not row:
-        # Try lowercase id form used by some rows.
-        cursor.execute(
-            "SELECT active, version FROM locales WHERE lower(locale) = ? "
-            "ORDER BY id LIMIT 1",
-            (normalize_language_id(locale),),
-        )
-        row = cursor.fetchone()
+    row = _find_locales_row(cursor, locale)
     if not row:
         return False, None
-    return bool(row[0]), (str(row[1]) if row[1] else None)
+    _key, active, version = row
+    return bool(active), version
 
 
 def set_locale_active(
@@ -522,22 +538,24 @@ def set_locale_active(
     if not status or cursor is None:
         return False
     folder = normalize_language_folder(locale)
-    cursor.execute("SELECT 1 FROM locales WHERE locale = ?", (folder,))
-    if cursor.fetchone():
+    version = _coerce_locale_version(version)
+    existing = _find_locales_row(cursor, locale)
+    if existing:
+        locale_key = existing[0]
         if version is not None:
             cursor.execute(
                 "UPDATE locales SET active = ?, version = ? WHERE locale = ?",
-                (1 if active else 0, version, folder),
+                (1 if active else 0, version, locale_key),
             )
         elif not active:
             cursor.execute(
                 "UPDATE locales SET active = ?, version = NULL WHERE locale = ?",
-                (0, folder),
+                (0, locale_key),
             )
         else:
             cursor.execute(
                 "UPDATE locales SET active = ? WHERE locale = ?",
-                (1, folder),
+                (1, locale_key),
             )
     else:
         cursor.execute(
@@ -546,7 +564,7 @@ def set_locale_active(
                ON CONFLICT (locale) DO UPDATE SET
                  name = excluded.name,
                  active = excluded.active,
-                 version = excluded.version""",
+                 version = COALESCE(excluded.version, locales.version)""",
             (folder, name or folder, 1 if active else 0, version),
         )
     cursor.connection.commit()
@@ -863,18 +881,34 @@ def reconcile_downloaded_locales(
         return None
 
     cursor.execute("SELECT locale, name, active, version FROM locales")
-    db_locales = {
-        locale: (name, active, version)
-        for locale, name, active, version in cursor.fetchall()
-    }
+    db_locales: dict[str, tuple[str, str | None, object, str | None]] = {}
+    for locale, name, active, version in cursor.fetchall():
+        folder = normalize_language_folder(locale) or str(locale)
+        ver = _coerce_locale_version(version)
+        prev = db_locales.get(folder)
+        if prev is None:
+            db_locales[folder] = (str(locale), name, active, ver)
+            continue
+        prev_key, prev_name, prev_active, prev_ver = prev
+        db_locales[folder] = (
+            prev_key,
+            name or prev_name,
+            prev_active or active,
+            ver or prev_ver,
+        )
 
     for locale, name in locales.items():
-        if language_files_exist(locale):
-            db_name, db_active, version = db_locales.get(locale, (name, 0, None))
-            downloaded_locales[locale] = (db_name or name, version)
-            if locale in db_locales:
+        folder = normalize_language_folder(locale) or locale
+        if language_files_exist(folder):
+            db_key, db_name, db_active, version = db_locales.get(
+                folder, (folder, name, 0, None)
+            )
+            downloaded_locales[folder] = (db_name or name, version)
+            if folder in db_locales:
                 if not db_active:
-                    cursor.execute("UPDATE locales SET active = 1 WHERE locale = ?", (locale,))
+                    cursor.execute(
+                        "UPDATE locales SET active = 1 WHERE locale = ?", (db_key,)
+                    )
             else:
                 cursor.execute(
                     """INSERT INTO locales (locale, name, active, version, active_multilang)
@@ -882,23 +916,24 @@ def reconcile_downloaded_locales(
                        ON CONFLICT (locale) DO UPDATE SET
                          name = excluded.name,
                          active = excluded.active,
-                         version = excluded.version""",
-                    (locale, name, version),
+                         version = COALESCE(excluded.version, locales.version)""",
+                    (folder, name, version),
                 )
-        elif locale in db_locales and db_locales[locale][1]:
+        elif folder in db_locales and db_locales[folder][2]:
+            db_key = db_locales[folder][0]
             cursor.execute(
                 "UPDATE locales SET active = 0, version = NULL WHERE locale = ?",
-                (locale,),
+                (db_key,),
             )
 
     # Offline / partial catalog: keep showing packages already on disk.
-    for locale, (name, active, version) in db_locales.items():
-        if locale in downloaded_locales:
+    for folder, (db_key, name, active, version) in db_locales.items():
+        if folder in downloaded_locales:
             continue
-        if not language_files_exist(locale):
+        if not language_files_exist(folder):
             continue
         if active:
-            downloaded_locales[locale] = (name or locale, version)
+            downloaded_locales[folder] = (name or folder, version)
 
     cursor.connection.commit()
     return downloaded_locales
