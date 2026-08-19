@@ -87,7 +87,7 @@ BEGIN
 					END AS "tableId",
 					st.provider_config AS "providerConfig"
 				FROM v_sys_table st
-				JOIN config_typevalue ct ON ct.id = st.context
+				JOIN v_config_typevalue ct ON ct.id = st.context
 				LEFT JOIN (
 					SELECT column_name, table_name, table_schema FROM information_schema.columns
 					WHERE udt_name='geometry' and table_schema IN ('SCHEMA_NAME', 'am')
@@ -168,7 +168,7 @@ BEGIN
 				st.addparam,
 				st.provider_config AS "providerConfig"
 			FROM v_sys_table st
-			JOIN config_typevalue ct ON ct.id = st.context
+			JOIN v_config_typevalue ct ON ct.id = st.context
 			LEFT JOIN (
 				SELECT column_name, table_name, table_schema FROM information_schema.columns
 				WHERE udt_name='geometry' and table_schema IN ('SCHEMA_NAME', 'am')

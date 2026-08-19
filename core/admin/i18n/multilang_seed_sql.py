@@ -53,6 +53,7 @@ BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
     "dbjson": "config_json",
     "dbconfig_report": "config_report",
     "dbconfig_toolbox": "config_toolbox",
+    "dbconfig_typevalue": "config_typevalue",
 }
 
 MULTILANG_UI_TABLES: tuple[str, ...] = tuple(sorted(set(BASELINE_TO_MULTILANG_TABLE.values())))
@@ -138,6 +139,7 @@ _TABLE_CONFLICT_KEYS: dict[str, tuple[str, ...]] = {
     "config_json": ("project_type", "context", "source", "hint", "lang"),
     "config_report": ("project_type", "context", "source", "lang"),
     "config_toolbox": ("project_type", "context", "source", "lang"),
+    "config_typevalue": ("project_type", "context", "formname", "source", "lang"),
 }
 
 # Multilang columns that must be double-quoted in generated SQL.
@@ -508,6 +510,14 @@ def _cell(row: Sequence[Any], aliases: Sequence[str], alias: str) -> Any:
     return row[idx]
 
 
+def _first_cell(row: Sequence[Any], aliases: Sequence[str], *names: str) -> Any:
+    for name in names:
+        value = _cell(row, aliases, name)
+        if value is not None:
+            return value
+    return None
+
+
 def _org_to_i18n(context: str, org_column: str) -> str | None:
     overrides = _CONTEXT_I18N_OVERRIDES.get(context, {})
     if org_column in overrides:
@@ -586,6 +596,15 @@ def blocks_to_multilang_rows(
                     "hint": block.json_hints[0] if block.json_hints else "filterparam",
                     "text": _cell(raw, block.value_aliases, "text"),
                 })
+            elif table == "dbconfig_typevalue":
+                values.update({
+                    "formname": _first_cell(
+                        raw, block.value_aliases, "formname", "typevalue",
+                    ),
+                    "source": _first_cell(
+                        raw, block.value_aliases, "source", "id",
+                    ),
+                })
             elif table in (
                 "dbparam_user", "dbmessage", "dbfprocess", "dbfunction", "dbtable",
                 "dbconfig_report", "dbconfig_toolbox",
@@ -606,11 +625,17 @@ def blocks_to_multilang_rows(
 
             if values.get("source") is not None:
                 values["source"] = str(values["source"])
+            if values.get("formname") is not None:
+                values["formname"] = str(values["formname"])
             if values.get("columnname") is not None:
                 values["columnname"] = str(values["columnname"])
 
             target_table = BASELINE_TO_MULTILANG_TABLE.get(table)
             if not target_table:
+                continue
+            if table == "dbconfig_typevalue" and (
+                values.get("formname") is None or values.get("source") is None
+            ):
                 continue
             rows.append(MultilangRow(table=target_table, values=values))
     return rows
@@ -1004,6 +1029,39 @@ def _multilang_fct_dir() -> str:
     return os.path.join(
         plugin_dir, "dbmodel", "schemas", "addon", "multilang", "base", "fct"
     )
+
+
+def ensure_multilang_tables_ddl() -> str:
+    """CREATE TABLE IF NOT EXISTS for multilang tables added after the first install."""
+    return """
+DO $BODY$
+BEGIN
+    IF to_regnamespace('multilang') IS NULL THEN
+        RETURN;
+    END IF;
+
+    CREATE TABLE IF NOT EXISTS multilang.config_typevalue (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        formname text NOT NULL,
+        "source" text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        tt text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT config_typevalue_id_uniq UNIQUE (id),
+        CONSTRAINT config_typevalue_pkey PRIMARY KEY (project_type, context, formname, "source", lang),
+        CONSTRAINT config_typevalue_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_config_typevalue_lang
+        ON multilang.config_typevalue USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.config_typevalue TO role_basic;
+END
+$BODY$;
+"""
 
 
 def multilang_view_functions_ddl() -> str:

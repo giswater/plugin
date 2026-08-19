@@ -42,7 +42,8 @@ DECLARE
         'config_csv',
         'config_form_tableview',
         'config_report',
-        'config_toolbox'
+        'config_toolbox',
+        'config_typevalue'
     ];
 BEGIN
     v_prev_search_path := current_setting('search_path');

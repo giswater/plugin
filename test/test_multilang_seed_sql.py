@@ -23,6 +23,7 @@ from core.admin.i18n.multilang_seed_sql import (
     seeded_project_types_out_of_sync,
     split_value_tuples,
     translatable_project_types_with_baseline,
+    ensure_multilang_tables_ddl,
     multilang_view_functions_ddl,
 )
 
@@ -35,7 +36,7 @@ def _sql_root() -> str:
 class TestMultilangSeedSql(unittest.TestCase):
 
     def test_target_table_mapping(self):
-        self.assertEqual(len(MULTILANG_UI_TABLES), 15)
+        self.assertEqual(len(MULTILANG_UI_TABLES), 16)
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbparam_user"],
             "sys_param_user",
@@ -52,6 +53,7 @@ class TestMultilangSeedSql(unittest.TestCase):
             BASELINE_TO_MULTILANG_TABLE["dbfprocess"],
             "sys_fprocess",
         )
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_typevalue"], "config_typevalue")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_toolbox"], "config_toolbox")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_report"], "config_report")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbjson"], "config_json")
@@ -157,6 +159,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertGreater(len(statements), 0)
         joined = "\n".join(statements)
         self.assertIn("INSERT INTO multilang.config_form_fields", joined)
+        self.assertIn("INSERT INTO multilang.config_typevalue", joined)
         self.assertIn("INSERT INTO multilang.config_toolbox", joined)
         self.assertIn("INSERT INTO multilang.config_report", joined)
         self.assertIn("INSERT INTO multilang.config_json", joined)
@@ -371,6 +374,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         rows = rows_for_project_type(template, "ws")
         tables = {row.table for row in rows}
         self.assertIn("sys_label", tables)
+        self.assertIn("config_typevalue", tables)
         self.assertIn("config_toolbox", tables)
         self.assertIn("config_report", tables)
         self.assertIn("config_json", tables)
@@ -500,6 +504,58 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("INSERT INTO multilang.config_toolbox", inserts[0])
 
 
+    def test_parse_dbconfig_typevalue_maps_idval_to_tt(self):
+        sql = """
+        UPDATE config_typevalue AS t SET idval = v.idval FROM (
+            VALUES
+            ('13', 'sys_table_context', '["INVENTORY", "NETWORK", "ARC"]'),
+            ('vspacer', 'device_typevalue', 'vspacer')
+        ) AS v(source, formname, idval)
+        WHERE t.id = v.source AND t.typevalue = v.formname;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows(
+            "dbconfig_typevalue",
+            blocks,
+            project_type="ud",
+        )
+        self.assertEqual(len(rows), 2)
+        by_source = {row.values["source"]: row for row in rows}
+        self.assertEqual(by_source["13"].table, "config_typevalue")
+        self.assertEqual(by_source["13"].values["formname"], "sys_table_context")
+        self.assertEqual(by_source["13"].values["tt"], '["INVENTORY", "NETWORK", "ARC"]')
+        self.assertEqual(by_source["vspacer"].values["formname"], "device_typevalue")
+        self.assertEqual(by_source["vspacer"].values["tt"], "vspacer")
+
+        inserts = build_insert_sql("config_typevalue", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_typevalue", inserts[0])
+        self.assertNotIn("NULL", inserts[0].split("VALUES", 1)[1])
+
+    def test_load_ud_dbconfig_typevalue_sets_formname_and_source(self):
+        rows = [
+            row for row in rows_for_project_type(
+                load_baseline_rows_for_project_type(_sql_root(), "ud"), "ud",
+            )
+            if row.table == "config_typevalue"
+        ]
+        self.assertGreater(len(rows), 0)
+        vspacer = next(
+            (
+                row for row in rows
+                if row.values.get("source") == "vspacer"
+                and row.values.get("tt") == "vspacer"
+            ),
+            None,
+        )
+        self.assertIsNotNone(vspacer)
+        self.assertIsNotNone(vspacer.values.get("formname"))
+        self.assertTrue(all(
+            row.values.get("formname") and row.values.get("source")
+            for row in rows
+        ))
+
+
     def test_baseline_fingerprint_stable(self):
         sql_root = _sql_root()
         fp1 = compute_baseline_fingerprint(sql_root)
@@ -516,7 +572,14 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("CREATE VIEW", ddl)
         self.assertIn("gw_fct_admin_manage_multilang_views", ddl)
         self.assertIn("COALESCE(ml.al, t.alias)", ddl)
+        self.assertIn("COALESCE(ml.tt, t.idval)", ddl)
+        self.assertIn("config_typevalue", ddl)
         self.assertNotIn("CREATE OR REPLACE VIEW", ddl)
+
+    def test_ensure_multilang_tables_ddl_creates_config_typevalue(self):
+        ddl = ensure_multilang_tables_ddl()
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.config_typevalue", ddl)
+        self.assertIn("formname text NOT NULL", ddl)
 
 
 if __name__ == "__main__":

@@ -234,6 +234,17 @@ BEGIN
                AND mla.lang = %3$s',
             v_context, v_pt_expr, v_lang_expr
         );
+    ELSIF p_table = 'config_typevalue' THEN
+        v_context := 'config_typevalue';
+        v_join := format(
+            'LEFT JOIN multilang.config_typevalue ml
+                ON ml.source = t.id
+               AND ml.formname = t.typevalue
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
     ELSE
         RAISE EXCEPTION 'Unsupported multilang view table: %', p_table;
     END IF;
@@ -298,6 +309,8 @@ BEGIN
                     THEN 'COALESCE(mla.al, t.alias)'
                 WHEN a.attname = 'idval' AND p_table = 'sys_label'
                     THEN 'COALESCE(ml.vl, t.idval)'
+                WHEN a.attname = 'idval' AND p_table = 'config_typevalue'
+                    THEN 'CASE WHEN t.idval = ''["HIDDEN"]'' THEN t.idval ELSE COALESCE(ml.tt, t.idval) END'
                 WHEN a.attname = 'widgetcontrols' AND p_table = 'config_form_fields'
                     THEN '(COALESCE(t.widgetcontrols::jsonb, ''{}''::jsonb)
                            || COALESCE(mlj.text, mljp.text, ''{}''::jsonb))::json'

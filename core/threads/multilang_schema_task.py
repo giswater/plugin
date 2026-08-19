@@ -37,6 +37,7 @@ from ..admin.i18n.multilang_seed_sql import (
     delete_language_seed_sql,
     delete_project_type_seed_sql,
     ensure_cat_language_sql,
+    ensure_multilang_tables_ddl,
     fetch_seeded_project_types_from_multilang,
     invalidate_baseline_fingerprint_cache,
     language_baselines_exist,
@@ -133,6 +134,9 @@ class GwMultilangSchemaTask(GwTask):
             return False
         return True
 
+    def _ensure_multilang_tables(self) -> bool:
+        return self._execute_sql(ensure_multilang_tables_ddl())
+
     def run(self) -> bool:
         super().run()
         lib_vars.session_vars["last_error"] = None
@@ -170,6 +174,10 @@ class GwMultilangSchemaTask(GwTask):
     def _run_delete_language(self) -> bool:
         """Delete all multilang rows (and cat_language) for one locale."""
         self.setProgress(10)
+        if not self._ensure_multilang_tables():
+            if self._adapter is not None:
+                self._adapter.rollback()
+            return False
         if not self._clear_language_rows(drop_catalog=True):
             if self._adapter is not None:
                 self._adapter.rollback()
@@ -197,6 +205,11 @@ class GwMultilangSchemaTask(GwTask):
             return False
 
         if not self._execute_sql(ensure_cat_language_sql(self.locale or self.lang_id)):
+            if self._adapter is not None:
+                self._adapter.rollback()
+            return False
+
+        if not self._ensure_multilang_tables():
             if self._adapter is not None:
                 self._adapter.rollback()
             return False
@@ -253,6 +266,11 @@ class GwMultilangSchemaTask(GwTask):
 
         if self.result.cancelled or not self.result.ok:
             self._record_failure()
+            if self._adapter is not None:
+                self._adapter.rollback()
+            return False
+
+        if not self._ensure_multilang_tables():
             if self._adapter is not None:
                 self._adapter.rollback()
             return False
@@ -341,6 +359,8 @@ class GwMultilangSchemaTask(GwTask):
 
     def _provision_network_views(self, *, enable: bool) -> bool:
         msg = "Multilang views provisioning"
+        if not self._ensure_multilang_tables():
+            return False
         if not self._execute_sql(multilang_view_functions_ddl()):
             return False
         return self._execute_multilang_function(
