@@ -24,6 +24,10 @@ UPDATE connec SET builtdate = now() -  random() * (now() - timestamp '1990-01-01
 UPDATE link SET builtdate = c.builtdate FROM connec c WHERE feature_id = connec_id;
 UPDATE element SET builtdate = now() -  random() * (now() - timestamp '1990-01-01 00:00:00');
 
+UPDATE node SET om_state = (1 + floor(random() * 5))::int::text, conserv_state = (1 + floor(random() * 5))::int::text WHERE state = 1;
+UPDATE arc SET om_state = (1 + floor(random() * 5))::int::text, conserv_state = (1 + floor(random() * 5))::int::text WHERE state = 1;
+UPDATE connec SET om_state = (1 + floor(random() * 5))::int::text, conserv_state = (1 + floor(random() * 5))::int::text WHERE state = 1;
+
 INSERT INTO mapzone_graph (node_id, mapzone_id, mapzone_type, flow_sign) VALUES ('1080',1, 'DMA', -1);
 INSERT INTO mapzone_graph (node_id, mapzone_id, mapzone_type, flow_sign) VALUES ('1080',2, 'DMA', 1);
 INSERT INTO mapzone_graph (node_id, mapzone_id, mapzone_type, flow_sign) VALUES ('1097',4, 'DMA', 1);

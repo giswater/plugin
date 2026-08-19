@@ -32,3 +32,29 @@ SELECT id AS nodecat_id,
 FROM PARENT_SCHEMA.cat_node
 WHERE active IS DISTINCT FROM FALSE
 ON CONFLICT (nodecat_id) DO NOTHING;
+
+INSERT INTO config_linkcatalog_def (linkcat_id, dnom, cost_constr, cost_repmain, compliance, default_length)
+SELECT id AS linkcat_id,
+	NULLIF(regexp_replace(COALESCE(dnom, ''), '[^0-9\.]', '', 'g'), '')::NUMERIC AS dnom,
+	0 AS cost_constr,
+	0 AS cost_repmain,
+	10 AS compliance,
+	6 AS default_length
+FROM PARENT_SCHEMA.cat_link
+WHERE active IS DISTINCT FROM FALSE
+ON CONFLICT (linkcat_id) DO NOTHING;
+
+UPDATE PARENT_SCHEMA.node SET
+	om_state = (1 + floor(random() * 5))::int::text,
+	conserv_state = (1 + floor(random() * 5))::int::text
+WHERE state = 1 AND om_state IS NULL AND conserv_state IS NULL;
+
+UPDATE PARENT_SCHEMA.arc SET
+	om_state = (1 + floor(random() * 5))::int::text,
+	conserv_state = (1 + floor(random() * 5))::int::text
+WHERE state = 1 AND om_state IS NULL AND conserv_state IS NULL;
+
+UPDATE PARENT_SCHEMA.connec SET
+	om_state = (1 + floor(random() * 5))::int::text,
+	conserv_state = (1 + floor(random() * 5))::int::text
+WHERE state = 1 AND om_state IS NULL AND conserv_state IS NULL;

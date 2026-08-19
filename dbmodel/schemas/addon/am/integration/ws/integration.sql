@@ -72,6 +72,69 @@ ALTER TABLE am.config_nodecatalog_def DROP CONSTRAINT IF EXISTS config_nodecatal
 ALTER TABLE am.config_nodecatalog_def ADD CONSTRAINT config_nodecatalog_def_fk FOREIGN KEY (nodecat_id)
 REFERENCES PARENT_SCHEMA.cat_node (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE;
 
+-- LINK catalog (ODT cat_ws_link_cost)
+CREATE TABLE IF NOT EXISTS am.config_linkcatalog_def (
+    id serial PRIMARY KEY,
+    linkcat_id varchar(30) NOT NULL,
+    dnom numeric(12,2),
+    cost_constr numeric(12,2),
+    cost_repmain numeric(12,2),
+    compliance integer,
+    CONSTRAINT config_linkcatalog_def_linkcat_id UNIQUE (linkcat_id)
+);
+
+CREATE TABLE IF NOT EXISTS am.config_linkcatalog (
+    linkcat_id varchar(30) NOT NULL,
+    dnom numeric(12,2),
+    cost_constr numeric(12,2),
+    cost_repmain numeric(12,2),
+    compliance integer,
+    result_id integer NOT NULL,
+    CONSTRAINT config_linkcatalog_pkey PRIMARY KEY (linkcat_id, result_id)
+);
+
+CREATE TABLE IF NOT EXISTS am.config_linkmaterial_def (
+    material character varying(50) NOT NULL,
+    score numeric(12,3) NOT NULL,
+    descript text,
+    CONSTRAINT config_linkmaterial_def_pkey PRIMARY KEY (material)
+);
+
+GRANT ALL ON TABLE am.config_linkcatalog TO role_basic;
+GRANT ALL ON TABLE am.config_linkcatalog_def TO role_basic;
+GRANT ALL ON TABLE am.config_linkmaterial_def TO role_basic;
+
+ALTER TABLE am.config_linkcatalog_def ADD COLUMN IF NOT EXISTS surface_type varchar(30);
+ALTER TABLE am.config_linkcatalog_def ADD COLUMN IF NOT EXISTS default_length numeric(12,3);
+ALTER TABLE am.config_linkcatalog ADD COLUMN IF NOT EXISTS surface_type varchar(30);
+ALTER TABLE am.config_linkcatalog ADD COLUMN IF NOT EXISTS default_length numeric(12,3);
+UPDATE am.config_linkcatalog_def SET default_length = 6 WHERE default_length IS NULL;
+
+INSERT INTO am.config_linkmaterial_def (material, score, descript) VALUES
+    ('PE', 2, 'Modern polyethylene'),
+    ('PVC', 3, 'PVC connection'),
+    ('GALVANIZED_STEEL', 7, 'Old galvanized steel'),
+    ('LEAD', 10, 'Lead connection'),
+    ('UNKNOWN', 5, 'Unknown material')
+ON CONFLICT (material) DO NOTHING;
+
+ALTER TABLE am.config_linkcatalog_def DROP CONSTRAINT IF EXISTS config_linkcatalog_def_fk;
+ALTER TABLE am.config_linkcatalog_def ADD CONSTRAINT config_linkcatalog_def_fk FOREIGN KEY (linkcat_id)
+REFERENCES PARENT_SCHEMA.cat_link (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE;
+
+DROP TRIGGER IF EXISTS gw_trg_asset_cat_link ON PARENT_SCHEMA.cat_link;
+CREATE TRIGGER gw_trg_asset_cat_link AFTER INSERT OR UPDATE OF dnom ON PARENT_SCHEMA.cat_link
+FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_link();
+
+INSERT INTO am.config_linkcatalog_def (linkcat_id, dnom, cost_constr, cost_repmain, compliance)
+SELECT id,
+	NULLIF(regexp_replace(COALESCE(dnom, ''), '[^0-9\.]', '', 'g'), '')::NUMERIC,
+	0,
+	0,
+	10
+FROM PARENT_SCHEMA.cat_link
+WHERE active IS DISTINCT FROM FALSE
+ON CONFLICT (linkcat_id) DO NOTHING;
 
 DELETE FROM PARENT_SCHEMA.sys_table WHERE id IN ('arc_output', 'ext_arc_asset', 'leaks', 'v_asset_arc_input', 'v_asset_arc_corporate', 'v_asset_arc_output', 'v_asset_arc_output_compare') AND source = 'am';
 DELETE FROM PARENT_SCHEMA.config_typevalue WHERE typevalue = 'sys_table_context' AND id = '{"levels": ["AM", "LAYERS"]}';
@@ -79,10 +142,13 @@ DELETE FROM PARENT_SCHEMA.sys_style WHERE layername in ('arc_output', 'ext_arc_a
 
 -- Legacy flat group (kept for backward compatibility)
 INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES ('sys_table_context', '34', '["AM", "LAYERS"]', '{"orderBy": 34}') ON CONFLICT (typevalue,id) DO NOTHING;
--- AM TOC subgroups: ARC / NODE / CONFIG
+-- AM TOC subgroups: ARC / NODE / LINK / CONFIG
 INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES ('sys_table_context', '35', '["AM", "ARC"]', '{"orderBy": 35}') ON CONFLICT (typevalue,id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES ('sys_table_context', '36', '["AM", "NODE"]', '{"orderBy": 36}') ON CONFLICT (typevalue,id) DO NOTHING;
-INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES ('sys_table_context', '37', '["AM", "CONFIG"]', '{"orderBy": 37}') ON CONFLICT (typevalue,id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES ('sys_table_context', '38', '["AM", "LINK"]', '{"orderBy": 37}')
+ON CONFLICT (typevalue,id) DO UPDATE SET idval = EXCLUDED.idval, addparam = EXCLUDED.addparam;
+INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES ('sys_table_context', '37', '["AM", "CONFIG"]', '{"orderBy": 38}')
+ON CONFLICT (typevalue,id) DO UPDATE SET addparam = EXCLUDED.addparam;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
 VALUES('v_asset_arc_output_compare', 'id', 'role_om', NULL, '35', 7, 'Arc Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
@@ -15288,6 +15354,15 @@ AS SELECT n.node_id,
         ELSE EXTRACT(YEAR FROM age(CURRENT_DATE, n.builtdate))::numeric
     END AS age,
     0::numeric AS estimated_cost,
+    -- AM polarity: higher raw = higher priority; grade 1=Critical → invert as (6 - grade)
+    CASE
+        WHEN n.conserv_state ~ '^[1-5]$' THEN (6 - n.conserv_state::integer)::numeric
+        ELSE NULL
+    END AS structural_raw_src,
+    CASE
+        WHEN n.om_state ~ '^[1-5]$' THEN (6 - n.om_state::integer)::numeric
+        ELSE NULL
+    END AS operational_raw_src,
     n.the_geom
    FROM PARENT_SCHEMA.node n
      JOIN PARENT_SCHEMA.vf_node ON vf_node.node_id = n.node_id
@@ -15301,8 +15376,8 @@ CREATE VIEW v_asset_node_input AS
  SELECT a.node_id,
     COALESCE(i.age, a.age) AS age,
     i.incident_count,
-    i.structural_raw,
-    i.operational_raw,
+    COALESCE(i.structural_raw, a.structural_raw_src) AS structural_raw,
+    COALESCE(i.operational_raw, a.operational_raw_src) AS operational_raw,
     i.nrw_raw,
     i.affected_users_raw,
     i.strategic,
@@ -15358,6 +15433,130 @@ ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.or
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
 VALUES('ext_node_asset', 'id', 'role_om', NULL, '36', 1, 'Existing Node Assets', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+
+--
+-- Stage 3: LINK Weighted Method
+--
+
+CREATE OR REPLACE VIEW am.ext_link_asset
+AS SELECT
+    l.link_id,
+    CASE WHEN upper(trim(l.feature_type)) = 'CONNEC' AND l.feature_id::text ~ '^[0-9]+$'
+        THEN l.feature_id::text::integer END AS connec_id,
+    CASE WHEN upper(trim(l.exit_type)) = 'ARC' AND l.exit_id::text ~ '^[0-9]+$'
+        THEN l.exit_id::text::integer END AS arc_id,
+    l.linkcat_id,
+    cat.matcat_id,
+    cat.dnom,
+    l.state,
+    l.expl_id,
+    l.sector_id,
+    s.macrosector_id,
+    l.dma_id,
+    l.presszone_id,
+    l.builtdate,
+    ST_Length(l.the_geom)::numeric AS length,
+    CASE
+        WHEN l.builtdate IS NULL THEN NULL
+        ELSE EXTRACT(YEAR FROM age(CURRENT_DATE, l.builtdate))::numeric
+    END AS age,
+    mat.score AS material_raw_src,
+    COALESCE(NULLIF(c.n_hydrometer, 0), NULLIF(c.n_inhabitants, 0), 1)::numeric AS affected_users_raw_src,
+    (SELECT count(*)::numeric FROM PARENT_SCHEMA.om_visit_x_link v WHERE v.link_id = l.link_id) AS incident_count_src,
+    c.conneccat_id AS connecat_id,
+    c.dataquality AS data_quality_src,
+    c.dataquality_obs AS data_quality_obs_src,
+    l.the_geom
+   FROM PARENT_SCHEMA.link l
+     JOIN PARENT_SCHEMA.sector s ON s.sector_id = l.sector_id
+     LEFT JOIN PARENT_SCHEMA.cat_link cat ON cat.id::text = l.linkcat_id::text
+     LEFT JOIN am.config_linkmaterial_def mat ON mat.material = cat.matcat_id
+     LEFT JOIN PARENT_SCHEMA.connec c ON upper(trim(l.feature_type)) = 'CONNEC'
+         AND l.feature_id::text = c.connec_id::text
+  WHERE l.state = 1;
+
+SET search_path = am, public;
+
+DROP VIEW IF EXISTS v_asset_link_input CASCADE;
+CREATE VIEW v_asset_link_input AS
+ SELECT a.link_id,
+    a.connec_id,
+    a.arc_id,
+    COALESCE(i.age, a.age) AS age,
+    COALESCE(i.incident_count, a.incident_count_src) AS incident_count,
+    COALESCE(i.material_raw, a.material_raw_src) AS material_raw,
+    COALESCE(i.affected_users_raw, a.affected_users_raw_src) AS affected_users_raw,
+    i.parent_arc_selected_raw,
+    i.strategic,
+    i.compliance,
+    COALESCE(i.mandatory, false) AS mandatory,
+    COALESCE(i.data_quality, a.data_quality_src) AS data_quality,
+    COALESCE(i.data_quality_obs, a.data_quality_obs_src) AS data_quality_obs,
+    i.estimated_cost,
+    a.linkcat_id,
+    a.matcat_id,
+    a.dnom,
+    a.connecat_id,
+    a.state,
+    a.builtdate,
+    a.length,
+    a.expl_id,
+    a.macrosector_id,
+    a.sector_id,
+    a.presszone_id,
+    a.dma_id,
+    a.the_geom
+   FROM (ext_link_asset a
+     LEFT JOIN link_input i USING (link_id));
+
+CREATE RULE v_asset_link_input_update AS ON UPDATE TO v_asset_link_input
+ DO INSTEAD
+ INSERT INTO link_input (link_id, connec_id, arc_id, mandatory, strategic,
+    incident_count, material_raw, affected_users_raw, compliance, estimated_cost)
+ VALUES (NEW.link_id, NEW.connec_id, NEW.arc_id, NEW.mandatory, NEW.strategic,
+    NEW.incident_count, NEW.material_raw, NEW.affected_users_raw,
+    NEW.compliance, NEW.estimated_cost)
+ ON CONFLICT(link_id) DO
+ UPDATE SET mandatory = EXCLUDED.mandatory,
+    strategic = EXCLUDED.strategic,
+    incident_count = EXCLUDED.incident_count,
+    material_raw = EXCLUDED.material_raw,
+    affected_users_raw = EXCLUDED.affected_users_raw,
+    compliance = EXCLUDED.compliance,
+    estimated_cost = EXCLUDED.estimated_cost;
+
+GRANT ALL ON TABLE am.ext_link_asset TO role_basic;
+GRANT ALL ON TABLE am.v_asset_link_input TO role_basic;
+
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('v_asset_link_output_compare', 'id', 'role_om', NULL, '38', 5, 'Link Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('v_asset_link_output', 'id', 'role_om', NULL, '38', 4, 'Link Result - Main', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('v_asset_link_corporate', 'id', 'role_om', NULL, '38', 3, 'Link Corporate Assets', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('v_asset_link_input', 'id', 'role_om', NULL, '38', 2, 'Link Input Assets', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('ext_link_asset', 'id', 'role_om', NULL, '38', 1, 'Existing Link Assets', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('config_linkcatalog_def', 'Table to define the link catalogs', 'role_om', NULL, '37', 5, 'Config link catalog', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+
+INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
+SELECT 'v_asset_link_output', styleconfig_id, styletype, stylevalue, active
+FROM PARENT_SCHEMA.sys_style
+WHERE layername = 'v_asset_arc_output' AND styleconfig_id = 101
+ON CONFLICT (layername, styleconfig_id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
+SELECT 'v_asset_link_output_compare', styleconfig_id, styletype, stylevalue, active
+FROM PARENT_SCHEMA.sys_style
+WHERE layername = 'v_asset_arc_output_compare' AND styleconfig_id = 101
+ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 
 SELECT "SCHEMA_NAME".gw_fct_admin_sys_version_register(json_build_object(
 	'data', json_build_object(

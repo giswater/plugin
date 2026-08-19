@@ -77,15 +77,23 @@ class GwConfigCatalogButton:
 
     def fill_table_widget(self, table_widget):
         """ Fill catalog table widget from in-memory config """
-        id_header = "Nodecat_id" if self._key == "nodecat_id" else "Arccat_id"
+        id_header = {
+            "nodecat_id": "Nodecat_id",
+            "linkcat_id": "Linkcat_id",
+        }.get(self._key, "Arccat_id")
+        if self._key == "linkcat_id":
+            cost_headers = [tools_qt.tr("Fixed cost"), tools_qt.tr("Pipe cost (€/m)")]
+        else:
+            cost_headers = [tools_qt.tr("Renewal cost"), tools_qt.tr("Repair cost")]
         headers = [
             id_header,
             tools_qt.tr("Diameter"),
-            tools_qt.tr("Renewal cost"),
-            tools_qt.tr("Repair cost"),
+            *cost_headers,
             tools_qt.tr("Compliance Grade"),
             tools_qt.tr("Material"),
         ]
+        if self._key == "linkcat_id":
+            headers.extend([tools_qt.tr("Surface"), tools_qt.tr("Default length (m)")])
         table_widget.setRowCount(0)
         table_widget.setColumnCount(len(headers))
         table_widget.setHorizontalHeaderLabels(headers)
@@ -97,6 +105,9 @@ class GwConfigCatalogButton:
             table_widget.setItem(r, 3, QTableWidgetItem(str(row.get("cost_repmain"))))
             table_widget.setItem(r, 4, QTableWidgetItem(str(row.get("compliance"))))
             table_widget.setItem(r, 5, QTableWidgetItem(str(row.get("matcat_id") or "")))
+            if self._key == "linkcat_id":
+                table_widget.setItem(r, 6, QTableWidgetItem(str(row.get("surface_type") or "")))
+                table_widget.setItem(r, 7, QTableWidgetItem(str(row.get("default_length") or "")))
 
     def get_compliance(self, key):
         """ Return compliance grade for the catalog key """
@@ -109,6 +120,14 @@ class GwConfigCatalogButton:
     def get_cost_repmain(self, key):
         """ Return repair maintenance cost for the catalog key """
         return self._data[key]["cost_repmain"]
+
+    def get_default_length(self, key):
+        """ODT default_length when geometry length is null."""
+        return self._data[key].get("default_length")
+
+    def get_surface_type(self, key):
+        """ODT surface_type catalog classifier."""
+        return self._data[key].get("surface_type")
 
     def has_key(self, key):
         """ Return whether the catalog key exists """
@@ -126,22 +145,35 @@ class GwConfigCatalogButton:
                 f"delete from am.{self._save_table} where result_id = {result_id};"
             )
             return
+        extra_cols = ""
+        if self._key == "linkcat_id":
+            extra_cols = ", surface_type, default_length"
         sql = f"""
             delete from am.{self._save_table} where result_id = {result_id};
             insert into am.{self._save_table}
-                (result_id, {self._key}, dnom, cost_constr, cost_repmain, compliance)
+                (result_id, {self._key}, dnom, cost_constr, cost_repmain, compliance{extra_cols})
             values
         """
         for value in self._data.values():
             dnom = value.get("dnom")
             dnom_sql = "NULL" if dnom is None or dnom == "" or dnom == "None" else dnom
+            extra_vals = ""
+            if self._key == "linkcat_id":
+                surface = value.get("surface_type")
+                surface_sql = (
+                    "NULL" if not surface or surface in ("None", "NULL")
+                    else f"'{str(surface).replace(chr(39), chr(39)+chr(39))}'"
+                )
+                dlen = value.get("default_length")
+                dlen_sql = "NULL" if dlen in (None, "", "None", "NULL") else dlen
+                extra_vals = f", {surface_sql}, {dlen_sql}"
             sql += f"""
                 ({result_id},
                 '{value[self._key]}',
                 {dnom_sql},
                 {value["cost_constr"]},
                 {value["cost_repmain"]},
-                {value["compliance"]}),
+                {value["compliance"]}{extra_vals}),
             """
         sql = sql.strip()[:-1]
         tools_db.execute_sql(sql)
@@ -156,16 +188,27 @@ def configcatalog_from_tablewidget(table_widget, key="arccat_id", save_table="co
             dnom = float(dnom_text) if dnom_text not in ("", "None", "NULL") else None
         except ValueError:
             dnom = None
-        data.append(
-            {
-                key: table_widget.item(r, 0).text(),
-                "dnom": dnom,
-                "cost_constr": float(table_widget.item(r, 2).text()),
-                "cost_repmain": float(table_widget.item(r, 3).text()),
-                "compliance": int(table_widget.item(r, 4).text()),
-                "matcat_id": table_widget.item(r, 5).text(),
-            }
-        )
+        row = {
+            key: table_widget.item(r, 0).text(),
+            "dnom": dnom,
+            "cost_constr": float(table_widget.item(r, 2).text()),
+            "cost_repmain": float(table_widget.item(r, 3).text()),
+            "compliance": int(table_widget.item(r, 4).text()),
+            "matcat_id": table_widget.item(r, 5).text(),
+        }
+        if key == "linkcat_id" and table_widget.columnCount() > 7:
+            surf_item = table_widget.item(r, 6)
+            dlen_item = table_widget.item(r, 7)
+            row["surface_type"] = surf_item.text() if surf_item and surf_item.text() not in ("", "None") else None
+            try:
+                row["default_length"] = (
+                    float(dlen_item.text())
+                    if dlen_item and dlen_item.text() not in ("", "None", "NULL")
+                    else None
+                )
+            except (ValueError, AttributeError):
+                row["default_length"] = None
+        data.append(row)
     return GwConfigCatalogButton(data, key, save_table=save_table)
 
 
@@ -426,8 +469,12 @@ class CalculatePriority:
         self.type = type if mode == "new" else self.result["type"]
         self.mode = mode
         self.asset_type = self.result.get("asset_type") or "ARC"
-        self.layer_to_work = "v_asset_arc_input" if self.asset_type == "ARC" else "v_asset_node_input"
-        self.rel_layers = {"arc": [], "node": []}
+        self.layer_to_work = {
+            "ARC": "v_asset_arc_input",
+            "NODE": "v_asset_node_input",
+            "LINK": "v_asset_link_input",
+        }.get(self.asset_type, "v_asset_arc_input")
+        self.rel_layers = {"arc": [], "node": [], "link": []}
         self.excluded_layers = []
         self.list_ids = {}
         self.config = CalculatePriorityConfig(type)
@@ -439,7 +486,11 @@ class CalculatePriority:
     @property
     def _asset_table(self):
         """Name of the WS integration view backing the current asset_type."""
-        return "ext_arc_asset" if self.asset_type == "ARC" else "ext_node_asset"
+        return {
+            "ARC": "ext_arc_asset",
+            "NODE": "ext_node_asset",
+            "LINK": "ext_link_asset",
+        }.get(self.asset_type, "ext_arc_asset")
 
     def clicked_event(self):
         """ Open priority dialog and load catalog, material and engine tabs """
@@ -537,6 +588,8 @@ class CalculatePriority:
             "v_asset_arc_output_compare",
             "v_asset_node_output",
             "v_asset_node_output_compare",
+            "v_asset_link_output",
+            "v_asset_link_output_compare",
             "v_asset_arc_corporate",
             "v_asset_node_corporate",
         ):
@@ -581,9 +634,13 @@ class CalculatePriority:
         )
 
     def _fill_asset_type_combo(self):
-        """ Fill asset type combo with ARC and NODE """
+        """ Fill asset type combo with ARC, NODE and LINK """
         dlg = self.dlg_priority
-        rows = [("ARC", tools_qt.tr("ARC")), ("NODE", tools_qt.tr("NODE"))]
+        rows = [
+            ("ARC", tools_qt.tr("ARC")),
+            ("NODE", tools_qt.tr("NODE")),
+            ("LINK", tools_qt.tr("LINK")),
+        ]
         tools_qt.fill_combo_values(dlg.cmb_asset_type, rows, 1)
         tools_qt.set_combo_value(dlg.cmb_asset_type, self.asset_type, 0, add_new=False)
         if self.mode != "new":
@@ -594,13 +651,21 @@ class CalculatePriority:
         """ Adjust selection labels and layer for asset type """
         dlg = self.dlg_priority
         is_node = self.asset_type == "NODE"
-        self.layer_to_work = "v_asset_node_input" if is_node else "v_asset_arc_input"
-        tools_qt.set_widget_text(
-            dlg, dlg.lbl_dnom, tools_qt.tr("Node category:") if is_node else tools_qt.tr("Diameter:")
-        )
-        tools_qt.set_widget_text(
-            dlg, dlg.lbl_material, tools_qt.tr("Node type:") if is_node else tools_qt.tr("Material:")
-        )
+        is_link = self.asset_type == "LINK"
+        self.layer_to_work = {
+            "ARC": "v_asset_arc_input",
+            "NODE": "v_asset_node_input",
+            "LINK": "v_asset_link_input",
+        }.get(self.asset_type, "v_asset_arc_input")
+        if is_node:
+            tools_qt.set_widget_text(dlg, dlg.lbl_dnom, tools_qt.tr("Node category:"))
+            tools_qt.set_widget_text(dlg, dlg.lbl_material, tools_qt.tr("Node type:"))
+        elif is_link:
+            tools_qt.set_widget_text(dlg, dlg.lbl_dnom, tools_qt.tr("Link catalog:"))
+            tools_qt.set_widget_text(dlg, dlg.lbl_material, tools_qt.tr("Material:"))
+        else:
+            tools_qt.set_widget_text(dlg, dlg.lbl_dnom, tools_qt.tr("Diameter:"))
+            tools_qt.set_widget_text(dlg, dlg.lbl_material, tools_qt.tr("Material:"))
         # Features tab (node types) only for NODE; hide single node_type combo in Selection
         self._set_config_tab_visible("tab_features", is_node)
         self._set_arc_result_combo_visible()
@@ -616,13 +681,33 @@ class CalculatePriority:
             self._clear_node_type_widgets()
             dlg.lbl_material.setVisible(True)
             dlg.cmb_material.setVisible(True)
-            tools_qt.set_widget_text(dlg, dlg.lbl_material, tools_qt.tr("Material:"))
-            if hasattr(dlg, "cmb_arc_result"):
+            if not is_link:
+                tools_qt.set_widget_text(dlg, dlg.lbl_material, tools_qt.tr("Material:"))
+            if hasattr(dlg, "cmb_arc_result") and not is_link:
                 blocked = dlg.cmb_arc_result.blockSignals(True)
                 dlg.cmb_arc_result.setCurrentIndex(0)
                 dlg.cmb_arc_result.blockSignals(blocked)
                 dlg.txt_year.setEnabled(True)
 
+    def _selected_asset_ids(self):
+        """Map selection as business IDs (link_id / arc_id / node_id), not Qgs fids."""
+        id_field = {"ARC": "arc_id", "NODE": "node_id", "LINK": "link_id"}.get(
+            self.asset_type, "arc_id"
+        )
+        layer = tools_qgis.get_layer_by_tablename(self.layer_to_work, schema_name="am")
+        if layer is not None and layer.selectedFeatureCount() > 0:
+            ids = []
+            for feat in layer.selectedFeatures():
+                val = feat[id_field]
+                if val is not None:
+                    ids.append(str(val))
+            if ids:
+                return ids
+        feat_type = {"ARC": "arc", "NODE": "node", "LINK": "link"}.get(self.asset_type)
+        stored = (self.list_ids or {}).get(feat_type) or (getattr(self, "rel_list_ids", {}) or {}).get(feat_type)
+        if stored:
+            return [str(x) for x in stored]
+        return None
 
     def _catalog_config(self):
         """Return (sql, key, save_table) for the current asset_type / dialog mode."""
@@ -643,6 +728,22 @@ class CalculatePriority:
                     f"where d.result_id = {self.result['id']}"
                 )
             return sql, "nodecat_id", "config_nodecatalog"
+
+        if self.asset_type == "LINK":
+            if self.mode == "new":
+                sql = (
+                    "select d.*, cat_link.matcat_id "
+                    "from am.config_linkcatalog_def d "
+                    f"JOIN {parent}.cat_link ON d.linkcat_id = cat_link.id"
+                )
+            else:
+                sql = (
+                    "select d.*, cat_link.matcat_id "
+                    "from am.config_linkcatalog d "
+                    f"JOIN {parent}.cat_link ON d.linkcat_id = cat_link.id "
+                    f"where d.result_id = {self.result['id']}"
+                )
+            return sql, "linkcat_id", "config_linkcatalog"
 
         if self.mode == "new":
             sql = (
@@ -673,7 +774,7 @@ class CalculatePriority:
         self.qtbl_catalog.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch
         )
-        if self.config.method == "WM":
+        if self.config.method == "WM" and self.asset_type != "LINK":
             self.qtbl_catalog.hideColumn(1)
             self.qtbl_catalog.hideColumn(3)
         else:
@@ -689,10 +790,16 @@ class CalculatePriority:
         asset_type = self.asset_type or "ARC"
         unknown = (self.config.unknown_material or "").replace("'", "''")
         parent = lib_vars.schema_name
-        feature_filter = (
-            f"(m.feature_type IS NOT NULL AND '{asset_type}' = ANY(m.feature_type))"
-            f" OR d.material = '{unknown}'"
-        )
+        if asset_type == "LINK":
+            feature_filter = (
+                f"('ARC' = ANY(m.feature_type) OR 'LINK' = ANY(m.feature_type) "
+                f"OR m.feature_type IS NULL) OR d.material = '{unknown}'"
+            )
+        else:
+            feature_filter = (
+                f"(m.feature_type IS NOT NULL AND '{asset_type}' = ANY(m.feature_type))"
+                f" OR d.material = '{unknown}'"
+            )
         if self.mode == "new":
             return f"""
                 select d.*
@@ -1034,17 +1141,23 @@ class CalculatePriority:
         return [tools_qt.get_widget(self.dlg_priority, x["widgetname"]) for x in fields]
 
     def _sync_affected_arcs_widget(self):
-        """Lock Affected Arcs weights to 0 when NODE has no linked ARC result."""
+        """Lock Affected Arcs / Parent arc selected weights to 0 when no linked ARC result."""
         dlg = self.dlg_priority
+        if self.asset_type == "NODE":
+            names = ("affected_arcs_1", "affected_arcs_2")
+        elif self.asset_type == "LINK":
+            names = ("parent_arc_selected_1", "parent_arc_selected_2")
+        else:
+            return
         widgets = [
             tools_qt.get_widget(dlg, name)
-            for name in ("affected_arcs_1", "affected_arcs_2")
+            for name in names
         ]
         widgets = [w for w in widgets if w is not None]
         if not widgets:
             return
-        linked = self._get_linked_arc_result_id() if self.asset_type == "NODE" else None
-        if self.asset_type != "NODE" or not linked:
+        linked = self._get_linked_arc_result_id()
+        if not linked:
             for widget in widgets:
                 tools_qt.set_widget_text(dlg, widget, "0")
                 widget.setEnabled(False)
@@ -1115,12 +1228,12 @@ class CalculatePriority:
         self._set_arc_result_combo_visible()
 
     def _set_arc_result_combo_visible(self):
-        """ Show ARC-result combo only for NODE calculations (with budget row visible). """
+        """ Show ARC-result combo for NODE and LINK (parent arc plan). """
         dlg = self.dlg_priority
         if not hasattr(dlg, "cmb_arc_result"):
             return
         show = (
-            self.asset_type == "NODE"
+            self.asset_type in ("NODE", "LINK")
             and (self.config.show_budget is True or bool(self.result.get("budget")))
             and getattr(dlg, "grb_global", None) is not None
             and dlg.grb_global.isVisible()
@@ -1133,8 +1246,8 @@ class CalculatePriority:
         dlg = self.dlg_priority
         tools_qt.set_widget_text(dlg, 'tab_log_txt_infolog', '')
 
-        if self.config.method == "SH" and self.asset_type == "NODE":
-            msg = "The Shamir-Howard method is not available for NODE assets."
+        if self.config.method == "SH" and self.asset_type in ("NODE", "LINK"):
+            msg = "The Shamir-Howard method is not available for NODE or LINK assets."
             info = "Please select ARC asset type, or ask an administrator to configure the Weighted Method engine."
             tools_qt.show_info_box(msg, inf_text=info)
             return
@@ -1171,6 +1284,23 @@ class CalculatePriority:
             self._run_node_calculation(
                 result_name, result_description, status, features, exploitation,
                 presszone, node_type, nodecat, budget, target_year,
+                config_catalog, config_material, config_engine,
+                linked_arc_result_id=linked_arc_result_id,
+            )
+            return
+
+        if self.asset_type == "LINK":
+            linked_arc_result_id = self._get_linked_arc_result_id()
+            if not linked_arc_result_id:
+                tools_qt.show_info_box(
+                    tools_qt.tr("No parent arc result selected."),
+                    inf_text=tools_qt.tr(
+                        "Parent arc selected criterion will contain no value."
+                    ),
+                )
+            self._run_link_calculation(
+                result_name, result_description, status, features, exploitation,
+                presszone, material, nodecat, budget, target_year,
                 config_catalog, config_material, config_engine,
                 linked_arc_result_id=linked_arc_result_id,
             )
@@ -1467,6 +1597,35 @@ class CalculatePriority:
         )
         self._start_thread()
 
+    def _run_link_calculation(
+        self, result_name, result_description, status, features, exploitation,
+        presszone, material, linkcat, budget, target_year,
+        config_catalog, config_material, config_engine,
+        linked_arc_result_id=None,
+    ):
+        """LINK WM: catalog costs + optional parent ARC result."""
+        self.thread = GwCalculatePriority(
+            tools_qt.tr("Calculate Priority"),
+            self.type,
+            result_name,
+            result_description,
+            status,
+            features,
+            exploitation,
+            presszone,
+            None,
+            material,
+            budget,
+            target_year,
+            config_catalog,
+            config_material,
+            config_engine,
+            asset_type=self.asset_type,
+            nodecat=linkcat,
+            linked_arc_result_id=linked_arc_result_id,
+        )
+        self._start_thread()
+
     def _start_thread(self):
         """ Wire priority task signals and add QgsApplication task """
         dlg = self.dlg_priority
@@ -1495,32 +1654,43 @@ class CalculatePriority:
 
     def _snap_clicked(self):
         """Set canvas map tool to an instance of class 'GwSelectManager'"""
-        self.rel_feature_type = "arc" if self.asset_type == "ARC" else "node"
-        id_field = "arc_id" if self.asset_type == "ARC" else "node_id"
-        layer = tools_qgis.get_layer_by_tablename(self.layer_to_work)
-        self.rel_layers[self.rel_feature_type].append(layer)
+        self.rel_feature_type = {"ARC": "arc", "NODE": "node", "LINK": "link"}.get(
+            self.asset_type, "arc"
+        )
+        id_field = {"ARC": "arc_id", "NODE": "node_id", "LINK": "link_id"}.get(
+            self.asset_type, "arc_id"
+        )
+        layer = tools_qgis.get_layer_by_tablename(self.layer_to_work, schema_name="am")
+        if layer is None:
+            tools_qgis.show_warning(
+                f"For select on canvas is mandatory to load {self.layer_to_work} layer",
+                dialog=self.dlg_priority,
+            )
+            return
+
+        layers = self.rel_layers.setdefault(self.rel_feature_type, [])
+        if layer not in layers:
+            layers.append(layer)
 
         # Remove all previous selections
         self.rel_layers = tools_gw.remove_selection(True, layers=self.rel_layers)
 
-        if layer is None:
-            # show warning
-            tools_qgis.show_warning(
-                f"For select on canvas is mandatory to load {self.layer_to_work} layer", dialog=self.dlg_priority
-            )
-            return
-
         # In case of "duplicate" or "edit", load result selection
         if self.result["features"]:
+            saved = {str(x) for x in self.result["features"]}
             select_fid = []
             self.list_ids[self.rel_feature_type] = []
             for feature in layer.getFeatures():
-                if feature[id_field] in self.result["features"]:
+                feat_id = feature[id_field]
+                if feat_id is not None and str(feat_id) in saved:
                     select_fid.append(feature.id())
-                    self.list_ids[self.rel_feature_type].append(feature[id_field])
+                    self.list_ids[self.rel_feature_type].append(str(feat_id))
             layer.select(select_fid)
 
         tools_gw.selection_init(self, self.dlg_priority, self.layer_to_work)
+        self.rel_feature_type = {"ARC": "arc", "NODE": "node", "LINK": "link"}.get(
+            self.asset_type, "arc"
+        )
 
     def old_manage_btn_snapping(self):
         """Fill btn_snapping QMenu"""
@@ -1568,7 +1738,7 @@ class CalculatePriority:
         """ Trigger QGIS canvas selection tool by mode index """
 
         # Set active layer
-        layer = tools_qgis.get_layer_by_tablename(self.layer_to_work)
+        layer = tools_qgis.get_layer_by_tablename(self.layer_to_work, schema_name="am")
         self.iface.setActiveLayer(layer)
 
         if num == 0:
@@ -1720,10 +1890,7 @@ class CalculatePriority:
 
         features = None
         try:
-            layer = tools_qgis.get_layer_by_tablename(self.layer_to_work)
-            if layer is not None and layer.selectedFeatureCount() > 0:
-                features = layer.selectedFeatures()
-                features = [str(feature.id()) for feature in features]
+            features = self._selected_asset_ids()
         except Exception:
             pass
 
@@ -1735,6 +1902,11 @@ class CalculatePriority:
             material = tools_qt.get_combo_value(dlg, "cmb_material") or None
             node_type = None
             nodecat = None
+        elif self.asset_type == "LINK":
+            diameter = None
+            material = tools_qt.get_combo_value(dlg, "cmb_material") or None
+            node_type = None
+            nodecat = tools_qt.get_combo_value(dlg, "cmb_dnom") or None
         else:
             diameter = None
             material = None
@@ -1773,6 +1945,10 @@ class CalculatePriority:
             if self.asset_type == "NODE":
                 config_catalog = configcatalog_from_tablewidget(
                     self.qtbl_catalog, "nodecat_id", save_table="config_nodecatalog"
+                )
+            elif self.asset_type == "LINK":
+                config_catalog = configcatalog_from_tablewidget(
+                    self.qtbl_catalog, "linkcat_id", save_table="config_linkcatalog"
                 )
             else:
                 config_catalog = configcatalog_from_tablewidget(
@@ -1891,6 +2067,27 @@ class CalculatePriority:
                 self._load_material()
             self._schedule_load_node_types()
 
+        if self.asset_type == "LINK" and self.result.get("presszone_id") not in (None, ""):
+            cmb_pz = dlg.cmb_presszone
+            blocked = cmb_pz.blockSignals(True)
+            tools_qt.set_combo_value(
+                cmb_pz, self.result["presszone_id"], 0, add_new=False
+            )
+            cmb_pz.blockSignals(blocked)
+            self._load_diameter()
+            if self.result.get("nodecat_id") not in (None, ""):
+                cmb_dnom = dlg.cmb_dnom
+                blocked = cmb_dnom.blockSignals(True)
+                tools_qt.set_combo_value(
+                    cmb_dnom, self.result["nodecat_id"], 0, add_new=False
+                )
+                cmb_dnom.blockSignals(blocked)
+                self._load_material()
+            if self.result.get("material_id") not in (None, ""):
+                tools_qt.set_combo_value(
+                    dlg.cmb_material, self.result["material_id"], 0, add_new=False
+                )
+
         # Text budget
         tools_qt.set_widget_text(dlg, dlg.txt_budget, self.result["budget"])
 
@@ -1915,10 +2112,10 @@ class CalculatePriority:
             dlg.cmb_arc_result, rows or None, 1, combo_clear=True, add_empty=True
         )
         linked = self.result.get("linked_arc_result_id")
-        if linked and self.asset_type == "NODE":
+        if linked and self.asset_type in ("NODE", "LINK"):
             tools_qt.set_combo_value(dlg.cmb_arc_result, str(linked), 0, add_new=False)
             dlg.txt_year.setEnabled(False)
-        elif self.asset_type == "NODE":
+        elif self.asset_type in ("NODE", "LINK"):
             dlg.txt_year.setEnabled(True)
         dlg.cmb_arc_result.blockSignals(blocked)
 
@@ -2005,6 +2202,13 @@ class CalculatePriority:
                 AND expl_id = {exploitation}
                 AND dnom is not null ORDER BY id;
                 """
+        elif self.asset_type == "LINK":
+            sql = f"""
+                SELECT distinct(linkcat_id) AS id, linkcat_id as idval
+                FROM am.ext_link_asset WHERE presszone_id = '{presszone}'
+                AND expl_id = {exploitation}
+                AND linkcat_id is not null ORDER BY id;
+                """
         else:
             sql = f"""
                 SELECT distinct(nodecat_id) AS id, nodecat_id as idval
@@ -2035,6 +2239,12 @@ class CalculatePriority:
                 SELECT distinct(matcat_id) AS id, matcat_id as idval 
                 FROM am.ext_arc_asset WHERE presszone_id = '{presszone}' 
                 AND expl_id = {exploitation} AND dnom::float ={dnom} ORDER BY id;
+                """
+        elif self.asset_type == "LINK":
+            sql = f"""
+                SELECT distinct(matcat_id) AS id, matcat_id as idval
+                FROM am.ext_link_asset WHERE presszone_id = '{presszone}'
+                AND expl_id = {exploitation} AND linkcat_id = '{dnom}' ORDER BY id;
                 """
         else:
             sql = f"""

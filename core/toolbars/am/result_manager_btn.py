@@ -433,6 +433,9 @@ class GwResultManagerButton(GwAction):
         if asset_type == "NODE":
             output_table = "am.node_output"
             corporate_view = "am.v_asset_node_corporate"
+        elif asset_type == "LINK":
+            output_table = "am.link_output"
+            corporate_view = "am.v_asset_link_corporate"
         else:
             output_table = "am.arc_output"
             corporate_view = "am.v_asset_arc_corporate"

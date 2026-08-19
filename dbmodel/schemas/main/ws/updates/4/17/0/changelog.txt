@@ -1,0 +1,2 @@
+- Add edit_typevalue grades 1-5 for om_state and conserv_state (AM condition indices)
+- Wire ve_node / ve_arc / ve_connec om_state and conserv_state form fields as combos

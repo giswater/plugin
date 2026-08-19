@@ -133,6 +133,8 @@ class GwResultSelectorButton(GwAction):
             "v_asset_arc_output_compare",
             "v_asset_node_output",
             "v_asset_node_output_compare",
+            "v_asset_link_output",
+            "v_asset_link_output_compare",
         ):
             layer = tools_qgis.get_layer_by_tablename(layer_name, schema_name="am")
             if layer:

@@ -135,11 +135,11 @@ class GwCalculatePriority(GwTask):
 
         try:
             if self.method == "SH":
-                if self.asset_type == "NODE":
+                if self.asset_type in ("NODE", "LINK"):
                     self._emit_report(
                         tools_qt.tr("Task canceled:"),
                         tools_qt.tr(
-                            "The Shamir-Howard method is not available for NODE assets. "
+                            "The Shamir-Howard method is not available for NODE or LINK assets. "
                             "Please switch the calculation engine to Weighted Method."
                         ),
                     )
@@ -415,8 +415,8 @@ class GwCalculatePriority(GwTask):
             coalesce(i.mandatory, false) AS mandatory,
             i.strategic,
             i.incident_count,
-            i.structural_raw,
-            i.operational_raw,
+            coalesce(i.structural_raw, a.structural_raw_src) AS structural_raw,
+            coalesce(i.operational_raw, a.operational_raw_src) AS operational_raw,
             i.nrw_raw,
             i.affected_users_raw,
             i.compliance,
@@ -444,6 +444,59 @@ class GwCalculatePriority(GwTask):
             select {columns}
             from am.ext_node_asset a
             left join am.node_input i using (node_id)
+            {filters}
+        """
+        return tools_db.get_rows(sql, is_thread=True)
+
+    def _get_links(self):
+        """Get links (Stage 3, LINK asset_type). Overlay on link_input; inventory on ext_link_asset."""
+
+        columns = """
+            a.link_id,
+            a.connec_id,
+            a.arc_id,
+            a.linkcat_id,
+            a.matcat_id,
+            a.dnom,
+            a.builtdate,
+            a.length,
+            a.sector_id,
+            a.macrosector_id,
+            a.presszone_id,
+            a.expl_id,
+            a.dma_id,
+            a.the_geom,
+            coalesce(i.age, a.age) AS age,
+            coalesce(i.mandatory, false) AS mandatory,
+            i.strategic,
+            coalesce(i.incident_count, a.incident_count_src) AS incident_count,
+            coalesce(i.material_raw, a.material_raw_src) AS material_raw,
+            coalesce(i.affected_users_raw, a.affected_users_raw_src) AS affected_users_raw,
+            i.parent_arc_selected_raw,
+            i.compliance,
+            i.estimated_cost,
+            coalesce(i.data_quality, a.data_quality_src) AS data_quality,
+            coalesce(i.data_quality_obs, a.data_quality_obs_src) AS data_quality_obs,
+            a.connecat_id
+        """
+
+        filter_list = []
+        if self.features:
+            filter_list.append(f"""a.link_id in ('{"','".join(str(x) for x in self.features)}')""")
+        if self.exploitation:
+            filter_list.append(f"a.expl_id = {self.exploitation}")
+        if self.presszone:
+            filter_list.append(f"a.presszone_id = '{self.presszone}'")
+        if self.material:
+            filter_list.append(f"a.matcat_id = '{self.material}'")
+        if self.nodecat:
+            filter_list.append(f"a.linkcat_id = '{self.nodecat}'")
+        filters = f"where {' and '.join(filter_list)}" if filter_list else ""
+
+        sql = f"""
+            select {columns}
+            from am.ext_link_asset a
+            left join am.link_input i using (link_id)
             {filters}
         """
         return tools_db.get_rows(sql, is_thread=True)
@@ -1030,6 +1083,8 @@ class GwCalculatePriority(GwTask):
         """Dispatch the Weighted Method calculation to the ARC or NODE implementation."""
         if self.asset_type == "NODE":
             return self._run_node_wm()
+        if self.asset_type == "LINK":
+            return self._run_link_wm()
         return self._run_arc_wm()
 
     def _run_arc_wm(self):
@@ -2028,6 +2083,387 @@ class GwCalculatePriority(GwTask):
         self.setProgress(100)
         return True
 
+    def _copy_link_input_to_output(self):
+        """ Copy ext_link_asset attributes into link_output rows """
+        tools_db.execute_sql(
+            f"""
+            update am.link_output o
+            set (connec_id, arc_id, sector_id, macrosector_id, presszone_id, builtdate,
+                 linkcat_id, matcat_id, the_geom, expl_id, dma_id, length)
+                = (select connec_id, arc_id, sector_id, macrosector_id, presszone_id, builtdate,
+                          linkcat_id, matcat_id, the_geom, expl_id, dma_id, length
+                    from am.ext_link_asset a
+                    where a.link_id = o.link_id)
+            where o.result_id = {self.result_id}
+            """,
+            is_thread=True
+        )
+        tools_db.execute_sql(
+            f"""
+            UPDATE am.link_output o
+            SET length = c.default_length
+            FROM am.config_linkcatalog c
+            WHERE o.result_id = {self.result_id}
+              AND c.result_id = o.result_id
+              AND c.linkcat_id = o.linkcat_id
+              AND (o.length IS NULL OR o.length = 0)
+              AND c.default_length IS NOT NULL
+            """,
+            is_thread=True
+        )
+
+    def _compute_parent_arc_selected_raw(self, links):
+        """ODT §6.8: parent_arc_selected_raw from linked ARC result selected flag."""
+        if not links:
+            return
+        if not self.linked_arc_result_id:
+            for link in links:
+                link["parent_arc_selected_raw"] = None
+            return
+        rows = tools_db.get_rows(
+            f"""
+            SELECT arc_id
+            FROM am.arc_output
+            WHERE result_id = {int(self.linked_arc_result_id)}
+            """,
+            is_thread=True
+        ) or []
+        selected_arcs = {r["arc_id"] for r in rows}
+        for link in links:
+            arc_id = link.get("arc_id")
+            if arc_id is None or arc_id not in selected_arcs:
+                link["parent_arc_selected_raw"] = None
+            else:
+                link["parent_arc_selected_raw"] = True
+
+    def _prepare_links_for_wm(self, rows, today_year):
+        """Build LINK WM working rows. Cost = fixed + length × pipe €/m (ODT §3)."""
+        links = []
+        invalid_linkcat_id = {"qtd": 0, "set": set()}
+        for row in rows:
+            link = row.copy()
+            linkcat_id = link.get("linkcat_id")
+            length = float(link.get("length") or 0)
+            if (
+                not length
+                and self.config_catalog
+                and linkcat_id
+                and self.config_catalog.has_key(linkcat_id)
+            ):
+                length = float(self.config_catalog.get_default_length(linkcat_id) or 0)
+                link["length"] = length
+
+            if link.get("age") is None and link.get("builtdate"):
+                link["age"] = today_year - link["builtdate"].year
+
+            if self.config_catalog and linkcat_id and self.config_catalog.has_key(linkcat_id):
+                fixed = float(self.config_catalog.get_cost_constr(linkcat_id) or 0)
+                pipe_unit = float(self.config_catalog.get_cost_repmain(linkcat_id) or 0)
+                link["estimated_cost"] = max(fixed + length * pipe_unit, 0)
+            else:
+                if linkcat_id:
+                    invalid_linkcat_id["qtd"] += 1
+                    invalid_linkcat_id["set"].add(linkcat_id or "NULL")
+                overlay_cost = link.get("estimated_cost")
+                link["estimated_cost"] = max(float(overlay_cost or 0), 0)
+
+            links.append(link)
+        return links, invalid_linkcat_id
+
+    def _save_link_engine_wm(self, second_iteration):
+        """ Batch-insert LINK WM engine scores. """
+        index = 0
+        loop = 0
+        ended = False
+        while not ended:
+            save_sql = """
+                insert into am.link_engine_wm (
+                    link_id, result_id,
+                    longevity, incident_history, material_condition,
+                    affected_users, parent_arc_selected, strategic, compliance,
+                    val_first, val, orderby
+                ) values
+            """
+            for _i in range(1000):
+                try:
+                    link = second_iteration[index]
+                    save_sql += f"""
+                        ({link["link_id"]},
+                        {self.result_id},
+                        {link["val_longevity"]},
+                        {link["val_incident_history"]},
+                        {link["val_material_condition"]},
+                        {link["val_affected_users"]},
+                        {link["val_parent_arc_selected"]},
+                        {link["val_strategic"]},
+                        {link["val_compliance"]},
+                        {link["val_1"]},
+                        {link["val_2"]},
+                        {index + 1}
+                        ),
+                    """
+                    index += 1
+                except IndexError:
+                    ended = True
+                    break
+            save_sql = save_sql.strip()[:-1]
+            tools_db.execute_sql(save_sql, is_thread=True)
+            loop += 1
+            progress = (70 - 40) / len(second_iteration) * 1000 * loop + 40
+            self.setProgress(progress)
+
+    def _save_link_output_wm(self, second_iteration):
+        """ Batch-insert LINK WM output rows. """
+        index = 0
+        loop = 0
+        ended = False
+        while not ended:
+            save_sql = """
+                insert into am.link_output (
+                    link_id, result_id, connec_id, arc_id,
+                    longevity, incident_history, material_condition,
+                    affected_users, parent_arc_selected,
+                    strategic, mandatory, compliance,
+                    val_first, val, orderby,
+                    selected, expected_year, replacement_year,
+                    budget, total, estimated_cost
+                ) values
+            """
+            for _i in range(1000):
+                try:
+                    link = second_iteration[index]
+                    if link["replacement_year"] > self.target_year:
+                        ended = True
+                        break
+                    strategic_sql = (
+                        "TRUE" if link.get("strategic") else
+                        "FALSE" if link.get("strategic") is not None else "NULL"
+                    )
+                    compliance_sql = (
+                        "TRUE" if link.get("compliance") else
+                        "FALSE" if link.get("compliance") is not None else "NULL"
+                    )
+                    selected = "TRUE"
+                    save_sql += f"""
+                        ({link["link_id"]},
+                        {self.result_id},
+                        {link["connec_id"] if link.get("connec_id") is not None else "NULL"},
+                        {link["arc_id"] if link.get("arc_id") is not None else "NULL"},
+                        {link["val_longevity"]},
+                        {link["val_incident_history"]},
+                        {link["val_material_condition"]},
+                        {link["val_affected_users"]},
+                        {link["val_parent_arc_selected"]},
+                        {strategic_sql},
+                        {link["mandatory"]},
+                        {compliance_sql},
+                        {link["val_1"]},
+                        {link["val_2"]},
+                        {index + 1},
+                        {selected},
+                        {link["replacement_year"]},
+                        {link["replacement_year"]},
+                        {link["estimated_cost"]},
+                        {link["cum_cost"]},
+                        {link["estimated_cost"]}
+                        ),
+                    """
+                    index += 1
+                except IndexError:
+                    ended = True
+                    break
+            save_sql = save_sql.strip()[:-1]
+            if save_sql.endswith("value"):
+                break
+            tools_db.execute_sql(save_sql, is_thread=True)
+            loop += 1
+            progress = (90 - 70) / len(second_iteration) * 1000 * loop + 70
+            self.setProgress(progress)
+
+    def _run_link_wm(self):
+        """ Run Weighted Method two-iteration calculation for LINK assets (ODT Stage 3). """
+        pd = tools_os.get_dep("pandas")
+
+        self._emit_report(tools_qt.tr("Getting auxiliary data from DB") + " (1/4)...")
+        self.setProgress(10)
+
+        if self.isCanceled():
+            self._emit_report(self.msg_task_canceled)
+            return False
+
+        self._emit_report(tools_qt.tr("Getting link data from DB") + " (2/4)...")
+        self.setProgress(20)
+
+        rows = self._get_links()
+        if not rows:
+            self._emit_report(
+                tools_qt.tr("Task canceled:"),
+                tools_qt.tr("No links found matching your selected filters."),
+            )
+            return False
+
+        if self.isCanceled():
+            self._emit_report(self.msg_task_canceled)
+            return False
+
+        self._emit_report(tools_qt.tr("Calculating values") + " (3/4)...")
+        self.setProgress(30)
+
+        today_year = date.today().year
+        links, invalid_linkcat_id = self._prepare_links_for_wm(rows, today_year)
+        self._compute_parent_arc_selected_raw(links)
+
+        if not links:
+            self._emit_report(
+                tools_qt.tr("Task canceled:"),
+                tools_qt.tr("No links found matching your selected filters."),
+            )
+            return False
+
+        min_max_fields = {
+            "age": "longevity",
+            "incident_count": "incident_history",
+            "material_raw": "material_condition",
+            "affected_users_raw": "affected_users",
+        }
+        bounds = {}
+        for field in min_max_fields:
+            values = [lk[field] for lk in links if lk.get(field) is not None]
+            bounds[field] = (min(values), max(values)) if values else (None, None)
+
+        score_names = (
+            "longevity", "incident_history", "material_condition",
+            "affected_users", "parent_arc_selected", "strategic", "compliance",
+        )
+
+        for link in links:
+            for field, score_name in min_max_fields.items():
+                lo, hi = bounds[field]
+                link[f"val_{score_name}"] = self._scale_or_zero(
+                    self._normalize_min_max(link.get(field), lo, hi)
+                )
+            link["val_parent_arc_selected"] = self._scale_or_zero(
+                self._normalize_binary(link.get("parent_arc_selected_raw"))
+            )
+            link["val_strategic"] = self._scale_or_zero(
+                self._normalize_binary(link.get("strategic"))
+            )
+            link["val_compliance"] = self._scale_or_zero(
+                self._normalize_binary(link.get("compliance"))
+            )
+
+            for suffix in ("1", "2"):
+                for score_name in score_names:
+                    key = f"{score_name}_{suffix}"
+                    link[f"w{suffix}_{score_name}"] = float(self.config_engine.get(key, 0) or 0)
+                link[f"val_{suffix}"] = sum(
+                    link[f"val_{score_name}"] * link[f"w{suffix}_{score_name}"]
+                    for score_name in score_names
+                )
+
+        links.sort(key=lambda x: x["val_1"], reverse=True)
+        links.sort(key=lambda x: x["mandatory"], reverse=True)
+        cum_cost = 0
+        second_iteration = []
+        for link in links:
+            second_iteration.append(link)
+            cum_cost += link["estimated_cost"]
+            if cum_cost > self.result_budget * (self.target_year - today_year):
+                break
+
+        if not len(second_iteration):
+            self._emit_report(
+                tools_qt.tr("Task canceled:"),
+                tools_qt.tr("No links found matching your budget. (Hint: increase the yearly budget or/and the horizon year)"),
+            )
+            return False
+
+        second_iteration.sort(key=lambda x: x["val_2"], reverse=True)
+        second_iteration.sort(key=lambda x: x["mandatory"], reverse=True)
+        replacement_year = today_year + 1
+        cum_cost = 0
+        for link in second_iteration:
+            cum_cost += link["estimated_cost"]
+            link["replacement_year"] = replacement_year
+            link["cum_cost"] = cum_cost
+            if cum_cost > self.result_budget:
+                replacement_year += 1
+                cum_cost = 0
+
+        for link in links:
+            matching = next(
+                (l2 for l2 in second_iteration if l2["link_id"] == link["link_id"]), None
+            )
+            if matching:
+                link.update(matching)
+
+        self.df = pd.DataFrame(links).reset_index(drop=True)
+
+        if self.isCanceled():
+            self._emit_report(self.msg_task_canceled)
+            return False
+        self._emit_report(tools_qt.tr("Updating tables") + " (4/4)...")
+        self.setProgress(40)
+
+        selected = [lk for lk in links if lk.get("replacement_year")]
+        total_cost = sum(lk["estimated_cost"] for lk in selected)
+        replacement_cost = sum(lk["estimated_cost"] for lk in links)
+        replacement_rate = (
+            self.result_budget / replacement_cost * 100 if replacement_cost > 0 else 0
+        )
+        report_rows = [
+            (tools_qt.tr("Investment (€/year):"), f"{self.result_budget:.2f}"),
+            (tools_qt.tr("Year:"), f"{self.target_year}"),
+            (tools_qt.tr("Links evaluated:"), f"{len(links)}"),
+            (tools_qt.tr("Links selected for replacement:"), f"{len(selected)}"),
+            (tools_qt.tr("Total renewal cost (€):"), f"{replacement_cost:.2f}"),
+            (tools_qt.tr("Selected renewal cost (€):"), f"{total_cost:.2f}"),
+            (tools_qt.tr("Replacement rate (%/year):"), f"{replacement_rate:.2f}"),
+        ]
+        if self.linked_arc_result_id:
+            report_rows.append(
+                (tools_qt.tr("Linked ARC result_id:"), f"{self.linked_arc_result_id}")
+            )
+        else:
+            report_rows.append(
+                (
+                    tools_qt.tr("No parent arc result selected."),
+                    tools_qt.tr("Parent arc selected criterion will contain no value."),
+                )
+            )
+        self.statistics_report = self._format_report(tools_qt.tr("SUMMARY"), report_rows)
+        if invalid_linkcat_id["qtd"]:
+            self.statistics_report += "\n\n" + tools_qt.tr(
+                "Links with unknown linkcat_id (cost 0): {qtd}. {list}."
+            ).format(qtd=invalid_linkcat_id["qtd"], list=", ".join(invalid_linkcat_id["set"]))
+
+        self.result_id = self._save_result_info()
+        if not self.result_id:
+            return False
+
+        if self.config_catalog is not None:
+            self.config_catalog.save(self.result_id)
+        if self.config_material is not None:
+            self.config_material.save(self.result_id)
+        self._save_config_engine()
+
+        tools_db.execute_sql(
+            f"""
+            delete from am.link_engine_wm where result_id = {self.result_id};
+            delete from am.link_output where result_id = {self.result_id};
+            """,
+            is_thread=True
+        )
+
+        self._save_link_engine_wm(second_iteration)
+        self._save_link_output_wm(second_iteration)
+        self._copy_link_input_to_output()
+
+        self._emit_report(self.statistics_report)
+        self._emit_report(tools_qt.tr("Task finished!"))
+        self.setProgress(100)
+        return True
+
     def _save_config_engine(self):
         """ Persist engine parameter values for the result """
         save_config_engine_sql = f"""
@@ -2058,7 +2494,7 @@ class GwCalculatePriority(GwTask):
             str_node_type = "NULL"
         linked_arc = (
             int(self.linked_arc_result_id)
-            if self.linked_arc_result_id and self.asset_type == "NODE"
+            if self.linked_arc_result_id and self.asset_type in ("NODE", "LINK")
             else None
         )
         str_linked_arc = str(linked_arc) if linked_arc else "NULL"
