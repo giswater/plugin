@@ -181,6 +181,16 @@ BEGIN
                AND ml.lang = %s',
             v_context, v_pt_expr, v_lang_expr
         );
+    ELSIF p_table = 'config_csv' THEN
+        v_context := 'config_csv';
+        v_join := format(
+            'LEFT JOIN multilang.config_csv ml
+                ON ml.source = t.fid::text
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
     ELSE
         RAISE EXCEPTION 'Unsupported multilang view table: %', p_table;
     END IF;
@@ -223,7 +233,7 @@ BEGIN
                     AND p_table IN ('config_param_system', 'sys_param_user')
                     THEN 'COALESCE(ml.tt, t.descript)'
                 WHEN a.attname = 'descript'
-                    AND p_table IN ('sys_function', 'sys_table')
+                    AND p_table IN ('sys_function', 'sys_table', 'config_csv')
                     THEN 'COALESCE(ml.ds, t.descript)'
                 WHEN a.attname = 'error_message' AND p_table = 'sys_message'
                     THEN 'COALESCE(ml.ms, t.error_message)'
@@ -235,7 +245,8 @@ BEGIN
                     THEN 'COALESCE(ml.ex, t.except_msg)'
                 WHEN a.attname = 'info_msg' AND p_table = 'sys_fprocess'
                     THEN 'COALESCE(ml."in", t.info_msg)'
-                WHEN a.attname = 'alias' AND p_table = 'sys_table'
+                WHEN a.attname = 'alias'
+                    AND p_table IN ('sys_table', 'config_csv')
                     THEN 'COALESCE(ml.al, t.alias)'
                 WHEN a.attname = 'idval' AND p_table = 'sys_label'
                     THEN 'COALESCE(ml.vl, t.idval)'

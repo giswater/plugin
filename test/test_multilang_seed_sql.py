@@ -35,7 +35,7 @@ def _sql_root() -> str:
 class TestMultilangSeedSql(unittest.TestCase):
 
     def test_target_table_mapping(self):
-        self.assertEqual(len(MULTILANG_UI_TABLES), 10)
+        self.assertEqual(len(MULTILANG_UI_TABLES), 11)
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbparam_user"],
             "sys_param_user",
@@ -52,6 +52,7 @@ class TestMultilangSeedSql(unittest.TestCase):
             BASELINE_TO_MULTILANG_TABLE["dbfprocess"],
             "sys_fprocess",
         )
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_csv"], "config_csv")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dblabel"], "sys_label")
 
     def test_parse_sql_value_tuple_basic(self):
@@ -149,6 +150,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertGreater(len(statements), 0)
         joined = "\n".join(statements)
         self.assertIn("INSERT INTO multilang.config_form_fields", joined)
+        self.assertIn("INSERT INTO multilang.config_csv", joined)
         self.assertIn("INSERT INTO multilang.sys_label", joined)
         self.assertNotIn("INSERT INTO multilang.dbparam_user", joined)
         self.assertNotIn("INSERT INTO multilang.dbjson", joined)
@@ -357,6 +359,32 @@ class TestMultilangSeedSql(unittest.TestCase):
         rows = rows_for_project_type(template, "ws")
         tables = {row.table for row in rows}
         self.assertIn("sys_label", tables)
+        self.assertIn("config_csv", tables)
+
+
+    def test_parse_dbconfig_csv_maps_alias_and_descript(self):
+        sql = """
+        UPDATE config_csv AS t SET alias = v.alias, descript = v.descript FROM (
+            VALUES
+            (385, 'Import inp timeseries', 'Function to assist')
+        ) AS v(fid, alias, descript)
+        WHERE t.fid = v.fid;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows(
+            "dbconfig_csv",
+            blocks,
+            project_type="ud",
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "config_csv")
+        self.assertEqual(rows[0].values["source"], "385")
+        self.assertEqual(rows[0].values["al"], "Import inp timeseries")
+        self.assertEqual(rows[0].values["ds"], "Function to assist")
+
+        inserts = build_insert_sql("config_csv", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_csv", inserts[0])
 
 
     def test_baseline_fingerprint_stable(self):

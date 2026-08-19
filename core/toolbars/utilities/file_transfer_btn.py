@@ -269,8 +269,11 @@ class GwFileTransferButton(GwAction):
 
         temp_tablename = 'temp_csv'
         tools_qt.fill_combo_unicodes(self.dlg_csv.cmb_unicode_list)
+        csv_table = "v_config_csv"
+        if not tools_gw._relation_exists(lib_vars.schema_name, csv_table):
+            csv_table = "config_csv"
         self._populate_combos(self.dlg_csv.cmb_import_type, 'fid',
-                             'alias, config_csv.descript, functionname, orderby', 'config_csv')
+                             f'alias, {csv_table}.descript, functionname, orderby', csv_table)
 
         self.dlg_csv.lbl_info.setWordWrap(True)
         tools_qt.set_widget_text(self.dlg_csv, self.dlg_csv.cmb_unicode_list, 'utf8')
