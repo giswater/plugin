@@ -323,8 +323,8 @@ _ORIGIN_TABLES: dict[str, tuple[str, ...]] = {
 _TYPEVALUE_ORIGIN_TABLES: dict[str, tuple[str, ...]] = {
     "am": ("sys_typevalue",),
     "cm": ("sys_typevalue",),
-    "ws": ("edit_typevalue", "plan_typevalue", "om_typevalue", "inp_typevalue"),
-    "ud": ("edit_typevalue", "plan_typevalue", "om_typevalue", "inp_typevalue"),
+    "ws": ("edit_typevalue", "plan_typevalue", "om_typevalue"),
+    "ud": ("edit_typevalue", "plan_typevalue", "om_typevalue"),
 }
 _SU_ORIGIN_TABLES: dict[str, tuple[str, ...]] = {
     "su_feature": ("cat_feature",),
