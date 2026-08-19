@@ -237,6 +237,21 @@ CREATE TABLE config_form_tableview (
     CONSTRAINT config_form_tableview_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
 );
 
+CREATE TABLE config_json (
+    id serial4 NOT NULL,
+    project_type text NOT NULL,
+    context text NOT NULL,
+    "source" text NOT NULL,
+    hint text NOT NULL,
+    lang text NOT NULL DEFAULT 'en_us',
+    "text" jsonb NULL,
+    updated_by text DEFAULT CURRENT_USER NULL,
+    updated_on timestamptz DEFAULT now() NULL,
+    CONSTRAINT config_json_id_uniq UNIQUE (id),
+    CONSTRAINT config_json_pkey PRIMARY KEY (project_type, context, "source", hint, lang),
+    CONSTRAINT config_json_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
+);
+
 CREATE INDEX idx_config_form_fields_exact ON config_form_fields
     USING btree (lang, project_type, context, formtype, tabname, source, formname)
     WHERE formname_like IS NULL;
@@ -250,6 +265,7 @@ CREATE INDEX idx_config_form_fields_json_pattern ON config_form_fields_json
     USING btree (lang, project_type, context, formtype, tabname, source, hint)
     WHERE formname_like IS NOT NULL;
 CREATE INDEX idx_config_param_system_lang ON config_param_system USING btree (lang);
+CREATE INDEX idx_config_json_lang ON config_json USING btree (lang);
 CREATE INDEX idx_config_form_tableview_lang ON config_form_tableview USING btree (lang);
 CREATE INDEX idx_config_csv_lang ON config_csv USING btree (lang);
 CREATE INDEX idx_sys_label_lang ON sys_label USING btree (lang);

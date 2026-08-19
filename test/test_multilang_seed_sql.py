@@ -35,7 +35,7 @@ def _sql_root() -> str:
 class TestMultilangSeedSql(unittest.TestCase):
 
     def test_target_table_mapping(self):
-        self.assertEqual(len(MULTILANG_UI_TABLES), 12)
+        self.assertEqual(len(MULTILANG_UI_TABLES), 13)
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbparam_user"],
             "sys_param_user",
@@ -52,6 +52,7 @@ class TestMultilangSeedSql(unittest.TestCase):
             BASELINE_TO_MULTILANG_TABLE["dbfprocess"],
             "sys_fprocess",
         )
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbjson"], "config_json")
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbconfig_form_tableview"],
             "config_form_tableview",
@@ -154,10 +155,12 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertGreater(len(statements), 0)
         joined = "\n".join(statements)
         self.assertIn("INSERT INTO multilang.config_form_fields", joined)
+        self.assertIn("INSERT INTO multilang.config_json", joined)
         self.assertIn("INSERT INTO multilang.config_form_tableview", joined)
         self.assertIn("INSERT INTO multilang.config_csv", joined)
         self.assertIn("INSERT INTO multilang.sys_label", joined)
         self.assertNotIn("INSERT INTO multilang.dbparam_user", joined)
+        self.assertNotIn("INSERT INTO multilang.dbjson", joined)
         self.assertNotIn("INSERT INTO multilang.dbjson", joined)
         for statement in statements:
             target = statement.split("INSERT INTO multilang.", 1)[1].split(" ", 1)[0]
@@ -364,6 +367,13 @@ class TestMultilangSeedSql(unittest.TestCase):
         rows = rows_for_project_type(template, "ws")
         tables = {row.table for row in rows}
         self.assertIn("sys_label", tables)
+        self.assertIn("config_json", tables)
+        json_hints = {
+            row.values.get("hint")
+            for row in rows
+            if row.table == "config_json"
+        }
+        self.assertTrue(json_hints & {"filterparam", "inputparams"})
         self.assertIn("config_form_tableview", tables)
         self.assertIn("config_csv", tables)
 
@@ -416,6 +426,30 @@ class TestMultilangSeedSql(unittest.TestCase):
         inserts = build_insert_sql("config_form_tableview", rows)
         self.assertEqual(len(inserts), 1)
         self.assertIn("INSERT INTO multilang.config_form_tableview", inserts[0])
+
+
+    def test_parse_dbjson_maps_filterparam_to_config_json(self):
+        sql = """
+        UPDATE config_report AS t SET filterparam = v.text::json FROM (
+            VALUES
+            (100, '[{"label":"Exploitation:"}]')
+        ) AS v(id, text)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbjson", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "config_json")
+        self.assertEqual(rows[0].values["source"], "100")
+        self.assertEqual(rows[0].values["hint"], "filterparam")
+        self.assertEqual(rows[0].values["context"], "config_report")
+        self.assertEqual(rows[0].values["text"], '[{"label":"Exploitation:"}]')
+
+        inserts = build_insert_sql("config_json", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_json", inserts[0])
+        self.assertIn('"text"', inserts[0])
+        self.assertIn("'[{\"label\":\"Exploitation:\"}]'::json", inserts[0])
 
 
     def test_baseline_fingerprint_stable(self):

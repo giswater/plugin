@@ -50,6 +50,7 @@ BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
     "dblabel": "sys_label",
     "dbconfig_csv": "config_csv",
     "dbconfig_form_tableview": "config_form_tableview",
+    "dbjson": "config_json",
 }
 
 MULTILANG_UI_TABLES: tuple[str, ...] = tuple(sorted(set(BASELINE_TO_MULTILANG_TABLE.values())))
@@ -132,6 +133,7 @@ _TABLE_CONFLICT_KEYS: dict[str, tuple[str, ...]] = {
     "sys_label": ("project_type", "context", "source", "lang"),
     "config_csv": ("project_type", "context", "source", "lang"),
     "config_form_tableview": ("project_type", "context", "source", "columnname", "lang"),
+    "config_json": ("project_type", "context", "source", "hint", "lang"),
 }
 
 # Multilang columns that must be double-quoted in generated SQL.
@@ -574,6 +576,12 @@ def blocks_to_multilang_rows(
                     "source": _cell(raw, block.value_aliases, "objectname"),
                     "columnname": _cell(raw, block.value_aliases, "columnname"),
                 })
+            elif table == "dbjson":
+                values.update({
+                    "source": _cell(raw, block.value_aliases, "id"),
+                    "hint": block.json_hints[0] if block.json_hints else "filterparam",
+                    "text": _cell(raw, block.value_aliases, "text"),
+                })
             elif table in ("dbparam_user", "dbmessage", "dbfprocess", "dbfunction", "dbtable"):
                 key = "fid" if table == "dbfprocess" else "id"
                 values["source"] = _cell(raw, block.value_aliases, key)
@@ -584,7 +592,7 @@ def blocks_to_multilang_rows(
                 i18n_col = _org_to_i18n(block.context, org_col)
                 if not i18n_col:
                     continue
-                if table == "dbconfig_form_fields_json" and i18n_col == "text":
+                if table in ("dbconfig_form_fields_json", "dbjson") and i18n_col == "text":
                     values["text"] = _cell(raw, block.value_aliases, v_alias)
                 else:
                     values[i18n_col] = _cell(raw, block.value_aliases, v_alias)
@@ -641,7 +649,9 @@ def build_insert_sql(
             literals = []
             for col in columns:
                 val = row.values.get(col)
-                as_json = col == "text" and table == "config_form_fields_json"
+                as_json = col == "text" and table in (
+                    "config_form_fields_json", "config_json",
+                )
                 literals.append(_sql_literal(val, as_json=as_json))
             values_sql.append(f"({', '.join(literals)})")
 
