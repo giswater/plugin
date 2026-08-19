@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- SchemaBuilder no longer `SET ROLE role_system` after `load_base`. Updates and sample run as the installer login so `selector_*` / `config_param_user` bind to the user pgTAP and QGIS use.
+
 ## [0.4.1] - 2026-08-19
 
 ### Added

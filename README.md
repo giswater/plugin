@@ -98,7 +98,7 @@ Compatible with Windows, Mac, and Linux OS.
   role_crm   (standalone)
   ```
 
-  **Installer requirements:** `gw db init` must run as a PostgreSQL superuser (extensions, roles, `GRANT CREATE ON DATABASE … TO role_system`). After that, schema create/update/drop can run as that superuser **or** as a login granted `role_system`. A `role_system` member can `CREATE SCHEMA … AUTHORIZATION role_system`, run DDL via `SET ROLE role_system`, and drop/rename schemas it owns. Restrictive object grants are applied by [`gw_fct_admin_role_permissions`](dbmodel/schemas/main/common/base/fct/gw_fct_admin_role_permissions.sql).
+  **Installer requirements:** `gw db init` must run as a PostgreSQL superuser (extensions, roles, `GRANT CREATE ON DATABASE … TO role_system`). After that, schema create/update/drop can run as that superuser **or** as a login granted `role_system`. `init.sql` creates the schema `AUTHORIZATION role_system` and `SET ROLE role_system` for base DDL; later phases (updates, sample) run as the installer login. Drop/rename still `SET ROLE role_system` because the schema is owned by that role. Restrictive object grants are applied by [`gw_fct_admin_role_permissions`](dbmodel/schemas/main/common/base/fct/gw_fct_admin_role_permissions.sql).
 
   **Manual bootstrap** (only if you must prepare roles before the first schema build, e.g. restricted DBA workflow):
 

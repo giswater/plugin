@@ -25,13 +25,12 @@ logger = logging.getLogger(__name__)
 
 ProgressCb = Callable[[int, int, str, Optional[sql_runner.FileExec]], None]
 
-# load_base / load_base_schema run as the installer: init.sql creates roles and the
-# schema (needs CREATE ON DATABASE) and ends with SET ROLE role_system.
-# Every later phase SET ROLE role_system so objects stay owned by role_system
-# (table owner can DISABLE TRIGGER USER; DROP/ALTER SCHEMA need owner identity).
-_INSTALLER_PHASES = frozenset({"load_base", "load_base_schema"})
-# init.sql ends with SET ROLE role_system; restore installer before the next phase.
-_RESET_ROLE_AFTER_PHASES = _INSTALLER_PHASES
+# load_base / load_base_schema: init.sql creates roles and the schema (needs
+# CREATE ON DATABASE) and ends with SET ROLE role_system so base DDL is owned
+# by role_system. RESET afterwards so updates/load_sample run as the installer
+# login — sample binds selector_* / config_param_user to current_user (pgTAP,
+# QGIS). Do not SET ROLE role_system on later phases.
+_RESET_ROLE_AFTER_PHASES = frozenset({"load_base", "load_base_schema"})
 
 # On a fresh database role_system does not exist yet; init.sql creates it.
 # pg_has_role(..., 'role_system', ...) errors if the role is missing — guard first.
@@ -326,19 +325,6 @@ class SchemaBuilder:
     # ------------------------------------------------------------------- phases
 
     def _run_phase(self, phase: Phase, seen: int, total: int) -> PhaseResult:
-        use_role_system = (
-            phase.id not in _INSTALLER_PHASES and self._count_files(phase) > 0
-        )
-        if use_role_system:
-            fx = sql_runner.execute_inline(
-                self.conn,
-                _ENSURE_ROLE_SYSTEM_SQL,
-                label=f"phase:{phase.id}:set_role_system",
-                commit=self.commit_each_file,
-            )
-            if not fx.ok:
-                return PhaseResult(phase_id=phase.id, files=[fx])
-
         pr: PhaseResult | None = None
         try:
             if phase.type == "sql_dir":
@@ -356,17 +342,11 @@ class SchemaBuilder:
             else:
                 raise ValueError(f"Unsupported phase type: {phase.type}")
         finally:
-            if pr is None:
-                pass
-            elif use_role_system:
-                reset_fx = sql_runner.execute_inline(
-                    self.conn,
-                    _RESET_ROLE_SQL,
-                    label=f"phase:{phase.id}:reset_role",
-                    commit=self.commit_each_file,
-                )
-                pr.files.append(reset_fx)
-            elif phase.id in _RESET_ROLE_AFTER_PHASES and pr.files:
+            if (
+                pr is not None
+                and phase.id in _RESET_ROLE_AFTER_PHASES
+                and pr.files
+            ):
                 reset_fx = sql_runner.execute_inline(
                     self.conn,
                     _RESET_ROLE_SQL,

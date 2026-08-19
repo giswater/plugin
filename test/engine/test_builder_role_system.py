@@ -88,11 +88,11 @@ def test_load_base_runs_as_installer_init_sql_sets_role(tmp_path: Path):
     init_pos = joined.index("-- init")
     reload_pos = joined.index("-- reload fn")
     update_pos = joined.index("-- update patch")
-    # init.sql SET ROLE once; builder SET ROLE for each post-init phase.
-    assert joined.count("SET ROLE role_system") >= 2
+    sample_pos = joined.index("-- sample")
+    # init.sql SET ROLE; builder RESET after load_base; later phases stay installer.
+    assert joined.count("SET ROLE role_system") == 1
     assert init_pos < joined.index("SET ROLE role_system") < reload_pos
-    # updates run as role_system (SET ROLE after the post-load_base RESET)
     reset_after_base = joined.index("RESET ROLE", joined.index("SET ROLE role_system"))
     assert reset_after_base < update_pos
-    assert "SET ROLE role_system" in joined[reset_after_base:update_pos]
+    assert "SET ROLE role_system" not in joined[reset_after_base:sample_pos]
     assert joined.rstrip().endswith("RESET ROLE;")

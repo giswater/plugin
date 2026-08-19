@@ -86,9 +86,8 @@ def test_runs_all_phases_successfully(tmp_path: Path):
     result = SchemaBuilder(conn, _manifest(), params).run()
     assert result.ok
     assert [pr.phase_id for pr in result.phases] == ["load_base", "updates", "final_pass"]
-    # load_base: init + 2 fct + RESET; updates: SET + patch + RESET;
-    # final_pass: SET + i18n + RESET; run(): RESET
-    assert len(conn.executed) == 11
+    # load_base: init + 2 fct + RESET; updates: patch; final_pass: i18n; run(): RESET
+    assert len(conn.executed) == 7
 
 
 def test_locale_fallback_used_when_locale_folder_missing(tmp_path: Path):
