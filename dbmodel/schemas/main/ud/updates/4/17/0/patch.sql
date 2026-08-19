@@ -319,7 +319,7 @@ AS SELECT cat_feature.id,
     cat_feature.link_path,
     cat_feature.descript,
     cat_feature.active,
-    cat_feature.abrevation,
+    cat_feature.abbreviation,
     cat_feature.custom_code_autofill
    FROM cat_feature
      JOIN cat_feature_arc USING (id);
@@ -333,7 +333,7 @@ AS SELECT cat_feature.id,
     cat_feature.link_path,
     cat_feature.descript,
     cat_feature.active,
-    cat_feature.abrevation,
+    cat_feature.abbreviation,
     cat_feature.custom_code_autofill
    FROM cat_feature
      JOIN cat_feature_connec USING (id);
@@ -347,7 +347,7 @@ AS SELECT cat_feature.id,
     cat_feature.link_path,
     cat_feature.descript,
     cat_feature.active,
-    cat_feature.abrevation,
+    cat_feature.abbreviation,
     cat_feature.custom_code_autofill
    FROM cat_feature
      JOIN cat_feature_element USING (id);
@@ -362,7 +362,7 @@ AS SELECT cat_feature.id,
     cat_feature.link_path,
     cat_feature.descript,
     cat_feature.active,
-    cat_feature.abrevation,
+    cat_feature.abbreviation,
     cat_feature.custom_code_autofill
    FROM cat_feature
      JOIN cat_feature_gully USING (id);
@@ -375,7 +375,7 @@ AS SELECT cat_feature.id,
     cat_feature.link_path,
     cat_feature.descript,
     cat_feature.active,
-    cat_feature.abrevation,
+    cat_feature.abbreviation,
     cat_feature.custom_code_autofill
    FROM cat_feature
      JOIN cat_feature_link USING (id);
@@ -395,7 +395,7 @@ AS SELECT cat_feature.id,
     cat_feature.link_path,
     cat_feature.descript,
     cat_feature.active,
-    cat_feature.abrevation,
+    cat_feature.abbreviation,
     cat_feature.custom_code_autofill
    FROM cat_feature
      JOIN cat_feature_node USING (id);

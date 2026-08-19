@@ -166,6 +166,54 @@ ON CONFLICT (id) DO NOTHING;
 ALTER TABLE cat_feature ADD custom_code_autofill bool DEFAULT false NULL;
 ALTER TABLE config_mapzones ADD custom_code_autofill bool DEFAULT false NULL;
 
+DO $$
+DECLARE
+	v_rel text;
+BEGIN
+	IF EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = current_schema()
+		  AND table_name = 'cat_feature'
+		  AND column_name = 'abrevation'
+	) THEN
+		ALTER TABLE cat_feature RENAME COLUMN abrevation TO abbreviation;
+	END IF;
+
+	IF EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = current_schema()
+		  AND table_name = 'config_mapzones'
+		  AND column_name = 'abrevation'
+	) THEN
+		ALTER TABLE config_mapzones RENAME COLUMN abrevation TO abbreviation;
+	END IF;
+
+	FOREACH v_rel IN ARRAY ARRAY[
+		've_cat_feature_arc',
+		've_cat_feature_connec',
+		've_cat_feature_element',
+		've_cat_feature_link',
+		've_cat_feature_node',
+		've_cat_feature_gully'
+	]
+	LOOP
+		IF EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = current_schema()
+			  AND table_name = v_rel
+			  AND column_name = 'abrevation'
+		) THEN
+			EXECUTE format('ALTER TABLE %I RENAME COLUMN abrevation TO abbreviation', v_rel);
+		END IF;
+	END LOOP;
+END $$;
+
+UPDATE config_code_parts
+SET part = 'abbreviation',
+    source_expr = replace(source_expr, 'abrevation', 'abbreviation'),
+    descript = replace(descript, 'abrevation', 'abbreviation')
+WHERE part = 'abrevation';
+
 
 -- Graph inundation materialization (avoid large GeoJSON temporal layers in QGIS)
 CREATE TABLE IF NOT EXISTS anl_graphinundation (

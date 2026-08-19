@@ -20,3 +20,4 @@
 - Update mapzone `code` via `gw_fct_generate_code` when `gw_fct_graphanalytics_mapzones_v1` writes geometry directly to the table.
 - Feature form muni_id combo uses ValueRelation on ve_municipality instead of QGIS ValueMap.
 - Remove unused `edit_feature_auto_builtdate`; builtdate on insert uses only `edit_builtdate_vdefault`.
+- Rename `abrevation` to `abbreviation` on `cat_feature`, `config_mapzones`, `ve_cat_feature_*` views, and `config_code_parts`.
