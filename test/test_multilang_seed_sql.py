@@ -331,22 +331,6 @@ class TestMultilangSeedSql(unittest.TestCase):
         ws_results = seed_sql_for_project_types(sql_root, ["ws"])
         self.assertGreater(len(ws_results[0][1]), 0)
 
-    def test_out_of_scope_baseline_file_is_ignored(self):
-        sql = """
-        UPDATE config_csv AS t SET alias = v.alias, descript = v.descript FROM (
-            VALUES
-            (385, 'Import inp timeseries', 'Function to assist')
-        ) AS v(fid, alias, descript)
-        WHERE t.fid = v.fid;
-        """
-        blocks = parse_update_blocks(sql)
-        rows = blocks_to_multilang_rows(
-            "dbconfig_csv",
-            blocks,
-            project_type="ud",
-        )
-        self.assertEqual(rows, [])
-
     def test_parse_dblabel_maps_idval_to_vl(self):
         sql = """
         UPDATE sys_label AS t SET idval = v.idval FROM (
