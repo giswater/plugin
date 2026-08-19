@@ -58,7 +58,7 @@ BEGIN
                AND ml.formname = t.formname
                AND ml.formname_like IS NULL
             LEFT JOIN LATERAL (
-                SELECT ml0.lb, ml0.tt
+                SELECT ml0.lb, ml0.tt, ml0.pl
                 FROM multilang.config_form_fields ml0
                 WHERE ml.formname IS NULL
                   AND ml0.formtype = t.formtype
@@ -191,6 +191,8 @@ BEGIN
                     THEN 'COALESCE(ml.lb, t.label) AS label'
                 WHEN c.column_name = 'tooltip' AND p_table = 'config_form_fields'
                     THEN 'COALESCE(ml.tt, mlp.tt, t.tooltip) AS tooltip'
+                WHEN c.column_name = 'placeholder' AND p_table = 'config_form_fields'
+                    THEN 'COALESCE(ml.pl, mlp.pl, t.placeholder) AS placeholder'
                 WHEN c.column_name = 'tooltip' AND p_table = 'config_form_tabs'
                     THEN 'COALESCE(ml.tt, t.tooltip) AS tooltip'
                 WHEN c.column_name = 'descript'

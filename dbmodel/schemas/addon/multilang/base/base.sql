@@ -38,6 +38,7 @@ CREATE TABLE config_form_fields (
     lang text NOT NULL DEFAULT 'en_us',
     lb text NULL,
     tt text NULL,
+    pl text NULL,
     -- NULL = exact formname match; non-NULL = LIKE pattern (feat seeds '%_arc%' → 've_arc%').
     formname_like text GENERATED ALWAYS AS (
         CASE

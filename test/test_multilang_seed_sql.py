@@ -155,10 +155,11 @@ class TestMultilangSeedSql(unittest.TestCase):
 
     def test_parse_dbconfig_form_fields_feat_keeps_pattern_formname(self):
         sql = """
-        UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip FROM (
+        UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip,
+            placeholder = v.placeholder FROM (
             VALUES
-            ('diameter', '%_arc%', 'form_feature', 'tab_data', 'Diameter:', 'Pipe diameter')
-        ) AS v(columnname, formname, formtype, tabname, label, tooltip)
+            ('diameter', '%_arc%', 'form_feature', 'tab_data', 'Diameter:', 'Pipe diameter', 'e.g. 110')
+        ) AS v(columnname, formname, formtype, tabname, label, tooltip, placeholder)
         WHERE t.columnname = v.columnname;
         """
         blocks = parse_update_blocks(sql)
@@ -175,6 +176,41 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertEqual(rows[0].values["tabname"], "tab_data")
         self.assertEqual(rows[0].values["lb"], "Diameter:")
         self.assertEqual(rows[0].values["tt"], "Pipe diameter")
+        self.assertEqual(rows[0].values["pl"], "e.g. 110")
+
+        inserts = build_insert_sql("config_form_fields", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_form_fields", inserts[0])
+        self.assertIn(" pl ", inserts[0])
+        self.assertIn("'e.g. 110'", inserts[0])
+
+    def test_parse_dbconfig_form_fields_maps_placeholder_to_pl(self):
+        sql = """
+        UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip,
+            placeholder = v.placeholder FROM (
+            VALUES
+            ('resultId', 'generic', 'go2epa', 'tab_data', 'Result Name:', 'Name for the EPA result', 'Enter result name...')
+        ) AS v(columnname, formname, formtype, tabname, label, tooltip, placeholder)
+        WHERE t.columnname = v.columnname;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows(
+            "dbconfig_form_fields",
+            blocks,
+            project_type="ws",
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "config_form_fields")
+        self.assertEqual(rows[0].values["source"], "resultId")
+        self.assertEqual(rows[0].values["lb"], "Result Name:")
+        self.assertEqual(rows[0].values["tt"], "Name for the EPA result")
+        self.assertEqual(rows[0].values["pl"], "Enter result name...")
+
+        inserts = build_insert_sql("config_form_fields", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn(" pl ", inserts[0])
+        self.assertIn("EXCLUDED.pl", inserts[0])
+        self.assertIn("'Enter result name...'", inserts[0])
 
     def test_load_baseline_rows_includes_feat_form_field_patterns(self):
         template = load_baseline_rows_for_project_type(_sql_root(), "ws")
@@ -187,6 +223,7 @@ class TestMultilangSeedSql(unittest.TestCase):
             and row.values.get("tabname") == "tab_data"
         ]
         self.assertTrue(feat_rows)
+        self.assertTrue(any("pl" in row.values for row in feat_rows))
 
     def test_parse_dbconfig_form_fields_json_maps_to_json_table(self):
         sql = """

@@ -86,6 +86,7 @@ _ORG_TO_I18N_DEFAULT = {
     "descript": "ds",
     "label": "lb",
     "tooltip": "tt",
+    "placeholder": "pl",
     "idval": "vl",
     "error_message": "ms",
     "hint_message": "ht",
