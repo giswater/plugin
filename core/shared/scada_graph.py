@@ -11,7 +11,7 @@ from functools import partial
 
 from qgis.PyQt.QtWidgets import QLineEdit
 from qgis.PyQt.sip import isdeleted
-from qgis.core import QgsExpression
+from qgis.core import QgsExpression, QgsFeatureRequest
 from qgis.gui import QgsMapToolEmitPoint
 
 from ..ui.ui_manager import GwScadaGraphUi
@@ -38,6 +38,7 @@ class GwScadaGraph:
         self.layer_node = None
         self._pick_target = None
         self._node_widgets = {}
+        self._graph_layer = None
 
     def run(self):
         """ Open scada graph dialog """
@@ -120,6 +121,14 @@ class GwScadaGraph:
             msg = "object_1 and object_2 must be different."
             tools_qt.show_info_box(msg)
             return None, None
+        sql = (
+            "SELECT edge_id FROM om_scada_graph "
+            f"WHERE object_1 = {int(object_1)} AND object_2 = {int(object_2)} LIMIT 1"
+        )
+        if tools_db.get_row(sql, log_info=False):
+            msg = "Scada graph edge already exists."
+            tools_qt.show_info_box(msg)
+            return None, None
         return int(object_1), int(object_2)
 
     def _set_picked_node(self, target, node_id):
@@ -154,7 +163,8 @@ class GwScadaGraph:
 
         params = f'"object_1":{node1}, "object_2":{node2}'
         body = tools_gw.create_body(extras=f'"parameters":{{{params}}}')
-        json_result = tools_gw.execute_procedure('gw_fct_scada_graph_build', body)
+        json_result = tools_gw.execute_procedure(
+            'gw_fct_scada_graph_build', body, check_function=False, log_sql=False)
         if not json_result or json_result.get('status') != 'Accepted':
             return
 
@@ -166,27 +176,41 @@ class GwScadaGraph:
     def _ensure_graph_layer(self):
         """ Load om_graph layer in QGIS project """
 
+        layer = self._graph_layer
+        if layer is not None and not isdeleted(layer) and layer.isValid():
+            if not tools_qgis.is_layer_visible(layer):
+                tools_qgis.set_layer_visible(layer)
+            return layer
+
         for name in _GRAPH_LAYER_NAMES:
             candidate = tools_qgis.get_layer_by_layername(name, log_info=False)
             if candidate:
-                tools_qgis.set_layer_visible(candidate)
+                self._graph_layer = candidate
+                if not tools_qgis.is_layer_visible(candidate):
+                    tools_qgis.set_layer_visible(candidate)
                 return candidate
         for tablename in _GRAPH_TABLE_NAMES:
             layer = tools_qgis.get_layer_by_tablename(tablename, show_warning_=False)
             if layer:
-                tools_qgis.set_layer_visible(layer)
+                self._graph_layer = layer
+                if not tools_qgis.is_layer_visible(layer):
+                    tools_qgis.set_layer_visible(layer)
                 return layer
         tools_gw.add_layer_database(
             'om_scada_graph', the_geom='the_geom', field_id='edge_id',
             alias='om_graph', group='OM', sub_group='Scada')
         layer = tools_qgis.get_layer_by_layername('om_graph', log_info=False)
         if layer:
-            tools_qgis.set_layer_visible(layer)
+            self._graph_layer = layer
+            if not tools_qgis.is_layer_visible(layer):
+                tools_qgis.set_layer_visible(layer)
             return layer
-        return tools_qgis.get_layer_by_tablename('om_scada_graph', show_warning_=False)
+        layer = tools_qgis.get_layer_by_tablename('om_scada_graph', show_warning_=False)
+        self._graph_layer = layer
+        return layer
 
     def _refresh_graph_on_map(self, edge_id, dialog=None):
-        """ Reload layer, select edge and zoom """
+        """ Reload provider, select the new edge and zoom once """
 
         layer = self._ensure_graph_layer()
         if not layer:
@@ -194,12 +218,20 @@ class GwScadaGraph:
             tools_qgis.show_warning(msg, dialog=dialog)
             return
         layer.dataProvider().reloadData()
-        layer.triggerRepaint()
-        layer.removeSelection()
-        expr_obj = QgsExpression(f'"edge_id" = {edge_id}')
-        tools_qgis.select_features_by_expr(layer, expr_obj)
-        tools_gw.zoom_to_feature_by_id('om_scada_graph', 'edge_id', edge_id)
-        self.canvas.refresh()
+        layer.updateExtents()
+
+        request = QgsFeatureRequest(QgsExpression(f'"edge_id" = {int(edge_id)}'))
+        request.setLimit(1)
+        feat = next(layer.getFeatures(request), None)
+        if feat is not None and feat.hasGeometry():
+            layer.selectByIds([feat.id()])
+            bbox = feat.geometry().boundingBox()
+            tools_qgis.zoom_to_rectangle(
+                bbox.xMinimum() - 15, bbox.yMinimum() - 15,
+                bbox.xMaximum() + 15, bbox.yMaximum() + 15)
+        else:
+            layer.triggerRepaint()
+
         msg = "Scada graph edge created"
         tools_qgis.show_info(msg, parameter=str(edge_id), dialog=dialog)
 
