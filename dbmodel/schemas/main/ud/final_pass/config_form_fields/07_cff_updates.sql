@@ -483,3 +483,22 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",
 	VALUES ('cat_gully','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
   ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
+
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, ismandatory, isparent, iseditable, isautoupdate, dv_querytext, dv_orderby_id, dv_isnullvalue, widgetcontrols, hidden)
+VALUES
+	('cat_gully', 'form_feature', 'tab_none', 'id', 'lyt_data_1', 1, 'string', 'text', 'Id:', 'Id', true, false, true, false, NULL, NULL, NULL, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'gully_type', 'lyt_data_1', 2, 'string', 'combo', 'Gully type:', 'Gully type', false, false, true, false, 'SELECT id, id AS idval FROM cat_feature_gully WHERE id IS NOT NULL', NULL, NULL, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'matcat_id', 'lyt_data_1', 3, 'string', 'combo', 'Matcat id:', 'Matcat id', false, false, true, false, 'SELECT id, descript AS idval FROM cat_material WHERE ''GULLY'' = ANY(feature_type) AND id IS NOT NULL', true, false, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'length', 'lyt_data_1', 4, 'double', 'text', 'Length:', 'Length', false, false, true, false, NULL, NULL, NULL, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'width', 'lyt_data_1', 5, 'double', 'text', 'Width:', 'Width', false, false, true, false, NULL, NULL, NULL, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'ymax', 'lyt_data_1', 6, 'double', 'text', 'Ymax:', 'Ymax', false, false, true, false, NULL, NULL, NULL, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'efficiency', 'lyt_data_1', 7, 'double', 'text', 'Efficiency:', 'Efficiency', false, false, true, false, NULL, NULL, NULL, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'descript', 'lyt_data_1', 8, 'string', 'text', 'Descript:', 'Descript', false, false, true, false, NULL, NULL, NULL, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'link', 'lyt_data_1', 9, 'string', 'text', 'Link:', 'Link', false, false, true, false, NULL, NULL, NULL, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'brand_id', 'lyt_data_1', 10, 'string', 'combo', 'Brand:', 'Brand', false, false, true, false, 'SELECT DISTINCT b.id, b.id as idval FROM cat_brand b JOIN cat_link l ON (l.link_type = ANY(b.featurecat_id::text[]) OR b.featurecat_id::text[] IS NULL)', true, true, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'model_id', 'lyt_data_1', 11, 'string', 'combo', 'Model:', 'Model', false, false, true, false, 'SELECT DISTINCT b.id, b.id as idval FROM cat_brand_model b JOIN cat_link l ON (l.link_type = ANY(b.featurecat_id::text[]) OR b.featurecat_id::text[] IS NULL)', true, true, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'svg', 'lyt_data_1', 12, 'string', 'text', 'Svg:', 'Svg', false, false, true, false, NULL, NULL, NULL, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'label', 'lyt_data_1', 13, 'string', 'text', 'Label:', 'Label', false, false, true, false, NULL, NULL, NULL, '{"setMultiline":false}'::json, false),
+	('cat_gully', 'form_feature', 'tab_none', 'active', 'lyt_data_1', 14, 'boolean', 'check', 'Active:', 'Active', false, false, true, false, NULL, NULL, NULL, NULL, false),
+    ('cat_gully', 'form_feature', 'tab_none', 'code', 'lyt_data_1', 15, 'string', 'text', 'Code:', 'Code', false, false, true, false, NULL, NULL, NULL, '{"setMultiline":false}'::json, false)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
