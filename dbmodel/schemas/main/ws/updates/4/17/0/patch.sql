@@ -1687,7 +1687,7 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",
   ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
 	VALUES ('ve_cat_feature_element','form_feature','tab_none','custom_code_autofill','string','text','Custom code autofill:','Custom code autofill',false,false,true,false,false)
-  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;Ç
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
 	VALUES ('ve_cat_feature_link','form_feature','tab_none','abbreviation','string','text','Abbreviation:','Abbreviation',false,false,true,false,false)
@@ -1704,7 +1704,7 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",
   ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
-	VALUES ('ve_cat_feature_connec','form_feature','tab_none','abbreviation','string','text','Abbreviation:','Abbreviation',false,false,true,false,false,false)
+	VALUES ('ve_cat_feature_connec','form_feature','tab_none','abbreviation','string','text','Abbreviation:','Abbreviation',false,false,true,false,false)
   ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
 	VALUES ('ve_cat_feature_connec','form_feature','tab_none','custom_code_autofill','string','text','Custom code autofill:','Custom code autofill',false,false,true,false,false)
@@ -1719,21 +1719,21 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",
 
 -- code field for cat_** (element, link, node, connec, arc)
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,widgetcontrols,hidden)
-	VALUES ('cat_element','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false);
+	VALUES ('cat_element','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
   ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,widgetcontrols,hidden)
-	VALUES ('cat_link','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false);
+	VALUES ('cat_link','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
   ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,widgetcontrols,hidden)
-	VALUES ('cat_node','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false);
+	VALUES ('cat_node','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
   ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,widgetcontrols,hidden)
-	VALUES ('cat_connec','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false);
+	VALUES ('cat_connec','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
   ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,widgetcontrols,hidden)
-	VALUES ('cat_arc','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false);
+	VALUES ('cat_arc','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
   ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
