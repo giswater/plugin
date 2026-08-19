@@ -733,10 +733,6 @@
 			<translation>{0} task is already active!</translation>
 		</message>
 		<message>
-			<source>{0} to link</source>
-			<translation>{0} to link</translation>
-		</message>
-		<message>
 			<source>{0}: unsupported type {1}</source>
 			<translation>{0}: unsupported type {1}</translation>
 		</message>

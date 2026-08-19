@@ -274,7 +274,7 @@ UPDATE sys_fprocess AS t SET except_msg = v.except_msg, info_msg = v.info_msg, f
     (374, NULL, NULL, 'Check period configuration for dma'),
     (375, 'arcs with less length than minimum configured (go2epa).', 'No arcs with less length than minimum configured found', 'Nodarc length control (go2epa)'),
     (376, NULL, NULL, 'Graphanalytics LRS'),
-    (377, 'value of roughness out of range acording headloss formula used.', 'Roughness values have been checked against head-loss formula using the minimum and maximum EPANET user''s manual values. Any out-of-range values have been detected.', 'Arc with less length than minimum configured (go2epa)'),
+    (377, 'value of roughness out of range acording headloss formula used.', 'Roughness values have been checked against head-loss formula using the minimum and maximum EPANET user''s manual values. Any out-of-range values have been detected.', 'Check roughness configuration'),
     (378, NULL, NULL, 'Check hydrometer configuration'),
     (379, 'nodes with epa_type UNDEFINED acting as node_1 or node_2 of arcs. Please, check your data before continue.''.', 'No nodes with epa_type UNDEFINED acting as node_1 or node_2 of arcs found.', 'Check undefined nodes as topological nodes'),
     (380, NULL, NULL, 'Admin manage recreating views'),
