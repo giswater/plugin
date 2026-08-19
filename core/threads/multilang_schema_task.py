@@ -41,6 +41,7 @@ from ..admin.i18n.multilang_seed_sql import (
     invalidate_baseline_fingerprint_cache,
     language_baselines_exist,
     multilang_user_param_provision_sql,
+    multilang_view_functions_ddl,
     multilang_views_provision_sql,
     multilang_json_error_message,
     run_multilang_function_sql,
@@ -317,12 +318,12 @@ class GwMultilangSchemaTask(GwTask):
             return True
 
         msg = "{0} failed."
-        msg = msg.format(label)
+        msg = msg.format(tools_qt.tr(label))
         err = (
             lib_vars.session_vars.get("last_error_msg")
             or lib_vars.session_vars.get("last_error")
             or multilang_json_error_message(json_result, sql=sql)
-            or msg
+            or tools_qt.tr(msg)
         )
         self._set_task_error(err)
         if json_result:
@@ -340,6 +341,8 @@ class GwMultilangSchemaTask(GwTask):
 
     def _provision_network_views(self, *, enable: bool) -> bool:
         msg = "Multilang views provisioning"
+        if not self._execute_sql(multilang_view_functions_ddl()):
+            return False
         return self._execute_multilang_function(
             multilang_views_provision_sql(enable=enable),
             label=msg,

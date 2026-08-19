@@ -16,7 +16,7 @@ $BODY$
 /*
 Recreate UI translation views (v_*) in WS/UD/CM schemas.
 When p_enable is TRUE, views LEFT JOIN multilang.* and COALESCE translated columns.
-When FALSE, views are plain SELECT * copies of the base tables.
+When FALSE, views are dropped and recreated as plain SELECT * copies of the base tables.
 When p_schema_name is NULL, all eligible schemas are updated.
 */
 DECLARE
@@ -81,13 +81,17 @@ BEGIN
                 END IF;
 
                 BEGIN
+                    EXECUTE format(
+                        'DROP VIEW IF EXISTS %I.%I',
+                        v_schema.schema_name, v_view
+                    );
                     IF p_enable IS TRUE THEN
                         PERFORM multilang.gw_fct_admin_build_multilang_view_sql(
                             v_schema.schema_name, v_table
                         );
                     ELSE
                         EXECUTE format(
-                            'CREATE OR REPLACE VIEW %I.%I AS SELECT * FROM %I.%I',
+                            'CREATE VIEW %I.%I AS SELECT * FROM %I.%I',
                             v_schema.schema_name, v_view,
                             v_schema.schema_name, v_table
                         );

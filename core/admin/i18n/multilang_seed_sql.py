@@ -953,6 +953,33 @@ def multilang_user_param_provision_sql(
     )
 
 
+
+_MULTILANG_VIEW_FCT_FILES: tuple[str, ...] = (
+    "gw_fct_admin_build_multilang_view_sql.sql",
+    "gw_fct_admin_manage_multilang_views.sql",
+)
+
+
+def _multilang_fct_dir() -> str:
+    plugin_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir)
+    )
+    return os.path.join(
+        plugin_dir, "dbmodel", "schemas", "addon", "multilang", "base", "fct"
+    )
+
+
+def multilang_view_functions_ddl() -> str:
+    """CREATE OR REPLACE the view helper functions from plugin SQL files."""
+    fct_dir = _multilang_fct_dir()
+    chunks: list[str] = []
+    for fname in _MULTILANG_VIEW_FCT_FILES:
+        path = os.path.join(fct_dir, fname)
+        with open(path, encoding="utf-8") as handle:
+            chunks.append(handle.read().replace("SCHEMA_NAME", "multilang"))
+    return "\n".join(chunks)
+
+
 def multilang_views_provision_sql(
     *,
     enable: bool,

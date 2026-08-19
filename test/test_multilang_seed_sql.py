@@ -23,6 +23,7 @@ from core.admin.i18n.multilang_seed_sql import (
     seeded_project_types_out_of_sync,
     split_value_tuples,
     translatable_project_types_with_baseline,
+    multilang_view_functions_ddl,
 )
 
 
@@ -335,6 +336,15 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertFalse(baseline_needs_reseed(sql_root, fp1))
         self.assertTrue(baseline_needs_reseed(sql_root, None))
         self.assertTrue(baseline_needs_reseed(sql_root, "stale-fingerprint"))
+
+
+    def test_view_functions_ddl_drops_before_create(self):
+        ddl = multilang_view_functions_ddl()
+        self.assertIn("DROP VIEW IF EXISTS", ddl)
+        self.assertIn("CREATE VIEW", ddl)
+        self.assertIn("gw_fct_admin_manage_multilang_views", ddl)
+        self.assertIn("COALESCE(ml.al, t.alias)", ddl)
+        self.assertNotIn("CREATE OR REPLACE VIEW", ddl)
 
 
 if __name__ == "__main__":

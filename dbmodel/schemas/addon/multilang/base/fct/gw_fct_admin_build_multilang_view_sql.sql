@@ -13,7 +13,7 @@ CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_admin_build_multilang_view_sql(
 RETURNS text AS
 $BODY$
 /*
-Build and execute CREATE OR REPLACE VIEW for one UI table in JOIN (multilang) mode.
+Build and execute CREATE VIEW for one UI table in JOIN (multilang) mode.
 Column list is taken from the live base table so WS/UD/CM shape differences are respected.
 */
 DECLARE
@@ -179,58 +179,75 @@ BEGIN
     INTO v_cols
     FROM (
         SELECT
-            c.ordinal_position,
+            a.attnum AS ordinal_position,
             CASE
-                WHEN c.column_name = 'label' AND p_table = 'config_form_fields'
-                    THEN 'COALESCE(ml.lb, mlp.lb, t.label) AS label'
-                WHEN c.column_name = 'label'
+                WHEN x.inner_sql IS NOT NULL
+                    THEN format(
+                        '(%s)::%s AS %I',
+                        x.inner_sql,
+                        format_type(a.atttypid, a.atttypmod),
+                        a.attname
+                    )
+                ELSE format('t.%I', a.attname)
+            END AS col_expr
+        FROM pg_attribute a
+        JOIN pg_class r ON r.oid = a.attrelid
+        JOIN pg_namespace n ON n.oid = r.relnamespace
+        CROSS JOIN LATERAL (
+            SELECT CASE
+                WHEN a.attname = 'label' AND p_table = 'config_form_fields'
+                    THEN 'COALESCE(ml.lb, mlp.lb, t.label)'
+                WHEN a.attname = 'label'
                     AND p_table IN (
                         'config_form_tabs',
                         'config_param_system', 'sys_param_user'
                     )
-                    THEN 'COALESCE(ml.lb, t.label) AS label'
-                WHEN c.column_name = 'tooltip' AND p_table = 'config_form_fields'
-                    THEN 'COALESCE(ml.tt, mlp.tt, t.tooltip) AS tooltip'
-                WHEN c.column_name = 'placeholder' AND p_table = 'config_form_fields'
-                    THEN 'COALESCE(ml.pl, mlp.pl, t.placeholder) AS placeholder'
-                WHEN c.column_name = 'tooltip' AND p_table = 'config_form_tabs'
-                    THEN 'COALESCE(ml.tt, t.tooltip) AS tooltip'
-                WHEN c.column_name = 'descript'
+                    THEN 'COALESCE(ml.lb, t.label)'
+                WHEN a.attname = 'tooltip' AND p_table = 'config_form_fields'
+                    THEN 'COALESCE(ml.tt, mlp.tt, t.tooltip)'
+                WHEN a.attname = 'placeholder' AND p_table = 'config_form_fields'
+                    THEN 'COALESCE(ml.pl, mlp.pl, t.placeholder)'
+                WHEN a.attname = 'tooltip' AND p_table = 'config_form_tabs'
+                    THEN 'COALESCE(ml.tt, t.tooltip)'
+                WHEN a.attname = 'descript'
                     AND p_table IN ('config_param_system', 'sys_param_user')
-                    THEN 'COALESCE(ml.tt, t.descript) AS descript'
-                WHEN c.column_name = 'descript'
+                    THEN 'COALESCE(ml.tt, t.descript)'
+                WHEN a.attname = 'descript'
                     AND p_table IN ('sys_function', 'sys_table')
-                    THEN 'COALESCE(ml.ds, t.descript) AS descript'
-                WHEN c.column_name = 'error_message' AND p_table = 'sys_message'
-                    THEN 'COALESCE(ml.ms, t.error_message) AS error_message'
-                WHEN c.column_name = 'hint_message' AND p_table = 'sys_message'
-                    THEN 'COALESCE(ml.ht, t.hint_message) AS hint_message'
-                WHEN c.column_name = 'fprocess_name' AND p_table = 'sys_fprocess'
-                    THEN 'COALESCE(ml.na, t.fprocess_name) AS fprocess_name'
-                WHEN c.column_name = 'except_msg' AND p_table = 'sys_fprocess'
-                    THEN 'COALESCE(ml.ex, t.except_msg) AS except_msg'
-                WHEN c.column_name = 'info_msg' AND p_table = 'sys_fprocess'
-                    THEN 'COALESCE(ml."in", t.info_msg) AS info_msg'
-                WHEN c.column_name = 'alias' AND p_table = 'sys_table'
-                    THEN 'COALESCE(ml.al, t.alias) AS alias'
-                WHEN c.column_name = 'widgetcontrols' AND p_table = 'config_form_fields'
+                    THEN 'COALESCE(ml.ds, t.descript)'
+                WHEN a.attname = 'error_message' AND p_table = 'sys_message'
+                    THEN 'COALESCE(ml.ms, t.error_message)'
+                WHEN a.attname = 'hint_message' AND p_table = 'sys_message'
+                    THEN 'COALESCE(ml.ht, t.hint_message)'
+                WHEN a.attname = 'fprocess_name' AND p_table = 'sys_fprocess'
+                    THEN 'COALESCE(ml.na, t.fprocess_name)'
+                WHEN a.attname = 'except_msg' AND p_table = 'sys_fprocess'
+                    THEN 'COALESCE(ml.ex, t.except_msg)'
+                WHEN a.attname = 'info_msg' AND p_table = 'sys_fprocess'
+                    THEN 'COALESCE(ml."in", t.info_msg)'
+                WHEN a.attname = 'alias' AND p_table = 'sys_table'
+                    THEN 'COALESCE(ml.al, t.alias)'
+                WHEN a.attname = 'widgetcontrols' AND p_table = 'config_form_fields'
                     THEN '(COALESCE(t.widgetcontrols::jsonb, ''{}''::jsonb)
-                           || COALESCE(mlj.text, mljp.text, ''{}''::jsonb))::json AS widgetcontrols'
-                WHEN c.column_name IN ('datatype', 'source', 'in', 'text', 'parameter', 'label')
-                    THEN format('t.%I', c.column_name)
-                ELSE format('t.%I', c.column_name)
-            END AS col_expr
-        FROM information_schema.columns c
-        WHERE c.table_schema = p_schema_name
-          AND c.table_name = p_table
+                           || COALESCE(mlj.text, mljp.text, ''{}''::jsonb))::json'
+                ELSE NULL
+            END AS inner_sql
+        ) x
+        WHERE n.nspname = p_schema_name
+          AND r.relname = p_table
+          AND r.relkind IN ('r', 'p')
+          AND a.attnum > 0
+          AND NOT a.attisdropped
     ) cols;
 
     IF v_cols IS NULL OR btrim(v_cols) = '' THEN
         RAISE EXCEPTION 'No columns found for %.%', p_schema_name, p_table;
     END IF;
 
+    EXECUTE format('DROP VIEW IF EXISTS %I.%I', p_schema_name, v_view);
+
     v_sql := format(
-        'CREATE OR REPLACE VIEW %I.%I AS SELECT %s FROM %I.%I t %s',
+        'CREATE VIEW %I.%I AS SELECT %s FROM %I.%I t %s',
         p_schema_name, v_view, v_cols, p_schema_name, p_table, v_join
     );
 
