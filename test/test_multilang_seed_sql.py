@@ -35,7 +35,7 @@ def _sql_root() -> str:
 class TestMultilangSeedSql(unittest.TestCase):
 
     def test_target_table_mapping(self):
-        self.assertEqual(len(MULTILANG_UI_TABLES), 13)
+        self.assertEqual(len(MULTILANG_UI_TABLES), 14)
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbparam_user"],
             "sys_param_user",
@@ -52,6 +52,7 @@ class TestMultilangSeedSql(unittest.TestCase):
             BASELINE_TO_MULTILANG_TABLE["dbfprocess"],
             "sys_fprocess",
         )
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_report"], "config_report")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbjson"], "config_json")
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbconfig_form_tableview"],
@@ -155,6 +156,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertGreater(len(statements), 0)
         joined = "\n".join(statements)
         self.assertIn("INSERT INTO multilang.config_form_fields", joined)
+        self.assertIn("INSERT INTO multilang.config_report", joined)
         self.assertIn("INSERT INTO multilang.config_json", joined)
         self.assertIn("INSERT INTO multilang.config_form_tableview", joined)
         self.assertIn("INSERT INTO multilang.config_csv", joined)
@@ -367,6 +369,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         rows = rows_for_project_type(template, "ws")
         tables = {row.table for row in rows}
         self.assertIn("sys_label", tables)
+        self.assertIn("config_report", tables)
         self.assertIn("config_json", tables)
         json_hints = {
             row.values.get("hint")
@@ -450,6 +453,27 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("INSERT INTO multilang.config_json", inserts[0])
         self.assertIn('"text"', inserts[0])
         self.assertIn("'[{\"label\":\"Exploitation:\"}]'::json", inserts[0])
+
+
+    def test_parse_dbconfig_report_maps_alias(self):
+        sql = """
+        UPDATE config_report AS t SET alias = v.alias, descript = v.descript FROM (
+            VALUES
+            (100, 'Pipe length by Exploitation and Catalog', NULL)
+        ) AS v(id, alias, descript)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbconfig_report", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "config_report")
+        self.assertEqual(rows[0].values["source"], "100")
+        self.assertEqual(rows[0].values["al"], "Pipe length by Exploitation and Catalog")
+        self.assertIsNone(rows[0].values["ds"])
+
+        inserts = build_insert_sql("config_report", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_report", inserts[0])
 
 
     def test_baseline_fingerprint_stable(self):

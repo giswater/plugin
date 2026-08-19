@@ -40,7 +40,8 @@ DECLARE
         'sys_table',
         'sys_label',
         'config_csv',
-        'config_form_tableview'
+        'config_form_tableview',
+        'config_report'
     ];
 BEGIN
     v_prev_search_path := current_setting('search_path');

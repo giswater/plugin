@@ -233,7 +233,10 @@ class GwToolBoxButton(GwAction):
             tools_gw.load_settings(self.dlg_reports)
 
             # Set description & query labels
-            sql = f"SELECT alias, query_text, descript FROM config_report WHERE id = {self.function_selected}"
+            report_table = "v_config_report"
+            if not tools_gw._relation_exists(lib_vars.schema_name, report_table):
+                report_table = "config_report"
+            sql = f"SELECT alias, query_text, descript FROM {report_table} WHERE id = {self.function_selected}"
             row = tools_db.get_row(sql)
             if row:
                 descript = row[2]
@@ -313,6 +316,13 @@ class GwToolBoxButton(GwAction):
     def _report_finished(self, status, json_result):
         if not status:
             return
+
+        data = (json_result or {}).get('body', {}).get('data') or {}
+        descript = data.get('descript')
+        if descript in (None, 'null', ''):
+            descript = data.get('alias')
+        if descript:
+            tools_qt.set_widget_text(self.dlg_reports, 'lbl_descript', descript)
 
         layout = self.dlg_reports.findChild(QGridLayout, 'lyt_filters')
 

@@ -197,7 +197,7 @@ BEGIN
 	-- get reports toolbox parameters
 	v_querystring = concat('SELECT array_to_json(array_agg(row_to_json(a))) FROM (
 			 SELECT id, alias, addparam
-			 FROM config_report
+			 FROM v_config_report
 			 WHERE sys_role = ''role_basic''
 			 AND sys_role IN  (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 			 AND alias ILIKE ''%', v_filter ,'%'' AND active IS TRUE AND ',v_device,' = ANY(device) ORDER BY id) a');
@@ -206,7 +206,7 @@ BEGIN
 
 	v_querystring = concat('SELECT array_to_json(array_agg(row_to_json(a))) FROM (
 			 SELECT id, alias, addparam
-			 FROM config_report
+			 FROM v_config_report
 			 WHERE sys_role = ''role_om''
 			 AND sys_role IN  (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 			 AND alias ILIKE ''%', v_filter ,'%'' AND active IS TRUE AND ',v_device,' = ANY(device) ORDER BY id) a');
@@ -215,7 +215,7 @@ BEGIN
 
 	v_querystring = concat('SELECT array_to_json(array_agg(row_to_json(a))) FROM (
 			 SELECT id, alias, addparam
-			 FROM config_report
+			 FROM v_config_report
 			 WHERE sys_role = ''role_edit''
 			 AND sys_role IN  (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 			 AND alias ILIKE ''%', v_filter ,'%'' AND active IS TRUE AND ',v_device,' = ANY(device) ORDER BY id) a');
@@ -224,7 +224,7 @@ BEGIN
 
 	v_querystring = concat('SELECT array_to_json(array_agg(row_to_json(a))) FROM (
 			 SELECT id, alias, addparam
-			 FROM config_report
+			 FROM v_config_report
 			 WHERE sys_role = ''role_epa''
 			 AND sys_role IN  (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 			 AND alias ILIKE ''%', v_filter ,'%'' AND active IS TRUE AND ',v_device,' = ANY(device) ORDER BY id) a');
@@ -233,7 +233,7 @@ BEGIN
 
 	v_querystring = concat('SELECT array_to_json(array_agg(row_to_json(a))) FROM (
 			 SELECT id, alias, addparam
-			 FROM config_report
+			 FROM v_config_report
 			 WHERE sys_role = ''role_plan''
 			 AND sys_role IN  (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 			 AND alias ILIKE ''%', v_filter ,'%'' AND active IS TRUE AND ',v_device,' = ANY(device) ORDER BY id) a');
@@ -242,7 +242,7 @@ BEGIN
 
 	v_querystring = concat('SELECT array_to_json(array_agg(row_to_json(a))) FROM (
 			 SELECT id, alias, addparam
-			 FROM config_report
+			 FROM v_config_report
 			 WHERE sys_role = ''role_admin''
 			 AND sys_role IN  (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 			 AND alias ILIKE ''%', v_filter ,'%'' AND active IS TRUE AND ',v_device,' = ANY(device) ORDER BY id) a');
