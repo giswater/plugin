@@ -73,8 +73,11 @@ BEGIN
 			CREATE TEMP TABLE temp_graph AS
 			SELECT d.edge AS arc_id, d.node AS node_id
 			FROM pgr_dijkstra(
-				$pgr$SELECT arc_id::int AS id, node_1::int AS source, node_2::int AS target, 1.0 AS cost
-				FROM arc WHERE state = 1 AND node_1 IS NOT NULL AND node_2 IS NOT NULL$pgr$,
+				$pgr$SELECT a.arc_id::int AS id, a.node_1::int AS source, a.node_2::int AS target, 1.0 AS cost
+					FROM arc a
+					JOIN value_state_type s ON a.state_type = s.id 
+					WHERE a.state = 1 AND s.is_operative AND node_1 IS NOT NULL AND node_2 IS NOT NULL
+				$pgr$,
 				NEW.object_1,
 				NEW.object_2,
 				directed := false
