@@ -9,12 +9,15 @@ from functools import partial
 from qgis.PyQt.QtCore import QEvent, Qt
 from qgis.PyQt.QtGui import QStandardItem, QStandardItemModel
 from qgis.core import QgsApplication
+from qgis.PyQt.sip import isdeleted
 from qgis.PyQt.QtWidgets import (
     QHeaderView, QSizePolicy, QScrollArea, QWidget, QVBoxLayout,
 )
 
 from ..ui.ui_manager import GwAdminManageSchemasUi
+from .i18n_multilang_languages import GwI18NMultilangLanguagesDialog
 from ...libs import tools_qt
+from ..utils import tools_gw
 from . import _admin_catalog as admin_catalog
 
 _NETWORK_COLUMNS = (
@@ -315,6 +318,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self.btn_delete_cm.clicked.connect(partial(self._delete_cm))
         self.btn_i18n_create.clicked.connect(partial(self.admin._create_i18n))
         self.btn_i18n_update.clicked.connect(partial(self.admin._update_i18n))
+        self.btn_languages.clicked.connect(partial(self.load_languages_multilang))
         self.btn_i18n_delete.clicked.connect(partial(self._delete_other_schema, 'multilang'))
         self.btn_create_audit.clicked.connect(partial(self._create_audit))
         self.btn_update_audit.clicked.connect(partial(self.admin._update_audit))
@@ -344,6 +348,16 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         header.setMinimumSectionSize(48)
         self.tbl_network.viewport().installEventFilter(self)
         self._apply_network_table_height()
+    
+    def load_languages_multilang(self) -> None:
+        dlg = getattr(self, 'dlg_multilang_languages', None)
+        if dlg is not None and not isdeleted(dlg) and dlg.isVisible():
+            tools_gw.focus_open_dialog(dlg)
+            return
+
+        dlg = GwI18NMultilangLanguagesDialog(self)
+        dlg.init_dialog()
+        self.dlg_multilang_languages = dlg
 
     def eventFilter(self, watched, event):
         if watched is self.tbl_network.viewport():
