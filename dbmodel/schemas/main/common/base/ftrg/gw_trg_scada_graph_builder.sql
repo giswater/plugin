@@ -52,7 +52,7 @@ BEGIN
     SET search_path = SCHEMA_NAME, public;
 
     -- Init params
-    SELECT project_type, epsg INTO v_project_type, v_srid FROM sys_version ORDER BY id DESC LIMIT 1;
+    SELECT upper(project_type), epsg INTO v_project_type, v_srid FROM sys_version ORDER BY id DESC LIMIT 1;
 
 	IF TG_WHEN = 'BEFORE' THEN
 	
@@ -70,19 +70,48 @@ BEGIN
 
 	    	-- shortest path on operative arcs (not gw_fct_getprofilevalues)
 			DROP TABLE IF EXISTS temp_graph;
-			CREATE TEMP TABLE temp_graph AS
-			SELECT d.edge AS arc_id, d.node AS node_id
-			FROM pgr_dijkstra(
-				$pgr$SELECT a.arc_id::int AS id, a.node_1::int AS source, a.node_2::int AS target, 1.0 AS cost
-					FROM arc a
-					JOIN value_state_type s ON a.state_type = s.id 
-					WHERE a.state = 1 AND s.is_operative AND node_1 IS NOT NULL AND node_2 IS NOT NULL
-				$pgr$,
-				NEW.object_1,
-				NEW.object_2,
-				directed := false
-			) d
-			WHERE d.edge > 0;
+			IF v_project_type = 'WS' THEN
+				CREATE TEMP TABLE temp_graph AS
+				SELECT d.edge AS arc_id, d.node AS node_id
+				FROM pgr_dijkstra(
+					$pgr$WITH
+						closed_valve AS (
+							SELECT n.node_id
+							FROM node n
+							JOIN value_state_type s ON n.state_type = s.id
+							JOIN man_valve m ON n.node_id = m.node_id
+							JOIN cat_node cn ON n.nodecat_id = cn.id
+							JOIN cat_feature_node cf ON cf.id = cn.node_type
+							WHERE n.state = 1 AND s.is_operative
+							AND m.closed AND 'MINSECTOR' = ANY (cf.graph_delimiter)
+						)
+						SELECT a.arc_id::int AS id, a.node_1::int AS source, a.node_2::int AS target, 1.0 AS cost
+						FROM arc a
+						JOIN value_state_type s ON a.state_type = s.id
+						WHERE a.state = 1 AND s.is_operative
+						AND a.node_1 IS NOT NULL AND a.node_2 IS NOT NULL
+						AND NOT EXISTS (SELECT 1 FROM closed_valve cv WHERE cv.node_id = a.node_1 OR cv.node_id = a.node_2)
+					$pgr$,
+					NEW.object_1,
+					NEW.object_2,
+					directed := false
+				) d
+				WHERE d.edge > 0;
+			ELSIF v_project_type = 'UD' THEN
+				CREATE TEMP TABLE temp_graph AS
+				SELECT d.edge AS arc_id, d.node AS node_id
+				FROM pgr_dijkstra(
+					$pgr$SELECT a.arc_id::int AS id, a.node_1::int AS source, a.node_2::int AS target, 1.0 AS cost, -1.0 AS reverse_cost
+						FROM arc a
+						JOIN value_state_type s ON a.state_type = s.id 
+						WHERE a.state = 1 AND s.is_operative AND a.node_1 IS NOT NULL AND a.node_2 IS NOT NULL
+					$pgr$,
+					NEW.object_1,
+					NEW.object_2,
+					directed := true
+				) d
+				WHERE d.edge > 0;
+			END IF;
 
 			IF NOT EXISTS (SELECT 1 FROM temp_graph) THEN
 				RAISE EXCEPTION 'No network path between object_1=% and object_2=%', NEW.object_1, NEW.object_2;
