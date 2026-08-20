@@ -4505,6 +4505,10 @@ Do you want to proceed?</translation>
 			<translation>Prob. of Failure</translation>
 		</message>
 		<message>
+			<source>Processes</source>
+			<translation>Processes</translation>
+		</message>
+		<message>
 			<source>Process finished.
 
 INP file created on:
@@ -4693,6 +4697,10 @@ Statistics file created on:
 			<translation>Raingages couldn&apos;t be inserted!</translation>
 		</message>
 		<message>
+			<source>Raports</source>
+			<translation>Raports</translation>
+		</message>
+		<message>
 			<source>Reading file</source>
 			<translation>Reading file</translation>
 		</message>
@@ -4865,6 +4873,10 @@ Do you want to apply the required values and continue?</translation>
 		<message>
 			<source>Scada graph</source>
 			<translation>Scada graph</translation>
+		</message>
+		<message>
+			<source>Scada graph edge already exists.</source>
+			<translation>Scada graph edge already exists.</translation>
 		</message>
 		<message>
 			<source>Scada graph edge created</source>
@@ -19005,6 +19017,14 @@ or they were created by another user:</translation>
 		<message>
 			<source>tooltip_btn_run</source>
 			<translation>btn_run</translation>
+		</message>
+		<message>
+			<source>grb_info</source>
+			<translation>Info:</translation>
+		</message>
+		<message>
+			<source>tooltip_grb_info</source>
+			<translation>grb_info</translation>
 		</message>
 		<message>
 			<source>grb_input_layer</source>
