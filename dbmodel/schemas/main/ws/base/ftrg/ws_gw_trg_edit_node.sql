@@ -66,8 +66,8 @@ v_input json;
 v_childtable_name text;
 v_schemaname text;
 
-v_dist_xlab numeric;
-v_dist_ylab numeric;
+v_dist_xlab numeric = 0;
+v_dist_ylab numeric = 0;
 v_label_point public.geometry;
 v_rot1 numeric;
 v_rot2 numeric;
@@ -263,7 +263,7 @@ BEGIN
 					NEW.dma_id = (SELECT dma_id FROM dma WHERE ST_DWithin(NEW.the_geom, dma.the_geom,0.001) AND active IS TRUE LIMIT 1);
 				ELSE
 					NEW.dma_id =(SELECT dma_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
-					ORDER BY ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
+					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
 				END IF;
 			END IF;
 
@@ -294,7 +294,7 @@ BEGIN
 					NEW.presszone_id = (SELECT presszone_id FROM presszone WHERE ST_DWithin(NEW.the_geom, presszone.the_geom,0.001) AND active IS TRUE LIMIT 1);
 				ELSE
 					NEW.presszone_id =(SELECT presszone_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
-					ORDER BY ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
+					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
 				END IF;
 			END IF;
 
@@ -1176,9 +1176,8 @@ BEGIN
 		FROM cat_feature JOIN cat_node on cat_feature.id = cat_node.node_type WHERE cat_node.id = '||quote_literal(new.nodecat_id)||'
 		' INTO v_dist_ylab;
 
-		if new.label_x != old.label_x and new.label_y != old.label_y then
-			--raise exception 'a';
-
+		if new.label_x != old.label_x or new.label_y != old.label_y then
+			
 			update node set label_x = new.label_x, label_y = new.label_y where node_id = new.node_id;
 
 			v_dist_ylab = null;
@@ -1187,8 +1186,7 @@ BEGIN
 		end if;
 
 		if new.label_rotation != old.label_rotation then
-			--raise exception 'a';
-
+			
 			update node set label_rotation = new.label_rotation where node_id = new.node_id;
 
 			v_dist_ylab = null;
