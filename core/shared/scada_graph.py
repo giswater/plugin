@@ -164,7 +164,7 @@ class GwScadaGraph:
         params = f'"object_1":{node1}, "object_2":{node2}'
         body = tools_gw.create_body(extras=f'"parameters":{{{params}}}')
         json_result = tools_gw.execute_procedure(
-            'gw_fct_scada_graph_build', body, check_function=False, log_sql=False)
+            'gw_fct_scada_graph_build', body, check_function=False, log_sql=True)
         if not json_result or json_result.get('status') != 'Accepted':
             return
 
