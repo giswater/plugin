@@ -1203,7 +1203,8 @@ class GwVisit(QObject):
 
         # Relations tab
         # fill feature_type
-        sql = ("SELECT 'ALL' as id, 'ALL' as idval "
+        msg = "ALL"
+        sql = (f"SELECT 'ALL' as id, '{tools_qt.tr(msg)}' as idval "
                "UNION SELECT id, id as idval "
                "FROM sys_feature_type "
                "WHERE classlevel = 1 OR classlevel = 2 OR classlevel = 4 "
