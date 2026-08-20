@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-08-20
+
 ### Fixed
 
 - SchemaBuilder no longer `SET ROLE role_system` after `load_base`. Updates and sample run as the installer login so `selector_*` / `config_param_user` bind to the user pgTAP and QGIS use.
@@ -94,7 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timing reports and structured log output for automation and CI.
 - Legacy command aliases (`create`, `update`, `drop`, `status`, `init-db`, `update-network`, `audit …`) with stderr deprecation warnings.
 
-[unreleased]: https://github.com/giswater/plugin/compare/cli-v0.4.1...main
+[unreleased]: https://github.com/giswater/plugin/compare/cli-v0.4.2...main
+[0.4.2]: https://github.com/giswater/plugin/compare/cli-v0.4.1...cli-v0.4.2
 [0.4.1]: https://github.com/giswater/plugin/compare/cli-v0.4.0...cli-v0.4.1
 [0.4.0]: https://github.com/giswater/plugin/compare/cli-v0.3.0...cli-v0.4.0
 [0.3.0]: https://github.com/giswater/plugin/compare/cli-v0.2.0...cli-v0.3.0
