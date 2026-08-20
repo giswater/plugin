@@ -54,6 +54,8 @@ BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
     "dbconfig_report": "config_report",
     "dbconfig_toolbox": "config_toolbox",
     "dbconfig_typevalue": "config_typevalue",
+    "dbtypevalue": "typevalue",
+    "dbconfig_visit_parameter": "config_visit_parameter",
 }
 
 MULTILANG_UI_TABLES: tuple[str, ...] = tuple(sorted(set(BASELINE_TO_MULTILANG_TABLE.values())))
@@ -75,6 +77,7 @@ _PROJECT_TYPE_TABLES: dict[str, tuple[str, ...]] = {
         "dbfprocess",
         "dbtable",
         "dbconfig_form_tableview",
+        "dbtypevalue",
     ),
 }
 
@@ -140,6 +143,8 @@ _TABLE_CONFLICT_KEYS: dict[str, tuple[str, ...]] = {
     "config_report": ("project_type", "context", "source", "lang"),
     "config_toolbox": ("project_type", "context", "source", "lang"),
     "config_typevalue": ("project_type", "context", "formname", "source", "lang"),
+    "typevalue": ("project_type", "context", "typevalue", "source", "lang"),
+    "config_visit_parameter": ("project_type", "context", "source", "lang"),
 }
 
 # Multilang columns that must be double-quoted in generated SQL.
@@ -605,6 +610,15 @@ def blocks_to_multilang_rows(
                         raw, block.value_aliases, "source", "id",
                     ),
                 })
+            elif table == "dbtypevalue":
+                values.update({
+                    "typevalue": _cell(raw, block.value_aliases, "typevalue"),
+                    "source": _first_cell(
+                        raw, block.value_aliases, "source", "id",
+                    ),
+                })
+            elif table == "dbconfig_visit_parameter":
+                values["source"] = _cell(raw, block.value_aliases, "id")
             elif table in (
                 "dbparam_user", "dbmessage", "dbfprocess", "dbfunction", "dbtable",
                 "dbconfig_report", "dbconfig_toolbox",
@@ -629,12 +643,18 @@ def blocks_to_multilang_rows(
                 values["formname"] = str(values["formname"])
             if values.get("columnname") is not None:
                 values["columnname"] = str(values["columnname"])
+            if values.get("typevalue") is not None:
+                values["typevalue"] = str(values["typevalue"])
 
             target_table = BASELINE_TO_MULTILANG_TABLE.get(table)
             if not target_table:
                 continue
             if table == "dbconfig_typevalue" and (
                 values.get("formname") is None or values.get("source") is None
+            ):
+                continue
+            if table == "dbtypevalue" and (
+                values.get("typevalue") is None or values.get("source") is None
             ):
                 continue
             rows.append(MultilangRow(table=target_table, values=values))
@@ -1059,6 +1079,46 @@ BEGIN
         ON multilang.config_typevalue USING btree (lang);
 
     GRANT SELECT ON TABLE multilang.config_typevalue TO role_basic;
+
+    CREATE TABLE IF NOT EXISTS multilang.typevalue (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        typevalue text NOT NULL,
+        "source" text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        vl text NULL,
+        ds text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT typevalue_id_uniq UNIQUE (id),
+        CONSTRAINT typevalue_pkey PRIMARY KEY (project_type, context, typevalue, "source", lang),
+        CONSTRAINT typevalue_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_typevalue_lang
+        ON multilang.typevalue USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.typevalue TO role_basic;
+
+    CREATE TABLE IF NOT EXISTS multilang.config_visit_parameter (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        "source" text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        ds text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT config_visit_parameter_id_uniq UNIQUE (id),
+        CONSTRAINT config_visit_parameter_pkey PRIMARY KEY (project_type, context, "source", lang),
+        CONSTRAINT config_visit_parameter_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_config_visit_parameter_lang
+        ON multilang.config_visit_parameter USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.config_visit_parameter TO role_basic;
 END
 $BODY$;
 """

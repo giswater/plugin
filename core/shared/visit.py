@@ -894,7 +894,7 @@ class GwVisit(QObject):
         """ Get feature type of selected parameter """
 
         sql = (f"SELECT feature_type "
-               f"FROM config_visit_parameter "
+               f"FROM v_config_visit_parameter "
                f"WHERE descript = '{self.parameter_id.currentText()}'")
         row = tools_db.get_row(sql)
         if row:
@@ -1167,7 +1167,7 @@ class GwVisit(QObject):
         self._fill_visitcat(visit_id)
 
         # Fill ComboBox status
-        rows = tools_db.get_values_from_catalog('om_typevalue', 'visit_status')
+        rows = tools_db.get_values_from_catalog('v_om_typevalue', 'visit_status')
         if rows:
             tools_qt.fill_combo_values(self.dlg_add_visit.status, rows, sort_combo=True)
             status = tools_gw.get_config_value('om_visit_status_vdefault')
@@ -1213,7 +1213,7 @@ class GwVisit(QObject):
 
         # Event tab
         # Fill ComboBox parameter_type_id
-        sql = "SELECT id, idval FROM om_typevalue WHERE typevalue = 'visit_param_type' ORDER by idval"
+        sql = "SELECT id, idval FROM v_om_typevalue WHERE typevalue = 'visit_param_type' ORDER by idval"
         parameter_type_ids = tools_db.get_rows(sql)
         tools_qt.fill_combo_values(self.dlg_add_visit.parameter_type_id, parameter_type_ids)
 
@@ -1232,7 +1232,7 @@ class GwVisit(QObject):
         if feature_type:
             feature_type = str(feature_type).lower()
 
-        sql = "SELECT id, descript FROM config_visit_parameter WHERE 1=1 "
+        sql = "SELECT id, descript FROM v_config_visit_parameter WHERE 1=1 "
         if parameter_type_id not in (None, -1, '', 'None'):
             sql += f"AND UPPER(parameter_type) = '{str(parameter_type_id).upper()}' "
         if feature_type and feature_type not in ('', 'all'):

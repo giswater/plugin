@@ -546,7 +546,7 @@ class GwDocument(QObject):
         """ Executes query and fill combo box """
 
         sql = ("SELECT id, idval"
-               " FROM edit_typevalue"
+               " FROM v_edit_typevalue"
                " WHERE typevalue = 'doc_type'"
                " ORDER BY id;")
         rows = tools_db.get_rows(sql)

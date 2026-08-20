@@ -43,7 +43,12 @@ DECLARE
         'config_form_tableview',
         'config_report',
         'config_toolbox',
-        'config_typevalue'
+        'config_typevalue',
+        'edit_typevalue',
+        'om_typevalue',
+        'plan_typevalue',
+        'sys_typevalue',
+        'config_visit_parameter'
     ];
 BEGIN
     v_prev_search_path := current_setting('search_path');
@@ -82,6 +87,9 @@ BEGIN
             FOREACH v_table IN ARRAY v_tables
             LOOP
                 v_view := 'v_' || v_table;
+                IF v_table = 'sys_typevalue' AND v_project_type <> 'CM' THEN
+                    CONTINUE;
+                END IF;
                 IF to_regclass(format('%I.%I', v_schema.schema_name, v_table)) IS NULL THEN
                     CONTINUE;
                 END IF;

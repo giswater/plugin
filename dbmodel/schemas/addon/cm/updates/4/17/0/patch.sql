@@ -17,7 +17,8 @@ DECLARE
         'config_param_system',
         'sys_param_user',
         'sys_table',
-        'config_form_tableview'
+        'config_form_tableview',
+        'sys_typevalue'
     ];
     v_table text;
 BEGIN
@@ -44,3 +45,23 @@ BEGIN
     END IF;
 END
 $BODY$;
+
+UPDATE config_form_fields
+SET
+    dv_querytext = regexp_replace(
+        dv_querytext,
+        '\m(sys_typevalue)\M',
+        'v_\1',
+        'g'
+    ),
+    dv_querytext_filterc = CASE
+        WHEN dv_querytext_filterc IS NULL THEN NULL
+        ELSE regexp_replace(
+            dv_querytext_filterc,
+            '\m(sys_typevalue)\M',
+            'v_\1',
+            'g'
+        )
+    END
+WHERE dv_querytext ~ '\m(sys_typevalue)\M'
+   OR COALESCE(dv_querytext_filterc, '') ~ '\m(sys_typevalue)\M';

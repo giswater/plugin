@@ -773,7 +773,9 @@ class GwToolBoxButton(GwAction):
                     layers.append(elem)
         tools_qt.set_widget_enabled(self.dlg_functions, 'btn_run', True)
         if not layers:
-            elem = [f"There is no layer related to {feature_type}.", None, None]
+            msg = "There is no layer related to {0}."
+            msg_params = (feature_type,)
+            elem = [tools_qt.tr(msg, list_params=msg_params), None, None]
             layers.append(elem)
             tools_qt.set_widget_enabled(self.dlg_functions, 'btn_run', False)
 

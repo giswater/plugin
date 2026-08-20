@@ -399,7 +399,7 @@ class GwMincut:
 
         # Fill ComboBox cause
         sql = ("SELECT id, idval "
-               "FROM om_typevalue WHERE typevalue = 'mincut_cause' "
+               "FROM v_om_typevalue WHERE typevalue = 'mincut_cause' "
                "ORDER BY id")
         rows = tools_db.get_rows(sql)
         tools_qt.fill_combo_values(self.dlg_mincut.cause, rows)
@@ -734,7 +734,7 @@ class GwMincut:
         """ Serialize data of mincut states """
 
         sql = ("SELECT id, idval "
-               "FROM om_typevalue WHERE typevalue = 'mincut_state' "
+               "FROM v_om_typevalue WHERE typevalue = 'mincut_state' "
                "ORDER BY id")
         rows = tools_db.get_rows(sql)
         if rows:

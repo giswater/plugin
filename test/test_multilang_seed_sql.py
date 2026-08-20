@@ -36,7 +36,7 @@ def _sql_root() -> str:
 class TestMultilangSeedSql(unittest.TestCase):
 
     def test_target_table_mapping(self):
-        self.assertEqual(len(MULTILANG_UI_TABLES), 16)
+        self.assertEqual(len(MULTILANG_UI_TABLES), 18)
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbparam_user"],
             "sys_param_user",
@@ -54,6 +54,11 @@ class TestMultilangSeedSql(unittest.TestCase):
             "sys_fprocess",
         )
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_typevalue"], "config_typevalue")
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbtypevalue"], "typevalue")
+        self.assertEqual(
+            BASELINE_TO_MULTILANG_TABLE["dbconfig_visit_parameter"],
+            "config_visit_parameter",
+        )
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_toolbox"], "config_toolbox")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_report"], "config_report")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbjson"], "config_json")
@@ -160,6 +165,8 @@ class TestMultilangSeedSql(unittest.TestCase):
         joined = "\n".join(statements)
         self.assertIn("INSERT INTO multilang.config_form_fields", joined)
         self.assertIn("INSERT INTO multilang.config_typevalue", joined)
+        self.assertIn("INSERT INTO multilang.typevalue", joined)
+        self.assertIn("INSERT INTO multilang.config_visit_parameter", joined)
         self.assertIn("INSERT INTO multilang.config_toolbox", joined)
         self.assertIn("INSERT INTO multilang.config_report", joined)
         self.assertIn("INSERT INTO multilang.config_json", joined)
@@ -359,6 +366,8 @@ class TestMultilangSeedSql(unittest.TestCase):
         tables = {row.table for row in rows}
         self.assertIn("sys_label", tables)
         self.assertIn("config_typevalue", tables)
+        self.assertIn("typevalue", tables)
+        self.assertIn("config_visit_parameter", tables)
         self.assertIn("config_toolbox", tables)
         self.assertIn("config_report", tables)
         self.assertIn("config_json", tables)
@@ -540,6 +549,96 @@ class TestMultilangSeedSql(unittest.TestCase):
         ))
 
 
+    def test_parse_dbconfig_visit_parameter_maps_descript_to_ds(self):
+        sql = """
+        UPDATE config_visit_parameter AS t SET descript = v.descript FROM (
+            VALUES
+            ('clean_node', 'Clean of node')
+        ) AS v(id, descript)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows(
+            "dbconfig_visit_parameter",
+            blocks,
+            project_type="ws",
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "config_visit_parameter")
+        self.assertEqual(rows[0].values["context"], "config_visit_parameter")
+        self.assertEqual(rows[0].values["source"], "clean_node")
+        self.assertEqual(rows[0].values["ds"], "Clean of node")
+
+        inserts = build_insert_sql("config_visit_parameter", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_visit_parameter", inserts[0])
+        self.assertIn(" ds ", inserts[0])
+
+
+    def test_parse_dbtypevalue_keeps_context_from_update_header(self):
+        sql = """
+        UPDATE edit_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
+            VALUES
+            ('0', 'value_verified', 'TO REVIEW', NULL)
+        ) AS v(id, typevalue, idval, descript)
+        WHERE t.id = v.id AND t.typevalue = v.typevalue;
+
+        UPDATE om_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
+            VALUES
+            ('1', 'visit_status', 'Planned', NULL)
+        ) AS v(id, typevalue, idval, descript)
+        WHERE t.id = v.id AND t.typevalue = v.typevalue;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbtypevalue", blocks, project_type="ws")
+        self.assertEqual(len(rows), 2)
+        by_context = {row.values["context"]: row for row in rows}
+
+        self.assertEqual(by_context["edit_typevalue"].table, "typevalue")
+        self.assertEqual(by_context["edit_typevalue"].values["typevalue"], "value_verified")
+        self.assertEqual(by_context["edit_typevalue"].values["source"], "0")
+        self.assertEqual(by_context["edit_typevalue"].values["vl"], "TO REVIEW")
+
+        self.assertEqual(by_context["om_typevalue"].values["typevalue"], "visit_status")
+        self.assertEqual(by_context["om_typevalue"].values["source"], "1")
+        self.assertEqual(by_context["om_typevalue"].values["vl"], "Planned")
+
+        inserts = build_insert_sql("typevalue", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.typevalue", inserts[0])
+
+
+    def test_parse_dbtypevalue_skips_rows_missing_typevalue_or_source(self):
+        sql = """
+        UPDATE edit_typevalue AS t SET idval = v.idval FROM (
+            VALUES
+            ('0', NULL, 'TO REVIEW'),
+            (NULL, 'value_verified', 'TO REVIEW'),
+            ('1', 'value_verified', 'VERIFIED')
+        ) AS v(id, typevalue, idval)
+        WHERE t.id = v.id AND t.typevalue = v.typevalue;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbtypevalue", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].values["source"], "1")
+        self.assertEqual(rows[0].values["typevalue"], "value_verified")
+
+
+    def test_load_cm_baseline_rows_includes_typevalue_only(self):
+        template = load_baseline_rows_for_project_type(_sql_root(), "cm")
+        rows = rows_for_project_type(template, "cm")
+        tables = {row.table for row in rows}
+        self.assertIn("typevalue", tables)
+        self.assertNotIn("config_visit_parameter", tables)
+        contexts = {
+            row.values.get("context")
+            for row in rows
+            if row.table == "typevalue"
+        }
+        self.assertEqual(contexts, {"sys_typevalue"})
+
+
     def test_baseline_fingerprint_stable(self):
         sql_root = _sql_root()
         fp1 = compute_baseline_fingerprint(sql_root)
@@ -557,13 +656,19 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("gw_fct_admin_manage_multilang_views", ddl)
         self.assertIn("COALESCE(ml.al, t.alias)", ddl)
         self.assertIn("COALESCE(ml.tt, t.idval)", ddl)
+        self.assertIn("COALESCE(ml.vl, t.idval)", ddl)
         self.assertIn("config_typevalue", ddl)
+        self.assertIn("config_visit_parameter", ddl)
+        self.assertIn("edit_typevalue", ddl)
         self.assertNotIn("CREATE OR REPLACE VIEW", ddl)
 
     def test_ensure_multilang_tables_ddl_creates_config_typevalue(self):
         ddl = ensure_multilang_tables_ddl()
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.config_typevalue", ddl)
         self.assertIn("formname text NOT NULL", ddl)
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.typevalue", ddl)
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.config_visit_parameter", ddl)
+        self.assertIn("typevalue text NOT NULL", ddl)
 
 
 if __name__ == "__main__":

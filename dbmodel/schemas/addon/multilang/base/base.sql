@@ -297,6 +297,36 @@ CREATE TABLE config_typevalue (
     CONSTRAINT config_typevalue_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
 );
 
+CREATE TABLE typevalue (
+    id serial4 NOT NULL,
+    project_type text NOT NULL,
+    context text NOT NULL,
+    typevalue text NOT NULL,
+    "source" text NOT NULL,
+    lang text NOT NULL DEFAULT 'en_us',
+    vl text NULL,
+    ds text NULL,
+    updated_by text DEFAULT CURRENT_USER NULL,
+    updated_on timestamptz DEFAULT now() NULL,
+    CONSTRAINT typevalue_id_uniq UNIQUE (id),
+    CONSTRAINT typevalue_pkey PRIMARY KEY (project_type, context, typevalue, "source", lang),
+    CONSTRAINT typevalue_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
+);
+
+CREATE TABLE config_visit_parameter (
+    id serial4 NOT NULL,
+    project_type text NOT NULL,
+    context text NOT NULL,
+    "source" text NOT NULL,
+    lang text NOT NULL DEFAULT 'en_us',
+    ds text NULL,
+    updated_by text DEFAULT CURRENT_USER NULL,
+    updated_on timestamptz DEFAULT now() NULL,
+    CONSTRAINT config_visit_parameter_id_uniq UNIQUE (id),
+    CONSTRAINT config_visit_parameter_pkey PRIMARY KEY (project_type, context, "source", lang),
+    CONSTRAINT config_visit_parameter_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
+);
+
 CREATE INDEX idx_config_form_fields_exact ON config_form_fields
     USING btree (lang, project_type, context, formtype, tabname, source, formname)
     WHERE formname_like IS NULL;
@@ -311,6 +341,8 @@ CREATE INDEX idx_config_form_fields_json_pattern ON config_form_fields_json
     WHERE formname_like IS NOT NULL;
 CREATE INDEX idx_config_param_system_lang ON config_param_system USING btree (lang);
 CREATE INDEX idx_config_typevalue_lang ON config_typevalue USING btree (lang);
+CREATE INDEX idx_typevalue_lang ON typevalue USING btree (lang);
+CREATE INDEX idx_config_visit_parameter_lang ON config_visit_parameter USING btree (lang);
 CREATE INDEX idx_config_toolbox_lang ON config_toolbox USING btree (lang);
 CREATE INDEX idx_config_report_lang ON config_report USING btree (lang);
 CREATE INDEX idx_config_json_lang ON config_json USING btree (lang);

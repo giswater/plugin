@@ -26,7 +26,7 @@ SELECT gw_fct_admin_manage_addfields($${"client":{"lang":"ES"}, "feature":{"feat
 "data":{"action":"CREATE", "parameters":{"columnname":"shtvalve_param_1", "datatype":"text",
 "widgettype":"combo", "label":"Shtvalve param_1","ismandatory":"False",
 "active":"True", "iseditable":"True", "dv_isnullvalue":"True","layoutname":"lyt_data_1",
-"dv_querytext":"SELECT id as id, idval as idval  FROM edit_typevalue WHERE typevalue='shtvalve_param_1'"}}}$$);
+"dv_querytext":"SELECT id as id, idval as idval  FROM v_edit_typevalue WHERE typevalue='shtvalve_param_1'"}}}$$);
 
 
 *EXAMPLE APPLIED TO ALL FEATURES
@@ -34,7 +34,7 @@ SELECT gw_fct_admin_manage_addfields($${"client":{"lang":"ES"}, "feature":{"feat
 "data":{"action":"CREATE", "parameters":{"columnname":"shtvalve_param_1", "datatype":"text",
 "widgettype":"combo", "label":"Shtvalve param_1","ismandatory":"False",
 "active":"True", "iseditable":"True", "dv_isnullvalue":"True","layoutname":"lyt_data_1",
-"dv_querytext":"SELECT id as id, idval as idval  FROM edit_typevalue WHERE typevalue='shtvalve_param_1'"}}}$$);
+"dv_querytext":"SELECT id as id, idval as idval  FROM v_edit_typevalue WHERE typevalue='shtvalve_param_1'"}}}$$);
 
 SELECT gw_fct_admin_manage_addfields($${"client":{"lang":"ES"}, "feature":{"featureType":"ALL"},
 "data":{"action":"CREATE", "parameters":{"columnname":"mantenimiento", "datatype":"boolean",

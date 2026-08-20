@@ -245,6 +245,27 @@ BEGIN
                AND ml.lang = %s',
             v_context, v_pt_expr, v_lang_expr
         );
+    ELSIF p_table IN ('edit_typevalue', 'om_typevalue', 'plan_typevalue', 'sys_typevalue') THEN
+        v_context := p_table;
+        v_join := format(
+            'LEFT JOIN multilang.typevalue ml
+                ON ml.source = t.id::text
+               AND ml.typevalue = t.typevalue
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
+    ELSIF p_table = 'config_visit_parameter' THEN
+        v_context := 'config_visit_parameter';
+        v_join := format(
+            'LEFT JOIN multilang.config_visit_parameter ml
+                ON ml.source = t.id
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
     ELSE
         RAISE EXCEPTION 'Unsupported multilang view table: %', p_table;
     END IF;
@@ -311,6 +332,17 @@ BEGIN
                     THEN 'COALESCE(ml.vl, t.idval)'
                 WHEN a.attname = 'idval' AND p_table = 'config_typevalue'
                     THEN 'CASE WHEN t.idval = ''["HIDDEN"]'' THEN t.idval ELSE COALESCE(ml.tt, t.idval) END'
+                WHEN a.attname = 'idval'
+                    AND p_table IN (
+                        'edit_typevalue', 'om_typevalue', 'plan_typevalue', 'sys_typevalue'
+                    )
+                    THEN 'COALESCE(ml.vl, t.idval)'
+                WHEN a.attname = 'descript'
+                    AND p_table IN (
+                        'edit_typevalue', 'om_typevalue', 'plan_typevalue',
+                        'sys_typevalue', 'config_visit_parameter'
+                    )
+                    THEN 'COALESCE(ml.ds, t.descript)'
                 WHEN a.attname = 'widgetcontrols' AND p_table = 'config_form_fields'
                     THEN '(COALESCE(t.widgetcontrols::jsonb, ''{}''::jsonb)
                            || COALESCE(mlj.text, mljp.text, ''{}''::jsonb))::json'

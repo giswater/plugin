@@ -136,7 +136,11 @@ DECLARE
         'config_form_tableview',
         'config_report',
         'config_toolbox',
-        'config_typevalue'
+        'config_typevalue',
+        'edit_typevalue',
+        'om_typevalue',
+        'plan_typevalue',
+        'config_visit_parameter'
     ];
     v_table text;
 BEGIN
@@ -177,8 +181,32 @@ INSERT INTO sys_table (id, descript, sys_role, "source") VALUES
 ('v_config_form_tableview', 'Tableview column configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
 ('v_config_report', 'Report configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
 ('v_config_toolbox', 'Toolbox configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
-('v_config_typevalue', 'Typevalue configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core')
+('v_config_typevalue', 'Typevalue configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_edit_typevalue', 'Edit typevalue catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_om_typevalue', 'OM typevalue catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_plan_typevalue', 'Plan typevalue catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_config_visit_parameter', 'Visit parameter catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core')
 ON CONFLICT (id) DO NOTHING;
+
+UPDATE config_form_fields
+SET
+    dv_querytext = regexp_replace(
+        dv_querytext,
+        '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter)\M',
+        'v_\1',
+        'g'
+    ),
+    dv_querytext_filterc = CASE
+        WHEN dv_querytext_filterc IS NULL THEN NULL
+        ELSE regexp_replace(
+            dv_querytext_filterc,
+            '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter)\M',
+            'v_\1',
+            'g'
+        )
+    END
+WHERE dv_querytext ~ '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter)\M'
+   OR COALESCE(dv_querytext_filterc, '') ~ '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter)\M';
 
 ALTER TABLE cat_feature ADD custom_code_autofill bool DEFAULT false NULL;
 ALTER TABLE config_mapzones ADD custom_code_autofill bool DEFAULT false NULL;
