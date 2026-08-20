@@ -639,6 +639,58 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertEqual(contexts, {"sys_typevalue"})
 
 
+
+    def test_parse_dbbasic_tables_routes_by_update_context(self):
+        sql = """
+        UPDATE config_param_system AS t SET value = v.value FROM (
+            VALUES
+            ('admin_currency', '{"id":"EUR", "descript":"EURO"}')
+        ) AS v(parameter, value)
+        WHERE t.parameter = v.parameter;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbbasic_tables", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        currency = rows[0]
+        self.assertEqual(currency.table, "config_param_system")
+        self.assertEqual(currency.values["source"], "admin_currency")
+        self.assertEqual(currency.values["vl"], '{"id":"EUR", "descript":"EURO"}')
+        self.assertEqual(currency.values["context"], "config_param_system")
+
+
+    def test_parse_dbbasic_tables_skips_unknown_contexts(self):
+        sql = """
+        UPDATE value_status AS t SET idval = v.idval FROM (
+            VALUES
+            ('CANCELED', 'CANCELED')
+        ) AS v(id, idval)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbbasic_tables", blocks, project_type="am")
+        self.assertEqual(rows, [])
+
+
+    def test_load_ws_admin_currency_keeps_label_and_value(self):
+        rows = [
+            row for row in rows_for_project_type(
+                load_baseline_rows_for_project_type(_sql_root(), "ws"), "ws",
+            )
+            if row.table == "config_param_system"
+            and row.values.get("source") == "admin_currency"
+        ]
+        self.assertGreaterEqual(len(rows), 2)
+        self.assertTrue(any(row.values.get("lb") == "System currency:" for row in rows))
+        self.assertTrue(any(
+            str(row.values.get("vl") or "").startswith("{") for row in rows
+        ))
+        inserts = build_insert_sql("config_param_system", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertEqual(inserts[0].count("'admin_currency'"), 1)
+        self.assertIn(" vl ", inserts[0])
+        self.assertIn(" lb ", inserts[0])
+        self.assertIn("System currency:", inserts[0])
+
     def test_baseline_fingerprint_stable(self):
         sql_root = _sql_root()
         fp1 = compute_baseline_fingerprint(sql_root)
@@ -660,6 +712,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("config_typevalue", ddl)
         self.assertIn("config_visit_parameter", ddl)
         self.assertIn("edit_typevalue", ddl)
+        self.assertIn("COALESCE(ml.vl, t.value)", ddl)
         self.assertNotIn("CREATE OR REPLACE VIEW", ddl)
 
     def test_ensure_multilang_tables_ddl_creates_config_typevalue(self):
@@ -668,6 +721,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("formname text NOT NULL", ddl)
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.typevalue", ddl)
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.config_visit_parameter", ddl)
+        self.assertIn("ADD COLUMN IF NOT EXISTS vl text NULL", ddl)
         self.assertIn("typevalue text NOT NULL", ddl)
 
 

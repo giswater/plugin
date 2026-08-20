@@ -4824,7 +4824,7 @@ def parse_currency(value_str, currency_config=None):
 
     if currency_config is None:
         try:
-            row = get_config_value(parameter='admin_currency', columns='value::text', table='config_param_system')
+            row = get_config_value(parameter='admin_currency', columns='value::text', table='v_config_param_system')
             if row:
                 currency_config = json.loads(row[0])
         except Exception:
@@ -4869,7 +4869,7 @@ def format_currency(value, currency_config=None, with_symbol=True):
 
     if currency_config is None:
         try:
-            row = get_config_value(parameter='admin_currency', columns='value::text', table='config_param_system')
+            row = get_config_value(parameter='admin_currency', columns='value::text', table='v_config_param_system')
             if row:
                 currency_config = json.loads(row[0])
         except Exception:

@@ -87,7 +87,7 @@ BEGIN
 	SELECT project_type INTO v_project_type FROM sys_version ORDER BY id DESC LIMIT 1;
 
 	-- get currency symbol
-	SELECT value::json->'symbol' INTO v_currency FROM config_param_system WHERE parameter ='admin_currency';
+	SELECT value::json->'symbol' INTO v_currency FROM v_config_param_system WHERE parameter ='admin_currency';
 	v_currency=replace(v_currency,'"','');
 
 	-- setting tabname

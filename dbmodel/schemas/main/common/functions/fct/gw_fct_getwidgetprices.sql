@@ -44,7 +44,7 @@ BEGIN
 	-- Getting variables
 	v_tablename = (p_data->>'data')::json->>'tableName';
 	v_psector_id = (p_data->>'data')::json->>'psectorId';
-	v_currency :=(SELECT value::json->>'symbol' FROM config_param_system WHERE parameter='admin_currency');
+	v_currency :=(SELECT value::json->>'symbol' FROM v_config_param_system WHERE parameter='admin_currency');
 
 	-- Get table columns
 	EXECUTE 'SELECT array_agg(row_to_json(a)) FROM (SELECT column_name FROM information_schema.columns 

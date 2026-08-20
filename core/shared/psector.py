@@ -80,7 +80,7 @@ class GwPsector:
     def get_psector(self, psector_id=None, list_coord=None):
         """ Buttons 51 and 52: New psector """
 
-        row = tools_gw.get_config_value(parameter='admin_currency', columns='value::text', table='config_param_system')
+        row = tools_gw.get_config_value(parameter='admin_currency', columns='value::text', table='v_config_param_system')
         if row:
             self.sys_currency = json.loads(row[0], object_pairs_hook=OrderedDict)
 
@@ -862,7 +862,7 @@ class GwPsector:
         # Get currency config
         currency_config = None
         try:
-            row_currency = tools_gw.get_config_value(parameter='admin_currency', columns='value::text', table='config_param_system')
+            row_currency = tools_gw.get_config_value(parameter='admin_currency', columns='value::text', table='v_config_param_system')
             if row_currency:
                 currency_config = json.loads(row_currency[0])
         except Exception:

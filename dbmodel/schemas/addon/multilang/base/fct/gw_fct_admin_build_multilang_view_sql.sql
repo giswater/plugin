@@ -343,6 +343,8 @@ BEGIN
                         'sys_typevalue', 'config_visit_parameter'
                     )
                     THEN 'COALESCE(ml.ds, t.descript)'
+                WHEN a.attname = 'value' AND p_table = 'config_param_system'
+                    THEN 'COALESCE(ml.vl, t.value)'
                 WHEN a.attname = 'widgetcontrols' AND p_table = 'config_form_fields'
                     THEN '(COALESCE(t.widgetcontrols::jsonb, ''{}''::jsonb)
                            || COALESCE(mlj.text, mljp.text, ''{}''::jsonb))::json'

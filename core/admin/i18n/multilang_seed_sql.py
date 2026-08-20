@@ -60,7 +60,12 @@ BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
 
 MULTILANG_UI_TABLES: tuple[str, ...] = tuple(sorted(set(BASELINE_TO_MULTILANG_TABLE.values())))
 
-_CORE_BASELINE_FILES: tuple[str, ...] = tuple(BASELINE_TO_MULTILANG_TABLE.keys())
+# Baseline files whose UPDATE context selects the satellite table.
+_MULTI_CONTEXT_BASELINES: frozenset[str] = frozenset({"dbbasic_tables"})
+
+_CORE_BASELINE_FILES: tuple[str, ...] = tuple(BASELINE_TO_MULTILANG_TABLE.keys()) + tuple(
+    sorted(_MULTI_CONTEXT_BASELINES)
+)
 
 # Baseline SQL files per project type (skip missing files at load time).
 _PROJECT_TYPE_TABLES: dict[str, tuple[str, ...]] = {
@@ -169,7 +174,15 @@ def _dedupe_rows_by_conflict_key(
     deduped: dict[tuple[Any, ...], MultilangRow] = {}
     for row in rows:
         key = tuple(row.values.get(col) for col in conflict_keys)
-        deduped[key] = row
+        existing = deduped.get(key)
+        if existing is None:
+            deduped[key] = row
+            continue
+        merged = dict(existing.values)
+        for col, val in row.values.items():
+            if val is not None:
+                merged[col] = val
+        deduped[key] = MultilangRow(table=row.table, values=merged)
     return list(deduped.values())
 
 
@@ -264,12 +277,18 @@ def seed_table_files_for_project_type(
 
     tables: list[str] = []
     for baseline_file in _PROJECT_TYPE_TABLES.get(pt, ()):
-        target = BASELINE_TO_MULTILANG_TABLE.get(baseline_file)
-        if not target or target not in _TABLE_CONFLICT_KEYS:
+        if not _baseline_is_seedable(baseline_file):
             continue
         if os.path.isfile(os.path.join(i18n_dir, f"{baseline_file}.sql")):
             tables.append(baseline_file)
     return tuple(tables)
+
+
+def _baseline_is_seedable(baseline_file: str) -> bool:
+    if baseline_file in _MULTI_CONTEXT_BASELINES:
+        return True
+    target = BASELINE_TO_MULTILANG_TABLE.get(baseline_file)
+    return bool(target and target in _TABLE_CONFLICT_KEYS)
 
 
 def _parse_sql_string_literal(inner: str, start: int, *, escape: bool = False) -> tuple[str, int]:
@@ -619,6 +638,13 @@ def blocks_to_multilang_rows(
                 })
             elif table == "dbconfig_visit_parameter":
                 values["source"] = _cell(raw, block.value_aliases, "id")
+            elif table == "dbbasic_tables":
+                if block.context == "config_param_system":
+                    values["source"] = _first_cell(
+                        raw, block.value_aliases, "parameter", "id",
+                    )
+                else:
+                    continue
             elif table in (
                 "dbparam_user", "dbmessage", "dbfprocess", "dbfunction", "dbtable",
                 "dbconfig_report", "dbconfig_toolbox",
@@ -647,6 +673,11 @@ def blocks_to_multilang_rows(
                 values["typevalue"] = str(values["typevalue"])
 
             target_table = BASELINE_TO_MULTILANG_TABLE.get(table)
+            if table == "dbbasic_tables":
+                if block.context == "config_param_system":
+                    target_table = "config_param_system"
+                else:
+                    continue
             if not target_table:
                 continue
             if table == "dbconfig_typevalue" and (
@@ -656,6 +687,8 @@ def blocks_to_multilang_rows(
             if table == "dbtypevalue" and (
                 values.get("typevalue") is None or values.get("source") is None
             ):
+                continue
+            if table == "dbbasic_tables" and values.get("source") is None:
                 continue
             rows.append(MultilangRow(table=target_table, values=values))
     return rows
@@ -690,7 +723,13 @@ def build_insert_sql(
     statements: list[str] = []
     for start in range(0, len(rows), batch_size):
         chunk = rows[start: start + batch_size]
-        columns = list(chunk[0].values.keys())
+        columns: list[str] = []
+        seen: set[str] = set()
+        for row in chunk:
+            for col in row.values:
+                if col not in seen:
+                    seen.add(col)
+                    columns.append(col)
         update_cols = [
             col for col in columns
             if col not in conflict_keys and col not in ("project_type", "context", "lang")
@@ -752,8 +791,7 @@ def load_baseline_rows_for_project_type(
 
     all_rows: list[MultilangRow] = []
     for baseline_file in _PROJECT_TYPE_TABLES.get(pt, ()):
-        target = BASELINE_TO_MULTILANG_TABLE.get(baseline_file)
-        if not target or target not in _TABLE_CONFLICT_KEYS:
+        if not _baseline_is_seedable(baseline_file):
             continue
         path = os.path.join(i18n_dir, f"{baseline_file}.sql")
         if not os.path.isfile(path):
@@ -1119,6 +1157,8 @@ BEGIN
         ON multilang.config_visit_parameter USING btree (lang);
 
     GRANT SELECT ON TABLE multilang.config_visit_parameter TO role_basic;
+
+    ALTER TABLE multilang.config_param_system ADD COLUMN IF NOT EXISTS vl text NULL;
 END
 $BODY$;
 """

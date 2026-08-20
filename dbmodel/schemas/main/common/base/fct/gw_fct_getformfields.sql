@@ -94,7 +94,7 @@ BEGIN
 	SELECT value::boolean INTO v_debug FROM config_param_user WHERE parameter='utils_debug_mode';
 
 	-- get currency symbol
-	SELECT value::json->'symbol' INTO v_currency FROM config_param_system WHERE parameter ='admin_currency';
+	SELECT value::json->'symbol' INTO v_currency FROM v_config_param_system WHERE parameter ='admin_currency';
 	v_currency=replace(v_currency,'"','');
 
 	IF v_debug = TRUE THEN

@@ -96,6 +96,7 @@ CREATE TABLE config_form_tabs (
     lang text NOT NULL DEFAULT 'en_us',
     lb text NULL,
     tt text NULL,
+    vl text NULL,
     updated_by text DEFAULT CURRENT_USER NULL,
     updated_on timestamptz DEFAULT now() NULL,
     CONSTRAINT config_form_tabs_id_uniq UNIQUE (id),
