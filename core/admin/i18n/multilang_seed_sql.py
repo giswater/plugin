@@ -56,6 +56,7 @@ BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
     "dbconfig_typevalue": "config_typevalue",
     "dbtypevalue": "typevalue",
     "dbconfig_visit_parameter": "config_visit_parameter",
+    "dbplan_price": "plan_price",
 }
 
 MULTILANG_UI_TABLES: tuple[str, ...] = tuple(sorted(
@@ -154,6 +155,7 @@ _TABLE_CONFLICT_KEYS: dict[str, tuple[str, ...]] = {
     "config_visit_parameter": ("project_type", "context", "source", "lang"),
     "value_state": ("project_type", "context", "source", "lang"),
     "value_state_type": ("project_type", "context", "source", "lang"),
+    "plan_price": ("project_type", "context", "source", "lang"),
 }
 
 # Multilang columns that must be double-quoted in generated SQL.
@@ -653,7 +655,7 @@ def blocks_to_multilang_rows(
                     continue
             elif table in (
                 "dbparam_user", "dbmessage", "dbfprocess", "dbfunction", "dbtable",
-                "dbconfig_report", "dbconfig_toolbox",
+                "dbconfig_report", "dbconfig_toolbox", "dbplan_price",
             ):
                 key = "fid" if table == "dbfprocess" else "id"
                 values["source"] = _cell(raw, block.value_aliases, key)
@@ -697,6 +699,8 @@ def blocks_to_multilang_rows(
             ):
                 continue
             if table == "dbbasic_tables" and values.get("source") is None:
+                continue
+            if table == "dbplan_price" and values.get("source") is None:
                 continue
             rows.append(MultilangRow(table=target_table, values=values))
     return rows
@@ -1206,6 +1210,27 @@ BEGIN
         ON multilang.value_state_type USING btree (lang);
 
     GRANT SELECT ON TABLE multilang.value_state_type TO role_basic;
+
+    CREATE TABLE IF NOT EXISTS multilang.plan_price (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        "source" text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        ds text NULL,
+        tx text NULL,
+        pr text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT plan_price_id_uniq UNIQUE (id),
+        CONSTRAINT plan_price_pkey PRIMARY KEY (project_type, context, "source", lang),
+        CONSTRAINT plan_price_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_plan_price_lang
+        ON multilang.plan_price USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.plan_price TO role_basic;
 END
 $BODY$;
 """

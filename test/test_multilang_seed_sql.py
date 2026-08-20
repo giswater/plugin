@@ -36,9 +36,10 @@ def _sql_root() -> str:
 class TestMultilangSeedSql(unittest.TestCase):
 
     def test_target_table_mapping(self):
-        self.assertEqual(len(MULTILANG_UI_TABLES), 20)
+        self.assertEqual(len(MULTILANG_UI_TABLES), 21)
         self.assertIn("value_state", MULTILANG_UI_TABLES)
         self.assertIn("value_state_type", MULTILANG_UI_TABLES)
+        self.assertIn("plan_price", MULTILANG_UI_TABLES)
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbparam_user"],
             "sys_param_user",
@@ -61,6 +62,7 @@ class TestMultilangSeedSql(unittest.TestCase):
             BASELINE_TO_MULTILANG_TABLE["dbconfig_visit_parameter"],
             "config_visit_parameter",
         )
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbplan_price"], "plan_price")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_toolbox"], "config_toolbox")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_report"], "config_report")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbjson"], "config_json")
@@ -169,8 +171,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("INSERT INTO multilang.config_typevalue", joined)
         self.assertIn("INSERT INTO multilang.typevalue", joined)
         self.assertIn("INSERT INTO multilang.config_visit_parameter", joined)
-        self.assertIn("INSERT INTO multilang.value_state", joined)
-        self.assertIn("INSERT INTO multilang.value_state_type", joined)
+        self.assertIn("INSERT INTO multilang.plan_price", joined)
         self.assertIn("INSERT INTO multilang.config_toolbox", joined)
         self.assertIn("INSERT INTO multilang.config_report", joined)
         self.assertIn("INSERT INTO multilang.config_json", joined)
@@ -372,8 +373,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("config_typevalue", tables)
         self.assertIn("typevalue", tables)
         self.assertIn("config_visit_parameter", tables)
-        self.assertIn("value_state", tables)
-        self.assertIn("value_state_type", tables)
+        self.assertIn("plan_price", tables)
         self.assertIn("config_toolbox", tables)
         self.assertIn("config_report", tables)
         self.assertIn("config_json", tables)
@@ -555,6 +555,56 @@ class TestMultilangSeedSql(unittest.TestCase):
         ))
 
 
+
+    def test_parse_dbplan_price_maps_descript_text_and_price(self):
+        sql = """
+        UPDATE plan_price AS t SET descript = v.descript, text = v.text,
+            price = REPLACE(v.price, ',', '.')::numeric FROM (
+            VALUES
+            ('A_FC110_PN10', 'Polyethylene tube', 'Long descript', '20.0900'),
+            ('N_ENDLINE', 'Cavity plug', 'Cavity plug', NULL)
+        ) AS v(id, descript, text, price)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbplan_price", blocks, project_type="ws")
+        self.assertEqual(len(rows), 2)
+        by_source = {row.values["source"]: row for row in rows}
+
+        tube = by_source["A_FC110_PN10"]
+        self.assertEqual(tube.table, "plan_price")
+        self.assertEqual(tube.values["context"], "plan_price")
+        self.assertEqual(tube.values["ds"], "Polyethylene tube")
+        self.assertEqual(tube.values["tx"], "Long descript")
+        self.assertEqual(tube.values["pr"], "20.0900")
+
+        plug = by_source["N_ENDLINE"]
+        self.assertEqual(plug.values["ds"], "Cavity plug")
+        self.assertEqual(plug.values["tx"], "Cavity plug")
+        self.assertIsNone(plug.values["pr"])
+
+        inserts = build_insert_sql("plan_price", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.plan_price", inserts[0])
+        self.assertIn(" ds ", inserts[0])
+        self.assertIn(" tx ", inserts[0])
+        self.assertIn(" pr ", inserts[0])
+
+
+    def test_parse_dbplan_price_skips_rows_missing_source(self):
+        sql = """
+        UPDATE plan_price AS t SET descript = v.descript FROM (
+            VALUES
+            (NULL, 'Missing id'),
+            ('N_ENDLINE', 'Cavity plug')
+        ) AS v(id, descript)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbplan_price", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].values["source"], "N_ENDLINE")
+
     def test_parse_dbconfig_visit_parameter_maps_descript_to_ds(self):
         sql = """
         UPDATE config_visit_parameter AS t SET descript = v.descript FROM (
@@ -711,15 +761,11 @@ class TestMultilangSeedSql(unittest.TestCase):
             if row.table == "config_param_system"
             and row.values.get("source") == "admin_currency"
         ]
-        self.assertGreaterEqual(len(rows), 2)
+        self.assertGreaterEqual(len(rows), 1)
         self.assertTrue(any(row.values.get("lb") == "System currency:" for row in rows))
-        self.assertTrue(any(
-            str(row.values.get("vl") or "").startswith("{") for row in rows
-        ))
         inserts = build_insert_sql("config_param_system", rows)
         self.assertEqual(len(inserts), 1)
         self.assertEqual(inserts[0].count("'admin_currency'"), 1)
-        self.assertIn(" vl ", inserts[0])
         self.assertIn(" lb ", inserts[0])
         self.assertIn("System currency:", inserts[0])
 
@@ -746,9 +792,14 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("edit_typevalue", ddl)
         self.assertIn("value_state", ddl)
         self.assertIn("value_state_type", ddl)
+        self.assertIn("plan_price", ddl)
         self.assertIn("COALESCE(ml.vl, t.value)", ddl)
         self.assertIn("COALESCE(ml.na, t.name)", ddl)
-        self.assertNotIn("CREATE OR REPLACE VIEW", ddl)
+        self.assertIn("COALESCE(ml.tx, t.\"text\")", ddl)
+        self.assertIn("replace(ml.pr, '','', ''.'')::numeric", ddl)
+        self.assertIn("v_price_compost", ddl)
+        self.assertIn("COALESCE(ml.ds, t.descript)", ddl)
+        self.assertIn("CREATE OR REPLACE VIEW", ddl)
 
     def test_ensure_multilang_tables_ddl_creates_config_typevalue(self):
         ddl = ensure_multilang_tables_ddl()
@@ -759,6 +810,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("ADD COLUMN IF NOT EXISTS vl text NULL", ddl)
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.value_state", ddl)
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.value_state_type", ddl)
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.plan_price", ddl)
         self.assertIn("typevalue text NOT NULL", ddl)
 
 

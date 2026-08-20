@@ -142,7 +142,8 @@ DECLARE
         'plan_typevalue',
         'config_visit_parameter',
         'value_state',
-        'value_state_type'
+        'value_state_type',
+        'plan_price'
     ];
     v_table text;
 BEGIN
@@ -169,6 +170,54 @@ BEGIN
 END
 $BODY$;
 
+-- Keep plan cost UI (v_ui_plan_* / ve_plan_psector_x_other) on translated descript
+-- even if the multilang manage function has not been upgraded yet.
+DO $BODY$
+DECLARE
+    v_schema text := current_schema();
+BEGIN
+    IF to_regclass('multilang.plan_price') IS NOT NULL
+       AND to_regclass(format('%I.plan_price', v_schema)) IS NOT NULL
+       AND to_regclass(format('%I.plan_price_compost', v_schema)) IS NOT NULL
+    THEN
+    EXECUTE format(
+        'CREATE OR REPLACE VIEW %1$I.v_price_compost AS
+         SELECT
+             t.id,
+             t.unit,
+             COALESCE(ml.ds, t.descript)::character varying(100) AS descript,
+             CASE
+                 WHEN t.price IS NOT NULL THEN t.price::numeric(14,2)
+                 ELSE (sum((t.price * c.value)))::numeric(14,2)
+             END AS price
+         FROM %1$I.plan_price t
+         LEFT JOIN multilang.plan_price ml
+             ON ml.source = t.id
+            AND ml.context = ''plan_price''
+            AND ml.project_type = (
+                SELECT lower(btrim(sv.project_type))
+                FROM %1$I.sys_version sv
+                ORDER BY sv.id DESC
+                LIMIT 1
+            )
+            AND ml.lang = (
+                SELECT lower(btrim(cpu.value))
+                FROM %1$I.config_param_user cpu
+                WHERE cpu.parameter = ''multilang_language''
+                  AND cpu.cur_user = current_user
+                  AND lower(btrim(cpu.value)) IS NOT NULL
+                  AND lower(btrim(cpu.value)) <> ''default''
+                  AND length(lower(btrim(cpu.value))) = 5
+            )
+         LEFT JOIN %1$I.plan_price_compost c
+             ON t.id::text = c.compost_id::text
+         GROUP BY t.id, t.unit, t.descript, ml.ds',
+        v_schema
+    );
+    END IF;
+END
+$BODY$;
+
 INSERT INTO sys_table (id, descript, sys_role, "source") VALUES
 ('v_config_form_fields', 'Configuration form fields (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
 ('v_config_form_tabs', 'Configuration form tabs (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
@@ -189,14 +238,15 @@ INSERT INTO sys_table (id, descript, sys_role, "source") VALUES
 ('v_plan_typevalue', 'Plan typevalue catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
 ('v_config_visit_parameter', 'Visit parameter catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
 ('v_value_state', 'Feature state catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
-('v_value_state_type', 'Feature state type catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core')
+('v_value_state_type', 'Feature state type catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_plan_price', 'Plan price catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core')
 ON CONFLICT (id) DO NOTHING;
 
 UPDATE config_form_fields
 SET
     dv_querytext = regexp_replace(
         dv_querytext,
-        '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter|value_state_type|value_state)\M',
+        '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter|value_state_type|value_state|plan_price)\M',
         'v_\1',
         'g'
     ),
@@ -204,13 +254,13 @@ SET
         WHEN dv_querytext_filterc IS NULL THEN NULL
         ELSE regexp_replace(
             dv_querytext_filterc,
-            '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter|value_state_type|value_state)\M',
+            '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter|value_state_type|value_state|plan_price)\M',
             'v_\1',
             'g'
         )
     END
-WHERE dv_querytext ~ '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter|value_state_type|value_state)\M'
-   OR COALESCE(dv_querytext_filterc, '') ~ '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter|value_state_type|value_state)\M';
+WHERE dv_querytext ~ '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter|value_state_type|value_state|plan_price)\M'
+   OR COALESCE(dv_querytext_filterc, '') ~ '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter|value_state_type|value_state|plan_price)\M';
 
 ALTER TABLE cat_feature ADD custom_code_autofill bool DEFAULT false NULL;
 ALTER TABLE config_mapzones ADD custom_code_autofill bool DEFAULT false NULL;

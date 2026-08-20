@@ -96,7 +96,6 @@ CREATE TABLE config_form_tabs (
     lang text NOT NULL DEFAULT 'en_us',
     lb text NULL,
     tt text NULL,
-    vl text NULL,
     updated_by text DEFAULT CURRENT_USER NULL,
     updated_on timestamptz DEFAULT now() NULL,
     CONSTRAINT config_form_tabs_id_uniq UNIQUE (id),
@@ -112,6 +111,7 @@ CREATE TABLE config_param_system (
     lang text NOT NULL DEFAULT 'en_us',
     lb text NULL,
     tt text NULL,
+    vl text NULL,
     updated_by text DEFAULT CURRENT_USER NULL,
     updated_on timestamptz DEFAULT now() NULL,
     CONSTRAINT config_param_system_id_uniq UNIQUE (id),
@@ -354,6 +354,21 @@ CREATE TABLE value_state_type (
     CONSTRAINT value_state_type_pkey PRIMARY KEY (project_type, context, "source", lang),
     CONSTRAINT value_state_type_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
 );
+CREATE TABLE plan_price (
+    id serial4 NOT NULL,
+    project_type text NOT NULL,
+    context text NOT NULL,
+    "source" text NOT NULL,
+    lang text NOT NULL DEFAULT 'en_us',
+    ds text NULL,
+    tx text NULL,
+    pr text NULL,
+    updated_by text DEFAULT CURRENT_USER NULL,
+    updated_on timestamptz DEFAULT now() NULL,
+    CONSTRAINT plan_price_id_uniq UNIQUE (id),
+    CONSTRAINT plan_price_pkey PRIMARY KEY (project_type, context, "source", lang),
+    CONSTRAINT plan_price_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
+);
 
 CREATE INDEX idx_config_form_fields_exact ON config_form_fields
     USING btree (lang, project_type, context, formtype, tabname, source, formname)
@@ -373,6 +388,7 @@ CREATE INDEX idx_typevalue_lang ON typevalue USING btree (lang);
 CREATE INDEX idx_config_visit_parameter_lang ON config_visit_parameter USING btree (lang);
 CREATE INDEX idx_value_state_lang ON value_state USING btree (lang);
 CREATE INDEX idx_value_state_type_lang ON value_state_type USING btree (lang);
+CREATE INDEX idx_plan_price_lang ON plan_price USING btree (lang);
 CREATE INDEX idx_config_toolbox_lang ON config_toolbox USING btree (lang);
 CREATE INDEX idx_config_report_lang ON config_report USING btree (lang);
 CREATE INDEX idx_config_json_lang ON config_json USING btree (lang);

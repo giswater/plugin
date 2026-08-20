@@ -50,7 +50,8 @@ DECLARE
         'sys_typevalue',
         'config_visit_parameter',
         'value_state',
-        'value_state_type'
+        'value_state_type',
+        'plan_price'
     ];
 BEGIN
     v_prev_search_path := current_setting('search_path');
@@ -131,6 +132,83 @@ BEGIN
                     );
                 END;
             END LOOP;
+
+
+            -- Plan UI (info plan, psector other prices) reads descript from
+            -- v_price_compost. Recreate it in place so translations show without
+            -- making v_plan_price a dependency (DROP v_plan_price would fail).
+            IF v_project_type IN ('WS', 'UD')
+               AND to_regclass(format('%I.plan_price', v_schema.schema_name)) IS NOT NULL
+               AND to_regclass(format('%I.plan_price_compost', v_schema.schema_name)) IS NOT NULL
+            THEN
+                BEGIN
+                    IF p_enable IS TRUE AND to_regclass('multilang.plan_price') IS NOT NULL THEN
+                        EXECUTE format(
+                            'CREATE OR REPLACE VIEW %1$I.v_price_compost AS
+                             SELECT
+                                 t.id,
+                                 t.unit,
+                                 COALESCE(ml.ds, t.descript)::character varying(100) AS descript,
+                                 CASE
+                                     WHEN t.price IS NOT NULL THEN t.price::numeric(14,2)
+                                     ELSE (sum((t.price * c.value)))::numeric(14,2)
+                                 END AS price
+                             FROM %1$I.plan_price t
+                             LEFT JOIN multilang.plan_price ml
+                                 ON ml.source = t.id
+                                AND ml.context = ''plan_price''
+                                AND ml.project_type = (
+                                    SELECT lower(btrim(sv.project_type))
+                                    FROM %1$I.sys_version sv
+                                    ORDER BY sv.id DESC
+                                    LIMIT 1
+                                )
+                                AND ml.lang = (
+                                    SELECT lower(btrim(cpu.value))
+                                    FROM %1$I.config_param_user cpu
+                                    WHERE cpu.parameter = ''multilang_language''
+                                      AND cpu.cur_user = current_user
+                                      AND lower(btrim(cpu.value)) IS NOT NULL
+                                      AND lower(btrim(cpu.value)) <> ''default''
+                                      AND length(lower(btrim(cpu.value))) = 5
+                                )
+                             LEFT JOIN %1$I.plan_price_compost c
+                                 ON t.id::text = c.compost_id::text
+                             GROUP BY t.id, t.unit, t.descript, ml.ds',
+                            v_schema.schema_name
+                        );
+                    ELSE
+                        EXECUTE format(
+                            'CREATE OR REPLACE VIEW %1$I.v_price_compost AS
+                             SELECT
+                                 t.id,
+                                 t.unit,
+                                 t.descript,
+                                 CASE
+                                     WHEN t.price IS NOT NULL THEN t.price::numeric(14,2)
+                                     ELSE (sum((t.price * c.value)))::numeric(14,2)
+                                 END AS price
+                             FROM %1$I.plan_price t
+                             LEFT JOIN %1$I.plan_price_compost c
+                                 ON t.id::text = c.compost_id::text
+                             GROUP BY t.id, t.unit, t.descript',
+                            v_schema.schema_name
+                        );
+                    END IF;
+                    v_name := array_append(v_name, 'v_price_compost');
+                EXCEPTION WHEN OTHERS THEN
+                    PERFORM set_config('search_path', v_prev_search_path, true);
+                    v_errors := v_errors || jsonb_build_array(
+                        jsonb_build_object(
+                            'schema', v_schema.schema_name,
+                            'view', 'v_price_compost',
+                            'table', 'plan_price',
+                            'error', SQLERRM,
+                            'sqlstate', SQLSTATE
+                        )
+                    );
+                END;
+            END IF;
 
             v_count := v_count + 1;
         EXCEPTION WHEN OTHERS THEN

@@ -277,6 +277,17 @@ BEGIN
                AND ml.lang = %s',
             p_table, v_context, v_pt_expr, v_lang_expr
         );
+
+    ELSIF p_table = 'plan_price' THEN
+        v_context := 'plan_price';
+        v_join := format(
+            'LEFT JOIN multilang.plan_price ml
+                ON ml.source = t.id
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
     ELSE
         RAISE EXCEPTION 'Unsupported multilang view table: %', p_table;
     END IF;
@@ -351,9 +362,13 @@ BEGIN
                 WHEN a.attname = 'descript'
                     AND p_table IN (
                         'edit_typevalue', 'om_typevalue', 'plan_typevalue',
-                        'sys_typevalue', 'config_visit_parameter'
+                        'sys_typevalue', 'config_visit_parameter', 'plan_price'
                     )
                     THEN 'COALESCE(ml.ds, t.descript)'
+                WHEN a.attname = 'text' AND p_table = 'plan_price'
+                    THEN 'COALESCE(ml.tx, t."text")'
+                WHEN a.attname = 'price' AND p_table = 'plan_price'
+                    THEN 'COALESCE(replace(ml.pr, '','', ''.'')::numeric, t.price)'
                 WHEN a.attname = 'value' AND p_table = 'config_param_system'
                     THEN 'COALESCE(ml.vl, t.value)'
                 WHEN a.attname = 'name'
