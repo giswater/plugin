@@ -18,7 +18,7 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
@@ -55,7 +55,7 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
@@ -92,7 +92,7 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
@@ -129,7 +129,7 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
@@ -170,7 +170,7 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
@@ -211,7 +211,7 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
@@ -248,7 +248,7 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
@@ -289,7 +289,7 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
@@ -326,7 +326,7 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)

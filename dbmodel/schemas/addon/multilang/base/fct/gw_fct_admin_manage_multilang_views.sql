@@ -48,7 +48,8 @@ DECLARE
         'om_typevalue',
         'plan_typevalue',
         'sys_typevalue',
-        'config_visit_parameter'
+        'config_visit_parameter',
+        'value_state'
     ];
 BEGIN
     v_prev_search_path := current_setting('search_path');

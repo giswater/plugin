@@ -36,7 +36,8 @@ def _sql_root() -> str:
 class TestMultilangSeedSql(unittest.TestCase):
 
     def test_target_table_mapping(self):
-        self.assertEqual(len(MULTILANG_UI_TABLES), 18)
+        self.assertEqual(len(MULTILANG_UI_TABLES), 19)
+        self.assertIn("value_state", MULTILANG_UI_TABLES)
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbparam_user"],
             "sys_param_user",
@@ -167,6 +168,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("INSERT INTO multilang.config_typevalue", joined)
         self.assertIn("INSERT INTO multilang.typevalue", joined)
         self.assertIn("INSERT INTO multilang.config_visit_parameter", joined)
+        self.assertIn("INSERT INTO multilang.value_state", joined)
         self.assertIn("INSERT INTO multilang.config_toolbox", joined)
         self.assertIn("INSERT INTO multilang.config_report", joined)
         self.assertIn("INSERT INTO multilang.config_json", joined)
@@ -368,6 +370,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("config_typevalue", tables)
         self.assertIn("typevalue", tables)
         self.assertIn("config_visit_parameter", tables)
+        self.assertIn("value_state", tables)
         self.assertIn("config_toolbox", tables)
         self.assertIn("config_report", tables)
         self.assertIn("config_json", tables)
@@ -647,15 +650,31 @@ class TestMultilangSeedSql(unittest.TestCase):
             ('admin_currency', '{"id":"EUR", "descript":"EURO"}')
         ) AS v(parameter, value)
         WHERE t.parameter = v.parameter;
+
+        UPDATE value_state AS t SET name = v.name, observ = v.observ FROM (
+            VALUES
+            (1, 'OPERATIVE', NULL)
+        ) AS v(id, name, observ)
+        WHERE t.id = v.id;
         """
         blocks = parse_update_blocks(sql)
         rows = blocks_to_multilang_rows("dbbasic_tables", blocks, project_type="ws")
-        self.assertEqual(len(rows), 1)
-        currency = rows[0]
-        self.assertEqual(currency.table, "config_param_system")
+        by_table = {row.table: row for row in rows}
+        self.assertEqual(set(by_table), {"config_param_system", "value_state"})
+
+        currency = by_table["config_param_system"]
         self.assertEqual(currency.values["source"], "admin_currency")
         self.assertEqual(currency.values["vl"], '{"id":"EUR", "descript":"EURO"}')
         self.assertEqual(currency.values["context"], "config_param_system")
+
+        state = by_table["value_state"]
+        self.assertEqual(state.values["source"], "1")
+        self.assertEqual(state.values["na"], "OPERATIVE")
+        self.assertIsNone(state.values["ob"])
+
+        inserts = build_insert_sql("value_state", [state])
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.value_state", inserts[0])
 
 
     def test_parse_dbbasic_tables_skips_unknown_contexts(self):
@@ -712,7 +731,9 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("config_typevalue", ddl)
         self.assertIn("config_visit_parameter", ddl)
         self.assertIn("edit_typevalue", ddl)
+        self.assertIn("value_state", ddl)
         self.assertIn("COALESCE(ml.vl, t.value)", ddl)
+        self.assertIn("COALESCE(ml.na, t.name)", ddl)
         self.assertNotIn("CREATE OR REPLACE VIEW", ddl)
 
     def test_ensure_multilang_tables_ddl_creates_config_typevalue(self):
@@ -722,6 +743,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.typevalue", ddl)
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.config_visit_parameter", ddl)
         self.assertIn("ADD COLUMN IF NOT EXISTS vl text NULL", ddl)
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.value_state", ddl)
         self.assertIn("typevalue text NOT NULL", ddl)
 
 

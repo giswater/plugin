@@ -266,6 +266,17 @@ BEGIN
                AND ml.lang = %s',
             v_context, v_pt_expr, v_lang_expr
         );
+
+    ELSIF p_table = 'value_state' THEN
+        v_context := p_table;
+        v_join := format(
+            'LEFT JOIN multilang.%I ml
+                ON ml.source = t.id::text
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            p_table, v_context, v_pt_expr, v_lang_expr
+        );
     ELSE
         RAISE EXCEPTION 'Unsupported multilang view table: %', p_table;
     END IF;
@@ -345,6 +356,10 @@ BEGIN
                     THEN 'COALESCE(ml.ds, t.descript)'
                 WHEN a.attname = 'value' AND p_table = 'config_param_system'
                     THEN 'COALESCE(ml.vl, t.value)'
+                WHEN a.attname = 'name' AND p_table = 'value_state'
+                    THEN 'COALESCE(ml.na, t.name)'
+                WHEN a.attname = 'observ' AND p_table = 'value_state'
+                    THEN 'COALESCE(ml.ob, t.observ)'
                 WHEN a.attname = 'widgetcontrols' AND p_table = 'config_form_fields'
                     THEN '(COALESCE(t.widgetcontrols::jsonb, ''{}''::jsonb)
                            || COALESCE(mlj.text, mljp.text, ''{}''::jsonb))::json'
