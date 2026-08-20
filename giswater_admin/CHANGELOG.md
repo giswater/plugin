@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - SchemaBuilder no longer `SET ROLE role_system` after `load_base`. Updates and sample run as the installer login so `selector_*` / `config_param_user` bind to the user pgTAP and QGIS use.
+- Plugin `__init__.py` no longer imports `qgis` at module load (QPIP path is skipped without QGIS). CLI release pytest can collect `test/engine` on a runner without QGIS. `cli-v0.4.1` never reached PyPI (`ModuleNotFoundError: qgis`).
+- Release CI / pytest config uses `--import-mode=importlib`.
 
 ## [0.4.1] - 2026-08-19
 

@@ -39,3 +39,8 @@ Documentation = "https://github.com/giswater/plugin/blob/main/giswater_admin/REA
 
 [tool.setuptools.packages.find]
 include = ["giswater_admin*"]
+
+[tool.pytest.ini_options]
+# Repo-root __init__.py is the QGIS plugin. importlib avoids extra package
+# walks; __init__.py also guards the qgis import for headless CLI CI.
+addopts = "--import-mode=importlib"
