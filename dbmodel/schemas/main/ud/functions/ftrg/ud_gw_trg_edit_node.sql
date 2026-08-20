@@ -75,8 +75,8 @@ v_node_id text;
 v_childtable_name text;
 v_schemaname text;
 
-v_dist_xlab numeric;
-v_dist_ylab numeric;
+v_dist_xlab numeric = 0;
+v_dist_ylab numeric = 0;
 v_label_point public.geometry;
 v_rot1 numeric;
 v_rot2 numeric;
@@ -1087,7 +1087,7 @@ BEGIN
 		FROM cat_feature WHERE id = '||quote_literal(new.node_type)||'
 		' INTO v_dist_ylab;
 
-		if new.label_x != old.label_x and new.label_y != old.label_y then
+		if new.label_x != old.label_x or new.label_y != old.label_y then
 
 			update node set label_x = new.label_x, label_y = new.label_y where node_id = new.node_id;
 

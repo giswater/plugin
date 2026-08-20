@@ -29,8 +29,8 @@ DECLARE
 	v_dist_xlab numeric;
 	v_dist_ylab numeric;
 	v_label_point public.geometry;
-	v_rot1 numeric;
-	v_rot2 numeric;
+	v_rot1 numeric = 0;
+	v_rot2 numeric = 0;
 	v_geom public.geometry;
 	v_cur_rotation numeric;
 	v_cur_quadrant TEXT;
@@ -62,6 +62,9 @@ BEGIN
 	END IF;
 	SELECT value::boolean INTO v_rotation_disable FROM config_param_user WHERE parameter='edit_disable_noderotation' AND cur_user=current_user;
 	SELECT value::boolean INTO v_rotation_disable_complete FROM config_param_user WHERE parameter='edit_disable_noderotation_complete' AND cur_user=current_user;
+
+	NEW.rotation := ROUND(NEW.rotation::numeric, 4)::double precision;
+	NEW.hemisphere := ROUND(NEW.hemisphere::numeric, 4)::double precision;
 
 	IF v_rotation_disable_complete IS TRUE THEN
 		RETURN NEW;
@@ -152,7 +155,7 @@ BEGIN
 	END IF;
 
 
-	if new.label_x != old.label_x and new.label_y != old.label_y then
+	if new.label_x != old.label_x or new.label_y != old.label_y then
 
 		update node set label_x = new.label_x, label_y = new.label_y where node_id = new.node_id;
 
@@ -160,7 +163,6 @@ BEGIN
 		v_dist_xlab = null;
 
 	end if;
-
 
 	
 	new.rotation = coalesce(new.rotation, 0);
@@ -233,8 +235,8 @@ BEGIN
 	end if;
 
 	-- set label_x and label_y according to cat_feature
-	update node set label_x = st_x(v_label_point) where node_id = new.node_id;
-	update node set label_y = st_y(v_label_point) where node_id = new.node_id;
+	update node set label_x = st_x(v_label_point)::numeric(12,2) where node_id = new.node_id;
+	update node set label_y = st_y(v_label_point)::numeric(12,2) where node_id = new.node_id;
 
 	update node set label_quadrant = v_cur_quadrant where node_id = new.node_id;
 	update node set label_rotation =  new.rotation where node_id = new.node_id;
@@ -347,6 +349,9 @@ BEGIN
 			v_dist_ylab = v_dist_ylab * (-1);
 
 		end if;
+
+		v_rot1=coalesce(v_rot1, 0);			
+		v_rot2=coalesce(v_rot2, 0);	
 
 		-- label position
 		v_sql = '

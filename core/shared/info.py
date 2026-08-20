@@ -1384,6 +1384,9 @@ class GwInfo(QObject):
             action_widget.setChecked(False)
         tools_gw.disconnect_signal('info_snapping', 'change_hemisphere_ep_canvasClicked_action_rotation_canvas_clicked')
 
+        tools_qgis.force_refresh_map_canvas()
+        global_vars.canvas.setMapTool(self.previous_map_tool)
+
     def _manage_action_copy_paste(self, dialog, feature_type, tab_type=None):
         """ Copy some fields from snapped feature to current feature """
 

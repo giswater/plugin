@@ -22,11 +22,12 @@ SELECT SCHEMA_NAME.gw_fct_scada_graph_build($${"client":{"device":4, "lang":"es_
 Documentation:
 
 Orchestrates the scada graph Accept pipeline:
-1. INSERT om_scada_graph (object_1, object_2) -> gw_trg_scada_graph_builder trigger
-2. gw_fct_scada_graph_check (action fix)
-3. gw_fct_scada_graph_export
+1. Reject duplicate (object_1, object_2)
+2. INSERT om_scada_graph (object_1, object_2) -> gw_trg_scada_graph_builder fills THIS row only
+3. gw_fct_scada_graph_export (writes om_scada_graph_json; payload is NOT returned to the client)
 
-gw_fct_scada_graph_check and gw_fct_scada_graph_export remain available for standalone use.
+Skip gw_fct_scada_graph_check here: the trigger already writes geom/attrib/names for the new row.
+Check/fix remains available as a standalone maintenance call.
 */
 
 DECLARE
@@ -35,12 +36,8 @@ v_object_2 integer;
 v_edge_id integer;
 v_search_dist_routing integer;
 v_version text;
-v_check_data json;
 v_export_data json;
-v_check_result json;
 v_export_result json;
-v_export_data_body json;
-v_check_data_body json;
 v_error_context text;
 
 BEGIN
@@ -67,21 +64,17 @@ BEGIN
 			"version":"'||v_version||'","body":{"form":{},"data":{}}}')::json, 3547, null, null, null);
 	END IF;
 
+	IF EXISTS (
+		SELECT 1 FROM om_scada_graph
+		WHERE object_1 = v_object_1 AND object_2 = v_object_2
+	) THEN
+		RETURN gw_fct_json_create_return(('{"status":"Failed", "message":{"level":2, "text":"Scada graph edge already exists"},
+			"version":"'||v_version||'","body":{"form":{},"data":{}}}')::json, 3547, null, null, null);
+	END IF;
+
 	INSERT INTO om_scada_graph (object_1, object_2)
 	VALUES (v_object_1, v_object_2)
 	RETURNING edge_id INTO v_edge_id;
-
-	v_check_data := jsonb_set(
-		COALESCE(p_data::jsonb, '{}'::jsonb),
-		'{data,parameters}',
-		COALESCE(p_data -> 'data' -> 'parameters', '{}'::json)::jsonb
-			|| jsonb_build_object('object_1', v_object_1, 'object_2', v_object_2, 'action', 'fix')
-	)::json;
-
-	v_check_result := gw_fct_scada_graph_check(v_check_data);
-	IF v_check_result ->> 'status' IS DISTINCT FROM 'Accepted' THEN
-		RETURN v_check_result;
-	END IF;
 
 	v_export_data := jsonb_set(
 		COALESCE(p_data::jsonb, '{}'::jsonb),
@@ -99,9 +92,7 @@ BEGIN
 		RETURN v_export_result;
 	END IF;
 
-	v_check_data_body := COALESCE(v_check_result -> 'body' -> 'data', '{}'::json);
-	v_export_data_body := COALESCE(v_export_result -> 'body' -> 'data', '{}'::json);
-
+	-- Do not return export/check bodies: QGIS only needs edgeId. Full JSON stays in om_scada_graph_json.
 	RETURN gw_fct_json_create_return(json_build_object(
 		'status', 'Accepted',
 		'message', json_build_object('level', 1, 'text', 'Scada graph edge created successfully'),
@@ -111,9 +102,7 @@ BEGIN
 			'data', json_build_object(
 				'edgeId', v_edge_id,
 				'object_1', v_object_1,
-				'object_2', v_object_2,
-				'check', v_check_data_body,
-				'export', v_export_data_body
+				'object_2', v_object_2
 			)
 		)
 	)::json, 3547, null, null, null);

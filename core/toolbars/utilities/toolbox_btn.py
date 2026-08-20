@@ -16,7 +16,7 @@ from datetime import timedelta
 from qgis.PyQt.QtCore import Qt, QTimer, QDate
 from qgis.PyQt.QtGui import QIcon, QStandardItemModel, QStandardItem
 from qgis.PyQt.QtWidgets import QWidget, QLineEdit, QComboBox, QCheckBox, QRadioButton, QAbstractItemView, \
-    QCompleter, QGridLayout, QLabel, QTableWidgetItem, QHeaderView
+    QCompleter, QGridLayout, QLabel, QTableWidgetItem, QHeaderView, QSizePolicy
 from qgis.core import QgsApplication, QgsProject
 from qgis.gui import QgsDateTimeEdit
 
@@ -664,6 +664,10 @@ class GwToolBoxButton(GwAction):
             # Hide parameters group box if no input params were built
             param_layout = dialog.findChild(QGridLayout, 'grl_option_parameters')
             dialog.grb_parameters.setVisible(bool(param_layout and param_layout.count()))
+
+            # Set size policy to expanding if no parameters, selection type or input layer are visible
+            if not dialog.grb_parameters.isVisible() and not dialog.grb_selection_type.isVisible() and not dialog.grb_input_layer.isVisible():
+                dialog.grb_info.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
             self._load_settings_values(dialog, result)
             self._load_parametric_values(dialog, result)
