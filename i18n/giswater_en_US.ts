@@ -14625,6 +14625,14 @@ or they were created by another user:</translation>
 			<translation>Mincut</translation>
 		</message>
 		<message>
+			<source>actionMincut</source>
+			<translation>Network Mincut</translation>
+		</message>
+		<message>
+			<source>tooltip_actionMincut</source>
+			<translation>Automatic Mincut</translation>
+		</message>
+		<message>
 			<source>btn_accept</source>
 			<translation>Accept</translation>
 		</message>
