@@ -120,34 +120,6 @@ SET
 WHERE id = 'multilang_language';
 
 DO $BODY$
-BEGIN
-    IF to_regnamespace('multilang') IS NULL THEN
-        RETURN;
-    END IF;
-
-    CREATE TABLE IF NOT EXISTS multilang.config_typevalue (
-        id serial4 NOT NULL,
-        project_type text NOT NULL,
-        context text NOT NULL,
-        formname text NOT NULL,
-        "source" text NOT NULL,
-        lang text NOT NULL DEFAULT 'en_us',
-        tt text NULL,
-        updated_by text DEFAULT CURRENT_USER NULL,
-        updated_on timestamptz DEFAULT now() NULL,
-        CONSTRAINT config_typevalue_id_uniq UNIQUE (id),
-        CONSTRAINT config_typevalue_pkey PRIMARY KEY (project_type, context, formname, "source", lang),
-        CONSTRAINT config_typevalue_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_config_typevalue_lang
-        ON multilang.config_typevalue USING btree (lang);
-
-    GRANT SELECT ON TABLE multilang.config_typevalue TO role_basic;
-END
-$BODY$;
-
-DO $BODY$
 DECLARE
     v_schema text := current_schema();
     v_tables text[] := ARRAY[
