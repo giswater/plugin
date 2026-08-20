@@ -182,10 +182,10 @@ _PROJECT_TABLES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
             "dbconfig_form_tabs", "dbconfig_report", "dbconfig_toolbox",
             "dbfunction", "dbtypevalue", "dbconfig_form_tableview",
             "dbconfig_visit_parameter", "dbtable", "dbconfig_form_fields_feat",
-            "su_basic_tables", "dblabel", "dbplan_price", "dbstyle", "dbjson",
+            "dbbasic_tables", "dblabel", "dbplan_price", "dbstyle", "dbjson",
             "dbconfig_form_fields_json", "dbconfig_form_fields_query",
         ),
-        ("su_basic_tables", "su_feature"),
+        ("su_feature",),
     ),
     "ud": (
         (
@@ -194,12 +194,12 @@ _PROJECT_TABLES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
             "dbconfig_form_tabs", "dbconfig_report", "dbconfig_toolbox",
             "dbfunction", "dbtypevalue", "dbconfig_form_tableview",
             "dbconfig_visit_parameter", "dbtable", "dbconfig_form_fields_feat",
-            "su_basic_tables", "dblabel", "dbplan_price", "dbstyle", "dbjson",
+            "dbbasic_tables", "dblabel", "dbplan_price", "dbstyle", "dbjson",
             "dbconfig_form_fields_json", "dbconfig_form_fields_query",
         ),
-        ("su_basic_tables", "su_feature"),
+        ("su_feature",),
     ),
-    "am": (("dbconfig_engine", "dbconfig_form_tableview", "su_basic_tables"), ()),
+    "am": (("dbconfig_engine", "dbconfig_form_tableview", "dbbasic_tables"), ()),
     "cm": (
         (
             "dbconfig_form_fields", "dbconfig_form_tabs", "dbconfig_param_system",
@@ -282,7 +282,9 @@ def _iter_project_db_tables(project_type: str) -> list[str]:
     return [name for name in dbtables if not name.startswith("su_")]
 
 
-def _su_basic_table_columns(table_org: str, project_type: str) -> TableColumns:
+def _basic_table_columns(table_org: str, project_type: str) -> TableColumns:
+    if table_org == "config_param_system":
+        return TableColumns(("source", "na_en_us"), ("parameter", "value"))
     if table_org == "value_state" and project_type in ("ud", "ws"):
         return TableColumns(("source", "na_en_us", "ob_en_us"), ("id", "name", "observ"))
     if project_type == "am":
@@ -294,8 +296,8 @@ def get_columns_to_compare(table_i18n: str, table_org: str, project_type: str) -
     """Return i18n and origin columns, including common i18n metadata."""
     table_name = table_i18n.split(".")[-1]
     columns = (
-        _su_basic_table_columns(table_org, project_type)
-        if table_name == "su_basic_tables"
+        _basic_table_columns(table_org, project_type)
+        if table_name == "dbbasic_tables"
         else _TABLE_COLUMNS.get(table_name, _DEFAULT_TABLE_COLUMNS)
     )
     return [*columns.i18n, *_I18N_METADATA_COLUMNS], list(columns.origin)
@@ -328,7 +330,14 @@ _TYPEVALUE_ORIGIN_TABLES: dict[str, tuple[str, ...]] = {
 }
 _SU_ORIGIN_TABLES: dict[str, tuple[str, ...]] = {
     "su_feature": ("cat_feature",),
-    "su_basic_tables": ("value_state", "value_state_type"),
+}
+_BASIC_ORIGIN_TABLES: dict[str, tuple[str, ...]] = {
+    "ws": ("value_state_type", "value_state", "config_param_system"),
+    "ud": ("value_state_type", "value_state", "config_param_system"),
+    "am": ("value_result_type", "value_status"),
+}
+_ORIGIN_QUERY_CONDITIONS: dict[tuple[str, str], str] = {
+    ("dbbasic_tables", "config_param_system"): "parameter = 'admin_currency'",
 }
 
 
@@ -336,13 +345,13 @@ def find_table_org(table_i18n: str, project_type: str) -> list[str]:
     table_name = table_i18n.split(".")[-1]
     if table_name == "dbtypevalue":
         return list(_TYPEVALUE_ORIGIN_TABLES.get(project_type, ()))
+    if table_name == "dbbasic_tables":
+        return list(_BASIC_ORIGIN_TABLES.get(project_type, ()))
     if table_name in _ORIGIN_TABLES:
         return list(_ORIGIN_TABLES[table_name])
     if table_name.startswith("dbconfig"):
         return [table_name[2:]]
     if table_name.startswith("su_"):
-        if project_type == "am":
-            return ["value_result_type", "value_status"]
         return list(_SU_ORIGIN_TABLES.get(table_name, ()))
     return [f"sys_{table_name[2:]}" if table_name.startswith("db") else table_name]
 
@@ -353,7 +362,7 @@ def find_table_org_with_context(
     project_type: str,
 ) -> list[str]:
     tables_org = find_table_org(table_name, project_type)
-    if table_name.startswith("su_"):
+    if table_name.startswith("su_") or table_name == "dbbasic_tables":
         return tables_org
     seen_contexts = set(tables_org)
     for row in i18n_rows:
@@ -2269,6 +2278,9 @@ def _extract_one_db_table(
             query_org = _append_sql_condition(
                 query_org, _form_fields_feat_exclude_condition(negation=True)
             )
+        origin_condition = _ORIGIN_QUERY_CONDITIONS.get((table_name, table_org))
+        if origin_condition:
+            query_org = _append_sql_condition(query_org, origin_condition)
         rows_org = origin.fetch_all(query_org)
         rows_org = _clean_rows_org(rows_org, columns_org, project_type, table_org)
         aligned_org = _align_org_rows(
