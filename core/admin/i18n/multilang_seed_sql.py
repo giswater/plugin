@@ -59,7 +59,7 @@ BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
 }
 
 MULTILANG_UI_TABLES: tuple[str, ...] = tuple(sorted(
-    set(BASELINE_TO_MULTILANG_TABLE.values()) | {"value_state"}
+    set(BASELINE_TO_MULTILANG_TABLE.values()) | {"value_state", "value_state_type"}
 ))
 
 # Baseline files whose UPDATE context selects the satellite table.
@@ -153,6 +153,7 @@ _TABLE_CONFLICT_KEYS: dict[str, tuple[str, ...]] = {
     "typevalue": ("project_type", "context", "typevalue", "source", "lang"),
     "config_visit_parameter": ("project_type", "context", "source", "lang"),
     "value_state": ("project_type", "context", "source", "lang"),
+    "value_state_type": ("project_type", "context", "source", "lang"),
 }
 
 # Multilang columns that must be double-quoted in generated SQL.
@@ -646,7 +647,7 @@ def blocks_to_multilang_rows(
                     values["source"] = _first_cell(
                         raw, block.value_aliases, "parameter", "id",
                     )
-                elif block.context == "value_state":
+                elif block.context in ("value_state", "value_state_type"):
                     values["source"] = _cell(raw, block.value_aliases, "id")
                 else:
                     continue
@@ -681,7 +682,7 @@ def blocks_to_multilang_rows(
             if table == "dbbasic_tables":
                 if block.context == "config_param_system":
                     target_table = "config_param_system"
-                elif block.context == "value_state":
+                elif block.context in ("value_state", "value_state_type"):
                     target_table = block.context
                 else:
                     continue
@@ -1186,6 +1187,25 @@ BEGIN
         ON multilang.value_state USING btree (lang);
 
     GRANT SELECT ON TABLE multilang.value_state TO role_basic;
+
+    CREATE TABLE IF NOT EXISTS multilang.value_state_type (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        "source" text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        na text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT value_state_type_id_uniq UNIQUE (id),
+        CONSTRAINT value_state_type_pkey PRIMARY KEY (project_type, context, "source", lang),
+        CONSTRAINT value_state_type_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_value_state_type_lang
+        ON multilang.value_state_type USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.value_state_type TO role_basic;
 END
 $BODY$;
 """

@@ -49,7 +49,8 @@ DECLARE
         'plan_typevalue',
         'sys_typevalue',
         'config_visit_parameter',
-        'value_state'
+        'value_state',
+        'value_state_type'
     ];
 BEGIN
     v_prev_search_path := current_setting('search_path');

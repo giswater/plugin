@@ -341,6 +341,19 @@ CREATE TABLE value_state (
     CONSTRAINT value_state_pkey PRIMARY KEY (project_type, context, "source", lang),
     CONSTRAINT value_state_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
 );
+CREATE TABLE value_state_type (
+    id serial4 NOT NULL,
+    project_type text NOT NULL,
+    context text NOT NULL,
+    "source" text NOT NULL,
+    lang text NOT NULL DEFAULT 'en_us',
+    na text NULL,
+    updated_by text DEFAULT CURRENT_USER NULL,
+    updated_on timestamptz DEFAULT now() NULL,
+    CONSTRAINT value_state_type_id_uniq UNIQUE (id),
+    CONSTRAINT value_state_type_pkey PRIMARY KEY (project_type, context, "source", lang),
+    CONSTRAINT value_state_type_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
+);
 
 CREATE INDEX idx_config_form_fields_exact ON config_form_fields
     USING btree (lang, project_type, context, formtype, tabname, source, formname)
@@ -359,6 +372,7 @@ CREATE INDEX idx_config_typevalue_lang ON config_typevalue USING btree (lang);
 CREATE INDEX idx_typevalue_lang ON typevalue USING btree (lang);
 CREATE INDEX idx_config_visit_parameter_lang ON config_visit_parameter USING btree (lang);
 CREATE INDEX idx_value_state_lang ON value_state USING btree (lang);
+CREATE INDEX idx_value_state_type_lang ON value_state_type USING btree (lang);
 CREATE INDEX idx_config_toolbox_lang ON config_toolbox USING btree (lang);
 CREATE INDEX idx_config_report_lang ON config_report USING btree (lang);
 CREATE INDEX idx_config_json_lang ON config_json USING btree (lang);

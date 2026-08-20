@@ -267,7 +267,7 @@ BEGIN
             v_context, v_pt_expr, v_lang_expr
         );
 
-    ELSIF p_table = 'value_state' THEN
+    ELSIF p_table IN ('value_state', 'value_state_type') THEN
         v_context := p_table;
         v_join := format(
             'LEFT JOIN multilang.%I ml
@@ -356,7 +356,8 @@ BEGIN
                     THEN 'COALESCE(ml.ds, t.descript)'
                 WHEN a.attname = 'value' AND p_table = 'config_param_system'
                     THEN 'COALESCE(ml.vl, t.value)'
-                WHEN a.attname = 'name' AND p_table = 'value_state'
+                WHEN a.attname = 'name'
+                    AND p_table IN ('value_state', 'value_state_type')
                     THEN 'COALESCE(ml.na, t.name)'
                 WHEN a.attname = 'observ' AND p_table = 'value_state'
                     THEN 'COALESCE(ml.ob, t.observ)'

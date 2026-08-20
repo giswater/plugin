@@ -26,7 +26,7 @@ AND CASE
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,7),
-	 ('ve_gully_ginlet','form_feature','tab_data','state_type','lyt_bot_1',4,'smallint','combo','State type:','State_type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,'state',' AND value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,8),
+	 ('ve_gully_ginlet','form_feature','tab_data','state_type','lyt_bot_1',4,'smallint','combo','State type:','State_type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,'state',' AND v_value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,8),
 	 ('ve_gully_ginlet','form_feature','tab_data','code','lyt_data_1',1,'string','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,9),
 	 ('ve_gully_ginlet','form_feature','tab_data','top_elev','lyt_data_1',2,'double','text','Top elevation:','Top_elev - Elevation of the gully in ft or m.',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,10),
 	 ('ve_gully_ginlet','form_feature','tab_data','dma_id','lyt_data_1',3,'integer','text','Dma','Dma_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,11),
@@ -139,7 +139,7 @@ AND CASE
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,7),
-	 ('ve_gully_gully','form_feature','tab_data','state_type','lyt_bot_1',4,'smallint','combo','State type:','State_type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,'state',' AND value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,8),
+	 ('ve_gully_gully','form_feature','tab_data','state_type','lyt_bot_1',4,'smallint','combo','State type:','State_type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,'state',' AND v_value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,8),
 	 ('ve_gully_gully','form_feature','tab_data','code','lyt_data_1',1,'text','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,9),
 	 ('ve_gully_gully','form_feature','tab_data','top_elev','lyt_data_1',2,'double','text','Top elevation:','Top_elev - Elevation of the gully in ft or m.',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,10),
 	 ('ve_gully_gully','form_feature','tab_data','dma_id','lyt_data_1',3,'integer','text','Dma','Dma_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,11),
@@ -244,7 +244,7 @@ AND CASE
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,7),
-	 ('ve_gully_pgully','form_feature','tab_data','state_type','lyt_bot_1',4,'smallint','combo','State type:','State_type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,'state',' AND value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,8),
+	 ('ve_gully_pgully','form_feature','tab_data','state_type','lyt_bot_1',4,'smallint','combo','State type:','State_type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,'state',' AND v_value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,8),
 	 ('ve_gully_pgully','form_feature','tab_data','code','lyt_data_1',1,'text','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,9),
 	 ('ve_gully_pgully','form_feature','tab_data','dma_id','lyt_data_1',2,'integer','text','Dma','Dma_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,10),
 	 ('ve_gully_pgully','form_feature','tab_data','top_elev','lyt_data_1',3,'double','text','Top elevation:','Top_elev - Elevation of the gully in ft or m.',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,11),
@@ -353,7 +353,7 @@ AND CASE
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,7),
-	 ('ve_gully_vgully','form_feature','tab_data','state_type','lyt_bot_1',4,'smallint','combo','State type:','State_type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,'state',' AND value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,8),
+	 ('ve_gully_vgully','form_feature','tab_data','state_type','lyt_bot_1',4,'smallint','combo','State type:','State_type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,'state',' AND v_value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,8),
 	 ('ve_gully_vgully','form_feature','tab_data','code','lyt_data_1',1,'text','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,9),
 	 ('ve_gully_vgully','form_feature','tab_data','top_elev','lyt_data_1',2,'double','text','Top elevation:','Top_elev - Elevation of the gully in ft or m.',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,10),
 	 ('ve_gully_vgully','form_feature','tab_data','dma_id','lyt_data_1',3,'integer','text','Dma','Dma_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,11),
