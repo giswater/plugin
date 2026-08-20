@@ -992,16 +992,22 @@ def _index_baseline_rows(
 def _index_widget_context(raw_lines: list[str]) -> list[int]:
     """For each line, index of the nearest preceding named UI object.
 
-    Both ``<widget`` and ``<action name=`` are sources so QAction text and
-    toolTip strings are catalogued like widgets (lb_en_us / tt_en_us).
+    Both ``<widget`` and ``<action name=`` are sources. QAction strings are
+    catalogued only from ``toolTip`` (tt_en_us); labels are ignored.
     """
     context: list[int] = []
     named_line = -1
     for line in raw_lines:
-        if "<widget" in line or "<action name=" in line:
+        if "<widget" in line:
+            named_line = len(context)
+        if "<action name=" in line:
             named_line = len(context)
         context.append(named_line)
     return context
+
+
+def _named_object_is_action(raw_lines: list[str], named_line: int) -> bool:
+    return named_line >= 0 and '<action name=' in raw_lines[named_line]
 
 
 def _search_dialog_info(
@@ -1059,6 +1065,10 @@ def _scan_ui_dialogs(
                 continue
             message_text = match.group(1).strip()
             if message_text in _PYDIALOG_IGNORE_TEXTS:
+                continue
+            if _named_object_is_action(raw_lines, widget_context[num_line]) and (
+                not in_tooltip_property
+            ):
                 continue
             column = "tt_en_us" if in_tooltip_property else "lb_en_us"
             if not message_text and column == "lb_en_us":
