@@ -989,37 +989,35 @@ def _index_baseline_rows(
     return indexed
 
 
-def _index_widget_context(raw_lines: list[str]) -> list[tuple[int, bool]]:
-    """For each line, the nearest preceding <widget line and whether an
-    <action name= line blocks the upward walk (baseline _search_dialog_info)."""
-    context: list[tuple[int, bool]] = []
-    widget_line = -1
-    blocked = False
+def _index_widget_context(raw_lines: list[str]) -> list[int]:
+    """For each line, index of the nearest preceding named UI object.
+
+    Both ``<widget`` and ``<action name=`` are sources so QAction text and
+    toolTip strings are catalogued like widgets (lb_en_us / tt_en_us).
+    """
+    context: list[int] = []
+    named_line = -1
     for line in raw_lines:
-        if "<widget" in line:
-            widget_line, blocked = len(context), False
-        elif "<action name=" in line:
-            blocked = True
-        context.append((widget_line, blocked))
+        if "<widget" in line or "<action name=" in line:
+            named_line = len(context)
+        context.append(named_line)
     return context
 
 
 def _search_dialog_info(
     file_path: Path,
     raw_lines: list[str],
-    widget_context: list[tuple[int, bool]],
+    widget_context: list[int],
     num_line: int,
-) -> tuple[str, str, str | bool]:
+) -> tuple[str, str, str]:
     toolbar_name = file_path.parent.name
     dialog_name = file_path.stem
 
-    widget_line, blocked = widget_context[num_line]
-    if blocked:
-        return dialog_name, toolbar_name, False
-    if widget_line < 0:
+    named_line = widget_context[num_line]
+    if named_line < 0:
         return dialog_name, toolbar_name, ""
 
-    match = _WIDGET_NAME_RE.search(raw_lines[widget_line])
+    match = _WIDGET_NAME_RE.search(raw_lines[named_line])
     source = match.group(1) if match else ""
     return dialog_name, toolbar_name, source
 
@@ -1056,8 +1054,6 @@ def _scan_ui_dialogs(
             dialog_name, toolbar_name, source = _search_dialog_info(
                 file_path, raw_lines, widget_context, num_line
             )
-            if source is False:
-                continue
             match = _TAG_TEXT_RE.search(content)
             if not match:
                 continue
