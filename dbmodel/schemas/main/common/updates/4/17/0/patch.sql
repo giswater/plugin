@@ -1381,3 +1381,7 @@ SET filterparam = replace(
 )::json
 WHERE id = 105
   AND filterparam IS NOT NULL;
+
+UPDATE config_report
+SET query_text = 'SELECT e.name as "Exploitation", vec.connec_id as "Connec id", vec.code as "Code", vec.customer_code as "Customer code" FROM ve_connec vec JOIN exploitation e USING (expl_id) '
+WHERE id = 101;
