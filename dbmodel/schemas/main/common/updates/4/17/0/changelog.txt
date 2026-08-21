@@ -21,3 +21,5 @@
 - Feature form muni_id combo uses ValueRelation on ve_municipality instead of QGIS ValueMap.
 - Remove unused `edit_feature_auto_builtdate`; builtdate on insert uses only `edit_builtdate_vdefault`.
 - Rename `abrevation` to `abbreviation` on `cat_feature`, `config_mapzones`, `ve_cat_feature_*` views, and `config_code_parts`.
+- Load toolbox process descriptions from `v_sys_function` so multilingual translations are used.
+- Fill CRM dscenario and water-balance toolbox descriptions with proposed end date from sys_message 4690.

@@ -66,6 +66,7 @@ v_proposed_enddate text;
 v_rec_hydro record;
 v_query_period text;
 v_dma_weight_factor boolean;
+v_message text;
 
 BEGIN
 
@@ -157,10 +158,20 @@ BEGIN
 
     	v_proposed_enddate = coalesce(v_proposed_enddate, '1800-01-01');
 
-		EXECUTE '
- 		UPDATE temp_sys_function
- 		SET descript = REPLACE(descript, split_part(descript, ''>'', 2), ''End Date proposal for '||v_percent_hydro||'% of hydrometers which consum is out of the period: '||v_proposed_enddate::TIMESTAMP||''')
-		WHERE id in (3110)';
+		SELECT replace(
+			replace(error_message, '%v_percent_hydro%', COALESCE(v_percent_hydro, '')),
+			'%v_proposed_enddate%', COALESCE(v_proposed_enddate::timestamp::text, '')
+		)
+		INTO v_message
+		FROM v_sys_message
+		WHERE id = 4688;
+
+		UPDATE temp_sys_function
+		SET descript = CASE
+			WHEN v_message IS NULL THEN descript
+			ELSE v_message
+		END
+		WHERE id = 3110;
 
 
 		v_proposed_enddate = quote_literal(v_proposed_enddate)::date - INTERVAL '1 day';
