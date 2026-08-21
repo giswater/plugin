@@ -153,8 +153,8 @@ BEGIN
 
 	CREATE TEMP TABLE temp_muni_sector_expl AS
 	WITH
-		node_state_psector AS (
-			SELECT n.node_id, n.expl_id, n.expl_visibility, n.muni_id, n.sector_id, n.state
+		node_psector AS (
+			SELECT n.node_id, n.expl_id, n.expl_visibility, n.muni_id, n.sector_id, coalesce(pp.state, n.state) as p_state
 			FROM node n
 			LEFT JOIN LATERAL (
 				SELECT x.state
@@ -174,22 +174,16 @@ BEGIN
 					LIMIT 1
 				) x
 			) pp ON true
-			WHERE EXISTS (
-				SELECT 1
-				FROM selector_state ss
-				WHERE ss.cur_user = CURRENT_USER
-				AND ss.state_id = COALESCE(pp.state, n.state)
-			)
 		),
 		node_expl AS (
-			SELECT nn.node_id, nn.expl_id
+			SELECT nn.node_id, nn.expl_id, nn.p_state
 			FROM (
-				SELECT n.node_id, n.expl_id
-				FROM node_state_psector n
+				SELECT n.node_id, n.expl_id, n.p_state
+				FROM node_psector n
 				WHERE n.expl_id IS NOT NULL
 				UNION
-				SELECT n.node_id, unnest(n.expl_visibility) AS expl_id
-				FROM node_state_psector n
+				SELECT n.node_id, unnest(n.expl_visibility) AS expl_id, n.p_state
+				FROM node_psector n
 				WHERE n.expl_visibility IS NOT NULL
 			) nn
 			JOIN vf_exploitation e ON e.expl_id = nn.expl_id
@@ -199,7 +193,7 @@ BEGIN
 			SELECT nn.node_id, nn.muni_id
 			FROM (
 				SELECT n.node_id, n.muni_id
-				FROM node_state_psector n
+				FROM node_psector n
 				WHERE n.muni_id IS NOT NULL
 				UNION
 				SELECT n.node_id, n.muni_id
@@ -213,22 +207,17 @@ BEGIN
 			SELECT nn.node_id, nn.sector_id
 			FROM (
 				SELECT n.node_id, n.sector_id
-				FROM node_state_psector n
-				LEFT JOIN node_x_sector_visibility v ON v.node_id = n.node_id
-				WHERE v.node_id IS NULL
-				AND n.sector_id IS NOT NULL
-				AND n.state <> 2
+				FROM node_psector n
+				WHERE n.sector_id IS NOT NULL
 				UNION
-				SELECT n.node_id, v.sector_id
-				FROM node_state_psector n
-				JOIN node_x_sector_visibility v ON n.node_id = v.node_id
-				WHERE n.state <> 2
-				AND v.sector_id IS NOT NULL
+				SELECT n.node_id, n.sector_id
+				FROM node_x_sector_visibility n
+				WHERE n.sector_id IS NOT NULL
 			) nn
 			JOIN sector s ON s.sector_id = nn.sector_id
 			WHERE s.active
 		)
-	SELECT DISTINCT nm.muni_id, ns.sector_id, ne.expl_id
+	SELECT DISTINCT nm.muni_id, ns.sector_id, ne.expl_id, ne.p_state
 	FROM node_expl ne
 	JOIN node_muni nm ON nm.node_id = ne.node_id
 	JOIN node_sector ns ON ns.node_id = ne.node_id;
@@ -255,13 +244,10 @@ BEGIN
 
 	-- populate temp_municipality
 	INSERT INTO temp_municipality (muni_id, name, observ, active)
-	SELECT DISTINCT ON (em.muni_id) em.muni_id, em.name, em.observ, em.active
-	FROM temp_muni_sector_expl t
-	JOIN temp_exploitation e USING (expl_id)
-	JOIN v_municipality em ON em.muni_id = t.muni_id
-	WHERE em.active
-	ORDER BY em.muni_id
-	ON CONFLICT (muni_id) DO NOTHING;
+	SELECT em.muni_id, em.name, em.observ, em.active
+	FROM v_municipality em
+	WHERE EXISTS (SELECT 1 FROM temp_muni_sector_expl t WHERE t.muni_id = em.muni_id)
+	ORDER BY 1;
 
 	-- populate temp_sector
 	INSERT INTO temp_sector (sector_id, code, name, descript, expl_id, muni_id, macrosector_id, parent_id, active)
@@ -506,22 +492,20 @@ BEGIN
 			-- sector
 			DELETE FROM selector_sector WHERE cur_user = current_user;
 			INSERT INTO selector_sector
-			SELECT DISTINCT sector_id, current_user 
-			FROM temp_muni_sector_expl
-			JOIN selector_expl USING (expl_id)
- 		    WHERE cur_user = current_user
-			ON CONFLICT (sector_id, cur_user) DO NOTHING;
+			SELECT DISTINCT t.sector_id, current_user
+			FROM temp_muni_sector_expl t
+			JOIN selector_expl se ON se.expl_id = t.expl_id AND se.cur_user = current_user
+			JOIN selector_state ss ON ss.state_id = t.p_state AND ss.cur_user = current_user;
 
 			INSERT INTO selector_sector VALUES (0, current_user) ON CONFLICT (sector_id, cur_user) DO NOTHING;
 
 			-- muni
 			DELETE FROM selector_municipality WHERE cur_user = current_user;
 			INSERT INTO selector_municipality
-			SELECT DISTINCT muni_id, current_user 
-			FROM temp_muni_sector_expl
-			JOIN selector_expl USING (expl_id)
- 		    WHERE cur_user = current_user
-			ON CONFLICT (muni_id, cur_user) DO NOTHING;
+			SELECT DISTINCT t.muni_id, current_user 
+			FROM temp_muni_sector_expl t
+			JOIN selector_expl se ON se.expl_id = t.expl_id AND se.cur_user = current_user
+			JOIN selector_state ss ON ss.state_id = t.p_state AND ss.cur_user = current_user;
 
 			INSERT INTO selector_municipality VALUES (0, current_user) ON CONFLICT (muni_id, cur_user) DO NOTHING;
 
@@ -547,20 +531,18 @@ BEGIN
 			-- expl
 			DELETE FROM selector_expl WHERE cur_user = current_user;
 			INSERT INTO selector_expl
-			SELECT DISTINCT expl_id, current_user 
-			FROM temp_muni_sector_expl
-			JOIN selector_sector USING (sector_id)
- 		    WHERE cur_user = current_user
-			ON CONFLICT (expl_id, cur_user) DO NOTHING;
+			SELECT DISTINCT t.expl_id, current_user
+			FROM temp_muni_sector_expl t
+			JOIN selector_sector se ON se.sector_id = t.sector_id AND se.cur_user = current_user
+			JOIN selector_state ss ON ss.state_id = t.p_state AND ss.cur_user = current_user;
 
 			-- muni
 			DELETE FROM selector_municipality WHERE cur_user = current_user;
 			INSERT INTO selector_municipality
-			SELECT DISTINCT muni_id, current_user 
-			FROM temp_muni_sector_expl
-			JOIN selector_sector USING (sector_id)
- 		    WHERE cur_user = current_user
-			ON CONFLICT (muni_id, cur_user) DO NOTHING;
+			SELECT DISTINCT t.muni_id, current_user
+			FROM temp_muni_sector_expl t
+			JOIN selector_sector se ON se.sector_id = t.sector_id AND se.cur_user = current_user
+			JOIN selector_state ss ON ss.state_id = t.p_state AND ss.cur_user = current_user;
 
 			IF (SELECT rolname FROM pg_roles WHERE pg_has_role(current_user, oid, 'member') AND rolname = 'role_epa') IS NOT NULL THEN
 				DELETE FROM selector_inp_dscenario WHERE dscenario_id NOT IN
@@ -570,8 +552,6 @@ BEGIN
 			-- psector
 			DELETE FROM selector_psector WHERE psector_id NOT IN
 			(SELECT psector_id FROM plan_psector WHERE active is true and expl_id IN (SELECT expl_id FROM selector_expl WHERE cur_user = current_user));
-
-
 
 		-- inserting muni_id from selected muni
 		ELSIF v_tab_name IN ('tab_municipality') THEN
@@ -584,11 +564,10 @@ BEGIN
 			-- expl
 			DELETE FROM selector_expl WHERE cur_user = current_user;
 			INSERT INTO selector_expl
-			SELECT DISTINCT expl_id, current_user 
-			FROM temp_muni_sector_expl
-			JOIN selector_municipality USING (muni_id)
- 		    WHERE cur_user = current_user
-			ON CONFLICT (expl_id, cur_user) DO NOTHING;
+			SELECT DISTINCT t.expl_id, current_user
+			FROM temp_muni_sector_expl t
+			JOIN selector_municipality sm ON sm.muni_id = t.muni_id AND sm.cur_user = current_user
+			JOIN selector_state ss ON ss.state_id = t.p_state AND ss.cur_user = current_user;
 
 			INSERT INTO selector_expl VALUES (0, current_user) ON CONFLICT (expl_id, cur_user) DO NOTHING;
 
@@ -598,14 +577,12 @@ BEGIN
 			-- sector
 			DELETE FROM selector_sector WHERE cur_user = current_user;
 			INSERT INTO selector_sector
-			SELECT DISTINCT sector_id, current_user 
-			FROM temp_muni_sector_expl
-			JOIN selector_municipality USING (muni_id)
- 		    WHERE cur_user = current_user
-			ON CONFLICT (sector_id, cur_user) DO NOTHING;
+			SELECT DISTINCT t.sector_id, current_user
+			FROM temp_muni_sector_expl t
+			JOIN selector_municipality sm ON sm.muni_id = t.muni_id AND sm.cur_user = current_user
+			JOIN selector_state ss ON ss.state_id = t.p_state AND ss.cur_user = current_user;
 
 			INSERT INTO selector_sector VALUES (0, current_user) ON CONFLICT (sector_id, cur_user) DO NOTHING;		
-
 
 			-- scenarios
 			IF (SELECT rolname FROM pg_roles WHERE pg_has_role(current_user, oid, 'member') AND rolname = 'role_epa') IS NOT NULL THEN
