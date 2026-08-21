@@ -102,7 +102,7 @@ _TAG_BTN_WIDGET_RE = re.compile(
     r'<widget class="QPushButton" name="(btn_[^"]+)">(.*?)</widget>', re.DOTALL
 )
 _WIDGET_NAME_RE = re.compile(r'name="(.*?)"')
-_DBSTYLE_LABEL_RE = re.compile(r'rule.*label="([^"]*)"')
+_DBSTYLE_LABEL_RE = re.compile(r'label="([^"]*)"')
 
 
 class SourceType(str, Enum):
