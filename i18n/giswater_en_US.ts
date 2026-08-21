@@ -785,6 +785,10 @@
 			<translation>Alert</translation>
 		</message>
 		<message>
+			<source>ALL</source>
+			<translation>ALL</translation>
+		</message>
+		<message>
 			<source>
 
 ALL DONE! INP successfully imported.</source>
@@ -4505,6 +4509,10 @@ Do you want to proceed?</translation>
 			<translation>Prob. of Failure</translation>
 		</message>
 		<message>
+			<source>Processes</source>
+			<translation>Processes</translation>
+		</message>
+		<message>
 			<source>Process finished.
 
 INP file created on:
@@ -4693,6 +4701,10 @@ Statistics file created on:
 			<translation>Raingages couldn&apos;t be inserted!</translation>
 		</message>
 		<message>
+			<source>Raports</source>
+			<translation>Raports</translation>
+		</message>
+		<message>
 			<source>Reading file</source>
 			<translation>Reading file</translation>
 		</message>
@@ -4865,6 +4877,10 @@ Do you want to apply the required values and continue?</translation>
 		<message>
 			<source>Scada graph</source>
 			<translation>Scada graph</translation>
+		</message>
+		<message>
+			<source>Scada graph edge already exists.</source>
+			<translation>Scada graph edge already exists.</translation>
 		</message>
 		<message>
 			<source>Scada graph edge created</source>
@@ -11082,6 +11098,30 @@ or they were created by another user:</translation>
 	<context>
 		<name>dimensioning</name>
 		<message>
+			<source>actionEdit</source>
+			<translation>actionEdit</translation>
+		</message>
+		<message>
+			<source>tooltip_actionEdit</source>
+			<translation>Edit</translation>
+		</message>
+		<message>
+			<source>actionOrientation</source>
+			<translation>actionOrientation</translation>
+		</message>
+		<message>
+			<source>tooltip_actionOrientation</source>
+			<translation>Orientation</translation>
+		</message>
+		<message>
+			<source>actionSnapping</source>
+			<translation>actionSnapping</translation>
+		</message>
+		<message>
+			<source>tooltip_actionSnapping</source>
+			<translation>Snapping</translation>
+		</message>
+		<message>
 			<source>btn_accept</source>
 			<translation>Accept</translation>
 		</message>
@@ -13432,6 +13472,62 @@ or they were created by another user:</translation>
 			<translation>Junction</translation>
 		</message>
 		<message>
+			<source>actionCopyPaste</source>
+			<translation>actionCopyPaste</translation>
+		</message>
+		<message>
+			<source>tooltip_actionCopyPaste</source>
+			<translation>Copy&amp;amp;Paste</translation>
+		</message>
+		<message>
+			<source>actionEdit</source>
+			<translation>actionEdit</translation>
+		</message>
+		<message>
+			<source>tooltip_actionEdit</source>
+			<translation>Edit</translation>
+		</message>
+		<message>
+			<source>actionGetArcId</source>
+			<translation>actionGetArcId</translation>
+		</message>
+		<message>
+			<source>tooltip_actionGetArcId</source>
+			<translation>Get new arc id</translation>
+		</message>
+		<message>
+			<source>actionHelp</source>
+			<translation>actionHelp</translation>
+		</message>
+		<message>
+			<source>tooltip_actionHelp</source>
+			<translation>Help</translation>
+		</message>
+		<message>
+			<source>actionInterpolate</source>
+			<translation>actionInterpolate</translation>
+		</message>
+		<message>
+			<source>tooltip_actionInterpolate</source>
+			<translation>Interpolate</translation>
+		</message>
+		<message>
+			<source>actionLink</source>
+			<translation>actionLink</translation>
+		</message>
+		<message>
+			<source>tooltip_actionLink</source>
+			<translation>Link</translation>
+		</message>
+		<message>
+			<source>actionSection</source>
+			<translation>actionSection</translation>
+		</message>
+		<message>
+			<source>tooltip_actionSection</source>
+			<translation>Show section</translation>
+		</message>
+		<message>
 			<source>btn_accept</source>
 			<translation>Accept</translation>
 		</message>
@@ -14611,6 +14707,30 @@ or they were created by another user:</translation>
 		<message>
 			<source>title</source>
 			<translation>Mincut</translation>
+		</message>
+		<message>
+			<source>actionCustomMincut</source>
+			<translation>actionCustomMincut</translation>
+		</message>
+		<message>
+			<source>tooltip_actionCustomMincut</source>
+			<translation>Inaccessible valve</translation>
+		</message>
+		<message>
+			<source>actionExportHydroCsv</source>
+			<translation>actionExportHydroCsv</translation>
+		</message>
+		<message>
+			<source>tooltip_actionExportHydroCsv</source>
+			<translation>Export Hydro Csv</translation>
+		</message>
+		<message>
+			<source>actionMincut</source>
+			<translation>Network Mincut</translation>
+		</message>
+		<message>
+			<source>tooltip_actionMincut</source>
+			<translation>Automatic Mincut</translation>
 		</message>
 		<message>
 			<source>btn_accept</source>
@@ -17164,6 +17284,22 @@ or they were created by another user:</translation>
 			<translation>Draw Profile</translation>
 		</message>
 		<message>
+			<source>actionAddPoint</source>
+			<translation>actionAddPoint</translation>
+		</message>
+		<message>
+			<source>tooltip_actionAddPoint</source>
+			<translation>Add additional point</translation>
+		</message>
+		<message>
+			<source>actionProfile</source>
+			<translation>actionProfile</translation>
+		</message>
+		<message>
+			<source>tooltip_actionProfile</source>
+			<translation>Set nodes</translation>
+		</message>
+		<message>
 			<source>btn_clear_profile</source>
 			<translation>Clear profile</translation>
 		</message>
@@ -19005,6 +19141,14 @@ or they were created by another user:</translation>
 		<message>
 			<source>tooltip_btn_run</source>
 			<translation>btn_run</translation>
+		</message>
+		<message>
+			<source>grb_info</source>
+			<translation>Info:</translation>
+		</message>
+		<message>
+			<source>tooltip_grb_info</source>
+			<translation>grb_info</translation>
 		</message>
 		<message>
 			<source>grb_input_layer</source>
