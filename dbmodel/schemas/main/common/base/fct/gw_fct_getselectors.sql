@@ -220,15 +220,11 @@ BEGIN
 				FROM (
 					SELECT n.node_id, n.sector_id
 					FROM node n
-					WHERE n.state <> 2 AND n.sector_id IS NOT NULL
+					WHERE n.sector_id IS NOT NULL
 					UNION
 					SELECT n.node_id, n.sector_id
 					FROM node_x_sector_visibility n
 					WHERE n.sector_id IS NOT NULL
-					UNION
-					SELECT n.node_id, 0 AS sector_id
-					FROM node n
-					WHERE n.state = 2
 				) nn
 				JOIN sector s ON s.sector_id = nn.sector_id
 				WHERE s.active
