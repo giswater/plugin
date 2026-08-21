@@ -70,6 +70,7 @@ _NETWORK_DBTABLES = [
     "dbconfig_toolbox", "dbfunction", "dblabel", "dbtypevalue", "dbconfig_form_fields_feat",
     "dbconfig_form_tableview", "dbconfig_visit_parameter", "dbbasic_tables", "dbtable", "dbplan_price", "dbstyle",
     "su_basic_tables", "dbjson", "dbconfig_form_fields_json", "dbconfig_form_fields_query",
+    "dbconfig_report_query",
 ]
 _TAB_DATA_LINE_RE = re.compile(r",\s*'tab_data'\s*,")
 _FORM_FIELDS_SQL = frozenset({

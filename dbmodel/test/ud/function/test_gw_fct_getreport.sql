@@ -40,8 +40,8 @@ SELECT is (
 
 SELECT is (
     (gw_fct_getreport($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{}, "feature":{},
-    "data":{"filterFields":{}, "pageInfo":{}, "filter":[{"filterName": "Exploitation", "filterValue": "", "filterSign": "="},
-    {"filterName": "Arc Catalog", "filterValue": "", "filterSign": "="}], "listId":"100"}}$$)::JSON)->>'status',
+    "data":{"filterFields":{}, "pageInfo":{}, "filter":[{"filterName": "name", "filterValue": "", "filterSign": "="},
+    {"filterName": "arccat_id", "filterValue": "", "filterSign": "="}], "listId":"100"}}$$)::JSON)->>'status',
     'Accepted',
     'Check if gw_fct_getreport with "filter" returns status "Accepted"'
 );

@@ -26,3 +26,4 @@
 - Translate QML rule labels from `sys_style` via multilang (`v_sys_style`).
 - Load toolbox process descriptions from `v_sys_function` so multilingual translations are used.
 - Fill CRM dscenario and water-balance toolbox descriptions with proposed end date from sys_message 4690.
+- Point `config_report.filterparam.columnname` at SQL columns (not display aliases) so report filters stay stable when query aliases are translated.

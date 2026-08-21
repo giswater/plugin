@@ -52,6 +52,7 @@ BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
     "dbconfig_form_tableview": "config_form_tableview",
     "dbjson": "config_json",
     "dbconfig_report": "config_report",
+    "dbconfig_report_query": "config_report_query",
     "dbconfig_toolbox": "config_toolbox",
     "dbconfig_typevalue": "config_typevalue",
     "dbtypevalue": "typevalue",
@@ -132,6 +133,7 @@ _CONTEXT_I18N_OVERRIDES: dict[str, dict[str, str]] = {
     "sys_param_user": {"descript": "tt"},
     "config_param_system": {"descript": "tt"},
     "sys_style": {"stylevalue": "tx"},
+    "config_report": {"query_text": "text"},
 }
 
 # ON CONFLICT target columns per multilang table (must match DDL PK).
@@ -152,6 +154,7 @@ _TABLE_CONFLICT_KEYS: dict[str, tuple[str, ...]] = {
     "config_form_tableview": ("project_type", "context", "source", "columnname", "lang"),
     "config_json": ("project_type", "context", "source", "hint", "lang"),
     "config_report": ("project_type", "context", "source", "lang"),
+    "config_report_query": ("project_type", "context", "source", "hint", "lang"),
     "config_toolbox": ("project_type", "context", "source", "lang"),
     "config_typevalue": ("project_type", "context", "formname", "source", "lang"),
     "typevalue": ("project_type", "context", "typevalue", "source", "lang"),
@@ -630,6 +633,12 @@ def blocks_to_multilang_rows(
                     "hint": block.json_hints[0] if block.json_hints else "filterparam",
                     "text": _cell(raw, block.value_aliases, "text"),
                 })
+            elif table == "dbconfig_report_query":
+                values.update({
+                    "source": _cell(raw, block.value_aliases, "id"),
+                    "hint": "query_text",
+                    "text": _cell(raw, block.value_aliases, "text"),
+                })
             elif table == "dbconfig_typevalue":
                 values.update({
                     "formname": _first_cell(
@@ -678,7 +687,7 @@ def blocks_to_multilang_rows(
                 i18n_col = _org_to_i18n(block.context, org_col)
                 if not i18n_col:
                     continue
-                if table in ("dbconfig_form_fields_json", "dbjson") and i18n_col == "text":
+                if table in ("dbconfig_form_fields_json", "dbjson", "dbconfig_report_query") and i18n_col == "text":
                     values["text"] = _cell(raw, block.value_aliases, v_alias)
                 else:
                     values[i18n_col] = _cell(raw, block.value_aliases, v_alias)
@@ -1288,6 +1297,27 @@ BEGIN
         ON multilang.sys_style USING btree (lang);
 
     GRANT SELECT ON TABLE multilang.sys_style TO role_basic;
+
+    CREATE TABLE IF NOT EXISTS multilang.config_report_query (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        "source" text NOT NULL,
+        hint text NOT NULL DEFAULT 'query_text',
+        lang text NOT NULL DEFAULT 'en_us',
+        lb text NULL,
+        "text" text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT config_report_query_id_uniq UNIQUE (id),
+        CONSTRAINT config_report_query_pkey PRIMARY KEY (project_type, context, "source", hint, lang),
+        CONSTRAINT config_report_query_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_config_report_query_lang
+        ON multilang.config_report_query USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.config_report_query TO role_basic;
 END
 $BODY$;
 """
