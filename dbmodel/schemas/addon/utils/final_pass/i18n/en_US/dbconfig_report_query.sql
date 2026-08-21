@@ -19,12 +19,6 @@ WHERE t.id = v.id;
 
 UPDATE config_report AS t SET query_text = v.text FROM (
 	VALUES
-	(101, 'SELECT e.name as "Exploitation", vec.connec_id, vec.code, vec.customer_code FROM ve_connec vec JOIN exploitation e USING (expl_id) ')
-) AS v(id, text)
-WHERE t.id = v.id;
-
-UPDATE config_report AS t SET query_text = v.text FROM (
-	VALUES
 	(102, 'SELECT w.exploitation as "Exploitation", w.dma as "Dma", period as "Period", 
 total_in::numeric(20,2) as "Total inlet",
 total_out::numeric(20,2) as "Total outlet",
