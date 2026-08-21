@@ -498,6 +498,8 @@ BEGIN
 				ON CONFLICT (expl_id, cur_user) DO NOTHING;
 			END IF;
 
+			INSERT INTO selector_expl VALUES (0, current_user) ON CONFLICT (expl_id, cur_user) DO NOTHING;
+
 			-- macrosector
 			DELETE FROM selector_macrosector WHERE cur_user = current_user;
 
@@ -510,6 +512,8 @@ BEGIN
  		    WHERE cur_user = current_user
 			ON CONFLICT (sector_id, cur_user) DO NOTHING;
 
+			INSERT INTO selector_sector VALUES (0, current_user) ON CONFLICT (sector_id, cur_user) DO NOTHING;
+
 			-- muni
 			DELETE FROM selector_municipality WHERE cur_user = current_user;
 			INSERT INTO selector_municipality
@@ -518,6 +522,8 @@ BEGIN
 			JOIN selector_expl USING (expl_id)
  		    WHERE cur_user = current_user
 			ON CONFLICT (muni_id, cur_user) DO NOTHING;
+
+			INSERT INTO selector_municipality VALUES (0, current_user) ON CONFLICT (muni_id, cur_user) DO NOTHING;
 
 			IF (SELECT rolname FROM pg_roles WHERE pg_has_role(current_user, oid, 'member') AND rolname = 'role_epa') IS NOT NULL THEN
 				DELETE FROM selector_inp_dscenario WHERE dscenario_id NOT IN
@@ -570,6 +576,8 @@ BEGIN
 		-- inserting muni_id from selected muni
 		ELSIF v_tab_name IN ('tab_municipality') THEN
 
+			INSERT INTO selector_municipality VALUES (0, current_user) ON CONFLICT (muni_id, cur_user) DO NOTHING;
+
 			-- macroexpl
 			DELETE FROM selector_macroexpl WHERE cur_user = current_user;
 
@@ -582,6 +590,8 @@ BEGIN
  		    WHERE cur_user = current_user
 			ON CONFLICT (expl_id, cur_user) DO NOTHING;
 
+			INSERT INTO selector_expl VALUES (0, current_user) ON CONFLICT (expl_id, cur_user) DO NOTHING;
+
 			-- macrosector
 			DELETE FROM selector_macrosector WHERE cur_user = current_user;
 
@@ -592,7 +602,9 @@ BEGIN
 			FROM temp_muni_sector_expl
 			JOIN selector_municipality USING (muni_id)
  		    WHERE cur_user = current_user
-			ON CONFLICT (sector_id, cur_user) DO NOTHING;			
+			ON CONFLICT (sector_id, cur_user) DO NOTHING;
+
+			INSERT INTO selector_sector VALUES (0, current_user) ON CONFLICT (sector_id, cur_user) DO NOTHING;		
 
 
 			-- scenarios
@@ -856,10 +868,6 @@ BEGIN
 		) b) a;
 
 	END IF;
-
-	-- force 0 
-	INSERT INTO selector_municipality VALUES (0, current_user) ON CONFLICT (muni_id, cur_user) DO NOTHING;
-	INSERT INTO selector_expl VALUES (0, current_user) ON CONFLICT (expl_id, cur_user) DO NOTHING;
 
 	-- warn the user that in the selected psectors, there is a connec connected to different arcs
 	WITH mec AS (
