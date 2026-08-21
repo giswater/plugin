@@ -38,7 +38,7 @@ class AddDemandCheck:
         self._set_signals()
 
         tools_gw.disable_tab_log(dlg)
-        tools_gw.open_dialog(dlg, dlg_name="add_demand_check")
+        tools_gw.open_dialog(dlg, dlg_name="epatools_add_demand_check")
 
     def _check_for_partial_file(self):
         partial_file = Path(self.output_folder) / f"{self.file_name}-partial.json"
@@ -230,7 +230,7 @@ class AddDemandCheck:
         for widget in txt_widgets:
             if action == "load":
                 value = tools_gw.get_config_parser(
-                    "add_demand_check",
+                    "epatools_add_demand_check",
                     widget,
                     "user",
                     "session",
@@ -240,7 +240,7 @@ class AddDemandCheck:
                 value = tools_qt.get_text(self.dlg_adc, widget, False, False)
                 value = value.replace("%", "%%")
                 tools_gw.set_config_parser(
-                    "add_demand_check",
+                    "epatools_add_demand_check",
                     widget,
                     value,
                 )
@@ -249,7 +249,7 @@ class AddDemandCheck:
             widget = self.dlg_adc.findChild(QWidget, widget_name)
             if action == "load":
                 value = tools_gw.get_config_parser(
-                    "add_demand_check",
+                    "epatools_add_demand_check",
                     widget_name,
                     "user",
                     "session",
@@ -258,7 +258,7 @@ class AddDemandCheck:
             elif action == "save":
                 value = widget.isChecked()
                 tools_gw.set_config_parser(
-                    "add_demand_check",
+                    "epatools_add_demand_check",
                     widget_name,
                     f"{value}",
                 )
