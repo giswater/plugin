@@ -36,10 +36,11 @@ def _sql_root() -> str:
 class TestMultilangSeedSql(unittest.TestCase):
 
     def test_target_table_mapping(self):
-        self.assertEqual(len(MULTILANG_UI_TABLES), 21)
+        self.assertEqual(len(MULTILANG_UI_TABLES), 22)
         self.assertIn("value_state", MULTILANG_UI_TABLES)
         self.assertIn("value_state_type", MULTILANG_UI_TABLES)
         self.assertIn("plan_price", MULTILANG_UI_TABLES)
+        self.assertIn("sys_style", MULTILANG_UI_TABLES)
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbparam_user"],
             "sys_param_user",
@@ -63,6 +64,7 @@ class TestMultilangSeedSql(unittest.TestCase):
             "config_visit_parameter",
         )
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbplan_price"], "plan_price")
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbstyle"], "sys_style")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_toolbox"], "config_toolbox")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_report"], "config_report")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbjson"], "config_json")
@@ -178,6 +180,9 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("INSERT INTO multilang.config_form_tableview", joined)
         self.assertIn("INSERT INTO multilang.config_csv", joined)
         self.assertIn("INSERT INTO multilang.sys_label", joined)
+        self.assertIn("INSERT INTO multilang.value_state", joined)
+        self.assertIn("INSERT INTO multilang.value_state_type", joined)
+        self.assertIn("INSERT INTO multilang.sys_style", joined)
         self.assertNotIn("INSERT INTO multilang.dbparam_user", joined)
         self.assertNotIn("INSERT INTO multilang.dbjson", joined)
         self.assertNotIn("INSERT INTO multilang.dbjson", joined)
@@ -385,6 +390,9 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertTrue(json_hints & {"filterparam", "inputparams"})
         self.assertIn("config_form_tableview", tables)
         self.assertIn("config_csv", tables)
+        self.assertIn("value_state", tables)
+        self.assertIn("value_state_type", tables)
+        self.assertIn("sys_style", tables)
 
 
     def test_parse_dbconfig_csv_maps_alias_and_descript(self):
@@ -605,6 +613,106 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].values["source"], "N_ENDLINE")
 
+    def test_parse_dbstyle_maps_stylevalue_blob(self):
+        sql = """
+        UPDATE sys_style AS t
+        SET stylevalue = v.stylevalue
+        FROM (
+            VALUES
+            ('101', 've_node', '<qgis><rule label="JUNCTION"/></qgis>'),
+            ('101', 've_arc', '<qgis><rule label="PIPE"/></qgis>')
+        ) AS v(styleconfig_id, layername, stylevalue)
+        WHERE t.styleconfig_id::text = v.styleconfig_id AND t.layername = v.layername;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbstyle", blocks, project_type="ws")
+        self.assertEqual(len(rows), 2)
+        by_layer = {row.values["layername"]: row for row in rows}
+
+        first = by_layer["ve_node"]
+        self.assertEqual(first.table, "sys_style")
+        self.assertEqual(first.values["context"], "sys_style")
+        self.assertEqual(first.values["source"], "101")
+        self.assertEqual(first.values["tx"], '<qgis><rule label="JUNCTION"/></qgis>')
+        self.assertNotIn("hint", first.values)
+
+        second = by_layer["ve_arc"]
+        self.assertEqual(second.values["tx"], '<qgis><rule label="PIPE"/></qgis>')
+
+        inserts = build_insert_sql("sys_style", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.sys_style", inserts[0])
+        self.assertIn('"source"', inserts[0])
+        self.assertIn(" tx)", inserts[0])
+        self.assertIn("layername", inserts[0])
+        self.assertIn("'ve_node'", inserts[0])
+        self.assertIn("JUNCTION", inserts[0])
+
+    def test_parse_dbstyle_skips_rows_missing_identity(self):
+        sql = """
+        UPDATE sys_style AS t
+        SET stylevalue = v.stylevalue
+        FROM (
+            VALUES
+            (NULL, 've_arc', '<qgis/>'),
+            ('101', NULL, '<qgis/>'),
+            ('101', 've_arc', '<qgis><rule label="PIPE"/></qgis>')
+        ) AS v(styleconfig_id, layername, stylevalue)
+        WHERE t.styleconfig_id::text = v.styleconfig_id AND t.layername = v.layername;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbstyle", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].values["source"], "101")
+        self.assertEqual(rows[0].values["layername"], "ve_arc")
+        self.assertIn("<qgis>", rows[0].values["tx"])
+
+    def test_parse_dbstyle_real_es_es_baseline(self):
+        path = os.path.join(
+            _sql_root(), "schemas", "main", "ws", "final_pass", "i18n", "es_ES",
+            "dbstyle.sql",
+        )
+        if not os.path.isfile(path):
+            self.skipTest("es_ES dbstyle.sql is not bundled")
+        with open(path, encoding="utf-8") as handle:
+            sql = handle.read()
+        blocks = parse_update_blocks(sql)
+        self.assertGreaterEqual(len(blocks), 1)
+        rows = blocks_to_multilang_rows("dbstyle", blocks, project_type="ws")
+        self.assertGreater(len(rows), 0)
+        first = rows[0]
+        self.assertEqual(first.table, "sys_style")
+        self.assertTrue(first.values.get("source"))
+        self.assertTrue(first.values.get("layername"))
+        self.assertIn("<qgis", first.values.get("tx") or "")
+
+    def test_load_ws_english_value_state_and_sys_style(self):
+        rows = rows_for_project_type(
+            load_baseline_rows_for_project_type(_sql_root(), "ws"), "ws",
+        )
+        states = {
+            row.values.get("source"): row.values.get("na")
+            for row in rows if row.table == "value_state"
+        }
+        self.assertEqual(states.get("1"), "OPERATIVE")
+        self.assertEqual(states.get("0"), "OBSOLETE")
+        self.assertEqual(states.get("2"), "PLANIFIED")
+
+        state_types = {
+            row.values.get("source"): row.values.get("na")
+            for row in rows if row.table == "value_state_type"
+        }
+        self.assertEqual(state_types.get("2"), "OPERATIVE")
+        self.assertEqual(state_types.get("1"), "OBSOLETE")
+
+        styles = [row for row in rows if row.table == "sys_style"]
+        self.assertGreater(len(styles), 0)
+        first = styles[0]
+        self.assertTrue(first.values.get("source"))
+        self.assertTrue(first.values.get("layername"))
+        self.assertIn("<qgis", first.values.get("tx") or "")
+        self.assertIn("Proposed to close", first.values.get("tx") or "")
+
     def test_parse_dbconfig_visit_parameter_maps_descript_to_ds(self):
         sql = """
         UPDATE config_visit_parameter AS t SET descript = v.descript FROM (
@@ -800,6 +908,9 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("v_price_compost", ddl)
         self.assertIn("COALESCE(ml.ds, t.descript)", ddl)
         self.assertIn("CREATE OR REPLACE VIEW", ddl)
+        self.assertIn("sys_style", ddl)
+        self.assertIn("COALESCE(ml.tx, t.stylevalue)", ddl)
+        self.assertNotIn("gw_fct_apply_style_labels", ddl)
 
     def test_ensure_multilang_tables_ddl_creates_config_typevalue(self):
         ddl = ensure_multilang_tables_ddl()
@@ -811,6 +922,9 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.value_state", ddl)
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.value_state_type", ddl)
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.plan_price", ddl)
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.sys_style", ddl)
+        self.assertIn("tx text NULL", ddl)
+        self.assertIn("DROP TABLE multilang.sys_style", ddl)
         self.assertIn("typevalue text NOT NULL", ddl)
 
 

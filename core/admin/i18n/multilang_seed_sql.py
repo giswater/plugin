@@ -57,6 +57,7 @@ BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
     "dbtypevalue": "typevalue",
     "dbconfig_visit_parameter": "config_visit_parameter",
     "dbplan_price": "plan_price",
+    "dbstyle": "sys_style",
 }
 
 MULTILANG_UI_TABLES: tuple[str, ...] = tuple(sorted(
@@ -119,6 +120,7 @@ _ORG_TO_I18N_DEFAULT = {
     "filterparam": "text",
     "inputparams": "text",
     "text": "tx",
+    "stylevalue": "tx",
     "price": "pr",
     "name": "na",
     "value": "vl",
@@ -129,6 +131,7 @@ _CONTEXT_I18N_OVERRIDES: dict[str, dict[str, str]] = {
     "config_typevalue": {"idval": "tt"},
     "sys_param_user": {"descript": "tt"},
     "config_param_system": {"descript": "tt"},
+    "sys_style": {"stylevalue": "tx"},
 }
 
 # ON CONFLICT target columns per multilang table (must match DDL PK).
@@ -156,6 +159,7 @@ _TABLE_CONFLICT_KEYS: dict[str, tuple[str, ...]] = {
     "value_state": ("project_type", "context", "source", "lang"),
     "value_state_type": ("project_type", "context", "source", "lang"),
     "plan_price": ("project_type", "context", "source", "lang"),
+    "sys_style": ("project_type", "context", "source", "layername", "lang"),
 }
 
 # Multilang columns that must be double-quoted in generated SQL.
@@ -644,6 +648,14 @@ def blocks_to_multilang_rows(
                 })
             elif table == "dbconfig_visit_parameter":
                 values["source"] = _cell(raw, block.value_aliases, "id")
+            elif table == "dbstyle":
+                values.update({
+                    "source": _first_cell(
+                        raw, block.value_aliases, "styleconfig_id", "source",
+                    ),
+                    "layername": _cell(raw, block.value_aliases, "layername"),
+                    "tx": _cell(raw, block.value_aliases, "stylevalue"),
+                })
             elif table == "dbbasic_tables":
                 if block.context == "config_param_system":
                     values["source"] = _first_cell(
@@ -679,6 +691,12 @@ def blocks_to_multilang_rows(
                 values["columnname"] = str(values["columnname"])
             if values.get("typevalue") is not None:
                 values["typevalue"] = str(values["typevalue"])
+            if values.get("layername") is not None:
+                values["layername"] = str(values["layername"])
+            if table == "dbstyle":
+                values.pop("hint", None)
+                values.pop("org_text", None)
+                values.pop("lb", None)
 
             target_table = BASELINE_TO_MULTILANG_TABLE.get(table)
             if table == "dbbasic_tables":
@@ -701,6 +719,11 @@ def blocks_to_multilang_rows(
             if table == "dbbasic_tables" and values.get("source") is None:
                 continue
             if table == "dbplan_price" and values.get("source") is None:
+                continue
+            if table == "dbstyle" and (
+                values.get("source") is None
+                or values.get("layername") is None
+            ):
                 continue
             rows.append(MultilangRow(table=target_table, values=values))
     return rows
@@ -847,11 +870,12 @@ def _statements_from_rows(
     statements: list[str] = []
     for target_table in MULTILANG_UI_TABLES:
         table_rows = by_table.get(target_table) or []
+        table_batch = 5 if target_table == "sys_style" else batch_size
         statements.extend(
             build_insert_sql(
                 target_table,
                 table_rows,
-                batch_size=batch_size,
+                batch_size=table_batch,
                 on_conflict=on_conflict,
             )
         )
@@ -1231,6 +1255,39 @@ BEGIN
         ON multilang.plan_price USING btree (lang);
 
     GRANT SELECT ON TABLE multilang.plan_price TO role_basic;
+
+    IF to_regclass('multilang.sys_style') IS NOT NULL
+       AND EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'multilang'
+              AND table_name = 'sys_style'
+              AND column_name = 'hint'
+       )
+    THEN
+        DROP TABLE multilang.sys_style;
+    END IF;
+
+    CREATE TABLE IF NOT EXISTS multilang.sys_style (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        "source" text NOT NULL,
+        layername text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        tx text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT sys_style_id_uniq UNIQUE (id),
+        CONSTRAINT sys_style_pkey PRIMARY KEY (project_type, context, "source", layername, lang),
+        CONSTRAINT sys_style_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    ALTER TABLE multilang.sys_style ADD COLUMN IF NOT EXISTS tx text NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_sys_style_lang
+        ON multilang.sys_style USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.sys_style TO role_basic;
 END
 $BODY$;
 """

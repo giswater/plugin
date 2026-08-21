@@ -51,7 +51,8 @@ DECLARE
         'config_visit_parameter',
         'value_state',
         'value_state_type',
-        'plan_price'
+        'plan_price',
+        'sys_style'
     ];
 BEGIN
     v_prev_search_path := current_setting('search_path');

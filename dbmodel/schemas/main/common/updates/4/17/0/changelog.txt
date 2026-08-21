@@ -23,3 +23,4 @@
 - Rename `abrevation` to `abbreviation` on `cat_feature`, `config_mapzones`, `ve_cat_feature_*` views, and `config_code_parts`.
 - Translate QGIS TOC group names from `config_typevalue.sys_table_context` via multilang (`v_config_typevalue`).
 - Keep the `HIDDEN` TOC group name in English so plugin lookups still match.
+- Translate QML rule labels from `sys_style` via multilang (`v_sys_style`).

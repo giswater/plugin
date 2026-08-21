@@ -411,9 +411,9 @@ class GwStyleManager:
 
                 styleconfig_id = row_result[0]
 
-                # Delete the selected row from sys_style using the retrieved numeric `styleconfig_id`
+                # Delete the selected row from v_sys_style using the retrieved numeric `styleconfig_id`
                 sql_delete_style = (
-                    f"DELETE FROM {lib_vars.schema_name}.sys_style "
+                    f"DELETE FROM {lib_vars.schema_name}.v_sys_style "
                     f"WHERE layername = '{layername}' AND styleconfig_id = {styleconfig_id};"
                 )
                 tools_db.execute_sql(sql_delete_style)
@@ -519,7 +519,7 @@ class GwStyleManager:
             new_styleconfig_id = row_result[0]
             sql_check_exists = (
                 f"SELECT COUNT(*) "
-                f"FROM {lib_vars.schema_name}.sys_style "
+                f"FROM {lib_vars.schema_name}.v_sys_style "
                 f"WHERE layername = '{table_name}' AND styleconfig_id = {new_styleconfig_id};"
             )
             style_exists = tools_db.get_row(sql_check_exists)[0] > 0
@@ -532,7 +532,7 @@ class GwStyleManager:
 
             sql_gw_basic = (
                 f"SELECT styletype, stylevalue, active "
-                f"FROM {lib_vars.schema_name}.sys_style "
+                f"FROM {lib_vars.schema_name}.v_sys_style "
                 f"WHERE layername = '{table_name}' AND styleconfig_id = ("
                 f"SELECT id FROM {lib_vars.schema_name}.config_style WHERE idval = 'GwBasic'"
                 f");"
@@ -548,7 +548,7 @@ class GwStyleManager:
                 active = True
 
             sql_insert_style = (
-                f"INSERT INTO {lib_vars.schema_name}.sys_style "
+                f"INSERT INTO {lib_vars.schema_name}.v_sys_style "
                 f"(layername, styleconfig_id, styletype, stylevalue, active) "
                 f"VALUES ('{table_name}', {new_styleconfig_id}, '{styletype}', '{stylevalue_clean}', {active});"
             )

@@ -288,6 +288,17 @@ BEGIN
                AND ml.lang = %s',
             v_context, v_pt_expr, v_lang_expr
         );
+    ELSIF p_table = 'sys_style' THEN
+        v_context := 'sys_style';
+        v_join := format(
+            'LEFT JOIN multilang.sys_style ml
+                ON ml.source = t.styleconfig_id::text
+               AND ml.layername = t.layername
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
     ELSE
         RAISE EXCEPTION 'Unsupported multilang view table: %', p_table;
     END IF;
@@ -369,6 +380,8 @@ BEGIN
                     THEN 'COALESCE(ml.tx, t."text")'
                 WHEN a.attname = 'price' AND p_table = 'plan_price'
                     THEN 'COALESCE(replace(ml.pr, '','', ''.'')::numeric, t.price)'
+                WHEN a.attname = 'stylevalue' AND p_table = 'sys_style'
+                    THEN 'COALESCE(ml.tx, t.stylevalue)'
                 WHEN a.attname = 'value' AND p_table = 'config_param_system'
                     THEN 'COALESCE(ml.vl, t.value)'
                 WHEN a.attname = 'name'
