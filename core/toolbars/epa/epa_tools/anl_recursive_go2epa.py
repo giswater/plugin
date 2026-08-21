@@ -33,11 +33,11 @@ class RecursiveEpa():
         tools_gw.load_settings(self.dlg_epa)
 
         # Load user values
-        last_config_path = tools_gw.get_config_parser('recursive_epa', 'config_path', 'user', 'session')
+        last_config_path = tools_gw.get_config_parser('epatools_recursive_go2epa', 'config_path', 'user', 'session')
         tools_qt.set_widget_text(self.dlg_epa, self.dlg_epa.data_config_file, last_config_path)
-        last_path = tools_gw.get_config_parser('recursive_epa', 'folder_path', 'user', 'session')
+        last_path = tools_gw.get_config_parser('epatools_recursive_go2epa', 'folder_path', 'user', 'session')
         tools_qt.set_widget_text(self.dlg_epa, self.dlg_epa.data_output_folder, last_path)
-        last_prefix = tools_gw.get_config_parser('recursive_epa', 'prefix', 'user', 'session')
+        last_prefix = tools_gw.get_config_parser('epatools_recursive_go2epa', 'prefix', 'user', 'session')
         tools_qt.set_widget_text(self.dlg_epa, self.dlg_epa.txt_prefix, last_prefix)
 
         # Set signals
@@ -48,16 +48,16 @@ class RecursiveEpa():
         self.dlg_epa.rejected.connect(partial(self.save_user_values, self.dlg_epa))
         self.dlg_epa.rejected.connect(partial(tools_gw.close_dialog, self.dlg_epa))
 
-        tools_gw.open_dialog(self.dlg_epa, dlg_name='recursive_epa')
+        tools_gw.open_dialog(self.dlg_epa, dlg_name='epatools_recursive_go2epa')
 
     def save_user_values(self, dialog):
         """ Save last user values """
         config_path = tools_qt.get_text(dialog, dialog.data_config_file)
-        tools_gw.set_config_parser('recursive_epa', 'config_path', f"{config_path}")
+        tools_gw.set_config_parser('epatools_recursive_go2epa', 'config_path', f"{config_path}")
         folder_path = tools_qt.get_text(dialog, dialog.data_output_folder)
-        tools_gw.set_config_parser('recursive_epa', 'folder_path', f"{folder_path}")
+        tools_gw.set_config_parser('epatools_recursive_go2epa', 'folder_path', f"{folder_path}")
         prefix = tools_qt.get_text(dialog, dialog.txt_prefix, False, False)
-        tools_gw.set_config_parser('recursive_epa', 'prefix', f"{prefix}")
+        tools_gw.set_config_parser('epatools_recursive_go2epa', 'prefix', f"{prefix}")
 
     def execute_epa(self, dlg_epa):
         # Get config path

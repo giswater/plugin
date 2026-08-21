@@ -37,7 +37,7 @@ class QuantizedDemands:
         ]
         for widget in widgets:
             value = tools_gw.get_config_parser(
-                "quantized_demands",
+                "epatools_quantized_demands",
                 widget,
                 "user",
                 "session",
@@ -63,7 +63,7 @@ class QuantizedDemands:
         self.dlg_epa.rejected.connect(partial(tools_gw.close_dialog, self.dlg_epa))
 
         tools_gw.disable_tab_log(dlg)
-        tools_gw.open_dialog(self.dlg_epa, dlg_name="quantized_demands")
+        tools_gw.open_dialog(self.dlg_epa, dlg_name="epatools_quantized_demands")
 
     def _execute_quantized_demands(self):
         if not self._validate_inputs():
@@ -156,7 +156,7 @@ class QuantizedDemands:
         for widget in text_widgets:
             value = tools_qt.get_text(dialog, widget, False, False)
             tools_gw.set_config_parser(
-                "quantized_demands",
+                "epatools_quantized_demands",
                 widget,
                 f"{value}",
             )

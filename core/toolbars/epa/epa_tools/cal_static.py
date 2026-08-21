@@ -39,7 +39,7 @@ class StaticCalibration:
 
         tools_gw.disable_tab_log(dlg)
 
-        tools_gw.open_dialog(dlg, dlg_name="static_calibration")
+        tools_gw.open_dialog(dlg, dlg_name="epatools_static_calibration")
 
     def _ovewrite_existing_files(self, folder, file_name):
         prefix = f"{folder}/{file_name}"
@@ -322,7 +322,7 @@ class StaticCalibration:
         for widget in widgets:
             if action == "load":
                 value = tools_gw.get_config_parser(
-                    "static_calibration",
+                    "epatools_static_calibration",
                     widget,
                     "user",
                     "session",
@@ -332,7 +332,7 @@ class StaticCalibration:
                 value = tools_qt.get_text(self.dlg_epa, widget, False, False)
                 value = value.replace("%", "%%")
                 tools_gw.set_config_parser(
-                    "static_calibration",
+                    "epatools_static_calibration",
                     widget,
                     value,
                 )

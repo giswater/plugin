@@ -1344,3 +1344,7 @@ WHERE a.edge_id > b.edge_id
 
 CREATE UNIQUE INDEX IF NOT EXISTS om_scada_graph_object_1_object_2_uidx
 ON om_scada_graph (object_1, object_2);
+
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
+VALUES (4688, E'Function to calculate water balance according stardards of IWA. \nYou must select a period already created or manually select the date of the interval. One at a time. Before that:  \n1) tables ext_cat_period, ext_rtc_hydrometer_x_data, ext_rtc_scada_x_data need to be filled. \n2) DMA graph need to be executed.  \n>End Date proposal for %v_percent_hydro%% of hydrometers which consum is out of the period: %v_proposed_enddate%', NULL, 0, true, 'utils', 'core', 'UI')
+ON CONFLICT (id) DO NOTHING;

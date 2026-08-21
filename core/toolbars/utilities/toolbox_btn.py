@@ -667,7 +667,7 @@ class GwToolBoxButton(GwAction):
 
             # Set size policy to expanding if no parameters, selection type or input layer are visible
             if not dialog.grb_parameters.isVisible() and not dialog.grb_selection_type.isVisible() and not dialog.grb_input_layer.isVisible():
-                dialog.grb_info.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                dialog.grb_info.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
             self._load_settings_values(dialog, result)
             self._load_parametric_values(dialog, result)

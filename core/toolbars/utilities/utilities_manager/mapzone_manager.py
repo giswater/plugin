@@ -347,6 +347,21 @@ class GwMapzoneManager:
             return f'plan_netscenario_{mapzone_type}'
         return f've_{mapzone_type}'
 
+    def _get_mapzone_id_column(self, tableview):
+        """Return (columnname, col_idx) for the mapzone PK.
+
+        Do not use model column 0: netscenario tables lead with netscenario_id (often hidden).
+        headerData DisplayRole is the alias; get_model_column_name returns the SQL field.
+        """
+        mapzone_type = self._get_mapzone_type(tableview)
+        col_name = f"{mapzone_type}_id" if mapzone_type else None
+        if col_name == 'valve_id':
+            col_name = 'node_id'
+        col_idx = tools_qt.get_col_index_by_col_name(tableview, col_name) if col_name else None
+        if col_idx in (None, False):
+            col_idx = 0
+        return tools_gw.get_model_column_name(tableview, col_idx), col_idx
+
     def _load_main_tabs(self):
         """Create dynamic manager tabs (table views) for project mapzone types."""
         if self.mapzone_mng_dlg.main_tab is None:
@@ -1718,11 +1733,11 @@ class GwMapzoneManager:
             return
 
         # Get selected mapzone data
+        field_id, col_idx = self._get_mapzone_id_column(tableview)
+        active_col = tools_qt.get_col_index_by_col_name(tableview, 'active')
         for index in selected_list:
-            mapzone_id = index.sibling(index.row(), 0).data()
-            active = index.sibling(index.row(), tools_qt.get_col_index_by_col_name(tableview, 'active')).data()
-            active = tools_os.set_boolean(active)
-            field_id = tableview.model().headerData(0, Qt.Orientation.Horizontal)
+            mapzone_id = index.sibling(index.row(), col_idx).data()
+            active = tools_os.set_boolean(index.sibling(index.row(), active_col).data())
 
             sql = f"UPDATE {view} SET active = {str(not active).lower()} WHERE {field_id}::text = '{mapzone_id}'"
             tools_db.execute_sql(sql)
@@ -1744,14 +1759,7 @@ class GwMapzoneManager:
         if not tablename:
             return
 
-        col_name = f"{mapzone_type}_id"
-        col_idx = tools_qt.get_col_index_by_col_name(tableview, col_name)
-        if col_idx in (None, False):
-            field_id = tableview.model().headerData(0, Qt.Orientation.Horizontal)
-        else:
-            field_id = tableview.model().headerData(col_idx, Qt.Orientation.Horizontal)
-        if field_id:
-            field_id = str(field_id).lower()
+        field_id, _ = self._get_mapzone_id_column(tableview)
 
         # Execute getinfofromid
         feature = f'"tableName":"{tablename}"'
@@ -1785,13 +1793,8 @@ class GwMapzoneManager:
 
         # Get selected mapzone data
         index = tableview.selectionModel().currentIndex()
-        col_name = f"{mapzone_type}_id"
-        if col_name == 'valve_id':
-            col_name = 'node_id'
-        col_idx = tools_qt.get_col_index_by_col_name(tableview, col_name)
-
+        field_id, col_idx = self._get_mapzone_id_column(tableview)
         mapzone_id = index.sibling(index.row(), col_idx).data()
-        field_id = tableview.model().headerData(col_idx, Qt.Orientation.Horizontal).lower()
 
         # Execute getinfofromid
         _id = f"{mapzone_id}"
@@ -1823,8 +1826,8 @@ class GwMapzoneManager:
             return
 
         # Get selected mapzone data
-        field_id = tableview.model().headerData(0, Qt.Orientation.Horizontal)
-        mapzone_ids = [index.sibling(index.row(), 0).data() for index in selected_list]
+        field_id, col_idx = self._get_mapzone_id_column(tableview)
+        mapzone_ids = [index.sibling(index.row(), col_idx).data() for index in selected_list]
 
         record_labels = []
         for index in selected_list:

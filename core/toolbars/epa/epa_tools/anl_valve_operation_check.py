@@ -35,7 +35,7 @@ class ValveOperationCheck:
         self._set_signals()
 
         tools_gw.disable_tab_log(dlg)
-        tools_gw.open_dialog(dlg, dlg_name="valve_operation_check")
+        tools_gw.open_dialog(dlg, dlg_name="epatools_valve_operation_check")
 
     def _execute_process(self):
         try:
@@ -214,7 +214,7 @@ class ValveOperationCheck:
         for widget in txt_widgets:
             if action == "load":
                 value = tools_gw.get_config_parser(
-                    "valve_operation_check",
+                    "epatools_valve_operation_check",
                     widget,
                     "user",
                     "session",
@@ -224,7 +224,7 @@ class ValveOperationCheck:
                 value = tools_qt.get_text(self.dlg_voc, widget, False, False)
                 value = value.replace("%", "%%")
                 tools_gw.set_config_parser(
-                    "valve_operation_check",
+                    "epatools_valve_operation_check",
                     widget,
                     value,
                 )
@@ -233,7 +233,7 @@ class ValveOperationCheck:
             widget = self.dlg_voc.findChild(QWidget, widget_name)
             if action == "load":
                 value = tools_gw.get_config_parser(
-                    "valve_operation_check",
+                    "epatools_valve_operation_check",
                     widget_name,
                     "user",
                     "session",
@@ -242,7 +242,7 @@ class ValveOperationCheck:
             elif action == "save":
                 value = widget.isChecked()
                 tools_gw.set_config_parser(
-                    "valve_operation_check",
+                    "epatools_valve_operation_check",
                     widget_name,
                     f"{value}",
                 )

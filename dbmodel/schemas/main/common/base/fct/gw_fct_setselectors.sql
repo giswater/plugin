@@ -151,138 +151,146 @@ BEGIN
 	EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"project_type":"'||v_project_type||'", "action":"DROP", "group":"SELECTOR"}}}$$)';
 	EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"project_type":"'||v_project_type||'", "action":"CREATE", "group":"SELECTOR"}}}$$)';
 
-	IF v_expl_x_user is false THEN
-		-- create auxiliar table temp_aux_sector_muni
-		CREATE TEMP TABLE temp_muni_sector_expl AS
-		SELECT DISTINCT muni_id, sector_id, expl_id FROM node WHERE EXISTS (SELECT 1 FROM selector_state WHERE node.state = selector_state.state_id)
-		UNION
-		SELECT * FROM (SELECT DISTINCT muni_id, sector_id, unnest(expl_visibility) AS expl_id FROM node WHERE EXISTS (SELECT 1 FROM selector_state WHERE node.state = selector_state.state_id))
-		WHERE expl_id IS NOT NULL;
+	CREATE TEMP TABLE temp_muni_sector_expl AS
+	WITH
+		node_state_psector AS (
+			SELECT n.node_id, n.expl_id, n.expl_visibility, n.muni_id, n.sector_id, n.state
+			FROM node n
+			LEFT JOIN LATERAL (
+				SELECT x.state
+				FROM (
+					SELECT 1 WHERE EXISTS (
+						SELECT 1 FROM selector_psector sp WHERE sp.cur_user = CURRENT_USER
+					)
+				) gate
+				CROSS JOIN LATERAL (
+					SELECT pp_1.state
+					FROM plan_psector_x_node pp_1
+					WHERE pp_1.node_id = n.node_id
+						AND pp_1.psector_id IN (
+							SELECT sp.psector_id FROM selector_psector sp WHERE sp.cur_user = CURRENT_USER
+						)
+					ORDER BY pp_1.psector_id DESC
+					LIMIT 1
+				) x
+			) pp ON true
+			WHERE EXISTS (
+				SELECT 1
+				FROM selector_state ss
+				WHERE ss.cur_user = CURRENT_USER
+				AND ss.state_id = COALESCE(pp.state, n.state)
+			)
+		),
+		node_expl AS (
+			SELECT nn.node_id, nn.expl_id
+			FROM (
+				SELECT n.node_id, n.expl_id
+				FROM node_state_psector n
+				WHERE n.expl_id IS NOT NULL
+				UNION
+				SELECT n.node_id, unnest(n.expl_visibility) AS expl_id
+				FROM node_state_psector n
+				WHERE n.expl_visibility IS NOT NULL
+			) nn
+			JOIN vf_exploitation e ON e.expl_id = nn.expl_id
+			-- vf_exploitation is filtered by active AND expl_id > 0
+		),
+		node_muni AS (
+			SELECT nn.node_id, nn.muni_id
+			FROM (
+				SELECT n.node_id, n.muni_id
+				FROM node_state_psector n
+				WHERE n.muni_id IS NOT NULL
+				UNION
+				SELECT n.node_id, n.muni_id
+				FROM node_x_municipality_visibility n
+				WHERE n.muni_id IS NOT NULL
+			) nn
+			JOIN v_municipality m ON m.muni_id = nn.muni_id
+			WHERE m.active
+		),
+		node_sector AS (
+			SELECT nn.node_id, nn.sector_id
+			FROM (
+				SELECT n.node_id, n.sector_id
+				FROM node_state_psector n
+				LEFT JOIN node_x_sector_visibility v ON v.node_id = n.node_id
+				WHERE v.node_id IS NULL
+				AND n.sector_id IS NOT NULL
+				AND n.state <> 2
+				UNION
+				SELECT n.node_id, v.sector_id
+				FROM node_state_psector n
+				JOIN node_x_sector_visibility v ON n.node_id = v.node_id
+				WHERE n.state <> 2
+				AND v.sector_id IS NOT NULL
+			) nn
+			JOIN sector s ON s.sector_id = nn.sector_id
+			WHERE s.active
+		)
+	SELECT DISTINCT nm.muni_id, ns.sector_id, ne.expl_id
+	FROM node_expl ne
+	JOIN node_muni nm ON nm.node_id = ne.node_id
+	JOIN node_sector ns ON ns.node_id = ne.node_id;
 
-		INSERT INTO temp_exploitation (expl_id, code, name, descript, macroexpl_id, active)
-		SELECT expl_id, code, name, descript, macroexpl_id, active 
-		FROM exploitation 
-		WHERE active 
-		AND expl_id > 0 
-		ORDER BY expl_id;
+	-- populate temp_network
+	INSERT INTO temp_network (network_id, name, active)
+	SELECT id::integer AS network_id, idval AS name, true AS active
+	FROM om_typevalue WHERE typevalue = 'network_type' ORDER BY id;
 
-		INSERT INTO temp_macroexploitation (macroexpl_id, code, name, descript, active)
-		SELECT macroexpl_id, code, name, descript, active 
-		FROM macroexploitation 
-		WHERE active 
-		AND macroexpl_id > 0 
-		ORDER BY macroexpl_id;
+	-- populate temp_exploitation
+	INSERT INTO temp_exploitation (expl_id, code, name, descript, macroexpl_id, active)
+	SELECT e.expl_id, e.code, e.name, e.descript, e.macroexpl_id, e.active
+	FROM exploitation e
+	JOIN vf_exploitation vf ON vf.expl_id = e.expl_id
+	ORDER BY 1;
 
-		INSERT INTO temp_sector (sector_id, code, name, descript, expl_id, muni_id, macrosector_id, parent_id, active)
-		SELECT sector_id, code, name, descript, expl_id, muni_id, macrosector_id, parent_id, active 
-		FROM sector 
-		WHERE active 
-		AND sector_id >= 0 
-		ORDER BY sector_id;
+	-- populate temp_macroexploitation
+	INSERT INTO temp_macroexploitation (macroexpl_id, code, name, descript, active)
+	SELECT m.macroexpl_id, m.code, m.name, m.descript, m.active
+	FROM macroexploitation m
+	WHERE m.active AND m.macroexpl_id > 0
+	AND EXISTS (SELECT 1 FROM temp_exploitation e WHERE e.macroexpl_id = m.macroexpl_id)
+	ORDER BY 1;
 
-		INSERT INTO temp_macrosector (macrosector_id, code, name, descript, expl_id, muni_id, active)
-		SELECT macrosector_id, code, name, descript, expl_id, muni_id, active 
-		FROM macrosector 
-		WHERE active 
-		AND macrosector_id > 0 
-		ORDER BY macrosector_id;
+	-- populate temp_municipality
+	INSERT INTO temp_municipality (muni_id, name, observ, active)
+	SELECT DISTINCT ON (em.muni_id) em.muni_id, em.name, em.observ, em.active
+	FROM temp_muni_sector_expl t
+	JOIN temp_exploitation e USING (expl_id)
+	JOIN v_municipality em ON em.muni_id = t.muni_id
+	WHERE em.active
+	ORDER BY em.muni_id
+	ON CONFLICT (muni_id) DO NOTHING;
 
-		INSERT INTO temp_municipality (muni_id, name, observ, active)
-		SELECT muni_id, name, observ, active 
-		FROM v_municipality 
-		WHERE active 
-		AND muni_id > 0 
-		ORDER BY muni_id;
+	-- populate temp_sector
+	INSERT INTO temp_sector (sector_id, code, name, descript, expl_id, muni_id, macrosector_id, parent_id, active)
+	SELECT s.sector_id, s.code, s.name, s.descript, s.expl_id, s.muni_id, s.macrosector_id, s.parent_id, s.active
+	FROM sector s
+	WHERE EXISTS (SELECT 1 FROM temp_muni_sector_expl t WHERE t.sector_id = s.sector_id)
+	AND s.sector_id > 0
+	ORDER BY 1;
 
-		INSERT INTO temp_network (network_id, name, active)
-		SELECT id::integer AS network_id, idval AS name, true AS active 
-		FROM om_typevalue 
-		WHERE typevalue = 'network_type' 
-		ORDER BY id;
+	INSERT INTO temp_sector (sector_id, code, name, descript, expl_id, muni_id, macrosector_id, parent_id, active)
+	SELECT s.sector_id, s.code, s.name, s.descript, s.expl_id, s.muni_id, s.macrosector_id, s.parent_id, s.active
+	FROM sector s
+	WHERE s.sector_id = 0;
 
-		IF v_project_type = 'WS' THEN
-			INSERT INTO temp_t_mincut (id, work_order, expl_id, macroexpl_id, muni_id, minsector_id, forecast_start, forecast_end)
-			SELECT id, work_order, expl_id, macroexpl_id, muni_id, minsector_id, forecast_start, forecast_end 
-			FROM om_mincut 
-			WHERE id > 0 
-			ORDER BY id;
-		END IF;
-	ELSE
-		-- create auxiliar table temp_aux_sector_muni
-		CREATE TEMP TABLE temp_muni_sector_expl AS
-		SELECT DISTINCT muni_id, sector_id, expl_id FROM (
-			SELECT muni_id, sector_id, expl_id FROM node WHERE EXISTS (SELECT 1 FROM selector_state WHERE node.state = selector_state.state_id)
-			UNION
-			SELECT muni_id, sector_id, unnest(expl_visibility) AS expl_id FROM node WHERE EXISTS (SELECT 1 FROM selector_state WHERE node.state = selector_state.state_id)
-		) n
-		WHERE expl_id IS NOT NULL
-		AND EXISTS (SELECT 1 FROM cat_manager cm
-		WHERE n.expl_id = ANY (cm.expl_id)
-		AND EXISTS (SELECT 1 FROM unnest(cm.rolename) r(role)
-		WHERE pg_has_role(current_user, r.role, 'member')));
+	-- populate temp_macrosector
+	INSERT INTO temp_macrosector (macrosector_id, code, name, descript, expl_id, muni_id, active)
+	SELECT macrosector_id, code, name, descript, expl_id, muni_id, active
+	FROM macrosector m
+	WHERE m.active AND m.macrosector_id > 0
+	AND EXISTS (SELECT 1 FROM temp_sector s WHERE s.macrosector_id = m.macrosector_id)
+	ORDER BY 1;
 
-		INSERT INTO temp_exploitation (expl_id, code, name, descript, macroexpl_id, active)
-		SELECT DISTINCT e.expl_id, e.code, e.name, e.descript, e.macroexpl_id, e.active
-		FROM temp_muni_sector_expl t
-		JOIN exploitation e ON e.expl_id = t.expl_id
-		WHERE e.active AND e.expl_id > 0
-		ORDER BY 1;
-
-		-- populate temp_network
-		INSERT INTO temp_network (network_id, name, active)
-		SELECT id::integer AS network_id, idval AS name, true AS active
-		FROM om_typevalue WHERE typevalue = 'network_type' ORDER BY id;
-
-		-- populate temp_macroexploitation
-		INSERT INTO temp_macroexploitation (macroexpl_id, code, name, descript, active)
-		SELECT DISTINCT ON (m.macroexpl_id) m.macroexpl_id, m.code, m.name, m.descript, m.active
-		FROM macroexploitation m
-		JOIN temp_exploitation e USING (macroexpl_id)
-		WHERE m.active AND m.macroexpl_id > 0
-		ORDER BY 1
-		ON CONFLICT (macroexpl_id) DO NOTHING;
-
-		-- populate temp_sector
-		INSERT INTO temp_sector (sector_id, code, name, descript, expl_id, muni_id, macrosector_id, parent_id, active)
-		SELECT DISTINCT ON (s.sector_id) s.sector_id, s.code, s.name, s.descript, s.expl_id, s.muni_id, s.macrosector_id, s.parent_id, s.active
-		FROM temp_muni_sector_expl t
-		JOIN temp_exploitation e USING (expl_id)
-		JOIN sector s ON s.sector_id = t.sector_id
-		WHERE s.active AND s.sector_id >= 0
-		ORDER BY s.sector_id
-		ON CONFLICT (sector_id) DO NOTHING;
-
-		-- populate temp_macrosector
-		INSERT INTO temp_macrosector (macrosector_id, code, name, descript, expl_id, muni_id, active)
-		SELECT DISTINCT ON (m.macrosector_id) m.macrosector_id, m.code, m.name, m.descript, m.expl_id, m.muni_id, m.active
-		FROM macrosector m
-		JOIN temp_sector e USING (macrosector_id)
-		WHERE m.active AND m.macrosector_id > 0
-		ORDER BY m.macrosector_id
-		ON CONFLICT (macrosector_id) DO NOTHING;
-
-		-- populate temp_municipality
-		INSERT INTO temp_municipality (muni_id, name, observ, active)
-		SELECT DISTINCT ON (em.muni_id) em.muni_id, em.name, em.observ, em.active
-		FROM temp_muni_sector_expl t
-		JOIN temp_exploitation e USING (expl_id)
-		JOIN v_municipality em ON em.muni_id = t.muni_id
-		WHERE em.active
-		ORDER BY em.muni_id
-		ON CONFLICT (muni_id) DO NOTHING;
-
-		IF v_project_type = 'WS' THEN
-			INSERT INTO temp_t_mincut (id, work_order, expl_id, macroexpl_id, muni_id, minsector_id, forecast_start, forecast_end)
-			SELECT DISTINCT ON (m.id) m.id, m.work_order, m.expl_id, m.macroexpl_id, m.muni_id, m.minsector_id, m.forecast_start, m.forecast_end
-			FROM om_mincut m
-			WHERE m.id > 0 AND EXISTS (SELECT 1 FROM cat_manager cm
-	        WHERE m.expl_id = ANY (cm.expl_id)
-	        AND EXISTS (SELECT 1 FROM unnest(cm.rolename) r(role)
-	        WHERE pg_has_role(current_user, r.role, 'member')
-	        ))
-			ORDER BY m.id
-			ON CONFLICT (id) DO NOTHING;
-		END IF;
+	IF v_project_type = 'WS' THEN
+		INSERT INTO temp_t_mincut (id, work_order, expl_id, macroexpl_id, muni_id, minsector_id, forecast_start, forecast_end)
+		SELECT m.id, m.work_order, e.expl_id, m.macroexpl_id, m.muni_id, m.minsector_id, m.forecast_start, m.forecast_end
+		FROM om_mincut m
+		JOIN temp_exploitation e ON e.expl_id = m.expl_id
+		WHERE m.id > 0
+		ORDER BY m.id;
 	END IF;
 
 	-- manage selector psector in psector-mode
@@ -490,6 +498,8 @@ BEGIN
 				ON CONFLICT (expl_id, cur_user) DO NOTHING;
 			END IF;
 
+			INSERT INTO selector_expl VALUES (0, current_user) ON CONFLICT (expl_id, cur_user) DO NOTHING;
+
 			-- macrosector
 			DELETE FROM selector_macrosector WHERE cur_user = current_user;
 
@@ -502,6 +512,8 @@ BEGIN
  		    WHERE cur_user = current_user
 			ON CONFLICT (sector_id, cur_user) DO NOTHING;
 
+			INSERT INTO selector_sector VALUES (0, current_user) ON CONFLICT (sector_id, cur_user) DO NOTHING;
+
 			-- muni
 			DELETE FROM selector_municipality WHERE cur_user = current_user;
 			INSERT INTO selector_municipality
@@ -510,6 +522,8 @@ BEGIN
 			JOIN selector_expl USING (expl_id)
  		    WHERE cur_user = current_user
 			ON CONFLICT (muni_id, cur_user) DO NOTHING;
+
+			INSERT INTO selector_municipality VALUES (0, current_user) ON CONFLICT (muni_id, cur_user) DO NOTHING;
 
 			IF (SELECT rolname FROM pg_roles WHERE pg_has_role(current_user, oid, 'member') AND rolname = 'role_epa') IS NOT NULL THEN
 				DELETE FROM selector_inp_dscenario WHERE dscenario_id NOT IN
@@ -562,6 +576,8 @@ BEGIN
 		-- inserting muni_id from selected muni
 		ELSIF v_tab_name IN ('tab_municipality') THEN
 
+			INSERT INTO selector_municipality VALUES (0, current_user) ON CONFLICT (muni_id, cur_user) DO NOTHING;
+
 			-- macroexpl
 			DELETE FROM selector_macroexpl WHERE cur_user = current_user;
 
@@ -574,6 +590,8 @@ BEGIN
  		    WHERE cur_user = current_user
 			ON CONFLICT (expl_id, cur_user) DO NOTHING;
 
+			INSERT INTO selector_expl VALUES (0, current_user) ON CONFLICT (expl_id, cur_user) DO NOTHING;
+
 			-- macrosector
 			DELETE FROM selector_macrosector WHERE cur_user = current_user;
 
@@ -584,7 +602,9 @@ BEGIN
 			FROM temp_muni_sector_expl
 			JOIN selector_municipality USING (muni_id)
  		    WHERE cur_user = current_user
-			ON CONFLICT (sector_id, cur_user) DO NOTHING;			
+			ON CONFLICT (sector_id, cur_user) DO NOTHING;
+
+			INSERT INTO selector_sector VALUES (0, current_user) ON CONFLICT (sector_id, cur_user) DO NOTHING;		
 
 
 			-- scenarios
@@ -848,10 +868,6 @@ BEGIN
 		) b) a;
 
 	END IF;
-
-	-- force 0 
-	INSERT INTO selector_municipality VALUES (0, current_user) ON CONFLICT (muni_id, cur_user) DO NOTHING;
-	INSERT INTO selector_expl VALUES (0, current_user) ON CONFLICT (expl_id, cur_user) DO NOTHING;
 
 	-- warn the user that in the selected psectors, there is a connec connected to different arcs
 	WITH mec AS (

@@ -2753,7 +2753,7 @@ BEGIN
 				-- update arc
 				EXECUTE format($sql$
 					UPDATE arc a
-					SET %I = ta.mapzone_id
+					SET %I = COALESCE(NULLIF(ta.mapzone_id, -1), 0)
 					FROM temp_pgr_arc ta
 					WHERE a.arc_id = ta.pgr_arc_id
 					AND a.%I IS DISTINCT FROM ta.mapzone_id
@@ -2763,7 +2763,7 @@ BEGIN
 				-- node
 				EXECUTE format($sql$
 					UPDATE node n
-					SET %I = tn.mapzone_id
+					SET %I = COALESCE(NULLIF(tn.mapzone_id, -1), 0)
 					FROM temp_pgr_node tn
 					WHERE n.node_id = tn.pgr_node_id
 					AND n.%I IS DISTINCT FROM tn.mapzone_id
@@ -2771,30 +2771,30 @@ BEGIN
 				, v_mapzone_field, v_mapzone_field);
 
 				IF v_class = 'SECTOR' THEN
-    				UPDATE element e
-    				SET sector_id = te.mapzone_id
-    				FROM temp_pgr_element te
-    				WHERE e.element_id = te.pgr_element_id
-    				    AND e.sector_id IS DISTINCT FROM te.mapzone_id;
+					UPDATE element e
+					SET sector_id = COALESCE(NULLIF(te.mapzone_id, -1), 0)
+					FROM temp_pgr_element te
+					WHERE e.element_id = te.pgr_element_id
+					AND e.sector_id IS DISTINCT FROM te.mapzone_id;
 
 					-- node_x_sector_visibility for borders (nodes for ws, arcs for ud) and for the Heads of the mapzones
-	                INSERT INTO node_x_sector_visibility (node_id, sector_id)
+					INSERT INTO node_x_sector_visibility (node_id, sector_id)
 					SELECT n.pgr_node_id, a.mapzone_id
-                    FROM temp_pgr_node n
-                    JOIN temp_pgr_arc a ON n.pgr_node_id = a.pgr_node_1 OR n.pgr_node_id = a.pgr_node_2
-                    WHERE n.mapzone_id >= 0
-                    AND a.mapzone_id > 0
+					FROM temp_pgr_node n
+					JOIN temp_pgr_arc a ON n.pgr_node_id = a.pgr_node_1 OR n.pgr_node_id = a.pgr_node_2
+					WHERE n.mapzone_id >= 0
+					AND a.mapzone_id > 0
 					AND a.mapzone_id <> n.mapzone_id
-                    ON CONFLICT DO NOTHING;
+					ON CONFLICT DO NOTHING;
 
-                    DELETE FROM node_x_sector_visibility nxsv
-                    WHERE NOT EXISTS (
-                        SELECT 1
-                        FROM temp_pgr_node n
-                        JOIN temp_pgr_arc a ON n.pgr_node_id = a.pgr_node_1 OR n.pgr_node_id = a.pgr_node_2
-                        WHERE nxsv.node_id = n.pgr_node_id
-                        AND nxsv.sector_id = a.mapzone_id
-                    );
+					DELETE FROM node_x_sector_visibility nxsv
+					WHERE NOT EXISTS (
+						SELECT 1
+						FROM temp_pgr_node n
+						JOIN temp_pgr_arc a ON n.pgr_node_id = a.pgr_node_1 OR n.pgr_node_id = a.pgr_node_2
+						WHERE nxsv.node_id = n.pgr_node_id
+						AND nxsv.sector_id = a.mapzone_id
+					);
 
 					v_query_text_aux := '';
 					IF v_project_type = 'UD' THEN
@@ -2864,7 +2864,7 @@ BEGIN
 				-- connec
 				EXECUTE format($sql$
 					UPDATE connec c
-					SET %I = tc.mapzone_id
+					SET %I = COALESCE(NULLIF(tc.mapzone_id, -1), 0)
 					FROM temp_pgr_connec tc
 					WHERE c.connec_id = tc.pgr_connec_id
 					AND c.%I IS DISTINCT FROM tc.mapzone_id
@@ -2874,7 +2874,7 @@ BEGIN
 				-- link connec
 				EXECUTE format($sql$
 					UPDATE link l
-					SET %I = tc.mapzone_id
+					SET %I = COALESCE(NULLIF(tc.mapzone_id, -1), 0)
 					FROM temp_pgr_connec tc
 					WHERE l.feature_id = tc.pgr_connec_id
 					AND l.feature_type = 'CONNEC'
@@ -2886,7 +2886,7 @@ BEGIN
 					-- gully
 					EXECUTE format($sql$
 						UPDATE gully g
-						SET %I = tg.mapzone_id
+						SET %I = COALESCE(NULLIF(tg.mapzone_id, -1), 0)
 						FROM temp_pgr_gully tg
 						WHERE g.gully_id = tg.pgr_gully_id
 							AND g.%I IS DISTINCT FROM tg.mapzone_id
@@ -2896,7 +2896,7 @@ BEGIN
 					-- link gully
 					EXECUTE format($sql$
 						UPDATE link l
-						SET %I = tg.mapzone_id
+						SET %I = COALESCE(NULLIF(tg.mapzone_id, -1), 0)
 						FROM temp_pgr_gully tg
 						WHERE l.feature_id = tg.pgr_gully_id
 							AND l.feature_type = 'GULLY'
