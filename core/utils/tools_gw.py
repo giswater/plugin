@@ -6095,11 +6095,15 @@ def set_tablemodel_config(dialog, widget, table_name, sort_order=Qt.SortOrder.As
                     header.moveSection(current_visual_index, i)
 
         columns_dict: Dict[str, str] = {}
+        header_meta: List[Tuple[int, Optional[str], str]] = []
         for row in rows:
             col_idx = col_indexes.get(row['columnname'])
             if col_idx is None:
                 continue
-            columns_dict[str(row['alias'] if row['alias'] else row['columnname'])] = str(row['columnname'])
+            columnname = str(row['columnname'])
+            alias = str(row['alias']) if row['alias'] else None
+            columns_dict[str(alias if alias else columnname)] = columnname
+            header_meta.append((col_idx, alias, columnname))
             if not row['visible']:
                 columns_to_delete.append(col_idx)
             else:
@@ -6117,13 +6121,12 @@ def set_tablemodel_config(dialog, widget, table_name, sort_order=Qt.SortOrder.As
                 if width is None:
                     width = 100
                 widget.setColumnWidth(col_idx, width)
-                if row['alias'] is not None:
-                    model.setHeaderData(col_idx, Qt.Orientation.Horizontal, row['alias'])
         widget.setProperty('columns', columns_dict)
-        # Set order
+        # Set order. select() can wipe custom headerData, so apply alias/columnname after it.
         if isinstance(model, QStandardItemModel) is False:
             model.setSort(0, sort_order)
             model.select()
+        _apply_model_header_names(model, header_meta)
         # Delete columns
         for column in columns_to_delete:
             if column is not None:
@@ -6152,6 +6155,48 @@ def _get_model_col_indexes(model) -> Dict[str, int]:
                 col_indexes.setdefault(str(header_text), i)
 
     return col_indexes
+
+
+def _apply_model_header_names(model, header_meta: List[Tuple[int, Optional[str], str]]) -> None:
+    """Set DisplayRole = alias and UserRole = columnname for each configured column."""
+    for col_idx, alias, columnname in header_meta:
+        model.setHeaderData(col_idx, Qt.Orientation.Horizontal, columnname, Qt.ItemDataRole.UserRole)
+        if alias is not None:
+            model.setHeaderData(col_idx, Qt.Orientation.Horizontal, alias)
+
+
+def get_model_column_name(widget, col_idx=0):
+    """Return the SQL columnname for tableview column @col_idx (not the header alias).
+
+    Preference order:
+      1. QSqlTableModel.record().fieldName(i)  — always the SQL field
+      2. headerData(..., UserRole)             — set by set_tablemodel_config
+      3. widget.property('columns')[alias]     — {alias: columnname}
+    headerData(..., DisplayRole) is the label ('Dma id') and must not be used in SQL.
+    """
+    if widget is None:
+        return None
+    model = widget.model()
+    if model is None:
+        return None
+
+    try:
+        name = model.record().fieldName(col_idx)
+        if name:
+            return name
+    except (AttributeError, IndexError):
+        pass
+
+    name = model.headerData(col_idx, Qt.Orientation.Horizontal, Qt.ItemDataRole.UserRole)
+    if name:
+        return str(name)
+
+    columns_dict = widget.property("columns") or {}
+    header = model.headerData(col_idx, Qt.Orientation.Horizontal)
+    if header is None:
+        return None
+    header = str(header)
+    return columns_dict.get(header, header)
 
 
 def add_icon(widget, icon, folder="dialogs"):
