@@ -348,11 +348,18 @@ class GwMapzoneManager:
         return f've_{mapzone_type}'
 
     def _get_mapzone_id_column(self, tableview):
-        """Return (columnname, col_idx) for the mapzone PK (model column 0).
+        """Return (columnname, col_idx) for the mapzone PK.
 
+        Do not use model column 0: netscenario tables lead with netscenario_id (often hidden).
         headerData DisplayRole is the alias; get_model_column_name returns the SQL field.
         """
-        col_idx = 0
+        mapzone_type = self._get_mapzone_type(tableview)
+        col_name = f"{mapzone_type}_id" if mapzone_type else None
+        if col_name == 'valve_id':
+            col_name = 'node_id'
+        col_idx = tools_qt.get_col_index_by_col_name(tableview, col_name) if col_name else None
+        if col_idx in (None, False):
+            col_idx = 0
         return tools_gw.get_model_column_name(tableview, col_idx), col_idx
 
     def _load_main_tabs(self):
