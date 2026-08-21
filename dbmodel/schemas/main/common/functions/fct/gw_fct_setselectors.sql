@@ -154,7 +154,7 @@ BEGIN
 	CREATE TEMP TABLE temp_muni_sector_expl AS
 	WITH
 		node_state_psector AS (
-			SELECT n.node_id, n.expl_id, n.expl_visibility, n.muni_id, n.sector_id, pp.state AS p_state
+			SELECT n.node_id, n.expl_id, n.expl_visibility, n.muni_id, n.sector_id, n.state
 			FROM node n
 			LEFT JOIN LATERAL (
 				SELECT x.state
@@ -217,12 +217,12 @@ BEGIN
 				LEFT JOIN node_x_sector_visibility v ON v.node_id = n.node_id
 				WHERE v.node_id IS NULL
 				AND n.sector_id IS NOT NULL
-				AND n.p_state IS NULL
+				AND n.state <> 2
 				UNION
 				SELECT n.node_id, v.sector_id
 				FROM node_state_psector n
 				JOIN node_x_sector_visibility v ON n.node_id = v.node_id
-				WHERE n.p_state IS NULL
+				WHERE n.state <> 2
 				AND v.sector_id IS NOT NULL
 			) nn
 			JOIN sector s ON s.sector_id = nn.sector_id
