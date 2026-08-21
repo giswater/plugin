@@ -130,7 +130,21 @@ DECLARE
         'sys_message',
         'sys_function',
         'sys_fprocess',
-        'sys_table'
+        'sys_table',
+        'sys_label',
+        'config_csv',
+        'config_form_tableview',
+        'config_report',
+        'config_toolbox',
+        'config_typevalue',
+        'edit_typevalue',
+        'om_typevalue',
+        'plan_typevalue',
+        'config_visit_parameter',
+        'value_state',
+        'value_state_type',
+        'plan_price',
+        'sys_style'
     ];
     v_table text;
 BEGIN
@@ -142,9 +156,14 @@ BEGIN
         FOREACH v_table IN ARRAY v_tables
         LOOP
             IF to_regclass(format('%I.%I', v_schema, v_table)) IS NOT NULL THEN
+                EXECUTE format('DROP VIEW IF EXISTS %I.%I', v_schema, 'v_' || v_table);
                 EXECUTE format(
-                    'CREATE OR REPLACE VIEW %I.%I AS SELECT * FROM %I.%I',
+                    'CREATE VIEW %I.%I AS SELECT * FROM %I.%I',
                     v_schema, 'v_' || v_table, v_schema, v_table
+                );
+                EXECUTE format(
+                    'GRANT SELECT ON TABLE %I.%I TO role_basic',
+                    v_schema, 'v_' || v_table
                 );
             END IF;
         END LOOP;
@@ -160,8 +179,42 @@ INSERT INTO sys_table (id, descript, sys_role, "source") VALUES
 ('v_sys_message', 'System messages (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
 ('v_sys_function', 'System functions (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
 ('v_sys_fprocess', 'System processes (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
-('v_sys_table', 'System tables (allows multilingual and integration with network schemas)', 'role_basic', 'core')
+('v_sys_table', 'System tables (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_sys_label', 'System labels (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_config_csv', 'CSV import configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_config_form_tableview', 'Tableview column configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_config_report', 'Report configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_config_toolbox', 'Toolbox configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_config_typevalue', 'Typevalue configuration (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_edit_typevalue', 'Edit typevalue catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_om_typevalue', 'OM typevalue catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_plan_typevalue', 'Plan typevalue catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_config_visit_parameter', 'Visit parameter catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_value_state', 'Feature state catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_value_state_type', 'Feature state type catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_plan_price', 'Plan price catalog (allows multilingual and integration with network schemas)', 'role_basic', 'core'),
+('v_sys_style', 'Layer styles (allows multilingual QML rule labels)', 'role_basic', 'core')
 ON CONFLICT (id) DO NOTHING;
+
+UPDATE config_form_fields
+SET
+    dv_querytext = regexp_replace(
+        dv_querytext,
+        '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter|value_state_type|value_state|plan_price)\M',
+        'v_\1',
+        'g'
+    ),
+    dv_querytext_filterc = CASE
+        WHEN dv_querytext_filterc IS NULL THEN NULL
+        ELSE regexp_replace(
+            dv_querytext_filterc,
+            '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter|value_state_type|value_state|plan_price)\M',
+            'v_\1',
+            'g'
+        )
+    END
+WHERE dv_querytext ~ '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter|value_state_type|value_state|plan_price)\M'
+   OR COALESCE(dv_querytext_filterc, '') ~ '\m(edit_typevalue|om_typevalue|plan_typevalue|config_visit_parameter|value_state_type|value_state|plan_price)\M';
 
 ALTER TABLE cat_feature ADD custom_code_autofill bool DEFAULT false NULL;
 ALTER TABLE config_mapzones ADD custom_code_autofill bool DEFAULT false NULL;

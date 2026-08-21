@@ -37,10 +37,12 @@ from ..admin.i18n.multilang_seed_sql import (
     delete_language_seed_sql,
     delete_project_type_seed_sql,
     ensure_cat_language_sql,
+    ensure_multilang_tables_ddl,
     fetch_seeded_project_types_from_multilang,
     invalidate_baseline_fingerprint_cache,
     language_baselines_exist,
     multilang_user_param_provision_sql,
+    multilang_view_functions_ddl,
     multilang_views_provision_sql,
     multilang_json_error_message,
     run_multilang_function_sql,
@@ -132,6 +134,9 @@ class GwMultilangSchemaTask(GwTask):
             return False
         return True
 
+    def _ensure_multilang_tables(self) -> bool:
+        return self._execute_sql(ensure_multilang_tables_ddl())
+
     def run(self) -> bool:
         super().run()
         lib_vars.session_vars["last_error"] = None
@@ -169,6 +174,10 @@ class GwMultilangSchemaTask(GwTask):
     def _run_delete_language(self) -> bool:
         """Delete all multilang rows (and cat_language) for one locale."""
         self.setProgress(10)
+        if not self._ensure_multilang_tables():
+            if self._adapter is not None:
+                self._adapter.rollback()
+            return False
         if not self._clear_language_rows(drop_catalog=True):
             if self._adapter is not None:
                 self._adapter.rollback()
@@ -196,6 +205,11 @@ class GwMultilangSchemaTask(GwTask):
             return False
 
         if not self._execute_sql(ensure_cat_language_sql(self.locale or self.lang_id)):
+            if self._adapter is not None:
+                self._adapter.rollback()
+            return False
+
+        if not self._ensure_multilang_tables():
             if self._adapter is not None:
                 self._adapter.rollback()
             return False
@@ -252,6 +266,11 @@ class GwMultilangSchemaTask(GwTask):
 
         if self.result.cancelled or not self.result.ok:
             self._record_failure()
+            if self._adapter is not None:
+                self._adapter.rollback()
+            return False
+
+        if not self._ensure_multilang_tables():
             if self._adapter is not None:
                 self._adapter.rollback()
             return False
@@ -317,12 +336,12 @@ class GwMultilangSchemaTask(GwTask):
             return True
 
         msg = "{0} failed."
-        msg = msg.format(label)
+        msg = msg.format(tools_qt.tr(label))
         err = (
             lib_vars.session_vars.get("last_error_msg")
             or lib_vars.session_vars.get("last_error")
             or multilang_json_error_message(json_result, sql=sql)
-            or msg
+            or tools_qt.tr(msg)
         )
         self._set_task_error(err)
         if json_result:
@@ -340,6 +359,10 @@ class GwMultilangSchemaTask(GwTask):
 
     def _provision_network_views(self, *, enable: bool) -> bool:
         msg = "Multilang views provisioning"
+        if not self._ensure_multilang_tables():
+            return False
+        if not self._execute_sql(multilang_view_functions_ddl()):
+            return False
         return self._execute_multilang_function(
             multilang_views_provision_sql(enable=enable),
             label=msg,

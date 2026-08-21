@@ -47,17 +47,37 @@ BASELINE_TO_MULTILANG_TABLE: dict[str, str] = {
     "dbparam_user": "sys_param_user",
     "dbconfig_form_tabs": "config_form_tabs",
     "dbconfig_param_system": "config_param_system",
+    "dblabel": "sys_label",
+    "dbconfig_csv": "config_csv",
+    "dbconfig_form_tableview": "config_form_tableview",
+    "dbjson": "config_json",
+    "dbconfig_report": "config_report",
+    "dbconfig_toolbox": "config_toolbox",
+    "dbconfig_typevalue": "config_typevalue",
+    "dbtypevalue": "typevalue",
+    "dbconfig_visit_parameter": "config_visit_parameter",
+    "dbplan_price": "plan_price",
+    "dbstyle": "sys_style",
 }
 
-MULTILANG_UI_TABLES: tuple[str, ...] = tuple(sorted(set(BASELINE_TO_MULTILANG_TABLE.values())))
+MULTILANG_UI_TABLES: tuple[str, ...] = tuple(sorted(
+    set(BASELINE_TO_MULTILANG_TABLE.values()) | {"value_state", "value_state_type"}
+))
 
-_CORE_BASELINE_FILES: tuple[str, ...] = tuple(BASELINE_TO_MULTILANG_TABLE.keys())
+# Baseline files whose UPDATE context selects the satellite table.
+_MULTI_CONTEXT_BASELINES: frozenset[str] = frozenset({"dbbasic_tables"})
+
+_CORE_BASELINE_FILES: tuple[str, ...] = tuple(BASELINE_TO_MULTILANG_TABLE.keys()) + tuple(
+    sorted(_MULTI_CONTEXT_BASELINES)
+)
 
 # Baseline SQL files per project type (skip missing files at load time).
 _PROJECT_TYPE_TABLES: dict[str, tuple[str, ...]] = {
     "ws": _CORE_BASELINE_FILES,
     "ud": _CORE_BASELINE_FILES,
-    "am": (),
+    "am": (
+        "dbconfig_form_tableview",
+    ),
     "cm": (
         "dbconfig_form_fields",
         "dbconfig_form_fields_json",
@@ -65,6 +85,8 @@ _PROJECT_TYPE_TABLES: dict[str, tuple[str, ...]] = {
         "dbconfig_param_system",
         "dbfprocess",
         "dbtable",
+        "dbconfig_form_tableview",
+        "dbtypevalue",
     ),
 }
 
@@ -98,6 +120,7 @@ _ORG_TO_I18N_DEFAULT = {
     "filterparam": "text",
     "inputparams": "text",
     "text": "tx",
+    "stylevalue": "tx",
     "price": "pr",
     "name": "na",
     "value": "vl",
@@ -108,6 +131,7 @@ _CONTEXT_I18N_OVERRIDES: dict[str, dict[str, str]] = {
     "config_typevalue": {"idval": "tt"},
     "sys_param_user": {"descript": "tt"},
     "config_param_system": {"descript": "tt"},
+    "sys_style": {"stylevalue": "tx"},
 }
 
 # ON CONFLICT target columns per multilang table (must match DDL PK).
@@ -123,6 +147,19 @@ _TABLE_CONFLICT_KEYS: dict[str, tuple[str, ...]] = {
     "sys_message": ("project_type", "context", "source", "lang"),
     "sys_param_user": ("project_type", "context", "source", "lang"),
     "sys_table": ("project_type", "context", "source", "lang"),
+    "sys_label": ("project_type", "context", "source", "lang"),
+    "config_csv": ("project_type", "context", "source", "lang"),
+    "config_form_tableview": ("project_type", "context", "source", "columnname", "lang"),
+    "config_json": ("project_type", "context", "source", "hint", "lang"),
+    "config_report": ("project_type", "context", "source", "lang"),
+    "config_toolbox": ("project_type", "context", "source", "lang"),
+    "config_typevalue": ("project_type", "context", "formname", "source", "lang"),
+    "typevalue": ("project_type", "context", "typevalue", "source", "lang"),
+    "config_visit_parameter": ("project_type", "context", "source", "lang"),
+    "value_state": ("project_type", "context", "source", "lang"),
+    "value_state_type": ("project_type", "context", "source", "lang"),
+    "plan_price": ("project_type", "context", "source", "lang"),
+    "sys_style": ("project_type", "context", "source", "layername", "lang"),
 }
 
 # Multilang columns that must be double-quoted in generated SQL.
@@ -147,7 +184,15 @@ def _dedupe_rows_by_conflict_key(
     deduped: dict[tuple[Any, ...], MultilangRow] = {}
     for row in rows:
         key = tuple(row.values.get(col) for col in conflict_keys)
-        deduped[key] = row
+        existing = deduped.get(key)
+        if existing is None:
+            deduped[key] = row
+            continue
+        merged = dict(existing.values)
+        for col, val in row.values.items():
+            if val is not None:
+                merged[col] = val
+        deduped[key] = MultilangRow(table=row.table, values=merged)
     return list(deduped.values())
 
 
@@ -242,12 +287,18 @@ def seed_table_files_for_project_type(
 
     tables: list[str] = []
     for baseline_file in _PROJECT_TYPE_TABLES.get(pt, ()):
-        target = BASELINE_TO_MULTILANG_TABLE.get(baseline_file)
-        if not target or target not in _TABLE_CONFLICT_KEYS:
+        if not _baseline_is_seedable(baseline_file):
             continue
         if os.path.isfile(os.path.join(i18n_dir, f"{baseline_file}.sql")):
             tables.append(baseline_file)
     return tuple(tables)
+
+
+def _baseline_is_seedable(baseline_file: str) -> bool:
+    if baseline_file in _MULTI_CONTEXT_BASELINES:
+        return True
+    target = BASELINE_TO_MULTILANG_TABLE.get(baseline_file)
+    return bool(target and target in _TABLE_CONFLICT_KEYS)
 
 
 def _parse_sql_string_literal(inner: str, start: int, *, escape: bool = False) -> tuple[str, int]:
@@ -493,6 +544,14 @@ def _cell(row: Sequence[Any], aliases: Sequence[str], alias: str) -> Any:
     return row[idx]
 
 
+def _first_cell(row: Sequence[Any], aliases: Sequence[str], *names: str) -> Any:
+    for name in names:
+        value = _cell(row, aliases, name)
+        if value is not None:
+            return value
+    return None
+
+
 def _org_to_i18n(context: str, org_column: str) -> str | None:
     overrides = _CONTEXT_I18N_OVERRIDES.get(context, {})
     if org_column in overrides:
@@ -556,7 +615,60 @@ def blocks_to_multilang_rows(
                 })
             elif table == "dbconfig_param_system":
                 values["source"] = _cell(raw, block.value_aliases, "parameter")
-            elif table in ("dbparam_user", "dbmessage", "dbfprocess", "dbfunction", "dbtable"):
+            elif table == "dblabel":
+                values["source"] = _cell(raw, block.value_aliases, "id")
+            elif table == "dbconfig_csv":
+                values["source"] = _cell(raw, block.value_aliases, "fid")
+            elif table == "dbconfig_form_tableview":
+                values.update({
+                    "source": _cell(raw, block.value_aliases, "objectname"),
+                    "columnname": _cell(raw, block.value_aliases, "columnname"),
+                })
+            elif table == "dbjson":
+                values.update({
+                    "source": _cell(raw, block.value_aliases, "id"),
+                    "hint": block.json_hints[0] if block.json_hints else "filterparam",
+                    "text": _cell(raw, block.value_aliases, "text"),
+                })
+            elif table == "dbconfig_typevalue":
+                values.update({
+                    "formname": _first_cell(
+                        raw, block.value_aliases, "formname", "typevalue",
+                    ),
+                    "source": _first_cell(
+                        raw, block.value_aliases, "source", "id",
+                    ),
+                })
+            elif table == "dbtypevalue":
+                values.update({
+                    "typevalue": _cell(raw, block.value_aliases, "typevalue"),
+                    "source": _first_cell(
+                        raw, block.value_aliases, "source", "id",
+                    ),
+                })
+            elif table == "dbconfig_visit_parameter":
+                values["source"] = _cell(raw, block.value_aliases, "id")
+            elif table == "dbstyle":
+                values.update({
+                    "source": _first_cell(
+                        raw, block.value_aliases, "styleconfig_id", "source",
+                    ),
+                    "layername": _cell(raw, block.value_aliases, "layername"),
+                    "tx": _cell(raw, block.value_aliases, "stylevalue"),
+                })
+            elif table == "dbbasic_tables":
+                if block.context == "config_param_system":
+                    values["source"] = _first_cell(
+                        raw, block.value_aliases, "parameter", "id",
+                    )
+                elif block.context in ("value_state", "value_state_type"):
+                    values["source"] = _cell(raw, block.value_aliases, "id")
+                else:
+                    continue
+            elif table in (
+                "dbparam_user", "dbmessage", "dbfprocess", "dbfunction", "dbtable",
+                "dbconfig_report", "dbconfig_toolbox", "dbplan_price",
+            ):
                 key = "fid" if table == "dbfprocess" else "id"
                 values["source"] = _cell(raw, block.value_aliases, key)
             else:
@@ -566,16 +678,52 @@ def blocks_to_multilang_rows(
                 i18n_col = _org_to_i18n(block.context, org_col)
                 if not i18n_col:
                     continue
-                if table == "dbconfig_form_fields_json" and i18n_col == "text":
+                if table in ("dbconfig_form_fields_json", "dbjson") and i18n_col == "text":
                     values["text"] = _cell(raw, block.value_aliases, v_alias)
                 else:
                     values[i18n_col] = _cell(raw, block.value_aliases, v_alias)
 
             if values.get("source") is not None:
                 values["source"] = str(values["source"])
+            if values.get("formname") is not None:
+                values["formname"] = str(values["formname"])
+            if values.get("columnname") is not None:
+                values["columnname"] = str(values["columnname"])
+            if values.get("typevalue") is not None:
+                values["typevalue"] = str(values["typevalue"])
+            if values.get("layername") is not None:
+                values["layername"] = str(values["layername"])
+            if table == "dbstyle":
+                values.pop("hint", None)
+                values.pop("org_text", None)
+                values.pop("lb", None)
 
             target_table = BASELINE_TO_MULTILANG_TABLE.get(table)
+            if table == "dbbasic_tables":
+                if block.context == "config_param_system":
+                    target_table = "config_param_system"
+                elif block.context in ("value_state", "value_state_type"):
+                    target_table = block.context
+                else:
+                    continue
             if not target_table:
+                continue
+            if table == "dbconfig_typevalue" and (
+                values.get("formname") is None or values.get("source") is None
+            ):
+                continue
+            if table == "dbtypevalue" and (
+                values.get("typevalue") is None or values.get("source") is None
+            ):
+                continue
+            if table == "dbbasic_tables" and values.get("source") is None:
+                continue
+            if table == "dbplan_price" and values.get("source") is None:
+                continue
+            if table == "dbstyle" and (
+                values.get("source") is None
+                or values.get("layername") is None
+            ):
                 continue
             rows.append(MultilangRow(table=target_table, values=values))
     return rows
@@ -610,7 +758,13 @@ def build_insert_sql(
     statements: list[str] = []
     for start in range(0, len(rows), batch_size):
         chunk = rows[start: start + batch_size]
-        columns = list(chunk[0].values.keys())
+        columns: list[str] = []
+        seen: set[str] = set()
+        for row in chunk:
+            for col in row.values:
+                if col not in seen:
+                    seen.add(col)
+                    columns.append(col)
         update_cols = [
             col for col in columns
             if col not in conflict_keys and col not in ("project_type", "context", "lang")
@@ -621,7 +775,9 @@ def build_insert_sql(
             literals = []
             for col in columns:
                 val = row.values.get(col)
-                as_json = col == "text" and table == "config_form_fields_json"
+                as_json = col == "text" and table in (
+                    "config_form_fields_json", "config_json",
+                )
                 literals.append(_sql_literal(val, as_json=as_json))
             values_sql.append(f"({', '.join(literals)})")
 
@@ -670,8 +826,7 @@ def load_baseline_rows_for_project_type(
 
     all_rows: list[MultilangRow] = []
     for baseline_file in _PROJECT_TYPE_TABLES.get(pt, ()):
-        target = BASELINE_TO_MULTILANG_TABLE.get(baseline_file)
-        if not target or target not in _TABLE_CONFLICT_KEYS:
+        if not _baseline_is_seedable(baseline_file):
             continue
         path = os.path.join(i18n_dir, f"{baseline_file}.sql")
         if not os.path.isfile(path):
@@ -715,11 +870,12 @@ def _statements_from_rows(
     statements: list[str] = []
     for target_table in MULTILANG_UI_TABLES:
         table_rows = by_table.get(target_table) or []
+        table_batch = 5 if target_table == "sys_style" else batch_size
         statements.extend(
             build_insert_sql(
                 target_table,
                 table_rows,
-                batch_size=batch_size,
+                batch_size=table_batch,
                 on_conflict=on_conflict,
             )
         )
@@ -951,6 +1107,201 @@ def multilang_user_param_provision_sql(
         "SELECT multilang.gw_fct_admin_multilang_user_param("
         f"{'true' if enable else 'false'}, {schema_arg});"
     )
+
+
+
+_MULTILANG_VIEW_FCT_FILES: tuple[str, ...] = (
+    "gw_fct_admin_build_multilang_view_sql.sql",
+    "gw_fct_admin_manage_multilang_views.sql",
+)
+
+
+def _multilang_fct_dir() -> str:
+    plugin_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir)
+    )
+    return os.path.join(
+        plugin_dir, "dbmodel", "schemas", "addon", "multilang", "base", "fct"
+    )
+
+
+def ensure_multilang_tables_ddl() -> str:
+    """CREATE TABLE IF NOT EXISTS for multilang tables added after the first install."""
+    return """
+DO $BODY$
+BEGIN
+    IF to_regnamespace('multilang') IS NULL THEN
+        RETURN;
+    END IF;
+
+    CREATE TABLE IF NOT EXISTS multilang.config_typevalue (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        formname text NOT NULL,
+        "source" text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        tt text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT config_typevalue_id_uniq UNIQUE (id),
+        CONSTRAINT config_typevalue_pkey PRIMARY KEY (project_type, context, formname, "source", lang),
+        CONSTRAINT config_typevalue_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_config_typevalue_lang
+        ON multilang.config_typevalue USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.config_typevalue TO role_basic;
+
+    CREATE TABLE IF NOT EXISTS multilang.typevalue (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        typevalue text NOT NULL,
+        "source" text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        vl text NULL,
+        ds text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT typevalue_id_uniq UNIQUE (id),
+        CONSTRAINT typevalue_pkey PRIMARY KEY (project_type, context, typevalue, "source", lang),
+        CONSTRAINT typevalue_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_typevalue_lang
+        ON multilang.typevalue USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.typevalue TO role_basic;
+
+    CREATE TABLE IF NOT EXISTS multilang.config_visit_parameter (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        "source" text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        ds text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT config_visit_parameter_id_uniq UNIQUE (id),
+        CONSTRAINT config_visit_parameter_pkey PRIMARY KEY (project_type, context, "source", lang),
+        CONSTRAINT config_visit_parameter_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_config_visit_parameter_lang
+        ON multilang.config_visit_parameter USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.config_visit_parameter TO role_basic;
+
+    ALTER TABLE multilang.config_param_system ADD COLUMN IF NOT EXISTS vl text NULL;
+
+    CREATE TABLE IF NOT EXISTS multilang.value_state (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        "source" text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        na text NULL,
+        ob text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT value_state_id_uniq UNIQUE (id),
+        CONSTRAINT value_state_pkey PRIMARY KEY (project_type, context, "source", lang),
+        CONSTRAINT value_state_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_value_state_lang
+        ON multilang.value_state USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.value_state TO role_basic;
+
+    CREATE TABLE IF NOT EXISTS multilang.value_state_type (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        "source" text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        na text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT value_state_type_id_uniq UNIQUE (id),
+        CONSTRAINT value_state_type_pkey PRIMARY KEY (project_type, context, "source", lang),
+        CONSTRAINT value_state_type_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_value_state_type_lang
+        ON multilang.value_state_type USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.value_state_type TO role_basic;
+
+    CREATE TABLE IF NOT EXISTS multilang.plan_price (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        "source" text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        ds text NULL,
+        tx text NULL,
+        pr text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT plan_price_id_uniq UNIQUE (id),
+        CONSTRAINT plan_price_pkey PRIMARY KEY (project_type, context, "source", lang),
+        CONSTRAINT plan_price_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_plan_price_lang
+        ON multilang.plan_price USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.plan_price TO role_basic;
+
+    IF to_regclass('multilang.sys_style') IS NOT NULL
+       AND EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'multilang'
+              AND table_name = 'sys_style'
+              AND column_name = 'hint'
+       )
+    THEN
+        DROP TABLE multilang.sys_style;
+    END IF;
+
+    CREATE TABLE IF NOT EXISTS multilang.sys_style (
+        id serial4 NOT NULL,
+        project_type text NOT NULL,
+        context text NOT NULL,
+        "source" text NOT NULL,
+        layername text NOT NULL,
+        lang text NOT NULL DEFAULT 'en_us',
+        tx text NULL,
+        updated_by text DEFAULT CURRENT_USER NULL,
+        updated_on timestamptz DEFAULT now() NULL,
+        CONSTRAINT sys_style_id_uniq UNIQUE (id),
+        CONSTRAINT sys_style_pkey PRIMARY KEY (project_type, context, "source", layername, lang),
+        CONSTRAINT sys_style_lang_fkey FOREIGN KEY (lang) REFERENCES multilang.cat_language(id)
+    );
+
+    ALTER TABLE multilang.sys_style ADD COLUMN IF NOT EXISTS tx text NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_sys_style_lang
+        ON multilang.sys_style USING btree (lang);
+
+    GRANT SELECT ON TABLE multilang.sys_style TO role_basic;
+END
+$BODY$;
+"""
+
+
+def multilang_view_functions_ddl() -> str:
+    """CREATE OR REPLACE the view helper functions from plugin SQL files."""
+    fct_dir = _multilang_fct_dir()
+    chunks: list[str] = []
+    for fname in _MULTILANG_VIEW_FCT_FILES:
+        path = os.path.join(fct_dir, fname)
+        with open(path, encoding="utf-8") as handle:
+            chunks.append(handle.read().replace("SCHEMA_NAME", "multilang"))
+    return "\n".join(chunks)
 
 
 def multilang_views_provision_sql(

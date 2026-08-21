@@ -10,6 +10,7 @@ Also hosts ``GwDownloadLanguageTask``, used only by this dialog.
 """
 # -*- coding: utf-8 -*-
 from functools import partial
+import os
 import urllib.error
 
 from qgis.core import QgsApplication
@@ -21,9 +22,11 @@ from qgis.PyQt.QtWidgets import (
 
 from ...ui.ui_manager import GwI18NManageLanguagesUi
 from ...utils import tools_gw
+from ....giswater_admin.engine import BuildParams
 from ....libs import lib_vars, tools_qt
 from .multilang_seed_sql import normalize_language_folder, normalize_language_id
 from . import language_shared_functions as i18n_service
+from ...threads.multilang_schema_task import GwMultilangSchemaTask
 from ...threads.task import GwTask
 
 
@@ -345,6 +348,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
         """Constructor."""
         tools_gw.load_settings(self)
         self._offline = False
+        self._multilang_task = None
         self._setup_table()
         self._setup_download_options()
         self.load_locales()
@@ -402,6 +406,80 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
                 cmb = getattr(self._manager, "cmb_locale", None)
                 if cmb is not None:
                     tools_qt.set_combo_value(cmb, locale, 0, add_new=False)
+
+    def _resolve_admin(self):
+        manager = self._manager
+        return getattr(manager, "admin", None) or manager
+
+    def _sql_root(self) -> str:
+        admin = self._resolve_admin()
+        sql_dir = getattr(admin, "sql_dir", None) if admin is not None else None
+        if sql_dir:
+            return str(sql_dir)
+        return os.path.join(lib_vars.plugin_dir, "dbmodel")
+
+    def _locale_is_in_multilang(self, locale: str) -> bool:
+        try:
+            from .. import _admin_catalog as admin_catalog
+            folders = admin_catalog.fetch_multilang_operative_languages()
+        except Exception:
+            return False
+        folder = normalize_language_folder(locale)
+        return bool(folder) and folder in folders
+
+    def _start_silent_multilang_update(self, locale: str) -> bool:
+        """Re-seed multilang for a locale already in cat_language. No confirm.
+
+        Returns True when the background task was started.
+        """
+        if not self._locale_is_in_multilang(locale):
+            return False
+        admin = self._resolve_admin()
+        if admin is None:
+            return False
+        if not self._begin_busy(locale):
+            return False
+
+        msg = "Updating multilang translations for ({0})..."
+        self.lbl_downloading.setText(tools_qt.tr(msg, list_params=(locale,)))
+
+        params = BuildParams(
+            schema_name="multilang",
+            locale=normalize_language_folder(locale),
+            sql_root=self._sql_root(),
+            plugin_version=str(getattr(admin, "plugin_version", "0.0.0") or "0.0.0"),
+            srid=str(getattr(admin, "project_epsg", None) or "25831"),
+        )
+        msg = "Update multilang translations for ({0})"
+        desc = tools_qt.tr(msg, list_params=(locale,))
+        task = GwMultilangSchemaTask(
+            admin,
+            params,
+            description=desc,
+            language_action="seed",
+            locale=locale,
+        )
+        task.task_finished.connect(partial(self._on_multilang_update_finished))
+        self._multilang_task = task
+        QgsApplication.taskManager().addTask(task)
+        QgsApplication.taskManager().triggerTask(task)
+        return True
+
+    def _on_multilang_update_finished(self, ok, locale, error):
+        self.lbl_downloading.setText("")
+        self._end_busy(locale)
+
+        if ok:
+            msg = "Language files and multilang translations updated ({0})."
+            tools_qt.show_info_box(msg, msg_params=(locale,))
+            populate = getattr(self._manager, "_populate_language_combo", None)
+            if callable(populate):
+                populate(mode="multilang", preferred_locale=locale)
+        else:
+            msg = "Language files updated ({0}), but multilang translations failed: {1}"
+            tools_qt.show_warning_box(msg, msg_params=(locale, error or "unknown error"))
+
+        self.update_schemas(locale)
 
     def _on_download(self) -> None:
         locale = self._require_selected_locale()
@@ -651,9 +729,13 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
             msg = "Language files downloaded and locale activated ({0})."
             msg_params = (locale,)
             tools_qt.show_info_box(msg, msg_params=msg_params)
-        else:
-            msg = "Language files updated and locale activated ({0})."
-            msg_params = (locale,)
-            tools_qt.show_info_box(msg, msg_params=msg_params)
-        
+            self.update_schemas(locale)
+            return
+
+        if self._start_silent_multilang_update(locale):
+            return
+
+        msg = "Language files updated and locale activated ({0})."
+        msg_params = (locale,)
+        tools_qt.show_info_box(msg, msg_params=msg_params)
         self.update_schemas(locale)

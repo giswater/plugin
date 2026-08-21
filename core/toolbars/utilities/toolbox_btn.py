@@ -70,7 +70,10 @@ class GwToolBoxButton(GwAction):
         json_result = tools_gw.execute_procedure('gw_fct_getprocess', body)
         if not json_result or json_result['status'] == 'Failed':
             return False
-        sql = f"SELECT alias FROM config_toolbox WHERE id = {func_id}"
+        toolbox_table = "v_config_toolbox"
+        if not tools_gw._relation_exists(lib_vars.schema_name, toolbox_table):
+            toolbox_table = "config_toolbox"
+        sql = f"SELECT alias FROM {toolbox_table} WHERE id = {func_id}"
         self.function_selected = f"{tools_db.get_row(sql)[0]}"
         self.last_process_data = json_result['body']['data']
         status = self._populate_functions_dlg(self.dlg_functions, json_result['body']['data'])
@@ -233,7 +236,10 @@ class GwToolBoxButton(GwAction):
             tools_gw.load_settings(self.dlg_reports)
 
             # Set description & query labels
-            sql = f"SELECT alias, query_text, descript FROM config_report WHERE id = {self.function_selected}"
+            report_table = "v_config_report"
+            if not tools_gw._relation_exists(lib_vars.schema_name, report_table):
+                report_table = "config_report"
+            sql = f"SELECT alias, query_text, descript FROM {report_table} WHERE id = {self.function_selected}"
             row = tools_db.get_row(sql)
             if row:
                 descript = row[2]
@@ -313,6 +319,13 @@ class GwToolBoxButton(GwAction):
     def _report_finished(self, status, json_result):
         if not status:
             return
+
+        data = (json_result or {}).get('body', {}).get('data') or {}
+        descript = data.get('descript')
+        if descript in (None, 'null', ''):
+            descript = data.get('alias')
+        if descript:
+            tools_qt.set_widget_text(self.dlg_reports, 'lbl_descript', descript)
 
         layout = self.dlg_reports.findChild(QGridLayout, 'lyt_filters')
 
@@ -760,7 +773,9 @@ class GwToolBoxButton(GwAction):
                     layers.append(elem)
         tools_qt.set_widget_enabled(self.dlg_functions, 'btn_run', True)
         if not layers:
-            elem = [f"There is no layer related to {feature_type}.", None, None]
+            msg = "There is no layer related to {0}."
+            msg_params = (feature_type,)
+            elem = [tools_qt.tr(msg, list_params=msg_params), None, None]
             layers.append(elem)
             tools_qt.set_widget_enabled(self.dlg_functions, 'btn_run', False)
 

@@ -179,7 +179,7 @@ class GwFeatureEndButton(GwAction):
     def _fill_fields(self):
         """ Fill dates and combos cat_work/state type end """
 
-        sql = 'SELECT id as id, name as idval FROM value_state_type WHERE id IS NOT NULL AND state = 0'
+        sql = 'SELECT id as id, name as idval FROM v_value_state_type WHERE id IS NOT NULL AND state = 0'
         rows = tools_db.get_rows(sql)
         tools_qt.fill_combo_values(self.dlg_work_end.cmb_statetype_end, rows)
         row = tools_gw.get_config_value('edit_statetype_0_vdefault')

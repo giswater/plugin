@@ -16,7 +16,9 @@ DECLARE
         'config_form_tabs',
         'config_param_system',
         'sys_param_user',
-        'sys_table'
+        'sys_table',
+        'config_form_tableview',
+        'sys_typevalue'
     ];
     v_table text;
 BEGIN
@@ -28,13 +30,38 @@ BEGIN
         FOREACH v_table IN ARRAY v_tables
         LOOP
             IF to_regclass(format('%I.%I', v_schema, v_table)) IS NOT NULL THEN
+                EXECUTE format('DROP VIEW IF EXISTS %I.%I', v_schema, 'v_' || v_table);
                 EXECUTE format(
-                    'CREATE OR REPLACE VIEW %I.%I AS SELECT * FROM %I.%I',
+                    'CREATE VIEW %I.%I AS SELECT * FROM %I.%I',
                     v_schema, 'v_' || v_table,
                     v_schema, v_table
+                );
+                EXECUTE format(
+                    'GRANT SELECT ON TABLE %I.%I TO role_basic',
+                    v_schema, 'v_' || v_table
                 );
             END IF;
         END LOOP;
     END IF;
 END
 $BODY$;
+
+UPDATE config_form_fields
+SET
+    dv_querytext = regexp_replace(
+        dv_querytext,
+        '\m(sys_typevalue)\M',
+        'v_\1',
+        'g'
+    ),
+    dv_querytext_filterc = CASE
+        WHEN dv_querytext_filterc IS NULL THEN NULL
+        ELSE regexp_replace(
+            dv_querytext_filterc,
+            '\m(sys_typevalue)\M',
+            'v_\1',
+            'g'
+        )
+    END
+WHERE dv_querytext ~ '\m(sys_typevalue)\M'
+   OR COALESCE(dv_querytext_filterc, '') ~ '\m(sys_typevalue)\M';

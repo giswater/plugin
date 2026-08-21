@@ -80,11 +80,11 @@ BEGIN
 	SELECT array_agg(a) AS list FROM json_array_elements_text(v_filter) a INTO v_filterinput;
 
 	--filter widgets
-	IF (SELECT filterparam FROM config_report WHERE id = v_list_id) IS NOT NULL THEN
+	IF (SELECT filterparam FROM v_config_report WHERE id = v_list_id) IS NOT NULL THEN
 
-		FOR i IN 0..(SELECT jsonb_array_length(filterparam::jsonb)-1 FROM config_report WHERE id = v_list_id) LOOP
+		FOR i IN 0..(SELECT jsonb_array_length(filterparam::jsonb)-1 FROM v_config_report WHERE id = v_list_id) LOOP
 
-			SELECT filterparam::jsonb->>i into v_filterparam FROM config_report WHERE id = v_list_id;
+			SELECT filterparam::jsonb->>i into v_filterparam FROM v_config_report WHERE id = v_list_id;
 
 				EXECUTE 'SELECT json_agg(t.id) FROM ('||json_extract_path_text(v_filterparam,'dvquerytext')||') t'
 				INTO v_comboid;
@@ -105,7 +105,7 @@ BEGIN
 	END IF;
 
 	--execute query
-	SELECT * INTO v_record FROM config_report WHERE id = v_list_id;
+	SELECT * INTO v_record FROM v_config_report WHERE id = v_list_id;
 
 	v_querytext = v_record.query_text;
 	IF v_filterinput IS NOT NULL THEN  -- when filter has not values form client
@@ -139,12 +139,12 @@ BEGIN
 			v_querytext = concat(v_querytext,' ',v_queryadd, ' ');
 		END IF;
 
-	ELSIF (SELECT filterparam FROM config_report WHERE id = v_list_id) IS NOT NULL THEN  -- when filter has values form client
+	ELSIF (SELECT filterparam FROM v_config_report WHERE id = v_list_id) IS NOT NULL THEN  -- when filter has values form client
 
 		-- Look for default values in each widget
-		FOR i IN 0..(SELECT jsonb_array_length(filterparam::jsonb)-1 FROM config_report WHERE id = v_list_id) LOOP
+		FOR i IN 0..(SELECT jsonb_array_length(filterparam::jsonb)-1 FROM v_config_report WHERE id = v_list_id) LOOP
 
-			SELECT filterparam::jsonb->>i into v_filterparam FROM config_report WHERE id = v_list_id;
+			SELECT filterparam::jsonb->>i into v_filterparam FROM v_config_report WHERE id = v_list_id;
 
 			v_filtername = concat('"',json_extract_path_text(v_filterparam::json,'columnname'),'"');
 			v_filtersign = json_extract_path_text(v_filterparam::json,'filterSign');
@@ -169,11 +169,11 @@ BEGIN
 
 
 	-- order by
-	v_default = (SELECT addparam->>'orderBy' FROM config_report WHERE id = v_list_id);
+	v_default = (SELECT addparam->>'orderBy' FROM v_config_report WHERE id = v_list_id);
 
 	IF v_default IS NOT NULL THEN
 		v_querytext = concat (v_querytext ,' ORDER BY ', v_default);
-		v_default = (SELECT addparam->>'orderType' FROM config_report WHERE id = v_list_id);
+		v_default = (SELECT addparam->>'orderType' FROM v_config_report WHERE id = v_list_id);
 		v_querytext = concat (v_querytext ,' ', v_default);
 	END IF;
 

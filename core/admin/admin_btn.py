@@ -3528,9 +3528,18 @@ class GwAdminButton:
             if schema == "multilang":
                 from .i18n.multilang_seed_sql import (
                     multilang_user_param_provision_sql,
+                    multilang_view_functions_ddl,
                     multilang_views_provision_sql,
                     run_multilang_function_sql,
                 )
+
+                if not tools_db.execute_sql(
+                    multilang_view_functions_ddl(), commit=True, show_exception=True
+                ):
+                    msg = "Multilang views rollback failed."
+                    err = lib_vars.session_vars.get("last_error") or msg
+                    tools_qt.show_info_box(err, "Error")
+                    return
 
                 # Recreate plain views before DROP so nothing still joins multilang.*
                 _, views_ok = run_multilang_function_sql(

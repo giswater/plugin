@@ -23,6 +23,8 @@ from core.admin.i18n.multilang_seed_sql import (
     seeded_project_types_out_of_sync,
     split_value_tuples,
     translatable_project_types_with_baseline,
+    ensure_multilang_tables_ddl,
+    multilang_view_functions_ddl,
 )
 
 
@@ -34,7 +36,11 @@ def _sql_root() -> str:
 class TestMultilangSeedSql(unittest.TestCase):
 
     def test_target_table_mapping(self):
-        self.assertEqual(len(MULTILANG_UI_TABLES), 9)
+        self.assertEqual(len(MULTILANG_UI_TABLES), 22)
+        self.assertIn("value_state", MULTILANG_UI_TABLES)
+        self.assertIn("value_state_type", MULTILANG_UI_TABLES)
+        self.assertIn("plan_price", MULTILANG_UI_TABLES)
+        self.assertIn("sys_style", MULTILANG_UI_TABLES)
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbparam_user"],
             "sys_param_user",
@@ -51,6 +57,23 @@ class TestMultilangSeedSql(unittest.TestCase):
             BASELINE_TO_MULTILANG_TABLE["dbfprocess"],
             "sys_fprocess",
         )
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_typevalue"], "config_typevalue")
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbtypevalue"], "typevalue")
+        self.assertEqual(
+            BASELINE_TO_MULTILANG_TABLE["dbconfig_visit_parameter"],
+            "config_visit_parameter",
+        )
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbplan_price"], "plan_price")
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbstyle"], "sys_style")
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_toolbox"], "config_toolbox")
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_report"], "config_report")
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbjson"], "config_json")
+        self.assertEqual(
+            BASELINE_TO_MULTILANG_TABLE["dbconfig_form_tableview"],
+            "config_form_tableview",
+        )
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_csv"], "config_csv")
+        self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dblabel"], "sys_label")
 
     def test_parse_sql_value_tuple_basic(self):
         values = parse_sql_value_tuple("(385, 'Import inp', NULL)")
@@ -147,7 +170,21 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertGreater(len(statements), 0)
         joined = "\n".join(statements)
         self.assertIn("INSERT INTO multilang.config_form_fields", joined)
+        self.assertIn("INSERT INTO multilang.config_typevalue", joined)
+        self.assertIn("INSERT INTO multilang.typevalue", joined)
+        self.assertIn("INSERT INTO multilang.config_visit_parameter", joined)
+        self.assertIn("INSERT INTO multilang.plan_price", joined)
+        self.assertIn("INSERT INTO multilang.config_toolbox", joined)
+        self.assertIn("INSERT INTO multilang.config_report", joined)
+        self.assertIn("INSERT INTO multilang.config_json", joined)
+        self.assertIn("INSERT INTO multilang.config_form_tableview", joined)
+        self.assertIn("INSERT INTO multilang.config_csv", joined)
+        self.assertIn("INSERT INTO multilang.sys_label", joined)
+        self.assertIn("INSERT INTO multilang.value_state", joined)
+        self.assertIn("INSERT INTO multilang.value_state_type", joined)
+        self.assertIn("INSERT INTO multilang.sys_style", joined)
         self.assertNotIn("INSERT INTO multilang.dbparam_user", joined)
+        self.assertNotIn("INSERT INTO multilang.dbjson", joined)
         self.assertNotIn("INSERT INTO multilang.dbjson", joined)
         for statement in statements:
             target = statement.split("INSERT INTO multilang.", 1)[1].split(" ", 1)[0]
@@ -311,7 +348,54 @@ class TestMultilangSeedSql(unittest.TestCase):
         ws_results = seed_sql_for_project_types(sql_root, ["ws"])
         self.assertGreater(len(ws_results[0][1]), 0)
 
-    def test_out_of_scope_baseline_file_is_ignored(self):
+    def test_parse_dblabel_maps_idval_to_vl(self):
+        sql = """
+        UPDATE sys_label AS t SET idval = v.idval FROM (
+            VALUES
+            (1001, 'INFO')
+        ) AS v(id, idval)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dblabel", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "sys_label")
+        self.assertEqual(rows[0].values["source"], "1001")
+        self.assertEqual(rows[0].values["vl"], "INFO")
+        self.assertEqual(rows[0].values["context"], "sys_label")
+
+        inserts = build_insert_sql("sys_label", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.sys_label", inserts[0])
+        self.assertIn(" vl ", inserts[0])
+
+
+    def test_load_baseline_rows_includes_new_ui_tables(self):
+        template = load_baseline_rows_for_project_type(_sql_root(), "ws")
+        rows = rows_for_project_type(template, "ws")
+        tables = {row.table for row in rows}
+        self.assertIn("sys_label", tables)
+        self.assertIn("config_typevalue", tables)
+        self.assertIn("typevalue", tables)
+        self.assertIn("config_visit_parameter", tables)
+        self.assertIn("plan_price", tables)
+        self.assertIn("config_toolbox", tables)
+        self.assertIn("config_report", tables)
+        self.assertIn("config_json", tables)
+        json_hints = {
+            row.values.get("hint")
+            for row in rows
+            if row.table == "config_json"
+        }
+        self.assertTrue(json_hints & {"filterparam", "inputparams"})
+        self.assertIn("config_form_tableview", tables)
+        self.assertIn("config_csv", tables)
+        self.assertIn("value_state", tables)
+        self.assertIn("value_state_type", tables)
+        self.assertIn("sys_style", tables)
+
+
+    def test_parse_dbconfig_csv_maps_alias_and_descript(self):
         sql = """
         UPDATE config_csv AS t SET alias = v.alias, descript = v.descript FROM (
             VALUES
@@ -325,7 +409,473 @@ class TestMultilangSeedSql(unittest.TestCase):
             blocks,
             project_type="ud",
         )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "config_csv")
+        self.assertEqual(rows[0].values["source"], "385")
+        self.assertEqual(rows[0].values["al"], "Import inp timeseries")
+        self.assertEqual(rows[0].values["ds"], "Function to assist")
+
+        inserts = build_insert_sql("config_csv", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_csv", inserts[0])
+
+
+    def test_parse_dbconfig_form_tableview_maps_objectname_and_alias(self):
+        sql = """
+        UPDATE config_form_tableview AS t SET alias = v.alias FROM (
+            VALUES
+            ('cat_work', 'active', 'Active')
+        ) AS v(objectname, columnname, alias)
+        WHERE t.objectname = v.objectname AND t.columnname = v.columnname;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows(
+            "dbconfig_form_tableview",
+            blocks,
+            project_type="ws",
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "config_form_tableview")
+        self.assertEqual(rows[0].values["source"], "cat_work")
+        self.assertEqual(rows[0].values["columnname"], "active")
+        self.assertEqual(rows[0].values["al"], "Active")
+
+        inserts = build_insert_sql("config_form_tableview", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_form_tableview", inserts[0])
+
+
+    def test_parse_dbjson_maps_filterparam_to_config_json(self):
+        sql = """
+        UPDATE config_report AS t SET filterparam = v.text::json FROM (
+            VALUES
+            (100, '[{"label":"Exploitation:"}]')
+        ) AS v(id, text)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbjson", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "config_json")
+        self.assertEqual(rows[0].values["source"], "100")
+        self.assertEqual(rows[0].values["hint"], "filterparam")
+        self.assertEqual(rows[0].values["context"], "config_report")
+        self.assertEqual(rows[0].values["text"], '[{"label":"Exploitation:"}]')
+
+        inserts = build_insert_sql("config_json", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_json", inserts[0])
+        self.assertIn('"text"', inserts[0])
+        self.assertIn("'[{\"label\":\"Exploitation:\"}]'::json", inserts[0])
+
+
+    def test_parse_dbconfig_report_maps_alias(self):
+        sql = """
+        UPDATE config_report AS t SET alias = v.alias, descript = v.descript FROM (
+            VALUES
+            (100, 'Pipe length by Exploitation and Catalog', NULL)
+        ) AS v(id, alias, descript)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbconfig_report", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "config_report")
+        self.assertEqual(rows[0].values["source"], "100")
+        self.assertEqual(rows[0].values["al"], "Pipe length by Exploitation and Catalog")
+        self.assertIsNone(rows[0].values["ds"])
+
+        inserts = build_insert_sql("config_report", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_report", inserts[0])
+
+
+    def test_parse_dbconfig_toolbox_maps_alias(self):
+        sql = """
+        UPDATE config_toolbox AS t SET alias = v.alias, observ = v.observ FROM (
+            VALUES
+            (2102, 'Check arcs without node start/end', NULL)
+        ) AS v(id, alias, observ)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbconfig_toolbox", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "config_toolbox")
+        self.assertEqual(rows[0].values["source"], "2102")
+        self.assertEqual(rows[0].values["al"], "Check arcs without node start/end")
+        self.assertIsNone(rows[0].values["ob"])
+
+        inserts = build_insert_sql("config_toolbox", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_toolbox", inserts[0])
+
+
+    def test_parse_dbconfig_typevalue_maps_idval_to_tt(self):
+        sql = """
+        UPDATE config_typevalue AS t SET idval = v.idval FROM (
+            VALUES
+            ('13', 'sys_table_context', '["INVENTORY", "NETWORK", "ARC"]'),
+            ('vspacer', 'device_typevalue', 'vspacer')
+        ) AS v(source, formname, idval)
+        WHERE t.id = v.source AND t.typevalue = v.formname;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows(
+            "dbconfig_typevalue",
+            blocks,
+            project_type="ud",
+        )
+        self.assertEqual(len(rows), 2)
+        by_source = {row.values["source"]: row for row in rows}
+        self.assertEqual(by_source["13"].table, "config_typevalue")
+        self.assertEqual(by_source["13"].values["formname"], "sys_table_context")
+        self.assertEqual(by_source["13"].values["tt"], '["INVENTORY", "NETWORK", "ARC"]')
+        self.assertEqual(by_source["vspacer"].values["formname"], "device_typevalue")
+        self.assertEqual(by_source["vspacer"].values["tt"], "vspacer")
+
+        inserts = build_insert_sql("config_typevalue", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_typevalue", inserts[0])
+        self.assertNotIn("NULL", inserts[0].split("VALUES", 1)[1])
+
+    def test_load_ud_dbconfig_typevalue_sets_formname_and_source(self):
+        rows = [
+            row for row in rows_for_project_type(
+                load_baseline_rows_for_project_type(_sql_root(), "ud"), "ud",
+            )
+            if row.table == "config_typevalue"
+        ]
+        self.assertGreater(len(rows), 0)
+        vspacer = next(
+            (
+                row for row in rows
+                if row.values.get("source") == "vspacer"
+                and row.values.get("tt") == "vspacer"
+            ),
+            None,
+        )
+        self.assertIsNotNone(vspacer)
+        self.assertIsNotNone(vspacer.values.get("formname"))
+        self.assertTrue(all(
+            row.values.get("formname") and row.values.get("source")
+            for row in rows
+        ))
+
+
+
+    def test_parse_dbplan_price_maps_descript_text_and_price(self):
+        sql = """
+        UPDATE plan_price AS t SET descript = v.descript, text = v.text,
+            price = REPLACE(v.price, ',', '.')::numeric FROM (
+            VALUES
+            ('A_FC110_PN10', 'Polyethylene tube', 'Long descript', '20.0900'),
+            ('N_ENDLINE', 'Cavity plug', 'Cavity plug', NULL)
+        ) AS v(id, descript, text, price)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbplan_price", blocks, project_type="ws")
+        self.assertEqual(len(rows), 2)
+        by_source = {row.values["source"]: row for row in rows}
+
+        tube = by_source["A_FC110_PN10"]
+        self.assertEqual(tube.table, "plan_price")
+        self.assertEqual(tube.values["context"], "plan_price")
+        self.assertEqual(tube.values["ds"], "Polyethylene tube")
+        self.assertEqual(tube.values["tx"], "Long descript")
+        self.assertEqual(tube.values["pr"], "20.0900")
+
+        plug = by_source["N_ENDLINE"]
+        self.assertEqual(plug.values["ds"], "Cavity plug")
+        self.assertEqual(plug.values["tx"], "Cavity plug")
+        self.assertIsNone(plug.values["pr"])
+
+        inserts = build_insert_sql("plan_price", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.plan_price", inserts[0])
+        self.assertIn(" ds ", inserts[0])
+        self.assertIn(" tx ", inserts[0])
+        self.assertIn(" pr ", inserts[0])
+
+
+    def test_parse_dbplan_price_skips_rows_missing_source(self):
+        sql = """
+        UPDATE plan_price AS t SET descript = v.descript FROM (
+            VALUES
+            (NULL, 'Missing id'),
+            ('N_ENDLINE', 'Cavity plug')
+        ) AS v(id, descript)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbplan_price", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].values["source"], "N_ENDLINE")
+
+    def test_parse_dbstyle_maps_stylevalue_blob(self):
+        sql = """
+        UPDATE sys_style AS t
+        SET stylevalue = v.stylevalue
+        FROM (
+            VALUES
+            ('101', 've_node', '<qgis><rule label="JUNCTION"/></qgis>'),
+            ('101', 've_arc', '<qgis><rule label="PIPE"/></qgis>')
+        ) AS v(styleconfig_id, layername, stylevalue)
+        WHERE t.styleconfig_id::text = v.styleconfig_id AND t.layername = v.layername;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbstyle", blocks, project_type="ws")
+        self.assertEqual(len(rows), 2)
+        by_layer = {row.values["layername"]: row for row in rows}
+
+        first = by_layer["ve_node"]
+        self.assertEqual(first.table, "sys_style")
+        self.assertEqual(first.values["context"], "sys_style")
+        self.assertEqual(first.values["source"], "101")
+        self.assertEqual(first.values["tx"], '<qgis><rule label="JUNCTION"/></qgis>')
+        self.assertNotIn("hint", first.values)
+
+        second = by_layer["ve_arc"]
+        self.assertEqual(second.values["tx"], '<qgis><rule label="PIPE"/></qgis>')
+
+        inserts = build_insert_sql("sys_style", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.sys_style", inserts[0])
+        self.assertIn('"source"', inserts[0])
+        self.assertIn(" tx)", inserts[0])
+        self.assertIn("layername", inserts[0])
+        self.assertIn("'ve_node'", inserts[0])
+        self.assertIn("JUNCTION", inserts[0])
+
+    def test_parse_dbstyle_skips_rows_missing_identity(self):
+        sql = """
+        UPDATE sys_style AS t
+        SET stylevalue = v.stylevalue
+        FROM (
+            VALUES
+            (NULL, 've_arc', '<qgis/>'),
+            ('101', NULL, '<qgis/>'),
+            ('101', 've_arc', '<qgis><rule label="PIPE"/></qgis>')
+        ) AS v(styleconfig_id, layername, stylevalue)
+        WHERE t.styleconfig_id::text = v.styleconfig_id AND t.layername = v.layername;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbstyle", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].values["source"], "101")
+        self.assertEqual(rows[0].values["layername"], "ve_arc")
+        self.assertIn("<qgis>", rows[0].values["tx"])
+
+    def test_parse_dbstyle_real_es_es_baseline(self):
+        path = os.path.join(
+            _sql_root(), "schemas", "main", "ws", "final_pass", "i18n", "es_ES",
+            "dbstyle.sql",
+        )
+        if not os.path.isfile(path):
+            self.skipTest("es_ES dbstyle.sql is not bundled")
+        with open(path, encoding="utf-8") as handle:
+            sql = handle.read()
+        blocks = parse_update_blocks(sql)
+        self.assertGreaterEqual(len(blocks), 1)
+        rows = blocks_to_multilang_rows("dbstyle", blocks, project_type="ws")
+        self.assertGreater(len(rows), 0)
+        first = rows[0]
+        self.assertEqual(first.table, "sys_style")
+        self.assertTrue(first.values.get("source"))
+        self.assertTrue(first.values.get("layername"))
+        self.assertIn("<qgis", first.values.get("tx") or "")
+
+    def test_load_ws_english_value_state_and_sys_style(self):
+        rows = rows_for_project_type(
+            load_baseline_rows_for_project_type(_sql_root(), "ws"), "ws",
+        )
+        states = {
+            row.values.get("source"): row.values.get("na")
+            for row in rows if row.table == "value_state"
+        }
+        self.assertEqual(states.get("1"), "OPERATIVE")
+        self.assertEqual(states.get("0"), "OBSOLETE")
+        self.assertEqual(states.get("2"), "PLANIFIED")
+
+        state_types = {
+            row.values.get("source"): row.values.get("na")
+            for row in rows if row.table == "value_state_type"
+        }
+        self.assertEqual(state_types.get("2"), "OPERATIVE")
+        self.assertEqual(state_types.get("1"), "OBSOLETE")
+
+        styles = [row for row in rows if row.table == "sys_style"]
+        self.assertGreater(len(styles), 0)
+        first = styles[0]
+        self.assertTrue(first.values.get("source"))
+        self.assertTrue(first.values.get("layername"))
+        self.assertIn("<qgis", first.values.get("tx") or "")
+        self.assertIn("Proposed to close", first.values.get("tx") or "")
+
+    def test_parse_dbconfig_visit_parameter_maps_descript_to_ds(self):
+        sql = """
+        UPDATE config_visit_parameter AS t SET descript = v.descript FROM (
+            VALUES
+            ('clean_node', 'Clean of node')
+        ) AS v(id, descript)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows(
+            "dbconfig_visit_parameter",
+            blocks,
+            project_type="ws",
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "config_visit_parameter")
+        self.assertEqual(rows[0].values["context"], "config_visit_parameter")
+        self.assertEqual(rows[0].values["source"], "clean_node")
+        self.assertEqual(rows[0].values["ds"], "Clean of node")
+
+        inserts = build_insert_sql("config_visit_parameter", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_visit_parameter", inserts[0])
+        self.assertIn(" ds ", inserts[0])
+
+
+    def test_parse_dbtypevalue_keeps_context_from_update_header(self):
+        sql = """
+        UPDATE edit_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
+            VALUES
+            ('0', 'value_verified', 'TO REVIEW', NULL)
+        ) AS v(id, typevalue, idval, descript)
+        WHERE t.id = v.id AND t.typevalue = v.typevalue;
+
+        UPDATE om_typevalue AS t SET idval = v.idval, descript = v.descript FROM (
+            VALUES
+            ('1', 'visit_status', 'Planned', NULL)
+        ) AS v(id, typevalue, idval, descript)
+        WHERE t.id = v.id AND t.typevalue = v.typevalue;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbtypevalue", blocks, project_type="ws")
+        self.assertEqual(len(rows), 2)
+        by_context = {row.values["context"]: row for row in rows}
+
+        self.assertEqual(by_context["edit_typevalue"].table, "typevalue")
+        self.assertEqual(by_context["edit_typevalue"].values["typevalue"], "value_verified")
+        self.assertEqual(by_context["edit_typevalue"].values["source"], "0")
+        self.assertEqual(by_context["edit_typevalue"].values["vl"], "TO REVIEW")
+
+        self.assertEqual(by_context["om_typevalue"].values["typevalue"], "visit_status")
+        self.assertEqual(by_context["om_typevalue"].values["source"], "1")
+        self.assertEqual(by_context["om_typevalue"].values["vl"], "Planned")
+
+        inserts = build_insert_sql("typevalue", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.typevalue", inserts[0])
+
+
+    def test_parse_dbtypevalue_skips_rows_missing_typevalue_or_source(self):
+        sql = """
+        UPDATE edit_typevalue AS t SET idval = v.idval FROM (
+            VALUES
+            ('0', NULL, 'TO REVIEW'),
+            (NULL, 'value_verified', 'TO REVIEW'),
+            ('1', 'value_verified', 'VERIFIED')
+        ) AS v(id, typevalue, idval)
+        WHERE t.id = v.id AND t.typevalue = v.typevalue;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbtypevalue", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].values["source"], "1")
+        self.assertEqual(rows[0].values["typevalue"], "value_verified")
+
+
+    def test_load_cm_baseline_rows_includes_typevalue_only(self):
+        template = load_baseline_rows_for_project_type(_sql_root(), "cm")
+        rows = rows_for_project_type(template, "cm")
+        tables = {row.table for row in rows}
+        self.assertIn("typevalue", tables)
+        self.assertNotIn("config_visit_parameter", tables)
+        contexts = {
+            row.values.get("context")
+            for row in rows
+            if row.table == "typevalue"
+        }
+        self.assertEqual(contexts, {"sys_typevalue"})
+
+
+
+    def test_parse_dbbasic_tables_routes_by_update_context(self):
+        sql = """
+        UPDATE config_param_system AS t SET value = v.value FROM (
+            VALUES
+            ('admin_currency', '{"id":"EUR", "descript":"EURO"}')
+        ) AS v(parameter, value)
+        WHERE t.parameter = v.parameter;
+
+        UPDATE value_state AS t SET name = v.name, observ = v.observ FROM (
+            VALUES
+            (1, 'OPERATIVE', NULL)
+        ) AS v(id, name, observ)
+        WHERE t.id = v.id;
+
+        UPDATE value_state_type AS t SET name = v.name FROM (
+            VALUES
+            (2, 'OPERATIVE')
+        ) AS v(id, name)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbbasic_tables", blocks, project_type="ws")
+        by_table = {row.table: row for row in rows}
+        self.assertEqual(set(by_table), {"config_param_system", "value_state", "value_state_type"})
+
+        currency = by_table["config_param_system"]
+        self.assertEqual(currency.values["source"], "admin_currency")
+        self.assertEqual(currency.values["vl"], '{"id":"EUR", "descript":"EURO"}')
+        self.assertEqual(currency.values["context"], "config_param_system")
+
+        state = by_table["value_state"]
+        self.assertEqual(state.values["source"], "1")
+        self.assertEqual(state.values["na"], "OPERATIVE")
+        self.assertIsNone(state.values["ob"])
+
+        state_type = by_table["value_state_type"]
+        self.assertEqual(state_type.values["source"], "2")
+        self.assertEqual(state_type.values["na"], "OPERATIVE")
+
+        inserts = build_insert_sql("value_state", [state])
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.value_state", inserts[0])
+
+
+    def test_parse_dbbasic_tables_skips_unknown_contexts(self):
+        sql = """
+        UPDATE value_status AS t SET idval = v.idval FROM (
+            VALUES
+            ('CANCELED', 'CANCELED')
+        ) AS v(id, idval)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbbasic_tables", blocks, project_type="am")
         self.assertEqual(rows, [])
+
+
+    def test_load_ws_admin_currency_keeps_label_and_value(self):
+        rows = [
+            row for row in rows_for_project_type(
+                load_baseline_rows_for_project_type(_sql_root(), "ws"), "ws",
+            )
+            if row.table == "config_param_system"
+            and row.values.get("source") == "admin_currency"
+        ]
+        self.assertGreaterEqual(len(rows), 1)
+        self.assertTrue(any(row.values.get("lb") == "System currency:" for row in rows))
+        inserts = build_insert_sql("config_param_system", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertEqual(inserts[0].count("'admin_currency'"), 1)
+        self.assertIn(" lb ", inserts[0])
+        self.assertIn("System currency:", inserts[0])
 
     def test_baseline_fingerprint_stable(self):
         sql_root = _sql_root()
@@ -335,6 +885,47 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertFalse(baseline_needs_reseed(sql_root, fp1))
         self.assertTrue(baseline_needs_reseed(sql_root, None))
         self.assertTrue(baseline_needs_reseed(sql_root, "stale-fingerprint"))
+
+
+    def test_view_functions_ddl_drops_before_create(self):
+        ddl = multilang_view_functions_ddl()
+        self.assertIn("DROP VIEW IF EXISTS", ddl)
+        self.assertIn("CREATE VIEW", ddl)
+        self.assertIn("gw_fct_admin_manage_multilang_views", ddl)
+        self.assertIn("COALESCE(ml.al, t.alias)", ddl)
+        self.assertIn("COALESCE(ml.tt, t.idval)", ddl)
+        self.assertIn("COALESCE(ml.vl, t.idval)", ddl)
+        self.assertIn("config_typevalue", ddl)
+        self.assertIn("config_visit_parameter", ddl)
+        self.assertIn("edit_typevalue", ddl)
+        self.assertIn("value_state", ddl)
+        self.assertIn("value_state_type", ddl)
+        self.assertIn("plan_price", ddl)
+        self.assertIn("COALESCE(ml.vl, t.value)", ddl)
+        self.assertIn("COALESCE(ml.na, t.name)", ddl)
+        self.assertIn("COALESCE(ml.tx, t.\"text\")", ddl)
+        self.assertIn("replace(ml.pr, '','', ''.'')::numeric", ddl)
+        self.assertIn("v_price_compost", ddl)
+        self.assertIn("COALESCE(ml.ds, t.descript)", ddl)
+        self.assertIn("CREATE OR REPLACE VIEW", ddl)
+        self.assertIn("sys_style", ddl)
+        self.assertIn("COALESCE(ml.tx, t.stylevalue)", ddl)
+        self.assertNotIn("gw_fct_apply_style_labels", ddl)
+
+    def test_ensure_multilang_tables_ddl_creates_config_typevalue(self):
+        ddl = ensure_multilang_tables_ddl()
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.config_typevalue", ddl)
+        self.assertIn("formname text NOT NULL", ddl)
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.typevalue", ddl)
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.config_visit_parameter", ddl)
+        self.assertIn("ADD COLUMN IF NOT EXISTS vl text NULL", ddl)
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.value_state", ddl)
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.value_state_type", ddl)
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.plan_price", ddl)
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.sys_style", ddl)
+        self.assertIn("tx text NULL", ddl)
+        self.assertIn("DROP TABLE multilang.sys_style", ddl)
+        self.assertIn("typevalue text NOT NULL", ddl)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_admin_build_multilang_view_sql(
 RETURNS text AS
 $BODY$
 /*
-Build and execute CREATE OR REPLACE VIEW for one UI table in JOIN (multilang) mode.
+Build and execute CREATE VIEW for one UI table in JOIN (multilang) mode.
 Column list is taken from the live base table so WS/UD/CM shape differences are respected.
 */
 DECLARE
@@ -171,6 +171,134 @@ BEGIN
                AND ml.lang = %s',
             v_context, v_pt_expr, v_lang_expr
         );
+    ELSIF p_table = 'sys_label' THEN
+        v_context := 'sys_label';
+        v_join := format(
+            'LEFT JOIN multilang.sys_label ml
+                ON ml.source = t.id::text
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
+    ELSIF p_table = 'config_csv' THEN
+        v_context := 'config_csv';
+        v_join := format(
+            'LEFT JOIN multilang.config_csv ml
+                ON ml.source = t.fid::text
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
+    ELSIF p_table = 'config_form_tableview' THEN
+        v_context := 'config_form_tableview';
+        v_join := format(
+            'LEFT JOIN multilang.config_form_tableview ml
+                ON ml.source = t.objectname
+               AND ml.columnname = t.columnname
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
+    ELSIF p_table = 'config_report' THEN
+        v_context := 'config_report';
+        v_join := format(
+            'LEFT JOIN multilang.config_json ml
+                ON ml.source = t.id::text
+               AND ml.hint = ''filterparam''
+               AND ml.context = %1$L
+               AND ml.project_type = %2$s
+               AND ml.lang = %3$s
+            LEFT JOIN multilang.config_report mla
+                ON mla.source = t.id::text
+               AND mla.context = %1$L
+               AND mla.project_type = %2$s
+               AND mla.lang = %3$s',
+            v_context, v_pt_expr, v_lang_expr
+        );
+    ELSIF p_table = 'config_toolbox' THEN
+        v_context := 'config_toolbox';
+        v_join := format(
+            'LEFT JOIN multilang.config_json ml
+                ON ml.source = t.id::text
+               AND ml.hint = ''inputparams''
+               AND ml.context = %1$L
+               AND ml.project_type = %2$s
+               AND ml.lang = %3$s
+            LEFT JOIN multilang.config_toolbox mla
+                ON mla.source = t.id::text
+               AND mla.context = %1$L
+               AND mla.project_type = %2$s
+               AND mla.lang = %3$s',
+            v_context, v_pt_expr, v_lang_expr
+        );
+    ELSIF p_table = 'config_typevalue' THEN
+        v_context := 'config_typevalue';
+        v_join := format(
+            'LEFT JOIN multilang.config_typevalue ml
+                ON ml.source = t.id
+               AND ml.formname = t.typevalue
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
+    ELSIF p_table IN ('edit_typevalue', 'om_typevalue', 'plan_typevalue', 'sys_typevalue') THEN
+        v_context := p_table;
+        v_join := format(
+            'LEFT JOIN multilang.typevalue ml
+                ON ml.source = t.id::text
+               AND ml.typevalue = t.typevalue
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
+    ELSIF p_table = 'config_visit_parameter' THEN
+        v_context := 'config_visit_parameter';
+        v_join := format(
+            'LEFT JOIN multilang.config_visit_parameter ml
+                ON ml.source = t.id
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
+
+    ELSIF p_table IN ('value_state', 'value_state_type') THEN
+        v_context := p_table;
+        v_join := format(
+            'LEFT JOIN multilang.%I ml
+                ON ml.source = t.id::text
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            p_table, v_context, v_pt_expr, v_lang_expr
+        );
+
+    ELSIF p_table = 'plan_price' THEN
+        v_context := 'plan_price';
+        v_join := format(
+            'LEFT JOIN multilang.plan_price ml
+                ON ml.source = t.id
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
+    ELSIF p_table = 'sys_style' THEN
+        v_context := 'sys_style';
+        v_join := format(
+            'LEFT JOIN multilang.sys_style ml
+                ON ml.source = t.styleconfig_id::text
+               AND ml.layername = t.layername
+               AND ml.context = %L
+               AND ml.project_type = %s
+               AND ml.lang = %s',
+            v_context, v_pt_expr, v_lang_expr
+        );
     ELSE
         RAISE EXCEPTION 'Unsupported multilang view table: %', p_table;
     END IF;
@@ -179,58 +307,115 @@ BEGIN
     INTO v_cols
     FROM (
         SELECT
-            c.ordinal_position,
+            a.attnum AS ordinal_position,
             CASE
-                WHEN c.column_name = 'label' AND p_table = 'config_form_fields'
-                    THEN 'COALESCE(ml.lb, mlp.lb, t.label) AS label'
-                WHEN c.column_name = 'label'
+                WHEN x.inner_sql IS NOT NULL
+                    THEN format(
+                        '(%s)::%s AS %I',
+                        x.inner_sql,
+                        format_type(a.atttypid, a.atttypmod),
+                        a.attname
+                    )
+                ELSE format('t.%I', a.attname)
+            END AS col_expr
+        FROM pg_attribute a
+        JOIN pg_class r ON r.oid = a.attrelid
+        JOIN pg_namespace n ON n.oid = r.relnamespace
+        CROSS JOIN LATERAL (
+            SELECT CASE
+                WHEN a.attname = 'label' AND p_table = 'config_form_fields'
+                    THEN 'COALESCE(ml.lb, mlp.lb, t.label)'
+                WHEN a.attname = 'label'
                     AND p_table IN (
                         'config_form_tabs',
                         'config_param_system', 'sys_param_user'
                     )
-                    THEN 'COALESCE(ml.lb, t.label) AS label'
-                WHEN c.column_name = 'tooltip' AND p_table = 'config_form_fields'
-                    THEN 'COALESCE(ml.tt, mlp.tt, t.tooltip) AS tooltip'
-                WHEN c.column_name = 'placeholder' AND p_table = 'config_form_fields'
-                    THEN 'COALESCE(ml.pl, mlp.pl, t.placeholder) AS placeholder'
-                WHEN c.column_name = 'tooltip' AND p_table = 'config_form_tabs'
-                    THEN 'COALESCE(ml.tt, t.tooltip) AS tooltip'
-                WHEN c.column_name = 'descript'
+                    THEN 'COALESCE(ml.lb, t.label)'
+                WHEN a.attname = 'tooltip' AND p_table = 'config_form_fields'
+                    THEN 'COALESCE(ml.tt, mlp.tt, t.tooltip)'
+                WHEN a.attname = 'placeholder' AND p_table = 'config_form_fields'
+                    THEN 'COALESCE(ml.pl, mlp.pl, t.placeholder)'
+                WHEN a.attname = 'tooltip' AND p_table = 'config_form_tabs'
+                    THEN 'COALESCE(ml.tt, t.tooltip)'
+                WHEN a.attname = 'descript'
                     AND p_table IN ('config_param_system', 'sys_param_user')
-                    THEN 'COALESCE(ml.tt, t.descript) AS descript'
-                WHEN c.column_name = 'descript'
-                    AND p_table IN ('sys_function', 'sys_table')
-                    THEN 'COALESCE(ml.ds, t.descript) AS descript'
-                WHEN c.column_name = 'error_message' AND p_table = 'sys_message'
-                    THEN 'COALESCE(ml.ms, t.error_message) AS error_message'
-                WHEN c.column_name = 'hint_message' AND p_table = 'sys_message'
-                    THEN 'COALESCE(ml.ht, t.hint_message) AS hint_message'
-                WHEN c.column_name = 'fprocess_name' AND p_table = 'sys_fprocess'
-                    THEN 'COALESCE(ml.na, t.fprocess_name) AS fprocess_name'
-                WHEN c.column_name = 'except_msg' AND p_table = 'sys_fprocess'
-                    THEN 'COALESCE(ml.ex, t.except_msg) AS except_msg'
-                WHEN c.column_name = 'info_msg' AND p_table = 'sys_fprocess'
-                    THEN 'COALESCE(ml."in", t.info_msg) AS info_msg'
-                WHEN c.column_name = 'alias' AND p_table = 'sys_table'
-                    THEN 'COALESCE(ml.al, t.alias) AS alias'
-                WHEN c.column_name = 'widgetcontrols' AND p_table = 'config_form_fields'
+                    THEN 'COALESCE(ml.tt, t.descript)'
+                WHEN a.attname = 'descript'
+                    AND p_table IN ('sys_function', 'sys_table', 'config_csv')
+                    THEN 'COALESCE(ml.ds, t.descript)'
+                WHEN a.attname = 'descript' AND p_table = 'config_report'
+                    THEN 'COALESCE(mla.ds, t.descript)'
+                WHEN a.attname = 'error_message' AND p_table = 'sys_message'
+                    THEN 'COALESCE(ml.ms, t.error_message)'
+                WHEN a.attname = 'hint_message' AND p_table = 'sys_message'
+                    THEN 'COALESCE(ml.ht, t.hint_message)'
+                WHEN a.attname = 'fprocess_name' AND p_table = 'sys_fprocess'
+                    THEN 'COALESCE(ml.na, t.fprocess_name)'
+                WHEN a.attname = 'except_msg' AND p_table = 'sys_fprocess'
+                    THEN 'COALESCE(ml.ex, t.except_msg)'
+                WHEN a.attname = 'info_msg' AND p_table = 'sys_fprocess'
+                    THEN 'COALESCE(ml."in", t.info_msg)'
+                WHEN a.attname = 'alias'
+                    AND p_table IN ('sys_table', 'config_csv', 'config_form_tableview')
+                    THEN 'COALESCE(ml.al, t.alias)'
+                WHEN a.attname = 'alias'
+                    AND p_table IN ('config_report', 'config_toolbox')
+                    THEN 'COALESCE(mla.al, t.alias)'
+                WHEN a.attname = 'idval' AND p_table = 'sys_label'
+                    THEN 'COALESCE(ml.vl, t.idval)'
+                WHEN a.attname = 'idval' AND p_table = 'config_typevalue'
+                    THEN 'CASE WHEN t.idval = ''["HIDDEN"]'' THEN t.idval ELSE COALESCE(ml.tt, t.idval) END'
+                WHEN a.attname = 'idval'
+                    AND p_table IN (
+                        'edit_typevalue', 'om_typevalue', 'plan_typevalue', 'sys_typevalue'
+                    )
+                    THEN 'COALESCE(ml.vl, t.idval)'
+                WHEN a.attname = 'descript'
+                    AND p_table IN (
+                        'edit_typevalue', 'om_typevalue', 'plan_typevalue',
+                        'sys_typevalue', 'config_visit_parameter', 'plan_price'
+                    )
+                    THEN 'COALESCE(ml.ds, t.descript)'
+                WHEN a.attname = 'text' AND p_table = 'plan_price'
+                    THEN 'COALESCE(ml.tx, t."text")'
+                WHEN a.attname = 'price' AND p_table = 'plan_price'
+                    THEN 'COALESCE(replace(ml.pr, '','', ''.'')::numeric, t.price)'
+                WHEN a.attname = 'stylevalue' AND p_table = 'sys_style'
+                    THEN 'COALESCE(ml.tx, t.stylevalue)'
+                WHEN a.attname = 'value' AND p_table = 'config_param_system'
+                    THEN 'COALESCE(ml.vl, t.value)'
+                WHEN a.attname = 'name'
+                    AND p_table IN ('value_state', 'value_state_type')
+                    THEN 'COALESCE(ml.na, t.name)'
+                WHEN a.attname = 'observ' AND p_table = 'value_state'
+                    THEN 'COALESCE(ml.ob, t.observ)'
+                WHEN a.attname = 'widgetcontrols' AND p_table = 'config_form_fields'
                     THEN '(COALESCE(t.widgetcontrols::jsonb, ''{}''::jsonb)
-                           || COALESCE(mlj.text, mljp.text, ''{}''::jsonb))::json AS widgetcontrols'
-                WHEN c.column_name IN ('datatype', 'source', 'in', 'text', 'parameter', 'label')
-                    THEN format('t.%I', c.column_name)
-                ELSE format('t.%I', c.column_name)
-            END AS col_expr
-        FROM information_schema.columns c
-        WHERE c.table_schema = p_schema_name
-          AND c.table_name = p_table
+                           || COALESCE(mlj.text, mljp.text, ''{}''::jsonb))::json'
+                WHEN a.attname = 'observ' AND p_table = 'config_toolbox'
+                    THEN 'COALESCE(mla.ob, t.observ)'
+                WHEN a.attname = 'filterparam' AND p_table = 'config_report'
+                    THEN 'COALESCE(ml.text, t.filterparam::jsonb)::json'
+                WHEN a.attname = 'inputparams' AND p_table = 'config_toolbox'
+                    THEN 'COALESCE(ml.text, t.inputparams::jsonb)::json'
+                ELSE NULL
+            END AS inner_sql
+        ) x
+        WHERE n.nspname = p_schema_name
+          AND r.relname = p_table
+          AND r.relkind IN ('r', 'p')
+          AND a.attnum > 0
+          AND NOT a.attisdropped
     ) cols;
 
     IF v_cols IS NULL OR btrim(v_cols) = '' THEN
         RAISE EXCEPTION 'No columns found for %.%', p_schema_name, p_table;
     END IF;
 
+    EXECUTE format('DROP VIEW IF EXISTS %I.%I', p_schema_name, v_view);
+
     v_sql := format(
-        'CREATE OR REPLACE VIEW %I.%I AS SELECT %s FROM %I.%I t %s',
+        'CREATE VIEW %I.%I AS SELECT %s FROM %I.%I t %s',
         p_schema_name, v_view, v_cols, p_schema_name, p_table, v_join
     );
 

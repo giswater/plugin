@@ -19,14 +19,14 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
-	 ('ve_link_pipelink','form_feature','tab_data','state_type','lyt_bot_1',4,'integer','combo','State type:','State_type - The state type of the element. It allows to obtain more detail of the state. To select from those available depending on the chosen state',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,'state',' AND value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,6),
+	 ('ve_link_pipelink','form_feature','tab_data','state_type','lyt_bot_1',4,'integer','combo','State type:','State_type - The state type of the element. It allows to obtain more detail of the state. To select from those available depending on the chosen state',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,'state',' AND v_value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,6),
 	 ('ve_link_pipelink','form_feature','tab_data','link_id','lyt_data_1',1,'integer','text','Link id:','Link id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,7),
 	 ('ve_link_pipelink','form_feature','tab_data','feature_type','lyt_data_1',2,'string','combo','Feature type:','Feature type',NULL,false,false,false,false,NULL,'SELECT id, id as idval FROM sys_feature_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,8),
 	 ('ve_link_pipelink','form_feature','tab_data','feature_id','lyt_data_1',3,'string','text','Feature id:','Feature_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,9),
@@ -75,14 +75,14 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
-	 ('ve_link_vlink','form_feature','tab_data','state_type','lyt_bot_1',4,'integer','combo','State type:','State_type - The state type of the element. It allows to obtain more detail of the state. To select from those available depending on the chosen state',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,'state',' AND value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,6),
+	 ('ve_link_vlink','form_feature','tab_data','state_type','lyt_bot_1',4,'integer','combo','State type:','State_type - The state type of the element. It allows to obtain more detail of the state. To select from those available depending on the chosen state',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,'state',' AND v_value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,6),
 	 ('ve_link_vlink','form_feature','tab_data','link_id','lyt_data_1',1,'integer','text','Link id:','Link id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,7),
 	 ('ve_link_vlink','form_feature','tab_data','feature_type','lyt_data_1',2,'string','combo','Feature type:','Feature type',NULL,false,false,false,false,NULL,'SELECT id, id as idval FROM sys_feature_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,8),
 	 ('ve_link_vlink','form_feature','tab_data','feature_id','lyt_data_1',3,'string','text','Feature id:','Feature_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,9),

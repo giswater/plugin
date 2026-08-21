@@ -68,7 +68,7 @@ _NETWORK_DBTABLES = [
     "dbparam_user", "dbconfig_param_system", "dbconfig_form_fields", "dbconfig_typevalue",
     "dbfprocess", "dbmessage", "dbconfig_csv", "dbconfig_form_tabs", "dbconfig_report",
     "dbconfig_toolbox", "dbfunction", "dblabel", "dbtypevalue", "dbconfig_form_fields_feat",
-    "dbconfig_form_tableview", "dbconfig_visit_parameter", "dbtable", "dbplan_price", "dbstyle",
+    "dbconfig_form_tableview", "dbconfig_visit_parameter", "dbbasic_tables", "dbtable", "dbplan_price", "dbstyle",
     "su_basic_tables", "dbjson", "dbconfig_form_fields_json", "dbconfig_form_fields_query",
 ]
 _TAB_DATA_LINE_RE = re.compile(r",\s*'tab_data'\s*,")

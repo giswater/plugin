@@ -18,14 +18,14 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
-	 ('ve_link_conduitlink','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State type:','State_type - The state type of the element. It allows to obtain more detail of the state. To select from those available depending on the chosen state',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,'state',' AND value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
+	 ('ve_link_conduitlink','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State type:','State_type - The state type of the element. It allows to obtain more detail of the state. To select from those available depending on the chosen state',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,'state',' AND v_value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
 	 ('ve_link_conduitlink','form_feature','tab_data','link_id','lyt_data_1',1,'integer','text','Link id:','Link id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,6),
 	 ('ve_link_conduitlink','form_feature','tab_data','feature_type','lyt_data_1',2,'string','combo','Feature type:','Feature type',NULL,false,false,false,false,NULL,'SELECT id, id as idval FROM sys_feature_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,7),
 	 ('ve_link_conduitlink','form_feature','tab_data','feature_id','lyt_data_1',3,'string','text','Feature id:','Feature_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,8),
@@ -34,7 +34,7 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
 	 ('ve_link_conduitlink','form_feature','tab_data','omzone_id','lyt_data_1',6,'integer','combo','Omzone id:','Omzone id',NULL,false,false,false,false,NULL,'SELECT omzone_id as id, name as idval FROM omzone WHERE omzone_id = 0 UNION SELECT omzone_id as id, name as idval FROM omzone WHERE omzone_id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "valueRelation":{"nullValue":false, "layer": "ve_omzone", "activated": true, "keyColumn": "omzone_id", "valueColumn": "name", "filterExpression": null}}',NULL,NULL,false,11),
 	 ('ve_link_conduitlink','form_feature','tab_data','presszone_id','lyt_data_1',7,'integer','text','Presszone id:','Presszone_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,12),
 	 ('ve_link_conduitlink','form_feature','tab_data','minsector_id','lyt_data_1',8,'integer','text','Minsector id:','Minsector_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,13),
-	 ('ve_link_conduitlink','form_feature','tab_data','fluid_type','lyt_data_1',9,'string','combo','Fluid type:','Fluid_type',NULL,true,false,true,false,NULL,'SELECT id, idval FROM om_typevalue WHERE typevalue = ''fluid_type''',NULL,true,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,14),
+	 ('ve_link_conduitlink','form_feature','tab_data','fluid_type','lyt_data_1',9,'string','combo','Fluid type:','Fluid_type',NULL,true,false,true,false,NULL,'SELECT id, idval FROM v_om_typevalue WHERE typevalue = ''fluid_type''',NULL,true,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,14),
 	 ('ve_link_conduitlink','form_feature','tab_data','gis_length','lyt_data_1',10,'double','text','Gis length:','Gis length',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,15),
 	 ('ve_link_conduitlink','form_feature','tab_data','sector_name','lyt_data_1',11,'string','text','Sector name:','Sector_name',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,16),
 	 ('ve_link_conduitlink','form_feature','tab_data','dma_name','lyt_data_1',12,'string','text','Dma name:','Dma_name',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,17),
@@ -72,14 +72,14 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
-	 ('ve_link_vlink','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State type:','State_type - The state type of the element. It allows to obtain more detail of the state. To select from those available depending on the chosen state',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,'state',' AND value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
+	 ('ve_link_vlink','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State type:','State_type - The state type of the element. It allows to obtain more detail of the state. To select from those available depending on the chosen state',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,'state',' AND v_value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
 	 ('ve_link_vlink','form_feature','tab_data','link_id','lyt_data_1',1,'integer','text','Link id:','Link id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,6),
 	 ('ve_link_vlink','form_feature','tab_data','feature_type','lyt_data_1',2,'string','combo','Feature type:','Feature type',NULL,false,false,false,false,NULL,'SELECT id, id as idval FROM sys_feature_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,7),
 	 ('ve_link_vlink','form_feature','tab_data','feature_id','lyt_data_1',3,'string','text','Feature id:','Feature_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,8),
@@ -88,7 +88,7 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
 	 ('ve_link_vlink','form_feature','tab_data','omzone_id','lyt_data_1',6,'integer','combo','Omzone id:','Omzone id',NULL,false,false,false,false,NULL,'SELECT omzone_id as id, name as idval FROM omzone WHERE omzone_id = 0 UNION SELECT omzone_id as id, name as idval FROM omzone WHERE omzone_id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "valueRelation":{"nullValue":false, "layer": "ve_omzone", "activated": true, "keyColumn": "omzone_id", "valueColumn": "name", "filterExpression": null}}',NULL,NULL,false,11),
 	 ('ve_link_vlink','form_feature','tab_data','presszone_id','lyt_data_1',7,'integer','text','Presszone id:','Presszone_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,12),
 	 ('ve_link_vlink','form_feature','tab_data','minsector_id','lyt_data_1',8,'integer','text','Minsector id:','Minsector_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,13),
-	 ('ve_link_vlink','form_feature','tab_data','fluid_type','lyt_data_1',9,'string','combo','Fluid type:','Fluid_type',NULL,true,false,true,false,NULL,'SELECT id, idval FROM om_typevalue WHERE typevalue = ''fluid_type''',NULL,true,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,14),
+	 ('ve_link_vlink','form_feature','tab_data','fluid_type','lyt_data_1',9,'string','combo','Fluid type:','Fluid_type',NULL,true,false,true,false,NULL,'SELECT id, idval FROM v_om_typevalue WHERE typevalue = ''fluid_type''',NULL,true,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,14),
 	 ('ve_link_vlink','form_feature','tab_data','gis_length','lyt_data_1',10,'double','text','Gis length:','Gis length',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,15),
 	 ('ve_link_vlink','form_feature','tab_data','sector_name','lyt_data_1',11,'string','text','Sector name:','Sector_name',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,16),
 	 ('ve_link_vlink','form_feature','tab_data','dma_name','lyt_data_1',12,'string','text','Dma name:','Dma_name',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,17),

@@ -87,7 +87,7 @@ BEGIN
 	SELECT project_type INTO v_project_type FROM sys_version ORDER BY id DESC LIMIT 1;
 
 	-- get currency symbol
-	SELECT value::json->'symbol' INTO v_currency FROM config_param_system WHERE parameter ='admin_currency';
+	SELECT value::json->'symbol' INTO v_currency FROM v_config_param_system WHERE parameter ='admin_currency';
 	v_currency=replace(v_currency,'"','');
 
 	-- setting tabname
@@ -125,7 +125,7 @@ BEGIN
 
 	-- starting process - get fields
 		v_querystring = concat('SELECT array_agg(row_to_json(a)) FROM (
-			WITH typevalue AS (SELECT * FROM sys_typevalue)
+			WITH typevalue AS (SELECT * FROM v_sys_typevalue)
 			SELECT ',v_label,', columnname, columnname as column_id, concat(tabname,''_'',columnname) AS widgetname, widgettype,
 			widgetfunction,', v_device,' hidden, datatype , tooltip, placeholder, iseditable, row_number()over(ORDER BY ', v_orderby ,') AS orderby,
 			layoutname, layoutorder, dv_parent_id AS "parentId", isparent, ismandatory, linkedobject, dv_querytext AS "queryText", dv_querytext_filterc AS "queryTextFilter", isautoupdate,

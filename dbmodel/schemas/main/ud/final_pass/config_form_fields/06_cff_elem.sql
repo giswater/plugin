@@ -18,14 +18,14 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,3),
-	 ('ve_element_ecover','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
+	 ('ve_element_ecover','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
 	 ('ve_element_ecover','form_feature','tab_data','code','lyt_data_1',1,'string','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,5),
 	 ('ve_element_ecover','form_feature','tab_data','num_elements','lyt_data_1',2,'integer','text','Number of Elements:','Number of Elements',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,6),
 	 ('ve_element_ecover','form_feature','tab_data','comment','lyt_data_1',3,'string','text','Comments:','Comments',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":true}',NULL,NULL,true,7),
@@ -55,14 +55,14 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,3),
-	 ('ve_element_egate','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
+	 ('ve_element_egate','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
 	 ('ve_element_egate','form_feature','tab_data','code','lyt_data_1',1,'string','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,5),
 	 ('ve_element_egate','form_feature','tab_data','num_elements','lyt_data_1',2,'integer','text','Number of Elements:','Number of Elements',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,6),
 	 ('ve_element_egate','form_feature','tab_data','comment','lyt_data_1',3,'string','text','Comments:','Comments',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":true}',NULL,NULL,true,7),
@@ -92,14 +92,14 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,3),
-	 ('ve_element_eiot_sensor','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
+	 ('ve_element_eiot_sensor','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
 	 ('ve_element_eiot_sensor','form_feature','tab_data','code','lyt_data_1',1,'string','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,5),
 	 ('ve_element_eiot_sensor','form_feature','tab_data','num_elements','lyt_data_1',2,'integer','text','Number of Elements:','Number of Elements',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,6),
 	 ('ve_element_eiot_sensor','form_feature','tab_data','comment','lyt_data_1',3,'string','text','Comments:','Comments',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":true}',NULL,NULL,true,7),
@@ -129,14 +129,14 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
-	 ('ve_element_eorifice','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
+	 ('ve_element_eorifice','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
 	 ('ve_element_eorifice','form_feature','tab_data','node_id','lyt_data_1',1,'string','text','Node id:','Node_id',NULL,true,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,6),
 	 ('ve_element_eorifice','form_feature','tab_data','code','lyt_data_1',2,'string','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,7),
 	 ('ve_element_eorifice','form_feature','tab_data','num_elements','lyt_data_1',3,'integer','text','Number of Elements:','Number of Elements',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,8),
@@ -170,14 +170,14 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
-	 ('ve_element_eoutlet','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
+	 ('ve_element_eoutlet','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
 	 ('ve_element_eoutlet','form_feature','tab_data','node_id','lyt_data_1',1,'string','text','Node id:','Node_id',NULL,true,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,6),
 	 ('ve_element_eoutlet','form_feature','tab_data','code','lyt_data_1',2,'string','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,7),
 	 ('ve_element_eoutlet','form_feature','tab_data','num_elements','lyt_data_1',3,'integer','text','Number of Elements:','Number of Elements',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,8),
@@ -211,14 +211,14 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,3),
-	 ('ve_element_eprotector','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
+	 ('ve_element_eprotector','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
 	 ('ve_element_eprotector','form_feature','tab_data','code','lyt_data_1',1,'string','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,5),
 	 ('ve_element_eprotector','form_feature','tab_data','num_elements','lyt_data_1',2,'integer','text','Number of Elements:','Number of Elements',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,6),
 	 ('ve_element_eprotector','form_feature','tab_data','comment','lyt_data_1',3,'string','text','Comments:','Comments',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":true}',NULL,NULL,true,7),
@@ -248,14 +248,14 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
-	 ('ve_element_epump','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
+	 ('ve_element_epump','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
 	 ('ve_element_epump','form_feature','tab_data','node_id','lyt_data_1',1,'string','text','Node id:','Node_id',NULL,true,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,6),
 	 ('ve_element_epump','form_feature','tab_data','code','lyt_data_1',2,'string','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,7),
 	 ('ve_element_epump','form_feature','tab_data','num_elements','lyt_data_1',3,'integer','text','Number of Elements:','Number of Elements',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,8),
@@ -289,14 +289,14 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,3),
-	 ('ve_element_estep','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
+	 ('ve_element_estep','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
 	 ('ve_element_estep','form_feature','tab_data','code','lyt_data_1',1,'string','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,5),
 	 ('ve_element_estep','form_feature','tab_data','num_elements','lyt_data_1',2,'integer','text','Number of Elements:','Number of Elements',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,6),
 	 ('ve_element_estep','form_feature','tab_data','comment','lyt_data_1',3,'string','text','Comments:','Comments',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":true}',NULL,NULL,true,7),
@@ -326,14 +326,14 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
   		FROM config_param_user 
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)  
 SELECT id::integer as id, name as idval
-FROM value_state 
+FROM v_value_state 
 WHERE id IS NOT NULL 
 AND CASE 
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2 
   ELSE id < 2 
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,4),
-	 ('ve_element_eweir','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
+	 ('ve_element_eweir','form_feature','tab_data','state_type','lyt_bot_1',3,'integer','combo','State Type:','State Type',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,5),
 	 ('ve_element_eweir','form_feature','tab_data','node_id','lyt_data_1',1,'string','text','Node id:','Node_id',NULL,true,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,6),
 	 ('ve_element_eweir','form_feature','tab_data','code','lyt_data_1',2,'string','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,7),
 	 ('ve_element_eweir','form_feature','tab_data','num_elements','lyt_data_1',3,'integer','text','Number of Elements:','Number of Elements',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,8),

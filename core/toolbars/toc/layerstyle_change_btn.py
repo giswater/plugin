@@ -52,7 +52,7 @@ def get_contexts_params() -> List[Tuple[int, str]]:
 def get_styles_for_context(styleconfig_id: int) -> List[Tuple[str, str]]:
     """Fetch styles from the sys_style table for a given context."""
 
-    sql = f"SELECT layername, stylevalue FROM sys_style WHERE styleconfig_id = {styleconfig_id}"
+    sql = f"SELECT layername, stylevalue FROM v_sys_style WHERE styleconfig_id = {styleconfig_id}"
     rows = tools_db.get_rows(sql)
     return [(row[0], row[1]) for row in rows] if rows else []
 
