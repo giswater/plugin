@@ -785,6 +785,10 @@
 			<translation>Alert</translation>
 		</message>
 		<message>
+			<source>ALL</source>
+			<translation>ALL</translation>
+		</message>
+		<message>
 			<source>
 
 ALL DONE! INP successfully imported.</source>
