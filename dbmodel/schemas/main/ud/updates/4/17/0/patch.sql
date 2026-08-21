@@ -2411,3 +2411,5 @@ BEGIN
     </qgis>' WHERE layername='line' AND styleconfig_id in (105,106);
   END IF;
 END $patch$;
+
+DELETE FROM sys_fprocess WHERE fid = 461;
