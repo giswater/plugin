@@ -39,20 +39,21 @@ SELECT is(
     'Check if gw_fct_setfeaturereplace returns status "Accepted"'
 );
 
--- Column itself NULL (the real bug): disable/restore must not rewrite invalid JSON
-UPDATE config_param_system SET value = NULL WHERE parameter = 'edit_connec_proximity';
+-- Column itself NULL (the real bug): disable/restore must not rewrite invalid JSON.
+-- UD connec replace cannot be used here: ve_connec has no epa_type.
+UPDATE config_param_system SET value = NULL WHERE parameter = 'edit_gully_proximity';
 
 SELECT is(
-    (gw_fct_setfeaturereplace($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{}, "feature":{"type":"connec"},
-    "data":{"filterFields":{}, "pageInfo":{}, "old_feature_id":"3008", "feature_type_new":"CJOIN", "featurecat_id":"DIRECT-CONNECTION",
+    (gw_fct_setfeaturereplace($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{}, "feature":{"type":"gully"},
+    "data":{"filterFields":{}, "pageInfo":{}, "old_feature_id":"30080", "feature_type_new":"GINLET", "featurecat_id":"SGRT3",
     "workcat_id_end":"work1", "enddate":"2024-08-27", "keep_elements":"False", "keep_epa_values":"False"}}$$)::JSON)->>'status',
     'Accepted',
-    'Check if gw_fct_setfeaturereplace connec returns status "Accepted" when edit_connec_proximity is NULL'
+    'Check if gw_fct_setfeaturereplace gully returns status "Accepted" when edit_gully_proximity is NULL'
 );
 
 SELECT ok(
-    (SELECT value FROM config_param_system WHERE parameter = 'edit_connec_proximity') IS NULL,
-    'gw_fct_setfeaturereplace restores edit_connec_proximity when the column is NULL'
+    (SELECT value FROM config_param_system WHERE parameter = 'edit_gully_proximity') IS NULL,
+    'gw_fct_setfeaturereplace restores edit_gully_proximity when the column is NULL'
 );
 
 -- Finish the test
