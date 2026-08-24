@@ -66,8 +66,8 @@ v_input json;
 v_childtable_name text;
 v_schemaname text;
 
-v_dist_xlab numeric = 0;
-v_dist_ylab numeric = 0;
+v_dist_xlab numeric;
+v_dist_ylab numeric;
 v_label_point public.geometry;
 v_rot1 numeric;
 v_rot2 numeric;
@@ -1314,9 +1314,6 @@ BEGIN
 
 				end if;
 
-				v_rot1=coalesce(v_rot1, 0);
-				v_rot2=coalesce(v_rot2, 0);
-
 				v_sql = '
 				with mec as (
 				select the_geom, ST_Project(ST_Transform(the_geom, 4326)::geography, '||v_dist_xlab||', radians('||v_rot1||')) as eee
@@ -1336,63 +1333,63 @@ BEGIN
 
 			end if;
 
-		-- CASE: if rotation of the node changes
-		if new.rotation::text != old.rotation::text OR (OLD.rotation IS NULL AND NEW.rotation IS NOT NULL) then
+			-- CASE: if rotation of the node changes
+			if new.rotation::text != old.rotation::text OR (OLD.rotation IS NULL AND NEW.rotation IS NOT NULL) then
 
-			-- prev calc: current label position
-			select st_setsrid(st_makepoint(label_x::numeric, label_y::numeric), v_srid) into v_label_point from node where node_id = new.node_id;
+				-- prev calc: current label position
+				select st_setsrid(st_makepoint(label_x::numeric, label_y::numeric), v_srid) into v_label_point from node where node_id = new.node_id;
 
-			-- prev calc: geom of the node
-			execute 'select the_geom from node where node_id = '||quote_literal(new.node_id)||''  into v_geom;
+				-- prev calc: geom of the node
+				execute 'select the_geom from node where node_id = '||quote_literal(new.node_id)||''  into v_geom;
 
-			-- prev calc: current angle between node and its label
-			v_sql = '
-			with mec as (
-				SELECT
-				n.the_geom as vertex_point,
-				n.rotation as rotation_node,
-				$1 as point1,
-				ST_LineInterpolatePoint(a.the_geom, ST_LineLocatePoint(a.the_geom, n.the_geom)) as point2
-				from node n, arc a  where n.node_id = $2 and st_dwithin (a.the_geom, n.the_geom, 0.001) limit 1
-			)
-			select degrees(ST_Azimuth(vertex_point, point1))
-			from mec';
+				-- prev calc: current angle between node and its label
+				v_sql = '
+				with mec as (
+					SELECT
+					n.the_geom as vertex_point,
+					n.rotation as rotation_node,
+					$1 as point1,
+					ST_LineInterpolatePoint(a.the_geom, ST_LineLocatePoint(a.the_geom, n.the_geom)) as point2
+					from node n, arc a  where n.node_id = $2 and st_dwithin (a.the_geom, n.the_geom, 0.001) limit 1
+				)
+				select degrees(ST_Azimuth(vertex_point, point1))
+				from mec';
 
-			execute v_sql into v_cur_rotation using v_label_point, new.node_id;
+				execute v_sql into v_cur_rotation using v_label_point, new.node_id;
 
-			-- prev calc: intermediate rotations according to dist_x and dist_y
-			if (v_dist_xlab > 0 and v_dist_ylab > 0) -- top right
-			or (v_dist_xlab < 0 and v_dist_ylab < 0) -- bottom left
-			then
-				v_rot1 = 90+new.rotation;
-				v_rot2 = 0+new.rotation;
+				-- prev calc: intermediate rotations according to dist_x and dist_y
+				if (v_dist_xlab > 0 and v_dist_ylab > 0) -- top right
+				or (v_dist_xlab < 0 and v_dist_ylab < 0) -- bottom left
+				then
+					v_rot1 = 90+new.rotation;
+					v_rot2 = 0+new.rotation;
 
-			elsif (v_dist_xlab > 0 and v_dist_ylab < 0) -- bottom right
-			or 	  (v_dist_xlab < 0 and v_dist_ylab > 0) -- top left
-			then
-				v_rot1 = -90+new.rotation;
-				v_rot2 = -180+new.rotation;
+				elsif (v_dist_xlab > 0 and v_dist_ylab < 0) -- bottom right
+				or 	  (v_dist_xlab < 0 and v_dist_ylab > 0) -- top left
+				then
+					v_rot1 = -90+new.rotation;
+					v_rot2 = -180+new.rotation;
 
-				v_dist_xlab = v_dist_xlab * (-1);
-				v_dist_ylab = v_dist_ylab * (-1);
+					v_dist_xlab = v_dist_xlab * (-1);
+					v_dist_ylab = v_dist_ylab * (-1);
 
+				end if;
+
+				-- label position
+				v_sql = '
+				with mec as (
+				select the_geom, ST_Project(ST_Transform(the_geom, 4326)::geography, '||v_dist_xlab||', radians('||v_rot1||')) as eee
+				FROM node WHERE node_id = '||QUOTE_LITERAL(new.node_id)||'), lab_point as (
+				SELECT ST_Project(ST_Transform(eee::geometry, 4326)::geography, '||v_dist_ylab||', radians('||v_rot2||')) as fff
+				from mec)
+				select st_transform(fff::geometry, '||v_srid||') as label_p from lab_point';
+				execute v_sql into v_label_point;
+
+				update node set label_rotation = new.rotation where node_id = new.node_id;
+				update node set label_x = st_x(v_label_point) where node_id = new.node_id;
+				update node set label_y = st_y(v_label_point) where node_id = new.node_id;
 			end if;
-
-			-- label position
-			v_sql = '
-			with mec as (
-			select the_geom, ST_Project(ST_Transform(the_geom, 4326)::geography, '||v_dist_xlab||', radians('||v_rot1||')) as eee
-			FROM node WHERE node_id = '||QUOTE_LITERAL(new.node_id)||'), lab_point as (
-			SELECT ST_Project(ST_Transform(eee::geometry, 4326)::geography, '||v_dist_ylab||', radians('||v_rot2||')) as fff
-			from mec)
-			select st_transform(fff::geometry, '||v_srid||') as label_p from lab_point';
-			execute v_sql into v_label_point;
-
-			update node set label_rotation = new.rotation where node_id = new.node_id;
-			update node set label_x = st_x(v_label_point) where node_id = new.node_id;
-			update node set label_y = st_y(v_label_point) where node_id = new.node_id;
 		end if;
-	end if;
 
 	-- man2inp_values
 	PERFORM gw_fct_man2inp_values(v_input);

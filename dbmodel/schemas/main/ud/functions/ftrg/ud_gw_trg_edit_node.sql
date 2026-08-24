@@ -75,8 +75,8 @@ v_node_id text;
 v_childtable_name text;
 v_schemaname text;
 
-v_dist_xlab numeric = 0;
-v_dist_ylab numeric = 0;
+v_dist_xlab numeric;
+v_dist_ylab numeric;
 v_label_point public.geometry;
 v_rot1 numeric;
 v_rot2 numeric;
@@ -1220,9 +1220,6 @@ BEGIN
 					v_dist_xlab = v_dist_xlab * (-1);
 					v_dist_ylab = v_dist_ylab * (-1);
 				end if;
-
-				v_rot1=coalesce(v_rot1, 0);
-				v_rot2=coalesce(v_rot2, 0);
 
 				v_sql = '
 				with mec as (
