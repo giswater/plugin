@@ -193,7 +193,7 @@ BEGIN
 					SELECT n.node_id, n.expl_id
 					FROM node n
 					WHERE n.expl_id IS NOT NULL
-					UNION
+					UNION ALL
 					SELECT n.node_id, unnest(n.expl_visibility) AS expl_id
 					FROM node n
 					WHERE n.expl_visibility IS NOT NULL
@@ -207,7 +207,7 @@ BEGIN
 					SELECT n.node_id, n.muni_id
 					FROM node n
 					WHERE n.muni_id IS NOT NULL
-					UNION
+					UNION ALL
 					SELECT n.node_id, n.muni_id
 					FROM node_x_municipality_visibility n
 					WHERE n.muni_id IS NOT NULL
@@ -221,7 +221,7 @@ BEGIN
 					SELECT n.node_id, n.sector_id
 					FROM node n
 					WHERE n.sector_id IS NOT NULL
-					UNION
+					UNION ALL
 					SELECT n.node_id, n.sector_id
 					FROM node_x_sector_visibility n
 					WHERE n.sector_id IS NOT NULL
