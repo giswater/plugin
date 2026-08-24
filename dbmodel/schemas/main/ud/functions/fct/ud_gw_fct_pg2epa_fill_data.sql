@@ -87,8 +87,7 @@ BEGIN
 	WHERE (
 		'ARC' = ANY (cm.feature_type)
 		OR cm.feature_type IS NULL
-	)
-	AND a.sector_id > 0;
+	);
 
 
 	-- Insert on node temp_t_node table
@@ -218,8 +217,7 @@ BEGIN
 			g.custom_b_param, 
 			g.efficiency, 
 			g.the_geom
-		FROM ve_inp_netgully g
-		WHERE g.sector_id > 0;
+		FROM ve_inp_netgully g;
 
 		-- gully
 		INSERT INTO temp_t_gully (
@@ -255,7 +253,7 @@ BEGIN
 			g.the_geom
 		FROM ve_inp_gully g
 		LEFT JOIN arc a ON a.arc_id = g.arc_id
-		WHERE g.arc_id IS NOT NULL AND g.sector_id > 0;
+		WHERE g.arc_id IS NOT NULL;
 
 
 		INSERT INTO temp_t_gully (
@@ -286,8 +284,7 @@ BEGIN
 			null,
 			g.efficiency,
 			g.the_geom
-		FROM ve_inp_inlet g
-		WHERE g.sector_id > 0;
+		FROM ve_inp_inlet g;
  -- TO FIX: INLET
 	END IF;
 
