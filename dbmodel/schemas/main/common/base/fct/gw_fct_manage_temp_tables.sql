@@ -295,6 +295,8 @@ BEGIN
                     flag boolean,
                     CONSTRAINT temp_link_pkey PRIMARY KEY (link_id)
                 );
+                CREATE INDEX IF NOT EXISTS temp_link_exit_id_idx ON temp_link USING btree (exit_id);
+	            CREATE INDEX IF NOT EXISTS  temp_link_index ON temp_link USING gist (the_geom_endpoint);
 
                 CREATE TEMP TABLE IF NOT EXISTS temp_link_x_arc(
                     link_id integer NOT NULL,
