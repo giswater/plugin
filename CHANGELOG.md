@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Clear `selector_inp_dscenario` when creating a sample (same as `selector_psector`); fix `gw_fct_setinitproject` to delete from `selector_inp_dscenario`.
 - Fix `gw_fct_linkexitgenerator` to filter links by sector_id > 0 when is called from `gw_fct_pg2epa_fill_data` function.
 - Do not mark read-only non-mandatory fields Unique: QGIS paste was inventing `_1` / `1,2,3` (ConfigLayerFields still uses Soft NotNull so native Add Feature OK stays enabled on empty PKs).
 - Fix Connect to network Force reconnect + Extra filters: rebuild link from the connect, join `vf_arc`/`vf_node` inside KNN on `arc`/`node`, and log when no candidate is found.

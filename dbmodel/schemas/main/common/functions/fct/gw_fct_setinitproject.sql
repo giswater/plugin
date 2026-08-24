@@ -123,7 +123,7 @@ BEGIN
 		DELETE FROM selector_macrosector WHERE cur_user = current_user;
 		DELETE FROM selector_network WHERE cur_user = current_user;
 		DELETE FROM selector_psector WHERE cur_user = current_user;
-		DELETE FROM selector_dscenario WHERE cur_user = current_user;
+		DELETE FROM selector_inp_dscenario WHERE cur_user = current_user;
 
 		-- looking for additional schema
 		IF v_add_schema IS NOT NULL AND v_add_schema != v_schemaname THEN
@@ -135,7 +135,7 @@ BEGIN
 			DELETE FROM selector_macrosector WHERE cur_user = current_user;
 			DELETE FROM selector_network WHERE cur_user = current_user;
 			DELETE FROM selector_psector WHERE cur_user = current_user;
-			DELETE FROM selector_dscenario WHERE cur_user = current_user;
+			DELETE FROM selector_inp_dscenario WHERE cur_user = current_user;
 
 			SET search_path = 'SCHEMA_NAME', public;
 		END IF;
