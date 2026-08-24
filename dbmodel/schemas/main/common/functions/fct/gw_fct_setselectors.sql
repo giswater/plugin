@@ -209,23 +209,20 @@ BEGIN
 	INSERT INTO temp_exploitation (expl_id, code, name, descript, macroexpl_id, active)
 	SELECT e.expl_id, e.code, e.name, e.descript, e.macroexpl_id, e.active
 	FROM exploitation e
-	JOIN vf_exploitation vf ON vf.expl_id = e.expl_id
-	ORDER BY 1;
+	JOIN vf_exploitation vf ON vf.expl_id = e.expl_id;
 
 	-- populate temp_macroexploitation
 	INSERT INTO temp_macroexploitation (macroexpl_id, code, name, descript, active)
 	SELECT m.macroexpl_id, m.code, m.name, m.descript, m.active
 	FROM macroexploitation m
 	WHERE m.active AND m.macroexpl_id > 0
-	AND EXISTS (SELECT 1 FROM temp_exploitation e WHERE e.macroexpl_id = m.macroexpl_id)
-	ORDER BY 1;
+	AND EXISTS (SELECT 1 FROM temp_exploitation e WHERE e.macroexpl_id = m.macroexpl_id);
 
 	-- populate temp_municipality
 	INSERT INTO temp_municipality (muni_id, name, observ, active)
 	SELECT em.muni_id, em.name, em.observ, em.active
 	FROM v_municipality em
-	WHERE EXISTS (SELECT 1 FROM temp_muni_sector_expl t WHERE t.muni_id = em.muni_id)
-	ORDER BY 1;
+	WHERE EXISTS (SELECT 1 FROM temp_muni_sector_expl t WHERE t.muni_id = em.muni_id);
 
 	-- populate temp_sector
 	INSERT INTO temp_sector (sector_id, code, name, descript, expl_id, muni_id, macrosector_id, parent_id, active)
@@ -237,24 +234,21 @@ BEGIN
 	SELECT s.sector_id, s.code, s.name, s.descript, s.expl_id, s.muni_id, s.macrosector_id, s.parent_id, s.active
 	FROM sector s
 	WHERE EXISTS (SELECT 1 FROM temp_muni_sector_expl t WHERE t.sector_id = s.sector_id)
-	AND s.sector_id > 0
-	ORDER BY 1;
+	AND s.sector_id > 0;
 
 	-- populate temp_macrosector
 	INSERT INTO temp_macrosector (macrosector_id, code, name, descript, expl_id, muni_id, active)
 	SELECT macrosector_id, code, name, descript, expl_id, muni_id, active
 	FROM macrosector m
 	WHERE m.active AND m.macrosector_id > 0
-	AND EXISTS (SELECT 1 FROM temp_sector s WHERE s.macrosector_id = m.macrosector_id)
-	ORDER BY 1;
+	AND EXISTS (SELECT 1 FROM temp_sector s WHERE s.macrosector_id = m.macrosector_id);
 
 	IF v_project_type = 'WS' THEN
 		INSERT INTO temp_t_mincut (id, work_order, expl_id, macroexpl_id, muni_id, minsector_id, forecast_start, forecast_end)
 		SELECT m.id, m.work_order, e.expl_id, m.macroexpl_id, m.muni_id, m.minsector_id, m.forecast_start, m.forecast_end
 		FROM om_mincut m
 		JOIN temp_exploitation e ON e.expl_id = m.expl_id
-		WHERE m.id > 0
-		ORDER BY m.id;
+		WHERE m.id > 0;
 	END IF;
 
 	-- manage selector psector in psector-mode
