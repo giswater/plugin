@@ -2098,6 +2098,11 @@ VALUES
 }'::json, NULL, NULL, NULL, false, 0)
 ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
+-- Gully id: typeahead like link_to_connec (4.3.0)
+UPDATE config_form_fields
+SET widgettype = 'typeahead'
+WHERE formname = 'generic' AND formtype = 'link_to_gully' AND columnname = 'id' AND tabname = 'tab_none';
+
 
 -- abbreviation and custom_code_autofill fields for ve_cat_feature_** (element, link, node, connec, arc, gully)
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
