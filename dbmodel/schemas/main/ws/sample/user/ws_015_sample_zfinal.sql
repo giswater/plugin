@@ -232,7 +232,7 @@ WHERE id IN ('MACROSECTOR', 'MACRODMA', 'MACROOMZONE', 'SECTOR', 'DMA', 'OMZONE'
 
 UPDATE plan_psector_x_connec SET arc_id = 20651, link_id = 474 WHERE connec_id = 114463;
 
-UPDATE connec SET minsector_id = 0, sector_id = 0, dma_id = 0, presszone_id = 0, supplyzone_id = 0, dqa_id, = 0, crmzone_id = 0, omzone_id = 0
+UPDATE connec SET minsector_id = 0, sector_id = 0, dma_id = 0, presszone_id = 0, supplyzone_id = 0, dqa_id = 0, crmzone_id = 0, omzone_id = 0
 WHERE connec_id IN (114461, 114462, 114463);
 
 UPDATE arc SET minsector_id = 0, sector_id = 0, dma_id = 0, presszone_id = 0, supplyzone_id = 0, dqa_id = 0, omzone_id = 0
