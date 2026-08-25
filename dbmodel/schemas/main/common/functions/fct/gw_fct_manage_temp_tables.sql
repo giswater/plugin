@@ -54,8 +54,6 @@ DECLARE
     v_group_array text[];
     v_subGroup_array text[];
 
-    v_isoperative boolean;
-
 BEGIN
 
     -- set search path
@@ -68,8 +66,6 @@ BEGIN
     v_verifiedExceptions = v_parameters->>'verifiedExceptions';
     v_group = UPPER(v_parameters->>'group');
     v_subGroup = UPPER(v_parameters->>'subGroup');
-
-    v_isoperative = (SELECT value::json->>'onlyIsOperative' FROM config_param_user WHERE parameter='inp_options_debug' AND cur_user=current_user)::boolean;
 
     -- validate parameters
     IF v_project_type IS NULL THEN
@@ -295,6 +291,8 @@ BEGIN
                     flag boolean,
                     CONSTRAINT temp_link_pkey PRIMARY KEY (link_id)
                 );
+                CREATE INDEX IF NOT EXISTS temp_link_exit_id_idx ON temp_link USING btree (exit_id);
+                CREATE INDEX IF NOT EXISTS  temp_link_index ON temp_link USING gist (the_geom_endpoint);
 
                 CREATE TEMP TABLE IF NOT EXISTS temp_link_x_arc(
                     link_id integer NOT NULL,
@@ -349,29 +347,29 @@ BEGIN
             CREATE TEMP TABLE IF NOT EXISTS temp_t_anlgraph (LIKE temp_anlgraph INCLUDING ALL);
             CREATE TEMP TABLE IF NOT EXISTS temp_t_go2epa (LIKE temp_go2epa INCLUDING ALL);
 
-            IF v_project_type = 'WS' THEN
+             IF v_project_type = 'WS' THEN
                 EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_pump AS SELECT t.* FROM ve_inp_pump t';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_pipe AS SELECT t.* FROM ve_inp_pipe t JOIN vf_arc USING (arc_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_valve AS SELECT t.* FROM ve_inp_valve t JOIN vf_node USING (node_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_junction AS SELECT t.* FROM ve_inp_junction t JOIN vf_node USING (node_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_reservoir AS SELECT t.* FROM ve_inp_reservoir t JOIN vf_node USING (node_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_tank AS SELECT t.* FROM ve_inp_tank t JOIN vf_node USING (node_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_inlet AS SELECT t.* FROM ve_inp_inlet t JOIN vf_node USING (node_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_virtualvalve AS SELECT t.* FROM ve_inp_virtualvalve t JOIN vf_arc USING (arc_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_virtualpump AS SELECT t.* FROM ve_inp_virtualpump t JOIN vf_arc USING (arc_id)';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_pipe AS SELECT t.* FROM ve_inp_pipe t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_valve AS SELECT t.* FROM ve_inp_valve t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_junction AS SELECT t.* FROM ve_inp_junction t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_reservoir AS SELECT t.* FROM ve_inp_reservoir t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_tank AS SELECT t.* FROM ve_inp_tank t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_inlet AS SELECT t.* FROM ve_inp_inlet t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_virtualvalve AS SELECT t.* FROM ve_inp_virtualvalve t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_virtualpump AS SELECT t.* FROM ve_inp_virtualpump t';
 		    ELSIF v_project_type  = 'UD' THEN
-                EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_pump AS SELECT t.* FROM ve_inp_pump t JOIN vf_arc USING (arc_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_conduit AS SELECT t.* FROM ve_inp_conduit t JOIN vf_arc USING (arc_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_outlet AS SELECT t.* FROM ve_inp_outlet t JOIN vf_arc USING (arc_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_orifice AS SELECT t.* FROM ve_inp_orifice t JOIN vf_arc USING (arc_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_weir AS SELECT t.* FROM ve_inp_weir t JOIN vf_arc USING (arc_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_virtual AS SELECT t.* FROM ve_inp_virtual t JOIN vf_arc USING (arc_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_storage AS SELECT t.* FROM ve_inp_storage t JOIN vf_node USING (node_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_junction AS SELECT t.* FROM ve_inp_junction t JOIN vf_node USING (node_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_outfall AS SELECT t.* FROM ve_inp_outfall t JOIN vf_node USING (node_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_divider AS SELECT t.* FROM ve_inp_divider t JOIN vf_node USING (node_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_netgully AS SELECT t.* FROM ve_inp_netgully t JOIN vf_node USING (node_id)';
-			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_gully AS SELECT t.* FROM ve_inp_gully t JOIN vf_gully USING (gully_id)';
+                EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_pump AS SELECT t.* FROM ve_inp_pump t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_conduit AS SELECT t.* FROM ve_inp_conduit t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_outlet AS SELECT t.* FROM ve_inp_outlet t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_orifice AS SELECT t.* FROM ve_inp_orifice t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_weir AS SELECT t.* FROM ve_inp_weir t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_virtual AS SELECT t.* FROM ve_inp_virtual t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_storage AS SELECT t.* FROM ve_inp_storage t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_junction AS SELECT t.* FROM ve_inp_junction t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_outfall AS SELECT t.* FROM ve_inp_outfall t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_divider AS SELECT t.* FROM ve_inp_divider t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_netgully AS SELECT t.* FROM ve_inp_netgully t';
+			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_gully AS SELECT t.* FROM ve_inp_gully t';
                 -- note: don't need filter for these temporal tables
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_subcatchment AS SELECT * FROM ve_inp_subcatchment';
 			    EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_inp_subc2outlet AS SELECT * FROM ve_inp_subc2outlet';
@@ -383,7 +381,7 @@ BEGIN
             IF v_verifiedExceptions THEN
                 v_filter = ' WHERE (verified IS NULL OR verified IN (0,1))';
             ELSE
-                v_filter = ' WHERE state IS NOT NULL ';
+                v_filter = '';
             END IF;
 
             EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_arc AS SELECT * FROM ve_arc'||v_filter;

@@ -1385,3 +1385,9 @@ WHERE id = 105
 UPDATE config_report
 SET query_text = 'SELECT e.name as "Exploitation", vec.connec_id as "Connec id", vec.code as "Code", vec.customer_code as "Customer code" FROM ve_connec vec JOIN exploitation e USING (expl_id) '
 WHERE id = 101;
+
+UPDATE config_param_system
+	SET layoutname='lyt_admin_om',layoutorder=28
+	WHERE "parameter"='qgis_mapzone_inundation_from_arc';
+
+DELETE FROM sys_function WHERE id = 3368;

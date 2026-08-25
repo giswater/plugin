@@ -123,7 +123,7 @@ BEGIN
 		DELETE FROM selector_macrosector WHERE cur_user = current_user;
 		DELETE FROM selector_network WHERE cur_user = current_user;
 		DELETE FROM selector_psector WHERE cur_user = current_user;
-		DELETE FROM selector_dscenario WHERE cur_user = current_user;
+		DELETE FROM selector_inp_dscenario WHERE cur_user = current_user;
 
 		-- looking for additional schema
 		IF v_add_schema IS NOT NULL AND v_add_schema != v_schemaname THEN
@@ -135,7 +135,7 @@ BEGIN
 			DELETE FROM selector_macrosector WHERE cur_user = current_user;
 			DELETE FROM selector_network WHERE cur_user = current_user;
 			DELETE FROM selector_psector WHERE cur_user = current_user;
-			DELETE FROM selector_dscenario WHERE cur_user = current_user;
+			DELETE FROM selector_inp_dscenario WHERE cur_user = current_user;
 
 			SET search_path = 'SCHEMA_NAME', public;
 		END IF;
@@ -178,9 +178,6 @@ BEGIN
 		v_errortext=concat('Set feature state = 1 for user');
 		INSERT INTO audit_check_data (fid,  criticity, error_message) VALUES (101, 4, v_errortext);
 	END IF;
-
-	-- Force muni selector for 0 values
-	INSERT INTO selector_municipality VALUES (0, current_user) ON CONFLICT (muni_id, cur_user) DO NOTHING;
 
 	--Force hydrology_selector when null values from user
 	IF v_project_type='UD' THEN

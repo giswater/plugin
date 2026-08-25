@@ -9,10 +9,11 @@ SET search_path = 'SCHEMA_NAME', public, pg_catalog;
 
 ALTER TABLE arc DISABLE TRIGGER gw_trg_topocontrol_arc;
 
-INSERT INTO selector_sector SELECT sector_id, current_user from sector where sector_id > 0 ON CONFLICT (sector_id, cur_user) DO NOTHING;
+INSERT INTO selector_sector SELECT sector_id, current_user from sector where sector_id > -1 ON CONFLICT (sector_id, cur_user) DO NOTHING;
 DELETE FROM selector_psector;
+DELETE FROM selector_inp_dscenario;
 
-INSERT INTO selector_municipality SELECT muni_id,current_user FROM ext_municipality where muni_id > 0 ON CONFLICT (muni_id, cur_user) DO NOTHING;
+INSERT INTO selector_municipality SELECT muni_id,current_user FROM ext_municipality ON CONFLICT (muni_id, cur_user) DO NOTHING;
 
 UPDATE cat_feature SET id = 'OVERFLOW_STORAGE' WHERE id = 'OWERFLOW_STORAGE';
 

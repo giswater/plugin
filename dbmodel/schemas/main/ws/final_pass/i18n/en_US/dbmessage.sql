@@ -791,6 +791,7 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4680, 'GeoJSON output requires a the_geom column in the resolved query for tableName %tableName%', 'Include the_geom in config_form_list.query_text'),
     (4682, 'Cannot force connection to a node while arcs are selected.', 'Clear the selected arcs and try again.'),
     (4684, 'The %feature_type% with id %connec_id% has been successfully connected to the node with id %node_id%', NULL),
-    (4686, 'No network feature found for %feature_type% with id %connect_id% matching the current filters.', 'Relax extra filters, max distance or pipe diameter and try again.')
+    (4686, 'No network feature found for %feature_type% with id %connect_id% matching the current filters.', 'Relax extra filters, max distance or pipe diameter and try again.'),
+    (4688, E'Function to calculate water balance according stardards of IWA. \nYou must select a period already created or manually select the date of the interval. One at a time. Before that:  \n1) tables ext_cat_period, ext_rtc_hydrometer_x_data, ext_rtc_scada_x_data need to be filled. \n2) DMA graph need to be executed.  \n>End Date proposal for %v_percent_hydro%% of hydrometers which consum is out of the period: %v_proposed_enddate%', NULL)
 ) AS v(id, error_message, hint_message)
 WHERE t.id = v.id;

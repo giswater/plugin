@@ -187,43 +187,15 @@ BEGIN
 
 		CREATE TEMP TABLE temp_muni_sector_expl AS
 		WITH
-			node_state_psector AS (
-				SELECT n.node_id, n.expl_id, n.expl_visibility, n.muni_id, n.sector_id, n.state
-				FROM node n
-				LEFT JOIN LATERAL (
-					SELECT x.state
-					FROM (
-						SELECT 1 WHERE EXISTS (
-							SELECT 1 FROM selector_psector sp WHERE sp.cur_user = CURRENT_USER
-						)
-					) gate
-					CROSS JOIN LATERAL (
-						SELECT pp_1.state
-						FROM plan_psector_x_node pp_1
-						WHERE pp_1.node_id = n.node_id
-							AND pp_1.psector_id IN (
-								SELECT sp.psector_id FROM selector_psector sp WHERE sp.cur_user = CURRENT_USER
-							)
-						ORDER BY pp_1.psector_id DESC
-						LIMIT 1
-					) x
-				) pp ON true
-				WHERE EXISTS (
-					SELECT 1
-					FROM selector_state ss
-					WHERE ss.cur_user = CURRENT_USER
-					AND ss.state_id = COALESCE(pp.state, n.state)
-				)
-			),
 			node_expl AS (
 				SELECT nn.node_id, nn.expl_id
 				FROM (
 					SELECT n.node_id, n.expl_id
-					FROM node_state_psector n
+					FROM node n
 					WHERE n.expl_id IS NOT NULL
-					UNION
+					UNION ALL
 					SELECT n.node_id, unnest(n.expl_visibility) AS expl_id
-					FROM node_state_psector n
+					FROM node n
 					WHERE n.expl_visibility IS NOT NULL
 				) nn
 				JOIN vf_exploitation e ON e.expl_id = nn.expl_id
@@ -233,9 +205,9 @@ BEGIN
 				SELECT nn.node_id, nn.muni_id
 				FROM (
 					SELECT n.node_id, n.muni_id
-					FROM node_state_psector n
+					FROM node n
 					WHERE n.muni_id IS NOT NULL
-					UNION
+					UNION ALL
 					SELECT n.node_id, n.muni_id
 					FROM node_x_municipality_visibility n
 					WHERE n.muni_id IS NOT NULL
@@ -247,17 +219,12 @@ BEGIN
 				SELECT nn.node_id, nn.sector_id
 				FROM (
 					SELECT n.node_id, n.sector_id
-					FROM node_state_psector n
-					LEFT JOIN node_x_sector_visibility v ON v.node_id = n.node_id
-					WHERE v.node_id IS NULL
-					AND n.sector_id IS NOT NULL
-					AND n.state <> 2
-					UNION
-					SELECT n.node_id, v.sector_id
-					FROM node_state_psector n
-					JOIN node_x_sector_visibility v ON n.node_id = v.node_id
-					WHERE n.state <> 2
-					AND v.sector_id IS NOT NULL
+					FROM node n
+					WHERE n.sector_id IS NOT NULL
+					UNION ALL
+					SELECT n.node_id, n.sector_id
+					FROM node_x_sector_visibility n
+					WHERE n.sector_id IS NOT NULL
 				) nn
 				JOIN sector s ON s.sector_id = nn.sector_id
 				WHERE s.active
@@ -276,55 +243,46 @@ BEGIN
 		INSERT INTO temp_exploitation (expl_id, code, name, descript, macroexpl_id, active)
 		SELECT e.expl_id, e.code, e.name, e.descript, e.macroexpl_id, e.active
 		FROM exploitation e
-		JOIN vf_exploitation vf ON vf.expl_id = e.expl_id
-		ORDER BY 1;
+		JOIN vf_exploitation vf ON vf.expl_id = e.expl_id;
 
 		-- populate temp_macroexploitation
 		INSERT INTO temp_macroexploitation (macroexpl_id, code, name, descript, active)
 		SELECT m.macroexpl_id, m.code, m.name, m.descript, m.active
 		FROM macroexploitation m
 		WHERE m.active AND m.macroexpl_id > 0
-		AND EXISTS (SELECT 1 FROM temp_exploitation e WHERE e.macroexpl_id = m.macroexpl_id)
-		ORDER BY 1;
+		AND EXISTS (SELECT 1 FROM temp_exploitation e WHERE e.macroexpl_id = m.macroexpl_id);
 
 		-- populate temp_municipality
 		INSERT INTO temp_municipality (muni_id, name, observ, active)
-		SELECT DISTINCT ON (em.muni_id) em.muni_id, em.name, em.observ, em.active
-		FROM temp_muni_sector_expl t
-		JOIN temp_exploitation e USING (expl_id)
-		JOIN v_municipality em ON em.muni_id = t.muni_id
-		WHERE em.active
-		ORDER BY em.muni_id
-		ON CONFLICT (muni_id) DO NOTHING;
+		SELECT em.muni_id, em.name, em.observ, em.active
+		FROM v_municipality em
+		WHERE EXISTS (SELECT 1 FROM temp_muni_sector_expl t WHERE t.muni_id = em.muni_id);
 
 		-- populate temp_sector
 		INSERT INTO temp_sector (sector_id, code, name, descript, expl_id, muni_id, macrosector_id, parent_id, active)
 		SELECT s.sector_id, s.code, s.name, s.descript, s.expl_id, s.muni_id, s.macrosector_id, s.parent_id, s.active
 		FROM sector s
-		WHERE EXISTS (SELECT 1 FROM temp_muni_sector_expl t WHERE t.sector_id = s.sector_id)
-		AND s.sector_id > 0
-		ORDER BY 1;
+		WHERE s.sector_id = 0;
 
 		INSERT INTO temp_sector (sector_id, code, name, descript, expl_id, muni_id, macrosector_id, parent_id, active)
 		SELECT s.sector_id, s.code, s.name, s.descript, s.expl_id, s.muni_id, s.macrosector_id, s.parent_id, s.active
 		FROM sector s
-		WHERE s.sector_id = 0;
+		WHERE EXISTS (SELECT 1 FROM temp_muni_sector_expl t WHERE t.sector_id = s.sector_id)
+		AND s.sector_id > 0;
 
 		-- populate temp_macrosector
 		INSERT INTO temp_macrosector (macrosector_id, code, name, descript, expl_id, muni_id, active)
 		SELECT macrosector_id, code, name, descript, expl_id, muni_id, active
 		FROM macrosector m
 		WHERE m.active AND m.macrosector_id > 0
-		AND EXISTS (SELECT 1 FROM temp_sector s WHERE s.macrosector_id = m.macrosector_id)
-		ORDER BY 1;
+		AND EXISTS (SELECT 1 FROM temp_sector s WHERE s.macrosector_id = m.macrosector_id);
 
 		IF v_project_type = 'WS' THEN
 			INSERT INTO temp_t_mincut (id, work_order, expl_id, macroexpl_id, muni_id, minsector_id, forecast_start, forecast_end)
 			SELECT m.id, m.work_order, e.expl_id, m.macroexpl_id, m.muni_id, m.minsector_id, m.forecast_start, m.forecast_end
 			FROM om_mincut m
 			JOIN temp_exploitation e ON e.expl_id = m.expl_id
-			WHERE m.id > 0
-			ORDER BY m.id;
+			WHERE m.id > 0;
 		END IF;
 	END IF;
 

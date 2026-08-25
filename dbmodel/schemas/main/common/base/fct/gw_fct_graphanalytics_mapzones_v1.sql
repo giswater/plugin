@@ -2756,7 +2756,7 @@ BEGIN
 					SET %I = COALESCE(NULLIF(ta.mapzone_id, -1), 0)
 					FROM temp_pgr_arc ta
 					WHERE a.arc_id = ta.pgr_arc_id
-					AND a.%I IS DISTINCT FROM ta.mapzone_id
+					AND a.%I IS DISTINCT FROM COALESCE(NULLIF(ta.mapzone_id, -1), 0)
 					$sql$
 				, v_mapzone_field, v_mapzone_field);
 
@@ -2766,7 +2766,7 @@ BEGIN
 					SET %I = COALESCE(NULLIF(tn.mapzone_id, -1), 0)
 					FROM temp_pgr_node tn
 					WHERE n.node_id = tn.pgr_node_id
-					AND n.%I IS DISTINCT FROM tn.mapzone_id
+					AND n.%I IS DISTINCT FROM COALESCE(NULLIF(tn.mapzone_id, -1), 0)
 					$sql$
 				, v_mapzone_field, v_mapzone_field);
 
@@ -2775,7 +2775,7 @@ BEGIN
 					SET sector_id = COALESCE(NULLIF(te.mapzone_id, -1), 0)
 					FROM temp_pgr_element te
 					WHERE e.element_id = te.pgr_element_id
-					AND e.sector_id IS DISTINCT FROM te.mapzone_id;
+					AND e.sector_id IS DISTINCT FROM COALESCE(NULLIF(te.mapzone_id, -1), 0);
 
 					-- node_x_sector_visibility for borders (nodes for ws, arcs for ud) and for the Heads of the mapzones
 					INSERT INTO node_x_sector_visibility (node_id, sector_id)
@@ -2867,7 +2867,7 @@ BEGIN
 					SET %I = COALESCE(NULLIF(tc.mapzone_id, -1), 0)
 					FROM temp_pgr_connec tc
 					WHERE c.connec_id = tc.pgr_connec_id
-					AND c.%I IS DISTINCT FROM tc.mapzone_id
+					AND c.%I IS DISTINCT FROM COALESCE(NULLIF(tc.mapzone_id, -1), 0)
 					$sql$
 				, v_mapzone_field, v_mapzone_field);
 
@@ -2878,7 +2878,7 @@ BEGIN
 					FROM temp_pgr_connec tc
 					WHERE l.feature_id = tc.pgr_connec_id
 					AND l.feature_type = 'CONNEC'
-					AND l.%I IS DISTINCT FROM tc.mapzone_id
+					AND l.%I IS DISTINCT FROM COALESCE(NULLIF(tc.mapzone_id, -1), 0)
 					$sql$
 				, v_mapzone_field, v_mapzone_field);
 
@@ -2889,7 +2889,7 @@ BEGIN
 						SET %I = COALESCE(NULLIF(tg.mapzone_id, -1), 0)
 						FROM temp_pgr_gully tg
 						WHERE g.gully_id = tg.pgr_gully_id
-							AND g.%I IS DISTINCT FROM tg.mapzone_id
+							AND g.%I IS DISTINCT FROM COALESCE(NULLIF(tg.mapzone_id, -1), 0)
 						$sql$
 					, v_mapzone_field, v_mapzone_field);
 
@@ -2900,7 +2900,7 @@ BEGIN
 						FROM temp_pgr_gully tg
 						WHERE l.feature_id = tg.pgr_gully_id
 							AND l.feature_type = 'GULLY'
-							AND l.%I IS DISTINCT FROM tg.mapzone_id
+							AND l.%I IS DISTINCT FROM COALESCE(NULLIF(tg.mapzone_id, -1), 0)
 						$sql$
 					, v_mapzone_field, v_mapzone_field);
 				END IF;

@@ -8,8 +8,9 @@ or (at your option) any later version.
 SET search_path = 'SCHEMA_NAME', public, pg_catalog;
 
 
-INSERT INTO selector_sector SELECT sector_id, current_user from sector where sector_id > 0 ON CONFLICT (sector_id, cur_user) DO NOTHING;
+INSERT INTO selector_sector SELECT sector_id, current_user from sector where sector_id > -1 ON CONFLICT (sector_id, cur_user) DO NOTHING;
 DELETE FROM selector_psector;
+DELETE FROM selector_inp_dscenario;
 
 INSERT INTO selector_municipality SELECT muni_id,current_user FROM ext_municipality ON CONFLICT (muni_id, cur_user) DO NOTHING;
 
@@ -228,3 +229,14 @@ ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 UPDATE config_mapzones SET is_dynamic = TRUE
 WHERE id IN ('MACROSECTOR', 'MACRODMA', 'MACROOMZONE', 'SECTOR', 'DMA', 'OMZONE', 'MACRODQA', 'PRESSZONE', 'DQA', 'SUPPLYZONE');
+
+UPDATE plan_psector_x_connec SET arc_id = 20651, link_id = 474 WHERE connec_id = 114463;
+
+UPDATE connec SET minsector_id = 0, sector_id = 0, dma_id = 0, presszone_id = 0, supplyzone_id = 0, dqa_id = 0, crmzone_id = 0, omzone_id = 0
+WHERE connec_id IN (114461, 114462, 114463);
+
+UPDATE arc SET minsector_id = 0, sector_id = 0, dma_id = 0, presszone_id = 0, supplyzone_id = 0, dqa_id = 0, omzone_id = 0
+WHERE arc_id IN (20651, 20861, 20851);
+
+UPDATE node SET minsector_id = 0, sector_id = 0, dma_id = 0, presszone_id = 0, supplyzone_id = 0, dqa_id = 0, omzone_id = 0
+WHERE node_id IN (10761);
