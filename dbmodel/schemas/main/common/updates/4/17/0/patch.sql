@@ -1352,3 +1352,5 @@ ON CONFLICT (id) DO NOTHING;
 UPDATE config_param_system
 	SET layoutname='lyt_admin_om',layoutorder=28
 	WHERE "parameter"='qgis_mapzone_inundation_from_arc';
+
+DELETE FROM sys_function WHERE id = 3368;
