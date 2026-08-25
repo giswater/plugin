@@ -233,14 +233,23 @@ BEGIN
 			);
 	END IF;
 
-	UPDATE temp_t_node SET "family" = q."family"
+	UPDATE temp_t_node t SET "family" = q."family"
 	FROM (
 		SELECT n.node_id, cm."family" 
 		FROM node n
 		JOIN cat_node c ON c.id = n.nodecat_id 
 		JOIN cat_material cm ON cm.id = c.matcat_id 
 	) q
-	WHERE temp_t_node.node_id = q.node_id::text;
+	WHERE t.node_id = q.node_id::text;
+
+	UPDATE temp_t_node t SET "family" = q."family"
+	FROM (
+		SELECT c.connec_id, cm."family" 
+		FROM connec c
+		JOIN cat_connec cc ON cc.id = c.conneccat_id 
+		JOIN cat_material cm ON cm.id = cc.matcat_id 
+	) q
+	WHERE t.node_id = q.connec_id::text;
 	
 	-- set bottom elevation as elev for tanks in case invert_level is not null
 	UPDATE temp_t_node SET elev = invert_level FROM man_tank WHERE invert_level IS NOT NULL AND temp_t_node.node_id = man_tank.node_id::text
