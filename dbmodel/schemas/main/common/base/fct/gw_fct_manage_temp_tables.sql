@@ -381,7 +381,7 @@ BEGIN
             IF v_verifiedExceptions THEN
                 v_filter = ' WHERE (verified IS NULL OR verified IN (0,1))';
             ELSE
-                v_filter = ' WHERE state IS NOT NULL ';
+                v_filter = '';
             END IF;
 
             EXECUTE 'CREATE TEMP TABLE IF NOT EXISTS t_arc AS SELECT * FROM ve_arc'||v_filter;
