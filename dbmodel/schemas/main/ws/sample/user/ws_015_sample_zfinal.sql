@@ -8,7 +8,7 @@ or (at your option) any later version.
 SET search_path = 'SCHEMA_NAME', public, pg_catalog;
 
 
-INSERT INTO selector_sector SELECT sector_id, current_user from sector where sector_id > 0 ON CONFLICT (sector_id, cur_user) DO NOTHING;
+INSERT INTO selector_sector SELECT sector_id, current_user from sector where sector_id > -1 ON CONFLICT (sector_id, cur_user) DO NOTHING;
 DELETE FROM selector_psector;
 DELETE FROM selector_inp_dscenario;
 
