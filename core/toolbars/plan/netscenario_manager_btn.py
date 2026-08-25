@@ -660,7 +660,7 @@ class GwNetscenarioManagerButton(GwAction):
             if not is_manager:
                 # Get selected mapzone data
                 col_idx = tools_qt.get_col_index_by_col_name(tableview, f'{self.selected_netscenario_type.lower()}_id')
-                field_id = tableview.model().headerData(col_idx, Qt.Orientation.Horizontal)
+                field_id = tools_gw.get_model_column_name(tableview, col_idx)
                 mapzone_id = index.sibling(index.row(), col_idx).data()
 
                 if field_id == 'presszone_id':

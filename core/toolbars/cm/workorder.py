@@ -1,7 +1,7 @@
 from functools import partial
 
 from qgis.PyQt.QtCore import QDate
-from qgis.PyQt.QtWidgets import QMessageBox, QTableView, QLabel, QLineEdit, QComboBox, QDateEdit, \
+from qgis.PyQt.QtWidgets import QTableView, QLabel, QLineEdit, QComboBox, QDateEdit, \
                                 QWidget, QTextEdit, QCheckBox
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem
 
@@ -220,7 +220,7 @@ class Workorder:
         if missing:
             title = "Missing Data"
             msg = "Please fill all mandatory fields (highlighted in red)."
-            QMessageBox.warning(self.dialog, tools_qt.tr(title), tools_qt.tr(msg))
+            tools_qt.show_warning_box(msg, title=title, parent=self.dialog)
             return False
 
         # 3) Convert empty strings to None so JSON nulls land in numeric/date cols
@@ -259,7 +259,7 @@ class Workorder:
         else:
             title = "Error"
             msg = "An error occurred saving the workorder."
-            QMessageBox.critical(self.dialog, title, msg)
+            tools_qt.show_warning_box(msg, title=title, parent=self.dialog)
             return False
 
     def delete_selected_workorder(self):

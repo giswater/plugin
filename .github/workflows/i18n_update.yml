@@ -1,18 +1,46 @@
 name: "🖲️ i18n: Update i18n DB"
 
 on:
-  workflow_dispatch: # for testing
+  workflow_dispatch: # for testing, and for PR-merge retrigger on main
+    inputs:
+      source_event:
+        description: "Original trigger when chained after a merge (pull_request)"
+        required: false
+        default: ""
+        type: string
   schedule:
     - cron: "0 22 * * *"
   release:
     types: [published]
+  pull_request:
+    types: [closed]
+    branches:
+      - main
 
 permissions:
   contents: read
   actions: write
 
 jobs:
+  # pull_request runs are always labeled with the head branch in the Actions UI.
+  # Re-dispatch on main so the real i18n search appears on main, not the PR branch.
+  retrigger-on-main:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    name: Retrigger on main
+    steps:
+      - name: Dispatch this workflow on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh workflow run "i18n_update.yml" \
+            --repo "${{ github.repository }}" \
+            --ref main \
+            -f "source_event=pull_request"
+
   pgtap-main:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -31,6 +59,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
 
       - name: Build Docker images
         working-directory: dbmodel
@@ -61,6 +91,7 @@ jobs:
         run: docker compose -f docker-compose.test.yml down
 
   run-i18n-searcher:
+    if: github.event_name != 'pull_request'
     needs: pgtap-main
     runs-on: ubuntu-latest
     name: Run i18n searcher
@@ -100,6 +131,7 @@ jobs:
           repository: giswater/plugin
           ref: ${{ github.ref }}
           path: plugin
+          submodules: recursive
 
       - name: Bootstrap sample network (ws, ud) with language no_TR
         working-directory: plugin/dbmodel
@@ -151,7 +183,7 @@ jobs:
         run: docker compose -f docker-compose.test.yml down
 
   trigger-generate-i18n:
-    needs: run-i18n-searcher
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     name: Trigger Generate i18n
     steps:
@@ -160,12 +192,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          SOURCE_EVENT="${{ github.event_name }}"
+          SOURCE_EVENT="${{ github.event.inputs.source_event || github.event_name }}"
           PUBLISH_MODE="latest"
           VERSION=""
           REF="${{ github.ref }}"
+          WORKFLOW_REF="${{ github.ref_name }}"
 
-          if [ "$SOURCE_EVENT" = "release" ]; then
+          if [ "${{ github.event_name }}" = "release" ]; then
             PUBLISH_MODE="release"
             VERSION="${{ github.event.release.tag_name }}"
             VERSION="${VERSION#v}"
@@ -173,7 +206,7 @@ jobs:
 
           gh workflow run "i18n_generate.yml" \
             --repo "${{ github.repository }}" \
-            --ref "${{ github.ref_name }}" \
+            --ref "${WORKFLOW_REF}" \
             -f "source_event=${SOURCE_EVENT}" \
             -f "publish_mode=${PUBLISH_MODE}" \
             -f "ref=${REF}" \

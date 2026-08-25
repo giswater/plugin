@@ -25,7 +25,7 @@ SELECT columns_are(
         'sys_elev', 'nodecat_id', 'sector_id', 'macrosector_id', 'state', 'state_type',
         'annotation', 'expl_id', 'storage_type', 'curve_id', 'a1', 'a2',
         'a0', 'fevap', 'sh', 'hc', 'imd', 'y0',
-        'ysur', 'the_geom'
+        'ysur', 'the_geom', 'p_state'
     ],
     'View ve_inp_storage should have the correct columns'
 );
@@ -57,6 +57,7 @@ SELECT col_type_is('ve_inp_storage', 'imd', 'numeric(12,4)', 'Column imd should 
 SELECT col_type_is('ve_inp_storage', 'y0', 'numeric(12,4)', 'Column y0 should be numeric(12,4)');
 SELECT col_type_is('ve_inp_storage', 'ysur', 'numeric(12,4)', 'Column ysur should be numeric(12,4)');
 SELECT col_type_is('ve_inp_storage', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_storage', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

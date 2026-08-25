@@ -69,7 +69,7 @@ class EmitterCalibration:
         self._load_values()
 
         # Open dialog
-        tools_gw.open_dialog(self.dlg_vol_cal, dlg_name='emitter_calibration')
+        tools_gw.open_dialog(self.dlg_vol_cal, dlg_name='epatools_emitter_calibration')
 
     def _execute_process(self):
 
@@ -288,21 +288,21 @@ class EmitterCalibration:
 
     def _save_values(self):
         tools_gw.set_config_parser(
-            "emitter_calibration",
+            "epatools_emitter_calibration",
             "input_file",
             self.input_file,
             "user",
             "session",
         )
         tools_gw.set_config_parser(
-            "emitter_calibration",
+            "epatools_emitter_calibration",
             "output_folder",
             self.output_folder,
             "user",
             "session",
         )
         tools_gw.set_config_parser(
-            "emitter_calibration",
+            "epatools_emitter_calibration",
             "file_name",
             self.file_name,
             "user",
@@ -310,7 +310,7 @@ class EmitterCalibration:
         )
 
         tools_gw.set_config_parser(
-            "emitter_calibration",
+            "epatools_emitter_calibration",
             "config_file",
             self.config_file,
             "user",
@@ -321,7 +321,7 @@ class EmitterCalibration:
 
         # INPUT FILE
         input_file = tools_gw.get_config_parser(
-            "emitter_calibration",
+            "epatools_emitter_calibration",
             "input_file",
             "user",
             "session",
@@ -333,7 +333,7 @@ class EmitterCalibration:
 
         # OUTPUT FILE
         output_folder = tools_gw.get_config_parser(
-            "emitter_calibration",
+            "epatools_emitter_calibration",
             "output_folder",
             "user",
             "session",
@@ -344,7 +344,7 @@ class EmitterCalibration:
             )
         # OUTPUT FILE
         file_name = tools_gw.get_config_parser(
-            "emitter_calibration",
+            "epatools_emitter_calibration",
             "file_name",
             "user",
             "session",
@@ -354,7 +354,7 @@ class EmitterCalibration:
 
         # CONFIG FILE
         config_file = tools_gw.get_config_parser(
-            "emitter_calibration",
+            "epatools_emitter_calibration",
             "config_file",
             "user",
             "session",
@@ -397,7 +397,9 @@ class ConfigEC:
         ]
         for option in required_options:
             if option not in self.options:
-                raise ValueError(f"{option} not found in [OPTIONS] section.")
+                msg = "{0} not found in [OPTIONS] section."
+                msg_params = (option,)
+                raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
         self._get_junctions_dmas(inpfile)
         self._get_emitters_coefficients(inpfile)

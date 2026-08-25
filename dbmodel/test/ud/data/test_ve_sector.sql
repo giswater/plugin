@@ -11,7 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(6);
+SELECT plan(10);
 
 INSERT INTO ve_sector
 (sector_id, code, "name", descript, macrosector_id, expl_id, muni_id, sector_type, the_geom, graphconfig, stylesheet)
@@ -26,6 +26,13 @@ SELECT is((SELECT descript FROM sector WHERE code = '-901'), 'updated descript',
 DELETE FROM ve_sector WHERE code = '-901';
 SELECT is((SELECT count(*)::integer FROM ve_sector WHERE code = '-901'), 0, 'DELETE: ve_sector -901 was deleted');
 SELECT is((SELECT count(*)::integer FROM sector WHERE code = '-901'), 0, 'DELETE: sector -901 was deleted');
+
+INSERT INTO ve_sector (code, "name") VALUES ('-902', 'sector-null-expl');
+SELECT is((SELECT count(*)::integer FROM sector WHERE code = '-902'), 1, 'INSERT: ve_sector -902 was inserted');
+SELECT is((SELECT expl_id FROM sector WHERE code = '-902'), ARRAY[0]::integer[], 'INSERT: missing expl_id defaults to ARRAY[0]');
+SELECT is((SELECT muni_id FROM sector WHERE code = '-902'), ARRAY[0]::integer[], 'INSERT: missing muni_id defaults to ARRAY[0]');
+DELETE FROM ve_sector WHERE code = '-902';
+SELECT is((SELECT count(*)::integer FROM sector WHERE code = '-902'), 0, 'DELETE: ve_sector -902 was deleted');
 
 
 SELECT * FROM finish();

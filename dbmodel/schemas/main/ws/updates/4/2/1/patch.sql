@@ -1730,7 +1730,7 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,
 	VALUES ('ve_sector','form_feature','tab_none','updated_by','lyt_data_1',20,'string','text','Updated by:','updated_by',false,false,false,false,'{"setMultiline":false}'::json,false);
 
 -- Mapzone types
-ALTER TABLE edit_typevalue DISABLE TRIGGER ALL;
+ALTER TABLE edit_typevalue DISABLE TRIGGER USER;
 INSERT INTO edit_typevalue (typevalue,id,idval)
 	VALUES ('sector_type','TRANSMISSION','TRANSMISSION');
 UPDATE edit_typevalue
@@ -1745,7 +1745,7 @@ INSERT INTO edit_typevalue (typevalue,id,idval)
 UPDATE edit_typevalue
 	SET id='WATERWELL',idval='WATERWELL'
 	WHERE typevalue='presszone_type' AND id='PSV';
-ALTER TABLE edit_typevalue ENABLE TRIGGER ALL;
+ALTER TABLE edit_typevalue ENABLE TRIGGER USER;
 
 
 INSERT INTO config_typevalue (typevalue,id,idval) VALUES ('widgettype_typevalue','list','list');

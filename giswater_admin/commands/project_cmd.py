@@ -216,7 +216,7 @@ def run_create(args: argparse.Namespace, out: Out) -> int:
     _validate_identifier(filename, "project name")
 
     conn_info = conn_mod.resolve(args.conn, args.config)
-    conn = h.open_conn(args, out, require_superuser=False)
+    conn = h.open_conn(args, out, require_schema_admin=False)
     try:
         actual_type = h.detect_project_type(conn, schema)
     finally:

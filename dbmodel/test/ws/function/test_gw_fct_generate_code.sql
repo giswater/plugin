@@ -31,8 +31,8 @@ WHERE m.active IS TRUE
 ORDER BY ST_Distance(g.feat_geom, ST_Centroid(m.the_geom))
 LIMIT 1$$, 90, 'Macrosector from geometry', false),
 ('feature', NULL, 'project_network', $$SELECT CASE upper(project_type) WHEN 'WS' THEN 'A' WHEN 'UD' THEN 'S' ELSE '' END FROM sys_version LIMIT 1$$, 91, 'Network suffix', false),
-('feature', 'NODE', 'abrevation', '(SELECT abrevation FROM cat_feature WHERE id = ($1::json->>''node_type''))', 1, 'Catalog abrevation for nodes', true),
-('mapzone', NULL, 'abrevation', '(SELECT abrevation FROM config_mapzones WHERE id = $2)', 1, 'Mapzone abrevation prefix', true),
+('feature', 'NODE', 'abbreviation', '(SELECT abbreviation FROM cat_feature WHERE id = ($1::json->>''node_type''))', 1, 'Catalog abbreviation for nodes', true),
+('mapzone', NULL, 'abbreviation', '(SELECT abbreviation FROM config_mapzones WHERE id = $2)', 1, 'Mapzone abbreviation prefix', true),
 ('mapzone', NULL, 'separator', $$'_'::text$$, 2, 'Underscore separator', true),
 ('mapzone', NULL, 'sequence', $$lpad(nextval('seq_mapzone_code')::text, 5, '0')$$, 3, 'Global mapzone sequence', true),
 ('mapzone', NULL, 'macrosector_code', $$SELECT m.code::text
@@ -57,19 +57,19 @@ ON CONFLICT (context, entity, part) DO UPDATE SET
   descript = EXCLUDED.descript,
   active = EXCLUDED.active;
 
-INSERT INTO config_mapzones (id, abrevation, descript, fid, code_autofill, custom_code_autofill, active, is_dynamic)
+INSERT INTO config_mapzones (id, abbreviation, descript, fid, code_autofill, custom_code_autofill, active, is_dynamic)
 VALUES ('TSTMAP', 'TST', 'Test mapzone', NULL, true, true, true, true)
 ON CONFLICT (id) DO UPDATE
-SET abrevation = EXCLUDED.abrevation, code_autofill = EXCLUDED.code_autofill, custom_code_autofill = EXCLUDED.custom_code_autofill;
+SET abbreviation = EXCLUDED.abbreviation, code_autofill = EXCLUDED.code_autofill, custom_code_autofill = EXCLUDED.custom_code_autofill;
 
 UPDATE cat_feature
-SET abrevation = 'TST', custom_code_autofill = true
+SET abbreviation = 'TST', custom_code_autofill = true
 WHERE id = 'MANHOLE';
 
 SELECT is(
     gw_fct_generate_code('feature', 'MANHOLE', json_build_object('node_id', 1, 'node_type', 'MANHOLE')),
     'TST_00000001',
-    'Feature code uses abrevation + separator + sequence'
+    'Feature code uses abbreviation + separator + sequence'
 );
 
 WITH feat AS (
@@ -86,7 +86,7 @@ INSERT INTO macrosector (macrosector_id, code, name, active, the_geom)
 SELECT -999, 'CR01', 'Near macrosector', true, ST_Multi(ST_Buffer(feat.geom, 100)) FROM feat
 ON CONFLICT (macrosector_id) DO UPDATE SET code = EXCLUDED.code, the_geom = EXCLUDED.the_geom;
 
-UPDATE cat_feature SET abrevation = 'TST_' WHERE id = 'MANHOLE';
+UPDATE cat_feature SET abbreviation = 'TST_' WHERE id = 'MANHOLE';
 
 UPDATE config_code_parts c
 SET concat_order = 900 + sub.rn
@@ -97,12 +97,12 @@ FROM (
 ) sub
 WHERE c.id = sub.id;
 
-UPDATE config_code_parts SET concat_order = 905 WHERE context = 'feature' AND entity = 'NODE' AND part = 'abrevation';
+UPDATE config_code_parts SET concat_order = 905 WHERE context = 'feature' AND entity = 'NODE' AND part = 'abbreviation';
 
 UPDATE config_code_parts SET active = true, concat_order = 1 WHERE context = 'feature' AND part = 'macrosector_code';
 UPDATE config_code_parts SET active = true, concat_order = 2 WHERE context = 'feature' AND part = 'project_network';
 UPDATE config_code_parts SET active = false, concat_order = 900 WHERE context = 'feature' AND part = 'separator';
-UPDATE config_code_parts SET concat_order = 3 WHERE context = 'feature' AND entity = 'NODE' AND part = 'abrevation';
+UPDATE config_code_parts SET concat_order = 3 WHERE context = 'feature' AND entity = 'NODE' AND part = 'abbreviation';
 UPDATE config_code_parts SET active = true, concat_order = 4 WHERE context = 'feature' AND part = 'sequence';
 
 ALTER SEQUENCE seq_feature_code RESTART WITH 1;
@@ -132,7 +132,7 @@ WHERE c.id = sub.id;
 UPDATE config_code_parts SET active = true, concat_order = 1 WHERE context = 'mapzone' AND part = 'macrosector_code';
 UPDATE config_code_parts SET active = true, concat_order = 2 WHERE context = 'mapzone' AND part = 'project_network';
 UPDATE config_code_parts SET active = false, concat_order = 900 WHERE context = 'mapzone' AND part = 'separator';
-UPDATE config_code_parts SET concat_order = 3 WHERE context = 'mapzone' AND part = 'abrevation';
+UPDATE config_code_parts SET concat_order = 3 WHERE context = 'mapzone' AND part = 'abbreviation';
 UPDATE config_code_parts SET active = true, concat_order = 4 WHERE context = 'mapzone' AND part = 'sequence';
 
 ALTER SEQUENCE seq_mapzone_code RESTART WITH 1;
@@ -161,7 +161,7 @@ FROM (
 WHERE c.id = sub.id;
 
 UPDATE config_code_parts SET active = false WHERE context = 'mapzone' AND part IN ('macrosector_code', 'project_network');
-UPDATE config_code_parts SET active = true, concat_order = 1 WHERE context = 'mapzone' AND part = 'abrevation';
+UPDATE config_code_parts SET active = true, concat_order = 1 WHERE context = 'mapzone' AND part = 'abbreviation';
 UPDATE config_code_parts SET active = true, concat_order = 2 WHERE context = 'mapzone' AND part = 'separator';
 UPDATE config_code_parts SET active = true, concat_order = 3, source_expr = $$lpad(nextval('seq_mapzone_code')::text, 5, '0')$$ WHERE context = 'mapzone' AND part = 'sequence';
 
@@ -170,7 +170,7 @@ ALTER SEQUENCE seq_mapzone_code RESTART WITH 1;
 SELECT is(
     gw_fct_generate_code('mapzone', 'TSTMAP', json_build_object('sector_id', 42)),
     'TST_00001',
-    'Mapzone code uses abrevation + separator + sequence'
+    'Mapzone code uses abbreviation + separator + sequence'
 );
 
 UPDATE cat_feature SET custom_code_autofill = false WHERE id = 'MANHOLE';
@@ -182,7 +182,7 @@ SELECT is(
 );
 
 UPDATE cat_feature SET custom_code_autofill = true WHERE id = 'MANHOLE';
-UPDATE cat_feature SET abrevation = 'TST' WHERE id = 'MANHOLE';
+UPDATE cat_feature SET abbreviation = 'TST' WHERE id = 'MANHOLE';
 
 UPDATE config_code_parts SET active = false WHERE context = 'feature';
 
@@ -201,8 +201,8 @@ FROM (
 ) sub
 WHERE c.id = sub.id;
 
-UPDATE config_code_parts SET concat_order = 905 WHERE context = 'feature' AND entity = 'NODE' AND part = 'abrevation';
-UPDATE config_code_parts SET active = true, concat_order = 1 WHERE context = 'feature' AND entity = 'NODE' AND part = 'abrevation';
+UPDATE config_code_parts SET concat_order = 905 WHERE context = 'feature' AND entity = 'NODE' AND part = 'abbreviation';
+UPDATE config_code_parts SET active = true, concat_order = 1 WHERE context = 'feature' AND entity = 'NODE' AND part = 'abbreviation';
 UPDATE config_code_parts
 SET active = true,
     concat_order = 2,
@@ -246,9 +246,9 @@ WHERE c.id = sub.id;
 UPDATE config_code_parts SET active = true, concat_order = 1 WHERE context = 'mapzone' AND part = 'macrosector_code';
 UPDATE config_code_parts SET active = true, concat_order = 2 WHERE context = 'mapzone' AND part = 'project_network';
 UPDATE config_code_parts SET active = false, concat_order = 900 WHERE context = 'mapzone' AND part = 'separator';
-UPDATE config_code_parts SET concat_order = 3 WHERE context = 'mapzone' AND part = 'abrevation';
+UPDATE config_code_parts SET concat_order = 3 WHERE context = 'mapzone' AND part = 'abbreviation';
 UPDATE config_code_parts SET active = true, concat_order = 4, source_expr = $$lpad(nextval('seq_mapzone_code')::text, 5, '0')$$ WHERE context = 'mapzone' AND part = 'sequence';
-UPDATE config_mapzones SET abrevation = 'TST_' WHERE id = 'TSTMAP';
+UPDATE config_mapzones SET abbreviation = 'TST_' WHERE id = 'TSTMAP';
 
 ALTER SEQUENCE seq_mapzone_code RESTART WITH 1;
 

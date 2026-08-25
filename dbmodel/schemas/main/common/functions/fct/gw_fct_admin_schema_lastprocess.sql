@@ -308,6 +308,7 @@ BEGIN
 
 			-- remove deprecated parameters on config_param_system
 			DELETE FROM config_param_system WHERE parameter = 'om_mincut_enable_alerts';
+			DELETE FROM config_param_system WHERE parameter = 'edit_feature_auto_builtdate';
 
 			-- fk for ext tables or utils schema
 			PERFORM gw_fct_admin_schema_utils_fk();
@@ -404,6 +405,9 @@ BEGIN
 			UPDATE config_param_system SET value =
 			'{"sys_table_id":"ve_gully","sys_id_field":"gully_id","sys_search_field":"gully_id","alias":"Gullies","cat_field":"gullycat_id","orderby":"3","search_type":"gully"}'
 			WHERE  parameter = 'basic_search_network_gully';
+
+
+			UPDATE config_mapzones SET is_dynamic = FALSE; -- set is_dynamic to FALSE for all mapzones (only for new projects)
 
 		ELSIF v_isnew IS FALSE THEN
 

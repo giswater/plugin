@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-08-20
+
+### Fixed
+
+- SchemaBuilder no longer `SET ROLE role_system` after `load_base`. Updates and sample run as the installer login so `selector_*` / `config_param_user` bind to the user pgTAP and QGIS use.
+- Plugin `__init__.py` no longer imports `qgis` at module load (QPIP path is skipped without QGIS). CLI release pytest can collect `test/engine` on a runner without QGIS. `cli-v0.4.1` never reached PyPI (`ModuleNotFoundError: qgis`).
+- Release CI / pytest config uses `--import-mode=importlib`.
+
+## [0.4.1] - 2026-08-19
+
+### Added
+
+- Manifest step `exclude` (fnmatch on filename) to skip files in a `sql_dir` / `dir_walk` step.
+- Schema and network updates refuse a target version below the schema's current version.
+- Schema update reads EPSG from `sys_version` when `--srid` is omitted.
+
+### Changed
+
+- Schema create/update/drop, addon integrate, and `network update` accept a PostgreSQL superuser **or** a login that is a member of `role_system`. `db init` still requires a superuser and now bootstraps Giswater roles plus `GRANT CREATE ON DATABASE` to `role_system`.
+- SchemaBuilder runs post-init phases as `role_system` (and always `RESET ROLE` at the end) so objects stay owned by `role_system`.
+- `scripts/gw_bootstrap_network.sh` splits `CONN_SUPER` (`gw db init`) from `CONN` (schema create/integrate/drop). `--init-only` / `--skip-init` run the two phases separately. If `CONN_SUPER` is unset, init uses `CONN`.
+
 ## [0.4.0] - 2026-07-23
 
 ### Added
@@ -74,7 +96,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timing reports and structured log output for automation and CI.
 - Legacy command aliases (`create`, `update`, `drop`, `status`, `init-db`, `update-network`, `audit …`) with stderr deprecation warnings.
 
-[unreleased]: https://github.com/giswater/plugin/compare/cli-v0.4.0...main
+[unreleased]: https://github.com/giswater/plugin/compare/cli-v0.4.2...main
+[0.4.2]: https://github.com/giswater/plugin/compare/cli-v0.4.1...cli-v0.4.2
+[0.4.1]: https://github.com/giswater/plugin/compare/cli-v0.4.0...cli-v0.4.1
 [0.4.0]: https://github.com/giswater/plugin/compare/cli-v0.3.0...cli-v0.4.0
 [0.3.0]: https://github.com/giswater/plugin/compare/cli-v0.2.0...cli-v0.3.0
 [0.2.0]: https://github.com/giswater/plugin/compare/cli-v0.1.1...cli-v0.2.0

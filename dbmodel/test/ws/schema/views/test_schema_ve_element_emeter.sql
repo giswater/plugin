@@ -29,7 +29,8 @@ SELECT columns_are(
         'datasource', 'label_x', 'label_y', 'label_rotation', 'rotation', 'inventory',
         'publish', 'trace_featuregeom', 'lock_level', 'expl_visibility', 'created_at', 'created_by',
         'updated_at', 'updated_by', 'the_geom', 'uuid', 'sector_visibility', 'muni_visibility',
-        'node_id', 'to_arc', 'flwreg_length', 'dataquality', 'dataquality_obs'
+        'node_id', 'to_arc', 'flwreg_length', 'dataquality', 'dataquality_obs',
+        'p_state', 'is_operative'
     ],
     'View ve_element_emeter should have the correct columns'
 );
@@ -89,6 +90,8 @@ SELECT col_type_is('ve_element_emeter', 'flwreg_length', 'numeric', 'Column flwr
 
 SELECT col_type_is('ve_element_emeter', 'dataquality', 'int4', 'Column dataquality should be int4');
 SELECT col_type_is('ve_element_emeter', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
+SELECT col_type_is('ve_element_emeter', 'p_state', 'int2', 'Column p_state should be int2');
+SELECT col_type_is('ve_element_emeter', 'is_operative', 'bool', 'Column is_operative should be bool');
 
 SELECT * FROM finish();
 

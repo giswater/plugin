@@ -35,11 +35,11 @@
          </item>
          <item>
           <widget class="QPushButton" name="btn_language">
-           <property name="text">
-            <string/>
-           </property>
            <property name="toolTip">
             <string>Manage languages</string>
+           </property>
+           <property name="text">
+            <string/>
            </property>
           </widget>
          </item>
@@ -225,7 +225,7 @@
           <enum>Qt::LeftToRight</enum>
          </property>
          <property name="text">
-          <string>Locale:</string>
+          <string>Language:</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -258,7 +258,6 @@
       <zorder>lbl_filter</zorder>
       <zorder>cmb_create_project_type</zorder>
       <zorder>lbl_source</zorder>
-      <zorder>horizontalLayoutWidget</zorder>
       <zorder>lbl_locale</zorder>
       <zorder>a</zorder>
       <zorder>lbl_project_type</zorder>

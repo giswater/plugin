@@ -8,6 +8,7 @@ directly. No Qt, no QGIS, no global state.
 from __future__ import annotations
 
 import datetime as _dt
+import fnmatch
 import logging
 import os
 from dataclasses import dataclass, field
@@ -17,22 +18,19 @@ from . import sql_runner
 from .cancel import CancelToken
 from .manifest import Manifest, Phase, Step
 from .templating import apply_subs, render
+from .version_guard import assert_no_downgrade
 
 logger = logging.getLogger(__name__)
 
 
 ProgressCb = Callable[[int, int, str, Optional[sql_runner.FileExec]], None]
 
-# DDL phases run as role_system so created objects are owned by role_system.
-# load_base is excluded: init.sql creates roles/schema as the installer (needs CREATE
-# on the database) and ends with SET ROLE role_system for the rest of the phase.
-# updates/load_sample are excluded: legacy patches use DISABLE TRIGGER ALL, which
-# requires superuser to touch RI_ConstraintTrigger system triggers.
-# reload_fct_ftrg is excluded: upgrade patches applied as superuser may re-own
-# functions; only the installer can CREATE OR REPLACE them on the next upgrade.
-_ROLE_SYSTEM_PHASES = frozenset()
-# init.sql ends with SET ROLE role_system; restore installer before superuser phases.
-_RESET_ROLE_AFTER_PHASES = frozenset({"load_base"})
+# load_base / load_base_schema: init.sql creates roles and the schema (needs
+# CREATE ON DATABASE) and ends with SET ROLE role_system so base DDL is owned
+# by role_system. RESET afterwards so updates/load_sample run as the installer
+# login — sample binds selector_* / config_param_user to current_user (pgTAP,
+# QGIS). Do not SET ROLE role_system on later phases.
+_RESET_ROLE_AFTER_PHASES = frozenset({"load_base", "load_base_schema"})
 
 # On a fresh database role_system does not exist yet; init.sql creates it.
 # pg_has_role(..., 'role_system', ...) errors if the role is missing — guard first.
@@ -235,25 +233,56 @@ class SchemaBuilder:
         phase_ids = self.manifest.profile(self.params.profile)
         result = BuildResult(profile=self.params.profile)
 
-        plan = self._plan(phase_ids)
-        total = sum(item[1] for item in plan)
-        seen = 0
+        try:
+            if self.params.run_mode in ("upgrade", "upgrade_step"):
+                err = assert_no_downgrade(
+                    self.params.project_version,
+                    self.params.plugin_version,
+                    label=f"schema '{self.params.schema_name}'",
+                )
+                if err:
+                    result.phases.append(
+                        PhaseResult(
+                            phase_id="version_guard",
+                            files=[
+                                sql_runner.FileExec(
+                                    path="version_guard",
+                                    ok=False,
+                                    error=err,
+                                )
+                            ],
+                        )
+                    )
+                    self.progress_cb(0, 0, "done", None)
+                    return result
 
-        for phase, count in plan:
-            if self._is_cancelled():
+            plan = self._plan(phase_ids)
+            total = sum(item[1] for item in plan)
+            seen = 0
+
+            for phase, count in plan:
+                if self._is_cancelled():
+                    result.cancelled = True
+                    break
+                self.progress_cb(seen, total, f"phase:{phase.id}", None)
+                pr = self._run_phase(phase, seen, total)
+                result.phases.append(pr)
+                seen += count
+                if not pr.ok:
+                    break  # stop on first failure
+
+            if self._is_cancelled() and not result.cancelled:
                 result.cancelled = True
-                break
-            self.progress_cb(seen, total, f"phase:{phase.id}", None)
-            pr = self._run_phase(phase, seen, total)
-            result.phases.append(pr)
-            seen += count
-            if not pr.ok:
-                break  # stop on first failure
-
-        if self._is_cancelled() and not result.cancelled:
-            result.cancelled = True
-        self.progress_cb(seen, total, "done", None)
-        return result
+            self.progress_cb(seen, total, "done", None)
+            return result
+        finally:
+            # Shared QGIS connection must not stay SET ROLE role_system.
+            sql_runner.execute_inline(
+                self.conn,
+                _RESET_ROLE_SQL,
+                label="run:reset_role",
+                commit=self.commit_each_file,
+            )
 
     # ----------------------------------------------------------------- planning
 
@@ -296,17 +325,6 @@ class SchemaBuilder:
     # ------------------------------------------------------------------- phases
 
     def _run_phase(self, phase: Phase, seen: int, total: int) -> PhaseResult:
-        use_role_system = phase.id in _ROLE_SYSTEM_PHASES
-        if use_role_system:
-            fx = sql_runner.execute_inline(
-                self.conn,
-                _ENSURE_ROLE_SYSTEM_SQL,
-                label=f"phase:{phase.id}:set_role_system",
-                commit=self.commit_each_file,
-            )
-            if not fx.ok:
-                return PhaseResult(phase_id=phase.id, files=[fx])
-
         pr: PhaseResult | None = None
         try:
             if phase.type == "sql_dir":
@@ -324,17 +342,11 @@ class SchemaBuilder:
             else:
                 raise ValueError(f"Unsupported phase type: {phase.type}")
         finally:
-            if pr is None:
-                pass
-            elif use_role_system:
-                reset_fx = sql_runner.execute_inline(
-                    self.conn,
-                    _RESET_ROLE_SQL,
-                    label=f"phase:{phase.id}:reset_role",
-                    commit=self.commit_each_file,
-                )
-                pr.files.append(reset_fx)
-            elif phase.id in _RESET_ROLE_AFTER_PHASES and pr.files:
+            if (
+                pr is not None
+                and phase.id in _RESET_ROLE_AFTER_PHASES
+                and pr.files
+            ):
                 reset_fx = sql_runner.execute_inline(
                     self.conn,
                     _RESET_ROLE_SQL,
@@ -359,7 +371,7 @@ class SchemaBuilder:
                 seen += 1
                 fx = sql_runner.execute_file(self.conn, path, subs, self.commit_each_file)
                 pr.files.append(fx)
-                self.progress_cb(seen, total, path, fx)
+                self.progress_cb(seen, total, fx.path, fx)
                 if not fx.ok:
                     return pr
         if not any_file and phase.optional:
@@ -381,7 +393,7 @@ class SchemaBuilder:
                         seen += 1
                         fx = sql_runner.execute_file(self.conn, path, self._subs, self.commit_each_file)
                         pr.files.append(fx)
-                        self.progress_cb(seen, total, path, fx)
+                        self.progress_cb(seen, total, fx.path, fx)
                         if not fx.ok:
                             return pr
         if not any_file and phase.optional:
@@ -401,7 +413,7 @@ class SchemaBuilder:
                 seen += 1
                 fx = sql_runner.execute_file(self.conn, path, self._subs, self.commit_each_file)
                 pr.files.append(fx)
-                self.progress_cb(seen, total, path, fx)
+                self.progress_cb(seen, total, fx.path, fx)
                 if not fx.ok:
                     return pr
         if not any_file and phase.optional:
@@ -432,7 +444,7 @@ class SchemaBuilder:
             subs = self._step_subs(step)
             fx = sql_runner.execute_file(self.conn, path, subs, self.commit_each_file)
             pr.files.append(fx)
-            self.progress_cb(seen, total, path, fx)
+            self.progress_cb(seen, total, fx.path, fx)
             if not fx.ok:
                 return pr
         return pr
@@ -466,25 +478,50 @@ class SchemaBuilder:
     # ---------------------------------------------------------- filesystem util
 
     def _files_for_step(self, step: Step) -> list[str]:
-        rendered = render(step.source, self._ctx)
-        folder = os.path.join(self.params.sql_root, rendered)
-        files = self._files_in(folder, step.recursive)
-        if not files and step.fallback_source and self.params.locale != "no_TR":
-            fb = os.path.join(self.params.sql_root, render(step.fallback_source, self._ctx))
-            files = self._files_in(fb, step.recursive)
-        return files
+        locale_files = self._locale_files(step)
+        if not step.shared_source:
+            return self._exclude_files(locale_files, step)
+        by_name: dict[str, str] = {}
+        for path in self._files_in(self._path_of(step.shared_source), step.recursive):
+            by_name[os.path.basename(path)] = path
+        for path in locale_files:
+            by_name[os.path.basename(path)] = path
+        return self._exclude_files([by_name[name] for name in sorted(by_name)], step)
+
+    @staticmethod
+    def _exclude_files(files: list[str], step: Step) -> list[str]:
+        if not step.exclude:
+            return files
+        return [
+            path for path in files
+            if not any(fnmatch.fnmatch(os.path.basename(path), pat) for pat in step.exclude)
+        ]
+
+    def _locale_files(self, step: Step) -> list[str]:
+        path = self._path_of(step.source)
+        if os.path.exists(path):
+            return self._files_in(path, step.recursive)
+        fallback = self._fallback_source(step)
+        return self._files_in(self._path_of(fallback), step.recursive) if fallback else []
 
     def _files_in(self, folder: str, recursive: bool) -> list[str]:
         return sql_runner.list_sql_files(folder, recursive=recursive)
 
+    def _path_of(self, source: str) -> str:
+        return os.path.join(self.params.sql_root, render(source, self._ctx))
+
+    def _fallback_source(self, step: Step) -> str:
+        if (self.params.locale == "no_TR" and "i18n" in step.source) or not step.fallback_source:
+            return ""
+        if self.params.locale.startswith("es_"):
+            parent, sep, _ = step.fallback_source.replace("\\", "/").rpartition("/")
+            return f"{parent}{sep}es_ES" if sep else "es_ES"
+        return step.fallback_source
+
     def _resolve_file(self, step: Step) -> str | None:
-        primary = os.path.join(self.params.sql_root, render(step.source, self._ctx))
-        if os.path.isfile(primary):
-            return primary
-        if step.fallback_source and self.params.locale != "no_TR":
-            fb = os.path.join(self.params.sql_root, render(step.fallback_source, self._ctx))
-            if os.path.isfile(fb):
-                return fb
+        for source in (step.source, self._fallback_source(step)):
+            if source and os.path.isfile(path := self._path_of(source)):
+                return path
         return None
 
     def _integration_parent_schema(self) -> str:
@@ -639,4 +676,12 @@ def drop_schema(
     safe = schema.replace('"', '').replace(';', '')
     cascade_kw = "CASCADE" if cascade else "RESTRICT"
     sql = f'DROP SCHEMA IF EXISTS "{safe}" {cascade_kw};'
-    return sql_runner.execute_inline(conn, sql, label=f"drop:{safe}", commit=commit)
+    sql_runner.execute_inline(
+        conn, _ENSURE_ROLE_SYSTEM_SQL, label=f"drop:{safe}:set_role_system", commit=False
+    )
+    try:
+        return sql_runner.execute_inline(conn, sql, label=f"drop:{safe}", commit=commit)
+    finally:
+        sql_runner.execute_inline(
+            conn, _RESET_ROLE_SQL, label=f"drop:{safe}:reset_role", commit=False
+        )

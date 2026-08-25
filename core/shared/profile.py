@@ -90,10 +90,11 @@ class GwProfile:
             tools_os.get_dep("matplotlib.pyplot")
             return True
         except ImportError:
-            tools_qgis.show_critical(
+            msg = (
                 "Python package 'matplotlib' is not installed. "
                 "Please install it using pip or the 'qpip' QGIS plugin."
             )
+            tools_qgis.show_critical(msg)
             return False
 
     def fetch_profile_values(self, init_node, end_node, links_distance=None, mid_features=None):
@@ -218,9 +219,9 @@ class GwProfile:
 
         # Set window name
         self.win = plt.gcf()
-        title = tools_qt.tr("Draw Profile")
+        title = "Draw Profile"
         mng = plt.get_current_fig_manager()
-        mng.set_window_title(title)
+        mng.set_window_title(tools_qt.tr(title))
 
         # Hide axes
         self.axes = plt.gca()
@@ -1125,7 +1126,8 @@ class GwProfileInterpolation:
         body = {"client": {"cur_user": tools_db.current_user}, "form": form}
         json_result = tools_gw.execute_procedure('gw_fct_get_dialog', body)
         if not json_result or json_result.get('status') != 'Accepted':
-            tools_qgis.show_warning("Failed to load profile interpolation dialog.")
+            msg = "Failed to load profile interpolation dialog."
+            tools_qgis.show_warning(msg)
             return
 
         self.dlg = GwProfileInterpolationUi(self.parent_widget)
@@ -1135,8 +1137,8 @@ class GwProfileInterpolation:
         self._load_saved_values()
         self._init_snapping()
         self.dlg.rejected.connect(partial(self._on_dialog_closed, self.dlg))
-        tools_gw.open_dialog(self.dlg, dlg_name='profile_interpolation',
-                             title=tools_qt.tr('Profile interpolation'))
+        title = 'Profile interpolation'
+        tools_gw.open_dialog(self.dlg, dlg_name='profile_interpolation', title=title)
 
     def _prepare_dialog_json(self, json_result):
         result = copy.deepcopy(json_result)
@@ -1229,7 +1231,8 @@ class GwProfileInterpolation:
         node1 = (parameters.get('node1') or '').strip()
         node2 = (parameters.get('node2') or '').strip()
         if not node1 or not node2:
-            tools_qt.show_info_box(tools_qt.tr('node1 and node2 are required for profile interpolation.'))
+            msg = "node1 and node2 are required for profile interpolation."
+            tools_qt.show_info_box(msg)
             return
 
         extras = f'"parameters":{json.dumps(parameters)}'
@@ -1266,7 +1269,8 @@ class GwProfileInterpolation:
 
     def activate_snapping(self, target, dialog):
         if self.layer_node is None:
-            tools_qgis.show_warning(tools_qt.tr('Node layer not found in the project.'))
+            msg = "Node layer not found in the project."
+            tools_qgis.show_warning(msg)
             return
         self._disconnect_snapping()
         self._pick_target = target
@@ -1299,7 +1303,8 @@ class GwProfileInterpolation:
             return
         node_id = self.snapper_manager.get_snapped_feature(result).attribute('node_id')
         self._set_picked_node(self._pick_target, node_id)
-        tools_qgis.show_info(tools_qt.tr('Node selected'), parameter=str(node_id))
+        msg = "Node selected"
+        tools_qgis.show_info(msg, parameter=str(node_id))
         self._disconnect_snapping()
 
     def _disconnect_snapping(self):

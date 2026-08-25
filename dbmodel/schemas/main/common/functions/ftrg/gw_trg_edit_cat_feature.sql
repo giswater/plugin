@@ -29,8 +29,8 @@ BEGIN
 		IF NEW.code_autofill IS NULL THEN NEW.code_autofill=true; END IF;
 		IF NEW.active IS NULL THEN NEW.active=true; END IF;
 
-		INSERT INTO cat_feature(id, feature_class, shortcut_key, descript, link_path, code_autofill, abrevation, active, custom_code_autofill)
-		VALUES (NEW.id, NEW.system_id, NEW.shortcut_key, NEW.descript, NEW.link_path, NEW.code_autofill, NEW.abrevation, NEW.active, NEW.custom_code_autofill);
+		INSERT INTO cat_feature(id, feature_class, shortcut_key, descript, link_path, code_autofill, abbreviation, active, custom_code_autofill)
+		VALUES (NEW.id, NEW.system_id, NEW.shortcut_key, NEW.descript, NEW.link_path, NEW.code_autofill, NEW.abbreviation, NEW.active, NEW.custom_code_autofill);
 
 		IF v_table='arc' THEN
 
@@ -86,7 +86,7 @@ BEGIN
 	ELSIF TG_OP = 'UPDATE' THEN
 
 		UPDATE cat_feature SET id=NEW.id, feature_class=NEW.system_id, shortcut_key=NEW.shortcut_key, descript=NEW.descript, link_path=NEW.link_path,
-		code_autofill=NEW.code_autofill, abrevation=NEW.abrevation, active=NEW.active, custom_code_autofill=NEW.custom_code_autofill WHERE id=OLD.id;
+		code_autofill=NEW.code_autofill, abbreviation=NEW.abbreviation, active=NEW.active, custom_code_autofill=NEW.custom_code_autofill WHERE id=OLD.id;
 
 		IF v_table='arc' THEN
 

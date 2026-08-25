@@ -24,7 +24,7 @@ on:
         required: false
         default: ""
       source_event:
-        description: "Original trigger of Update i18n (schedule, release, workflow_dispatch). Auto-set when chained."
+        description: "Original trigger of Update i18n (schedule, release, pull_request, workflow_dispatch). Auto-set when chained."
         required: false
         default: ""
         type: string
@@ -72,12 +72,26 @@ jobs:
             exit 1
           fi
 
+      - name: Generate GitHub App token
+        id: translations-app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.I18N_BOT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.I18N_BOT_APP_PRIVATE_KEY }}
+          owner: Giswater
+          repositories: |
+            translations
+            plugin
+          permission-contents: write
+
       - name: Checkout plugin repository
         uses: actions/checkout@v6
         with:
           repository: giswater/plugin
           ref: ${{ github.event.inputs.ref || github.ref }}
+          token: ${{ steps.translations-app-token.outputs.token }}
           path: plugin
+          persist-credentials: false
 
       - name: Download translation ZIP files
         working-directory: plugin
@@ -88,6 +102,12 @@ jobs:
           TRANSLATIONS_API_PASSWORD: ${{ secrets.TRANSLATIONS_API_PASSWORD }}
         run: |
           set -euo pipefail
+          if [ -n "${LANG_CODE:-}" ]; then
+            case ",${LANG_CODE}," in
+              *,en_us,*|*,en_US,*) ;;
+              *) LANG_CODE="${LANG_CODE},en_us" ;;
+            esac
+          fi
           pip install requests
           python3 scripts/i18n_export_zips.py \
             --base-url "$TRANSLATIONS_API_URL" \
@@ -95,16 +115,6 @@ jobs:
             --password "$TRANSLATIONS_API_PASSWORD" \
             --languages-json-out ../artifacts/languages.json \
             --output-dir ../artifacts/i18n
-
-      - name: Generate GitHub App token
-        id: translations-app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.I18N_BOT_APP_CLIENT_ID }}
-          private-key: ${{ secrets.I18N_BOT_APP_PRIVATE_KEY }}
-          owner: Giswater
-          repositories: translations
-          permission-contents: write
 
       - name: Checkout translations repository
         uses: actions/checkout@v6
@@ -221,14 +231,119 @@ jobs:
           fi
 
           git commit -m "$COMMIT_MSG"
-          git push origin HEAD
+          REMOTE_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "${REMOTE_BRANCH}"
+            if ! git rebase "origin/${REMOTE_BRANCH}"; then
+              git rebase --abort || true
+              echo "::error::Rebase conflict while publishing translation ZIPs onto origin/${REMOTE_BRANCH}."
+              exit 1
+            fi
+            if git push origin HEAD; then
+              break
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::Failed to push translation ZIPs after 5 attempts (remote moved)."
+              exit 1
+            fi
+            echo "Push rejected (attempt ${attempt}/5); retrying after rebase onto origin/${REMOTE_BRANCH}..."
+          done
+
+      - name: Extract en_US files into plugin
+        run: |
+          set -euo pipefail
+          EN_US_ZIP="artifacts/i18n/translations_en_us.zip"
+          if [ ! -f "$EN_US_ZIP" ]; then
+            echo "::error::Missing $EN_US_ZIP"
+            exit 1
+          fi
+          python3 - "$EN_US_ZIP" plugin <<'PY'
+          import sys
+          import zipfile
+          from pathlib import Path
+
+          zip_path = Path(sys.argv[1])
+          target_root = Path(sys.argv[2]).resolve()
+          with zipfile.ZipFile(zip_path) as archive:
+              for member in archive.namelist():
+                  if member.endswith("/"):
+                      continue
+                  target = (target_root / member).resolve()
+                  if not str(target).startswith(str(target_root)):
+                      raise SystemExit(f"Unsafe path in ZIP archive: {member}")
+              archive.extractall(target_root)
+          manifest = target_root / "manifest.json"
+          if manifest.exists():
+              manifest.unlink()
+          PY
+
+      - name: Commit en_US files to plugin repository
+        env:
+          BOT_NAME: ${{ steps.app-bot.outputs.name }}
+          BOT_EMAIL: ${{ steps.app-bot.outputs.email }}
+          GH_TOKEN: ${{ steps.translations-app-token.outputs.token }}
+          RAW_REF: ${{ github.event.inputs.ref || github.ref }}
+        run: |
+          set -euo pipefail
+          case "$RAW_REF" in
+            refs/tags/*)
+              echo "Skipping plugin en_US commit: ref is a tag ($RAW_REF)."
+              exit 0
+              ;;
+            refs/heads/*)
+              BRANCH="${RAW_REF#refs/heads/}"
+              ;;
+            *)
+              BRANCH="$RAW_REF"
+              ;;
+          esac
+
+          if [ -z "$BRANCH" ]; then
+            echo "Skipping plugin en_US commit: empty ref."
+            exit 0
+          fi
+          if [[ "$BRANCH" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Skipping plugin en_US commit: ref is a commit SHA ($BRANCH)."
+            exit 0
+          fi
+
+          cd plugin
+          git config user.name "$BOT_NAME"
+          git config user.email "$BOT_EMAIL"
+          gh auth setup-git
+          git add -A
+
+          if git diff --staged --quiet; then
+            echo "No en_US changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore(i18n): update bundled en_US files"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "${BRANCH}"
+            if ! git rebase "origin/${BRANCH}"; then
+              git rebase --abort || true
+              echo "::error::Rebase conflict while updating en_US files onto origin/${BRANCH}."
+              exit 1
+            fi
+            if git push origin "HEAD:refs/heads/${BRANCH}"; then
+              break
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::Failed to push en_US files after 5 attempts (remote moved)."
+              exit 1
+            fi
+            echo "Push rejected (attempt ${attempt}/5); retrying after rebase onto origin/${BRANCH}..."
+          done
 
       - name: Cleanup GitHub App session
         if: always()
         run: |
           set -euo pipefail
-          if [ -d translations/.git ]; then
-            git -C translations config --local --unset-all http.https://github.com/.extraheader 2>/dev/null || true
-            git -C translations config --local --unset-all credential.helper 2>/dev/null || true
-          fi
+          for repo_dir in translations plugin; do
+            if [ -d "$repo_dir/.git" ]; then
+              git -C "$repo_dir" config --local --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+              git -C "$repo_dir" config --local --unset-all credential.helper 2>/dev/null || true
+            fi
+          done
           unset GH_TOKEN

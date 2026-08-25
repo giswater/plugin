@@ -86,8 +86,8 @@ BEGIN
 						ELSE st.addparam->>'pkey'
 					END AS "tableId",
 					st.provider_config AS "providerConfig"
-				FROM sys_table st
-				JOIN config_typevalue ct ON ct.id = st.context
+				FROM v_sys_table st
+				JOIN v_config_typevalue ct ON ct.id = st.context
 				LEFT JOIN (
 					SELECT column_name, table_name, table_schema FROM information_schema.columns
 					WHERE udt_name='geometry' and table_schema IN ('SCHEMA_NAME', 'am')
@@ -123,7 +123,7 @@ BEGIN
 						ELSE st.addparam->>'pkey'
 					END AS "tableId",
 					NULL::jsonb AS "providerConfig"
-				FROM cm.sys_table st
+				FROM cm.v_sys_table st
 				JOIN cm.sys_typevalue t ON t.id = st.context
 				LEFT JOIN (
 					SELECT column_name, table_name FROM information_schema.columns
@@ -167,8 +167,8 @@ BEGIN
 				END AS "tableId",
 				st.addparam,
 				st.provider_config AS "providerConfig"
-			FROM sys_table st
-			JOIN config_typevalue ct ON ct.id = st.context
+			FROM v_sys_table st
+			JOIN v_config_typevalue ct ON ct.id = st.context
 			LEFT JOIN (
 				SELECT column_name, table_name, table_schema FROM information_schema.columns
 				WHERE udt_name='geometry' and table_schema IN ('SCHEMA_NAME', 'am')

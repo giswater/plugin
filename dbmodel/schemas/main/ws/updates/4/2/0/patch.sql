@@ -4215,9 +4215,9 @@ You must select a period already created or manually select the date of the inte
 DELETE FROM config_form_fields  WHERE formname = 've_arc';
 DELETE FROM config_form_fields  WHERE formname = 've_connec';
 DELETE FROM config_form_fields  WHERE formname = 've_node';
-ALTER TABLE config_form_fields DISABLE TRIGGER ALL;
+ALTER TABLE config_form_fields DISABLE TRIGGER USER;
 UPDATE config_form_fields SET formname = REPLACE(formname, 'v_edit_', 've_') WHERE formname LIKE 'v_edit_%';
-ALTER TABLE config_form_fields ENABLE TRIGGER ALL;
+ALTER TABLE config_form_fields ENABLE TRIGGER USER;
 
 INSERT INTO edit_typevalue (typevalue, id, idval, descript, addparam) VALUES('man_meter_metertype', '0', 'UNKNOWN', NULL, NULL)
 ON CONFLICT (typevalue, id) DO NOTHING;

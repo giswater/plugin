@@ -67,13 +67,6 @@ v_fcount integer;
 v_table_id text;
 v_column_id text;
 v_cur_user text;
-v_ui_lang text;
-v_ml_pref jsonb;
-v_ml_project_type text;
-v_i18n_ms text;
-v_i18n_ht text;
-v_i18n_ds text;
-v_schema text;
 
 BEGIN
 
@@ -108,16 +101,16 @@ BEGIN
 	IF v_is_header THEN
 
 		IF v_label_id IS NOT NULL THEN
-			SELECT * INTO rec_cat_label FROM sys_label  WHERE sys_label.id=v_label_id;
+			SELECT * INTO rec_cat_label FROM v_sys_label  WHERE v_sys_label.id=v_label_id;
 			FOR _key, _value IN SELECT * FROM json_each_text(v_parameters)
 			LOOP
 				rec_cat_label.idval = concat(rec_cat_label.idval, ' ', _value);
 			END LOOP;
 		ELSE
 			-- get label from sys_function, upper()
-			-- get separator from sys_label
+			-- get separator from v_sys_label
 
-			SELECT function_alias INTO v_function_alias FROM sys_function WHERE id=v_function_id;
+			SELECT function_alias INTO v_function_alias FROM v_sys_function WHERE id=v_function_id;
 
 			FOR _key, _value IN
 				SELECT * FROM json_each_text(v_parameters)
@@ -148,7 +141,7 @@ BEGIN
 
 		EXECUTE v_querytext;
 
-		SELECT idval INTO v_separator FROM sys_label WHERE id = COALESCE(v_header_separator_id, 2030);
+		SELECT idval INTO v_separator FROM v_sys_label WHERE id = COALESCE(v_header_separator_id, 2030);
 		IF v_cur_user IS NOT NULL THEN
 			v_querytext := 'INSERT INTO '||COALESCE(v_temp_table, '')||'audit_check_data (fid, result_id, criticity, error_message, fcount, table_id, column_id, cur_user)
 			VALUES ('||v_fid||','||quote_nullable(v_result_id)||','||quote_nullable(v_criticity)||','||quote_literal(v_separator)||', '||quote_nullable(v_fcount)||', '||quote_nullable(v_table_id)||', '||quote_nullable(v_column_id)||', '||v_cur_user||');';
@@ -166,7 +159,7 @@ BEGIN
     END IF;
 
 	IF v_header_separator_id IS NOT NULL THEN
-        SELECT idval INTO v_separator FROM sys_label WHERE id = COALESCE(v_header_separator_id, 2030);
+        SELECT idval INTO v_separator FROM v_sys_label WHERE id = COALESCE(v_header_separator_id, 2030);
 
 		IF v_cur_user IS NOT NULL THEN
 			v_querytext := 'INSERT INTO '||COALESCE(v_temp_table, '')||'audit_check_data (fid, result_id, criticity, error_message, fcount, table_id, column_id, cur_user)
@@ -185,57 +178,18 @@ BEGIN
     END IF;
 
 	-- get flow parameters
-	SELECT * INTO rec_cat_error FROM sys_message WHERE sys_message.id=v_message_id;
+	SELECT * INTO rec_cat_error FROM v_sys_message WHERE v_sys_message.id=v_message_id;
 
 	IF NOT FOUND THEN
 		RETURN json_build_object('status', 'Failed', 'message', json_build_object('level', 1, 'text', 'The process has returned an error code, but this error code is not present on the sys_message table. Please contact with your system administrator in order to update your sys_message table'))::json;
 	END IF;
 
-	-- Apply multilang UI translations for sys_message
-	v_schema := 'SCHEMA_NAME';
-	v_ml_pref := NULL;
-	v_ui_lang := NULL;
-	v_ml_project_type := NULL;
-	IF to_regnamespace('multilang') IS NOT NULL THEN
-		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
-		v_ui_lang := v_ml_pref->>'lang';
-		v_ml_project_type := v_ml_pref->>'project_type';
-	END IF;
-	IF v_ui_lang IS NOT NULL THEN
-		SELECT i.ms, i.ht INTO v_i18n_ms, v_i18n_ht
-		FROM multilang.sys_message i
-		WHERE i.project_type = v_ml_project_type
-		  AND i.context = 'sys_message'
-		  AND i.source = v_message_id::text
-		  AND i.lang = v_ui_lang
-		LIMIT 1;
-		IF v_i18n_ms IS NOT NULL THEN
-			rec_cat_error.error_message = v_i18n_ms;
-		END IF;
-		IF v_i18n_ht IS NOT NULL THEN
-			rec_cat_error.hint_message = v_i18n_ht;
-		END IF;
-	END IF;
-
 	IF rec_cat_error.message_type != 'UI' OR rec_cat_error.message_type IS NULL THEN
 		SELECT * INTO rec_function
-		FROM sys_function WHERE sys_function.id=v_function_id;
+		FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 
 		IF rec_function IS NULL THEN
 			RETURN json_build_object('status', 'Failed', 'message', json_build_object('level', 1, 'text', 'Function does not exist'))::json;
-		END IF;
-
-		IF v_ui_lang IS NOT NULL THEN
-			SELECT i.ds INTO v_i18n_ds
-			FROM multilang.sys_function i
-			WHERE i.project_type = v_ml_project_type
-			  AND i.context = 'sys_function'
-			  AND i.source = v_function_id::text
-			  AND i.lang = v_ui_lang
-			LIMIT 1;
-			IF v_i18n_ds IS NOT NULL THEN
-				rec_function.descript = v_i18n_ds;
-			END IF;
 		END IF;
 	END IF;
 
@@ -260,7 +214,7 @@ BEGIN
 	-- add specified headers
 	IF v_prefix_id IS NOT NULL THEN
 		-- select label record
-		SELECT * INTO rec_cat_label FROM sys_label  WHERE sys_label.id=v_prefix_id;
+		SELECT * INTO rec_cat_label FROM v_sys_label  WHERE v_sys_label.id=v_prefix_id;
 		IF rec_cat_label IS NULL THEN
 			RETURN json_build_object('status', 'Failed', 'message', json_build_object('level', 1, 'text', 'Header does not exist'))::json;
 		END IF;
@@ -283,11 +237,11 @@ BEGIN
 			-- log_level of type 'WARNING' (mostly applied to functions)
 			IF rec_cat_error.log_level = 1 THEN
 				SELECT * INTO rec_function
-				FROM sys_function WHERE sys_function.id=v_function_id;
+				FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 
 				IF v_debug THEN
 					SELECT  concat('Function: ',function_name,' - ',upper(rec_cat_error.error_message),'. HINT: ', upper(rec_cat_error.hint_message),'.')  INTO v_return_text
-					FROM sys_function WHERE sys_function.id=v_function_id;
+					FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 				END IF;
 
 				RAISE 'Function: [%] - %. HINT: % - %', rec_function.function_name, upper(rec_cat_error.error_message), upper(rec_cat_error.hint_message), v_variables
@@ -296,17 +250,17 @@ BEGIN
 			-- log_level of type 'ERROR' (mostly applied to trigger functions)
 			ELSIF rec_cat_error.log_level = 2 THEN
 				SELECT * INTO rec_function
-				FROM sys_function WHERE sys_function.id=v_function_id;
+				FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 
 				RAISE 'Function: [%] - %. HINT: % - %', rec_function.function_name, upper(rec_cat_error.error_message), upper(rec_cat_error.hint_message), v_variables
 				USING ERRCODE  = concat('GW00', rec_cat_error.log_level);
 			ELSIF rec_cat_error.log_level = 3 THEN
 				IF v_debug THEN
 					SELECT  concat('Function: ',function_name,' - ',upper(rec_cat_error.error_message),'. HINT: ', upper(rec_cat_error.hint_message),'.')  INTO v_return_text
-					FROM sys_function WHERE sys_function.id=v_function_id;
+					FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 				ELSE
 					SELECT  upper(rec_cat_error.error_message)  INTO v_return_text
-					FROM sys_function WHERE sys_function.id=v_function_id;
+					FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 				END IF;
 
 				v_level = 2;
@@ -316,7 +270,7 @@ BEGIN
 			ELSIF rec_cat_error.log_level = 0 THEN
 
 				SELECT  upper(rec_cat_error.error_message)  INTO v_return_text
-				FROM sys_function WHERE sys_function.id=v_function_id;
+				FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 
 				v_level = 3;
 				v_status = 'Accepted';
@@ -337,13 +291,13 @@ BEGIN
 			IF rec_cat_error.log_level = 1 THEN
 
 				SELECT * INTO rec_function
-				FROM sys_function WHERE sys_function.id=v_function_id;
+				FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 				RAISE WARNING 'Function: [%] - %. HINT: %', rec_function.function_name, upper(rec_cat_error.error_message), upper(rec_cat_error.hint_message) ;
 
 			-- log_level of type 'ERROR' (mostly applied to trigger functions)
 			ELSIF rec_cat_error.log_level = 2 THEN
 				SELECT * INTO rec_function
-				FROM sys_function WHERE sys_function.id=v_function_id;
+				FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 
 				IF v_variables IS NOT NULL and v_variables != '<NULL>' THEN
 					RAISE EXCEPTION 'Function: [%] - %. HINT: % - %', rec_function.function_name, upper(rec_cat_error.error_message), upper(rec_cat_error.hint_message), v_variables ;
@@ -353,14 +307,14 @@ BEGIN
 			ELSIF rec_cat_error.log_level = 3 THEN
 
 				SELECT * INTO rec_function
-				FROM sys_function WHERE sys_function.id=v_function_id;
+				FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 
 				IF v_debug THEN
 					SELECT  concat('Function: ',function_name,' - ',upper(rec_cat_error.error_message),'. HINT: ', upper(rec_cat_error.hint_message),'.')  INTO v_return_text
-					FROM sys_function WHERE sys_function.id=v_function_id;
+					FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 				ELSE
 					SELECT  upper(rec_cat_error.error_message)  INTO v_return_text
-					FROM sys_function WHERE sys_function.id=v_function_id;
+					FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 				END IF;
 				v_level = 2;
 				v_status = 'Error';
@@ -369,10 +323,10 @@ BEGIN
 
 				IF v_debug THEN
 					SELECT  concat('Function: ',function_name,' - ',upper(rec_cat_error.error_message),'. HINT: ', upper(rec_cat_error.hint_message),'.')  INTO v_return_text
-					FROM sys_function WHERE sys_function.id=v_function_id;
+					FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 				ELSE
 					SELECT  upper(rec_cat_error.error_message)  INTO v_return_text
-					FROM sys_function WHERE sys_function.id=v_function_id;
+					FROM v_sys_function WHERE v_sys_function.id=v_function_id;
 				END IF;
 				v_level = 3;
 				v_status = 'Accepted';

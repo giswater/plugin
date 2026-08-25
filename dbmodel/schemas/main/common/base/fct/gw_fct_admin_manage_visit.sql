@@ -52,7 +52,7 @@ SELECT gw_fct_admin_manage_visit($${"client":{"lang":"ES"}, "feature":{"feature_
 "active":"True","ismultifeature":"false","ismultievent":"True",
 "visit_type":1,  "parameter_type":"INSPECTION", "data_type":"text", "code":"", "v_param_options":null,
 "form_type":"event_standard","vdefault":"", "viewname":"ve_visit_valve_insp",
-"widgettype":"text",  "iseditable":"True", "ismandatory":"True", "dv_querytext":"SELECT id, idval FROM om_typevalue WHERE typevalue='xxxx'"}}}$$);
+"widgettype":"text",  "iseditable":"True", "ismandatory":"True", "dv_querytext":"SELECT id, idval FROM v_om_typevalue WHERE typevalue='xxxx'"}}}$$);
 
 
 --------------

@@ -21,7 +21,7 @@ SELECT has_view('ve_inp_inflows'::name, 'View ve_inp_inflows should exist');
 SELECT columns_are(
     've_inp_inflows',
     ARRAY[
-        'node_id', 'order_id', 'timser_id', 'sfactor', 'base', 'pattern_id'
+        'node_id', 'order_id', 'timser_id', 'sfactor', 'base', 'pattern_id', 'p_state'
     ],
     'View ve_inp_inflows should have the correct columns'
 );
@@ -33,6 +33,7 @@ SELECT col_type_is('ve_inp_inflows', 'timser_id', 'varchar(16)', 'Column timser_
 SELECT col_type_is('ve_inp_inflows', 'sfactor', 'numeric(12,4)', 'Column sfactor should be numeric(12,4)');
 SELECT col_type_is('ve_inp_inflows', 'base', 'numeric(12,4)', 'Column base should be numeric(12,4)');
 SELECT col_type_is('ve_inp_inflows', 'pattern_id', 'varchar(16)', 'Column pattern_id should be varchar(16)');
+SELECT col_type_is('ve_inp_inflows', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

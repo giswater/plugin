@@ -51,7 +51,7 @@ BEGIN
 	SELECT giswater INTO v_version FROM sys_version ORDER BY id DESC LIMIT 1;
 
 	--  get system currency
-	v_currency :=(SELECT value::json->>'symbol' FROM config_param_system WHERE parameter='admin_currency');
+	v_currency :=(SELECT value::json->>'symbol' FROM v_config_param_system WHERE parameter='admin_currency');
 
 	-- Create tabs array
 	formTabs := '[';

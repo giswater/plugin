@@ -28,7 +28,6 @@ select * from temp_t_arc
 DECLARE
 
 v_rainfall text;
-v_isoperative boolean;
 v_statetype text;
 v_networkmode integer;
 v_timeseries record;
@@ -39,50 +38,88 @@ BEGIN
 	-- Search path
 	SET search_path = "SCHEMA_NAME", public;
 
-	-- Delete previous results on temp_t_node & arc tables
-	TRUNCATE temp_t_node;
-	TRUNCATE temp_t_node_other;
-	TRUNCATE temp_t_arc;
-	TRUNCATE temp_t_arc_flowregulator;
-	TRUNCATE temp_t_gully;
-	TRUNCATE t_rpt_inp_raingage;
-	DELETE FROM rpt_inp_raingage WHERE result_id = result_id_var;
-	TRUNCATE temp_t_lid_usage;
-
-	ALTER TABLE temp_t_lid_usage DROP constraint if exists  temp_t_lid_usage_subc_lidco;
-	ALTER TABLE temp_t_lid_usage ADD CONSTRAINT temp_t_lid_usage_subc_lidco unique (subc_id, lidco_id);
-
 	-- set all timeseries of raingage using user's value
 	v_rainfall:= (SELECT value FROM config_param_user WHERE parameter='inp_options_setallraingages' AND cur_user=current_user);
-
-	v_isoperative = (SELECT value::json->>'onlyIsOperative' FROM config_param_user WHERE parameter='inp_options_debug' AND cur_user=current_user)::boolean;
-
 	v_networkmode = (SELECT value FROM config_param_user WHERE parameter='inp_options_networkmode' AND cur_user=current_user);
 
-	--Use state_type only is operative true or not
-	IF v_isoperative THEN
-		v_statetype = ' AND value_state_type.is_operative = TRUE ';
-	ELSE
-		v_statetype = ' AND (value_state_type.is_operative = TRUE OR value_state_type.is_operative = FALSE)';
-	END IF;
-
-	-- to do: implement isoperative strategy
-
-	-- Insert on node rpt_inp table
-	-- the strategy of selector_sector is not used for nodes. The reason is to enable the posibility to export the sector=-1. In addition using this it's impossible to export orphan nodes
-	EXECUTE 'INSERT INTO temp_t_node (result_id, node_id, top_elev, ymax, elev, node_type, nodecat_id, epa_type, sector_id, state, state_type, annotation, expl_id, the_geom, age)
-	WITH arcs AS (
-		SELECT node_1 AS node_id FROM selector_sector s, ve_arc a JOIN value_state_type ON id=state_type WHERE a.sector_id > 0 AND a.sector_id = s.sector_id and current_user = cur_user AND epa_type !=''UNDEFINED'' '||
-		v_statetype ||' UNION 
-		SELECT node_2 FROM selector_sector s, ve_arc a JOIN value_state_type ON id=state_type WHERE a.sector_id > 0 AND a.sector_id = s.sector_id and current_user = cur_user AND epa_type !=''UNDEFINED'' '||
-		v_statetype ||'
+	-- Insert on arc temp_t_arc table
+	INSERT INTO temp_t_arc (
+		result_id, arc_id, node_1, node_2, elevmax1, elevmax2, arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation, length, n, expl_id, the_geom, q0,
+		qmax, barrels, slope, culvert, kentry, kexit, kavg, flap, seepage, age
 	)
-	SELECT '||quote_literal(result_id_var)||',
-	node.node_id, sys_top_elev, sys_ymax, ve_node.sys_elev, node.node_type, node.nodecat_id, node.epa_type, node.sector_id, node.state, node.state_type,
-	node.annotation, node.expl_id, node.the_geom, (now()::date-node.builtdate)/30
-	FROM node
-	LEFT JOIN ve_node USING (node_id)
-	JOIN arcs a ON node.node_id=a.node_id';
+	SELECT
+		quote_literal(result_id_var) AS result_id,
+		a.arc_id,
+		a.node_1,
+		a.node_2,
+		COALESCE(a.custom_elev1, a.elev1, a.node_custom_elev_1, a.node_elev_1) AS elevmax1,
+		COALESCE(a.custom_elev2, a.elev2, a.node_custom_elev_2, a.node_elev_2) AS elevmax2,
+		a.arc_type,
+		a.arccat_id,
+		a.epa_type,
+		a.sector_id,
+		a.state,
+		a.state_type,
+		a.annotation,
+		COALESCE(a.custom_length, st_length2d(a.the_geom)) AS length,
+		COALESCE(ic.custom_n, cm.n) AS n,
+		a.expl_id,
+		a.the_geom,
+		ic.q0,
+		ic.qmax,
+		ic.barrels,
+		CASE
+            WHEN a.sys_slope IS NULL THEN ((COALESCE(a.node_custom_elev_1, a.node_elev_1, a.elev1, a.node_top_elev_1 - a.y1, a.node_elev_1) - COALESCE(a.node_custom_elev_2, a.node_elev_2, a.elev2, a.node_top_elev_2 - a.y2, a.node_elev_2))::double precision / st_length(a.the_geom))::numeric(12,4)
+            ELSE a.sys_slope
+        END AS slope,
+		ic.culvert,
+		ic.kentry,
+		ic.kexit,
+		ic.kavg,
+		ic.flap,
+		ic.seepage,
+		((now()::date - a.builtdate) / 30) AS age
+	FROM arc a
+		JOIN vf_arc vf ON vf.arc_id = a.arc_id
+		LEFT JOIN value_state_type vst ON vst.id = a.state_type
+		LEFT JOIN cat_material cm ON a.matcat_id = cm.id
+		LEFT JOIN inp_conduit ic ON a.arc_id = ic.arc_id
+	WHERE (
+		'ARC' = ANY (cm.feature_type)
+		OR cm.feature_type IS NULL
+	);
+
+
+	-- Insert on node temp_t_node table
+	-- the strategy of selector_sector is not used for nodes. The reason is to enable the posibility to export the sector=-1. In addition using this it's impossible to export orphan nodes
+	INSERT INTO temp_t_node (result_id, node_id, top_elev, ymax, elev, node_type, nodecat_id, epa_type, sector_id, state, state_type, annotation, expl_id, the_geom, age)
+	SELECT 
+		quote_literal(result_id_var),
+		n.node_id, 
+		COALESCE(n.custom_top_elev, n.top_elev), 
+		COALESCE(
+			COALESCE(n.custom_top_elev, n.top_elev) - COALESCE(n.custom_elev, n.elev), 
+			n.ymax
+		), 
+		COALESCE(n.custom_elev, n.elev), 
+		n.node_type,
+		n.nodecat_id, 
+		n.epa_type, 
+		n.sector_id, 
+		n.state, 
+		n.state_type, 
+		n.annotation, 
+		n.expl_id, 
+		n.the_geom, 
+		(now()::date - n.builtdate) / 30
+	FROM node n
+		JOIN vf_node vf ON vf.node_id = n.node_id
+	WHERE EXISTS (
+		SELECT 1
+		FROM temp_t_arc a
+		WHERE a.node_1 = n.node_id::text
+		   OR a.node_2 = n.node_id::text
+	);
 
 	UPDATE temp_t_node SET y0=i.y0, ysur=i.ysur, apond=i.apond FROM inp_junction i WHERE temp_t_node.node_id::int=i.node_id;
 
@@ -127,90 +164,127 @@ BEGIN
 	SELECT node_id, 'TREATMENT', poll_id, function FROM ve_inp_treatment;
 
 	-- Insert on arc rpt_inp table
-	v_query_arc := 'INSERT INTO temp_t_arc 
-	(result_id, arc_id, node_1, node_2, elevmax1, elevmax2, arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation, length, n, expl_id, the_geom, q0, qmax, barrels, slope,
-	culvert, kentry, kexit, kavg, flap, seepage, age)
-	SELECT '||quote_literal(result_id_var)||',
-	a.arc_id, node_1, node_2, a.sys_elev1, a.sys_elev2, a.arc_type, arccat_id, epa_type, a.sector_id, a.state, 
-	a.state_type, a.annotation, 
-	CASE
-		WHEN custom_length IS NOT NULL THEN custom_length
-		ELSE st_length2d(a.the_geom)
-	END AS length,
-	CASE
-		WHEN custom_n IS NOT NULL THEN custom_n
-		ELSE n
-	END AS n,
-	a.expl_id, 
-	a.the_geom,
-	q0,
-	qmax,
-	barrels,
-	slope,
-	culvert, kentry, kexit, kavg, flap, seepage, (now()::date-a.builtdate)/30
-	FROM selector_sector, ve_arc a
-		LEFT JOIN value_state_type ON id=state_type
-		LEFT JOIN cat_material ON matcat_id = cat_material.id
-		LEFT JOIN inp_conduit ON a.arc_id = inp_conduit.arc_id
-		WHERE epa_type !=''UNDEFINED'' '||v_statetype||'
-		AND (''ARC'' = ANY (cat_material.feature_type) OR cat_material.feature_type IS NULL)
-		AND a.sector_id > 0
-		AND a.sector_id=selector_sector.sector_id AND selector_sector.cur_user=current_user';
-	RAISE NOTICE 'v_query_arc: %', v_query_arc;
-	EXECUTE v_query_arc;
+	
 
 	-- update child param for outfall from node when is the last (border of sector)
 	-- need to be here after inserting temp_t_arc
-	UPDATE temp_t_node SET epa_type='OUTFALL', addparam=outfallparam
-	FROM inp_junction i JOIN  
-	(select * from (SELECT node_2 as node_id from temp_t_arc group by node_2 having count(*) = 1)a 
-	except 
-	select * from (SELECT node_1 from temp_t_arc group by node_1 having count(*) > 0)b) c ON i.node_id::text = c.node_id
-	WHERE outfallparam is not null and temp_t_node.node_id = i.node_id::text;
+	UPDATE temp_t_node n
+	SET epa_type = 'OUTFALL',
+		addparam = i.outfallparam
+	FROM inp_junction i
+	WHERE n.node_id = i.node_id::text
+		AND i.outfallparam IS NOT NULL
+		AND EXISTS (
+			SELECT 1
+			FROM temp_t_arc a
+			WHERE a.node_2 = n.node_id
+			HAVING count(*) = 1
+		)
+		AND NOT EXISTS (
+			SELECT 1
+			FROM temp_t_arc a
+			WHERE a.node_1 = n.node_id
+		);
 
 	-- fill temp_t_gully in order to work with 1D/2D
 	IF v_networkmode = 2 or v_networkmode = 3 THEN
 
 		-- netgully
-		EXECUTE 'INSERT INTO temp_t_gully 
+		INSERT INTO temp_t_gully (
+			gully_id, gully_type, gullycat_id, arc_id, node_id, sector_id, state, state_type, top_elev, units, units_placement, outlet_type,
+			total_width, total_length, depth, gully_method, weir_cd, orifice_cd, custom_a_param, custom_b_param, efficiency, the_geom
+		)
 		SELECT 
-		concat(''NG'',node_id), g.node_type, gullycat_id, null, g.node_id, g.sector_id, g.state, g.state_type, 
-		case when custom_top_elev is null then top_elev else custom_top_elev end, 
-		units, units_placement, outlet_type,
-		case when custom_width is null then total_width else custom_width end, 
-		case when custom_length is null then total_length else custom_length end,
-		case when custom_depth is null then depth else custom_depth end,
-		gully_method, weir_cd, orifice_cd, custom_a_param, custom_b_param, efficiency, the_geom
-		FROM selector_sector s, ve_inp_netgully g 
-		LEFT JOIN value_state_type ON id=g.state_type
-		WHERE g.sector_id > 0 '||v_statetype||' AND s.cur_user = current_user and s.sector_id = g.sector_id;';
+			concat('NG', g.node_id), 
+			g.node_type, 
+			g.gullycat_id, 
+			NULL, 
+			g.node_id, 
+			g.sector_id, 
+			g.state, 
+			g.state_type,
+			COALESCE(g.custom_top_elev, g.top_elev), 
+			g.units, 
+			g.units_placement, 
+			g.outlet_type, 
+			COALESCE(g.custom_width, g.total_width), 
+			COALESCE(g.custom_length, g.total_length), 
+			COALESCE(g.custom_depth, g.depth), 
+			g.gully_method, 
+			g.weir_cd, 
+			g.orifice_cd, 
+			g.custom_a_param, 
+			g.custom_b_param, 
+			g.efficiency, 
+			g.the_geom
+		FROM ve_inp_netgully g;
 
 		-- gully
-		EXECUTE 'INSERT INTO temp_t_gully 
+		INSERT INTO temp_t_gully (
+			gully_id, gully_type, gullycat_id, arc_id, node_id, sector_id, state, state_type, 
+			top_elev, units, units_placement, outlet_type, total_width, total_length, depth, 
+			gully_method, weir_cd, orifice_cd, custom_a_param, custom_b_param, efficiency, the_geom
+		)
 		SELECT 
-		gully_id, g.gully_type, gullycat_id, g.arc_id, 
-		case when pjoint_type = ''NODE'' then pjoint_id else a.node_2 END AS node_id, 
-		g.sector_id, g.state, g.state_type, 
-		case when custom_top_elev is null then top_elev else custom_top_elev end, 
-		units, units_placement, outlet_type,
-		case when custom_width is null then total_width else custom_width end, 
-		case when g.custom_length is null then total_length else g.custom_length end,
-		case when custom_depth is null then depth else custom_depth end,
-		gully_method, weir_cd, orifice_cd, custom_a_param, custom_b_param, efficiency, g.the_geom
-		FROM selector_sector s, ve_inp_gully g
-		LEFT JOIN arc a USING (arc_id)
-		LEFT JOIN value_state_type ON id=g.state_type
-		WHERE arc_id IS NOT NULL AND g.sector_id > 0 '||v_statetype||' AND s.cur_user = current_user and s.sector_id = g.sector_id;';
+			g.gully_id,
+			g.gully_type,
+			g.gullycat_id,
+			g.arc_id,
+			CASE 
+				WHEN g.pjoint_type = 'NODE' THEN g.pjoint_id 
+				ELSE a.node_2 
+			END AS node_id,
+			g.sector_id,
+			g.state,
+			g.state_type,
+			COALESCE(g.custom_top_elev, g.top_elev),
+			g.units,
+			g.units_placement,
+			g.outlet_type,
+			COALESCE(g.custom_width, g.total_width),
+			COALESCE(g.custom_length, g.total_length),
+			COALESCE(g.custom_depth, g.depth),
+			g.gully_method,
+			g.weir_cd,
+			g.orifice_cd,
+			g.custom_a_param,
+			g.custom_b_param,
+			g.efficiency,
+			g.the_geom
+		FROM ve_inp_gully g
+		LEFT JOIN arc a ON a.arc_id = g.arc_id
+		WHERE g.arc_id IS NOT NULL;
 
 
-		EXECUTE 'INSERT INTO temp_t_gully 
+		INSERT INTO temp_t_gully (
+			gully_id, gully_type, gullycat_id, arc_id, node_id, sector_id, state, state_type,
+			top_elev, units, units_placement, outlet_type, total_width, total_length, depth,
+			gully_method, weir_cd, orifice_cd, custom_a_param, custom_b_param, efficiency, the_geom
+		)
 		SELECT 
-		concat(''IN'',node_id), g.node_type, null, null, g.node_id, g.sector_id, g.state, g.state_type,
-		case when custom_top_elev is null then top_elev else custom_top_elev end, 
-		null, null, outlet_type, inlet_width, inlet_length, null, gully_method, cd1, cd2, null, null, efficiency, the_geom
-		FROM selector_sector s, ve_inp_inlet g 
-		LEFT JOIN value_state_type ON id=g.state_type
-		WHERE g.sector_id > 0 '||v_statetype||' AND s.cur_user = current_user and s.sector_id = g.sector_id;';
+			concat('IN', g.node_id),
+			g.node_type,
+			null,
+			null,
+			g.node_id,
+			g.sector_id,
+			g.state,
+			g.state_type,
+			COALESCE(g.custom_top_elev, g.top_elev),
+			null,
+			null,
+			g.outlet_type,
+			g.inlet_width,
+			g.inlet_length,
+			null,
+			g.gully_method,
+			g.cd1,
+			g.cd2,
+			null,
+			null,
+			g.efficiency,
+			g.the_geom
+		FROM ve_inp_inlet g;
  -- TO FIX: INLET
 	END IF;
 
@@ -223,7 +297,6 @@ BEGIN
 	INSERT INTO temp_t_arc_flowregulator (arc_id, type, outlet_type, offsetval, curve_id, cd1, cd2, flap)
 	SELECT arc_id, 'OUTLET', outlet_type, offsetval, curve_id, cd1, cd2, flap
 	FROM ve_inp_outlet;
-
 
 	-- pump
 	INSERT INTO temp_t_arc_flowregulator (arc_id, type, curve_id, status, startup, shutoff)
@@ -240,10 +313,11 @@ BEGIN
 	WHERE inp_typevalue.typevalue::text = 'inp_typevalue_weir';
 
 	-- filling empty values
-	UPDATE temp_t_node SET y0=0 where y0 IS NULL;
-	UPDATE temp_t_node SET ysur=0 where ysur IS NULL;
+	UPDATE temp_t_node SET y0=0 WHERE y0 IS NULL;
 
-	UPDATE temp_t_arc SET q0=0 where q0 IS NULL;
+	UPDATE temp_t_node SET ysur=0 WHERE ysur IS NULL;
+
+	UPDATE temp_t_arc SET q0=0 WHERE q0 IS NULL;
 
 	-- rpt_inp_raingage
 	INSERT INTO t_rpt_inp_raingage
@@ -255,21 +329,21 @@ BEGIN
 	END IF;
 
 	-- setting for date-time parameters if rainfall has addparam values)
-	select * into v_timeseries from inp_timeseries where id = v_rainfall;
+	SELECT * INTO v_timeseries FROM inp_timeseries WHERE id = v_rainfall;
 
 	IF jsonb_extract_path_text(v_timeseries.addparam,'start_date') IS NOT NULL AND jsonb_extract_path_text(v_timeseries.addparam,'start_date') != '' THEN
-		update config_param_user set value = jsonb_extract_path_text(v_timeseries.addparam,'start_date')
-		where cur_user = current_user and parameter = 'inp_options_start_date';
-		update config_param_user set value = jsonb_extract_path_text(v_timeseries.addparam,'start_time')
-		where cur_user = current_user and parameter = 'inp_options_start_time';
-		update config_param_user set value = jsonb_extract_path_text(v_timeseries.addparam,'end_date')
-		where cur_user = current_user and parameter = 'inp_options_end_date';
-		update config_param_user set value = jsonb_extract_path_text(v_timeseries.addparam,'end_time')
-		where cur_user = current_user and parameter = 'inp_options_end_time';
-		update config_param_user set value = jsonb_extract_path_text(v_timeseries.addparam,'start_date')
-		where cur_user = current_user and parameter = 'inp_options_report_start_date';
-		update config_param_user set value = jsonb_extract_path_text(v_timeseries.addparam,'start_time')
-		where cur_user = current_user and parameter = 'inp_options_report_start_time';
+		UPDATE config_param_user SET value = jsonb_extract_path_text(v_timeseries.addparam,'start_date')
+		WHERE cur_user = current_user AND parameter = 'inp_options_start_date';
+		UPDATE config_param_user SET value = jsonb_extract_path_text(v_timeseries.addparam,'start_time')
+		WHERE cur_user = current_user AND parameter = 'inp_options_start_time';
+		UPDATE config_param_user SET value = jsonb_extract_path_text(v_timeseries.addparam,'end_date')
+		WHERE cur_user = current_user AND parameter = 'inp_options_end_date';
+		UPDATE config_param_user SET value = jsonb_extract_path_text(v_timeseries.addparam,'end_time')
+		WHERE cur_user = current_user AND parameter = 'inp_options_end_time';
+		UPDATE config_param_user SET value = jsonb_extract_path_text(v_timeseries.addparam,'start_date')
+		WHERE cur_user = current_user AND parameter = 'inp_options_report_start_date';
+		UPDATE config_param_user SET value = jsonb_extract_path_text(v_timeseries.addparam,'start_time')
+		WHERE cur_user = current_user AND parameter = 'inp_options_report_start_time';
 
 	END IF;
 

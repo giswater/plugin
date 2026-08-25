@@ -315,7 +315,7 @@ BEGIN
 			END IF;
 
 			-- getting value from geometry of mapzone
-			IF (NEW.sector_id IS NULL) THEN
+			IF (NEW.sector_id IS NULL) AND (SELECT is_dynamic FROM config_mapzones WHERE id = 'SECTOR') IS FALSE THEN
 				SELECT count(*) INTO v_count FROM sector WHERE ST_DWithin(NEW.the_geom, sector.the_geom,0.001) AND active IS TRUE;
 				IF v_count = 1 THEN
 					NEW.sector_id = (SELECT sector_id FROM sector WHERE ST_DWithin(NEW.the_geom, sector.the_geom,0.001) AND active IS TRUE LIMIT 1);
@@ -346,7 +346,7 @@ BEGIN
 			END IF;
 
 			-- getting value from geometry of mapzone
-			IF (NEW.omzone_id IS NULL) THEN
+			IF (NEW.omzone_id IS NULL) AND (SELECT is_dynamic FROM config_mapzones WHERE id = 'OMZONE') IS FALSE THEN
 				SELECT count(*) INTO v_count FROM omzone WHERE ST_DWithin(NEW.the_geom, omzone.the_geom,0.001) AND active IS TRUE ;
 				IF v_count = 1 THEN
 					NEW.omzone_id = (SELECT omzone_id FROM omzone WHERE ST_DWithin(NEW.the_geom, omzone.the_geom,0.001) AND active IS TRUE LIMIT 1);
@@ -502,9 +502,6 @@ BEGIN
 		--Builtdate
 		IF (NEW.builtdate IS NULL) THEN
 			NEW.builtdate :=(SELECT "value" FROM config_param_user WHERE "parameter"='edit_builtdate_vdefault' AND "cur_user"="current_user"() LIMIT 1);
-			IF (NEW.builtdate IS NULL) AND (SELECT value::boolean FROM config_param_system WHERE parameter='edit_feature_auto_builtdate') IS TRUE THEN
-				NEW.builtdate :=date(now());
-			END IF;
 		END IF;
 
 		--Address
@@ -1090,7 +1087,7 @@ BEGIN
 		FROM cat_feature WHERE id = '||quote_literal(new.node_type)||'
 		' INTO v_dist_ylab;
 
-		if new.label_x != old.label_x and new.label_y != old.label_y then
+		if new.label_x != old.label_x or new.label_y != old.label_y then
 
 			update node set label_x = new.label_x, label_y = new.label_y where node_id = new.node_id;
 
@@ -1223,9 +1220,6 @@ BEGIN
 					v_dist_xlab = v_dist_xlab * (-1);
 					v_dist_ylab = v_dist_ylab * (-1);
 				end if;
-
-				v_rot1=coalesce(v_rot1, 0);
-				v_rot2=coalesce(v_rot2, 0);
 
 				v_sql = '
 				with mec as (

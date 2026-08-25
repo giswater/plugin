@@ -81,7 +81,7 @@ INSERT INTO config_form_fields(formname, formtype, tabname, columnname, layoutna
 
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,layoutorder,"datatype",widgettype,"label",tooltip,placeholder,ismandatory,isparent,iseditable,isautoupdate,isfilter,dv_querytext,dv_orderby_id,dv_isnullvalue,dv_parent_id,dv_querytext_filterc,stylesheet,widgetcontrols,widgetfunction,linkedobject,hidden,web_layoutorder) VALUES
 	 ('ve_connec_samplepoint','form_feature','tab_data','sector_id','lyt_bot_1',1,'integer','combo','Sector id:','Sector_id - Hydraulic sector identifier related to the primary key of sector table',NULL,false,false,true,false,NULL,'SELECT sector_id as id,name as idval FROM sector WHERE sector_id IS NOT NULL AND active IS TRUE ',true,false,NULL,NULL,'{"label":"color:blue; font-weight:bold;"}','{"setMultiline": false, "labelPosition": "top", "valueRelation": {"layer": "ve_sector", "activated": true, "keyColumn": "sector_id", "nullValue": false, "valueColumn": "name", "filterExpression": null}}',NULL,NULL,false,5),
-	 ('ve_connec_samplepoint','form_feature','tab_data','dma_id','lyt_bot_1',2,'integer','combo','Dma','Dma_id',NULL,false,false,true,false,NULL,'SELECT dma_id as id, name as idval FROM dma WHERE dma_id = 0 UNION SELECT dma_id as id, name as idval FROM dma WHERE dma_id IS NOT NULL AND active IS TRUE ',true,false,'expl_id',' AND dma.expl_id',NULL,'{"setMultiline": false, "labelPosition": "top", "valueRelation": {"layer": "ve_dma", "activated": true, "keyColumn": "dma_id", "nullValue": false, "valueColumn": "name", "filterExpression": null}}',NULL,NULL,false,6),
+	 ('ve_connec_samplepoint','form_feature','tab_data','dma_id','lyt_bot_1',2,'integer','combo','Dma','Dma_id',NULL,false,false,true,false,NULL,'SELECT dma_id as id, name as idval FROM dma WHERE dma_id = 0 UNION SELECT dma_id as id, name as idval FROM dma WHERE dma_id IS NOT NULL AND active IS TRUE ',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top", "valueRelation": {"layer": "ve_dma", "activated": true, "keyColumn": "dma_id", "nullValue": false, "valueColumn": "name", "filterExpression": null}}',NULL,NULL,false,6),
 	 ('ve_connec_samplepoint','form_feature','tab_data','state','lyt_bot_1',3,'integer','combo','State:','State - Domain value of connect''s state.',NULL,false,true,false,false,NULL,'WITH psector_value AS (
   		SELECT value::integer AS psector_value
   		FROM config_param_user
@@ -91,19 +91,19 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,layoutname,
   		FROM config_param_user
   		WHERE parameter = ''utils_transaction_mode'' AND cur_user = current_user)
 SELECT id::integer as id, name as idval
-FROM value_state
+FROM v_value_state
 WHERE id IS NOT NULL
 AND CASE
   WHEN (SELECT tg_op_value FROM tg_op_value)!=''INSERT'' THEN id IN (0,1,2)
   WHEN (SELECT tg_op_value FROM tg_op_value) =''INSERT'' AND (SELECT psector_value FROM psector_value) IS NOT NULL THEN id = 2
   ELSE id < 2
 END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,7),
-	 ('ve_connec_samplepoint','form_feature','tab_data','state_type','lyt_bot_1',4,'integer','combo','State type:','State_type - The state type of the element. It allows to obtain more detail of the state. To select from those available depending on the chosen state',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM value_state_type WHERE id IS NOT NULL',true,false,'state',' AND value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,8),
+	 ('ve_connec_samplepoint','form_feature','tab_data','state_type','lyt_bot_1',4,'integer','combo','State type:','State_type - The state type of the element. It allows to obtain more detail of the state. To select from those available depending on the chosen state',NULL,false,false,true,false,NULL,'SELECT id, name as idval FROM v_value_state_type WHERE id IS NOT NULL',true,false,'state',' AND v_value_state_type.state',NULL,'{"setMultiline": false, "labelPosition": "top"}',NULL,NULL,false,8),
 	 ('ve_connec_samplepoint','form_feature','tab_data','code','lyt_data_1',1,'text','text','Code:','Code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,9),
 	 ('ve_connec_samplepoint','form_feature','tab_data','top_elev','lyt_data_1',2,'double','text','Top elevation:','Top_elev - Elevation of the connec in ft or m.',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,10),
 	 ('ve_connec_samplepoint','form_feature','tab_data','depth','lyt_data_1',3,'double','text','Depth:','Depth - Depth of the element in meters',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,11),
 	 ('ve_connec_samplepoint','form_feature','tab_data','sys_type','lyt_data_1',4,'string','text','Sys type:','Sys_type',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,12),
-	 ('ve_connec_samplepoint','form_feature','tab_data','datasource','lyt_data_1',5,'integer','combo','Datasource:','Datasource',NULL,false,false,true,false,NULL,'SELECT id, idval FROM edit_typevalue WHERE typevalue = ''value_datasource''',true,true,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,13),
+	 ('ve_connec_samplepoint','form_feature','tab_data','datasource','lyt_data_1',5,'integer','combo','Datasource:','Datasource',NULL,false,false,true,false,NULL,'SELECT id, idval FROM v_edit_typevalue WHERE typevalue = ''value_datasource''',true,true,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,13),
 	 ('ve_connec_samplepoint','form_feature','tab_data','cat_matcat_id','lyt_data_1',6,'string','text','Cat matcat id:','Cat_matcat_id',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,14),
 	 ('ve_connec_samplepoint','form_feature','tab_data','connec_length','lyt_data_1',7,'double','text','Connec length:','Connec_length - Length of the connection',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,15),
 	 ('ve_connec_samplepoint','form_feature','tab_data','cat_pnom','lyt_data_1',8,'string','text','Cat pnom:','Cat_pnom',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,16),
@@ -129,11 +129,11 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
 	 ('ve_connec_samplepoint','form_feature','tab_data','crmzone_name','lyt_data_1',35,'string','text','Crmzone name:','Crmzone_name',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,true,43),
 	 ('ve_connec_samplepoint','form_feature','tab_data','plot_code','lyt_data_1',36,'text','text','Plot code:','Plot_code',NULL,false,NULL,true,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,44),
 	 ('ve_connec_samplepoint','form_feature','tab_data','serial_number','lyt_data_1',39,'text','text','Serial number:','Serial_number',NULL,false,NULL,true,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,45),
-	 ('ve_connec_samplepoint','form_feature','tab_data','label_quadrant','lyt_data_1',40,'text','combo','Label quadrant:','Label_quadrant',NULL,false,NULL,true,NULL,NULL,'select id, idval from edit_typevalue where typevalue = ''label_quadrant''',NULL,true,NULL,NULL,NULL,NULL,NULL,NULL,false,46),
+	 ('ve_connec_samplepoint','form_feature','tab_data','label_quadrant','lyt_data_1',40,'text','combo','Label quadrant:','Label_quadrant',NULL,false,NULL,true,NULL,NULL,'select id, idval from v_edit_typevalue where typevalue = ''label_quadrant''',NULL,true,NULL,NULL,NULL,NULL,NULL,NULL,false,46),
 	 ('ve_connec_samplepoint','form_feature','tab_data','cat_dint','lyt_data_1',43,'string','text','Cat dint:','Cat_dint',NULL,false,false,false,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,49),
 	 ('ve_connec_samplepoint','form_feature','tab_data','supplyzone_id','lyt_data_1',44,'text','text','Supplyzone id:','Supplyzone_id',NULL,false,NULL,true,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,50),
 	 ('ve_connec_samplepoint','form_feature','tab_data','n_inhabitants','lyt_data_1',49,'integer','text','N inhabitants:','N_inhabitants',NULL,false,NULL,true,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,55),
-	 ('ve_connec_samplepoint','form_feature','tab_data','lock_level','lyt_data_1',50,'integer','combo','Lock level:','Lock_level',NULL,false,NULL,true,NULL,NULL,'SELECT id, idval FROM edit_typevalue WHERE typevalue = ''value_lock_level''',true,true,NULL,NULL,NULL,NULL,NULL,NULL,false,56),
+	 ('ve_connec_samplepoint','form_feature','tab_data','lock_level','lyt_data_1',50,'integer','combo','Lock level:','Lock_level',NULL,false,NULL,true,NULL,NULL,'SELECT id, idval FROM v_edit_typevalue WHERE typevalue = ''value_lock_level''',true,true,NULL,NULL,NULL,NULL,NULL,NULL,false,56),
 	 ('ve_connec_samplepoint','form_feature','tab_data','block_code','lyt_data_1',51,'text','text','Block code:','Block_code',NULL,false,NULL,true,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,57),
 	 ('ve_connec_samplepoint','form_feature','tab_data','cabinet','lyt_data_1',52,'string','text','cabinet',NULL,NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,NULL),
 	 ('ve_connec_samplepoint','form_feature','tab_data','lab_code','lyt_data_1',53,'string','text','lab_code',NULL,NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,NULL),
@@ -155,8 +155,8 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
 	 ('ve_connec_samplepoint','form_feature','tab_data','publish','lyt_data_2',16,'boolean','check','Publish:','Publish - To set if the element is published or should be',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,75),
 	 ('ve_connec_samplepoint','form_feature','tab_data','svg','lyt_data_2',17,'string','text','Svg:','Svg - In case of using svg symbology, the path to the file containing the symbology is shown',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,76),
 	 ('ve_connec_samplepoint','form_feature','tab_data','inventory','lyt_data_2',18,'boolean','check','Inventory:','Inventory',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,true,77),
-	 ('ve_connec_samplepoint','form_feature','tab_data','verified','lyt_data_2',19,'integer','combo','Verified:','Verified',NULL,false,false,true,false,NULL,'SELECT id, idval FROM edit_typevalue WHERE typevalue = ''value_verified''',true,true,NULL,NULL,NULL,'{"setMultiline": false}',NULL,NULL,false,78),
-	 ('ve_connec_samplepoint','form_feature','tab_data','presszone_id','lyt_data_2',20,'integer','combo','Presszone:','Presszonecat_id - Related to the pressure zone catalog',NULL,false,false,true,false,NULL,'SELECT presszone.presszone_id as id, name as idval FROM presszone WHERE presszone_id=''0'' UNION SELECT presszone.presszone_id AS id, presszone.name AS idval FROM presszone WHERE presszone_id IS NOT NULL AND active IS TRUE ',true,false,'expl_id',' AND presszone.expl_id',NULL,'{"setMultiline": false, "valueRelation": {"layer": "ve_presszone", "activated": true, "keyColumn": "presszone_id", "nullValue": false, "valueColumn": "name", "filterExpression": null}}',NULL,NULL,false,79),
+	 ('ve_connec_samplepoint','form_feature','tab_data','verified','lyt_data_2',19,'integer','combo','Verified:','Verified',NULL,false,false,true,false,NULL,'SELECT id, idval FROM v_edit_typevalue WHERE typevalue = ''value_verified''',true,true,NULL,NULL,NULL,'{"setMultiline": false}',NULL,NULL,false,78),
+	 ('ve_connec_samplepoint','form_feature','tab_data','presszone_id','lyt_data_2',20,'integer','combo','Presszone:','Presszonecat_id - Related to the pressure zone catalog',NULL,false,false,true,false,NULL,'SELECT presszone.presszone_id as id, name as idval FROM presszone WHERE presszone_id=''0'' UNION SELECT presszone.presszone_id AS id, presszone.name AS idval FROM presszone WHERE presszone_id IS NOT NULL AND active IS TRUE ',true,false,NULL,NULL,NULL,'{"setMultiline": false, "valueRelation": {"layer": "ve_presszone", "activated": true, "keyColumn": "presszone_id", "nullValue": false, "valueColumn": "name", "filterExpression": null}}',NULL,NULL,false,79),
 	 ('ve_connec_samplepoint','form_feature','tab_data','expl_id','lyt_data_2',23,'integer','combo','Exploitation id:','Expl_id - Exploitation to which the element belongs. If the configuration is not changed, the program automatically selects it based on the geometry',NULL,false,true,true,false,NULL,'SELECT expl_id as id, name as idval FROM exploitation WHERE expl_id IS NOT NULL',true,false,NULL,NULL,'{"label":"color:green; font-weight:bold;"}','{"setMultiline": false, "valueRelation": {"layer": "ve_exploitation", "activated": true, "keyColumn": "expl_id", "nullValue": false, "valueColumn": "name", "filterExpression": null}}',NULL,NULL,false,82),
 	 ('ve_connec_samplepoint','form_feature','tab_data','workcat_id_plan','lyt_data_2',24,'string','typeahead','Workcat id plan:','Workcat_id_plan',NULL,false,false,true,false,NULL,'SELECT id, id as idval FROM cat_work WHERE id IS NOT NULL',NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,83),
 	 ('ve_connec_samplepoint','form_feature','tab_data','asset_id','lyt_data_2',25,'string','text','Asset id:','Asset_id',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,false,84),
@@ -171,7 +171,7 @@ END',true,false,NULL,NULL,NULL,'{"setMultiline": false, "labelPosition": "top"}'
 	 ('ve_connec_samplepoint','form_feature','tab_data','sys_code','lyt_data_2',45,'text','text','Sys code:','Sys code',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline": false}',NULL,NULL,true,NULL),
 	 ('ve_connec_samplepoint','form_feature','tab_data','uuid','lyt_data_2',46,'text','text','Uuid:','Uuid',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline": false}',NULL,NULL,true,NULL),
 	 ('ve_connec_samplepoint','form_feature','tab_data','xyz_date','lyt_data_2',47,'date','text','Xyz date:','Xyz date',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline": false}',NULL,NULL,true,NULL),
-	 ('ve_connec_samplepoint','form_feature','tab_data','muni_id','lyt_data_3',1,'integer','combo','Municipality:','Muni_id - Municipality to which the element belongs. If the configuration is not modified, the program automatically selects it based on the geometry',NULL,false,true,true,false,NULL,'SELECT muni_id as id, name as idval from ve_municipality WHERE muni_id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,93),
+	 ('ve_connec_samplepoint','form_feature','tab_data','muni_id','lyt_data_3',1,'integer','combo','Municipality:','Muni_id - Municipality to which the element belongs. If the configuration is not modified, the program automatically selects it based on the geometry',NULL,false,true,true,false,NULL,'SELECT muni_id as id, name as idval from ve_municipality WHERE muni_id IS NOT NULL',true,false,NULL,NULL,NULL,'{"setMultiline": false, "valueRelation": {"layer": "ve_municipality", "activated": true, "keyColumn": "muni_id", "nullValue": false, "valueColumn": "name", "filterExpression": null}}',NULL,NULL,false,93),
 	 ('ve_connec_samplepoint','form_feature','tab_data','postcode','lyt_data_3',2,'string','text','Postcode:','Postcode - Postal code of the municipality',NULL,false,false,true,false,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'{"setMultiline":false}',NULL,NULL,false,94),
 	 ('ve_connec_samplepoint','form_feature','tab_data','district_id','lyt_data_3',3,'integer','combo','District:','District_id - identifier of the neighborhood with which the element is linked. To choose from those available in the drop-down (it is filtered according to the selected municipality)',NULL,false,false,true,false,NULL,'SELECT a.district_id AS id, a.name AS idval FROM v_district a JOIN v_municipality m USING (muni_id) WHERE district_id IS NOT NULL ',NULL,true,'muni_id',' AND m.muni_id',NULL,'{"setMultiline":false}',NULL,NULL,false,95),
 	 ('ve_connec_samplepoint','form_feature','tab_data','streetaxis_id','lyt_data_3',4,'string','typeahead','Streetname:','Streetname',NULL,false,false,true,false,NULL,'SELECT id AS id, a.descript AS idval FROM ve_streetaxis a JOIN v_municipality m USING (muni_id) WHERE id IS NOT NULL',NULL,true,'muni_id',' AND m.name',NULL,'{"setMultiline":false}',NULL,NULL,false,96),
@@ -407,3 +407,64 @@ UPDATE config_form_fields
 UPDATE config_form_fields
 	SET tooltip='Date to'
 	WHERE (tooltip='' OR tooltip IS NULL) AND columnname = 'date_to';
+
+UPDATE config_form_fields
+	SET "label"=NULL
+	WHERE "label"=':';
+
+-- abbreviation and custom_code_autofill fields for ve_cat_feature_** (element, link, node, connec, arc)
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
+	VALUES ('ve_cat_feature_element','form_feature','tab_none','abbreviation','string','text','Abbreviation:','Abbreviation',false,false,true,false,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
+	VALUES ('ve_cat_feature_element','form_feature','tab_none','custom_code_autofill','string','text','Custom code autofill:','Custom code autofill',false,false,true,false,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
+	VALUES ('ve_cat_feature_link','form_feature','tab_none','abbreviation','string','text','Abbreviation:','Abbreviation',false,false,true,false,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
+	VALUES ('ve_cat_feature_link','form_feature','tab_none','custom_code_autofill','string','text','Custom code autofill:','Custom code autofill',false,false,true,false,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
+	VALUES ('ve_cat_feature_node','form_feature','tab_none','abbreviation','string','text','Abbreviation:','Abbreviation',false,false,true,false,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
+	VALUES ('ve_cat_feature_node','form_feature','tab_none','custom_code_autofill','string','text','Custom code autofill:','Custom code autofill',false,false,true,false,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
+	VALUES ('ve_cat_feature_connec','form_feature','tab_none','abbreviation','string','text','Abbreviation:','Abbreviation',false,false,true,false,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
+	VALUES ('ve_cat_feature_connec','form_feature','tab_none','custom_code_autofill','string','text','Custom code autofill:','Custom code autofill',false,false,true,false,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
+	VALUES ('ve_cat_feature_arc','form_feature','tab_none','abbreviation','string','text','Abbreviation:','Abbreviation',false,false,true,false,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
+	VALUES ('ve_cat_feature_arc','form_feature','tab_none','custom_code_autofill','string','text','Custom code autofill:','Custom code autofill',false,false,true,false,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+-- code field for cat_** (element, link, node, connec, arc)
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,widgetcontrols,hidden)
+	VALUES ('cat_element','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,widgetcontrols,hidden)
+	VALUES ('cat_link','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,widgetcontrols,hidden)
+	VALUES ('cat_node','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,widgetcontrols,hidden)
+	VALUES ('cat_connec','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,widgetcontrols,hidden)
+	VALUES ('cat_arc','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;

@@ -87,10 +87,13 @@ class GwResultManagerButton(GwAction):
             "cat_result",
             schema_name="am",
         )
+        tableview = "v_config_form_tableview"
+        if not tools_gw._relation_exists("am", tableview):
+            tableview = "config_form_tableview"
         rows = tools_db.get_rows(
-            """
+            f"""
             select columnname, alias
-            from am.config_form_tableview
+            from am.{tableview}
             where objectname = 'cat_result'
             """
         )
@@ -252,10 +255,10 @@ class GwResultManagerButton(GwAction):
             result_name, status = row
             if status == "CANCELED":
                 msg = "You are about to delete the result"
-                info = "This action cannot be undone. Do you want to proceed?"
+                message = "This action cannot be undone. Do you want to proceed?"
                 if tools_qt.show_question(
                     msg,
-                    inf_text=info,
+                    inf_text=message,
                     parameter=f"{result_id}-{result_name}",
                 ):
                     tools_db.execute_sql(
@@ -266,10 +269,10 @@ class GwResultManagerButton(GwAction):
                     )
             else:
                 msg = "The result cannot be deleted"
-                info = "You can only delete results with the status 'CANCELED'."
+                message = "You can only delete results with the status 'CANCELED'."
                 tools_qt.show_info_box(
                     msg,
-                    inf_text=info,
+                    inf_text=message,
                     parameter=f"{result_id}-{result_name}",
                 )
         table.model().select()
@@ -298,7 +301,8 @@ class GwResultManagerButton(GwAction):
         result_type_i18n = dlg.tbl_results.model().record(row).value(2)
 
         if not result_type_i18n:
-            tools_qgis.show_warning(tools_qt.tr("Please select a result with not empty type"), dialog=dlg)
+            msg = "Please select a result with not empty type"
+            tools_qgis.show_warning(msg, dialog=dlg)
             return
         result_type = self._value_result_type[result_type_i18n]
 
@@ -316,7 +320,8 @@ class GwResultManagerButton(GwAction):
         result_type_i18n = dlg.tbl_results.model().record(row).value(2)
 
         if not result_type_i18n:
-            tools_qgis.show_warning(tools_qt.tr("Please select a result with not empty type"), dialog=dlg)
+            msg = "Please select a result with not empty type"
+            tools_qgis.show_warning(msg, dialog=dlg)
             return
 
         result_type = self._value_result_type[result_type_i18n]
@@ -359,7 +364,9 @@ class GwResultManagerButton(GwAction):
 
             # Check for errors
             if model.lastError().isValid():
-                print(f"ERROR -> {model.lastError().text()}")
+                msg = "ERROR -> {0}"
+                msg_params = (model.lastError().text(),)
+                print(tools_qt.tr(msg, list_params=msg_params))
 
             # Attach model to table view
             if expr:
@@ -369,7 +376,9 @@ class GwResultManagerButton(GwAction):
                 widget.setModel(model)
 
         except Exception as e:
-            print(f"EXCEPTION -> {e}")
+            msg = "EXCEPTION -> {0}"
+            msg_params = (e,)
+            print(tools_qt.tr(msg, list_params=msg_params))
 
     def _open_status_selector(self):
 
@@ -508,7 +517,9 @@ class GwResultManagerButton(GwAction):
                 target_layers.append((target_layer, row[1]))
 
             if len(target_layers) > 0:
-                result = tools_qt.show_question("Do you want to update the symbology of the layers currently loaded in the project?", "Update AM Layers Symbology", force_action=True)
+                msg = "Do you want to update the symbology of the layers currently loaded in the project?"
+                title = "Update AM Layers Symbology"
+                result = tools_qt.show_question(msg, title, force_action=True)
                 if result:
                     for layer, addparam in target_layers:
                         tools_gw.refresh_categorized_layer_symbology_classes(layer, addparam)

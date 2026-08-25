@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'element_id', 'node_id', 'to_arc', 'flwreg_length', 'orifice_type', 'offsetval',
         'cd', 'orate', 'flap', 'shape', 'geom1', 'geom2',
-        'geom3', 'geom4', 'the_geom'
+        'geom3', 'geom4', 'the_geom', 'p_state'
     ],
     'View ve_inp_frorifice should have the correct columns'
 );
@@ -44,6 +44,7 @@ SELECT col_type_is('ve_inp_frorifice', 'geom2', 'numeric(12,4)', 'Column geom2 s
 SELECT col_type_is('ve_inp_frorifice', 'geom3', 'numeric(12,4)', 'Column geom3 should be numeric(12,4)');
 SELECT col_type_is('ve_inp_frorifice', 'geom4', 'numeric(12,4)', 'Column geom4 should be numeric(12,4)');
 SELECT col_type_is('ve_inp_frorifice', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_frorifice', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

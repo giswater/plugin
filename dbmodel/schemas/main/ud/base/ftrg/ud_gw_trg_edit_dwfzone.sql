@@ -31,7 +31,7 @@ BEGIN
 		IF v_view_name = 'EDIT'THEN
 			IF NEW.the_geom IS NOT NULL THEN
 				IF NEW.expl_id IS NULL THEN
-					NEW.expl_id := (SELECT expl_id FROM exploitation WHERE active IS TRUE AND ST_DWithin(NEW.the_geom, exploitation.the_geom,0.001) LIMIT 1);
+					NEW.expl_id := (SELECT array_agg(expl_id) FROM exploitation WHERE active IS TRUE AND ST_DWithin(NEW.the_geom, exploitation.the_geom,0.001) LIMIT 1);
 				END IF;
 			END IF;
 		END IF;
@@ -51,8 +51,15 @@ BEGIN
 		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'DWFZONE', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
-		IF NEW.code IS NULL THEN
-			NEW.code := NEW.dwfzone_id::text;
+
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
+		END IF;
+		IF NEW.sector_id IS NULL OR NEW.sector_id = '{}'::integer[] THEN
+			NEW.sector_id := ARRAY[0];
 		END IF;
 
 		INSERT INTO dwfzone (dwfzone_id, code, name, descript, active, dwfzone_type, drainzone_id, expl_id, sector_id, muni_id, graphconfig, stylesheet, link, lock_level, addparam, created_at, created_by, updated_at, updated_by)
@@ -74,6 +81,17 @@ BEGIN
 		IF v_view_name = 'EDIT' AND NEW.the_geom IS NOT NULL AND NEW.code IS NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'DWFZONE', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
+
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
+		END IF;
+		IF NEW.sector_id IS NULL OR NEW.sector_id = '{}'::integer[] THEN
+			NEW.sector_id := ARRAY[0];
+		END IF;
+
 		UPDATE dwfzone
 		SET dwfzone_id=NEW.dwfzone_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, dwfzone_type=NEW.dwfzone_type, drainzone_id=NEW.drainzone_id, 
 		expl_id=NEW.expl_id, sector_id=NEW.sector_id, muni_id=NEW.muni_id, graphconfig=NEW.graphconfig::json, stylesheet=NEW.stylesheet::json,

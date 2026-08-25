@@ -9,7 +9,7 @@ import json
 
 from functools import partial
 
-from qgis.PyQt.QtCore import Qt, QRegularExpression
+from qgis.PyQt.QtCore import Qt, QDate, QRegularExpression
 from qgis.PyQt.QtWidgets import QAbstractItemView, QTableView, QDialog, QAction, QMenu, QPushButton, QHeaderView
 from qgis.PyQt.QtGui import QRegularExpressionValidator, QStandardItemModel, QCursor
 
@@ -45,9 +45,12 @@ class GwGo2EpaManagerButton(GwAction):
         self.dlg_manager.tab_log_txt_infolog.setReadOnly(True)
         self.dlg_manager.btn_toggle_corporate.setEnabled(False)
         self.dlg_manager.btn_archive.setEnabled(False)
+        self.dlg_manager.btn_toggle_validated.setEnabled(False)
 
-        # Fill combo box and table view
-        # self._fill_combo_result_id()
+        # Populate filter widgets
+        self._populate_filters()
+
+        # Fill table view
         self.dlg_manager.tbl_rpt_cat_result.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._fill_manager_table()
 
@@ -62,6 +65,7 @@ class GwGo2EpaManagerButton(GwAction):
                                                               'result_id'))
         self.dlg_manager.btn_toggle_corporate.clicked.connect(partial(self._epa2data, self.dlg_manager.tbl_rpt_cat_result,
                                                               'result_id'))
+        self.dlg_manager.btn_toggle_validated.clicked.connect(partial(self._toggle_validated))
         self.dlg_manager.btn_delete.clicked.connect(partial(self._multi_rows_delete, self.dlg_manager.tbl_rpt_cat_result,
                                                             'v_ui_rpt_cat_result', 'result_id'))
         selection_model = self.dlg_manager.tbl_rpt_cat_result.selectionModel()
@@ -70,9 +74,45 @@ class GwGo2EpaManagerButton(GwAction):
         self.dlg_manager.btn_close.clicked.connect(partial(tools_gw.close_dialog, self.dlg_manager))
         self.dlg_manager.rejected.connect(partial(tools_gw.close_dialog, self.dlg_manager))
         self.dlg_manager.txt_result_id.textChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.cmb_status.currentIndexChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.cmb_network_type.currentIndexChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.cmb_expl.currentIndexChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.date_exec_from.dateChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.chk_corporate.stateChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.chk_archived.stateChanged.connect(partial(self._fill_manager_table))
+        self.dlg_manager.chk_validated.stateChanged.connect(partial(self._fill_manager_table))
 
         # Open form
         tools_gw.open_dialog(self.dlg_manager, dlg_name='go2epa_manager')
+
+    def _populate_filters(self):
+        """ Populate filter combo boxes and initialize exec date from. """
+
+        rows = tools_db.get_rows(
+            "SELECT id, idval FROM inp_typevalue WHERE typevalue = 'inp_result_status' ORDER BY id"
+        )
+        tools_qt.fill_combo_values(self.dlg_manager.cmb_status, rows, add_empty=True)
+
+        rows = tools_db.get_rows(
+            "SELECT id, idval FROM inp_typevalue WHERE typevalue = 'inp_options_networkmode' ORDER BY id"
+        )
+        tools_qt.fill_combo_values(self.dlg_manager.cmb_network_type, rows, add_empty=True)
+
+        rows = tools_db.get_rows(
+            "SELECT expl_id, name FROM ve_exploitation WHERE expl_id > 0 ORDER BY name"
+        )
+        tools_qt.fill_combo_values(self.dlg_manager.cmb_expl, rows, add_empty=True)
+        tools_qt.set_autocompleter(self.dlg_manager.cmb_expl)
+
+        row = tools_db.get_row("SELECT MIN(exec_date)::date FROM v_ui_rpt_cat_result")
+        min_date = row[0] if row and row[0] else QDate.currentDate()
+        self.dlg_manager.date_exec_from.setCalendarPopup(True)
+        self.dlg_manager.date_exec_from.setDisplayFormat('dd/MM/yyyy')
+        if lib_vars.date_format in ("dd/MM/yyyy", "dd-MM-yyyy", "yyyy/MM/dd", "yyyy-MM-dd"):
+            self.dlg_manager.date_exec_from.setDisplayFormat(lib_vars.date_format)
+        self.dlg_manager.date_exec_from.blockSignals(True)
+        self.dlg_manager.date_exec_from.setDate(min_date)
+        self.dlg_manager.date_exec_from.blockSignals(False)
 
     def _show_context_menu(self, qtableview):
         """ Show custom context menu """
@@ -96,16 +136,22 @@ class GwGo2EpaManagerButton(GwAction):
         action_set_corporate.setEnabled(qtableview.window().btn_toggle_corporate.isEnabled())
         menu.addAction(action_set_corporate)
 
+        title = "Toggle validated"
+        action_toggle_validated = QAction(tools_qt.tr(title), qtableview)
+        action_toggle_validated.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_toggle_validated"))
+        action_toggle_validated.setEnabled(qtableview.window().btn_toggle_validated.isEnabled())
+        menu.addAction(action_toggle_validated)
+
         action_delete = QAction("Delete", qtableview)
         action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete"))
         menu.addAction(action_delete)
 
         menu.exec(QCursor.pos())
 
-    def _fill_manager_table(self, filter_id=None):
-        """ Fill dscenario manager table with data from ve_cat_dscenario """
+    def _fill_manager_table(self, *args):
+        """ Fill EPA result manager table from v_ui_rpt_cat_result """
 
-        complet_list = self._get_list("v_ui_rpt_cat_result", filter_id)
+        complet_list = self._get_list("v_ui_rpt_cat_result")
 
         if complet_list is False:
             return False, False
@@ -129,13 +175,47 @@ class GwGo2EpaManagerButton(GwAction):
 
         return complet_list
 
-    def _get_list(self, table_name='v_ui_rpt_cat_result', filter_id=None):
-        """ Mount and execute the query for gw_fct_getlist """
+    def _get_list(self, table_name='v_ui_rpt_cat_result'):
+        """ Mount and execute the query for gw_fct_getlist using dialog filters """
 
         extras = f'"tableName":"{table_name}"'
         filter_fields = '"limit": -1'
-        if filter_id:
-            filter_fields += f', "result_id": {{"filterSign":"ILIKE", "value":"{filter_id}"}}'
+
+        result_id = tools_qt.get_text(self.dlg_manager, self.dlg_manager.txt_result_id, False, False)
+        if result_id and result_id != 'null':
+            filter_fields += f', "result_id": {{"filterSign":"ILIKE", "value":"{result_id}"}}'
+
+        status = tools_qt.get_combo_value(self.dlg_manager, self.dlg_manager.cmb_status, 1)
+        if status not in (None, '', -1):
+            filter_fields += f', "status": {{"filterSign":"=", "value":"{status}"}}'
+
+        network_type = tools_qt.get_combo_value(self.dlg_manager, self.dlg_manager.cmb_network_type, 1)
+        if network_type not in (None, '', -1):
+            filter_fields += f', "network_type": {{"filterSign":"=", "value":"{network_type}"}}'
+
+        expl_id = tools_qt.get_combo_value(self.dlg_manager, self.dlg_manager.cmb_expl, 0)
+        if expl_id not in (None, '', -1):
+            filter_fields += (
+                f', "expl_id": {{"filterSign":"@>", "filterType":"int4[]", "value":"{{{expl_id}}}"}}'
+            )
+
+        exec_date = tools_qt.get_calendar_date(
+            self.dlg_manager, self.dlg_manager.date_exec_from, date_format='dd-MM-yyyy'
+        )
+        if exec_date:
+            filter_fields += (
+                f', "exec_date": {{"filterSign":">=", "filterType":"timestamp", "value":"{exec_date}"}}'
+            )
+
+        if tools_qt.is_checked(self.dlg_manager, self.dlg_manager.chk_corporate):
+            filter_fields += ', "iscorporate": {"filterSign":"=", "value":"true"}'
+
+        if tools_qt.is_checked(self.dlg_manager, self.dlg_manager.chk_archived):
+            filter_fields += ', "status": {"filterSign":"=", "value":"ARCHIVED"}'
+
+        if tools_qt.is_checked(self.dlg_manager, self.dlg_manager.chk_validated):
+            filter_fields += ', "isvalidated": {"filterSign":"=", "value":"true"}'
+
         body = tools_gw.create_body(filter_fields=filter_fields, extras=extras)
         json_result = tools_gw.execute_procedure('gw_fct_getlist', body)
         if json_result is None or json_result['status'] == 'Failed':
@@ -151,7 +231,7 @@ class GwGo2EpaManagerButton(GwAction):
         sql = f"""UPDATE v_ui_rpt_cat_result SET "{columnname}" = $${value}$$ WHERE result_id = '{result_id}';"""
         result = tools_db.execute_sql(sql, log_sql=True)
         if result:
-            self._fill_manager_table(tools_qt.get_text(self.dlg_manager, 'txt_result_id'))
+            self._fill_manager_table()
 
     def _fill_txt_infolog(self, selected):
         """
@@ -235,7 +315,7 @@ class GwGo2EpaManagerButton(GwAction):
         tools_qt.set_widget_text(self.dlg_manager, 'tab_log_txt_infolog', msg)
 
     def _enable_buttons(self, selected):
-        set_corporate_enabled, archive_enabled = True, True
+        set_corporate_enabled, archive_enabled, toggle_validated_enabled = True, True, True
         selected_rows = self.dlg_manager.tbl_rpt_cat_result.selectionModel().selectedRows()
         last_status = None
         for idx, index in enumerate(selected_rows):
@@ -262,10 +342,54 @@ class GwGo2EpaManagerButton(GwAction):
                     archive_enabled = False
             last_status = status
 
+            # toggle validated: only PARTIAL or COMPLETED; block unvalidate while corporate
+            if status not in ('PARTIAL', 'COMPLETED'):
+                toggle_validated_enabled = False
+            col_idx = tools_qt.get_col_index_by_col_name(self.dlg_manager.tbl_rpt_cat_result, 'isvalidated')
+            is_validated = False
+            if col_idx is not None:
+                is_validated = tools_os.set_boolean(index.sibling(row, col_idx).data(), False)
+            if is_validated and tools_os.set_boolean(is_corporate, False):
+                toggle_validated_enabled = False
+
         if not selected_rows or len(selected_rows) > 1:
-            set_corporate_enabled, archive_enabled = False, False
+            set_corporate_enabled, archive_enabled, toggle_validated_enabled = False, False, False
         self.dlg_manager.btn_toggle_corporate.setEnabled(set_corporate_enabled)
         self.dlg_manager.btn_archive.setEnabled(archive_enabled)
+        self.dlg_manager.btn_toggle_validated.setEnabled(toggle_validated_enabled)
+
+    def _toggle_validated(self):
+        """ Toggle isvalidated for the selected EPA result. """
+
+        widget = self.dlg_manager.tbl_rpt_cat_result
+        selected_list = widget.selectionModel().selectedRows()
+        if len(selected_list) != 1:
+            msg = "Any record selected"
+            tools_qgis.show_warning(msg, dialog=self.dlg_manager)
+            return
+
+        row = selected_list[0].row()
+        col = tools_qt.get_col_index_by_col_name(widget, 'result_id')
+        result_id = widget.model().index(row, col).data()
+        col = tools_qt.get_col_index_by_col_name(widget, 'status')
+        status = widget.model().index(row, col).data()
+        col = tools_qt.get_col_index_by_col_name(widget, 'isvalidated')
+        is_validated = tools_os.set_boolean(widget.model().index(row, col).data(), False) if col is not None else False
+        col = tools_qt.get_col_index_by_col_name(widget, 'iscorporate')
+        is_corporate = tools_os.set_boolean(widget.model().index(row, col).data(), False) if col is not None else False
+
+        if status not in ('PARTIAL', 'COMPLETED'):
+            msg = "Only PARTIAL or COMPLETED results can be validated"
+            tools_qgis.show_warning(msg, dialog=self.dlg_manager)
+            return
+
+        if is_validated and is_corporate:
+            msg = "Unset corporate before unvalidating this result"
+            tools_qgis.show_warning(msg, dialog=self.dlg_manager)
+            return
+
+        new_value = str(not is_validated).lower()
+        self._update_data(result_id, 'isvalidated', new_value)
 
     def _fill_combo_result_id(self):
 
@@ -275,19 +399,7 @@ class GwGo2EpaManagerButton(GwAction):
 
     def _filter_by_result_id(self):
 
-        table = self.dlg_manager.tbl_rpt_cat_result
-        widget_txt = self.dlg_manager.txt_result_id
-        tablename = 'v_ui_rpt_cat_result'
-        result_id = tools_qt.get_text(self.dlg_manager, widget_txt)
-        if result_id != 'null':
-            expr = f" result_id ILIKE '%{result_id}%'"
-            # Refresh model with selected filter
-            table.model().setFilter(expr)
-            table.model().select()
-        else:
-            message = tools_qt.fill_table(table, tablename)
-            if message:
-                tools_qgis.show_warning(message)
+        self._fill_manager_table()
 
     def _multi_rows_delete(self, widget, table_name, column_id):
         """ Delete selected elements of the table
@@ -320,7 +432,7 @@ class GwGo2EpaManagerButton(GwAction):
             sql = f"DELETE FROM {table_name}"
             sql += f" WHERE {column_id} IN ({list_id})"
             tools_db.execute_sql(sql)
-            self._fill_manager_table(tools_qt.get_text(self.dlg_manager, 'txt_result_id'))
+            self._fill_manager_table()
 
     def _toggle_rpt_archived(self, widget, column_id):
         """ Call gw_fct_set_rpt_archived with selected result_id

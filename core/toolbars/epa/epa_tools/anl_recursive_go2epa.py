@@ -17,7 +17,7 @@ from qgis.PyQt.QtCore import QSettings
 from ....ui.ui_manager import RecursiveEpaUi
 from ....threads.recursive_epa import GwRecursiveEpa
 from ..... import global_vars
-from .....libs import tools_qt, lib_vars
+from .....libs import tools_qt, lib_vars, tools_qgis
 from ....utils import tools_gw
 
 
@@ -33,11 +33,11 @@ class RecursiveEpa():
         tools_gw.load_settings(self.dlg_epa)
 
         # Load user values
-        last_config_path = tools_gw.get_config_parser('recursive_epa', 'config_path', 'user', 'session')
+        last_config_path = tools_gw.get_config_parser('epatools_recursive_go2epa', 'config_path', 'user', 'session')
         tools_qt.set_widget_text(self.dlg_epa, self.dlg_epa.data_config_file, last_config_path)
-        last_path = tools_gw.get_config_parser('recursive_epa', 'folder_path', 'user', 'session')
+        last_path = tools_gw.get_config_parser('epatools_recursive_go2epa', 'folder_path', 'user', 'session')
         tools_qt.set_widget_text(self.dlg_epa, self.dlg_epa.data_output_folder, last_path)
-        last_prefix = tools_gw.get_config_parser('recursive_epa', 'prefix', 'user', 'session')
+        last_prefix = tools_gw.get_config_parser('epatools_recursive_go2epa', 'prefix', 'user', 'session')
         tools_qt.set_widget_text(self.dlg_epa, self.dlg_epa.txt_prefix, last_prefix)
 
         # Set signals
@@ -48,16 +48,16 @@ class RecursiveEpa():
         self.dlg_epa.rejected.connect(partial(self.save_user_values, self.dlg_epa))
         self.dlg_epa.rejected.connect(partial(tools_gw.close_dialog, self.dlg_epa))
 
-        tools_gw.open_dialog(self.dlg_epa, dlg_name='recursive_epa')
+        tools_gw.open_dialog(self.dlg_epa, dlg_name='epatools_recursive_go2epa')
 
     def save_user_values(self, dialog):
         """ Save last user values """
         config_path = tools_qt.get_text(dialog, dialog.data_config_file)
-        tools_gw.set_config_parser('recursive_epa', 'config_path', f"{config_path}")
+        tools_gw.set_config_parser('epatools_recursive_go2epa', 'config_path', f"{config_path}")
         folder_path = tools_qt.get_text(dialog, dialog.data_output_folder)
-        tools_gw.set_config_parser('recursive_epa', 'folder_path', f"{folder_path}")
+        tools_gw.set_config_parser('epatools_recursive_go2epa', 'folder_path', f"{folder_path}")
         prefix = tools_qt.get_text(dialog, dialog.txt_prefix, False, False)
-        tools_gw.set_config_parser('recursive_epa', 'prefix', f"{prefix}")
+        tools_gw.set_config_parser('epatools_recursive_go2epa', 'prefix', f"{prefix}")
 
     def execute_epa(self, dlg_epa):
         # Get config path
@@ -77,8 +77,9 @@ class RecursiveEpa():
 
         setting_file = config_path
         if not os.path.exists(setting_file):
-            message = f"Config file not found at: {setting_file}"
-            self.iface.messageBar().pushMessage("", message, 1, 20)
+            msg = "Config file not found at: {0}"
+            msg_params = (setting_file,)
+            tools_qgis.show_warning(msg, msg_params=msg_params)
             return
         settings = QSettings(setting_file, QSettings.Format.IniFormat)
         if hasattr(settings, "setIniCodec"):
@@ -97,7 +98,8 @@ class RecursiveEpa():
                 inf_text += f"\n{list3}"
         response = tools_qt.show_question(msg, inf_text=inf_text, force_action=True)
         if response:
-            self.recursive_epa = GwRecursiveEpa("Recursive Go2Epa", prefix, folder_path, settings, lib_vars.plugin_dir)
+            msg = "Recursive Go2Epa"
+            self.recursive_epa = GwRecursiveEpa(tools_qt.tr(msg), prefix, folder_path, settings, lib_vars.plugin_dir)
             self.recursive_epa.change_btn_accept.connect(self._enable_cancel_btn)
             self.recursive_epa.time_changed.connect(self._set_remaining_time)
             QgsApplication.taskManager().addTask(self.recursive_epa)
@@ -117,13 +119,15 @@ class RecursiveEpa():
     def _enable_cancel_btn(self, enable):
         if enable:
             self.dlg_epa.btn_accept.clicked.disconnect()
-            self.dlg_epa.btn_accept.setText("Cancel")
+            title = "Cancel"
+            self.dlg_epa.btn_accept.setText(tools_qt.tr(title))
             self.dlg_epa.btn_accept.clicked.connect(self.recursive_epa.stop_task)
             self.dlg_epa.btn_close.hide()
         else:
             self.dlg_epa.btn_close.show()
             self.dlg_epa.btn_accept.clicked.disconnect()
-            self.dlg_epa.btn_accept.setText("Accept")
+            title = "Accept"
+            self.dlg_epa.btn_accept.setText(tools_qt.tr(title))
             self.dlg_epa.btn_accept.clicked.connect(partial(self.execute_epa, self.dlg_epa))
 
     def _set_remaining_time(self, time):

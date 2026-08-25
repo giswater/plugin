@@ -123,17 +123,25 @@ class GwElementManagerButton(GwAction):
 
     def load_tableviews(self, complet_result):
         list_tables = self.dlg_mng.findChildren(QTableView)
-        complet_list = []
         for table in list_tables:
             widgetname = table.objectName()
             columnname = table.property('columnname')
             if columnname is None:
-                msg = f"widget {0} has not columnname and cant be configured"
+                msg = "widget {0} has not columnname and cant be configured"
                 msg_params = (widgetname,)
                 tools_qgis.show_info(msg, 3, msg_params=msg_params)
                 continue
             linkedobject = table.property('linkedobject')
-            complet_list, widget_list = tools_gw.fill_tbl(complet_result, self.dlg_mng, widgetname, linkedobject, '')
-            if complet_list is False:
+
+            # Configure the filters first: they load the list applying their own values, so getting and loading
+            # the whole list here too would only duplicate the work
+            _, widget_list = tools_gw.fill_tbl(complet_result, self.dlg_mng, widgetname, linkedobject, '',
+                                               fill_data=False)
+            if widget_list is False:
                 return False
-            tools_gw.set_filter_listeners(complet_result, self.dlg_mng, widget_list, columnname, widgetname)
+            data_loaded = tools_gw.set_filter_listeners(complet_result, self.dlg_mng, widget_list, columnname,
+                                                        widgetname)
+            if not data_loaded:
+                complet_list, _ = tools_gw.fill_tbl(complet_result, self.dlg_mng, widgetname, linkedobject, '')
+                if complet_list is False:
+                    return False

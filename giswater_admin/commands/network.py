@@ -23,7 +23,7 @@ def run_show(args: argparse.Namespace, out: Out) -> int:
     if getattr(args, "flat", False):
         return _run_show_flat(args, out)
 
-    conn = h.open_conn(args, out, require_superuser=False)
+    conn = h.open_conn(args, out, require_schema_admin=False)
     try:
         fetcher = make_conn_fetcher(conn)
         schema_filter = getattr(args, "schema", None) or getattr(args, "anchor", None) or None
@@ -54,7 +54,7 @@ def _run_schema_list(args: argparse.Namespace, out: Out) -> int:
         tier=getattr(args, "tier", "all") or "all",
         kinds=frozenset(kinds),
     )
-    conn = h.open_conn(args, out, require_superuser=False)
+    conn = h.open_conn(args, out, require_schema_admin=False)
     try:
         fetcher = make_conn_fetcher(conn)
         items = list_schemas(fetcher, filter=flt)

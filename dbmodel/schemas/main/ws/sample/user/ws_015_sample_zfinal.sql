@@ -8,8 +8,9 @@ or (at your option) any later version.
 SET search_path = 'SCHEMA_NAME', public, pg_catalog;
 
 
-INSERT INTO selector_sector SELECT sector_id, current_user from sector where sector_id > 0 ON CONFLICT (sector_id, cur_user) DO NOTHING;
+INSERT INTO selector_sector SELECT sector_id, current_user from sector where sector_id > -1 ON CONFLICT (sector_id, cur_user) DO NOTHING;
 DELETE FROM selector_psector;
+DELETE FROM selector_inp_dscenario;
 
 INSERT INTO selector_municipality SELECT muni_id,current_user FROM ext_municipality ON CONFLICT (muni_id, cur_user) DO NOTHING;
 
@@ -54,8 +55,8 @@ UPDATE config_param_system
 
 UPDATE config_param_system SET value =
 '{"status":true, "values":[
-{"sourceTable":"ve_node_tank", "query":"UPDATE inp_inlet t SET maxlevel = hmax, diameter=sqrt(4*area/3.14159) FROM ve_node_tank s "},
-{"sourceTable":"ve_node_pr_reduc_valve", "query":"UPDATE inp_valve t SET setting = pressure_exit FROM ve_node_pr_reduc_valve s "}]}'
+{"sourceTable":"ve_node_tank", "query":"UPDATE inp_inlet t SET maxlevel = CASE WHEN s.hmax IS NOT NULL THEN s.hmax ELSE t.maxlevel END, diameter = CASE WHEN s.area IS NOT NULL THEN sqrt(4 * s.area / 3.14159) ELSE t.diameter END FROM ve_node_tank s "},
+{"sourceTable":"ve_node_pr_reduc_valve", "query":"UPDATE inp_valve t SET setting = CASE WHEN s.pressure_exit IS NOT NULL THEN s.pressure_exit ELSE t.setting END FROM ve_node_pr_reduc_valve s "}]}'
 WHERE parameter = 'epa_automatic_man2inp_values';
 
 
@@ -125,7 +126,7 @@ UPDATE om_visit SET ext_code = concat('EXT', 1000 + id);
 UPDATE ext_plot set muni_id = 2 where id::integer < 40;
 
 UPDATE macroexploitation SET name ='macroexpl-01', lock_level = 1 WHERE macroexpl_id = 1;
-INSERT INTO macroexploitation (macroexpl_id, "name", descript, lock_level, active, the_geom) VALUES(2, 'Other', 'Macroexploitation used for test', 1, true, NULL);
+INSERT INTO macroexploitation (macroexpl_id, "name", descript, lock_level, active) VALUES(2, 'Other', 'Macroexploitation used for test', 1, true);
 
 UPDATE config_param_system SET isenabled = false where parameter = ' basic_selector_tab_municipality';
 
@@ -219,3 +220,23 @@ UPDATE arc SET presszone_id = 5 WHERE arc_id = 114026;
 UPDATE arc SET presszone_id = 5 WHERE arc_id = 114145;
 
 UPDATE arc SET presszone_id = 6 WHERE presszone_id = 0 AND expl_id = 2;
+
+-- Extra filters example (sample only): fluid_type combo (nullable)
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
+VALUES
+('generic', 'link_to_connec', 'tab_none', 'fluid_type', 'lyt_extra_filters', 0, 'string', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT fluid_type as id, fluid_type as idval FROM man_type_fluid WHERE ((featurecat_id is null AND ''ARC''=ANY(feature_type)) ) AND active IS TRUE ', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+UPDATE config_mapzones SET is_dynamic = TRUE
+WHERE id IN ('MACROSECTOR', 'MACRODMA', 'MACROOMZONE', 'SECTOR', 'DMA', 'OMZONE', 'MACRODQA', 'PRESSZONE', 'DQA', 'SUPPLYZONE');
+
+UPDATE plan_psector_x_connec SET arc_id = 20651, link_id = 474 WHERE connec_id = 114463;
+
+UPDATE connec SET minsector_id = 0, sector_id = 0, dma_id = 0, presszone_id = 0, supplyzone_id = 0, dqa_id = 0, crmzone_id = 0, omzone_id = 0
+WHERE connec_id IN (114461, 114462, 114463);
+
+UPDATE arc SET minsector_id = 0, sector_id = 0, dma_id = 0, presszone_id = 0, supplyzone_id = 0, dqa_id = 0, omzone_id = 0
+WHERE arc_id IN (20651, 20861, 20851);
+
+UPDATE node SET minsector_id = 0, sector_id = 0, dma_id = 0, presszone_id = 0, supplyzone_id = 0, dqa_id = 0, omzone_id = 0
+WHERE node_id IN (10761);
