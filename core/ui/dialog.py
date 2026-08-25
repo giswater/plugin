@@ -9,7 +9,7 @@ import os
 import sys
 
 from qgis.PyQt import QtCore
-from qgis.PyQt.QtWidgets import QDialog, QShortcut, QWidget, QSizePolicy, QStackedLayout
+from qgis.PyQt.QtWidgets import QDialog, QShortcut, QWidget, QSizePolicy, QVBoxLayout
 from qgis.PyQt.QtGui import QKeySequence, QIcon
 
 from qgis.gui import QgsMessageBar
@@ -48,26 +48,19 @@ class GwDialog(QDialog):
 
         # Create message bar
         try:
-            # Wrap the existing layout in a widget
-            main_widget = QWidget()
-            # NOTE: This crashes QGIS if the dialog has no layout
-            main_widget.setLayout(self.layout())
+            content_widget = QWidget()
+            content_widget.setLayout(self.layout())
 
-            # Create a stacked layout to overlay the message bar
-            self.stacked_layout = QStackedLayout(self)
-            self.setLayout(self.stacked_layout)
-            self.stacked_layout.setStackingMode(QStackedLayout.StackingMode.StackAll)
+            outer_layout = QVBoxLayout(self)
+            outer_layout.setContentsMargins(0, 0, 0, 0)
+            outer_layout.setSpacing(0)
 
-            # Create the message bar
             self._messageBar = QgsMessageBar()
-            self._messageBar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)  # Full width, fixed height
+            self._messageBar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             self._messageBar.setMaximumHeight(35)
 
-            # Add message bar to stacked layout
-            self.stacked_layout.addWidget(self._messageBar)
-
-            # Add the main widget to the stacked layout
-            self.stacked_layout.addWidget(main_widget)
+            outer_layout.addWidget(self._messageBar)
+            outer_layout.addWidget(content_widget)
         except Exception as e:
             print("Exception in GwDialog:", e)
             self._messageBar = global_vars.iface.messageBar()
