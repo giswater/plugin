@@ -83,12 +83,7 @@ BEGIN
 		JOIN vf_arc vf ON vf.arc_id = a.arc_id
 		LEFT JOIN value_state_type vst ON vst.id = a.state_type
 		LEFT JOIN cat_material cm ON a.matcat_id = cm.id
-		LEFT JOIN inp_conduit ic ON a.arc_id = ic.arc_id
-	WHERE (
-		'ARC' = ANY (cm.feature_type)
-		OR cm.feature_type IS NULL
-	);
-
+		LEFT JOIN inp_conduit ic ON a.arc_id = ic.arc_id;
 
 	-- Insert on node temp_t_node table
 	-- the strategy of selector_sector is not used for nodes. The reason is to enable the posibility to export the sector=-1. In addition using this it's impossible to export orphan nodes
