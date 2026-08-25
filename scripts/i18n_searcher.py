@@ -80,7 +80,13 @@ _DVQUERY_UNION_LITERAL_RE = re.compile(
 # Tables whose extra_columns hold a content blob (org_text/text), not identity fields.
 _BLOB_CONTENT_TABLES = frozenset({
     "dbstyle", "dbjson", "dbconfig_form_fields_json", "dbconfig_form_fields_query",
+    "dbconfig_report_query",
 })
+_REPORT_QUERY_KEY = "queryText"
+_REPORT_QUERY_ALIAS_RE = re.compile(
+    r'\bAS\s+"((?:[^"]|"")*)"',
+    re.IGNORECASE,
+)
 _SQL_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 _FIELDS = ("message", "msg", "title", "inf_text")
@@ -184,6 +190,7 @@ _PROJECT_TABLES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
             "dbconfig_visit_parameter", "dbtable", "dbconfig_form_fields_feat",
             "dbbasic_tables", "dblabel", "dbplan_price", "dbstyle", "dbjson",
             "dbconfig_form_fields_json", "dbconfig_form_fields_query",
+            "dbconfig_report_query",
         ),
         ("su_feature",),
     ),
@@ -196,6 +203,7 @@ _PROJECT_TABLES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
             "dbconfig_visit_parameter", "dbtable", "dbconfig_form_fields_feat",
             "dbbasic_tables", "dblabel", "dbplan_price", "dbstyle", "dbjson",
             "dbconfig_form_fields_json", "dbconfig_form_fields_query",
+            "dbconfig_report_query",
         ),
         ("su_feature",),
     ),
@@ -319,6 +327,7 @@ _ORIGIN_TABLES: dict[str, tuple[str, ...]] = {
     "dbstyle": ("sys_style",),
     "dbconfig_form_fields_json": ("config_form_fields",),
     "dbconfig_form_fields_query": ("config_form_fields",),
+    "dbconfig_report_query": ("config_report",),
     "dbconfig_form_fields_feat": ("config_form_fields",),
     "dbconfig_engine": ("config_engine", "config_engine_def"),
 }
@@ -1758,6 +1767,24 @@ def _unescape_sql_string(text: str) -> str:
     return text.replace("''", "'")
 
 
+def _unescape_sql_quoted_ident(text: str) -> str:
+    """Turn SQL-escaped quoted identifiers ("" inside "") into a plain string."""
+    return text.replace('""', '"')
+
+
+def _extract_quoted_as_aliases(query: str) -> list[str]:
+    """Double-quoted ``AS`` aliases from ``config_report.query_text``, left to right.
+
+    Skips unquoted identifiers. Empty aliases are dropped. ``""`` unescapes to ``"``.
+    """
+    found: list[str] = []
+    for match in _REPORT_QUERY_ALIAS_RE.finditer(query or ""):
+        text = _unescape_sql_quoted_ident(match.group(1)).strip()
+        if text:
+            found.append(text)
+    return found
+
+
 def _extract_dvquery_idval_texts(query: str) -> list[str]:
     """User-facing combo labels embedded as string literals in dvQueryText SQL.
 
@@ -2073,6 +2100,65 @@ def _extract_form_fields_query_table(
     )
 
 
+def _extract_report_query_table(
+    origin: OriginDb,
+    i18n_rows: list[dict],
+    table_name: str,
+    table_org: str,
+    schema_org: str,
+    project_type: str,
+) -> list[ExtractedString]:
+    """Double-quoted ``AS`` aliases inside ``config_report.query_text``."""
+    columns_i18n = [
+        "source_code", "project_type", "context", "source", "hint", "lb_en_us", "text",
+    ]
+
+    query_org = (
+        f"SELECT id, query_text "
+        f"FROM {schema_org}.{table_org} "
+        f"WHERE query_text IS NOT NULL AND btrim(query_text) <> ''"
+    )
+    rows_org = origin.fetch_all(query_org)
+
+    rows_i18n = _filter_i18n_rows_by_context(
+        _clean_rows_i18n(
+            _filter_i18n_rows(i18n_rows, table_name, project_type),
+            columns_i18n,
+            project_type,
+            table_name,
+        ),
+        table_org,
+    )
+
+    expected: list[dict] = []
+    for row in rows_org:
+        text_blob = row.get("query_text")
+        if text_blob in (None, "", "None"):
+            continue
+        text_blob = str(text_blob)
+        aliases = _extract_quoted_as_aliases(text_blob)
+        for i, text_val in enumerate(aliases):
+            expected.append({
+                "source_code": "giswater",
+                "project_type": project_type,
+                "context": table_org,
+                "source": str(row["id"]),
+                "hint": f"{_REPORT_QUERY_KEY}_{i}",
+                "lb_en_us": text_val,
+                "text": text_blob,
+            })
+
+    return _compare_db_rows(
+        expected,
+        rows_i18n,
+        columns_i18n,
+        table_name=table_name,
+        table_org=table_org,
+        schema_org=schema_org,
+        project_type=project_type,
+    )
+
+
 def _extract_feat_table(
     origin: OriginDb,
     i18n_rows: list[dict],
@@ -2246,6 +2332,13 @@ def _extract_one_db_table(
         if table_name == "dbconfig_form_fields_query":
             findings.extend(
                 _extract_form_fields_query_table(
+                    origin, table_i18n_rows, table_name, table_org, schema_org, project_type
+                )
+            )
+            continue
+        if table_name == "dbconfig_report_query":
+            findings.extend(
+                _extract_report_query_table(
                     origin, table_i18n_rows, table_name, table_org, schema_org, project_type
                 )
             )

@@ -268,6 +268,22 @@ CREATE TABLE config_report (
     CONSTRAINT config_report_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
 );
 
+CREATE TABLE config_report_query (
+    id serial4 NOT NULL,
+    project_type text NOT NULL,
+    context text NOT NULL,
+    "source" text NOT NULL,
+    hint text NOT NULL DEFAULT 'query_text',
+    lang text NOT NULL DEFAULT 'en_us',
+    lb text NULL,
+    "text" text NULL,
+    updated_by text DEFAULT CURRENT_USER NULL,
+    updated_on timestamptz DEFAULT now() NULL,
+    CONSTRAINT config_report_query_id_uniq UNIQUE (id),
+    CONSTRAINT config_report_query_pkey PRIMARY KEY (project_type, context, "source", hint, lang),
+    CONSTRAINT config_report_query_lang_fkey FOREIGN KEY (lang) REFERENCES cat_language(id)
+);
+
 CREATE TABLE config_toolbox (
     id serial4 NOT NULL,
     project_type text NOT NULL,
@@ -407,6 +423,7 @@ CREATE INDEX idx_plan_price_lang ON plan_price USING btree (lang);
 CREATE INDEX idx_sys_style_lang ON sys_style USING btree (lang);
 CREATE INDEX idx_config_toolbox_lang ON config_toolbox USING btree (lang);
 CREATE INDEX idx_config_report_lang ON config_report USING btree (lang);
+CREATE INDEX idx_config_report_query_lang ON config_report_query USING btree (lang);
 CREATE INDEX idx_config_json_lang ON config_json USING btree (lang);
 CREATE INDEX idx_config_form_tableview_lang ON config_form_tableview USING btree (lang);
 CREATE INDEX idx_config_csv_lang ON config_csv USING btree (lang);

@@ -1349,6 +1349,43 @@ INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, 
 VALUES (4688, E'Function to calculate water balance according stardards of IWA. \nYou must select a period already created or manually select the date of the interval. One at a time. Before that:  \n1) tables ext_cat_period, ext_rtc_hydrometer_x_data, ext_rtc_scada_x_data need to be filled. \n2) DMA graph need to be executed.  \n>End Date proposal for %v_percent_hydro%% of hydrometers which consum is out of the period: %v_proposed_enddate%', NULL, 0, true, 'utils', 'core', 'UI')
 ON CONFLICT (id) DO NOTHING;
 
+-- Point report filterparam.columnname at SQL columns so filters survive translated aliases.
+UPDATE config_report
+SET filterparam = replace(
+    replace(filterparam::text, '"columnname":"Exploitation"', '"columnname":"name"'),
+    '"columnname":"Arc Catalog"', '"columnname":"arccat_id"'
+)::json
+WHERE id = 100
+  AND filterparam IS NOT NULL;
+
+UPDATE config_report
+SET filterparam = replace(filterparam::text, '"columnname":"Exploitation"', '"columnname":"name"')::json
+WHERE id = 101
+  AND filterparam::text LIKE '%"columnname":"Exploitation"%';
+
+UPDATE config_report
+SET filterparam = replace(
+    replace(
+        replace(filterparam::text, '"columnname":"Exploitation"', '"columnname":"exploitation"'),
+        '"columnname":"Dma"', '"columnname":"dma"'
+    ),
+    '"columnname":"Period"', '"columnname":"period"'
+)::json
+WHERE id = 102
+  AND filterparam IS NOT NULL;
+
+UPDATE config_report
+SET filterparam = replace(
+    replace(filterparam::text, '"columnname":"Exploitation"', '"columnname":"name"'),
+    '"columnname":"Node type"', '"columnname":"node_type"'
+)::json
+WHERE id = 105
+  AND filterparam IS NOT NULL;
+
+UPDATE config_report
+SET query_text = 'SELECT e.name as "Exploitation", vec.connec_id as "Connec id", vec.code as "Code", vec.customer_code as "Customer code" FROM ve_connec vec JOIN exploitation e USING (expl_id) '
+WHERE id = 101;
+
 UPDATE config_param_system
 	SET layoutname='lyt_admin_om',layoutorder=28
 	WHERE "parameter"='qgis_mapzone_inundation_from_arc';

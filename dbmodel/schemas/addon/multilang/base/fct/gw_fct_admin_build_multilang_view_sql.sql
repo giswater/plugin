@@ -215,7 +215,13 @@ BEGIN
                 ON mla.source = t.id::text
                AND mla.context = %1$L
                AND mla.project_type = %2$s
-               AND mla.lang = %3$s',
+               AND mla.lang = %3$s
+            LEFT JOIN multilang.config_report_query mlq
+                ON mlq.source = t.id::text
+               AND mlq.hint = ''query_text''
+               AND mlq.context = %1$L
+               AND mlq.project_type = %2$s
+               AND mlq.lang = %3$s',
             v_context, v_pt_expr, v_lang_expr
         );
     ELSIF p_table = 'config_toolbox' THEN
@@ -396,6 +402,8 @@ BEGIN
                     THEN 'COALESCE(mla.ob, t.observ)'
                 WHEN a.attname = 'filterparam' AND p_table = 'config_report'
                     THEN 'COALESCE(ml.text, t.filterparam::jsonb)::json'
+                WHEN a.attname = 'query_text' AND p_table = 'config_report'
+                    THEN 'COALESCE(mlq.text, t.query_text)'
                 WHEN a.attname = 'inputparams' AND p_table = 'config_toolbox'
                     THEN 'COALESCE(ml.text, t.inputparams::jsonb)::json'
                 ELSE NULL
