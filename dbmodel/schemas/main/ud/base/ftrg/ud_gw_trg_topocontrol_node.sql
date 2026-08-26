@@ -397,32 +397,14 @@ BEGIN
 				IF v_nodeRecord1.node_id IS NOT NULL THEN
 
 					EXECUTE 'UPDATE arc SET
-						node_top_elev_1 = '|| quote_nullable(NEW.top_elev) ||',
-						node_custom_top_elev_1 = '|| quote_nullable(NEW.custom_top_elev) ||',
-						node_elev_1 = '|| quote_nullable(NEW.elev) ||',
-						node_custom_elev_1 = '|| quote_nullable(NEW.custom_elev) ||'
-						WHERE arc_id = ' || quote_literal(v_arcrecordtb."arc_id");
-					
-
-					EXECUTE 'UPDATE arc SET 
-					the_geom = ST_SetPoint($1, 0, $2), 
-					nodetype_1 = '|| quote_literal(v_nodeRecord1.node_type) ||'
+					the_geom = ST_SetPoint($1, 0, $2)
 					WHERE arc_id = ' || quote_literal(v_arcrecordtb."arc_id") USING v_arcrecordtb.the_geom, NEW.the_geom;
 
 
 				ELSIF v_nodeRecord2.node_id IS NOT NULL THEN
-					-- update arc
 
 					EXECUTE 'UPDATE arc SET
-						node_top_elev_2 = '|| quote_nullable(NEW.top_elev) ||',
-						node_custom_top_elev_2 = '|| quote_nullable(NEW.custom_top_elev) ||',
-						node_elev_2 = '|| quote_nullable(NEW.elev) ||',
-						node_custom_elev_2 = '|| quote_nullable(NEW.custom_elev) ||'
-						WHERE arc_id = ' || quote_literal(v_arcrecordtb."arc_id");
-
-					EXECUTE 'UPDATE arc SET 
-					the_geom = ST_SetPoint($1, ST_NumPoints($1) -1, $2), 
-					nodetype_2 = '|| quote_literal(v_nodeRecord2.node_type) ||'
+					the_geom = ST_SetPoint($1, ST_NumPoints($1) -1, $2)
 					WHERE arc_id = ' || quote_literal(v_arcrecordtb."arc_id") USING v_arcrecordtb.the_geom, NEW.the_geom;
 				END IF;
 

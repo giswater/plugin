@@ -1740,7 +1740,9 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",
 -- Drop denormalized node fields from arc; compute them in ve_arc via JOIN
 DROP TRIGGER IF EXISTS gw_trg_arc_node_values ON arc;
 
-SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"SAVE-DROP", "rootViews":["ve_arc", "v_edit_arc"], "batchId":17}}$$);
+DROP VIEW IF EXISTS v_edit_arc; -- BREAKING CHANGE: v_edit_arc is no longer supported
+
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"SAVE-DROP", "rootViews":["ve_arc"], "batchId":17}}$$);
 
 CREATE OR REPLACE VIEW ve_arc
 AS WITH typevalue AS (
@@ -1944,9 +1946,6 @@ AS WITH typevalue AS (
      LEFT JOIN arc_add ON arc_add.arc_id = a.arc_id
      LEFT JOIN value_state_type vst ON vst.id = a.state_type;
 
--- Legacy view still selected denorm cols from arc (4/2); alias to ve_arc
-CREATE OR REPLACE VIEW v_edit_arc AS SELECT * FROM ve_arc;
-
 DROP FUNCTION IF EXISTS gw_trg_arc_node_values();
 
 SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"arc", "column":"nodetype_1"}}$$);
@@ -1971,6 +1970,3 @@ SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE", "bat
 
 CREATE TRIGGER gw_trg_edit_arc INSTEAD OF INSERT OR DELETE OR UPDATE ON
 ve_arc FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_arc('parent');
-
-CREATE TRIGGER gw_trg_edit_arc INSTEAD OF INSERT OR DELETE OR UPDATE ON
-v_edit_arc FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_arc('parent');

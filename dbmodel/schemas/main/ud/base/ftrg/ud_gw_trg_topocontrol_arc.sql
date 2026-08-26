@@ -230,26 +230,26 @@ BEGIN
 				-- node_1
 				-- 1: ymax is changed
 				IF NEW.y1 IS NOT NULL AND (OLD.y1 IS DISTINCT FROM NEW.y1) THEN
-					IF NEW.node_top_elev_1 IS NOT NULL THEN
-						NEW.elev1 := NEW.node_top_elev_1 - NEW.y1;
+					IF nodeRecord1.top_elev IS NOT NULL THEN
+						NEW.elev1 := COALESCE(nodeRecord1.custom_top_elev, nodeRecord1.top_elev) - NEW.y1;
 					END IF;
 				-- 2: elev is changed
 				ELSIF NEW.elev1 IS NOT NULL AND (OLD.elev1 IS DISTINCT FROM NEW.elev1) THEN
-					IF NEW.node_top_elev_1 IS NOT NULL THEN
-						NEW.y1 := NEW.node_top_elev_1 - NEW.elev1;
+					IF nodeRecord1.top_elev IS NOT NULL THEN
+						NEW.y1 := COALESCE(nodeRecord1.custom_top_elev, nodeRecord1.top_elev) - NEW.elev1;
 					END IF;
 				END IF;
 
 				-- node_2
 				-- 1: ymax is changed
 				IF NEW.y2 IS NOT NULL AND (OLD.y2 IS DISTINCT FROM NEW.y2) THEN
-					IF NEW.node_top_elev_2 IS NOT NULL THEN
-						NEW.elev2 := NEW.node_top_elev_2 - NEW.y2;
+					IF nodeRecord2.top_elev IS NOT NULL THEN
+						NEW.elev2 := COALESCE(nodeRecord2.custom_top_elev, nodeRecord2.top_elev) - NEW.y2;
 					END IF;
 				-- 2: elev is changed
 				ELSIF NEW.elev2 IS NOT NULL AND (OLD.elev2 IS DISTINCT FROM NEW.elev2) THEN
-					IF NEW.node_top_elev_2 IS NOT NULL THEN
-						NEW.y2 := NEW.node_top_elev_2 - NEW.elev2;
+					IF nodeRecord2.top_elev IS NOT NULL THEN
+						NEW.y2 := COALESCE(nodeRecord2.custom_top_elev, nodeRecord2.top_elev) - NEW.elev2;
 					END IF;
 				END IF;
 
@@ -306,23 +306,7 @@ BEGIN
                         y_aux := NEW.custom_elev1;
                         NEW.custom_elev1 := NEW.custom_elev2;
                         NEW.custom_elev2 := y_aux;
-						
-						-- Node values
-						NEW.nodetype_1 := nodeRecord2.node_type;
-						NEW.nodetype_2 := nodeRecord1.node_type;
-						
-						NEW.node_top_elev_1 := nodeRecord2.top_elev;
-						NEW.node_top_elev_2 := nodeRecord1.top_elev;
 
-						NEW.node_custom_top_elev_1 := nodeRecord2.custom_top_elev;
-						NEW.node_custom_top_elev_2 := nodeRecord1.custom_top_elev;
-
-						NEW.node_elev_1 := nodeRecord2.elev;
-						NEW.node_elev_2 := nodeRecord1.elev;
-
-						NEW.node_custom_elev_1 := nodeRecord2.custom_elev;
-						NEW.node_custom_elev_2 := nodeRecord1.custom_elev;
-	
                     END IF;
 
                 END IF;

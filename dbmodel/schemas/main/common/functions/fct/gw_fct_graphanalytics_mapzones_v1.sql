@@ -2995,7 +2995,7 @@ BEGIN
 
 					-- arcs, links
 					IF v_class = 'PRESSZONE' THEN
-						v_query_text_aux := ', staticpressure1 = NULL, staticpressure2 = NULL';
+						v_query_text_aux := '';
 					ELSIF v_class = 'DWFZONE' THEN
 						v_query_text_aux := ', drainzone_outfall = NULL, dwfzone_outfall = NULL';
 					ELSE
@@ -3015,6 +3015,14 @@ BEGIN
 						AND a.%I IS DISTINCT FROM 0
 						$sql$
 					, v_mapzone_field, v_query_text_aux, v_mapzone_field, v_mapzone_field);
+
+					IF v_class = 'PRESSZONE' THEN
+						v_query_text_aux := ', staticpressure1 = NULL, staticpressure2 = NULL';
+					ELSIF v_class = 'DWFZONE' THEN
+						v_query_text_aux := ', drainzone_outfall = NULL, dwfzone_outfall = NULL';
+					ELSE
+						v_query_text_aux := '';
+					END IF;
 
 					EXECUTE format($sql$
 						UPDATE link l
@@ -3100,24 +3108,6 @@ BEGIN
 						) t
 						WHERE cc.connec_id = t.connec_id
 						AND cc.staticpressure IS DISTINCT FROM t.staticpressure;
-
-						-- arc
-						UPDATE arc aa
-						SET staticpressure1 = t.staticpressure1,
-							staticpressure2 = t.staticpressure2
-						FROM (
-							SELECT
-								a.arc_id,
-								(p.head - a.elevation1 + COALESCE(a.depth1, 0))::numeric(12,3) AS staticpressure1,
-								(p.head - a.elevation2 + COALESCE(a.depth2, 0))::numeric(12,3) AS staticpressure2
-							FROM arc a
-							JOIN presszone p ON a.presszone_id = p.presszone_id
-							WHERE p.head IS DISTINCT FROM 0
-							AND EXISTS (SELECT 1 FROM temp_pgr_arc t WHERE t.pgr_arc_id = a.arc_id)
-						) t
-						WHERE aa.arc_id = t.arc_id
-						AND (aa.staticpressure1 IS DISTINCT FROM t.staticpressure1
-							OR aa.staticpressure2 IS DISTINCT FROM t.staticpressure2);
 
 						-- link
 						UPDATE link ll

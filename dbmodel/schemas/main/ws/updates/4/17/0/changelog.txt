@@ -6,3 +6,4 @@
 - Fix `gw_fct_linktonetwork` Force reconnect + Extra filters: rebuild link geometry from the connect, join `vf_arc`/`vf_node` inside KNN on `arc`/`node`, and log when no candidate is found.
 - Recreate `v_ui_rpt_cat_result` including `isvalidated`.
 - Set `isvalidated=true` when setting corporate in `gw_fct_epa2data`.
+- Drop denormalized node fields from `arc`; compute nodetype/elevation/depth/pressure in `ve_arc` via JOIN; remove `gw_trg_arc_node_values` and drop legacy `v_arc`/`vu_arc` views.
