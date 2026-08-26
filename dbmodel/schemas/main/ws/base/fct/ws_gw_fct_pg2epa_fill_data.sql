@@ -21,7 +21,6 @@ v_usedmapattern boolean;
 v_buildupmode integer;
 v_statetype text;
 v_networkmode integer;
-v_minlength float;
 v_forcereservoirsoninlets boolean;
 v_forcetanksoninlets boolean;
 v_count integer;
@@ -39,7 +38,6 @@ BEGIN
 	v_usedmapattern = (SELECT value FROM config_param_user WHERE parameter='inp_options_use_dma_pattern' AND cur_user=current_user); -- TODO: check if this is needed
 	v_buildupmode = (SELECT value FROM config_param_user WHERE parameter = 'inp_options_buildup_mode' AND cur_user=current_user); -- TODO: check if this is needed
 	v_networkmode = (SELECT value FROM config_param_user WHERE parameter = 'inp_options_networkmode' AND cur_user=current_user);
-	v_minlength := (SELECT value FROM config_param_system WHERE parameter = 'epa_arc_minlength');
 	v_forcereservoirsoninlets := (SELECT value::json->>'forceReservoirsOnInlets' FROM config_param_user WHERE parameter = 'inp_options_debug' AND cur_user=current_user); -- TODO: check if this is needed
 	v_forcetanksoninlets := (SELECT value::json->>'forceTanksOnInlets' FROM config_param_user WHERE parameter = 'inp_options_debug' AND cur_user=current_user); -- TODO: check if this is needed
 	v_exporthybriddma := (SELECT value::boolean FROM config_param_system WHERE parameter = 'epa_export_hybrid_dma');
@@ -87,7 +85,7 @@ BEGIN
 	v_querytext := v_querytext ||
 		' WHERE (now()::date - (CASE WHEN a.builtdate IS NULL THEN ''1900-01-01''::date ELSE a.builtdate END))/365 >= cmr.init_age
 		AND (now()::date - (CASE WHEN a.builtdate IS NULL THEN ''1900-01-01''::date ELSE a.builtdate END))/365 <= cmr.end_age
-		AND st_length(a.the_geom) >= '||v_minlength;
+	';
 
 	IF v_networkmode = 1 THEN
 		IF v_exporthybriddma THEN
