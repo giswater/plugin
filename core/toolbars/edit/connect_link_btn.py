@@ -9,7 +9,9 @@ from functools import partial
 
 from qgis.PyQt.QtCore import QRect, Qt, QPoint
 from qgis.PyQt.QtGui import QColor
-from qgis.PyQt.QtWidgets import QApplication, QActionGroup, QWidget, QAction, QMenu, QGridLayout
+from qgis.PyQt.QtWidgets import (
+    QApplication, QActionGroup, QWidget, QAction, QMenu, QGridLayout, QLayout, QSizePolicy
+)
 from qgis.core import QgsVectorLayer, QgsRectangle, QgsApplication, QgsFeatureRequest
 from qgis.gui import QgsMapToolEmitPoint, QgsVertexMarker
 
@@ -137,6 +139,13 @@ class GwConnectLinkButton(GwMaptool):
         self.dlg_connect_link.rejected.connect(self._cleanup_and_close)
         self.dlg_connect_link.rejected.connect(lambda: close(**{'class': self, 'dialog': self.dlg_connect_link}))
 
+        if self.project_type != 'ud':
+            gb_nodes = self.dlg_connect_link.findChild(QWidget, "groupBox_4")
+            if gb_nodes:
+                gb_nodes.hide()
+
+        self._apply_layout_constraints()
+
         # Open dialog (gully overrides i18n title "Connect to network")
         if self.feature_type == 'gully':
             title = "Gully to network"
@@ -148,10 +157,7 @@ class GwConnectLinkButton(GwMaptool):
         else:
             tools_gw.open_dialog(self.dlg_connect_link, 'connect_link')
 
-        if self.project_type != 'ud':
-            gb_nodes = self.dlg_connect_link.findChild(QWidget, "groupBox_4")
-            if gb_nodes:
-                gb_nodes.hide()
+        self._apply_layout_constraints()
 
         # Setup "Set to arc" button dropdown menu immediately (same as psector)
         self._setup_set_to_arc_button()
@@ -162,6 +168,46 @@ class GwConnectLinkButton(GwMaptool):
         # Ensure arc/node fields are read-only (database config may not work)
         self._make_arc_field_readonly()
         self._make_node_field_readonly()
+
+    def _apply_layout_constraints(self):
+        """ Keep form groupboxes from collapsing; only the connec table may shrink. """
+        dlg = self.dlg_connect_link
+        form_boxes = ('groupBox', 'groupBox_5', 'groupBox_3', 'groupBox_4')
+        for name in form_boxes:
+            gb = dlg.findChild(QWidget, name)
+            if gb is None or gb.isHidden():
+                continue
+            layout = gb.layout()
+            if layout:
+                layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+                layout.activate()
+            gb.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+            gb.updateGeometry()
+            gb.setMinimumHeight(gb.sizeHint().height())
+
+        gb_connecs = dlg.findChild(QWidget, 'groupBox_2')
+        if gb_connecs:
+            gb_connecs.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+
+        if getattr(self, 'tbl_ids', None):
+            self.tbl_ids.setMinimumHeight(80)
+            self.tbl_ids.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        tab = dlg.findChild(QWidget, 'tab_connect')
+        vlayout = tab.layout() if tab else None
+        if vlayout:
+            for i in range(vlayout.count()):
+                item = vlayout.itemAt(i)
+                widget = item.widget() if item else None
+                vlayout.setStretch(i, 1 if widget and widget.objectName() == 'groupBox_2' else 0)
+
+        min_hint = dlg.minimumSizeHint()
+        dlg.setMinimumWidth(max(dlg.minimumWidth(), min_hint.width()))
+        dlg.setMinimumHeight(max(dlg.minimumHeight(), min_hint.height()))
+        new_w = max(dlg.width(), dlg.minimumWidth())
+        new_h = max(dlg.height(), dlg.minimumHeight())
+        if new_w != dlg.width() or new_h != dlg.height():
+            dlg.resize(new_w, new_h)
 
     def _setup_set_to_arc_button(self):
         """ Setup set to arc button with dropdown menu (same as psector) """
@@ -810,8 +856,8 @@ def add(**kwargs):
     # Get class
     this = kwargs['class']
 
-    # Get selected id
-    selected_id = tools_qt.get_combo_value(this.dlg_connect_link, "tab_none_id")
+    # Get selected id (typeahead is a QLineEdit; combo still works via get_text)
+    selected_id = tools_qt.get_text(this.dlg_connect_link, "tab_none_id", return_string_null=False)
 
     # Check if selected id is not empty
     if selected_id is None or selected_id == '':
