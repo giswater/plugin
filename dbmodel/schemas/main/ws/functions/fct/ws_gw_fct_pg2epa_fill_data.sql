@@ -111,7 +111,7 @@ BEGIN
 			n.node_id,
 			n.top_elev,
 			n.top_elev - n.depth AS elev,
-			c.node_type,
+			cn.node_type,
 			n.nodecat_id,
 			n.epa_type,
 			n.sector_id,
@@ -131,7 +131,7 @@ BEGIN
 			n.builtdate
 		FROM node n
 			JOIN vf_node vf ON n.node_id = vf.node_id
-			JOIN cat_node c ON c.id = n.nodecat_id
+			JOIN cat_node cn ON cn.id = n.nodecat_id
 		WHERE EXISTS (
 			SELECT 1
 			FROM temp_t_arc a
@@ -143,58 +143,6 @@ BEGIN
 	-- create link exit
 	IF v_networkmode in (3,4) THEN
 		PERFORM gw_fct_linkexitgenerator(1);
-	END IF;
-
-	raise notice 'Inserting links on temp_t_arc table';
-	IF v_networkmode =  4 THEN
-		-- TODO: check if pjoint filter is needed and check JOINS
-		-- this need to be solved here in spite of fill_data functions because some kind of incosnstency done on this function on previous lines
-		INSERT INTO temp_t_arc (arc_id, node_1, node_2, arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation, roughness, length, diameter, the_geom,
-			expl_id, dma_id, presszone_id, dqa_id, minsector_id, status, minorloss, age, family, builtdate)
-			SELECT
-				concat('CO', l.feature_id) AS arc_id,
-				l.feature_id AS node_1,
-				CASE
-					WHEN l.exit_type IN ('NODE', 'CONNEC') THEN l.exit_id::text
-					ELSE concat('VN', l.link_id) --l.exit_type = 'ARC' 
-				END AS node_2,
-				'LINK' AS arc_type,
-				l.linkcat_id,
-				'PIPE' AS epa_type,
-				l.sector_id,
-				l.state,
-				l.state_type,
-				l.annotation,
-				COALESCE(custom_roughness, roughness) AS roughness,
-				COALESCE(l.custom_length, st_length(l.the_geom)) AS length,
-				COALESCE(custom_dint, dint) AS diameter,
-				l.the_geom,
-				l.expl_id,
-				l.dma_id,
-				l.presszone_id,
-				l.dqa_id,
-				l.minsector_id,
-				i.status,
-				i.minorloss,
-				(CASE WHEN l.builtdate IS NOT NULL THEN (now()::date - l.builtdate) / 30 ELSE 0 END) AS age,
-				cm."family",
-				l.builtdate
-			FROM link l
-				JOIN vf_link vfl ON l.link_id = vfl.link_id
-				JOIN connec c ON c.connec_id = l.feature_id
-				JOIN vf_connec vfc ON vfc.connec_id = c.connec_id
-				JOIN inp_connec i ON l.feature_id = i.connec_id
-				JOIN cat_link cl ON cl.id = l.linkcat_id
-				LEFT JOIN cat_mat_roughness ON cat_mat_roughness.matcat_id = cl.matcat_id
-				LEFT JOIN cat_material cm ON cm.id = cl.matcat_id
-			WHERE
-				(now()::date - (CASE WHEN l.builtdate IS NULL THEN '1900-01-01'::date ELSE l.builtdate END)) / 365 >= cat_mat_roughness.init_age
-				AND (now()::date - (CASE WHEN l.builtdate IS NULL THEN '1900-01-01'::date ELSE l.builtdate END)) / 365 <= cat_mat_roughness.end_age
-			AND EXISTS (
-				SELECT 1
-				FROM temp_t_arc a
-				WHERE a.arc_id = COALESCE(vfc.p_arc_id, c.arc_id)::text
-			);
 	END IF;
 
 	raise notice 'Inserting connecs on temp_t_node table';
@@ -229,7 +177,58 @@ BEGIN
 			WHERE EXISTS (
 				SELECT 1
 				FROM temp_t_arc a
-				WHERE a.node_1 = c.connec_id::text
+				WHERE a.arc_id = c.arc_id::text
+			)
+		;
+	END IF;
+
+	raise notice 'Inserting links on temp_t_arc table';
+	IF v_networkmode =  4 THEN
+		-- TODO: check if pjoint filter is needed and check JOINS
+		-- this need to be solved here in spite of fill_data functions because some kind of incosnstency done on this function on previous lines
+		INSERT INTO temp_t_arc (arc_id, node_1, node_2, arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation, roughness, length, diameter, the_geom,
+			expl_id, dma_id, presszone_id, dqa_id, minsector_id, status, minorloss, age, family, builtdate)
+			SELECT
+				concat('CO', l.feature_id) AS arc_id,
+				l.feature_id AS node_1,
+				CASE
+					WHEN l.exit_type IN ('NODE', 'CONNEC') THEN l.exit_id::text
+					ELSE concat('VN', l.link_id) --l.exit_type = 'ARC' 
+				END AS node_2,
+				'LINK' AS arc_type,
+				l.linkcat_id,
+				'PIPE' AS epa_type,
+				l.sector_id,
+				l.state,
+				l.state_type,
+				l.annotation,
+				COALESCE(i.custom_roughness, cmr.roughness) AS roughness,
+				COALESCE(l.custom_length, st_length(l.the_geom)) AS length,
+				COALESCE(i.custom_dint, cl.dint) AS diameter,
+				l.the_geom,
+				l.expl_id,
+				l.dma_id,
+				l.presszone_id,
+				l.dqa_id,
+				l.minsector_id,
+				i.status,
+				i.minorloss,
+				(CASE WHEN l.builtdate IS NOT NULL THEN (now()::date - l.builtdate) / 30 ELSE 0 END) AS age,
+				cm."family",
+				l.builtdate
+			FROM link l
+				JOIN vf_link vfl ON l.link_id = vfl.link_id
+				JOIN inp_connec i ON l.feature_id = i.connec_id
+				JOIN cat_link cl ON cl.id = l.linkcat_id
+				LEFT JOIN cat_material cm ON cm.id = cl.matcat_id
+				LEFT JOIN cat_mat_roughness cmr ON cmr.matcat_id = cl.matcat_id
+			WHERE
+				(now()::date - (CASE WHEN l.builtdate IS NULL THEN '1900-01-01'::date ELSE l.builtdate END)) / 365 >= cmr.init_age
+				AND (now()::date - (CASE WHEN l.builtdate IS NULL THEN '1900-01-01'::date ELSE l.builtdate END)) / 365 <= cmr.end_age
+			AND EXISTS (
+				SELECT 1
+				FROM temp_t_node n
+				WHERE n.node_id = l.feature_id::text
 			);
 	END IF;
 
