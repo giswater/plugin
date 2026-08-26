@@ -2649,8 +2649,5 @@ SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE", "bat
 CREATE TRIGGER gw_trg_edit_arc INSTEAD OF INSERT OR DELETE OR UPDATE ON
 ve_arc FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_arc('parent');
 
-CREATE TRIGGER gw_trg_edit_arc INSTEAD OF INSERT OR DELETE OR UPDATE ON
-v_edit_arc FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_arc('parent');
-
 CREATE TRIGGER gw_trg_autoupdate_arc_topology BEFORE INSERT OR UPDATE OF node_1, node_2, y1, y2, elev1, elev2 ON
 arc FOR EACH ROW EXECUTE FUNCTION gw_trg_autoupdate_arc_topology();
