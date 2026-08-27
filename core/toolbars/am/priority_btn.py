@@ -38,6 +38,7 @@ from ..dialog import GwAction
 from ...ui.ui_manager import GwPriorityUi
 from ...threads.calculatepriority import GwCalculatePriority
 from .result_selector_btn import set_am_selector_result
+from .am_utils import am_names, am_selector_layers, get_am_project_type
 
 
 class GwConfigCatalogButton:
@@ -439,6 +440,7 @@ class CalculatePriority:
                 "nodecat_id": None,
                 "node_type": None,
                 "asset_type": "ARC",
+                "project_type": get_am_project_type(),
                 "linked_arc_result_id": None,
             }
         else:
@@ -461,6 +463,7 @@ class CalculatePriority:
                     nodecat_id,
                     node_type,
                     asset_type,
+                    project_type,
                     linked_arc_result_id
                 FROM am.cat_result
                 WHERE result_id = {result_id}
@@ -468,12 +471,13 @@ class CalculatePriority:
             )
         self.type = type if mode == "new" else self.result["type"]
         self.mode = mode
+        self.project_type = (
+            (self.result.get("project_type") or get_am_project_type())
+            if mode != "new"
+            else get_am_project_type()
+        )
         self.asset_type = self.result.get("asset_type") or "ARC"
-        self.layer_to_work = {
-            "ARC": "v_asset_arc_input",
-            "NODE": "v_asset_node_input",
-            "LINK": "v_asset_link_input",
-        }.get(self.asset_type, "v_asset_arc_input")
+        self.layer_to_work = am_names(self.project_type, self.asset_type)["v_input"]
         self.rel_layers = {"arc": [], "node": [], "link": []}
         self.excluded_layers = []
         self.list_ids = {}
@@ -485,12 +489,8 @@ class CalculatePriority:
 
     @property
     def _asset_table(self):
-        """Name of the WS integration view backing the current asset_type."""
-        return {
-            "ARC": "ext_arc_asset",
-            "NODE": "ext_node_asset",
-            "LINK": "ext_link_asset",
-        }.get(self.asset_type, "ext_arc_asset")
+        """Name of the overlay view backing the current asset_type."""
+        return am_names(self.project_type, self.asset_type)["ext"]
 
     def clicked_event(self):
         """ Open priority dialog and load catalog, material and engine tabs """
@@ -583,16 +583,7 @@ class CalculatePriority:
             # Keep the other feature's selection (ARC vs NODE) visible on the map
             set_am_selector_result(result_id, "main")
 
-        for layer_name in (
-            "v_asset_arc_output",
-            "v_asset_arc_output_compare",
-            "v_asset_node_output",
-            "v_asset_node_output_compare",
-            "v_asset_link_output",
-            "v_asset_link_output_compare",
-            "v_asset_arc_corporate",
-            "v_asset_node_corporate",
-        ):
+        for layer_name in am_selector_layers(self.project_type):
             # AM layers live in schema am; set_layer_index() defaults to parent schema
             layer = tools_qgis.get_layer_by_tablename(layer_name, schema_name="am")
             if layer:
@@ -634,14 +625,17 @@ class CalculatePriority:
         )
 
     def _fill_asset_type_combo(self):
-        """ Fill asset type combo with ARC, NODE and LINK """
+        """ Fill asset type combo with ARC, NODE and LINK (LINK is WS-only). """
         dlg = self.dlg_priority
         rows = [
             ("ARC", tools_qt.tr("ARC")),
             ("NODE", tools_qt.tr("NODE")),
-            ("LINK", tools_qt.tr("LINK")),
         ]
+        if self.project_type == "WS":
+            rows.append(("LINK", tools_qt.tr("LINK")))
         tools_qt.fill_combo_values(dlg.cmb_asset_type, rows, 1)
+        if self.asset_type == "LINK" and self.project_type != "WS":
+            self.asset_type = "ARC"
         tools_qt.set_combo_value(dlg.cmb_asset_type, self.asset_type, 0, add_new=False)
         if self.mode != "new":
             # Switching asset_type on an existing result would orphan its input/config data
@@ -652,11 +646,7 @@ class CalculatePriority:
         dlg = self.dlg_priority
         is_node = self.asset_type == "NODE"
         is_link = self.asset_type == "LINK"
-        self.layer_to_work = {
-            "ARC": "v_asset_arc_input",
-            "NODE": "v_asset_node_input",
-            "LINK": "v_asset_link_input",
-        }.get(self.asset_type, "v_asset_arc_input")
+        self.layer_to_work = am_names(self.project_type, self.asset_type)["v_input"]
         if is_node:
             tools_qt.set_widget_text(dlg, dlg.lbl_dnom, tools_qt.tr("Node category:"))
             tools_qt.set_widget_text(dlg, dlg.lbl_material, tools_qt.tr("Node type:"))
@@ -928,7 +918,7 @@ class CalculatePriority:
         rows = tools_db.get_rows(
             f"""
             SELECT DISTINCT node_type
-            FROM am.ext_node_asset
+            FROM am.{self._asset_table}
             WHERE {' AND '.join(filters)}
             ORDER BY node_type
             """
@@ -1078,6 +1068,7 @@ class CalculatePriority:
                 from am.config_engine_def
                 where method = '{self.config.method}'
                 and asset_type = '{self.asset_type}'
+                and COALESCE(project_type, 'WS') = '{self.project_type}'
                 """
             )
         else:
@@ -1096,6 +1087,7 @@ class CalculatePriority:
                 where c.result_id = {self.result["id"]}
                 and d.method = '{self.config.method}'
                 and d.asset_type = '{self.asset_type}'
+                and COALESCE(d.project_type, 'WS') = '{self.project_type}'
                 """
             )
 
@@ -1246,8 +1238,10 @@ class CalculatePriority:
         dlg = self.dlg_priority
         tools_qt.set_widget_text(dlg, 'tab_log_txt_infolog', '')
 
-        if self.config.method == "SH" and self.asset_type in ("NODE", "LINK"):
-            msg = "The Shamir-Howard method is not available for NODE or LINK assets."
+        if self.config.method == "SH" and (
+            self.asset_type in ("NODE", "LINK") or self.project_type == "UD"
+        ):
+            msg = "The Shamir-Howard method is not available for NODE, LINK or UD assets."
             info = "Please select ARC asset type, or ask an administrator to configure the Weighted Method engine."
             tools_qt.show_info_box(msg, inf_text=info)
             return
@@ -1322,7 +1316,7 @@ class CalculatePriority:
         data_checks = tools_db.get_rows(
             f"""
             with assets as (
-                select * from am.ext_arc_asset {filters}),
+                select * from am.{self._asset_table} {filters}),
             list_invalid_arccat_ids as (
                 select count(*), coalesce(arccat_id, 'NULL')
                 from assets
@@ -1449,6 +1443,7 @@ class CalculatePriority:
             config_material,
             config_engine,
             asset_type=self.asset_type,
+            project_type=self.project_type,
         )
         self._start_thread()
 
@@ -1479,7 +1474,7 @@ class CalculatePriority:
         data_checks = tools_db.get_rows(
             f"""
             with assets as (
-                select * from am.ext_node_asset {filters}),
+                select * from am.{self._asset_table} {filters}),
             list_invalid_nodecat_ids as (
                 select count(*), coalesce(nodecat_id, 'NULL')
                 from assets
@@ -1591,6 +1586,7 @@ class CalculatePriority:
             config_material,
             config_engine,
             asset_type=self.asset_type,
+            project_type=self.project_type,
             node_type=node_type,
             nodecat=nodecat,
             linked_arc_result_id=linked_arc_result_id,
@@ -1604,6 +1600,11 @@ class CalculatePriority:
         linked_arc_result_id=None,
     ):
         """LINK WM: catalog costs + optional parent ARC result."""
+        if self.project_type != "WS":
+            tools_qt.show_info_box(
+                tools_qt.tr("LINK priority is only available for WS projects.")
+            )
+            return
         self.thread = GwCalculatePriority(
             tools_qt.tr("Calculate Priority"),
             self.type,
@@ -1621,6 +1622,7 @@ class CalculatePriority:
             config_material,
             config_engine,
             asset_type=self.asset_type,
+            project_type=self.project_type,
             nodecat=linkcat,
             linked_arc_result_id=linked_arc_result_id,
         )
@@ -1873,6 +1875,7 @@ class CalculatePriority:
             f"""
             select * from am.cat_result
             where result_name = '{result_name}'
+              and COALESCE(project_type, 'WS') = '{self.project_type}'
             """
         ):
             msg = "This result name already exists"
@@ -2100,10 +2103,11 @@ class CalculatePriority:
         if not hasattr(dlg, "cmb_arc_result"):
             return
         rows = tools_db.get_rows(
-            """
+            f"""
             SELECT result_id AS id, result_name AS idval
             FROM am.cat_result
             WHERE COALESCE(asset_type, 'ARC') = 'ARC'
+              AND COALESCE(project_type, 'WS') = '{self.project_type}'
             ORDER BY result_name
             """
         )
@@ -2139,6 +2143,7 @@ class CalculatePriority:
             FROM am.cat_result
             WHERE result_id = {result_id}
               AND COALESCE(asset_type, 'ARC') = 'ARC'
+              AND COALESCE(project_type, 'WS') = '{self.project_type}'
             """
         )
         if not row:
@@ -2168,14 +2173,27 @@ class CalculatePriority:
             if self.asset_type == "NODE":
                 self._schedule_load_node_types()
             return
-        sql = f"""           
-            SELECT DISTINCT ON (ext.presszone_id) 
-                ext.presszone_id AS id, 
+        if self.project_type == "UD":
+            tools_qt.set_widget_text(dlg, dlg.lbl_presszone, tools_qt.tr("Drainzone:"))
+            sql = f"""
+                SELECT DISTINCT ON (ext.presszone_id)
+                    ext.presszone_id AS id,
+                    CONCAT(ext.presszone_id, ' - ', COALESCE(dz.name, '')) AS idval
+                FROM am.{self._asset_table} ext
+                LEFT JOIN {lib_vars.schema_name}.drainzone dz
+                    ON dz.drainzone_id::text = ext.presszone_id::text
+                WHERE ext.expl_id = {exploitation}
+                ORDER BY ext.presszone_id;
+                """
+        else:
+            sql = f"""
+            SELECT DISTINCT ON (ext.presszone_id)
+                ext.presszone_id AS id,
                 CONCAT(ext.presszone_id, ' - ', pres.name) AS idval
-            FROM {lib_vars.schema_name}.presszone pres 
-            INNER JOIN am.{self._asset_table} ext 
+            FROM {lib_vars.schema_name}.presszone pres
+            INNER JOIN am.{self._asset_table} ext
                 ON ext.expl_id = ANY(pres.expl_id)
-            WHERE ext.expl_id = {exploitation} 
+            WHERE ext.expl_id = {exploitation}
             ORDER BY ext.presszone_id;
             """
         rows = tools_db.get_rows(sql)
@@ -2198,21 +2216,21 @@ class CalculatePriority:
         if self.asset_type == "ARC":
             sql = f"""
                 SELECT distinct(dnom::float) AS id, dnom as idval 
-                FROM am.ext_arc_asset WHERE presszone_id = '{presszone}' 
+                FROM am.{self._asset_table} WHERE presszone_id = '{presszone}' 
                 AND expl_id = {exploitation}
                 AND dnom is not null ORDER BY id;
                 """
         elif self.asset_type == "LINK":
             sql = f"""
                 SELECT distinct(linkcat_id) AS id, linkcat_id as idval
-                FROM am.ext_link_asset WHERE presszone_id = '{presszone}'
+                FROM am.{self._asset_table} WHERE presszone_id = '{presszone}'
                 AND expl_id = {exploitation}
                 AND linkcat_id is not null ORDER BY id;
                 """
         else:
             sql = f"""
                 SELECT distinct(nodecat_id) AS id, nodecat_id as idval
-                FROM am.ext_node_asset WHERE presszone_id = '{presszone}'
+                FROM am.{self._asset_table} WHERE presszone_id = '{presszone}'
                 AND expl_id = {exploitation}
                 AND nodecat_id is not null ORDER BY id;
                 """
@@ -2237,19 +2255,19 @@ class CalculatePriority:
         if self.asset_type == "ARC":
             sql = f"""
                 SELECT distinct(matcat_id) AS id, matcat_id as idval 
-                FROM am.ext_arc_asset WHERE presszone_id = '{presszone}' 
+                FROM am.{self._asset_table} WHERE presszone_id = '{presszone}' 
                 AND expl_id = {exploitation} AND dnom::float ={dnom} ORDER BY id;
                 """
         elif self.asset_type == "LINK":
             sql = f"""
                 SELECT distinct(matcat_id) AS id, matcat_id as idval
-                FROM am.ext_link_asset WHERE presszone_id = '{presszone}'
+                FROM am.{self._asset_table} WHERE presszone_id = '{presszone}'
                 AND expl_id = {exploitation} AND linkcat_id = '{dnom}' ORDER BY id;
                 """
         else:
             sql = f"""
                 SELECT distinct(node_type) AS id, node_type as idval
-                FROM am.ext_node_asset WHERE presszone_id = '{presszone}'
+                FROM am.{self._asset_table} WHERE presszone_id = '{presszone}'
                 AND expl_id = {exploitation} AND nodecat_id = '{dnom}' ORDER BY id;
                 """
         rows = tools_db.get_rows(sql)

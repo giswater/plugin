@@ -7,26 +7,59 @@ or (at your option) any later version.
 
 SET search_path = am, public, pg_catalog;
 
+-- Rename pre-prefix work tables (4.16 / early 4.17.0) → ws_*. Fresh installs already have ws_*.
+DO $$
+BEGIN
+	IF to_regclass('am.arc_input') IS NOT NULL AND to_regclass('am.ws_arc_input') IS NULL THEN
+		DROP VIEW IF EXISTS am.v_asset_arc_input CASCADE;
+		DROP VIEW IF EXISTS am.v_asset_arc_output CASCADE;
+		DROP VIEW IF EXISTS am.v_asset_arc_output_compare CASCADE;
+		DROP VIEW IF EXISTS am.v_asset_arc_corporate CASCADE;
+		DROP VIEW IF EXISTS am.v_asset_node_input CASCADE;
+		DROP VIEW IF EXISTS am.v_asset_node_output CASCADE;
+		DROP VIEW IF EXISTS am.v_asset_node_output_compare CASCADE;
+		DROP VIEW IF EXISTS am.v_asset_node_corporate CASCADE;
+		DROP VIEW IF EXISTS am.v_asset_link_input CASCADE;
+		DROP VIEW IF EXISTS am.v_asset_link_output CASCADE;
+		DROP VIEW IF EXISTS am.v_asset_link_output_compare CASCADE;
+		DROP VIEW IF EXISTS am.v_asset_link_corporate CASCADE;
+		ALTER TABLE am.arc_input RENAME TO ws_arc_input;
+		ALTER TABLE am.arc_engine_sh RENAME TO ws_arc_engine_sh;
+		ALTER TABLE am.arc_engine_wm RENAME TO ws_arc_engine_wm;
+		ALTER TABLE am.arc_output RENAME TO ws_arc_output;
+		IF to_regclass('am.node_input') IS NOT NULL THEN
+			ALTER TABLE am.node_input RENAME TO ws_node_input;
+			ALTER TABLE am.node_engine_wm RENAME TO ws_node_engine_wm;
+			ALTER TABLE am.node_output RENAME TO ws_node_output;
+		END IF;
+		IF to_regclass('am.link_input') IS NOT NULL THEN
+			ALTER TABLE am.link_input RENAME TO ws_link_input;
+			ALTER TABLE am.link_engine_wm RENAME TO ws_link_engine_wm;
+			ALTER TABLE am.link_output RENAME TO ws_link_output;
+		END IF;
+	END IF;
+END $$;
+
 -- Stage 1: Mincut criticity + Stage 2: WS nodes (Weighted Method)
 
 -- Stage 1: Mincut criticity (Weighted Method)
 
-ALTER TABLE am.arc_input
+ALTER TABLE am.ws_arc_input
 	ADD COLUMN IF NOT EXISTS mincut_customers integer,
 	ADD COLUMN IF NOT EXISTS mincut_criticity numeric(4,2);
 
-ALTER TABLE am.arc_engine_wm
+ALTER TABLE am.ws_arc_engine_wm
 	ADD COLUMN IF NOT EXISTS mincut_customers integer,
 	ADD COLUMN IF NOT EXISTS mincut_criticity numeric(4,2);
 
-ALTER TABLE am.arc_output
+ALTER TABLE am.ws_arc_output
 	ADD COLUMN IF NOT EXISTS mincut_customers integer,
 	ADD COLUMN IF NOT EXISTS mincut_criticity numeric(4,2);
 
 -- Stage 2: WS nodes Weighted Method
 
--- arc_input: data quality bookkeeping fields
-ALTER TABLE am.arc_input
+-- ws_arc_input: data quality bookkeeping fields
+ALTER TABLE am.ws_arc_input
 	ADD COLUMN IF NOT EXISTS data_quality integer,
 	ADD COLUMN IF NOT EXISTS data_quality_obs varchar[];
 
@@ -49,6 +82,24 @@ ALTER TABLE am.cat_result
 	ADD COLUMN IF NOT EXISTS asset_type varchar(10) DEFAULT 'ARC';
 
 UPDATE am.cat_result SET asset_type = 'ARC' WHERE asset_type IS NULL;
+
+ALTER TABLE am.cat_result
+	ADD COLUMN IF NOT EXISTS project_type varchar(2);
+UPDATE am.cat_result SET project_type = 'WS' WHERE project_type IS NULL;
+ALTER TABLE am.cat_result
+	ALTER COLUMN project_type SET DEFAULT 'WS',
+	ALTER COLUMN project_type SET NOT NULL;
+ALTER TABLE am.cat_result DROP CONSTRAINT IF EXISTS cat_result_project_type_check;
+ALTER TABLE am.cat_result
+	ADD CONSTRAINT cat_result_project_type_check CHECK (project_type = ANY (ARRAY['WS', 'UD']));
+ALTER TABLE am.cat_result DROP CONSTRAINT IF EXISTS cat_result_link_ws_check;
+ALTER TABLE am.cat_result
+	ADD CONSTRAINT cat_result_link_ws_check CHECK (asset_type IS DISTINCT FROM 'LINK' OR project_type = 'WS');
+
+ALTER TABLE am.cat_result DROP CONSTRAINT IF EXISTS cat_result_result_name_key;
+ALTER TABLE am.cat_result DROP CONSTRAINT IF EXISTS cat_result_result_name_project_type_key;
+ALTER TABLE am.cat_result
+	ADD CONSTRAINT cat_result_result_name_project_type_key UNIQUE (result_name, project_type);
 
 ALTER TABLE am.cat_result
 	ADD COLUMN IF NOT EXISTS nodecat_id character varying(30),
@@ -98,9 +149,22 @@ ALTER TABLE am.config_engine_def DROP CONSTRAINT IF EXISTS config_engine_def_ass
 ALTER TABLE am.config_engine_def
 	ADD CONSTRAINT config_engine_def_asset_type_check CHECK (asset_type = ANY (ARRAY['ARC', 'NODE', 'LINK']));
 
+ALTER TABLE am.config_engine_def
+	ADD COLUMN IF NOT EXISTS project_type varchar(2);
+UPDATE am.config_engine_def SET project_type = 'WS' WHERE project_type IS NULL;
+ALTER TABLE am.config_engine_def
+	ALTER COLUMN project_type SET DEFAULT 'WS',
+	ALTER COLUMN project_type SET NOT NULL;
+ALTER TABLE am.config_engine_def DROP CONSTRAINT IF EXISTS config_engine_def_project_type_check;
+ALTER TABLE am.config_engine_def
+	ADD CONSTRAINT config_engine_def_project_type_check CHECK (project_type = ANY (ARRAY['WS', 'UD']));
+ALTER TABLE am.config_engine_def DROP CONSTRAINT IF EXISTS config_engine_def_link_ws_check;
+ALTER TABLE am.config_engine_def
+	ADD CONSTRAINT config_engine_def_link_ws_check CHECK (asset_type <> 'LINK' OR project_type = 'WS');
+
 ALTER TABLE am.config_engine_def DROP CONSTRAINT IF EXISTS config_engine_def_pkey;
 ALTER TABLE am.config_engine_def
-	ADD CONSTRAINT config_engine_def_pkey PRIMARY KEY (parameter, method, asset_type);
+	ADD CONSTRAINT config_engine_def_pkey PRIMARY KEY (parameter, method, asset_type, project_type);
 
 -- config_engine: mirrors config_engine_def structure for saved results, keep asset_type in sync
 DO $$
@@ -131,16 +195,29 @@ ALTER TABLE am.config_engine DROP CONSTRAINT IF EXISTS config_engine_asset_type_
 ALTER TABLE am.config_engine
 	ADD CONSTRAINT config_engine_asset_type_check CHECK (asset_type = ANY (ARRAY['ARC', 'NODE', 'LINK']));
 
+ALTER TABLE am.config_engine
+	ADD COLUMN IF NOT EXISTS project_type varchar(2);
+UPDATE am.config_engine SET project_type = 'WS' WHERE project_type IS NULL;
+ALTER TABLE am.config_engine
+	ALTER COLUMN project_type SET DEFAULT 'WS',
+	ALTER COLUMN project_type SET NOT NULL;
+ALTER TABLE am.config_engine DROP CONSTRAINT IF EXISTS config_engine_project_type_check;
+ALTER TABLE am.config_engine
+	ADD CONSTRAINT config_engine_project_type_check CHECK (project_type = ANY (ARRAY['WS', 'UD']));
+ALTER TABLE am.config_engine DROP CONSTRAINT IF EXISTS config_engine_link_ws_check;
+ALTER TABLE am.config_engine
+	ADD CONSTRAINT config_engine_link_ws_check CHECK (asset_type <> 'LINK' OR project_type = 'WS');
+
 --
 -- Stage 2: NODE Weighted Method tables
 --
 
-DROP VIEW IF EXISTS am.v_asset_node_input CASCADE;
-DROP VIEW IF EXISTS am.v_asset_node_output CASCADE;
-DROP VIEW IF EXISTS am.v_asset_node_output_compare CASCADE;
-DROP VIEW IF EXISTS am.v_asset_node_corporate CASCADE;
+DROP VIEW IF EXISTS am.v_asset_ws_node_input CASCADE;
+DROP VIEW IF EXISTS am.v_asset_ws_node_output CASCADE;
+DROP VIEW IF EXISTS am.v_asset_ws_node_output_compare CASCADE;
+DROP VIEW IF EXISTS am.v_asset_ws_node_corporate CASCADE;
 
-CREATE TABLE IF NOT EXISTS am.node_input (
+CREATE TABLE IF NOT EXISTS am.ws_node_input (
 	node_id int4 NOT NULL,
 	age numeric(12,3),
 	incident_count numeric(12,3),
@@ -154,20 +231,20 @@ CREATE TABLE IF NOT EXISTS am.node_input (
 	data_quality integer,
 	data_quality_obs varchar[],
 	estimated_cost numeric(12,2),
-	CONSTRAINT node_input_pkey PRIMARY KEY (node_id)
+	CONSTRAINT ws_node_input_pkey PRIMARY KEY (node_id)
 );
 
 -- Upgrade path if an older Stage-2 draft table already exists
-ALTER TABLE am.node_input ADD COLUMN IF NOT EXISTS age numeric(12,3);
-ALTER TABLE am.node_input ADD COLUMN IF NOT EXISTS structural_raw numeric(12,3);
-ALTER TABLE am.node_input ADD COLUMN IF NOT EXISTS operational_raw numeric(12,3);
-ALTER TABLE am.node_input ADD COLUMN IF NOT EXISTS nrw_raw numeric(12,3);
-ALTER TABLE am.node_input ADD COLUMN IF NOT EXISTS affected_users_raw numeric(12,3);
-ALTER TABLE am.node_input ADD COLUMN IF NOT EXISTS data_quality integer;
-ALTER TABLE am.node_input ADD COLUMN IF NOT EXISTS data_quality_obs varchar[];
-ALTER TABLE am.node_input DROP COLUMN IF EXISTS affected_flow_raw;
+ALTER TABLE am.ws_node_input ADD COLUMN IF NOT EXISTS age numeric(12,3);
+ALTER TABLE am.ws_node_input ADD COLUMN IF NOT EXISTS structural_raw numeric(12,3);
+ALTER TABLE am.ws_node_input ADD COLUMN IF NOT EXISTS operational_raw numeric(12,3);
+ALTER TABLE am.ws_node_input ADD COLUMN IF NOT EXISTS nrw_raw numeric(12,3);
+ALTER TABLE am.ws_node_input ADD COLUMN IF NOT EXISTS affected_users_raw numeric(12,3);
+ALTER TABLE am.ws_node_input ADD COLUMN IF NOT EXISTS data_quality integer;
+ALTER TABLE am.ws_node_input ADD COLUMN IF NOT EXISTS data_quality_obs varchar[];
+ALTER TABLE am.ws_node_input DROP COLUMN IF EXISTS affected_flow_raw;
 
-CREATE TABLE IF NOT EXISTS am.node_engine_wm (
+CREATE TABLE IF NOT EXISTS am.ws_node_engine_wm (
 	node_id int4 NOT NULL,
 	result_id integer NOT NULL,
 	longevity numeric(5,2),
@@ -181,13 +258,13 @@ CREATE TABLE IF NOT EXISTS am.node_engine_wm (
 	val_first double precision,
 	val double precision,
 	orderby integer,
-	CONSTRAINT node_engine_wm_pkey PRIMARY KEY (node_id, result_id)
+	CONSTRAINT ws_node_engine_wm_pkey PRIMARY KEY (node_id, result_id)
 );
 
-ALTER TABLE am.node_engine_wm ADD COLUMN IF NOT EXISTS orderby integer;
-ALTER TABLE am.node_engine_wm DROP COLUMN IF EXISTS affected_flow;
+ALTER TABLE am.ws_node_engine_wm ADD COLUMN IF NOT EXISTS orderby integer;
+ALTER TABLE am.ws_node_engine_wm DROP COLUMN IF EXISTS affected_flow;
 
-CREATE TABLE IF NOT EXISTS am.node_output (
+CREATE TABLE IF NOT EXISTS am.ws_node_output (
 	node_id int4 NOT NULL,
 	result_id integer NOT NULL,
 	sector_id integer,
@@ -219,17 +296,17 @@ CREATE TABLE IF NOT EXISTS am.node_output (
 	estimated_cost numeric(12,2),
 	comments text,
 	data_quality_class varchar(20),
-	CONSTRAINT node_output_pkey PRIMARY KEY (node_id, result_id)
+	CONSTRAINT ws_node_output_pkey PRIMARY KEY (node_id, result_id)
 );
 
-ALTER TABLE am.node_output DROP COLUMN IF EXISTS affected_flow;
+ALTER TABLE am.ws_node_output DROP COLUMN IF EXISTS affected_flow;
 
-ALTER TABLE am.node_output ADD COLUMN IF NOT EXISTS longevity numeric(12,3);
-ALTER TABLE am.node_output ADD COLUMN IF NOT EXISTS incident_history numeric(12,3);
-ALTER TABLE am.node_output ADD COLUMN IF NOT EXISTS selected boolean DEFAULT false;
-ALTER TABLE am.node_output ADD COLUMN IF NOT EXISTS estimated_cost numeric(12,2);
-ALTER TABLE am.node_output ADD COLUMN IF NOT EXISTS comments text;
-ALTER TABLE am.node_output ADD COLUMN IF NOT EXISTS data_quality_class varchar(20);
+ALTER TABLE am.ws_node_output ADD COLUMN IF NOT EXISTS longevity numeric(12,3);
+ALTER TABLE am.ws_node_output ADD COLUMN IF NOT EXISTS incident_history numeric(12,3);
+ALTER TABLE am.ws_node_output ADD COLUMN IF NOT EXISTS selected boolean DEFAULT false;
+ALTER TABLE am.ws_node_output ADD COLUMN IF NOT EXISTS estimated_cost numeric(12,2);
+ALTER TABLE am.ws_node_output ADD COLUMN IF NOT EXISTS comments text;
+ALTER TABLE am.ws_node_output ADD COLUMN IF NOT EXISTS data_quality_class varchar(20);
 
 --
 -- NODE Weighted Method default weights
@@ -261,7 +338,7 @@ INSERT INTO am.config_engine_def (
 	('affected_arcs_2', '0.0', 'WM', NULL,
 	 'Weight for nodes between arcs planned in the linked ARC result (share of adjacent arcs in that plan). Locked to 0 when no ARC result is linked.',
 	 true, 'lyt_engine_2', 9, 'Affected arcs', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE')
-ON CONFLICT (parameter, method, asset_type) DO NOTHING;
+ON CONFLICT (parameter, method, asset_type, project_type) DO NOTHING;
 
 -- Drop retired NODE indicator affected_flow (redistribute param_2 defaults to sum 1)
 DELETE FROM am.config_engine
@@ -293,9 +370,9 @@ INSERT INTO am.config_engine_def (
 	 'Mincut criticity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC'),
 	('mincut_criticity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 11,
 	 'Mincut criticity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC')
-ON CONFLICT (parameter, method, asset_type) DO NOTHING;
+ON CONFLICT (parameter, method, asset_type, project_type) DO NOTHING;
 
-CREATE OR REPLACE VIEW am.v_asset_arc_output AS
+CREATE OR REPLACE VIEW am.v_asset_ws_arc_output AS
  SELECT arc_id,
     o.result_id,
     sector_id,
@@ -330,11 +407,11 @@ CREATE OR REPLACE VIEW am.v_asset_arc_output AS
     length,
     cum_length,
     the_geom
-   FROM arc_output o
+   FROM ws_arc_output o
      JOIN selector_result_main s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
 
-CREATE OR REPLACE VIEW am.v_asset_arc_output_compare AS
+CREATE OR REPLACE VIEW am.v_asset_ws_arc_output_compare AS
  SELECT arc_id,
     o.result_id,
     sector_id,
@@ -369,11 +446,11 @@ CREATE OR REPLACE VIEW am.v_asset_arc_output_compare AS
     length,
     cum_length,
     the_geom
-   FROM arc_output o
+   FROM ws_arc_output o
      JOIN selector_result_compare s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
 
-CREATE OR REPLACE VIEW am.v_asset_arc_corporate AS
+CREATE OR REPLACE VIEW am.v_asset_ws_arc_corporate AS
  SELECT o.arc_id,
     o.result_id,
     o.sector_id,
@@ -408,18 +485,18 @@ CREATE OR REPLACE VIEW am.v_asset_arc_corporate AS
     o.length,
     o.cum_length,
     o.the_geom
-   FROM arc_output o
+   FROM ws_arc_output o
      JOIN cat_result r ON r.result_id = o.result_id
   WHERE r.iscorporate = TRUE;
 
--- v_asset_arc_input depends on WS integration view ext_arc_asset
+-- v_asset_ws_arc_input depends on WS integration view ext_ws_arc_asset
 DO $$
 BEGIN
-	IF to_regclass('am.ext_arc_asset') IS NOT NULL THEN
-		DROP VIEW IF EXISTS am.v_asset_arc_input CASCADE;
+	IF to_regclass('am.ext_ws_arc_asset') IS NOT NULL THEN
+		DROP VIEW IF EXISTS am.v_asset_ws_arc_input CASCADE;
 
 		EXECUTE $view$
-			CREATE VIEW am.v_asset_arc_input AS
+			CREATE VIEW am.v_asset_ws_arc_input AS
 			 SELECT a.arc_id,
 			    i.mandatory,
 			    i.strategic,
@@ -442,14 +519,14 @@ BEGIN
 			    a.dma_id,
 			    a.code,
 			    a.the_geom
-			   FROM (ext_arc_asset a
-			     LEFT JOIN arc_input i USING (arc_id))
+			   FROM (ext_ws_arc_asset a
+			     LEFT JOIN ws_arc_input i USING (arc_id))
 		$view$;
 
 		EXECUTE $rule$
-			CREATE RULE v_asset_arc_input_update AS ON UPDATE TO v_asset_arc_input
+			CREATE RULE v_asset_ws_arc_input_update AS ON UPDATE TO v_asset_ws_arc_input
 			 DO INSTEAD
-			 INSERT INTO arc_input (arc_id, mandatory, strategic, rleak)
+			 INSERT INTO ws_arc_input (arc_id, mandatory, strategic, rleak)
 			 VALUES (NEW.arc_id, NEW.mandatory, NEW.strategic, NEW.rleak)
 			 ON CONFLICT(arc_id) DO
 			 UPDATE SET mandatory = EXCLUDED.mandatory,
@@ -457,13 +534,13 @@ BEGIN
 			    rleak = EXCLUDED.rleak
 		$rule$;
 
-		GRANT ALL ON TABLE am.v_asset_arc_input TO role_basic;
+		GRANT ALL ON TABLE am.v_asset_ws_arc_input TO role_basic;
 	END IF;
 END $$;
 
-GRANT ALL ON TABLE am.v_asset_arc_output TO role_basic;
-GRANT ALL ON TABLE am.v_asset_arc_output_compare TO role_basic;
-GRANT ALL ON TABLE am.v_asset_arc_corporate TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ws_arc_output TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ws_arc_output_compare TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ws_arc_corporate TO role_basic;
 
 CREATE OR REPLACE FUNCTION am.gw_fct_am_update_mincut_criticity(p_data json DEFAULT '{}'::json)
 RETURNS json AS
@@ -509,7 +586,7 @@ BEGIN
 		);
 	END IF;
 
-	UPDATE am.arc_input
+	UPDATE am.ws_arc_input
 	SET mincut_customers = NULL,
 		mincut_criticity = NULL;
 
@@ -550,7 +627,7 @@ BEGIN
 			FROM affected_customers ac
 			CROSS JOIN limits l
 		)
-		INSERT INTO am.arc_input (arc_id, mincut_customers, mincut_criticity)
+		INSERT INTO am.ws_arc_input (arc_id, mincut_customers, mincut_criticity)
 		SELECT arc_id, mincut_customers, mincut_criticity
 		FROM classified
 		ON CONFLICT (arc_id) DO UPDATE
@@ -581,7 +658,7 @@ GRANT EXECUTE ON FUNCTION am.gw_fct_am_update_mincut_criticity(json) TO role_bas
 --
 -- NODE result views
 --
-CREATE OR REPLACE VIEW am.v_asset_node_output AS
+CREATE OR REPLACE VIEW am.v_asset_ws_node_output AS
  SELECT node_id,
     o.result_id,
     sector_id,
@@ -613,11 +690,11 @@ CREATE OR REPLACE VIEW am.v_asset_node_output AS
     comments,
     data_quality_class,
     the_geom
-   FROM am.node_output o
+   FROM am.ws_node_output o
      JOIN am.selector_result_main s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
 
-CREATE OR REPLACE VIEW am.v_asset_node_output_compare AS
+CREATE OR REPLACE VIEW am.v_asset_ws_node_output_compare AS
  SELECT node_id,
     o.result_id,
     sector_id,
@@ -649,11 +726,11 @@ CREATE OR REPLACE VIEW am.v_asset_node_output_compare AS
     comments,
     data_quality_class,
     the_geom
-   FROM am.node_output o
+   FROM am.ws_node_output o
      JOIN am.selector_result_compare s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
 
-CREATE OR REPLACE VIEW am.v_asset_node_corporate AS
+CREATE OR REPLACE VIEW am.v_asset_ws_node_corporate AS
  SELECT o.node_id,
     o.result_id,
     o.sector_id,
@@ -685,16 +762,16 @@ CREATE OR REPLACE VIEW am.v_asset_node_corporate AS
     o.comments,
     o.data_quality_class,
     o.the_geom
-   FROM am.node_output o
+   FROM am.ws_node_output o
      JOIN am.cat_result r ON r.result_id = o.result_id
   WHERE r.iscorporate = TRUE;
 
-GRANT ALL ON TABLE am.node_input TO role_basic;
-GRANT ALL ON TABLE am.node_engine_wm TO role_basic;
-GRANT ALL ON TABLE am.node_output TO role_basic;
-GRANT ALL ON TABLE am.v_asset_node_output TO role_basic;
-GRANT ALL ON TABLE am.v_asset_node_output_compare TO role_basic;
-GRANT ALL ON TABLE am.v_asset_node_corporate TO role_basic;
+GRANT ALL ON TABLE am.ws_node_input TO role_basic;
+GRANT ALL ON TABLE am.ws_node_engine_wm TO role_basic;
+GRANT ALL ON TABLE am.ws_node_output TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ws_node_output TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ws_node_output_compare TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ws_node_corporate TO role_basic;
 
 -- NODE catalog config (mirrors config_catalog_def / config_catalog for cat_node)
 CREATE TABLE IF NOT EXISTS am.config_nodecatalog_def (
@@ -729,7 +806,7 @@ ON CONFLICT (objectname, columnname) DO NOTHING;
 INSERT INTO am.config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'compliance', 3, true, NULL, NULL, '{"stretch": true}')
 ON CONFLICT (objectname, columnname) DO NOTHING;
 
--- ext_node_asset + v_asset_node_input when parent WS is known
+-- ext_ws_node_asset + v_asset_ws_node_input when parent WS is known
 DO $$
 DECLARE
 	v_parent text;
@@ -745,7 +822,7 @@ BEGIN
 	END IF;
 
 	EXECUTE format($view$
-		CREATE OR REPLACE VIEW am.ext_node_asset AS
+		CREATE OR REPLACE VIEW am.ext_ws_node_asset AS
 		SELECT
 			n.node_id,
 			n.sector_id,
@@ -781,7 +858,7 @@ BEGIN
 	$view$, v_parent);
 
 	EXECUTE $view$
-		CREATE OR REPLACE VIEW am.v_asset_node_input AS
+		CREATE OR REPLACE VIEW am.v_asset_ws_node_input AS
 		SELECT
 			a.node_id,
 			COALESCE(i.age, a.age) AS age,
@@ -806,14 +883,14 @@ BEGIN
 			a.dma_id,
 			a.code,
 			a.the_geom
-		FROM am.ext_node_asset a
-		LEFT JOIN am.node_input i USING (node_id)
+		FROM am.ext_ws_node_asset a
+		LEFT JOIN am.ws_node_input i USING (node_id)
 	$view$;
 
 	EXECUTE $rule$
-		CREATE OR REPLACE RULE v_asset_node_input_update AS ON UPDATE TO am.v_asset_node_input
+		CREATE OR REPLACE RULE v_asset_ws_node_input_update AS ON UPDATE TO am.v_asset_ws_node_input
 		DO INSTEAD
-		INSERT INTO am.node_input (
+		INSERT INTO am.ws_node_input (
 			node_id, strategic, compliance, mandatory,
 			incident_count, structural_raw, operational_raw,
 			nrw_raw, affected_users_raw, estimated_cost
@@ -834,8 +911,8 @@ BEGIN
 			estimated_cost = EXCLUDED.estimated_cost
 	$rule$;
 
-	GRANT ALL ON TABLE am.ext_node_asset TO role_basic;
-	GRANT ALL ON TABLE am.v_asset_node_input TO role_basic;
+	GRANT ALL ON TABLE am.ext_ws_node_asset TO role_basic;
+	GRANT ALL ON TABLE am.v_asset_ws_node_input TO role_basic;
 
 	-- Seed / sync NODE catalog from parent cat_node (mirrors cat_arc → config_catalog_def)
 	IF NOT EXISTS (SELECT 1 FROM am.config_nodecatalog_def LIMIT 1) THEN
@@ -894,19 +971,19 @@ BEGIN
 		ON CONFLICT (typevalue, id) DO NOTHING;
 
 		INSERT INTO %1$I.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-		VALUES('v_asset_node_output_compare', 'id', 'role_om', NULL, '36', 5, 'Node Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+		VALUES('v_asset_ws_node_output_compare', 'id', 'role_om', NULL, '36', 5, 'Node Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
 		ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 		INSERT INTO %1$I.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-		VALUES('v_asset_node_output', 'id', 'role_om', NULL, '36', 4, 'Node Result - Main', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+		VALUES('v_asset_ws_node_output', 'id', 'role_om', NULL, '36', 4, 'Node Result - Main', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
 		ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 		INSERT INTO %1$I.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-		VALUES('v_asset_node_corporate', 'id', 'role_om', NULL, '36', 3, 'Node Corporate Assets', NULL, NULL, NULL, 'am', NULL)
+		VALUES('v_asset_ws_node_corporate', 'id', 'role_om', NULL, '36', 3, 'Node Corporate Assets', NULL, NULL, NULL, 'am', NULL)
 		ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 		INSERT INTO %1$I.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-		VALUES('v_asset_node_input', 'id', 'role_om', NULL, '36', 2, 'Node Input Assets', NULL, NULL, NULL, 'am', NULL)
+		VALUES('v_asset_ws_node_input', 'id', 'role_om', NULL, '36', 2, 'Node Input Assets', NULL, NULL, NULL, 'am', NULL)
 		ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 		INSERT INTO %1$I.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-		VALUES('ext_node_asset', 'id', 'role_om', NULL, '36', 1, 'Existing Node Assets', NULL, NULL, NULL, 'am', NULL)
+		VALUES('ext_ws_node_asset', 'id', 'role_om', NULL, '36', 1, 'Existing Node Assets', NULL, NULL, NULL, 'am', NULL)
 		ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 	$sys$, v_parent);
 END $$;
@@ -937,43 +1014,43 @@ BEGIN
 
 		-- ARC layers
 		UPDATE %1$I.sys_table SET context = '35', orderby = 7, alias = 'Arc Result - Compare', "source" = 'am'
-		WHERE id = 'v_asset_arc_output_compare';
+		WHERE id = 'v_asset_ws_arc_output_compare';
 		UPDATE %1$I.sys_table SET context = '35', orderby = 6, alias = 'Arc Result - Main', "source" = 'am'
-		WHERE id = 'v_asset_arc_output';
+		WHERE id = 'v_asset_ws_arc_output';
 		UPDATE %1$I.sys_table SET context = '35', orderby = 5, alias = 'Arc Corporate Assets', "source" = 'am'
-		WHERE id = 'v_asset_arc_corporate';
+		WHERE id = 'v_asset_ws_arc_corporate';
 		UPDATE %1$I.sys_table SET context = '35', orderby = 4, alias = 'Arc Assets Result', "source" = 'am'
-		WHERE id = 'arc_output';
+		WHERE id = 'ws_arc_output';
 		UPDATE %1$I.sys_table SET context = '35', orderby = 3, alias = 'Arc Input Assets', "source" = 'am'
-		WHERE id = 'v_asset_arc_input';
+		WHERE id = 'v_asset_ws_arc_input';
 		UPDATE %1$I.sys_table SET context = '35', orderby = 2, alias = 'Leaks', "source" = 'am'
 		WHERE id = 'leaks';
 		UPDATE %1$I.sys_table SET context = '35', orderby = 1, alias = 'Existing Arc Assets', "source" = 'am'
-		WHERE id = 'ext_arc_asset';
+		WHERE id = 'ext_ws_arc_asset';
 
 		-- NODE layers
 		UPDATE %1$I.sys_table SET context = '36', orderby = 5, alias = 'Node Result - Compare', "source" = 'am'
-		WHERE id = 'v_asset_node_output_compare';
+		WHERE id = 'v_asset_ws_node_output_compare';
 		UPDATE %1$I.sys_table SET context = '36', orderby = 4, alias = 'Node Result - Main', "source" = 'am'
-		WHERE id = 'v_asset_node_output';
+		WHERE id = 'v_asset_ws_node_output';
 		UPDATE %1$I.sys_table SET context = '36', orderby = 3, alias = 'Node Corporate Assets', "source" = 'am'
-		WHERE id = 'v_asset_node_corporate';
+		WHERE id = 'v_asset_ws_node_corporate';
 		UPDATE %1$I.sys_table SET context = '36', orderby = 2, alias = 'Node Input Assets', "source" = 'am'
-		WHERE id = 'v_asset_node_input';
+		WHERE id = 'v_asset_ws_node_input';
 		UPDATE %1$I.sys_table SET context = '36', orderby = 1, alias = 'Existing Node Assets', "source" = 'am'
-		WHERE id = 'ext_node_asset';
+		WHERE id = 'ext_ws_node_asset';
 
 		-- LINK layers
 		UPDATE %1$I.sys_table SET context = '38', orderby = 5, alias = 'Link Result - Compare', "source" = 'am'
-		WHERE id = 'v_asset_link_output_compare';
+		WHERE id = 'v_asset_ws_link_output_compare';
 		UPDATE %1$I.sys_table SET context = '38', orderby = 4, alias = 'Link Result - Main', "source" = 'am'
-		WHERE id = 'v_asset_link_output';
+		WHERE id = 'v_asset_ws_link_output';
 		UPDATE %1$I.sys_table SET context = '38', orderby = 3, alias = 'Link Corporate Assets', "source" = 'am'
-		WHERE id = 'v_asset_link_corporate';
+		WHERE id = 'v_asset_ws_link_corporate';
 		UPDATE %1$I.sys_table SET context = '38', orderby = 2, alias = 'Link Input Assets', "source" = 'am'
-		WHERE id = 'v_asset_link_input';
+		WHERE id = 'v_asset_ws_link_input';
 		UPDATE %1$I.sys_table SET context = '38', orderby = 1, alias = 'Existing Link Assets', "source" = 'am'
-		WHERE id = 'ext_link_asset';
+		WHERE id = 'ext_ws_link_asset';
 
 		-- CONFIG tables
 		INSERT INTO %1$I.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES
@@ -1004,14 +1081,14 @@ INSERT INTO am.config_engine_def (
 	 'Weight for nodes between arcs planned in the linked ARC result (share of adjacent arcs in that plan). Locked to 0 when no ARC result is linked.',
 	 true, 'lyt_engine_2', 9, 'Affected arcs', 'float', 'text',
 	 NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE')
-ON CONFLICT (parameter, method, asset_type) DO UPDATE SET
+ON CONFLICT (parameter, method, asset_type, project_type) DO UPDATE SET
 	value = EXCLUDED.value,
 	label = EXCLUDED.label,
 	descript = EXCLUDED.descript,
 	layoutname = EXCLUDED.layoutname,
 	layoutorder = EXCLUDED.layoutorder;
 
--- ext_arc_asset: do not drop pipes missing node_add / arc_add (LEFT JOIN)
+-- ext_ws_arc_asset: do not drop pipes missing node_add / arc_add (LEFT JOIN)
 DO $$
 DECLARE
 	v_parent text;
@@ -1027,7 +1104,7 @@ BEGIN
 	END IF;
 
 	EXECUTE format($view$
-		CREATE OR REPLACE VIEW am.ext_arc_asset AS
+		CREATE OR REPLACE VIEW am.ext_ws_arc_asset AS
 		WITH nodes AS MATERIALIZED (
 			SELECT node.node_id,
 				node_add.press_avg
@@ -1158,7 +1235,7 @@ CREATE TABLE IF NOT EXISTS am.config_linkmaterial_def (
 	CONSTRAINT config_linkmaterial_def_pkey PRIMARY KEY (material)
 );
 
-CREATE TABLE IF NOT EXISTS am.link_input (
+CREATE TABLE IF NOT EXISTS am.ws_link_input (
 	link_id int4 NOT NULL,
 	connec_id int4,
 	arc_id int4,
@@ -1173,13 +1250,13 @@ CREATE TABLE IF NOT EXISTS am.link_input (
 	data_quality integer,
 	data_quality_obs varchar[],
 	estimated_cost numeric(12,2),
-	CONSTRAINT link_input_pkey PRIMARY KEY (link_id)
+	CONSTRAINT ws_link_input_pkey PRIMARY KEY (link_id)
 );
 
-CREATE INDEX IF NOT EXISTS link_input_connec_idx ON am.link_input (connec_id);
-CREATE INDEX IF NOT EXISTS link_input_arc_idx ON am.link_input (arc_id);
+CREATE INDEX IF NOT EXISTS ws_link_input_connec_idx ON am.ws_link_input (connec_id);
+CREATE INDEX IF NOT EXISTS ws_link_input_arc_idx ON am.ws_link_input (arc_id);
 
-CREATE TABLE IF NOT EXISTS am.link_engine_wm (
+CREATE TABLE IF NOT EXISTS am.ws_link_engine_wm (
 	link_id int4 NOT NULL,
 	result_id integer NOT NULL,
 	longevity numeric(5,2),
@@ -1192,13 +1269,13 @@ CREATE TABLE IF NOT EXISTS am.link_engine_wm (
 	val_first double precision,
 	val double precision,
 	orderby integer,
-	CONSTRAINT link_engine_wm_pkey PRIMARY KEY (link_id, result_id)
+	CONSTRAINT ws_link_engine_wm_pkey PRIMARY KEY (link_id, result_id)
 );
 
-CREATE INDEX IF NOT EXISTS link_engine_wm_result_idx ON am.link_engine_wm (result_id);
-CREATE INDEX IF NOT EXISTS link_engine_wm_orderby_idx ON am.link_engine_wm (result_id, orderby);
+CREATE INDEX IF NOT EXISTS ws_link_engine_wm_result_idx ON am.ws_link_engine_wm (result_id);
+CREATE INDEX IF NOT EXISTS ws_link_engine_wm_orderby_idx ON am.ws_link_engine_wm (result_id, orderby);
 
-CREATE TABLE IF NOT EXISTS am.link_output (
+CREATE TABLE IF NOT EXISTS am.ws_link_output (
 	link_id int4 NOT NULL,
 	result_id integer NOT NULL,
 	connec_id int4,
@@ -1232,19 +1309,19 @@ CREATE TABLE IF NOT EXISTS am.link_output (
 	estimated_cost numeric(12,2),
 	comments text,
 	data_quality_class varchar(20),
-	CONSTRAINT link_output_pkey PRIMARY KEY (link_id, result_id)
+	CONSTRAINT ws_link_output_pkey PRIMARY KEY (link_id, result_id)
 );
 
-CREATE INDEX IF NOT EXISTS link_output_result_idx ON am.link_output (result_id);
-CREATE INDEX IF NOT EXISTS link_output_arc_idx ON am.link_output (result_id, arc_id);
-CREATE INDEX IF NOT EXISTS link_output_connec_idx ON am.link_output (result_id, connec_id);
+CREATE INDEX IF NOT EXISTS ws_link_output_result_idx ON am.ws_link_output (result_id);
+CREATE INDEX IF NOT EXISTS ws_link_output_arc_idx ON am.ws_link_output (result_id, arc_id);
+CREATE INDEX IF NOT EXISTS ws_link_output_connec_idx ON am.ws_link_output (result_id, connec_id);
 
 GRANT ALL ON TABLE am.config_linkcatalog TO role_basic;
 GRANT ALL ON TABLE am.config_linkcatalog_def TO role_basic;
 GRANT ALL ON TABLE am.config_linkmaterial_def TO role_basic;
-GRANT ALL ON TABLE am.link_input TO role_basic;
-GRANT ALL ON TABLE am.link_engine_wm TO role_basic;
-GRANT ALL ON TABLE am.link_output TO role_basic;
+GRANT ALL ON TABLE am.ws_link_input TO role_basic;
+GRANT ALL ON TABLE am.ws_link_engine_wm TO role_basic;
+GRANT ALL ON TABLE am.ws_link_output TO role_basic;
 
 INSERT INTO am.config_linkmaterial_def (material, score, descript) VALUES
 	('PE', 2, 'Modern polyethylene'),
@@ -1267,11 +1344,11 @@ ON CONFLICT (objectname, columnname) DO NOTHING;
 INSERT INTO am.config_form_tableview VALUES ('priority_config', 'utils', 'config_linkcatalog_def', 'default_length', 5, true, NULL, 'Default length (m)', '{"stretch": true}')
 ON CONFLICT (objectname, columnname) DO NOTHING;
 
-DROP VIEW IF EXISTS am.v_asset_link_output CASCADE;
-DROP VIEW IF EXISTS am.v_asset_link_output_compare CASCADE;
-DROP VIEW IF EXISTS am.v_asset_link_corporate CASCADE;
+DROP VIEW IF EXISTS am.v_asset_ws_link_output CASCADE;
+DROP VIEW IF EXISTS am.v_asset_ws_link_output_compare CASCADE;
+DROP VIEW IF EXISTS am.v_asset_ws_link_corporate CASCADE;
 
-CREATE OR REPLACE VIEW am.v_asset_link_output AS
+CREATE OR REPLACE VIEW am.v_asset_ws_link_output AS
  SELECT o.link_id,
     o.result_id,
     o.connec_id,
@@ -1308,13 +1385,13 @@ CREATE OR REPLACE VIEW am.v_asset_link_output AS
     ao.orderby AS parent_arc_orderby,
     (ao.arc_id IS NOT NULL) AS parent_arc_selected_result,
     o.the_geom
-   FROM am.link_output o
+   FROM am.ws_link_output o
      JOIN am.selector_result_main s ON (s.result_id = o.result_id)
      JOIN am.cat_result r ON r.result_id = o.result_id
-     LEFT JOIN am.arc_output ao ON ao.result_id = r.linked_arc_result_id AND ao.arc_id = o.arc_id
+     LEFT JOIN am.ws_arc_output ao ON ao.result_id = r.linked_arc_result_id AND ao.arc_id = o.arc_id
   WHERE (s.cur_user = (CURRENT_USER)::text);
 
-CREATE OR REPLACE VIEW am.v_asset_link_output_compare AS
+CREATE OR REPLACE VIEW am.v_asset_ws_link_output_compare AS
  SELECT o.link_id,
     o.result_id,
     o.connec_id,
@@ -1351,13 +1428,13 @@ CREATE OR REPLACE VIEW am.v_asset_link_output_compare AS
     ao.orderby AS parent_arc_orderby,
     (ao.arc_id IS NOT NULL) AS parent_arc_selected_result,
     o.the_geom
-   FROM am.link_output o
+   FROM am.ws_link_output o
      JOIN am.selector_result_compare s ON (s.result_id = o.result_id)
      JOIN am.cat_result r ON r.result_id = o.result_id
-     LEFT JOIN am.arc_output ao ON ao.result_id = r.linked_arc_result_id AND ao.arc_id = o.arc_id
+     LEFT JOIN am.ws_arc_output ao ON ao.result_id = r.linked_arc_result_id AND ao.arc_id = o.arc_id
   WHERE (s.cur_user = (CURRENT_USER)::text);
 
-CREATE OR REPLACE VIEW am.v_asset_link_corporate AS
+CREATE OR REPLACE VIEW am.v_asset_ws_link_corporate AS
  SELECT o.link_id,
     o.result_id,
     o.connec_id,
@@ -1391,13 +1468,13 @@ CREATE OR REPLACE VIEW am.v_asset_link_corporate AS
     o.comments,
     o.data_quality_class,
     o.the_geom
-   FROM am.link_output o
+   FROM am.ws_link_output o
      JOIN am.cat_result r ON r.result_id = o.result_id
   WHERE r.iscorporate = TRUE;
 
-GRANT ALL ON TABLE am.v_asset_link_output TO role_basic;
-GRANT ALL ON TABLE am.v_asset_link_output_compare TO role_basic;
-GRANT ALL ON TABLE am.v_asset_link_corporate TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ws_link_output TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ws_link_output_compare TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ws_link_corporate TO role_basic;
 
 INSERT INTO am.config_engine_def (
 	parameter, value, method, round, descript, active, layoutname, layoutorder,
@@ -1422,14 +1499,14 @@ INSERT INTO am.config_engine_def (
 	 true, 'lyt_engine_2', 5, 'Parent arc selected', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
 	('strategic_2', '0.20', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
 	('compliance_2', '0.20', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK')
-ON CONFLICT (parameter, method, asset_type) DO UPDATE SET
+ON CONFLICT (parameter, method, asset_type, project_type) DO UPDATE SET
 	value = EXCLUDED.value,
 	label = EXCLUDED.label,
 	descript = EXCLUDED.descript,
 	layoutname = EXCLUDED.layoutname,
 	layoutorder = EXCLUDED.layoutorder;
 
--- ext_link_asset + v_asset_link_input when parent WS is known
+-- ext_ws_link_asset + v_asset_ws_link_input when parent WS is known
 DO $$
 DECLARE
 	v_parent text;
@@ -1464,7 +1541,7 @@ BEGIN
 	END;
 
 	EXECUTE format($view$
-		CREATE OR REPLACE VIEW am.ext_link_asset AS
+		CREATE OR REPLACE VIEW am.ext_ws_link_asset AS
 		SELECT
 			l.link_id,
 			CASE WHEN upper(trim(l.feature_type)) = 'CONNEC' AND l.feature_id::text ~ '^[0-9]+$'
@@ -1511,8 +1588,8 @@ BEGIN
 	);
 
 	EXECUTE $view$
-		DROP VIEW IF EXISTS am.v_asset_link_input CASCADE;
-		CREATE VIEW am.v_asset_link_input AS
+		DROP VIEW IF EXISTS am.v_asset_ws_link_input CASCADE;
+		CREATE VIEW am.v_asset_ws_link_input AS
 		 SELECT a.link_id,
 		    a.connec_id,
 		    a.arc_id,
@@ -1540,12 +1617,12 @@ BEGIN
 		    a.presszone_id,
 		    a.dma_id,
 		    a.the_geom
-		   FROM (am.ext_link_asset a
-		     LEFT JOIN am.link_input i USING (link_id));
+		   FROM (am.ext_ws_link_asset a
+		     LEFT JOIN am.ws_link_input i USING (link_id));
 
-		CREATE RULE v_asset_link_input_update AS ON UPDATE TO am.v_asset_link_input
+		CREATE RULE v_asset_ws_link_input_update AS ON UPDATE TO am.v_asset_ws_link_input
 		 DO INSTEAD
-		 INSERT INTO am.link_input (link_id, connec_id, arc_id, mandatory, strategic,
+		 INSERT INTO am.ws_link_input (link_id, connec_id, arc_id, mandatory, strategic,
 		    incident_count, material_raw, affected_users_raw, compliance, estimated_cost)
 		 VALUES (NEW.link_id, NEW.connec_id, NEW.arc_id, NEW.mandatory, NEW.strategic,
 		    NEW.incident_count, NEW.material_raw, NEW.affected_users_raw,
@@ -1599,8 +1676,8 @@ BEGIN
 		FOR EACH ROW EXECUTE PROCEDURE %1$I.gw_trg_asset_cat_link();
 	$trg$, v_parent);
 
-	GRANT ALL ON TABLE am.ext_link_asset TO role_basic;
-	GRANT ALL ON TABLE am.v_asset_link_input TO role_basic;
+	GRANT ALL ON TABLE am.ext_ws_link_asset TO role_basic;
+	GRANT ALL ON TABLE am.v_asset_ws_link_input TO role_basic;
 
 	EXECUTE format($sys$
 		INSERT INTO %1$I.config_typevalue (typevalue, id, idval, addparam)
@@ -1610,31 +1687,300 @@ BEGIN
 		WHERE typevalue = 'sys_table_context' AND id = '37';
 
 		INSERT INTO %1$I.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-		VALUES('v_asset_link_output_compare', 'id', 'role_om', NULL, '38', 5, 'Link Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+		VALUES('v_asset_ws_link_output_compare', 'id', 'role_om', NULL, '38', 5, 'Link Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
 		ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 		INSERT INTO %1$I.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-		VALUES('v_asset_link_output', 'id', 'role_om', NULL, '38', 4, 'Link Result - Main', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+		VALUES('v_asset_ws_link_output', 'id', 'role_om', NULL, '38', 4, 'Link Result - Main', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
 		ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 		INSERT INTO %1$I.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-		VALUES('v_asset_link_corporate', 'id', 'role_om', NULL, '38', 3, 'Link Corporate Assets', NULL, NULL, NULL, 'am', NULL)
+		VALUES('v_asset_ws_link_corporate', 'id', 'role_om', NULL, '38', 3, 'Link Corporate Assets', NULL, NULL, NULL, 'am', NULL)
 		ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 		INSERT INTO %1$I.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-		VALUES('v_asset_link_input', 'id', 'role_om', NULL, '38', 2, 'Link Input Assets', NULL, NULL, NULL, 'am', NULL)
+		VALUES('v_asset_ws_link_input', 'id', 'role_om', NULL, '38', 2, 'Link Input Assets', NULL, NULL, NULL, 'am', NULL)
 		ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 		INSERT INTO %1$I.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-		VALUES('ext_link_asset', 'id', 'role_om', NULL, '38', 1, 'Existing Link Assets', NULL, NULL, NULL, 'am', NULL)
+		VALUES('ext_ws_link_asset', 'id', 'role_om', NULL, '38', 1, 'Existing Link Assets', NULL, NULL, NULL, 'am', NULL)
 		ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 
 		INSERT INTO %1$I.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-		SELECT 'v_asset_link_output', styleconfig_id, styletype, stylevalue, active
+		SELECT 'v_asset_ws_link_output', styleconfig_id, styletype, stylevalue, active
 		FROM %1$I.sys_style
-		WHERE layername = 'v_asset_arc_output' AND styleconfig_id = 101
+		WHERE layername = 'v_asset_ws_arc_output' AND styleconfig_id = 101
 		ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 		INSERT INTO %1$I.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-		SELECT 'v_asset_link_output_compare', styleconfig_id, styletype, stylevalue, active
+		SELECT 'v_asset_ws_link_output_compare', styleconfig_id, styletype, stylevalue, active
 		FROM %1$I.sys_style
-		WHERE layername = 'v_asset_arc_output_compare' AND styleconfig_id = 101
+		WHERE layername = 'v_asset_ws_arc_output_compare' AND styleconfig_id = 101
 		ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 	$sys$, v_parent);
 END $$;
+
+-- Stage 4 prep: WS|UD discriminator column in result manager
+INSERT INTO am.config_form_tableview VALUES (
+	'priority_manager', 'utils', 'cat_result', 'project_type', 16, true, NULL, 'Project', '{"stretch": true}'
+) ON CONFLICT (objectname, columnname) DO UPDATE
+	SET alias = EXCLUDED.alias, visible = EXCLUDED.visible, columnindex = EXCLUDED.columnindex;
+
+-- Stage 4: UD work tables (idempotent; fresh base.sql already has them)
+CREATE TABLE IF NOT EXISTS am.ud_arc_input (
+    arc_id int4 NOT NULL,
+    age numeric(12,3),
+    incident_count numeric(12,3),
+    structural_raw numeric(12,3),
+    operational_raw numeric(12,3),
+    dwf_raw numeric(12,3),
+    storm_raw numeric(12,3),
+    strategic boolean,
+    compliance boolean,
+    mandatory boolean DEFAULT false,
+    data_quality integer,
+    data_quality_obs varchar[],
+    estimated_cost numeric(12,2),
+    CONSTRAINT ud_arc_input_pkey PRIMARY KEY (arc_id)
+);
+
+CREATE TABLE IF NOT EXISTS am.ud_arc_engine_wm (
+    arc_id int4 NOT NULL,
+    result_id integer NOT NULL,
+    longevity numeric(5,2),
+    incident_history numeric(5,2),
+    structural_condition numeric(5,2),
+    operational_condition numeric(5,2),
+    dwf_impact numeric(5,2),
+    storm_impact numeric(5,2),
+    strategic numeric(5,2),
+    compliance numeric(5,2),
+    val_first double precision,
+    val double precision,
+    orderby integer,
+    CONSTRAINT ud_arc_engine_wm_pkey PRIMARY KEY (arc_id, result_id)
+);
+
+CREATE TABLE IF NOT EXISTS am.ud_arc_output (
+    arc_id int4 NOT NULL,
+    result_id integer NOT NULL,
+    sector_id integer,
+    macrosector_id integer,
+    drainzone_id character varying(30),
+    presszone_id character varying(30),
+    builtdate date,
+    arccat_id character varying(30),
+    dnom character varying(16),
+    matcat_id character varying(30),
+    function_type character varying(50),
+    the_geom public.geometry(multilinestring,SCHEMA_SRID),
+    code character varying(50),
+    expl_id integer,
+    dma_id integer,
+    longevity numeric(12,3),
+    incident_history numeric(12,3),
+    structural_condition numeric(12,3),
+    operational_condition numeric(12,3),
+    dwf numeric(12,3),
+    storm numeric(12,3),
+    strategic boolean,
+    mandatory boolean,
+    compliance boolean,
+    val double precision,
+    orderby integer,
+    selected boolean DEFAULT false,
+    expected_year integer,
+    replacement_year integer,
+    budget numeric(12,2),
+    total numeric(12,2),
+    estimated_cost numeric(12,2),
+    length numeric(12,3),
+    comments text,
+    data_quality_class varchar(20),
+    CONSTRAINT ud_arc_output_pkey PRIMARY KEY (arc_id, result_id)
+);
+
+CREATE TABLE IF NOT EXISTS am.ud_node_input (
+    node_id int4 NOT NULL,
+    age numeric(12,3),
+    incident_count numeric(12,3),
+    structural_raw numeric(12,3),
+    operational_raw numeric(12,3),
+    dwf_raw numeric(12,3),
+    storm_raw numeric(12,3),
+    strategic boolean,
+    compliance boolean,
+    mandatory boolean DEFAULT false,
+    data_quality integer,
+    data_quality_obs varchar[],
+    estimated_cost numeric(12,2),
+    CONSTRAINT ud_node_input_pkey PRIMARY KEY (node_id)
+);
+
+CREATE TABLE IF NOT EXISTS am.ud_node_engine_wm (
+    node_id int4 NOT NULL,
+    result_id integer NOT NULL,
+    longevity numeric(5,2),
+    incident_history numeric(5,2),
+    structural_condition numeric(5,2),
+    operational_condition numeric(5,2),
+    dwf_impact numeric(5,2),
+    storm_impact numeric(5,2),
+    strategic numeric(5,2),
+    compliance numeric(5,2),
+    val_first double precision,
+    val double precision,
+    orderby integer,
+    CONSTRAINT ud_node_engine_wm_pkey PRIMARY KEY (node_id, result_id)
+);
+
+CREATE TABLE IF NOT EXISTS am.ud_node_output (
+    node_id int4 NOT NULL,
+    result_id integer NOT NULL,
+    sector_id integer,
+    macrosector_id integer,
+    drainzone_id character varying(30),
+    presszone_id character varying(30),
+    builtdate date,
+    nodecat_id character varying(30),
+    node_type character varying(30),
+    the_geom public.geometry(point,SCHEMA_SRID),
+    code character varying(50),
+    expl_id integer,
+    dma_id integer,
+    longevity numeric(12,3),
+    incident_history numeric(12,3),
+    structural_condition numeric(12,3),
+    operational_condition numeric(12,3),
+    dwf numeric(12,3),
+    storm numeric(12,3),
+    strategic boolean,
+    mandatory boolean,
+    compliance boolean,
+    val double precision,
+    orderby integer,
+    selected boolean DEFAULT false,
+    expected_year integer,
+    replacement_year integer,
+    budget numeric(12,2),
+    total numeric(12,2),
+    estimated_cost numeric(12,2),
+    comments text,
+    data_quality_class varchar(20),
+    CONSTRAINT ud_node_output_pkey PRIMARY KEY (node_id, result_id)
+);
+
+CREATE OR REPLACE VIEW am.v_asset_ud_arc_output AS
+ SELECT o.arc_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+    o.builtdate, o.arccat_id, o.dnom, o.matcat_id, o.function_type, o.code, o.expl_id, o.dma_id,
+    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
+    o.comments, o.data_quality_class, o.the_geom
+   FROM am.ud_arc_output o
+     JOIN am.selector_result_main s ON (s.result_id = o.result_id)
+  WHERE (s.cur_user = (CURRENT_USER)::text);
+
+CREATE OR REPLACE VIEW am.v_asset_ud_arc_output_compare AS
+ SELECT o.arc_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+    o.builtdate, o.arccat_id, o.dnom, o.matcat_id, o.function_type, o.code, o.expl_id, o.dma_id,
+    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
+    o.comments, o.data_quality_class, o.the_geom
+   FROM am.ud_arc_output o
+     JOIN am.selector_result_compare s ON (s.result_id = o.result_id)
+  WHERE (s.cur_user = (CURRENT_USER)::text);
+
+CREATE OR REPLACE VIEW am.v_asset_ud_arc_corporate AS
+ SELECT o.arc_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+    o.builtdate, o.arccat_id, o.dnom, o.matcat_id, o.function_type, o.code, o.expl_id, o.dma_id,
+    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
+    o.comments, o.data_quality_class, o.the_geom
+   FROM am.ud_arc_output o
+     JOIN am.cat_result r ON r.result_id = o.result_id
+  WHERE r.iscorporate = TRUE;
+
+CREATE OR REPLACE VIEW am.v_asset_ud_node_output AS
+ SELECT o.node_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+    o.builtdate, o.nodecat_id, o.node_type, o.code, o.expl_id, o.dma_id,
+    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
+    o.comments, o.data_quality_class, o.the_geom
+   FROM am.ud_node_output o
+     JOIN am.selector_result_main s ON (s.result_id = o.result_id)
+  WHERE (s.cur_user = (CURRENT_USER)::text);
+
+CREATE OR REPLACE VIEW am.v_asset_ud_node_output_compare AS
+ SELECT o.node_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+    o.builtdate, o.nodecat_id, o.node_type, o.code, o.expl_id, o.dma_id,
+    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
+    o.comments, o.data_quality_class, o.the_geom
+   FROM am.ud_node_output o
+     JOIN am.selector_result_compare s ON (s.result_id = o.result_id)
+  WHERE (s.cur_user = (CURRENT_USER)::text);
+
+CREATE OR REPLACE VIEW am.v_asset_ud_node_corporate AS
+ SELECT o.node_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+    o.builtdate, o.nodecat_id, o.node_type, o.code, o.expl_id, o.dma_id,
+    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
+    o.comments, o.data_quality_class, o.the_geom
+   FROM am.ud_node_output o
+     JOIN am.cat_result r ON r.result_id = o.result_id
+  WHERE r.iscorporate = TRUE;
+
+GRANT ALL ON TABLE am.ud_arc_input TO role_basic;
+GRANT ALL ON TABLE am.ud_arc_engine_wm TO role_basic;
+GRANT ALL ON TABLE am.ud_arc_output TO role_basic;
+GRANT ALL ON TABLE am.ud_node_input TO role_basic;
+GRANT ALL ON TABLE am.ud_node_engine_wm TO role_basic;
+GRANT ALL ON TABLE am.ud_node_output TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ud_arc_output TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ud_arc_output_compare TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ud_arc_corporate TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ud_node_output TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ud_node_output_compare TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ud_node_corporate TO role_basic;
+
+INSERT INTO am.config_engine_def (
+    parameter, value, method, round, descript, active, layoutname, layoutorder,
+    label, datatype, widgettype, dv_querytext, dv_controls, ismandatory, iseditable,
+    stylesheet, widgetcontrols, placeholder, standardvalue, asset_type, project_type
+) VALUES
+    ('longevity_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('incident_history_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('structural_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('operational_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('dwf_impact_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 5, 'DWF impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('storm_impact_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Storm impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('incident_history_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('structural_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('operational_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('dwf_impact_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'DWF impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('storm_impact_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Storm impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('strategic_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('compliance_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('longevity_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('incident_history_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('structural_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('operational_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('dwf_impact_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 5, 'DWF impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('storm_impact_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Storm impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('incident_history_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('structural_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('operational_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('dwf_impact_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'DWF impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('storm_impact_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Storm impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('strategic_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('compliance_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD')
+ON CONFLICT (parameter, method, asset_type, project_type) DO NOTHING;
+
 

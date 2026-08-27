@@ -13,6 +13,7 @@ from qgis.PyQt.QtSql import QSqlRelation, QSqlRelationalTableModel
 from qgis.PyQt.QtWidgets import QAbstractItemView, QLineEdit, QTableView
 
 from .priority_btn import CalculatePriority
+from .am_utils import am_names, get_am_project_type
 from ...ui.ui_manager import GwPriorityManagerUi, GwStatusSelectorUi
 
 from ....libs import lib_vars, tools_db, tools_qt, tools_qgis
@@ -212,6 +213,7 @@ class GwResultManagerButton(GwAction):
         status = tools_qt.get_combo_value(dlg, dlg.cmb_status, 0)
 
         expr = "result_id is NOT NULL"
+        expr += f" AND COALESCE(project_type, 'WS') = '{get_am_project_type()}'"
         if name:
             safe = name.replace("'", "''")
             expr += f" AND result_name ILIKE '%{safe}%'"
@@ -430,15 +432,9 @@ class GwResultManagerButton(GwAction):
             return
 
         asset_type = row.value("asset_type") or "ARC"
-        if asset_type == "NODE":
-            output_table = "am.node_output"
-            corporate_view = "am.v_asset_node_corporate"
-        elif asset_type == "LINK":
-            output_table = "am.link_output"
-            corporate_view = "am.v_asset_link_corporate"
-        else:
-            output_table = "am.arc_output"
-            corporate_view = "am.v_asset_arc_corporate"
+        names = am_names(get_am_project_type(), asset_type)
+        output_table = f"am.{names['output']}"
+        corporate_view = f"am.{names['v_corporate']}"
 
         sql = (
             f"SELECT DISTINCT expl_id FROM {output_table} WHERE result_id={result_id}"

@@ -9,13 +9,13 @@ SET search_path = am, public;
 
 INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, camelstyle, addparam) VALUES('sys_table_context', '{"levels": ["AM", "LAYERS"]}', NULL, NULL, '{"orderBy":1}'::json) ON CONFLICT (typevalue,id) DO NOTHING;
 
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('arc_output', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Arc output', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('ext_arc_asset', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Extension arc asset', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('ws_arc_output', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Arc output', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('ext_ws_arc_asset', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Extension arc asset', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('leaks', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Leaks', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_arc_corporate', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Asset arc corporate', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_arc_input', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Asset arc input', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_arc_output', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Asset arc output', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_arc_output_compare', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Asset arc output compare', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_ws_arc_corporate', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Asset arc corporate', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_ws_arc_input', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Asset arc input', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_ws_arc_output', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Asset arc output', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_ws_arc_output_compare', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Asset arc output compare', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
 
 
 -- trigger
@@ -136,9 +136,9 @@ FROM PARENT_SCHEMA.cat_link
 WHERE active IS DISTINCT FROM FALSE
 ON CONFLICT (linkcat_id) DO NOTHING;
 
-DELETE FROM PARENT_SCHEMA.sys_table WHERE id IN ('arc_output', 'ext_arc_asset', 'leaks', 'v_asset_arc_input', 'v_asset_arc_corporate', 'v_asset_arc_output', 'v_asset_arc_output_compare') AND source = 'am';
+DELETE FROM PARENT_SCHEMA.sys_table WHERE id IN ('ws_arc_output', 'ext_ws_arc_asset', 'leaks', 'v_asset_ws_arc_input', 'v_asset_ws_arc_corporate', 'v_asset_ws_arc_output', 'v_asset_ws_arc_output_compare') AND source = 'am';
 DELETE FROM PARENT_SCHEMA.config_typevalue WHERE typevalue = 'sys_table_context' AND id = '{"levels": ["AM", "LAYERS"]}';
-DELETE FROM PARENT_SCHEMA.sys_style WHERE layername in ('arc_output', 'ext_arc_asset', 'leaks', 'v_asset_arc_input', 'v_asset_arc_corporate', 'v_asset_arc_output', 'v_asset_arc_output_compare');
+DELETE FROM PARENT_SCHEMA.sys_style WHERE layername in ('ws_arc_output', 'ext_ws_arc_asset', 'leaks', 'v_asset_ws_arc_input', 'v_asset_ws_arc_corporate', 'v_asset_ws_arc_output', 'v_asset_ws_arc_output_compare');
 
 -- Legacy flat group (kept for backward compatibility)
 INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES ('sys_table_context', '34', '["AM", "LAYERS"]', '{"orderBy": 34}') ON CONFLICT (typevalue,id) DO NOTHING;
@@ -151,29 +151,29 @@ INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALU
 ON CONFLICT (typevalue,id) DO UPDATE SET addparam = EXCLUDED.addparam;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_arc_output_compare', 'id', 'role_om', NULL, '35', 7, 'Arc Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
+VALUES('v_asset_ws_arc_output_compare', 'id', 'role_om', NULL, '35', 7, 'WS Arc Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_arc_output', 'id', 'role_om', NULL, '35', 6, 'Arc Result - Main', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
+VALUES('v_asset_ws_arc_output', 'id', 'role_om', NULL, '35', 6, 'WS Arc Result - Main', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_arc_corporate', 'id', 'role_om', NULL, '35', 5, 'Arc Corporate Assets', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
+VALUES('v_asset_ws_arc_corporate', 'id', 'role_om', NULL, '35', 5, 'WS Arc Corporate Assets', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('arc_output', 'id', 'role_om', NULL, '35', 4, 'Arc Assets Result', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
+VALUES('ws_arc_output', 'id', 'role_om', NULL, '35', 4, 'WS Arc Assets Result', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_arc_input', 'id', 'role_om', NULL, '35', 3, 'Arc Input Assets', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthersName": "No leak", "symbolField": "rleak"}')
+VALUES('v_asset_ws_arc_input', 'id', 'role_om', NULL, '35', 3, 'WS Arc Input Assets', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthersName": "No leak", "symbolField": "rleak"}')
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
 VALUES('leaks', 'id', 'role_om', NULL, '35', 2, 'Leaks', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('ext_arc_asset', 'id', 'role_om', NULL, '35', 1, 'Existing Arc Assets', NULL, NULL, NULL, 'am', NULL)
+VALUES('ext_ws_arc_asset', 'id', 'role_om', NULL, '35', 1, 'WS Existing Arc Assets', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-VALUES ('ext_arc_asset', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+VALUES ('ext_ws_arc_asset', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
 <qgis styleCategories="Symbology|Temporal" version="3.40.11-Bratislava">
   <temporal accumulate="0" durationField="arc_id" durationUnit="min" enabled="0" endExpression="" endField="" fixedDuration="0" limitMode="0" mode="0" startExpression="" startField="builtdate">
     <fixedRange>
@@ -694,7 +694,7 @@ def my_form_open(dialog, layer, feature):
   <layerGeometryType>0</layerGeometryType>
 </qgis>', true) ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-VALUES ('v_asset_arc_input', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+VALUES ('v_asset_ws_arc_input', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
 <qgis symbologyReferenceScale="-1" version="3.40.7-Bratislava" readOnly="0" autoRefreshMode="Disabled" simplifyDrawingHints="1" simplifyAlgorithm="0" simplifyDrawingTol="1" autoRefreshTime="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" simplifyLocal="1" simplifyMaxScale="1" minScale="100000000" labelsEnabled="1" maxScale="0">
   <flags>
     <Identifiable>1</Identifiable>
@@ -9074,7 +9074,7 @@ def my_form_open(dialog, layer, feature):
   <layerGeometryType>1</layerGeometryType>
 </qgis>', true) ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-VALUES ('arc_output', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+VALUES ('ws_arc_output', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
 <qgis symbologyReferenceScale="-1" version="3.40.7-Bratislava" readOnly="0" autoRefreshMode="Disabled" simplifyDrawingHints="1" simplifyAlgorithm="0" simplifyDrawingTol="1" autoRefreshTime="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" simplifyLocal="1" simplifyMaxScale="1" minScale="100000000" labelsEnabled="1" maxScale="0">
   <flags>
     <Identifiable>1</Identifiable>
@@ -10615,7 +10615,7 @@ def my_form_open(dialog, layer, feature):
   <layerGeometryType>1</layerGeometryType>
 </qgis>', true) ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-VALUES ('v_asset_arc_corporate', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+VALUES ('v_asset_ws_arc_corporate', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
 <qgis symbologyReferenceScale="-1" version="3.40.7-Bratislava" readOnly="0" autoRefreshMode="Disabled" simplifyDrawingHints="1" simplifyAlgorithm="0" simplifyDrawingTol="1" autoRefreshTime="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" simplifyLocal="1" simplifyMaxScale="1" minScale="100000000" labelsEnabled="1" maxScale="0">
   <flags>
     <Identifiable>1</Identifiable>
@@ -12156,7 +12156,7 @@ def my_form_open(dialog, layer, feature):
   <layerGeometryType>1</layerGeometryType>
 </qgis>', true) ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-VALUES ('v_asset_arc_output', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+VALUES ('v_asset_ws_arc_output', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
 <qgis symbologyReferenceScale="-1" version="3.40.7-Bratislava" readOnly="0" autoRefreshMode="Disabled" simplifyDrawingHints="1" simplifyAlgorithm="0" simplifyDrawingTol="1" autoRefreshTime="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" simplifyLocal="1" simplifyMaxScale="1" minScale="100000000" labelsEnabled="1" maxScale="0">
   <flags>
     <Identifiable>1</Identifiable>
@@ -13697,7 +13697,7 @@ def my_form_open(dialog, layer, feature):
   <layerGeometryType>1</layerGeometryType>
 </qgis>', true) ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-VALUES ('v_asset_arc_output_compare', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+VALUES ('v_asset_ws_arc_output_compare', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
 <qgis symbologyReferenceScale="-1" version="3.40.7-Bratislava" readOnly="0" autoRefreshMode="Disabled" simplifyDrawingHints="1" simplifyAlgorithm="0" simplifyDrawingTol="1" autoRefreshTime="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" simplifyLocal="1" simplifyMaxScale="1" minScale="100000000" labelsEnabled="1" maxScale="0">
   <flags>
     <Identifiable>1</Identifiable>
@@ -15239,7 +15239,7 @@ def my_form_open(dialog, layer, feature):
 </qgis>', true) ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 
 
-CREATE OR REPLACE VIEW am.ext_arc_asset
+CREATE OR REPLACE VIEW am.ext_ws_arc_asset
 AS WITH nodes AS MATERIALIZED (
          SELECT node.node_id,
             node_add.press_avg
@@ -15298,7 +15298,7 @@ ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.or
 
 SET search_path = am, public;
 
-CREATE VIEW v_asset_arc_input AS
+CREATE VIEW v_asset_ws_arc_input AS
  SELECT a.arc_id,
     i.mandatory,
     i.strategic,
@@ -15321,12 +15321,12 @@ CREATE VIEW v_asset_arc_input AS
     a.dma_id,
     a.code,
     a.the_geom
-   FROM (ext_arc_asset a
-     LEFT JOIN arc_input i USING (arc_id));
+   FROM (ext_ws_arc_asset a
+     LEFT JOIN ws_arc_input i USING (arc_id));
 
-CREATE RULE v_asset_arc_input_update AS ON UPDATE TO v_asset_arc_input
+CREATE RULE v_asset_ws_arc_input_update AS ON UPDATE TO v_asset_ws_arc_input
  DO INSTEAD
- INSERT INTO arc_input (arc_id, mandatory, strategic, rleak)
+ INSERT INTO ws_arc_input (arc_id, mandatory, strategic, rleak)
  VALUES (NEW.arc_id, NEW.mandatory, NEW.strategic, NEW.rleak)
  ON CONFLICT(arc_id) DO
  UPDATE SET mandatory = EXCLUDED.mandatory,
@@ -15337,7 +15337,7 @@ CREATE RULE v_asset_arc_input_update AS ON UPDATE TO v_asset_arc_input
 -- Stage 2: NODE Weighted Method
 --
 
-CREATE OR REPLACE VIEW am.ext_node_asset
+CREATE OR REPLACE VIEW am.ext_ws_node_asset
 AS SELECT n.node_id,
     n.sector_id,
     s.macrosector_id,
@@ -15372,7 +15372,7 @@ AS SELECT n.node_id,
 
 SET search_path = am, public;
 
-CREATE VIEW v_asset_node_input AS
+CREATE VIEW v_asset_ws_node_input AS
  SELECT a.node_id,
     COALESCE(i.age, a.age) AS age,
     i.incident_count,
@@ -15396,12 +15396,12 @@ CREATE VIEW v_asset_node_input AS
     a.dma_id,
     a.code,
     a.the_geom
-   FROM (ext_node_asset a
-     LEFT JOIN node_input i USING (node_id));
+   FROM (ext_ws_node_asset a
+     LEFT JOIN ws_node_input i USING (node_id));
 
-CREATE RULE v_asset_node_input_update AS ON UPDATE TO v_asset_node_input
+CREATE RULE v_asset_ws_node_input_update AS ON UPDATE TO v_asset_ws_node_input
  DO INSTEAD
- INSERT INTO node_input (node_id, mandatory, strategic, incident_count,
+ INSERT INTO ws_node_input (node_id, mandatory, strategic, incident_count,
     structural_raw, operational_raw, nrw_raw,
     affected_users_raw, compliance, estimated_cost)
  VALUES (NEW.node_id, NEW.mandatory, NEW.strategic, NEW.incident_count,
@@ -15419,26 +15419,26 @@ CREATE RULE v_asset_node_input_update AS ON UPDATE TO v_asset_node_input
     estimated_cost = EXCLUDED.estimated_cost;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_node_output_compare', 'id', 'role_om', NULL, '36', 5, 'Node Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+VALUES('v_asset_ws_node_output_compare', 'id', 'role_om', NULL, '36', 5, 'WS Node Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_node_output', 'id', 'role_om', NULL, '36', 4, 'Node Result - Main', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+VALUES('v_asset_ws_node_output', 'id', 'role_om', NULL, '36', 4, 'WS Node Result - Main', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_node_corporate', 'id', 'role_om', NULL, '36', 3, 'Node Corporate Assets', NULL, NULL, NULL, 'am', NULL)
+VALUES('v_asset_ws_node_corporate', 'id', 'role_om', NULL, '36', 3, 'WS Node Corporate Assets', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_node_input', 'id', 'role_om', NULL, '36', 2, 'Node Input Assets', NULL, NULL, NULL, 'am', NULL)
+VALUES('v_asset_ws_node_input', 'id', 'role_om', NULL, '36', 2, 'WS Node Input Assets', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('ext_node_asset', 'id', 'role_om', NULL, '36', 1, 'Existing Node Assets', NULL, NULL, NULL, 'am', NULL)
+VALUES('ext_ws_node_asset', 'id', 'role_om', NULL, '36', 1, 'WS Existing Node Assets', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 
 --
 -- Stage 3: LINK Weighted Method
 --
 
-CREATE OR REPLACE VIEW am.ext_link_asset
+CREATE OR REPLACE VIEW am.ext_ws_link_asset
 AS SELECT
     l.link_id,
     CASE WHEN upper(trim(l.feature_type)) = 'CONNEC' AND l.feature_id::text ~ '^[0-9]+$'
@@ -15477,8 +15477,8 @@ AS SELECT
 
 SET search_path = am, public;
 
-DROP VIEW IF EXISTS v_asset_link_input CASCADE;
-CREATE VIEW v_asset_link_input AS
+DROP VIEW IF EXISTS v_asset_ws_link_input CASCADE;
+CREATE VIEW v_asset_ws_link_input AS
  SELECT a.link_id,
     a.connec_id,
     a.arc_id,
@@ -15506,12 +15506,12 @@ CREATE VIEW v_asset_link_input AS
     a.presszone_id,
     a.dma_id,
     a.the_geom
-   FROM (ext_link_asset a
-     LEFT JOIN link_input i USING (link_id));
+   FROM (ext_ws_link_asset a
+     LEFT JOIN ws_link_input i USING (link_id));
 
-CREATE RULE v_asset_link_input_update AS ON UPDATE TO v_asset_link_input
+CREATE RULE v_asset_ws_link_input_update AS ON UPDATE TO v_asset_ws_link_input
  DO INSTEAD
- INSERT INTO link_input (link_id, connec_id, arc_id, mandatory, strategic,
+ INSERT INTO ws_link_input (link_id, connec_id, arc_id, mandatory, strategic,
     incident_count, material_raw, affected_users_raw, compliance, estimated_cost)
  VALUES (NEW.link_id, NEW.connec_id, NEW.arc_id, NEW.mandatory, NEW.strategic,
     NEW.incident_count, NEW.material_raw, NEW.affected_users_raw,
@@ -15525,37 +15525,37 @@ CREATE RULE v_asset_link_input_update AS ON UPDATE TO v_asset_link_input
     compliance = EXCLUDED.compliance,
     estimated_cost = EXCLUDED.estimated_cost;
 
-GRANT ALL ON TABLE am.ext_link_asset TO role_basic;
-GRANT ALL ON TABLE am.v_asset_link_input TO role_basic;
+GRANT ALL ON TABLE am.ext_ws_link_asset TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ws_link_input TO role_basic;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_link_output_compare', 'id', 'role_om', NULL, '38', 5, 'Link Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+VALUES('v_asset_ws_link_output_compare', 'id', 'role_om', NULL, '38', 5, 'WS Link Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_link_output', 'id', 'role_om', NULL, '38', 4, 'Link Result - Main', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+VALUES('v_asset_ws_link_output', 'id', 'role_om', NULL, '38', 4, 'WS Link Result - Main', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_link_corporate', 'id', 'role_om', NULL, '38', 3, 'Link Corporate Assets', NULL, NULL, NULL, 'am', NULL)
+VALUES('v_asset_ws_link_corporate', 'id', 'role_om', NULL, '38', 3, 'WS Link Corporate Assets', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_link_input', 'id', 'role_om', NULL, '38', 2, 'Link Input Assets', NULL, NULL, NULL, 'am', NULL)
+VALUES('v_asset_ws_link_input', 'id', 'role_om', NULL, '38', 2, 'WS Link Input Assets', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('ext_link_asset', 'id', 'role_om', NULL, '38', 1, 'Existing Link Assets', NULL, NULL, NULL, 'am', NULL)
+VALUES('ext_ws_link_asset', 'id', 'role_om', NULL, '38', 1, 'WS Existing Link Assets', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
 VALUES('config_linkcatalog_def', 'Table to define the link catalogs', 'role_om', NULL, '37', 5, 'Config link catalog', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-SELECT 'v_asset_link_output', styleconfig_id, styletype, stylevalue, active
+SELECT 'v_asset_ws_link_output', styleconfig_id, styletype, stylevalue, active
 FROM PARENT_SCHEMA.sys_style
-WHERE layername = 'v_asset_arc_output' AND styleconfig_id = 101
+WHERE layername = 'v_asset_ws_arc_output' AND styleconfig_id = 101
 ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-SELECT 'v_asset_link_output_compare', styleconfig_id, styletype, stylevalue, active
+SELECT 'v_asset_ws_link_output_compare', styleconfig_id, styletype, stylevalue, active
 FROM PARENT_SCHEMA.sys_style
-WHERE layername = 'v_asset_arc_output_compare' AND styleconfig_id = 101
+WHERE layername = 'v_asset_ws_arc_output_compare' AND styleconfig_id = 101
 ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 
 SELECT "SCHEMA_NAME".gw_fct_admin_sys_version_register(json_build_object(

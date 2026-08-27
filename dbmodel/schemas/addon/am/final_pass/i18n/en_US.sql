@@ -31,7 +31,7 @@ FROM (
     ('compliance', 'SH', 'Regulatory weight', 'Weight in final matrix for regulatory compliance', NULL),
     ('drate', 'SH', 'Discount rate (%)', 'Real price discount rate. Takes into account price increases by discounting inflation.', NULL)
 ) AS v(parameter, method, label, descript, placeholder)
-WHERE t.parameter = v.parameter AND t.method = v.method;
+WHERE t.parameter = v.parameter AND t.method = v.method AND COALESCE(t.project_type, 'WS') = 'WS';
 
 -- Stage 2: NODE-only Weighted Method parameters
 UPDATE config_engine_def AS t
@@ -51,7 +51,7 @@ FROM (
     ('affected_arcs_2', 'WM', 'Affected arcs',
      'Weight for nodes between arcs planned in the linked ARC result', NULL)
 ) AS v(parameter, method, label, descript, placeholder)
-WHERE t.parameter = v.parameter AND t.method = v.method AND t.asset_type = 'NODE';
+WHERE t.parameter = v.parameter AND t.method = v.method AND t.asset_type = 'NODE' AND COALESCE(t.project_type, 'WS') = 'WS';
 
 UPDATE config_engine_def AS t SET label = v.label, descript = v.descript, placeholder = v.placeholder FROM (
     VALUES
@@ -66,7 +66,7 @@ UPDATE config_engine_def AS t SET label = v.label, descript = v.descript, placeh
     ('parent_arc_selected_2', 'WM', 'Parent arc selected',
      'Weight when the parent arc is selected in the linked ARC result', NULL)
 ) AS v(parameter, method, label, descript, placeholder)
-WHERE t.parameter = v.parameter AND t.method = v.method AND t.asset_type = 'LINK';
+WHERE t.parameter = v.parameter AND t.method = v.method AND t.asset_type = 'LINK' AND COALESCE(t.project_type, 'WS') = 'WS';
 
 UPDATE value_result_type AS t
 SET idval = v.idval

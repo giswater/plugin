@@ -16,6 +16,7 @@ UPDATE config_form_tableview AS t SET alias = v.alias FROM (
     ('cat_result', 'iscorporate', 'Corporate'),
     ('cat_result', 'material_id', 'Material Id'),
     ('cat_result', 'presszone_id', 'Presszone Id'),
+    ('cat_result', 'project_type', 'Project'),
     ('cat_result', 'report', 'Report'),
     ('cat_result', 'result_id', 'Result Id'),
     ('cat_result', 'result_name', 'Result Name'),

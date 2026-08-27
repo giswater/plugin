@@ -13,6 +13,7 @@ from ..dialog import GwAction
 from .... import global_vars
 
 from ...ui.ui_manager import GwResultSelectorUi
+from .am_utils import am_selector_layers, get_am_project_type
 
 
 def set_am_selector_result(result_id, selector="main"):
@@ -68,13 +69,15 @@ class GwResultSelectorButton(GwAction):
         """ Fill main and compare result combos from cat_result """
         dlg = self.dlg_result_selector
         # idval includes asset_type so ARC/NODE are distinguishable in one combo
+        project_type = get_am_project_type()
         results = tools_db.get_rows(
-            """
+            f"""
             SELECT result_id AS id,
                    result_name || ' [' || COALESCE(asset_type, 'ARC') || ']' AS idval,
                    descript,
                    COALESCE(asset_type, 'ARC') AS asset_type
             FROM am.cat_result
+            WHERE COALESCE(project_type, 'WS') = '{project_type}'
             ORDER BY asset_type, result_name
             """
         )
@@ -86,11 +89,12 @@ class GwResultSelectorButton(GwAction):
         # Combo result_main — prefer showing ARC if both features are active
         tools_qt.fill_combo_values(dlg.cmb_result_main, results, 1, sort_by=1)
         selected_main = tools_db.get_row(
-            """
+            f"""
             SELECT s.result_id
             FROM am.selector_result_main s
             JOIN am.cat_result c ON c.result_id = s.result_id
             WHERE s.cur_user = current_user
+              AND COALESCE(c.project_type, 'WS') = '{project_type}'
             ORDER BY c.asset_type
             LIMIT 1
             """
@@ -103,11 +107,12 @@ class GwResultSelectorButton(GwAction):
         # Combo result_compare
         tools_qt.fill_combo_values(dlg.cmb_result_compare, results, 1, sort_by=1)
         selected_compare = tools_db.get_row(
-            """
+            f"""
             SELECT s.result_id
             FROM am.selector_result_compare s
             JOIN am.cat_result c ON c.result_id = s.result_id
             WHERE s.cur_user = current_user
+              AND COALESCE(c.project_type, 'WS') = '{project_type}'
             ORDER BY c.asset_type
             LIMIT 1
             """
@@ -128,14 +133,7 @@ class GwResultSelectorButton(GwAction):
         set_am_selector_result(result_main, "main")
         set_am_selector_result(result_compare, "compare")
         dlg.close()
-        for layer_name in (
-            "v_asset_arc_output",
-            "v_asset_arc_output_compare",
-            "v_asset_node_output",
-            "v_asset_node_output_compare",
-            "v_asset_link_output",
-            "v_asset_link_output_compare",
-        ):
+        for layer_name in am_selector_layers():
             layer = tools_qgis.get_layer_by_tablename(layer_name, schema_name="am")
             if layer:
                 layer.dataProvider().reloadData()
@@ -179,11 +177,12 @@ class GwResultSelectorButton(GwAction):
         desc_main = tools_qt.get_combo_value(dlg, dlg.cmb_result_main, 2)
         asset_main = tools_qt.get_combo_value(dlg, dlg.cmb_result_main, 3)
         active_main = tools_db.get_rows(
-            """
+            f"""
             SELECT c.result_name || ' [' || COALESCE(c.asset_type, 'ARC') || ']'
             FROM am.selector_result_main s
             JOIN am.cat_result c ON c.result_id = s.result_id
             WHERE s.cur_user = current_user
+              AND COALESCE(c.project_type, 'WS') = '{get_am_project_type()}'
             ORDER BY c.asset_type
             """
         ) or []

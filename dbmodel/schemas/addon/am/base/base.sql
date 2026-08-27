@@ -39,7 +39,7 @@ CREATE TABLE dma_nrw (
     CONSTRAINT dma_nrw_pkey PRIMARY KEY (dma_id)
 );
 
-CREATE TABLE arc_input (
+CREATE TABLE ws_arc_input (
     arc_id int4 NOT NULL,
     longevity numeric(12,3),
     rleak numeric(12,3),
@@ -52,12 +52,12 @@ CREATE TABLE arc_input (
     mincut_criticity numeric(4,2),
     data_quality integer,
     data_quality_obs varchar[],
-    CONSTRAINT arc_input_pkey PRIMARY KEY (arc_id)
+    CONSTRAINT ws_arc_input_pkey PRIMARY KEY (arc_id)
 );
 
 CREATE TABLE cat_result (
     result_id serial,
-    result_name text UNIQUE,
+    result_name text,
     result_type character varying(50),
     descript text,
     report text,
@@ -75,10 +75,14 @@ CREATE TABLE cat_result (
     node_type text,
     iscorporate boolean,
     asset_type varchar(10) DEFAULT 'ARC',
+    project_type varchar(2) NOT NULL DEFAULT 'WS',
     linked_arc_result_id integer,
     CONSTRAINT cat_result_pkey PRIMARY KEY (result_id),
+    CONSTRAINT cat_result_result_name_project_type_key UNIQUE (result_name, project_type),
     CONSTRAINT cat_result_result_type_check CHECK (result_type = ANY (ARRAY['GLOBAL', 'SELECTION'])),
     CONSTRAINT cat_result_status_check CHECK (status = ANY (ARRAY['CANCELED', 'ON PLANNING', 'FINISHED'])),
+    CONSTRAINT cat_result_project_type_check CHECK (project_type = ANY (ARRAY['WS', 'UD'])),
+    CONSTRAINT cat_result_link_ws_check CHECK (asset_type IS DISTINCT FROM 'LINK' OR project_type = 'WS'),
     CONSTRAINT cat_result_linked_arc_result_id_fkey
         FOREIGN KEY (linked_arc_result_id) REFERENCES cat_result (result_id) ON DELETE SET NULL
 );
@@ -212,8 +216,11 @@ CREATE TABLE config_engine_def (
     placeholder text,
     standardvalue text,
     asset_type varchar(10) NOT NULL DEFAULT 'ARC',
-    CONSTRAINT config_engine_def_pkey PRIMARY KEY (parameter, method, asset_type),
-    CONSTRAINT config_engine_def_asset_type_check CHECK (asset_type = ANY (ARRAY['ARC', 'NODE', 'LINK']))
+    project_type varchar(2) NOT NULL DEFAULT 'WS',
+    CONSTRAINT config_engine_def_pkey PRIMARY KEY (parameter, method, asset_type, project_type),
+    CONSTRAINT config_engine_def_asset_type_check CHECK (asset_type = ANY (ARRAY['ARC', 'NODE', 'LINK'])),
+    CONSTRAINT config_engine_def_project_type_check CHECK (project_type = ANY (ARRAY['WS', 'UD'])),
+    CONSTRAINT config_engine_def_link_ws_check CHECK (asset_type <> 'LINK' OR project_type = 'WS')
 );
 
 CREATE TABLE config_engine (
@@ -238,11 +245,14 @@ CREATE TABLE config_engine (
     standardvalue text,
     result_id integer NOT NULL,
     asset_type varchar(10) NOT NULL DEFAULT 'ARC',
+    project_type varchar(2) NOT NULL DEFAULT 'WS',
     CONSTRAINT config_engine_pkey PRIMARY KEY (parameter, result_id),
-    CONSTRAINT config_engine_asset_type_check CHECK (asset_type = ANY (ARRAY['ARC', 'NODE', 'LINK']))
+    CONSTRAINT config_engine_asset_type_check CHECK (asset_type = ANY (ARRAY['ARC', 'NODE', 'LINK'])),
+    CONSTRAINT config_engine_project_type_check CHECK (project_type = ANY (ARRAY['WS', 'UD'])),
+    CONSTRAINT config_engine_link_ws_check CHECK (asset_type <> 'LINK' OR project_type = 'WS')
 );
 
-CREATE TABLE arc_engine_sh (
+CREATE TABLE ws_arc_engine_sh (
     arc_id int4 NOT NULL,
     result_id integer NOT NULL,
     cost_repmain numeric(12,2),
@@ -254,10 +264,10 @@ CREATE TABLE arc_engine_sh (
     strategic integer,
     compliance integer,
     val double precision,
-    CONSTRAINT arc_engine_sh_pkey PRIMARY KEY (arc_id, result_id)
+    CONSTRAINT ws_arc_engine_sh_pkey PRIMARY KEY (arc_id, result_id)
 );
 
-CREATE TABLE arc_engine_wm (
+CREATE TABLE ws_arc_engine_wm (
     arc_id int4 NOT NULL,
     result_id integer NOT NULL,
     rleak integer,
@@ -271,10 +281,10 @@ CREATE TABLE arc_engine_wm (
     mincut_criticity numeric(4,2),
     val_first double precision,
     val double precision,
-    CONSTRAINT arc_engine_wm_pkey PRIMARY KEY (arc_id, result_id)
+    CONSTRAINT ws_arc_engine_wm_pkey PRIMARY KEY (arc_id, result_id)
 );
 
-CREATE TABLE arc_output (
+CREATE TABLE ws_arc_output (
     arc_id int4 NOT NULL,
     result_id integer NOT NULL,
     sector_id integer,
@@ -309,12 +319,12 @@ CREATE TABLE arc_output (
     total numeric(12,2),
     length numeric(12,3),
     cum_length numeric(12,3),
-    CONSTRAINT arc_output_pkey PRIMARY KEY (arc_id, result_id)
+    CONSTRAINT ws_arc_output_pkey PRIMARY KEY (arc_id, result_id)
 );
 
 -- Stage 2: NODE Weighted Method tables
 
-CREATE TABLE node_input (
+CREATE TABLE ws_node_input (
     node_id int4 NOT NULL,
     age numeric(12,3),
     incident_count numeric(12,3),
@@ -328,10 +338,10 @@ CREATE TABLE node_input (
     data_quality integer,
     data_quality_obs varchar[],
     estimated_cost numeric(12,2),
-    CONSTRAINT node_input_pkey PRIMARY KEY (node_id)
+    CONSTRAINT ws_node_input_pkey PRIMARY KEY (node_id)
 );
 
-CREATE TABLE node_engine_wm (
+CREATE TABLE ws_node_engine_wm (
     node_id int4 NOT NULL,
     result_id integer NOT NULL,
     longevity numeric(5,2),
@@ -345,10 +355,10 @@ CREATE TABLE node_engine_wm (
     val_first double precision,
     val double precision,
     orderby integer,
-    CONSTRAINT node_engine_wm_pkey PRIMARY KEY (node_id, result_id)
+    CONSTRAINT ws_node_engine_wm_pkey PRIMARY KEY (node_id, result_id)
 );
 
-CREATE TABLE node_output (
+CREATE TABLE ws_node_output (
     node_id int4 NOT NULL,
     result_id integer NOT NULL,
     sector_id integer,
@@ -380,11 +390,155 @@ CREATE TABLE node_output (
     estimated_cost numeric(12,2),
     comments text,
     data_quality_class varchar(20),
-    CONSTRAINT node_output_pkey PRIMARY KEY (node_id, result_id)
+    CONSTRAINT ws_node_output_pkey PRIMARY KEY (node_id, result_id)
+);
+
+-- UD work tables (clone NODE WS matrix: dwf/storm instead of nrw/users)
+CREATE TABLE ud_arc_input (
+    arc_id int4 NOT NULL,
+    age numeric(12,3),
+    incident_count numeric(12,3),
+    structural_raw numeric(12,3),
+    operational_raw numeric(12,3),
+    dwf_raw numeric(12,3),
+    storm_raw numeric(12,3),
+    strategic boolean,
+    compliance boolean,
+    mandatory boolean DEFAULT false,
+    data_quality integer,
+    data_quality_obs varchar[],
+    estimated_cost numeric(12,2),
+    CONSTRAINT ud_arc_input_pkey PRIMARY KEY (arc_id)
+);
+
+CREATE TABLE ud_arc_engine_wm (
+    arc_id int4 NOT NULL,
+    result_id integer NOT NULL,
+    longevity numeric(5,2),
+    incident_history numeric(5,2),
+    structural_condition numeric(5,2),
+    operational_condition numeric(5,2),
+    dwf_impact numeric(5,2),
+    storm_impact numeric(5,2),
+    strategic numeric(5,2),
+    compliance numeric(5,2),
+    val_first double precision,
+    val double precision,
+    orderby integer,
+    CONSTRAINT ud_arc_engine_wm_pkey PRIMARY KEY (arc_id, result_id)
+);
+
+CREATE TABLE ud_arc_output (
+    arc_id int4 NOT NULL,
+    result_id integer NOT NULL,
+    sector_id integer,
+    macrosector_id integer,
+    drainzone_id character varying(30),
+    presszone_id character varying(30),
+    builtdate date,
+    arccat_id character varying(30),
+    dnom character varying(16),
+    matcat_id character varying(30),
+    function_type character varying(50),
+    the_geom public.geometry(multilinestring,SCHEMA_SRID),
+    code character varying(50),
+    expl_id integer,
+    dma_id integer,
+    longevity numeric(12,3),
+    incident_history numeric(12,3),
+    structural_condition numeric(12,3),
+    operational_condition numeric(12,3),
+    dwf numeric(12,3),
+    storm numeric(12,3),
+    strategic boolean,
+    mandatory boolean,
+    compliance boolean,
+    val double precision,
+    orderby integer,
+    selected boolean DEFAULT false,
+    expected_year integer,
+    replacement_year integer,
+    budget numeric(12,2),
+    total numeric(12,2),
+    estimated_cost numeric(12,2),
+    length numeric(12,3),
+    comments text,
+    data_quality_class varchar(20),
+    CONSTRAINT ud_arc_output_pkey PRIMARY KEY (arc_id, result_id)
+);
+
+CREATE TABLE ud_node_input (
+    node_id int4 NOT NULL,
+    age numeric(12,3),
+    incident_count numeric(12,3),
+    structural_raw numeric(12,3),
+    operational_raw numeric(12,3),
+    dwf_raw numeric(12,3),
+    storm_raw numeric(12,3),
+    strategic boolean,
+    compliance boolean,
+    mandatory boolean DEFAULT false,
+    data_quality integer,
+    data_quality_obs varchar[],
+    estimated_cost numeric(12,2),
+    CONSTRAINT ud_node_input_pkey PRIMARY KEY (node_id)
+);
+
+CREATE TABLE ud_node_engine_wm (
+    node_id int4 NOT NULL,
+    result_id integer NOT NULL,
+    longevity numeric(5,2),
+    incident_history numeric(5,2),
+    structural_condition numeric(5,2),
+    operational_condition numeric(5,2),
+    dwf_impact numeric(5,2),
+    storm_impact numeric(5,2),
+    strategic numeric(5,2),
+    compliance numeric(5,2),
+    val_first double precision,
+    val double precision,
+    orderby integer,
+    CONSTRAINT ud_node_engine_wm_pkey PRIMARY KEY (node_id, result_id)
+);
+
+CREATE TABLE ud_node_output (
+    node_id int4 NOT NULL,
+    result_id integer NOT NULL,
+    sector_id integer,
+    macrosector_id integer,
+    drainzone_id character varying(30),
+    presszone_id character varying(30),
+    builtdate date,
+    nodecat_id character varying(30),
+    node_type character varying(30),
+    the_geom public.geometry(point,SCHEMA_SRID),
+    code character varying(50),
+    expl_id integer,
+    dma_id integer,
+    longevity numeric(12,3),
+    incident_history numeric(12,3),
+    structural_condition numeric(12,3),
+    operational_condition numeric(12,3),
+    dwf numeric(12,3),
+    storm numeric(12,3),
+    strategic boolean,
+    mandatory boolean,
+    compliance boolean,
+    val double precision,
+    orderby integer,
+    selected boolean DEFAULT false,
+    expected_year integer,
+    replacement_year integer,
+    budget numeric(12,2),
+    total numeric(12,2),
+    estimated_cost numeric(12,2),
+    comments text,
+    data_quality_class varchar(20),
+    CONSTRAINT ud_node_output_pkey PRIMARY KEY (node_id, result_id)
 );
 
 -- Stage 3: LINK Weighted Method tables (ODT ws_link_* → live AM names)
-CREATE TABLE link_input (
+CREATE TABLE ws_link_input (
     link_id int4 NOT NULL,
     connec_id int4,
     arc_id int4,
@@ -399,13 +553,13 @@ CREATE TABLE link_input (
     data_quality integer,
     data_quality_obs varchar[],
     estimated_cost numeric(12,2),
-    CONSTRAINT link_input_pkey PRIMARY KEY (link_id)
+    CONSTRAINT ws_link_input_pkey PRIMARY KEY (link_id)
 );
 
-CREATE INDEX link_input_connec_idx ON link_input (connec_id);
-CREATE INDEX link_input_arc_idx ON link_input (arc_id);
+CREATE INDEX ws_link_input_connec_idx ON ws_link_input (connec_id);
+CREATE INDEX ws_link_input_arc_idx ON ws_link_input (arc_id);
 
-CREATE TABLE link_engine_wm (
+CREATE TABLE ws_link_engine_wm (
     link_id int4 NOT NULL,
     result_id integer NOT NULL,
     longevity numeric(5,2),
@@ -418,13 +572,13 @@ CREATE TABLE link_engine_wm (
     val_first double precision,
     val double precision,
     orderby integer,
-    CONSTRAINT link_engine_wm_pkey PRIMARY KEY (link_id, result_id)
+    CONSTRAINT ws_link_engine_wm_pkey PRIMARY KEY (link_id, result_id)
 );
 
-CREATE INDEX link_engine_wm_result_idx ON link_engine_wm (result_id);
-CREATE INDEX link_engine_wm_orderby_idx ON link_engine_wm (result_id, orderby);
+CREATE INDEX ws_link_engine_wm_result_idx ON ws_link_engine_wm (result_id);
+CREATE INDEX ws_link_engine_wm_orderby_idx ON ws_link_engine_wm (result_id, orderby);
 
-CREATE TABLE link_output (
+CREATE TABLE ws_link_output (
     link_id int4 NOT NULL,
     result_id integer NOT NULL,
     connec_id int4,
@@ -458,12 +612,12 @@ CREATE TABLE link_output (
     estimated_cost numeric(12,2),
     comments text,
     data_quality_class varchar(20),
-    CONSTRAINT link_output_pkey PRIMARY KEY (link_id, result_id)
+    CONSTRAINT ws_link_output_pkey PRIMARY KEY (link_id, result_id)
 );
 
-CREATE INDEX link_output_result_idx ON link_output (result_id);
-CREATE INDEX link_output_arc_idx ON link_output (result_id, arc_id);
-CREATE INDEX link_output_connec_idx ON link_output (result_id, connec_id);
+CREATE INDEX ws_link_output_result_idx ON ws_link_output (result_id);
+CREATE INDEX ws_link_output_arc_idx ON ws_link_output (result_id, arc_id);
+CREATE INDEX ws_link_output_connec_idx ON ws_link_output (result_id, connec_id);
 
 CREATE TABLE selector_result_main (
     result_id integer NOT NULL,
@@ -494,7 +648,7 @@ CREATE TABLE config_form_tableview (
 -- VIEWS:
 --
 
-CREATE VIEW v_asset_arc_output AS
+CREATE VIEW v_asset_ws_arc_output AS
  SELECT arc_id,
     o.result_id,
     sector_id,
@@ -529,11 +683,11 @@ CREATE VIEW v_asset_arc_output AS
     length,
     cum_length,
     the_geom
-   FROM arc_output o
+   FROM ws_arc_output o
      JOIN selector_result_main s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
 
-CREATE VIEW v_asset_arc_output_compare AS
+CREATE VIEW v_asset_ws_arc_output_compare AS
  SELECT arc_id,
     o.result_id,
     sector_id,
@@ -568,11 +722,11 @@ CREATE VIEW v_asset_arc_output_compare AS
     length,
     cum_length,
     the_geom
-   FROM arc_output o
+   FROM ws_arc_output o
      JOIN selector_result_compare s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
 
-CREATE OR REPLACE VIEW v_asset_arc_corporate
+CREATE OR REPLACE VIEW v_asset_ws_arc_corporate
 AS SELECT o.arc_id,
     o.result_id,
     o.sector_id,
@@ -607,11 +761,11 @@ AS SELECT o.arc_id,
     o.length,
     o.cum_length,
     o.the_geom
-   FROM arc_output o
+   FROM ws_arc_output o
      JOIN cat_result r ON r.result_id = o.result_id
   WHERE r.iscorporate = TRUE;
 
-CREATE VIEW v_asset_node_output AS
+CREATE VIEW v_asset_ws_node_output AS
  SELECT node_id,
     o.result_id,
     sector_id,
@@ -643,11 +797,11 @@ CREATE VIEW v_asset_node_output AS
     comments,
     data_quality_class,
     the_geom
-   FROM node_output o
+   FROM ws_node_output o
      JOIN selector_result_main s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
 
-CREATE VIEW v_asset_node_output_compare AS
+CREATE VIEW v_asset_ws_node_output_compare AS
  SELECT node_id,
     o.result_id,
     sector_id,
@@ -679,11 +833,11 @@ CREATE VIEW v_asset_node_output_compare AS
     comments,
     data_quality_class,
     the_geom
-   FROM node_output o
+   FROM ws_node_output o
      JOIN selector_result_compare s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
 
-CREATE OR REPLACE VIEW v_asset_node_corporate
+CREATE OR REPLACE VIEW v_asset_ws_node_corporate
 AS SELECT o.node_id,
     o.result_id,
     o.sector_id,
@@ -715,11 +869,77 @@ AS SELECT o.node_id,
     o.comments,
     o.data_quality_class,
     o.the_geom
-   FROM node_output o
+   FROM ws_node_output o
      JOIN cat_result r ON r.result_id = o.result_id
   WHERE r.iscorporate = TRUE;
 
-CREATE VIEW v_asset_link_output AS
+CREATE VIEW v_asset_ud_arc_output AS
+ SELECT o.arc_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+    o.builtdate, o.arccat_id, o.dnom, o.matcat_id, o.function_type, o.code, o.expl_id, o.dma_id,
+    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
+    o.comments, o.data_quality_class, o.the_geom
+   FROM ud_arc_output o
+     JOIN selector_result_main s ON (s.result_id = o.result_id)
+  WHERE (s.cur_user = (CURRENT_USER)::text);
+
+CREATE VIEW v_asset_ud_arc_output_compare AS
+ SELECT o.arc_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+    o.builtdate, o.arccat_id, o.dnom, o.matcat_id, o.function_type, o.code, o.expl_id, o.dma_id,
+    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
+    o.comments, o.data_quality_class, o.the_geom
+   FROM ud_arc_output o
+     JOIN selector_result_compare s ON (s.result_id = o.result_id)
+  WHERE (s.cur_user = (CURRENT_USER)::text);
+
+CREATE OR REPLACE VIEW v_asset_ud_arc_corporate AS
+ SELECT o.arc_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+    o.builtdate, o.arccat_id, o.dnom, o.matcat_id, o.function_type, o.code, o.expl_id, o.dma_id,
+    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
+    o.comments, o.data_quality_class, o.the_geom
+   FROM ud_arc_output o
+     JOIN cat_result r ON r.result_id = o.result_id
+  WHERE r.iscorporate = TRUE;
+
+CREATE VIEW v_asset_ud_node_output AS
+ SELECT o.node_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+    o.builtdate, o.nodecat_id, o.node_type, o.code, o.expl_id, o.dma_id,
+    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
+    o.comments, o.data_quality_class, o.the_geom
+   FROM ud_node_output o
+     JOIN selector_result_main s ON (s.result_id = o.result_id)
+  WHERE (s.cur_user = (CURRENT_USER)::text);
+
+CREATE VIEW v_asset_ud_node_output_compare AS
+ SELECT o.node_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+    o.builtdate, o.nodecat_id, o.node_type, o.code, o.expl_id, o.dma_id,
+    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
+    o.comments, o.data_quality_class, o.the_geom
+   FROM ud_node_output o
+     JOIN selector_result_compare s ON (s.result_id = o.result_id)
+  WHERE (s.cur_user = (CURRENT_USER)::text);
+
+CREATE OR REPLACE VIEW v_asset_ud_node_corporate AS
+ SELECT o.node_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+    o.builtdate, o.nodecat_id, o.node_type, o.code, o.expl_id, o.dma_id,
+    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
+    o.comments, o.data_quality_class, o.the_geom
+   FROM ud_node_output o
+     JOIN cat_result r ON r.result_id = o.result_id
+  WHERE r.iscorporate = TRUE;
+
+CREATE VIEW v_asset_ws_link_output AS
  SELECT o.link_id,
     o.result_id,
     o.connec_id,
@@ -756,13 +976,13 @@ CREATE VIEW v_asset_link_output AS
     ao.orderby AS parent_arc_orderby,
     (ao.arc_id IS NOT NULL) AS parent_arc_selected_result,
     o.the_geom
-   FROM link_output o
+   FROM ws_link_output o
      JOIN selector_result_main s ON (s.result_id = o.result_id)
      JOIN cat_result r ON r.result_id = o.result_id
-     LEFT JOIN arc_output ao ON ao.result_id = r.linked_arc_result_id AND ao.arc_id = o.arc_id
+     LEFT JOIN ws_arc_output ao ON ao.result_id = r.linked_arc_result_id AND ao.arc_id = o.arc_id
   WHERE (s.cur_user = (CURRENT_USER)::text);
 
-CREATE VIEW v_asset_link_output_compare AS
+CREATE VIEW v_asset_ws_link_output_compare AS
  SELECT o.link_id,
     o.result_id,
     o.connec_id,
@@ -799,13 +1019,13 @@ CREATE VIEW v_asset_link_output_compare AS
     ao.orderby AS parent_arc_orderby,
     (ao.arc_id IS NOT NULL) AS parent_arc_selected_result,
     o.the_geom
-   FROM link_output o
+   FROM ws_link_output o
      JOIN selector_result_compare s ON (s.result_id = o.result_id)
      JOIN cat_result r ON r.result_id = o.result_id
-     LEFT JOIN arc_output ao ON ao.result_id = r.linked_arc_result_id AND ao.arc_id = o.arc_id
+     LEFT JOIN ws_arc_output ao ON ao.result_id = r.linked_arc_result_id AND ao.arc_id = o.arc_id
   WHERE (s.cur_user = (CURRENT_USER)::text);
 
-CREATE OR REPLACE VIEW v_asset_link_corporate
+CREATE OR REPLACE VIEW v_asset_ws_link_corporate
 AS SELECT o.link_id,
     o.result_id,
     o.connec_id,
@@ -839,7 +1059,7 @@ AS SELECT o.link_id,
     o.comments,
     o.data_quality_class,
     o.the_geom
-   FROM link_output o
+   FROM ws_link_output o
      JOIN cat_result r ON r.result_id = o.result_id
   WHERE r.iscorporate = TRUE;
 
@@ -848,27 +1068,27 @@ AS SELECT o.link_id,
 --
 SET search_path = am, public;
 
-INSERT INTO config_engine_def VALUES ('bratemain0', '0.05', 'SH', NULL, NULL, true, 'lyt_engine_1', 1, 'Break rate coefficient', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('drate', '0.05', 'SH', NULL, NULL, true, 'lyt_engine_1', 2, 'Discount rate (%)', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('rleak_1', '0.2', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Real breaks', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('mleak_1', '0.1', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Probability of failure', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('longevity_1', '0.7', 'WM', NULL, NULL, true, 'lyt_engine_1', 5, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('flow_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Circulating flow', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('nrw_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'NRW', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 8, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 9, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('mincut_criticity_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 10, 'Mincut criticity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('expected_year', '0.7', 'SH', NULL, NULL, true, 'lyt_engine_2', 1, 'Weight expected year', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('compliance', '0.1', 'SH', NULL, NULL, true, 'lyt_engine_2', 2, 'Weight compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('strategic', '0.2', 'SH', NULL, NULL, true, 'lyt_engine_2', 3, 'Weight strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('rleak_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Real breaks', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('mleak_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'Probability of failure', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('flow_2', '0.5', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Circulating flow', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('nrw_2', '0.2', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'NRW', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('strategic_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 9, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('compliance_2', '0.3', 'WM', NULL, NULL, true, 'lyt_engine_2', 10, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
-INSERT INTO config_engine_def VALUES ('mincut_criticity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 11, 'Mincut criticity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC');
+INSERT INTO config_engine_def VALUES ('bratemain0', '0.05', 'SH', NULL, NULL, true, 'lyt_engine_1', 1, 'Break rate coefficient', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('drate', '0.05', 'SH', NULL, NULL, true, 'lyt_engine_1', 2, 'Discount rate (%)', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('rleak_1', '0.2', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Real breaks', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('mleak_1', '0.1', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Probability of failure', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('longevity_1', '0.7', 'WM', NULL, NULL, true, 'lyt_engine_1', 5, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('flow_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Circulating flow', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('nrw_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'NRW', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 8, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 9, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('mincut_criticity_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 10, 'Mincut criticity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('expected_year', '0.7', 'SH', NULL, NULL, true, 'lyt_engine_2', 1, 'Weight expected year', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('compliance', '0.1', 'SH', NULL, NULL, true, 'lyt_engine_2', 2, 'Weight compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('strategic', '0.2', 'SH', NULL, NULL, true, 'lyt_engine_2', 3, 'Weight strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('rleak_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Real breaks', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('mleak_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'Probability of failure', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('flow_2', '0.5', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Circulating flow', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('nrw_2', '0.2', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'NRW', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('strategic_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 9, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('compliance_2', '0.3', 'WM', NULL, NULL, true, 'lyt_engine_2', 10, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
+INSERT INTO config_engine_def VALUES ('mincut_criticity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 11, 'Mincut criticity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'WS');
 
 --
 -- Stage 2: NODE Weighted Method default weights
@@ -876,30 +1096,69 @@ INSERT INTO config_engine_def VALUES ('mincut_criticity_2', '0.0', 'WM', NULL, N
 INSERT INTO config_engine_def (
     parameter, value, method, round, descript, active, layoutname, layoutorder,
     label, datatype, widgettype, dv_querytext, dv_controls, ismandatory, iseditable,
-    stylesheet, widgetcontrols, placeholder, standardvalue, asset_type
+    stylesheet, widgetcontrols, placeholder, standardvalue, asset_type, project_type
 ) VALUES
-    ('longevity_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('incident_history_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('structural_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('operational_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('nrw_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 5, 'NRW', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('affected_users_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Affected users', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('incident_history_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('structural_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('operational_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('nrw_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'NRW', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('affected_users_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Affected users', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('strategic_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
-    ('compliance_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+    ('longevity_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('incident_history_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('structural_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('operational_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('nrw_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 5, 'NRW', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('affected_users_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Affected users', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('incident_history_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('structural_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('operational_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('nrw_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'NRW', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('affected_users_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Affected users', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('strategic_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
+    ('compliance_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
     ('affected_arcs_1', '0.0', 'WM', NULL,
      'Weight for nodes between arcs planned in the linked ARC result (share of adjacent arcs in that plan). Locked to 0 when no ARC result is linked.',
-     true, 'lyt_engine_1', 9, 'Affected arcs', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE'),
+     true, 'lyt_engine_1', 9, 'Affected arcs', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS'),
     ('affected_arcs_2', '0.0', 'WM', NULL,
      'Weight for nodes between arcs planned in the linked ARC result (share of adjacent arcs in that plan). Locked to 0 when no ARC result is linked.',
-     true, 'lyt_engine_2', 9, 'Affected arcs', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE');
+     true, 'lyt_engine_2', 9, 'Affected arcs', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'WS');
+
+-- UD Weighted Method (ARC and NODE): iter1 0.25×4, iter2 0.25×4 dwf/storm/strategic/compliance
+INSERT INTO config_engine_def (
+    parameter, value, method, round, descript, active, layoutname, layoutorder,
+    label, datatype, widgettype, dv_querytext, dv_controls, ismandatory, iseditable,
+    stylesheet, widgetcontrols, placeholder, standardvalue, asset_type, project_type
+) VALUES
+    ('longevity_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('incident_history_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('structural_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('operational_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('dwf_impact_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 5, 'DWF impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('storm_impact_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Storm impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('incident_history_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('structural_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('operational_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('dwf_impact_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'DWF impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('storm_impact_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Storm impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('strategic_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('compliance_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ARC', 'UD'),
+    ('longevity_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('incident_history_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('structural_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('operational_condition_1', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('dwf_impact_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 5, 'DWF impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('storm_impact_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Storm impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('incident_history_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('structural_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 3, 'Structural condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('operational_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Operational condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('dwf_impact_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 5, 'DWF impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('storm_impact_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Storm impact', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('strategic_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD'),
+    ('compliance_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD');
 
 --
 -- Stage 3: LINK Weighted Method default weights (ODT §4.11 as _1/_2 fractions)
@@ -907,26 +1166,26 @@ INSERT INTO config_engine_def (
 INSERT INTO config_engine_def (
     parameter, value, method, round, descript, active, layoutname, layoutorder,
     label, datatype, widgettype, dv_querytext, dv_controls, ismandatory, iseditable,
-    stylesheet, widgetcontrols, placeholder, standardvalue, asset_type
+    stylesheet, widgetcontrols, placeholder, standardvalue, asset_type, project_type
 ) VALUES
-    ('longevity_1', '0.34', 'WM', NULL, NULL, true, 'lyt_engine_1', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
-    ('incident_history_1', '0.33', 'WM', NULL, NULL, true, 'lyt_engine_1', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
-    ('material_condition_1', '0.33', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Material condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
-    ('affected_users_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Affected users', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
+    ('longevity_1', '0.34', 'WM', NULL, NULL, true, 'lyt_engine_1', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
+    ('incident_history_1', '0.33', 'WM', NULL, NULL, true, 'lyt_engine_1', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
+    ('material_condition_1', '0.33', 'WM', NULL, NULL, true, 'lyt_engine_1', 3, 'Material condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
+    ('affected_users_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 4, 'Affected users', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
     ('parent_arc_selected_1', '0.0', 'WM', NULL,
      'Weight for links whose parent arc is selected in the linked ARC result. Locked to 0 when no ARC result is linked.',
-     true, 'lyt_engine_1', 5, 'Parent arc selected', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
-    ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
-    ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
-    ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
-    ('incident_history_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
-    ('material_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 3, 'Material condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
-    ('affected_users_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Affected users', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
+     true, 'lyt_engine_1', 5, 'Parent arc selected', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
+    ('strategic_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 6, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
+    ('compliance_1', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_1', 7, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
+    ('longevity_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 1, 'Longevity', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
+    ('incident_history_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 2, 'Incident history', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
+    ('material_condition_2', '0.0', 'WM', NULL, NULL, true, 'lyt_engine_2', 3, 'Material condition', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
+    ('affected_users_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 4, 'Affected users', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
     ('parent_arc_selected_2', '0.35', 'WM', NULL,
      'Weight for links whose parent arc is selected in the linked ARC result. Locked to 0 when no ARC result is linked.',
-     true, 'lyt_engine_2', 5, 'Parent arc selected', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
-    ('strategic_2', '0.20', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK'),
-    ('compliance_2', '0.20', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK');
+     true, 'lyt_engine_2', 5, 'Parent arc selected', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
+    ('strategic_2', '0.20', 'WM', NULL, NULL, true, 'lyt_engine_2', 6, 'Strategic', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS'),
+    ('compliance_2', '0.20', 'WM', NULL, NULL, true, 'lyt_engine_2', 7, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'LINK', 'WS');
 
 --
 -- config_form_tableview
@@ -997,6 +1256,7 @@ INSERT INTO value_result_type VALUES ('GLOBAL', 'GLOBAL');
 INSERT INTO value_result_type VALUES ('SELECTION', 'SELECTION');
 
 INSERT INTO config_form_tableview VALUES ('priority_manager', 'utils', 'cat_result', 'iscorporate', 15, true, NULL, NULL, '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_manager', 'utils', 'cat_result', 'project_type', 16, true, NULL, 'Project', '{"stretch": true}');
 
 ALTER TABLE config_catalog_def ADD CONSTRAINT config_catalog_def_arccat_id UNIQUE (arccat_id);
 
@@ -1012,16 +1272,17 @@ UPDATE config_form_tableview SET alias = 'Timestamp' WHERE objectname = 'cat_res
 UPDATE config_form_tableview SET alias = 'Current User' WHERE objectname = 'cat_result' AND columnname = 'cur_user';
 UPDATE config_form_tableview SET alias = 'Status' WHERE objectname = 'cat_result' AND columnname = 'status';
 UPDATE config_form_tableview SET alias = 'Corporate' WHERE objectname = 'cat_result' AND columnname = 'iscorporate';
+UPDATE config_form_tableview SET alias = 'Project' WHERE objectname = 'cat_result' AND columnname = 'project_type';
 UPDATE config_form_tableview SET alias = 'Features' WHERE objectname = 'cat_result' AND columnname = 'features';
 UPDATE config_form_tableview SET alias = 'DNOM' WHERE objectname = 'cat_result' AND columnname = 'dnom';
 UPDATE config_form_tableview SET alias = 'Presszone' WHERE objectname = 'cat_result' AND columnname = 'presszone_id';
 UPDATE config_form_tableview SET alias = 'Material' WHERE objectname = 'cat_result' AND columnname = 'material_id';
 
 
-GRANT ALL ON TABLE arc_engine_sh TO role_basic;
-GRANT ALL ON TABLE arc_engine_wm TO role_basic;
-GRANT ALL ON TABLE arc_input TO role_basic;
-GRANT ALL ON TABLE arc_output TO role_basic;
+GRANT ALL ON TABLE ws_arc_engine_sh TO role_basic;
+GRANT ALL ON TABLE ws_arc_engine_wm TO role_basic;
+GRANT ALL ON TABLE ws_arc_input TO role_basic;
+GRANT ALL ON TABLE ws_arc_output TO role_basic;
 GRANT ALL ON TABLE cat_result TO role_basic;
 GRANT ALL ON TABLE config_catalog TO role_basic;
 GRANT ALL ON TABLE config_catalog_def TO role_basic;
@@ -1038,21 +1299,33 @@ GRANT ALL ON TABLE selector_result_compare TO role_basic;
 GRANT ALL ON TABLE selector_result_main TO role_basic;
 GRANT ALL ON TABLE value_result_type TO role_basic;
 GRANT ALL ON TABLE value_status TO role_basic;
-GRANT ALL ON TABLE node_input TO role_basic;
-GRANT ALL ON TABLE node_engine_wm TO role_basic;
-GRANT ALL ON TABLE node_output TO role_basic;
-GRANT ALL ON TABLE v_asset_node_output TO role_basic;
-GRANT ALL ON TABLE v_asset_node_output_compare TO role_basic;
-GRANT ALL ON TABLE v_asset_node_corporate TO role_basic;
+GRANT ALL ON TABLE ws_node_input TO role_basic;
+GRANT ALL ON TABLE ws_node_engine_wm TO role_basic;
+GRANT ALL ON TABLE ws_node_output TO role_basic;
+GRANT ALL ON TABLE v_asset_ws_node_output TO role_basic;
+GRANT ALL ON TABLE v_asset_ws_node_output_compare TO role_basic;
+GRANT ALL ON TABLE v_asset_ws_node_corporate TO role_basic;
+GRANT ALL ON TABLE ud_arc_input TO role_basic;
+GRANT ALL ON TABLE ud_arc_engine_wm TO role_basic;
+GRANT ALL ON TABLE ud_arc_output TO role_basic;
+GRANT ALL ON TABLE ud_node_input TO role_basic;
+GRANT ALL ON TABLE ud_node_engine_wm TO role_basic;
+GRANT ALL ON TABLE ud_node_output TO role_basic;
+GRANT ALL ON TABLE v_asset_ud_arc_output TO role_basic;
+GRANT ALL ON TABLE v_asset_ud_arc_output_compare TO role_basic;
+GRANT ALL ON TABLE v_asset_ud_arc_corporate TO role_basic;
+GRANT ALL ON TABLE v_asset_ud_node_output TO role_basic;
+GRANT ALL ON TABLE v_asset_ud_node_output_compare TO role_basic;
+GRANT ALL ON TABLE v_asset_ud_node_corporate TO role_basic;
 GRANT ALL ON TABLE config_linkcatalog TO role_basic;
 GRANT ALL ON TABLE config_linkcatalog_def TO role_basic;
 GRANT ALL ON TABLE config_linkmaterial_def TO role_basic;
-GRANT ALL ON TABLE link_input TO role_basic;
-GRANT ALL ON TABLE link_engine_wm TO role_basic;
-GRANT ALL ON TABLE link_output TO role_basic;
-GRANT ALL ON TABLE v_asset_link_output TO role_basic;
-GRANT ALL ON TABLE v_asset_link_output_compare TO role_basic;
-GRANT ALL ON TABLE v_asset_link_corporate TO role_basic;
+GRANT ALL ON TABLE ws_link_input TO role_basic;
+GRANT ALL ON TABLE ws_link_engine_wm TO role_basic;
+GRANT ALL ON TABLE ws_link_output TO role_basic;
+GRANT ALL ON TABLE v_asset_ws_link_output TO role_basic;
+GRANT ALL ON TABLE v_asset_ws_link_output_compare TO role_basic;
+GRANT ALL ON TABLE v_asset_ws_link_corporate TO role_basic;
 
 INSERT INTO config_linkmaterial_def (material, score, descript) VALUES
     ('PE', 2, 'Modern polyethylene'),

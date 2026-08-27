@@ -454,12 +454,13 @@ class GwAdminButton:
         parent_schema: str,
         parent_type: str,
     ) -> None:
-        """Wire am into a WS parent schema."""
+        """Wire am into a WS or UD parent schema (at most one of each)."""
+        kind = (parent_type or "ws").upper()
         msg = (
-            "You are about to integrate am with the following WS schema: {0}\n\n"
+            "You are about to integrate am with the following {0} schema: {1}\n\n"
             "Are you sure you want to continue?"
         )
-        msg_params = (parent_schema,)
+        msg_params = (kind, parent_schema)
         title = "Integrate am"
         if not tools_qt.show_question(msg, title, msg_params=msg_params):
             return

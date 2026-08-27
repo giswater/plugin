@@ -18,6 +18,7 @@ from qgis.PyQt.QtCore import pyqtSignal
 
 from .task import GwTask
 from ...libs import lib_vars, tools_db, tools_os, tools_qt
+from ..toolbars.am.am_utils import am_names
 
 
 def get_min_greater_than(iterable, value):
@@ -89,6 +90,7 @@ class GwCalculatePriority(GwTask):
         config_material,
         config_engine,
         asset_type="ARC",
+        project_type="WS",
         node_type=None,
         nodecat=None,
         linked_arc_result_id=None,
@@ -109,6 +111,9 @@ class GwCalculatePriority(GwTask):
         self.config_material = config_material
         self.config_engine = config_engine
         self.asset_type = asset_type or "ARC"
+        self.project_type = (project_type or "WS").upper()
+        if self.project_type not in ("WS", "UD"):
+            self.project_type = "WS"
         self.node_type = node_type
         self.nodecat = nodecat
         self.linked_arc_result_id = linked_arc_result_id
@@ -146,6 +151,12 @@ class GwCalculatePriority(GwTask):
                     return False
                 return self._run_sh()
             elif self.method == "WM":
+                if self.asset_type == "LINK" and self.project_type != "WS":
+                    self._emit_report(
+                        tools_qt.tr("Task canceled:"),
+                        tools_qt.tr("LINK priority is only available for WS projects."),
+                    )
+                    return False
                 return self._run_wm()
             else:
                 raise ValueError(
@@ -207,27 +218,27 @@ class GwCalculatePriority(GwTask):
             )
 
     def _copy_input_to_output(self):
-        """ Copy ext_arc_asset attributes into arc_output rows """
+        """ Copy ext_ws_arc_asset attributes into ws_arc_output rows """
         tools_db.execute_sql(
             f"""
-            update am.arc_output o
+            update am.ws_arc_output o
             set (sector_id, macrosector_id, presszone_id, pavcat_id, function_type, the_geom, code, expl_id)
                 = (select sector_id, macrosector_id, presszone_id, pavcat_id, function_type, st_multi(the_geom), code, expl_id
-                    from am.ext_arc_asset a
+                    from am.ext_ws_arc_asset a
                     where a.arc_id = o.arc_id)
             where o.result_id = {self.result_id}
             """,
             is_thread=True
         )
 
-    def _copy_node_input_to_output(self):
-        """ Copy ext_node_asset attributes into node_output rows """
+    def _copy_ws_node_input_to_output(self):
+        """ Copy ext_ws_node_asset attributes into ws_node_output rows """
         tools_db.execute_sql(
             f"""
-            update am.node_output o
+            update am.ws_node_output o
             set (sector_id, macrosector_id, presszone_id, builtdate, nodecat_id, node_type, the_geom, code, expl_id, dma_id)
                 = (select sector_id, macrosector_id, presszone_id, builtdate, nodecat_id, node_type, the_geom, code, expl_id, dma_id
-                    from am.ext_node_asset a
+                    from am.ext_ws_node_asset a
                     where a.node_id = o.node_id)
             where o.result_id = {self.result_id}
             """,
@@ -316,7 +327,7 @@ class GwCalculatePriority(GwTask):
         return txt.strip()
 
     def _update_mincut_criticity(self):
-        """Refresh mincut_customers / mincut_criticity on am.arc_input."""
+        """Refresh mincut_customers / mincut_criticity on am.ws_arc_input."""
         try:
             row = tools_db.get_row(
                 "SELECT am.gw_fct_am_update_mincut_criticity('{}'::json) AS result",
@@ -385,8 +396,8 @@ class GwCalculatePriority(GwTask):
         if columns != "":
             sql = f"""
                 select {columns}
-                from am.ext_arc_asset a
-                left join am.arc_input ai using (arc_id)
+                from am.ext_ws_arc_asset a
+                left join am.ws_arc_input ai using (arc_id)
                 {filters}
             """
             return tools_db.get_rows(sql, is_thread=True)
@@ -394,8 +405,8 @@ class GwCalculatePriority(GwTask):
     def _get_nodes(self):
         """Get nodes (Stage 2, NODE asset_type).
 
-        Raw overlay fields live on node_input (*_raw); age/cost can also come from
-        ext_node_asset when the overlay row is missing.
+        Raw overlay fields live on ws_node_input (*_raw); age/cost can also come from
+        ext_ws_node_asset when the overlay row is missing.
         """
 
         columns = """
@@ -442,14 +453,14 @@ class GwCalculatePriority(GwTask):
 
         sql = f"""
             select {columns}
-            from am.ext_node_asset a
-            left join am.node_input i using (node_id)
+            from am.ext_ws_node_asset a
+            left join am.ws_node_input i using (node_id)
             {filters}
         """
         return tools_db.get_rows(sql, is_thread=True)
 
     def _get_links(self):
-        """Get links (Stage 3, LINK asset_type). Overlay on link_input; inventory on ext_link_asset."""
+        """Get links (Stage 3, LINK asset_type). Overlay on ws_link_input; inventory on ext_ws_link_asset."""
 
         columns = """
             a.link_id,
@@ -495,8 +506,8 @@ class GwCalculatePriority(GwTask):
 
         sql = f"""
             select {columns}
-            from am.ext_link_asset a
-            left join am.link_input i using (link_id)
+            from am.ext_ws_link_asset a
+            left join am.ws_link_input i using (link_id)
             {filters}
         """
         return tools_db.get_rows(sql, is_thread=True)
@@ -655,6 +666,7 @@ class GwCalculatePriority(GwTask):
             FROM am.cat_result
             WHERE result_id = {int(arc_result_id)}
               AND COALESCE(asset_type, 'ARC') = 'ARC'
+              AND COALESCE(project_type, 'WS') = '{self.project_type}'
             """,
             is_thread=True,
         )
@@ -686,7 +698,7 @@ class GwCalculatePriority(GwTask):
         out_rows = tools_db.get_rows(
             f"""
             SELECT arc_id, replacement_year
-            FROM am.arc_output
+            FROM am.ws_arc_output
             WHERE result_id = {int(arc_result_id)}
             """,
             is_thread=True,
@@ -720,7 +732,7 @@ class GwCalculatePriority(GwTask):
                 a.builtdate,
                 a.press1,
                 a.press2
-            FROM am.ext_arc_asset a
+            FROM am.ext_ws_arc_asset a
             {filters}
             """,
             is_thread=True,
@@ -959,7 +971,7 @@ class GwCalculatePriority(GwTask):
         self.setProgress(72)
 
         tools_db.execute_sql(
-            f"delete from am.arc_engine_sh where result_id = {self.result_id};",
+            f"delete from am.ws_arc_engine_sh where result_id = {self.result_id};",
             is_thread=True
         )
         index = 0
@@ -967,7 +979,7 @@ class GwCalculatePriority(GwTask):
         ended = False
         while not ended:
             save_arcs_sql = """
-                insert into am.arc_engine_sh (
+                insert into am.ws_arc_engine_sh (
                     arc_id,
                     result_id,
                     cost_repmain,
@@ -1017,9 +1029,9 @@ class GwCalculatePriority(GwTask):
 
         tools_db.execute_sql(
             f"""
-            delete from am.arc_output
+            delete from am.ws_arc_output
                 where result_id = {self.result_id};
-            insert into am.arc_output (arc_id,
+            insert into am.ws_arc_output (arc_id,
                     result_id,
                     dnom,
                     matcat_id,
@@ -1053,9 +1065,9 @@ class GwCalculatePriority(GwTask):
                     i.strategic,
                     rleak,
                     10 - sh.compliance
-                from am.arc_engine_sh sh
-                left join am.arc_input i using (arc_id)
-                left join am.ext_arc_asset a using (arc_id)
+                from am.ws_arc_engine_sh sh
+                left join am.ws_arc_input i using (arc_id)
+                left join am.ext_ws_arc_asset a using (arc_id)
                 where sh.result_id = {self.result_id}
                 order by total;
             """,
@@ -1081,11 +1093,319 @@ class GwCalculatePriority(GwTask):
 
     def _run_wm(self):
         """Dispatch the Weighted Method calculation to the ARC or NODE implementation."""
+        if self.project_type == "UD":
+            return self._run_ud_wm()
         if self.asset_type == "NODE":
             return self._run_node_wm()
         if self.asset_type == "LINK":
             return self._run_link_wm()
         return self._run_arc_wm()
+
+    def _ud_engine_w(self, key):
+        try:
+            return float(self.config_engine[key])
+        except (KeyError, TypeError, ValueError):
+            return 0.0
+
+    def _get_ud_rows(self):
+        """Overlay + input for UD ARC or NODE."""
+        names = am_names(self.project_type, self.asset_type)
+        is_arc = self.asset_type == "ARC"
+        id_col = "arc_id" if is_arc else "node_id"
+        cat_col = "arccat_id" if is_arc else "nodecat_id"
+        extra = "ST_Length(a.the_geom)::numeric AS length," if is_arc else "NULL::numeric AS length,"
+        type_col = "a.node_type," if not is_arc else "NULL::text AS node_type,"
+        filter_list = []
+        if self.features:
+            ids = "','".join(str(x) for x in self.features)
+            filter_list.append(f"a.{id_col} in ('{ids}')")
+        if self.exploitation:
+            filter_list.append(f"a.expl_id = {self.exploitation}")
+        if self.presszone:
+            filter_list.append(f"a.presszone_id = '{self.presszone}'")
+        if is_arc and self.diameter:
+            filter_list.append(f"a.dnom = '{self.diameter}'")
+        if is_arc and self.material:
+            filter_list.append(f"a.matcat_id = '{self.material}'")
+        if not is_arc and self.node_type:
+            if isinstance(self.node_type, (list, tuple)):
+                types = "','".join(str(t).replace("'", "''") for t in self.node_type)
+                filter_list.append(f"a.node_type in ('{types}')")
+            else:
+                filter_list.append(f"a.node_type = '{self.node_type}'")
+        if not is_arc and self.nodecat:
+            filter_list.append(f"a.nodecat_id = '{self.nodecat}'")
+        filters = f"where {' and '.join(filter_list)}" if filter_list else ""
+        sql = f"""
+            select
+                a.{id_col} AS feature_id,
+                a.{cat_col} AS catalog_id,
+                a.matcat_id,
+                {type_col}
+                a.builtdate,
+                a.sector_id,
+                a.macrosector_id,
+                a.presszone_id,
+                a.drainzone_id,
+                a.expl_id,
+                a.dma_id,
+                a.code,
+                a.the_geom,
+                {extra}
+                coalesce(i.age, a.age) AS age,
+                coalesce(i.mandatory, false) AS mandatory,
+                i.strategic,
+                coalesce(i.incident_count, a.incident_count_src) AS incident_count,
+                coalesce(i.structural_raw, a.structural_raw_src) AS structural_raw,
+                coalesce(i.operational_raw, a.operational_raw_src) AS operational_raw,
+                coalesce(i.dwf_raw, a.dwf_raw_src, 0) AS dwf_raw,
+                coalesce(i.storm_raw, a.storm_raw_src, 0) AS storm_raw,
+                i.compliance,
+                coalesce(i.estimated_cost, a.estimated_cost, 0) AS estimated_cost
+            from am.{names['ext']} a
+            left join am.{names['input']} i using ({id_col})
+            {filters}
+        """
+        return tools_db.get_rows(sql, is_thread=True)
+
+    def _run_ud_wm(self):
+        """UD ARC/NODE WM: NODE-like matrix with dwf/storm instead of nrw/users."""
+        pd = tools_os.get_dep("pandas")
+        is_arc = self.asset_type == "ARC"
+        names = am_names("UD", self.asset_type)
+        id_col = "arc_id" if is_arc else "node_id"
+
+        self._emit_report(tools_qt.tr("Getting auxiliary data from DB") + " (1/4)...")
+        self.setProgress(10)
+        rows = self._get_ud_rows()
+        if not rows:
+            self._emit_report(
+                tools_qt.tr("Task canceled:"),
+                tools_qt.tr("No assets found matching your selected filters."),
+            )
+            return False
+
+        today_year = date.today().year
+        features = []
+        invalid_cat = {"qtd": 0, "set": set()}
+        invalid_material = {"qtd": 0, "set": set()}
+        for row in rows:
+            feat = row.copy()
+            catalog_id = feat.get("catalog_id")
+            if not self.config_catalog or not self.config_catalog.has_key(catalog_id):
+                invalid_cat["qtd"] += 1
+                invalid_cat["set"].add(catalog_id or "NULL")
+                continue
+            mat = feat.get("matcat_id")
+            if (
+                not mat
+                or mat == self.unknown_material
+                or not self.config_material.has_material(mat)
+            ):
+                invalid_material["qtd"] += 1
+                invalid_material["set"].add(mat or "NULL")
+                if not self.config_material.has_material(self.unknown_material):
+                    continue
+                mat = self.unknown_material
+            feat["matcat_id"] = mat
+            if feat.get("age") is None and feat.get("builtdate"):
+                feat["age"] = today_year - feat["builtdate"].year
+            elif feat.get("age") is None:
+                default_year = self.config_material.get_default_builtdate(mat)
+                if default_year:
+                    feat["age"] = today_year - int(default_year)
+            catalog_cost = self.config_catalog.get_cost_constr(catalog_id)
+            length = float(feat.get("length") or 0)
+            if catalog_cost is not None:
+                feat["estimated_cost"] = max(float(catalog_cost), 0) * (length if is_arc and length else 1)
+            else:
+                feat["estimated_cost"] = max(float(feat.get("estimated_cost") or 0), 0)
+            feat["catalog_compliance"] = self.config_catalog.get_compliance(catalog_id)
+            feat["material_compliance"] = self.config_material.get_compliance(mat)
+            feat["compliance_grade"] = min(
+                feat["material_compliance"], feat["catalog_compliance"]
+            )
+            features.append(feat)
+
+        if not features:
+            self._emit_report(
+                tools_qt.tr("Task canceled:"),
+                tools_qt.tr("No assets found matching your selected filters."),
+            )
+            return False
+
+        min_max_fields = {
+            "age": "longevity",
+            "incident_count": "incident_history",
+            "structural_raw": "structural_condition",
+            "operational_raw": "operational_condition",
+            "dwf_raw": "dwf_impact",
+            "storm_raw": "storm_impact",
+        }
+        bounds = {}
+        for field in min_max_fields:
+            values = [f[field] for f in features if f.get(field) is not None]
+            bounds[field] = (min(values), max(values)) if values else (None, None)
+
+        score_names = (
+            "longevity", "incident_history", "structural_condition",
+            "operational_condition", "dwf_impact", "storm_impact",
+            "strategic", "compliance",
+        )
+        for feat in features:
+            for field, score_name in min_max_fields.items():
+                lo, hi = bounds[field]
+                feat[f"val_{score_name}"] = self._scale_or_zero(
+                    self._normalize_min_max(feat.get(field), lo, hi)
+                )
+            feat["val_strategic"] = self._scale_or_zero(
+                self._normalize_binary(feat.get("strategic"))
+            )
+            feat["val_compliance"] = float(10 - feat["compliance_grade"])
+            for suffix in ("1", "2"):
+                for score_name in score_names:
+                    feat[f"w{suffix}_{score_name}"] = self._ud_engine_w(f"{score_name}_{suffix}")
+                feat[f"val_{suffix}"] = sum(
+                    feat[f"val_{score_name}"] * feat[f"w{suffix}_{score_name}"]
+                    for score_name in score_names
+                )
+
+        features.sort(key=lambda x: x["val_1"], reverse=True)
+        features.sort(key=lambda x: x["mandatory"], reverse=True)
+        cum_cost = 0
+        second_iteration = []
+        for feat in features:
+            second_iteration.append(feat)
+            cum_cost += feat["estimated_cost"]
+            if cum_cost > self.result_budget * (self.target_year - today_year):
+                break
+        if not second_iteration:
+            self._emit_report(
+                tools_qt.tr("Task canceled:"),
+                tools_qt.tr("No assets found matching your budget. (Hint: increase the yearly budget or/and the horizon year)"),
+            )
+            return False
+
+        second_iteration.sort(key=lambda x: x["val_2"], reverse=True)
+        second_iteration.sort(key=lambda x: x["mandatory"], reverse=True)
+        replacement_year = today_year + 1
+        cum_cost = 0
+        for feat in second_iteration:
+            cum_cost += feat["estimated_cost"]
+            feat["replacement_year"] = replacement_year
+            feat["cum_cost"] = cum_cost
+            if cum_cost > self.result_budget:
+                replacement_year += 1
+                cum_cost = 0
+
+        self.df = pd.DataFrame(second_iteration).reset_index(drop=True)
+        self._emit_report(tools_qt.tr("Updating tables") + " (4/4)...")
+        self.setProgress(40)
+
+        self.result_id = self._save_result_info()
+        if not self.result_id:
+            return False
+        if self.config_catalog is not None:
+            self.config_catalog.save(self.result_id)
+        if self.config_material is not None:
+            self.config_material.save(self.result_id)
+        self._save_config_engine()
+
+        tools_db.execute_sql(
+            f"""
+            delete from am.{names['engine_wm']} where result_id = {self.result_id};
+            delete from am.{names['output']} where result_id = {self.result_id};
+            """,
+            is_thread=True,
+        )
+
+        values_engine = []
+        values_out = []
+        for index, feat in enumerate(second_iteration):
+            if feat["replacement_year"] > self.target_year:
+                break
+            fid = feat["feature_id"]
+            strategic_sql = (
+                "TRUE" if feat.get("strategic") else
+                "FALSE" if feat.get("strategic") is not None else "NULL"
+            )
+            compliance_sql = (
+                "TRUE" if feat.get("compliance") else
+                "FALSE" if feat.get("compliance") is not None else "NULL"
+            )
+            values_engine.append(
+                f"""({fid}, {self.result_id},
+                    {feat['val_longevity']}, {feat['val_incident_history']},
+                    {feat['val_structural_condition']}, {feat['val_operational_condition']},
+                    {feat['val_dwf_impact']}, {feat['val_storm_impact']},
+                    {feat['val_strategic']}, {feat['val_compliance']},
+                    {feat['val_1']}, {feat['val_2']}, {index + 1})"""
+            )
+            length_sql = feat.get("length") if is_arc else None
+            extra_out = f", {length_sql if length_sql is not None else 'NULL'}" if is_arc else ""
+            values_out.append(
+                f"""({fid}, {self.result_id},
+                    {feat['val_longevity']}, {feat['val_incident_history']},
+                    {feat['val_structural_condition']}, {feat['val_operational_condition']},
+                    {feat['val_dwf_impact']}, {feat['val_storm_impact']},
+                    {strategic_sql}, {feat.get('mandatory') and 'TRUE' or 'FALSE'}, {compliance_sql},
+                    {feat['val_2']}, {index + 1}, {feat['replacement_year']},
+                    {self.result_budget}, {feat.get('cum_cost') or 0}, {feat['estimated_cost']}{extra_out})"""
+            )
+
+        if values_engine:
+            tools_db.execute_sql(
+                f"""
+                insert into am.{names['engine_wm']} (
+                    {id_col}, result_id, longevity, incident_history,
+                    structural_condition, operational_condition,
+                    dwf_impact, storm_impact, strategic, compliance,
+                    val_first, val, orderby
+                ) values {",".join(values_engine)};
+                """,
+                is_thread=True,
+            )
+        if values_out:
+            extra_cols = ", length" if is_arc else ""
+            tools_db.execute_sql(
+                f"""
+                insert into am.{names['output']} (
+                    {id_col}, result_id, longevity, incident_history,
+                    structural_condition, operational_condition,
+                    dwf, storm, strategic, mandatory, compliance,
+                    val, orderby, replacement_year, budget, total, estimated_cost{extra_cols}
+                ) values {",".join(values_out)};
+                """,
+                is_thread=True,
+            )
+
+        geom_cols = (
+            "sector_id, macrosector_id, drainzone_id, presszone_id, builtdate, "
+            "arccat_id, dnom, matcat_id, function_type, the_geom, code, expl_id, dma_id"
+            if is_arc else
+            "sector_id, macrosector_id, drainzone_id, presszone_id, builtdate, "
+            "nodecat_id, node_type, the_geom, code, expl_id, dma_id"
+        )
+        tools_db.execute_sql(
+            f"""
+            update am.{names['output']} o
+            set ({geom_cols}) = (select {geom_cols} from am.{names['ext']} a
+                where a.{id_col} = o.{id_col})
+            where o.result_id = {self.result_id}
+            """,
+            is_thread=True,
+        )
+
+        skipped = invalid_cat["qtd"] + invalid_material["qtd"]
+        self._emit_report(
+            tools_qt.tr(
+                "UD {0}: {1} assets scored ({2} skipped).",
+                list_params=(self.asset_type, len(second_iteration), skipped),
+            )
+        )
+        self._emit_report(tools_qt.tr("Task finished!"))
+        self.setProgress(100)
+        return True
 
     def _run_arc_wm(self):
         """ Run Weighted Method two-iteration calculation for ARC assets """
@@ -1100,7 +1420,7 @@ class GwCalculatePriority(GwTask):
             """
             with lengths AS (
                 select a.dma_id, sum(st_length(a.the_geom)) as length
-                from am.ext_arc_asset a
+                from am.ext_ws_arc_asset a
                 group by dma_id
             )
             select d.dma_id, (d.nrw / d.days / l.length * 1000) as nrw_m3kmd
@@ -1453,19 +1773,19 @@ class GwCalculatePriority(GwTask):
 
         tools_db.execute_sql(
             f"""
-            delete from am.arc_engine_wm where result_id = {self.result_id};
-            delete from am.arc_output where result_id = {self.result_id};
+            delete from am.ws_arc_engine_wm where result_id = {self.result_id};
+            delete from am.ws_arc_output where result_id = {self.result_id};
             """,
             is_thread=True
         )
 
-        # Saving to am.arc_engine_wm
+        # Saving to am.ws_arc_engine_wm
         index = 0
         loop = 0
         ended = False
         while not ended:
             save_arcs_sql = """
-                insert into am.arc_engine_wm (
+                insert into am.ws_arc_engine_wm (
                     arc_id,
                     result_id,
                     rleak,
@@ -1520,13 +1840,13 @@ class GwCalculatePriority(GwTask):
             progress = (70 - 40) / len(second_iteration) * 1000 * loop + 40
             self.setProgress(progress)
 
-        # Saving to am.arc_output
+        # Saving to am.ws_arc_output
         index = 0
         loop = 0
         ended = False
         while not ended:
             save_arcs_sql = """
-                insert into am.arc_output (
+                insert into am.ws_arc_output (
                     arc_id,
                     result_id,
                     arccat_id,
@@ -1642,7 +1962,7 @@ class GwCalculatePriority(GwTask):
         replaced_rows = tools_db.get_rows(
             f"""
             SELECT arc_id
-            FROM am.arc_output
+            FROM am.ws_arc_output
             WHERE result_id = {int(self.linked_arc_result_id)}
             """,
             is_thread=True,
@@ -1720,7 +2040,7 @@ class GwCalculatePriority(GwTask):
                 if default_year:
                     node["age"] = today_year - int(default_year)
 
-            # DMA NRW wins when present; node_input.nrw_raw is the fallback
+            # DMA NRW wins when present; ws_node_input.nrw_raw is the fallback
             node["nrw_raw"] = nrw_by_dma.get(node.get("dma_id"), node.get("nrw_raw"))
 
             # Cost from nodecatalog (unit), same role as ARC cost_constr * length
@@ -1740,14 +2060,14 @@ class GwCalculatePriority(GwTask):
             nodes.append(node)
         return nodes, invalid_nodecat_id, invalid_material
 
-    def _save_node_engine_wm(self, second_iteration):
+    def _save_ws_node_engine_wm(self, second_iteration):
         """ Batch-insert NODE WM engine scores. """
         index = 0
         loop = 0
         ended = False
         while not ended:
             save_nodes_sql = """
-                insert into am.node_engine_wm (
+                insert into am.ws_node_engine_wm (
                     node_id,
                     result_id,
                     longevity,
@@ -1793,14 +2113,14 @@ class GwCalculatePriority(GwTask):
             self.setProgress(progress)
 
 
-    def _save_node_output_wm(self, second_iteration):
+    def _save_ws_node_output_wm(self, second_iteration):
         """ Batch-insert NODE WM output rows. """
         index = 0
         loop = 0
         ended = False
         while not ended:
             save_nodes_sql = """
-                insert into am.node_output (
+                insert into am.ws_node_output (
                     node_id,
                     result_id,
                     longevity,
@@ -2066,16 +2386,16 @@ class GwCalculatePriority(GwTask):
 
         tools_db.execute_sql(
             f"""
-            delete from am.node_engine_wm where result_id = {self.result_id};
-            delete from am.node_output where result_id = {self.result_id};
+            delete from am.ws_node_engine_wm where result_id = {self.result_id};
+            delete from am.ws_node_output where result_id = {self.result_id};
             """,
             is_thread=True
         )
 
-        self._save_node_engine_wm(second_iteration)
-        self._save_node_output_wm(second_iteration)
+        self._save_ws_node_engine_wm(second_iteration)
+        self._save_ws_node_output_wm(second_iteration)
 
-        self._copy_node_input_to_output()
+        self._copy_ws_node_input_to_output()
 
         self._emit_report(self.statistics_report)
 
@@ -2083,16 +2403,16 @@ class GwCalculatePriority(GwTask):
         self.setProgress(100)
         return True
 
-    def _copy_link_input_to_output(self):
-        """ Copy ext_link_asset attributes into link_output rows """
+    def _copy_ws_link_input_to_output(self):
+        """ Copy ext_ws_link_asset attributes into ws_link_output rows """
         tools_db.execute_sql(
             f"""
-            update am.link_output o
+            update am.ws_link_output o
             set (connec_id, arc_id, sector_id, macrosector_id, presszone_id, builtdate,
                  linkcat_id, matcat_id, the_geom, expl_id, dma_id, length)
                 = (select connec_id, arc_id, sector_id, macrosector_id, presszone_id, builtdate,
                           linkcat_id, matcat_id, the_geom, expl_id, dma_id, length
-                    from am.ext_link_asset a
+                    from am.ext_ws_link_asset a
                     where a.link_id = o.link_id)
             where o.result_id = {self.result_id}
             """,
@@ -2100,7 +2420,7 @@ class GwCalculatePriority(GwTask):
         )
         tools_db.execute_sql(
             f"""
-            UPDATE am.link_output o
+            UPDATE am.ws_link_output o
             SET length = c.default_length
             FROM am.config_linkcatalog c
             WHERE o.result_id = {self.result_id}
@@ -2123,7 +2443,7 @@ class GwCalculatePriority(GwTask):
         rows = tools_db.get_rows(
             f"""
             SELECT arc_id
-            FROM am.arc_output
+            FROM am.ws_arc_output
             WHERE result_id = {int(self.linked_arc_result_id)}
             """,
             is_thread=True
@@ -2170,14 +2490,14 @@ class GwCalculatePriority(GwTask):
             links.append(link)
         return links, invalid_linkcat_id
 
-    def _save_link_engine_wm(self, second_iteration):
+    def _save_ws_link_engine_wm(self, second_iteration):
         """ Batch-insert LINK WM engine scores. """
         index = 0
         loop = 0
         ended = False
         while not ended:
             save_sql = """
-                insert into am.link_engine_wm (
+                insert into am.ws_link_engine_wm (
                     link_id, result_id,
                     longevity, incident_history, material_condition,
                     affected_users, parent_arc_selected, strategic, compliance,
@@ -2212,14 +2532,14 @@ class GwCalculatePriority(GwTask):
             progress = (70 - 40) / len(second_iteration) * 1000 * loop + 40
             self.setProgress(progress)
 
-    def _save_link_output_wm(self, second_iteration):
+    def _save_ws_link_output_wm(self, second_iteration):
         """ Batch-insert LINK WM output rows. """
         index = 0
         loop = 0
         ended = False
         while not ended:
             save_sql = """
-                insert into am.link_output (
+                insert into am.ws_link_output (
                     link_id, result_id, connec_id, arc_id,
                     longevity, incident_history, material_condition,
                     affected_users, parent_arc_selected,
@@ -2449,15 +2769,15 @@ class GwCalculatePriority(GwTask):
 
         tools_db.execute_sql(
             f"""
-            delete from am.link_engine_wm where result_id = {self.result_id};
-            delete from am.link_output where result_id = {self.result_id};
+            delete from am.ws_link_engine_wm where result_id = {self.result_id};
+            delete from am.ws_link_output where result_id = {self.result_id};
             """,
             is_thread=True
         )
 
-        self._save_link_engine_wm(second_iteration)
-        self._save_link_output_wm(second_iteration)
-        self._copy_link_input_to_output()
+        self._save_ws_link_engine_wm(second_iteration)
+        self._save_ws_link_output_wm(second_iteration)
+        self._copy_ws_link_input_to_output()
 
         self._emit_report(self.statistics_report)
         self._emit_report(tools_qt.tr("Task finished!"))
@@ -2469,11 +2789,13 @@ class GwCalculatePriority(GwTask):
         save_config_engine_sql = f"""
             delete from am.config_engine where result_id = {self.result_id};
             insert into am.config_engine
-                (result_id, parameter, value, asset_type)
+                (result_id, parameter, value, asset_type, project_type)
             values
         """
         for k, v in self.config_engine.items():
-            save_config_engine_sql += f"({self.result_id}, '{k}', {v}, '{self.asset_type}'),"
+            save_config_engine_sql += (
+                f"({self.result_id}, '{k}', {v}, '{self.asset_type}', '{self.project_type}'),"
+            )
         save_config_engine_sql = save_config_engine_sql.strip()[:-1]
         tools_db.execute_sql(save_config_engine_sql, is_thread=True)
 
@@ -2517,6 +2839,7 @@ class GwCalculatePriority(GwTask):
                 cur_user,
                 tstamp,
                 asset_type,
+                project_type,
                 linked_arc_result_id)
             values ('{self.result_name}',
                 '{self.result_type}',
@@ -2535,8 +2858,9 @@ class GwCalculatePriority(GwTask):
                 current_user,
                 now(),
                 '{self.asset_type}',
+                '{self.project_type}',
                 {str_linked_arc})
-            on conflict (result_name) do update
+            on conflict (result_name, project_type) do update
             set result_type = EXCLUDED.result_type,
                 descript = EXCLUDED.descript,
                 status = EXCLUDED.status,
@@ -2553,12 +2877,17 @@ class GwCalculatePriority(GwTask):
                 cur_user = EXCLUDED.cur_user,
                 tstamp = EXCLUDED.tstamp,
                 asset_type = EXCLUDED.asset_type,
+                project_type = EXCLUDED.project_type,
                 linked_arc_result_id = EXCLUDED.linked_arc_result_id
             """,
             is_thread=True
         )
 
-        sql = f"select result_id from am.cat_result where result_name = '{self.result_name}'"
+        sql = (
+            f"select result_id from am.cat_result "
+            f"where result_name = '{self.result_name}' "
+            f"and COALESCE(project_type, 'WS') = '{self.project_type}'"
+        )
         row = tools_db.get_row(sql, is_admin=True, is_thread=True)
         if not row:
             return

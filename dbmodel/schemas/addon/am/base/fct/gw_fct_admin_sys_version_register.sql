@@ -22,6 +22,9 @@ DECLARE
 	v_environment jsonb;
 	v_addparam jsonb;
 	v_parent_arr jsonb;
+	v_parent_kind text;
+	v_existing_schema text;
+	v_existing_kind text;
 BEGIN
 	SET search_path = am, public;
 
@@ -78,7 +81,39 @@ BEGIN
 	IF v_merge IS NOT NULL AND v_merge <> '{}'::jsonb THEN
 		v_addparam := v_addparam || v_merge;
 	END IF;
-	IF v_parent_schema IS NOT NULL THEN
+	IF v_parent_schema IS NOT NULL AND to_regnamespace(v_parent_schema) IS NOT NULL THEN
+		v_parent_kind := upper(btrim(COALESCE(v_parent.project_type, '')));
+		IF v_parent_kind IN ('WS', 'UD') THEN
+			FOR v_existing_schema IN
+				SELECT DISTINCT btrim(x)
+				FROM unnest(ARRAY[
+					v_addparam ->> 'parentSchema',
+					v_addparam ->> 'parent_schema'
+				] || ARRAY(
+					SELECT jsonb_array_elements_text(COALESCE(v_addparam -> 'parent_schemas', '[]'::jsonb))
+				)) AS x
+				WHERE NULLIF(btrim(x), '') IS NOT NULL
+			LOOP
+				IF v_existing_schema = v_parent_schema THEN
+					CONTINUE;
+				END IF;
+				IF to_regnamespace(v_existing_schema) IS NULL THEN
+					CONTINUE;
+				END IF;
+				EXECUTE format(
+					'SELECT upper(btrim(project_type::text))
+					   FROM %I.sys_version
+					  ORDER BY id DESC
+					  LIMIT 1',
+					v_existing_schema
+				) INTO v_existing_kind;
+				IF v_existing_kind = v_parent_kind THEN
+					RAISE EXCEPTION
+						'AM is already linked to % schema "%". One AM schema may attach to at most one WS and one UD parent.',
+						v_parent_kind, v_existing_schema;
+				END IF;
+			END LOOP;
+		END IF;
 		v_addparam := jsonb_set(v_addparam, '{parentSchema}', to_jsonb(v_parent_schema), true);
 		v_parent_arr := COALESCE(v_addparam -> 'parent_schemas', '[]'::jsonb) || to_jsonb(v_parent_schema);
 		v_addparam := jsonb_set(v_addparam, '{parent_schemas}', (

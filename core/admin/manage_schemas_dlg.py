@@ -618,19 +618,26 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         )
         self.btn_cibs_copy.setEnabled(has_network_parent and cibs_exists)
 
-        am_integrated = admin_catalog.am_is_integrated(am_row, self._inventory_rows)
+        am_kind_linked = admin_catalog.am_kind_is_linked(
+            am_row, self._inventory_rows, parent_kind
+        )
+        am_kind_supported = admin_catalog.am_parent_kind_supported(
+            getattr(self.admin, "sql_dir", "") or "", parent_kind
+        )
 
         self.btn_create_am.setEnabled(not am_exists)
         self.btn_create_am_sample.setEnabled(not am_exists)
         self.btn_integrate_am.setEnabled(
             am_exists
-            and parent_kind == "WS"
-            and not am_integrated
+            and parent_kind in ("WS", "UD")
+            and am_kind_supported
+            and not am_kind_linked
         )
         self.btn_integrate_am_sample.setEnabled(
             am_exists
-            and parent_kind == "WS"
-            and not am_integrated
+            and parent_kind in ("WS", "UD")
+            and am_kind_supported
+            and not am_kind_linked
         )
         self.btn_update_am.setEnabled(
             am_exists and self._needs_update(str((am_row or {}).get("version") or ""))
@@ -715,9 +722,21 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
 
     def _integrate_am(self) -> None:
         parent, parent_type = self._parent_context()
-        if not parent or parent_type != "WS":
-            msg = "Select a WS anchor in the network table."
+        if not parent or parent_type not in ("WS", "UD"):
+            msg = "Select a WS or UD anchor in the network table."
             tools_qt.show_info_box(msg)
+            return
+        if not admin_catalog.am_parent_kind_supported(
+            getattr(self.admin, "sql_dir", "") or "", parent_type
+        ):
+            msg = "AM integration for {0} is not available yet."
+            tools_qt.show_info_box(msg, msg_params=(parent_type,))
+            return
+        if admin_catalog.am_kind_is_linked(
+            self._satellite_row(kind="AM"), self._inventory_rows, parent_type
+        ):
+            msg = "AM is already linked to a {0} schema."
+            tools_qt.show_info_box(msg, msg_params=(parent_type,))
             return
         self.admin._integrate_am_schema(
             profile="integrate",
@@ -727,9 +746,21 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
 
     def _integrate_am_sample(self) -> None:
         parent, parent_type = self._parent_context()
-        if not parent or parent_type != "WS":
-            msg = "Select a WS anchor in the network table."
+        if not parent or parent_type not in ("WS", "UD"):
+            msg = "Select a WS or UD anchor in the network table."
             tools_qt.show_info_box(msg)
+            return
+        if not admin_catalog.am_parent_kind_supported(
+            getattr(self.admin, "sql_dir", "") or "", parent_type
+        ):
+            msg = "AM integration for {0} is not available yet."
+            tools_qt.show_info_box(msg, msg_params=(parent_type,))
+            return
+        if admin_catalog.am_kind_is_linked(
+            self._satellite_row(kind="AM"), self._inventory_rows, parent_type
+        ):
+            msg = "AM is already linked to a {0} schema."
+            tools_qt.show_info_box(msg, msg_params=(parent_type,))
             return
         self.admin._integrate_am_schema(
             profile="integrate_sample",

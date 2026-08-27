@@ -1,0 +1,1 @@
+- Prefix WS work tables/views with `ws_` (`ws_arc_*`, `ws_node_*`, `ws_link_*`) and add UD `ud_arc_*` / `ud_node_*` plus integrate SQL so UD parents get clickable AM layers. (#am-ud)

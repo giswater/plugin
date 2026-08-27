@@ -1,7 +1,7 @@
 # Asset-management schema manifest.
 #
-# AM is WS-only: integration SQL lives under integration/ws/.
-# Create (empty|sample) and integrate (integrate|integrate_sample) are separate steps.
+# AM attaches to at most one WS parent and one UD parent.
+# Integrate SQL is integration/{{ parent_type }}/. Create and integrate are separate steps.
 
 kind: am
 engine_version: 1
@@ -19,12 +19,12 @@ phases:
 
   - id: integrate_am
     type: sql_dir
-    description: "Wire am into the parent ws project schema."
+    description: "Wire am into the parent WS or UD project schema."
     steps:
       - source: "schemas/addon/am/integration/common/fct"
         recursive: false
         schema_override: "{{ parent_schema }}"
-      - source: "schemas/addon/am/integration/ws/integration.sql"
+      - source: "schemas/addon/am/integration/{{ parent_type }}/integration.sql"
         recursive: false
         schema_override: "{{ parent_schema }}"
 
@@ -41,7 +41,7 @@ phases:
     optional: true
     description: "Seed am config from parent ws catalogs."
     steps:
-      - source: "schemas/addon/am/integration/ws/sample.sql"
+      - source: "schemas/addon/am/integration/{{ parent_type }}/sample.sql"
         recursive: false
         schema_override: "{{ parent_schema }}"
 

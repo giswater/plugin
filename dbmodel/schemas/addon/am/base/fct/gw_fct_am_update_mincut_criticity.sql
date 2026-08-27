@@ -6,7 +6,7 @@ or (at your option) any later version.
 */
 
 --FUNCTION CODE: 9999
--- Update am.arc_input.mincut_customers / mincut_criticity from parent minsector_mincut topology.
+-- Update am.ws_arc_input.mincut_customers / mincut_criticity from parent minsector_mincut topology.
 
 CREATE OR REPLACE FUNCTION am.gw_fct_am_update_mincut_criticity(p_data json DEFAULT '{}'::json)
 RETURNS json AS
@@ -68,7 +68,7 @@ BEGIN
 	END IF;
 
 	-- Clear previous values so arcs without a valid mincut footprint stay NULL
-	UPDATE am.arc_input
+	UPDATE am.ws_arc_input
 	SET mincut_customers = NULL,
 		mincut_criticity = NULL;
 
@@ -109,7 +109,7 @@ BEGIN
 			FROM affected_customers ac
 			CROSS JOIN limits l
 		)
-		INSERT INTO am.arc_input (arc_id, mincut_customers, mincut_criticity)
+		INSERT INTO am.ws_arc_input (arc_id, mincut_customers, mincut_criticity)
 		SELECT arc_id, mincut_customers, mincut_criticity
 		FROM classified
 		ON CONFLICT (arc_id) DO UPDATE

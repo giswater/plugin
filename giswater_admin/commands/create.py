@@ -95,24 +95,6 @@ def run(args: argparse.Namespace, out: Out) -> int:  # noqa: C901
                 conn.close()
             return 1
 
-        if args.kind == "am" and parent_type == "ud":
-            out.error(
-                "kind=am: parent project is UD. AM only integrates with WS parent schemas."
-            )
-            if conn is not None:
-                conn.close()
-            return 1
-
-        if args.kind == "am" and conn is not None and not args.check:
-            linked = h.detect_am_linked_parent(conn, args.schema or "am")
-            if linked:
-                out.error(
-                    f"kind=am: already integrated with parent '{linked}'. "
-                    "AM is a singleton satellite (one parent per database)."
-                )
-                conn.close()
-                return 1
-
     locale = args.locale
     srid = args.srid
     main_version = args.main_version or args.plugin_version
