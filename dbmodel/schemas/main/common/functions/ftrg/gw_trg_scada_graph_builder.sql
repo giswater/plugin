@@ -226,7 +226,7 @@ BEGIN
 			
 			-- order_id only for this row (parent hop + 1, or 1 if object_1 is a root)
 	 		UPDATE om_scada_graph t SET order_id = COALESCE((
-				SELECT MIN(g.order_id) + 1
+				SELECT MAX(g.order_id) + 1
 				FROM om_scada_graph g
 				WHERE g.object_2 = NEW.object_1
 				  AND g.edge_id IS DISTINCT FROM NEW.edge_id
