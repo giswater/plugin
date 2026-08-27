@@ -29,15 +29,16 @@ Developed in Python (QGIS plugin) and PL/SQL (PostgreSQL database), the project 
 
 1. [Requirements](#requirements)
 2. [Install](#install)
-3. [Test](#test)
-4. [Deployment](#deployment)
-5. [Wiki](#wiki)
-6. [FAQ](#faqs)
-7. [Code Repositories](#code-repositories)
-8. [Versioning](#versioning)
-9. [Third-Party Libraries](#third-party-libraries)
-10. [License](#license)
-11. [Acknowledgments](#acknowledgments)
+3. [macOS + QGIS (Go2Epa / hydraulic_engine)](#macos--qgis-go2epa--hydraulic_engine)
+4. [Test](#test)
+5. [Deployment](#deployment)
+6. [Wiki](#wiki)
+7. [FAQ](#faqs)
+8. [Code Repositories](#code-repositories)
+9. [Versioning](#versioning)
+10. [Third-Party Libraries](#third-party-libraries)
+11. [License](#license)
+12. [Acknowledgments](#acknowledgments)
 
 ---
 
@@ -97,7 +98,7 @@ Compatible with Windows, Mac, and Linux OS.
   role_crm   (standalone)
   ```
 
-  **Installer requirements:** connect as a PostgreSQL superuser (or equivalent: `CREATEROLE` + `CREATE` on the target database). The build creates missing roles, (re)applies the role hierarchy on every schema create (`GRANT` is idempotent), grants `role_system` to the installer when superuser, creates the project schema `AUTHORIZATION role_system`, and runs restrictive grants (no blanket `ALL` on tables — see [`gw_fct_admin_role_permissions`](dbmodel/schemas/main/common/base/fct/gw_fct_admin_role_permissions.sql)).
+  **Installer requirements:** `gw db init` must run as a PostgreSQL superuser (extensions, roles, `GRANT CREATE ON DATABASE … TO role_system`). After that, schema create/update/drop can run as that superuser **or** as a login granted `role_system`. `init.sql` creates the schema `AUTHORIZATION role_system` and `SET ROLE role_system` for base DDL; later phases (updates, sample) run as the installer login. Drop/rename still `SET ROLE role_system` because the schema is owned by that role. Restrictive object grants are applied by [`gw_fct_admin_role_permissions`](dbmodel/schemas/main/common/base/fct/gw_fct_admin_role_permissions.sql).
 
   **Manual bootstrap** (only if you must prepare roles before the first schema build, e.g. restricted DBA workflow):
 
@@ -164,10 +165,11 @@ Compatible with Windows, Mac, and Linux OS.
 
 ### Frontend environment:
 
-Compatible with Windows, Mac, and Linux, but EPA models are only supported on Windows.
+Compatible with Windows, Mac, and Linux.
 
-- Install the latest Long-Term Release (LTR) of QGIS.
-- Install SWMM (5.1) and EPANET (2.2). _Note_: EPA SWMM and EPANET may not work on Linux front-end environments.
+- Install the latest Long-Term Release (LTR) of QGIS (or QGIS 4.x).
+- Install the [QPIP](https://plugins.qgis.org/) plugin dependency manager so Giswater can install Python packages from `requirements.txt` (including [`hydraulic_engine`](https://github.com/bgeo-gis/hydraulic-engine), WNTR, pyswmm).
+- Classic EPA desktop apps (SWMM 5.1 / EPANET 2.2) are mainly relevant on Windows. On macOS/Linux, Go2Epa **Execute EPA** uses `hydraulic_engine` when installed (see [macOS note](#macos--qgis-go2epa--hydraulic_engine) below).
 - On Linux systems, you may need to install the PostgreSQL Qt driver for database connectivity.
   - On Ubuntu:
   ```
@@ -177,6 +179,26 @@ Compatible with Windows, Mac, and Linux, but EPA models are only supported on Wi
   ```
   sudo dnf install qt5-qtbase-postgresql
   ```
+
+## macOS + QGIS (Go2Epa / hydraulic_engine)
+
+On macOS, QGIS runs with Hardened Runtime. Native libraries from QPIP wheels (`wntr` / EPANET, `pyswmm` / SWMM, etc.) often ship **ad-hoc or unsigned**. Loading them into QGIS can kill the app with:
+
+`EXC_BAD_ACCESS (SIGKILL) — CODESIGNING / Invalid Page`
+
+This is a packaging limitation of those PyPI wheels, not a Giswater bug. After installing or updating QPIP dependencies, re-sign them locally:
+
+```bash
+# QGIS 4 + Python 3.12 (default profile).
+# QGIS 3: replace QGIS4 with QGIS3. Adjust 3.12 if your QGIS Python minor differs.
+DEP="$HOME/Library/Application Support/QGIS/QGIS4/profiles/default/python/dependencies/3.12"
+
+xattr -dr com.apple.quarantine "$DEP" 2>/dev/null
+find "$DEP" \( -name "*.so" -o -name "*.dylib" \) \
+  -exec codesign --force --sign - {} \;
+```
+
+Fully quit and reopen QGIS afterwards. Re-run this command after any QPIP / `pip` update that refreshes native wheels.
 
 ## Test
 
@@ -197,7 +219,7 @@ Use the provided example projects, pre-loaded with datasets for testing. Find se
 
 ### Requirements
 
-Ensure you have the permissions to connect to PostgreSQL and that your user has superuser rights for database administration tasks (e.g., creating schemas, roles, backups).
+Ensure you have the permissions to connect to PostgreSQL. Database bootstrap (`gw db init`, extensions, roles) needs superuser rights. After that, schema administration can be done by a login that is a member of `role_system`.
 
 ### Project Setup
 
@@ -214,6 +236,8 @@ Explore additional documentation on the [Giswater Wiki](https://github.com/giswa
 ## FAQs
 
 Find answers to common questions in the [Giswater FAQs](https://github.com/giswater/plugin/wiki/FAQs).
+
+**QGIS on macOS crashes when running Go2Epa / EPANET?** See [macOS + QGIS (Go2Epa / hydraulic_engine)](#macos--qgis-go2epa--hydraulic_engine).
 
 ## Code Repositories
 

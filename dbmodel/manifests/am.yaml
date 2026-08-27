@@ -71,8 +71,8 @@ phases:
       data:
         gwVersion: "{{ plugin_version }}"
         projectType: "AM"
-        isNewProject: "TRUE"
-        parentSchema: "{{ parent_schema }}"
+        isNewProject: "{{ register_is_new }}"
+        parentSchema: "{{ register_parent_schema }}"
         mergeAddparam: {}
 
 profiles:

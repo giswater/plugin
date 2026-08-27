@@ -127,3 +127,4 @@ class GwAdminLoadTask(QgsTask):
             self._admin_ref._on_admin_load_finished(self.result, task_result)
         except Exception as e:
             tools_log.log_warning(f"GwAdminLoadTask finished handler: {e}")
+            self._admin_ref._admin_loading = False

@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_dscenario_lids',
     ARRAY[
         'dscenario_id', 'subc_id', 'lidco_id', 'numelem', 'area', 'width',
-        'initsat', 'fromimp', 'toperv', 'rptfile', 'descript', 'the_geom'
+        'initsat', 'fromimp', 'toperv', 'rptfile', 'descript', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_lids should have the correct columns'
 );
@@ -40,6 +40,7 @@ SELECT col_type_is('ve_inp_dscenario_lids', 'toperv', 'int2', 'Column toperv sho
 SELECT col_type_is('ve_inp_dscenario_lids', 'rptfile', 'varchar(10)', 'Column rptfile should be varchar(10)');
 SELECT col_type_is('ve_inp_dscenario_lids', 'descript', 'text', 'Column descript should be text');
 SELECT col_type_is('ve_inp_dscenario_lids', 'the_geom', 'geometry(multipolygon, SRID_VALUE)', 'Column the_geom should be geometry(multipolygon, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_lids', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

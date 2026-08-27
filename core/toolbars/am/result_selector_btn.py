@@ -112,7 +112,9 @@ class GwResultSelectorButton(GwAction):
                 target_layers.append((target_layer, row[1]))
 
             if len(target_layers) > 0:
-                result = tools_qt.show_question("Do you want to update the symbology of the layers currently loaded in the project?", "Update AM Layers Symbology", force_action=True)
+                msg = "Do you want to update the symbology of the layers currently loaded in the project?"
+                title = "Update AM Layers Symbology"
+                result = tools_qt.show_question(msg, title, force_action=True)
                 if result:
                     for layer, addparam in target_layers:
                         tools_gw.refresh_categorized_layer_symbology_classes(layer, addparam)

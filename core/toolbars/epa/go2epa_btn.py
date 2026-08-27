@@ -145,8 +145,14 @@ class GwGo2EpaButton(GwAction):
         self.dlg_go2epa.btn_hs_ds.clicked.connect(
             partial(self._sector_selection))
 
-        # Check OS and enable/disable checkbox execute EPA software
-        if sys.platform != "win32":
+        # Execute EPA: Windows always; Linux when hydraulic_engine is available (WS/UD).
+        try:
+            from importlib.util import find_spec
+            has_hydraulic_engine = find_spec("hydraulic_engine") is not None
+        except ImportError:
+            has_hydraulic_engine = False
+
+        if sys.platform != "win32" and not has_hydraulic_engine:
             tools_qt.set_checked(self.dlg_go2epa, self.dlg_go2epa.chk_exec, False)
             self.dlg_go2epa.chk_exec.setEnabled(False)
             self.dlg_go2epa.chk_exec.setText('Execute EPA software (Runs only on Windows)')
@@ -243,6 +249,12 @@ class GwGo2EpaButton(GwAction):
 
         if not export_checked and not exec_checked and not import_result_checked:
             msg = "You need to select at least one process"
+            title = "Go2Epa"
+            tools_qt.show_info_box(msg, title)
+            return False
+
+        if import_result_checked and not exec_checked:
+            msg = "Import results requires Execute EPA software"
             title = "Go2Epa"
             tools_qt.show_info_box(msg, title)
             return False
@@ -433,8 +445,8 @@ class GwGo2EpaButton(GwAction):
         if tools_qt.is_checked(self.dlg_go2epa, self.dlg_go2epa.chk_import_result) or tools_qt.is_checked(self.dlg_go2epa, self.dlg_go2epa.chk_exec):
             file_rpt = tools_qt.get_text(self.dlg_go2epa, self.dlg_go2epa.txt_file_rpt)
             if not file_rpt or file_rpt == 'null':
-                message = tools_qt.tr("RPT file path is required when importing results or executing EPA")
-                tools_qgis.show_warning(message)
+                msg = "RPT file path is required when importing results or executing EPA"
+                tools_qgis.show_warning(msg)
                 return
         # Save user values
         self._save_user_values()

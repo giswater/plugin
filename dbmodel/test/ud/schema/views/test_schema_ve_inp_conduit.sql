@@ -26,7 +26,7 @@ SELECT columns_are(
         'matcat_id', 'cat_shape', 'cat_geom1', 'gis_length', 'sector_id', 'macrosector_id',
         'state', 'state_type', 'annotation', 'inverted_slope', 'custom_length', 'expl_id',
         'barrels', 'culvert', 'kentry', 'kexit', 'kavg', 'flap',
-        'q0', 'qmax', 'seepage', 'custom_n', 'the_geom'
+        'q0', 'qmax', 'seepage', 'custom_n', 'the_geom', 'p_state'
     ],
     'View ve_inp_conduit should have the correct columns'
 );
@@ -67,6 +67,7 @@ SELECT col_type_is('ve_inp_conduit', 'qmax', 'numeric(12,4)', 'Column qmax shoul
 SELECT col_type_is('ve_inp_conduit', 'seepage', 'numeric(12,4)', 'Column seepage should be numeric(12,4)');
 SELECT col_type_is('ve_inp_conduit', 'custom_n', 'numeric(12,4)', 'Column custom_n should be numeric(12,4)');
 SELECT col_type_is('ve_inp_conduit', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_conduit', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

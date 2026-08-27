@@ -172,7 +172,7 @@ class GwCalculatePriority(GwTask):
             residual_useful_life = builtdate + arc["total_expected_useful_life"] - year
             multiplier = residual_useful_life / arc["total_expected_useful_life"]
             result = (arc["cost_constr"] * multiplier) if multiplier > 0 else 0
-            current_value += result 
+            current_value += result
 
         return current_value
 
@@ -198,7 +198,7 @@ class GwCalculatePriority(GwTask):
                 a.matcat_id,
                 a.dnom,
                 st_length(a.the_geom) length,
-                coalesce(ai.rleak, 0) rleak, 
+                coalesce(ai.rleak, 0) rleak,
                 a.expl_id,
                 a.presszone_id,
                 ai.strategic
@@ -236,7 +236,7 @@ class GwCalculatePriority(GwTask):
         if columns != "":
             sql = f"""
                 select {columns}
-                from am.ext_arc_asset a 
+                from am.ext_arc_asset a
                 left join am.arc_input ai using (arc_id)
                 {filters}
             """
@@ -307,10 +307,14 @@ class GwCalculatePriority(GwTask):
         return msg.format(qtd=null_pressures)
 
     def _ivi_report(self, ivi):
-        title = tools_qt.tr("IVI")
-        year_header = tools_qt.tr("Year")
-        without_replacements_header = tools_qt.tr("Without replacements")
-        with_replacements_header = tools_qt.tr("With replacements")
+        msg = "IVI"
+        title = tools_qt.tr(msg)
+        msg = "Year"
+        year_header = tools_qt.tr(msg)
+        msg = "Without replacements"
+        without_replacements_header = tools_qt.tr(msg)
+        msg = "With replacements"
+        with_replacements_header = tools_qt.tr(msg)
         columns = [
             [year_header],
             [without_replacements_header],
@@ -334,8 +338,50 @@ class GwCalculatePriority(GwTask):
     def _replacement_cost(self, arcs):
         return sum(arc["cost_constr"] for arc in arcs)
 
+    def _yearly_replacement_report(self, output_arcs):
+        # output_arcs: [arc_id, cost_repmain, cost_constr, bratemain, year, ...]
+        by_year = {}
+        for arc in output_arcs:
+            year = arc[4]
+            cost = arc[2]
+            if year is None:
+                continue
+            if year not in by_year:
+                by_year[year] = {"n_arcs": 0, "cost": 0.0}
+            by_year[year]["n_arcs"] += 1
+            by_year[year]["cost"] += cost
+
+        if not by_year:
+            return ""
+
+        msg = "REPLACEMENTS PER YEAR"
+        title = tools_qt.tr(msg)
+        msg = "Year"
+        year_h = tools_qt.tr(msg)
+        msg = "Arcs"
+        arcs_h = tools_qt.tr(msg)
+        msg = "Cost (€)"
+        cost_h = tools_qt.tr(msg)
+
+        columns = [[year_h], [arcs_h], [cost_h]]
+        for year in sorted(by_year):
+            columns[0].append(str(year))
+            columns[1].append(str(by_year[year]["n_arcs"]))
+            columns[2].append(f"{by_year[year]['cost']:.2f}")
+
+        for column in columns:
+            length = max(len(x) for x in column)
+            for i, s in enumerate(column):
+                column[i] = s.ljust(length)
+
+        txt = f"{title}:\n"
+        for line in zip(*columns):
+            txt += "  ".join(line) + "\n"
+        return txt.strip()
+
     def _run_sh(self):
-        self._emit_report(tools_qt.tr("Getting auxiliary data from DB") + " (1/5)...")
+        title = "Getting auxiliary data from DB"
+        self._emit_report(tools_qt.tr(title) + " (1/5)...")
         self.setProgress(0)
 
         discount_rate = float(self.config_engine["drate"])
@@ -353,15 +399,15 @@ class GwCalculatePriority(GwTask):
         if self.isCanceled():
             self._emit_report(self.msg_task_canceled)
             return False
-        self._emit_report(tools_qt.tr("Getting pipe data from DB") + " (2/5)...")
+        title = "Getting pipe data from DB"
+        self._emit_report(tools_qt.tr(title) + " (2/5)...")
         self.setProgress(20)
 
         arcs = self._get_arcs()
         if not arcs:
-            self._emit_report(
-                tools_qt.tr("Task canceled:"),
-                tools_qt.tr("No pipes found matching your selected filters."),
-            )
+            msg = "No pipes found matching your selected filters."
+            title = "Task canceled:"
+            self._emit_report(tools_qt.tr(title), tools_qt.tr(msg))
             return False
 
         if self.isCanceled():
@@ -425,6 +471,10 @@ class GwCalculatePriority(GwTask):
                         discount_rate / 100,
                     )
                 )
+
+            if year is not None and year > self.target_year:
+                continue
+
             output_arcs.append(
                 [
                     arc_id,
@@ -437,10 +487,9 @@ class GwCalculatePriority(GwTask):
                 ]
             )
         if not len(output_arcs):
-            self._emit_report(
-                tools_qt.tr("Task canceled:"),
-                tools_qt.tr("No pipes found matching your selected filters."),
-            )
+            title = "Task canceled:"
+            msg = "No pipes found matching your selected filters."
+            self._emit_report(tools_qt.tr(title), tools_qt.tr(msg))
             return False
 
         self.setProgress(50)
@@ -466,13 +515,15 @@ class GwCalculatePriority(GwTask):
         if self.isCanceled():
             self._emit_report(self.msg_task_canceled)
             return False
-        self._emit_report(tools_qt.tr("Updating tables") + " (4/5)...")
+        title = "Updating tables"
+        self._emit_report(tools_qt.tr(title) + " (4/5)...")
         self.setProgress(60)
 
         self.statistics_report = "\n\n".join(
             filter(
                 lambda x: x,
                 [
+                    self._yearly_replacement_report(output_arcs),
                     self._invalid_diameter_report(invalid_diameter),
                     self._invalid_material_report(invalid_material),
                 ],
@@ -516,7 +567,7 @@ class GwCalculatePriority(GwTask):
                     strategic,
                     year_order,
                     val
-                ) values 
+                ) values
             """
             for i in range(1000):
                 try:
@@ -605,7 +656,8 @@ class GwCalculatePriority(GwTask):
         if self.isCanceled():
             self._emit_report(self.msg_task_canceled)
             return False
-        self._emit_report(tools_qt.tr("Generating result stats") + " (5/5)...")
+        title = "Generating result stats"
+        self._emit_report(tools_qt.tr(title) + " (5/5)...")
         self.setProgress(80)
 
         if self.isCanceled():
@@ -613,20 +665,22 @@ class GwCalculatePriority(GwTask):
             return False
 
         self._emit_report(self.statistics_report)
-        self._emit_report(tools_qt.tr("Task finished!"))
+        title = "Task finished!"
+        self._emit_report(tools_qt.tr(title))
 
         return True
 
     def _run_wm(self):
         pd = tools_os.get_dep("pandas")
 
-        self._emit_report(tools_qt.tr("Getting auxiliary data from DB") + " (1/4)...")
+        title = "Getting auxiliary data from DB"
+        self._emit_report(tools_qt.tr(title) + " (1/4)...")
         self.setProgress(10)
 
         rows = tools_db.get_rows(
             """
             with lengths AS (
-                select a.dma_id, sum(st_length(a.the_geom)) as length 
+                select a.dma_id, sum(st_length(a.the_geom)) as length
                 from am.ext_arc_asset a
                 group by dma_id
             )
@@ -651,17 +705,17 @@ class GwCalculatePriority(GwTask):
 
         rows = self._get_arcs()
         if not rows:
-            self._emit_report(
-                tools_qt.tr("Task canceled:"),
-                tools_qt.tr("No pipes found matching your selected filters."),
-            )
+            title = "Task canceled:"
+            msg = "No pipes found matching your selected filters."
+            self._emit_report(tools_qt.tr(title), tools_qt.tr(msg))
             return False
 
         if self.isCanceled():
             self._emit_report(self.msg_task_canceled)
             return False
 
-        self._emit_report(tools_qt.tr("Calculating values") + " (3/4)...")
+        title = "Calculating values"
+        self._emit_report(tools_qt.tr(title) + " (3/4)...")
         self.setProgress(30)
 
         arcs = []
@@ -821,10 +875,9 @@ class GwCalculatePriority(GwTask):
                 break
 
         if not len(second_iteration):
-            self._emit_report(
-                tools_qt.tr("Task canceled:"),
-                tools_qt.tr("No pipes found matching your budget. (Hint: increase the yearly budget or/and the horizon year)"),
-            )
+            title = "Task canceled:"
+            msg = "No pipes found matching your budget. (Hint: increase the yearly budget or/and the horizon year)"
+            self._emit_report(tools_qt.tr(title), tools_qt.tr(msg))
             return False
 
         # Second iteration
@@ -970,7 +1023,7 @@ class GwCalculatePriority(GwTask):
                     compliance,
                     val_first,
                     val
-                ) values 
+                ) values
             """
             for i in range(1000):
                 try:
@@ -1030,7 +1083,7 @@ class GwCalculatePriority(GwTask):
                     total,
                     length,
                     cum_length
-                ) values 
+                ) values
             """
             for i in range(1000):
                 try:
@@ -1085,7 +1138,8 @@ class GwCalculatePriority(GwTask):
 
         self._emit_report(self.statistics_report)
 
-        self._emit_report(tools_qt.tr("Task finished!"))
+        title = "Task finished!"
+        self._emit_report(tools_qt.tr(title))
         return True
 
     def _save_config_engine(self):
@@ -1108,8 +1162,8 @@ class GwCalculatePriority(GwTask):
         str_material_id = f"'{self.material}'" if self.material else "NULL"
         tools_db.execute_sql(
             f"""
-            insert into am.cat_result (result_name, 
-                result_type, 
+            insert into am.cat_result (result_name,
+                result_type,
                 descript,
                 status,
                 features,
@@ -1137,7 +1191,7 @@ class GwCalculatePriority(GwTask):
                 current_user,
                 now())
             on conflict (result_name) do update
-            set result_type = EXCLUDED.result_type, 
+            set result_type = EXCLUDED.result_type,
                 descript = EXCLUDED.descript,
                 status = EXCLUDED.status,
                 features = EXCLUDED.features,
@@ -1161,15 +1215,22 @@ class GwCalculatePriority(GwTask):
         return row[0]
 
     def _summary(self, arcs):
-        title = tools_qt.tr("SUMMARY")
-        investment_header = tools_qt.tr("Investment (€/year):")
-        year_header = tools_qt.tr("Year:")
-        current_network_cost_header = tools_qt.tr("Current network cost (€):")
-        total_replacement_cost_header = tools_qt.tr("Total replacement cost (€):")
-        ivi_header = tools_qt.tr("IVI (Horizon year):")
-        replacement_rate_header = tools_qt.tr("Replacement rate (%/year):")
+        msg = "SUMMARY"
+        title = tools_qt.tr(msg)
+        msg = "Investment (€/year):"
+        investment_header = tools_qt.tr(msg)
+        msg = "Year:"
+        year_header = tools_qt.tr(msg)
+        msg = "Current network cost (€):"
+        current_network_cost_header = tools_qt.tr(msg)
+        msg = "Total replacement cost (€):"
+        total_replacement_cost_header = tools_qt.tr(msg)
+        msg = "IVI (Horizon year):"
+        ivi_header = tools_qt.tr(msg)
+        msg = "Replacement rate (%/year):"
+        replacement_rate_header = tools_qt.tr(msg)
         current_cost = sum(arc["current_cost_constr"] for arc in arcs)
-        
+
         replacement_cost = self._replacement_cost(arcs)
         ivi_target_year = self._calculate_ivi(arcs, self.target_year, True)
         replacement_rate = self.result_budget / replacement_cost * 100 if replacement_cost > 0 else 0

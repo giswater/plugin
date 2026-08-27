@@ -96,7 +96,7 @@ class GwFeatureReplaceButton(GwMaptool):
 
         # Show help message when action is activated
         if self.show_help:
-            msg = "Click on feature to replace it with a new one. You can select other layer to snapp diferent feature type."
+            msg = "Click on feature to replace it with a new one. You can select other layer to snap a different feature type."
             tools_qgis.show_info(msg)
 
     def canvasMoveEvent(self, event):
@@ -448,7 +448,7 @@ class GwFeatureReplaceButton(GwMaptool):
         if global_vars.psignals is not None and global_vars.psignals.get('psector_active'):
             msg = ("Are you sure you want to replace selected feature with a new one?")
         else:
-            msg = ("Are you sure you want to replace selected feature with a new one?\n "
+            msg = ("Are you sure you want to replace selected feature with a new one?\n"
                     "If you have different addfields in your feature, they will be deleted.")
         title = "Replace feature"
         answer = tools_qt.show_question(msg, title)

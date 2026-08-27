@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'connec_id', 'pjoint_type', 'pjoint_id', 'demand', 'pattern_id',
         'peak_factor', 'status', 'minorloss', 'custom_roughness', 'custom_length', 'custom_dint',
-        'emitter_coeff', 'init_quality', 'source_type', 'source_quality', 'source_pattern_id', 'the_geom'
+        'emitter_coeff', 'init_quality', 'source_type', 'source_quality', 'source_pattern_id', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_connec should have the correct columns'
 );
@@ -47,6 +47,7 @@ SELECT col_type_is('ve_inp_dscenario_connec', 'source_type', 'varchar(18)', 'Col
 SELECT col_type_is('ve_inp_dscenario_connec', 'source_quality', 'float8', 'Column source_quality should be float8');
 SELECT col_type_is('ve_inp_dscenario_connec', 'source_pattern_id', 'varchar(16)', 'Column source_pattern_id should be varchar(16)');
 SELECT col_type_is('ve_inp_dscenario_connec', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_connec', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

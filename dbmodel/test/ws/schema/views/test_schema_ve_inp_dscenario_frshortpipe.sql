@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_dscenario_frshortpipe',
     ARRAY[
         'dscenario_id', 'element_id', 'node_id', 'minorloss', 'bulk_coeff', 'wall_coeff',
-        'custom_dint', 'status', 'the_geom'
+        'custom_dint', 'status', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_frshortpipe should have the correct columns'
 );
@@ -37,6 +37,7 @@ SELECT col_type_is('ve_inp_dscenario_frshortpipe', 'wall_coeff', 'float8', 'Colu
 SELECT col_type_is('ve_inp_dscenario_frshortpipe', 'custom_dint', 'int4', 'Column custom_dint should be int4');
 SELECT col_type_is('ve_inp_dscenario_frshortpipe', 'status', 'varchar(12)', 'Column status should be varchar(12)');
 SELECT col_type_is('ve_inp_dscenario_frshortpipe', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_frshortpipe', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

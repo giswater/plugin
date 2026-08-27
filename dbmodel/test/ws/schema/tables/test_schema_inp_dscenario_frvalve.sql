@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_frvalve',
     ARRAY[
         'dscenario_id', 'element_id', 'valve_type', 'status', 'custom_dint', 'setting',
-        'curve_id', 'minorloss', 'add_settings', 'init_quality'
+        'curve_id', 'minorloss', 'add_settings', 'init_quality', 'observ'
     ],
     'Table inp_dscenario_frvalve should have the correct columns'
 );
@@ -38,6 +38,7 @@ SELECT col_type_is('inp_dscenario_frvalve', 'curve_id', 'varchar(16)', 'Column c
 SELECT col_type_is('inp_dscenario_frvalve', 'minorloss', 'numeric(12,4)', 'Column minorloss should be numeric(12,4)');
 SELECT col_type_is('inp_dscenario_frvalve', 'add_settings', 'float8', 'Column add_settings should be float8');
 SELECT col_type_is('inp_dscenario_frvalve', 'init_quality', 'float8', 'Column init_quality should be float8');
+SELECT col_type_is('inp_dscenario_frvalve', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_frvalve', 'Table inp_dscenario_frvalve should have foreign keys');

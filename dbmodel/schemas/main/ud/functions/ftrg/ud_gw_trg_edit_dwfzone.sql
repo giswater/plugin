@@ -51,9 +51,6 @@ BEGIN
 		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'DWFZONE', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
-		IF NEW.code IS NULL THEN
-			NEW.code := NEW.dwfzone_id::text;
-		END IF;
 
 		INSERT INTO dwfzone (dwfzone_id, code, name, descript, active, dwfzone_type, drainzone_id, expl_id, sector_id, muni_id, graphconfig, stylesheet, link, lock_level, addparam, created_at, created_by, updated_at, updated_by)
 		VALUES (NEW.dwfzone_id, NEW.code, NEW.name, NEW.descript, NEW.active, NEW.dwfzone_type, NEW.drainzone_id, NEW.expl_id, NEW.sector_id, NEW.muni_id,

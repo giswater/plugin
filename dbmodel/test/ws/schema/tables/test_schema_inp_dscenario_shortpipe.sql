@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_shortpipe',
     ARRAY[
         'dscenario_id', 'node_id', 'minorloss', 'status', 'bulk_coeff', 'wall_coeff',
-        'to_arc', 'head', 'pattern_id', 'demand', 'demand_pattern_id', 'emitter_coeff'
+        'to_arc', 'head', 'pattern_id', 'demand', 'demand_pattern_id', 'emitter_coeff', 'observ'
     ],
     'Table inp_dscenario_shortpipe should have the correct columns'
 );
@@ -40,6 +40,7 @@ SELECT col_type_is('inp_dscenario_shortpipe', 'pattern_id', 'varchar(16)', 'Colu
 SELECT col_type_is('inp_dscenario_shortpipe', 'demand', 'numeric(12,6)', 'Column demand should be numeric(12,6)');
 SELECT col_type_is('inp_dscenario_shortpipe', 'demand_pattern_id', 'varchar(16)', 'Column demand_pattern_id should be varchar(16)');
 SELECT col_type_is('inp_dscenario_shortpipe', 'emitter_coeff', 'float8', 'Column emitter_coeff should be float8');
+SELECT col_type_is('inp_dscenario_shortpipe', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_shortpipe', 'Table inp_dscenario_shortpipe should have foreign keys');

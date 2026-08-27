@@ -148,7 +148,7 @@ BEGIN
 
 	-- creation of the temporal tables in function of the role
 	if 'role_cm_admin' in (	SELECT r.rolname AS role_name FROM pg_roles r JOIN pg_auth_members m ON r.oid = m.roleid
-						  	JOIN pg_roles u ON u.oid = m.member WHERE u.rolname = 'postgres') then
+						  	JOIN pg_roles u ON u.oid = m.member WHERE u.rolname = current_user) then
 
 		CREATE TEMP TABLE temp_om_campaign AS
 		select c.* from om_campaign c
@@ -202,6 +202,15 @@ BEGIN
 
 	END IF;
 
+	DELETE FROM cm.selector_lot sl
+	WHERE NOT EXISTS (
+	    SELECT 1
+	    FROM cm.om_campaign_lot ocl
+	    JOIN cm.selector_campaign oc
+	      ON oc.campaign_id = ocl.campaign_id
+	    WHERE oc.cur_user = current_user AND sl.lot_id = ocl.lot_id
+	)
+	and sl.cur_user = current_user;
 
 	-- get envelope
 	--SELECT count(the_geom) INTO v_count_2 FROM ve_node LIMIT 1;

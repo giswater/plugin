@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'arc_id', 'arccat_id', 'matcat_id', 'custom_n', 'barrels',
         'culvert', 'kentry', 'kexit', 'kavg', 'flap', 'q0',
-        'qmax', 'seepage', 'elev1', 'elev2'
+        'qmax', 'seepage', 'elev1', 'elev2', 'observ'
     ],
     'Table inp_dscenario_conduit should have the correct columns'
 );
@@ -45,6 +45,7 @@ SELECT col_type_is('inp_dscenario_conduit', 'qmax', 'numeric(12,4)', 'Column qma
 SELECT col_type_is('inp_dscenario_conduit', 'seepage', 'numeric(12,4)', 'Column seepage should be numeric(12,4)');
 SELECT col_type_is('inp_dscenario_conduit', 'elev1', 'numeric(12,3)', 'Column elev1 should be numeric(12,3)');
 SELECT col_type_is('inp_dscenario_conduit', 'elev2', 'numeric(12,3)', 'Column elev2 should be numeric(12,3)');
+SELECT col_type_is('inp_dscenario_conduit', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_conduit', 'Table inp_dscenario_conduit should have foreign keys');

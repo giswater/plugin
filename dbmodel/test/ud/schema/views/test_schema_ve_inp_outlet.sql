@@ -25,7 +25,7 @@ SELECT columns_are(
         'sys_elev1', 'y2', 'elev2', 'custom_elev2', 'sys_elev2', 'arccat_id',
         'gis_length', 'sector_id', 'macrosector_id', 'state', 'state_type', 'annotation',
         'inverted_slope', 'custom_length', 'expl_id', 'outlet_type', 'offsetval', 'curve_id',
-        'cd1', 'cd2', 'flap', 'the_geom'
+        'cd1', 'cd2', 'flap', 'the_geom', 'p_state'
     ],
     'View ve_inp_outlet should have the correct columns'
 );
@@ -59,6 +59,7 @@ SELECT col_type_is('ve_inp_outlet', 'cd1', 'numeric(12,4)', 'Column cd1 should b
 SELECT col_type_is('ve_inp_outlet', 'cd2', 'numeric(12,4)', 'Column cd2 should be numeric(12,4)');
 SELECT col_type_is('ve_inp_outlet', 'flap', 'varchar(3)', 'Column flap should be varchar(3)');
 SELECT col_type_is('ve_inp_outlet', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_outlet', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

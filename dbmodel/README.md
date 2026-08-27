@@ -96,7 +96,7 @@ Example **ws** pipeline ([`manifests/ws.yaml`](./manifests/ws.yaml)):
 | `updates` | `version_walk` | For each version ≤ `--plugin-version`: **common** patches, then **ws** patches |
 | `load_catalog` | `sql_dir` | `catalog/{{ locale }}` (fallback `en_US`) — feature naming conventions |
 | `lastprocess` | `sql_function` | `gw_fct_admin_schema_lastprocess` (child views, permissions, metadata) |
-| `load_sample` | `sql_dir` (optional) | `schemas/main/ws/sample/user` |
+| `load_sample` | `sql_dir` (optional) | `sample/user/*.sql` + existing `user/{{ locale }}` (`es_*` missing → `es_ES`, else `en_US`) |
 | `final_pass` | `sql_dir` | Form fields + i18n (`{{ locale }}`, fallback `en_US`) |
 
 **Upgrade profile** (`update`): `reload_fct_ftrg` → `updates` (only `project_version < v <= plugin_version`) → `lastprocess_upgrade`.
@@ -107,7 +107,7 @@ Defined in [`giswater_admin/engine/manifest.py`](../giswater_admin/engine/manife
 
 | Type | Purpose |
 |------|---------|
-| `sql_dir` | All `*.sql` in listed paths (alphabetical; `recursive` optional) |
+| `sql_dir` | All `*.sql` in listed paths (alphabetical; optional `recursive`, `shared_source`) |
 | `version_walk` | Semver folders under `updates/`; `roots:` lists multiple trees (ws/ud) |
 | `sql_function` | `SELECT schema.fn($${JSON}$$)` |
 | `sql_file` | Single file + optional `fallback_source` |
@@ -148,7 +148,7 @@ flowchart LR
 - **One codebase, two project schemas:** shared logic lives in `common/`; type-specific pieces in `ws/` or `ud/`.
 - **Version order:** for each `M.m.p`, the engine applies **all** `common` SQL for that version, then **all** `ws` or `ud` SQL for that version, before moving to the next version.
 - **`lastprocess`:** server-side bookkeeping (child views, role grants batched at end of MULTI-CREATE, sequences, mapzone defaults).
-- **`sample/`:** only when the manifest profile includes `load_sample`, `load_inv`, or `load_dev`. Lives under each project type (`schemas/main/ws/sample/`, `schemas/main/ud/sample/`), like `final_pass/`.
+- **`sample/`:** only when the manifest profile includes `load_sample`, `load_inv`, or `load_dev`. Untranslated SQL lives in `sample/user/`; locale folders overlay any basename (`003`, later `007`, …) in filename order.
 
 ### Version walk rules
 
@@ -292,7 +292,10 @@ On every PR/push touching `dbmodel/**`, GitHub Actions runs **21 checks** (6 lan
 | pgTAP satellites | utils + cibs standalone |
 | pgTAP network | integrated sample + network pgTAP |
 
-Release (`prepare_*_release.py --execute`) calls `scripts/verify_dbmodel_ci_checks.sh` before tagging. Plugin release also runs network lockstep via Actions.
+Plugin release (`prepare_release.py --execute` / `vX.Y.Z` Actions) calls
+`scripts/verify_dbmodel_ci_checks.sh` before tagging/publishing. CLI/PyPI
+(`cli-v*`) does not — the wheel ships `giswater_admin` only. Plugin release
+also runs network lockstep via Actions.
 
 ### Network E2E (manual)
 
@@ -452,7 +455,7 @@ Published images: `ghcr.io/giswater/gw-db:main-pg16-ws` (and `ud`, PG 17/18).
 
 ### Prerequisites
 
-- PostgreSQL access with privileges to create schemas, roles, and extensions (superuser or equivalent for `init-db`).
+- PostgreSQL access: superuser for `gw db init` (extensions, roles, `GRANT CREATE ON DATABASE` to `role_system`). Schema create/update/drop afterwards: superuser or a `role_system` member.
 
 ### Mandatory project setup
 

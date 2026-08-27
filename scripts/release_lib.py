@@ -794,60 +794,51 @@ def ensure_dbmodel_ci_green(
     root: Path,
     *,
     execute: bool,
-    cli_release: bool = False,
     sha: str | None = None,
 ) -> None:
-    """Require PostgreSQL Tests workflow checks before release."""
+    """Require PostgreSQL Tests workflow checks before plugin release.
+
+    CLI/PyPI releases do not use this — the wheel does not ship dbmodel/.
+    """
     script = root / "scripts" / "verify_dbmodel_ci_checks.sh"
     if not script.is_file():
         raise ReleaseError(f"Missing {script}")
 
     head = sha or git_output(root, "rev-parse", "HEAD")
-    if cli_release:
-        commit = head
-        cmd = ["bash", str(script), "--sha", commit, "--cli-release"]
-        if not execute:
-            print(
-                "Would verify dbmodel CI checks on "
-                f"{commit} (CLI; skip if dbmodel unchanged)"
-            )
-            print(f"$ {' '.join(cmd)}")
-            return
-    else:
-        since_tag = git_output(root, "describe", "--tags", "--abbrev=0", head)
-        if dbmodel_unchanged_since_tag(root, since_tag, head):
-            message = (
-                f"dbmodel/ unchanged since {since_tag}; skipping dbmodel CI verify"
-            )
-            if execute:
-                print(message)
-            else:
-                print(f"Would skip dbmodel CI verify ({message})")
-            return
-
-        commit = resolve_dbmodel_ci_verification_sha(
-            root, since_tag=since_tag, end=head
+    since_tag = git_output(root, "describe", "--tags", "--abbrev=0", head)
+    if dbmodel_unchanged_since_tag(root, since_tag, head):
+        message = (
+            f"dbmodel/ unchanged since {since_tag}; skipping dbmodel CI verify"
         )
-        cmd = ["bash", str(script), "--sha", commit]
-        if not execute:
-            if commit != head:
-                print(
-                    "Would verify dbmodel CI checks on "
-                    f"{commit} (push tip; HEAD {head[:12]} is release metadata)"
-                )
-            else:
-                print(
-                    "Would verify dbmodel CI checks on "
-                    f"{commit} (push tip)"
-                )
-            print(f"$ {' '.join(cmd)}")
-            return
+        if execute:
+            print(message)
+        else:
+            print(f"Would skip dbmodel CI verify ({message})")
+        return
 
+    commit = resolve_dbmodel_ci_verification_sha(
+        root, since_tag=since_tag, end=head
+    )
+    cmd = ["bash", str(script), "--sha", commit]
+    if not execute:
         if commit != head:
             print(
-                f"HEAD {head[:12]} is release metadata; "
-                f"verifying dbmodel CI on push tip {commit[:12]}"
+                "Would verify dbmodel CI checks on "
+                f"{commit} (push tip; HEAD {head[:12]} is release metadata)"
             )
+        else:
+            print(
+                "Would verify dbmodel CI checks on "
+                f"{commit} (push tip)"
+            )
+        print(f"$ {' '.join(cmd)}")
+        return
+
+    if commit != head:
+        print(
+            f"HEAD {head[:12]} is release metadata; "
+            f"verifying dbmodel CI on push tip {commit[:12]}"
+        )
 
     if shutil.which("gh") is None:
         raise ReleaseError(

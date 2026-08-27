@@ -89,7 +89,7 @@ def prepare_minor_release(args: argparse.Namespace, root: Path, version) -> None
 
     if not execute:
         print_minor_commands(args, root, version)
-        ensure_dbmodel_ci_green(root, execute=False, cli_release=False)
+        ensure_dbmodel_ci_green(root, execute=False)
         if args.create_github_release:
             create_github_release(root, version=version, notes=release_body, execute=False)
         return
@@ -115,7 +115,7 @@ def prepare_minor_release(args: argparse.Namespace, root: Path, version) -> None
         create_tag(root / "libs", tag=version.tag, execute=True, resume=args.resume)
         git(root / "libs", "push", args.remote, version.tag, execute=True)
 
-    ensure_dbmodel_ci_green(root, execute=True, cli_release=False)
+    ensure_dbmodel_ci_green(root, execute=True)
 
     create_tag(root, tag=version.tag, execute=True, resume=args.resume)
     git(root, "push", args.remote, "main", version.tag, execute=True)
@@ -259,7 +259,7 @@ def prepare_patch_release(args: argparse.Namespace, root: Path, version) -> None
 
     if not execute:
         print_patch_commands(args, version)
-        ensure_dbmodel_ci_green(root, execute=False, cli_release=False)
+        ensure_dbmodel_ci_green(root, execute=False)
         if args.create_github_release:
             create_github_release(root, version=version, notes=release_body, execute=False)
         return
@@ -282,7 +282,7 @@ def prepare_patch_release(args: argparse.Namespace, root: Path, version) -> None
         create_tag(root / "libs", tag=version.tag, execute=True, resume=args.resume)
         git(root / "libs", "push", args.remote, version.tag, execute=True)
 
-    ensure_dbmodel_ci_green(root, execute=True, cli_release=False)
+    ensure_dbmodel_ci_green(root, execute=True)
 
     create_tag(root, tag=version.tag, execute=True, resume=args.resume)
     git(root, "push", args.remote, version.release_branch, version.tag, execute=True)

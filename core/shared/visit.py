@@ -894,7 +894,7 @@ class GwVisit(QObject):
         """ Get feature type of selected parameter """
 
         sql = (f"SELECT feature_type "
-               f"FROM config_visit_parameter "
+               f"FROM v_config_visit_parameter "
                f"WHERE descript = '{self.parameter_id.currentText()}'")
         row = tools_db.get_row(sql)
         if row:
@@ -1167,7 +1167,7 @@ class GwVisit(QObject):
         self._fill_visitcat(visit_id)
 
         # Fill ComboBox status
-        rows = tools_db.get_values_from_catalog('om_typevalue', 'visit_status')
+        rows = tools_db.get_values_from_catalog('v_om_typevalue', 'visit_status')
         if rows:
             tools_qt.fill_combo_values(self.dlg_add_visit.status, rows, sort_combo=True)
             status = tools_gw.get_config_value('om_visit_status_vdefault')
@@ -1203,7 +1203,8 @@ class GwVisit(QObject):
 
         # Relations tab
         # fill feature_type
-        sql = ("SELECT 'ALL' as id, 'ALL' as idval "
+        msg = "ALL"
+        sql = (f"SELECT 'ALL' as id, '{tools_qt.tr(msg)}' as idval "
                "UNION SELECT id, id as idval "
                "FROM sys_feature_type "
                "WHERE classlevel = 1 OR classlevel = 2 OR classlevel = 4 "
@@ -1213,7 +1214,7 @@ class GwVisit(QObject):
 
         # Event tab
         # Fill ComboBox parameter_type_id
-        sql = "SELECT id, idval FROM om_typevalue WHERE typevalue = 'visit_param_type' ORDER by idval"
+        sql = "SELECT id, idval FROM v_om_typevalue WHERE typevalue = 'visit_param_type' ORDER by idval"
         parameter_type_ids = tools_db.get_rows(sql)
         tools_qt.fill_combo_values(self.dlg_add_visit.parameter_type_id, parameter_type_ids)
 
@@ -1232,7 +1233,7 @@ class GwVisit(QObject):
         if feature_type:
             feature_type = str(feature_type).lower()
 
-        sql = "SELECT id, descript FROM config_visit_parameter WHERE 1=1 "
+        sql = "SELECT id, descript FROM v_config_visit_parameter WHERE 1=1 "
         if parameter_type_id not in (None, -1, '', 'None'):
             sql += f"AND UPPER(parameter_type) = '{str(parameter_type_id).upper()}' "
         if feature_type and feature_type not in ('', 'all'):
@@ -1402,13 +1403,14 @@ class GwVisit(QObject):
         self.dlg_event.tbl_docs_x_event.horizontalHeader().setStretchLastSection(True)
         self.dlg_event.tbl_docs_x_event.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
-        # Get columns name and set headers of model with that
-        columns_name = tools_db.get_columns_list('om_visit_event_photo')
-        headers = []
-        for x in columns_name:
-            headers.append(x[0])
-        headers = ['value', 'filetype', 'fextension']
-        model.setHorizontalHeaderLabels(headers)
+        # Set headers matching the columns selected below
+        msg = "Value"
+        value_title = tools_qt.tr(msg)
+        msg = "File type"
+        filetype_title = tools_qt.tr(msg)
+        msg = "Extension"
+        extension_title = tools_qt.tr(msg)
+        model.setHorizontalHeaderLabels([value_title, filetype_title, extension_title])
 
         # Get values in order to populate model
         visit_id = tools_qt.get_text(self.dlg_add_visit, self.dlg_add_visit.visit_id)
@@ -1528,7 +1530,7 @@ class GwVisit(QObject):
             return
 
         elif len(selected_list) > 1:
-            msg = "More then one event selected. Select just one"
+            msg = "More than one event selected. Select just one"
             tools_qgis.show_warning(msg, dialog=self.dlg_add_visit)
             return
 

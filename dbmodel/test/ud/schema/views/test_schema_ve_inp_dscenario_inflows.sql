@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_dscenario_inflows',
     ARRAY[
         'dscenario_id', 'node_id', 'order_id', 'timser_id', 'sfactor', 'base',
-        'pattern_id'
+        'pattern_id', 'observ'
     ],
     'View ve_inp_dscenario_inflows should have the correct columns'
 );
@@ -35,6 +35,7 @@ SELECT col_type_is('ve_inp_dscenario_inflows', 'timser_id', 'varchar(16)', 'Colu
 SELECT col_type_is('ve_inp_dscenario_inflows', 'sfactor', 'numeric(12,4)', 'Column sfactor should be numeric(12,4)');
 SELECT col_type_is('ve_inp_dscenario_inflows', 'base', 'numeric(12,4)', 'Column base should be numeric(12,4)');
 SELECT col_type_is('ve_inp_dscenario_inflows', 'pattern_id', 'varchar(16)', 'Column pattern_id should be varchar(16)');
+SELECT col_type_is('ve_inp_dscenario_inflows', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

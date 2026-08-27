@@ -45,9 +45,9 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.emitter_coeff IS NULL THEN NEW.emitter_coeff = (SELECT emitter_coeff FROM ve_inp_valve WHERE node_id = NEW.node_id);END IF;
 
 			INSERT INTO inp_dscenario_valve (dscenario_id, node_id, valve_type, setting, curve_id, minorloss, status, add_settings, init_quality,
-			head, pattern_id, demand, demand_pattern_id, emitter_coeff)
+			head, pattern_id, demand, demand_pattern_id, emitter_coeff, observ)
 			VALUES (NEW.dscenario_id, NEW.node_id, NEW.valve_type, NEW.setting, NEW.curve_id, NEW.minorloss, NEW.status, NEW.add_settings,
-			NEW.init_quality, NEW.head, NEW.pattern_id, NEW.demand, NEW.demand_pattern_id, NEW.emitter_coeff);
+			NEW.init_quality, NEW.head, NEW.pattern_id, NEW.demand, NEW.demand_pattern_id, NEW.emitter_coeff, NEW.observ);
 
 		ELSIF v_dscenario_type = 'TANK' THEN
 
@@ -69,9 +69,9 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.source_pattern_id IS NULL OR NEW.source_pattern_id='' THEN NEW.source_pattern_id = (SELECT source_pattern_id FROM ve_inp_tank WHERE node_id = NEW.node_id);END IF;
 
 			INSERT INTO inp_dscenario_tank (dscenario_id, node_id, initlevel, minlevel, maxlevel, diameter, minvol, curve_id, overflow,
-			mixing_model, mixing_fraction, reaction_coeff, init_quality, source_type, source_quality, source_pattern_id)
+			mixing_model, mixing_fraction, reaction_coeff, init_quality, source_type, source_quality, source_pattern_id, observ)
 			VALUES (NEW.dscenario_id, NEW.node_id, NEW.initlevel, NEW.minlevel, NEW.maxlevel, NEW.diameter, NEW.minvol, NEW.curve_id, NEW.overflow,
-			NEW.mixing_model, NEW.mixing_fraction, NEW.reaction_coeff, NEW.init_quality, NEW.source_type, NEW.source_quality, NEW.source_pattern_id);
+			NEW.mixing_model, NEW.mixing_fraction, NEW.reaction_coeff, NEW.init_quality, NEW.source_type, NEW.source_quality, NEW.source_pattern_id, NEW.observ);
 
 		ELSIF v_dscenario_type = 'SHORTPIPE' THEN
 
@@ -90,8 +90,8 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.demand_pattern_id IS NULL OR NEW.demand_pattern_id='' THEN NEW.demand_pattern_id = (SELECT demand_pattern_id FROM ve_inp_shortpipe WHERE node_id = NEW.node_id);END IF;
 			IF NEW.emitter_coeff IS NULL THEN NEW.emitter_coeff = (SELECT emitter_coeff FROM ve_inp_shortpipe WHERE node_id = NEW.node_id);END IF;
 
-			INSERT INTO inp_dscenario_shortpipe(dscenario_id, node_id, minorloss, status, bulk_coeff, wall_coeff, to_arc, head, pattern_id, demand, demand_pattern_id, emitter_coeff)
-			VALUES (NEW.dscenario_id, NEW.node_id, NEW.minorloss, NEW.status, NEW.bulk_coeff, NEW.wall_coeff, NEW.to_arc, NEW.head, NEW.pattern_id, NEW.demand, NEW.demand_pattern_id, NEW.emitter_coeff);
+			INSERT INTO inp_dscenario_shortpipe(dscenario_id, node_id, minorloss, status, bulk_coeff, wall_coeff, to_arc, head, pattern_id, demand, demand_pattern_id, emitter_coeff, observ)
+			VALUES (NEW.dscenario_id, NEW.node_id, NEW.minorloss, NEW.status, NEW.bulk_coeff, NEW.wall_coeff, NEW.to_arc, NEW.head, NEW.pattern_id, NEW.demand, NEW.demand_pattern_id, NEW.emitter_coeff, NEW.observ);
 
 		ELSIF v_dscenario_type = 'RESERVOIR' THEN
 
@@ -103,8 +103,8 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.source_quality IS NULL THEN NEW.source_quality = (SELECT source_quality FROM ve_inp_reservoir WHERE node_id = NEW.node_id);END IF;
 			IF NEW.source_pattern_id IS NULL OR NEW.source_pattern_id='' THEN NEW.source_pattern_id = (SELECT source_pattern_id FROM ve_inp_reservoir WHERE node_id = NEW.node_id);END IF;
 
-			INSERT INTO inp_dscenario_reservoir(dscenario_id, node_id, pattern_id, head, init_quality, source_type, source_quality, source_pattern_id)
-			VALUES (NEW.dscenario_id, NEW.node_id, NEW.pattern_id, NEW.head, NEW.init_quality, NEW.source_type, NEW.source_quality, NEW.source_pattern_id);
+			INSERT INTO inp_dscenario_reservoir(dscenario_id, node_id, pattern_id, head, init_quality, source_type, source_quality, source_pattern_id, observ)
+			VALUES (NEW.dscenario_id, NEW.node_id, NEW.pattern_id, NEW.head, NEW.init_quality, NEW.source_type, NEW.source_quality, NEW.source_pattern_id, NEW.observ);
 
 		ELSIF v_dscenario_type = 'PUMP' THEN
 
@@ -118,8 +118,8 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.energy_price IS NULL THEN NEW.energy_price = (SELECT energy_price FROM ve_inp_pump WHERE node_id = NEW.node_id);END IF;
 			IF NEW.energy_pattern_id IS NULL OR NEW.energy_pattern_id='' THEN NEW.energy_pattern_id = (SELECT energy_pattern_id FROM ve_inp_pump WHERE node_id = NEW.node_id);END IF;
 
-			INSERT INTO inp_dscenario_pump(dscenario_id, node_id, power, curve_id, speed, pattern_id, status, effic_curve_id, energy_price, energy_pattern_id)
-			VALUES (NEW.dscenario_id, NEW.node_id, NEW.power, NEW.curve_id, NEW.speed, NEW.pattern_id, NEW.status, NEW.effic_curve_id, NEW.energy_price, NEW.energy_pattern_id);
+			INSERT INTO inp_dscenario_pump(dscenario_id, node_id, power, curve_id, speed, pattern_id, status, effic_curve_id, energy_price, energy_pattern_id, observ)
+			VALUES (NEW.dscenario_id, NEW.node_id, NEW.power, NEW.curve_id, NEW.speed, NEW.pattern_id, NEW.status, NEW.effic_curve_id, NEW.energy_price, NEW.energy_pattern_id, NEW.observ);
 
 
 		ELSIF v_dscenario_type = 'VIRTUALPUMP' THEN
@@ -134,8 +134,8 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.energy_price IS NULL THEN NEW.energy_price = (SELECT energy_price FROM ve_inp_virtualpump WHERE arc_id = NEW.arc_id);END IF;
 			IF NEW.energy_pattern_id IS NULL OR NEW.energy_pattern_id='' THEN NEW.energy_pattern_id = (SELECT energy_pattern_id FROM ve_inp_virtualpump WHERE arc_id = NEW.arc_id);END IF;
 
-			INSERT INTO inp_dscenario_virtualpump(dscenario_id, arc_id, power, curve_id, speed, pattern_id, status, effic_curve_id, energy_price, energy_pattern_id)
-			VALUES (NEW.dscenario_id, NEW.arc_id, NEW.power, NEW.curve_id, NEW.speed, NEW.pattern_id, NEW.status, NEW.effic_curve_id, NEW.energy_price, NEW.energy_pattern_id);
+			INSERT INTO inp_dscenario_virtualpump(dscenario_id, arc_id, power, curve_id, speed, pattern_id, status, effic_curve_id, energy_price, energy_pattern_id, observ)
+			VALUES (NEW.dscenario_id, NEW.arc_id, NEW.power, NEW.curve_id, NEW.speed, NEW.pattern_id, NEW.status, NEW.effic_curve_id, NEW.energy_price, NEW.energy_pattern_id, NEW.observ);
 
 		ELSIF v_dscenario_type = 'PIPE' THEN
 
@@ -149,8 +149,8 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.wall_coeff IS NULL THEN NEW.wall_coeff = (SELECT wall_coeff FROM ve_inp_pipe WHERE arc_id = NEW.arc_id);END IF;
 
 
-			INSERT INTO inp_dscenario_pipe(dscenario_id, arc_id, minorloss, status, roughness, dint, bulk_coeff, wall_coeff)
-			VALUES (NEW.dscenario_id, NEW.arc_id, NEW.minorloss, NEW.status, NEW.roughness, NEW.dint, NEW.bulk_coeff, NEW.wall_coeff);
+			INSERT INTO inp_dscenario_pipe(dscenario_id, arc_id, minorloss, status, roughness, dint, bulk_coeff, wall_coeff, observ)
+			VALUES (NEW.dscenario_id, NEW.arc_id, NEW.minorloss, NEW.status, NEW.roughness, NEW.dint, NEW.bulk_coeff, NEW.wall_coeff, NEW.observ);
 
 		ELSIF v_dscenario_type = 'JUNCTION' THEN
 
@@ -163,8 +163,8 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.source_quality IS NULL THEN NEW.source_quality = (SELECT source_quality FROM ve_inp_junction WHERE node_id = NEW.node_id);END IF;
 			IF NEW.source_pattern_id IS NULL OR NEW.source_pattern_id='' THEN NEW.source_pattern_id = (SELECT source_pattern_id FROM ve_inp_junction WHERE node_id = NEW.node_id);END IF;
 
-			INSERT INTO inp_dscenario_junction(dscenario_id, node_id, demand, pattern_id, init_quality, source_type, source_quality, source_pattern_id, emitter_coeff)
-			VALUES (NEW.dscenario_id, NEW.node_id, NEW.demand, NEW.pattern_id, NEW.init_quality, NEW.source_type, NEW.source_quality, NEW.source_pattern_id, NEW.emitter_coeff);
+			INSERT INTO inp_dscenario_junction(dscenario_id, node_id, demand, pattern_id, init_quality, source_type, source_quality, source_pattern_id, emitter_coeff, observ)
+			VALUES (NEW.dscenario_id, NEW.node_id, NEW.demand, NEW.pattern_id, NEW.init_quality, NEW.source_type, NEW.source_quality, NEW.source_pattern_id, NEW.emitter_coeff, NEW.observ);
 
 		ELSIF v_dscenario_type = 'CONNEC' THEN
 
@@ -180,9 +180,9 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.source_quality IS NULL THEN NEW.source_quality = (SELECT source_quality FROM ve_inp_connec WHERE connec_id = NEW.connec_id);END IF;
 			IF NEW.source_pattern_id IS NULL OR NEW.source_pattern_id='' THEN NEW.source_pattern_id = (SELECT source_pattern_id FROM ve_inp_connec WHERE connec_id = NEW.connec_id);END IF;
 
-			INSERT INTO inp_dscenario_connec(dscenario_id, connec_id, demand, pattern_id, custom_roughness, custom_length, custom_dint, init_quality, source_type, source_quality, source_pattern_id)
+			INSERT INTO inp_dscenario_connec(dscenario_id, connec_id, demand, pattern_id, custom_roughness, custom_length, custom_dint, init_quality, source_type, source_quality, source_pattern_id, observ)
 			VALUES (NEW.dscenario_id, NEW.connec_id, NEW.demand, NEW.pattern_id, NEW.custom_roughness, NEW.custom_length, NEW.custom_dint
-			, NEW.init_quality, NEW.source_type, NEW.source_quality, NEW.source_pattern_id);
+			, NEW.init_quality, NEW.source_type, NEW.source_quality, NEW.source_pattern_id, NEW.observ);
 
 		ELSIF v_dscenario_type = 'INLET' THEN
 
@@ -209,9 +209,9 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.emitter_coeff IS NULL THEN NEW.emitter_coeff = (SELECT emitter_coeff FROM ve_inp_inlet WHERE node_id = NEW.node_id);END IF;
 
 			INSERT INTO inp_dscenario_inlet (dscenario_id, node_id, initlevel, minlevel, maxlevel, diameter, minvol, curve_id, overflow, pattern_id, head,
-			mixing_model, mixing_fraction, reaction_coeff, init_quality, source_type, source_quality, source_pattern_id, demand, demand_pattern_id, emitter_coeff)
+			mixing_model, mixing_fraction, reaction_coeff, init_quality, source_type, source_quality, source_pattern_id, demand, demand_pattern_id, emitter_coeff, observ)
 			VALUES (NEW.dscenario_id, NEW.node_id, NEW.initlevel, NEW.minlevel, NEW.maxlevel, NEW.diameter, NEW.minvol, NEW.curve_id, NEW.overflow, NEW.pattern_id, NEW.head,
-			NEW.mixing_model, NEW.mixing_fraction, NEW.reaction_coeff, NEW.init_quality, NEW.source_type, NEW.source_quality, NEW.source_pattern_id, NEW.demand, NEW.demand_pattern_id, NEW.emitter_coeff);
+			NEW.mixing_model, NEW.mixing_fraction, NEW.reaction_coeff, NEW.init_quality, NEW.source_type, NEW.source_quality, NEW.source_pattern_id, NEW.demand, NEW.demand_pattern_id, NEW.emitter_coeff, NEW.observ);
 
 		ELSIF v_dscenario_type = 'VIRTUALVALVE' THEN
 
@@ -223,8 +223,8 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.status IS NULL OR NEW.status='' THEN NEW.status = (SELECT status FROM ve_inp_virtualvalve WHERE arc_id = NEW.arc_id);END IF;
 			IF NEW.init_quality IS NULL THEN NEW.init_quality = (SELECT init_quality FROM ve_inp_virtualvalve WHERE arc_id = NEW.arc_id);END IF;
 
-			INSERT INTO inp_dscenario_virtualvalve (dscenario_id, arc_id, valve_type, setting, curve_id, minorloss, status, init_quality)
-			VALUES (NEW.dscenario_id, NEW.arc_id, NEW.valve_type, NEW.setting, NEW.curve_id, NEW.minorloss, NEW.status, NEW.init_quality);
+			INSERT INTO inp_dscenario_virtualvalve (dscenario_id, arc_id, valve_type, setting, curve_id, minorloss, status, init_quality, observ)
+			VALUES (NEW.dscenario_id, NEW.arc_id, NEW.valve_type, NEW.setting, NEW.curve_id, NEW.minorloss, NEW.status, NEW.init_quality, NEW.observ);
 
 		ELSIF v_dscenario_type = 'FLWREG-PUMP' THEN
 
@@ -238,8 +238,8 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.energy_price IS NULL THEN NEW.energy_price = (SELECT energy_price FROM ve_inp_frpump WHERE element_id = NEW.element_id);END IF;
 			IF NEW.energy_pattern_id IS NULL OR NEW.energy_pattern_id='' THEN NEW.energy_pattern_id = (SELECT energy_pattern_id FROM ve_inp_frpump WHERE element_id = NEW.element_id);END IF;
 
-			INSERT INTO inp_dscenario_frpump(dscenario_id, element_id, power, curve_id, speed, pattern_id, status, effic_curve_id, energy_price, energy_pattern_id)
-			VALUES (NEW.dscenario_id, NEW.element_id, NEW.power, NEW.curve_id, NEW.speed, NEW.pattern_id, NEW.status, NEW.effic_curve_id, NEW.energy_price, NEW.energy_pattern_id);
+			INSERT INTO inp_dscenario_frpump(dscenario_id, element_id, power, curve_id, speed, pattern_id, status, effic_curve_id, energy_price, energy_pattern_id, observ)
+			VALUES (NEW.dscenario_id, NEW.element_id, NEW.power, NEW.curve_id, NEW.speed, NEW.pattern_id, NEW.status, NEW.effic_curve_id, NEW.energy_price, NEW.energy_pattern_id, NEW.observ);
 
 		ELSIF v_dscenario_type = 'FLWREG-VALVE' THEN
 
@@ -252,8 +252,8 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.add_settings IS NULL THEN NEW.add_settings = (SELECT add_settings FROM ve_inp_frvalve WHERE element_id = NEW.element_id);END IF;
 			IF NEW.init_quality IS NULL THEN NEW.init_quality = (SELECT init_quality FROM ve_inp_frvalve WHERE element_id = NEW.element_id);END IF;
 
-			INSERT INTO inp_dscenario_frvalve (dscenario_id, element_id, valve_type, custom_dint, setting, curve_id, minorloss, add_settings, init_quality)
-			VALUES (NEW.dscenario_id, NEW.element_id, NEW.valve_type, NEW.custom_dint, NEW.setting, NEW.curve_id, NEW.minorloss, NEW.add_settings, NEW.init_quality);
+			INSERT INTO inp_dscenario_frvalve (dscenario_id, element_id, valve_type, custom_dint, setting, curve_id, minorloss, add_settings, init_quality, observ)
+			VALUES (NEW.dscenario_id, NEW.element_id, NEW.valve_type, NEW.custom_dint, NEW.setting, NEW.curve_id, NEW.minorloss, NEW.add_settings, NEW.init_quality, NEW.observ);
 
 		ELSIF v_dscenario_type = 'FLWREG-SHORTPIPE' THEN
 
@@ -264,16 +264,16 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF NEW.wall_coeff IS NULL THEN NEW.wall_coeff = (SELECT wall_coeff FROM ve_inp_frshortpipe WHERE element_id = NEW.element_id);END IF;
 			IF NEW.custom_dint IS NULL THEN NEW.custom_dint = (SELECT custom_dint FROM ve_inp_frshortpipe WHERE element_id = NEW.element_id);END IF;
 
-			INSERT INTO inp_dscenario_frshortpipe(dscenario_id, element_id, minorloss, status, bulk_coeff, wall_coeff, custom_dint)
-			VALUES (NEW.dscenario_id, NEW.element_id, NEW.minorloss, NEW.status, NEW.bulk_coeff, NEW.wall_coeff, NEW.custom_dint);
+			INSERT INTO inp_dscenario_frshortpipe(dscenario_id, element_id, minorloss, status, bulk_coeff, wall_coeff, custom_dint, observ)
+			VALUES (NEW.dscenario_id, NEW.element_id, NEW.minorloss, NEW.status, NEW.bulk_coeff, NEW.wall_coeff, NEW.custom_dint, NEW.observ);
 
 		ELSIF v_dscenario_type = 'RULES' THEN
-			INSERT INTO inp_dscenario_rules(dscenario_id, sector_id, text, active)
-			VALUES (NEW.dscenario_id, NEW.sector_id, NEW.text, NEW.active);
+			INSERT INTO inp_dscenario_rules(dscenario_id, sector_id, text, active, observ)
+			VALUES (NEW.dscenario_id, NEW.sector_id, NEW.text, NEW.active, NEW.observ);
 
 		ELSIF v_dscenario_type = 'CONTROLS' THEN
-			INSERT INTO inp_dscenario_controls(dscenario_id, sector_id, text, active)
-			VALUES (NEW.dscenario_id, NEW.sector_id, NEW.text, NEW.active);
+			INSERT INTO inp_dscenario_controls(dscenario_id, sector_id, text, active, observ)
+			VALUES (NEW.dscenario_id, NEW.sector_id, NEW.text, NEW.active, NEW.observ);
 
 		ELSIF v_dscenario_type = 'PATTERN' THEN
 			INSERT INTO inp_dscenario_pattern(dscenario_id, pattern_id, pattern_type, observ, tscode, tsparameters, expl_id, log, active)
@@ -294,94 +294,97 @@ EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 		IF v_dscenario_type = 'VALVE' THEN
 			UPDATE inp_dscenario_valve SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, valve_type=NEW.valve_type, setting=NEW.setting,
 			curve_id=NEW.curve_id, minorloss=NEW.minorloss, status=NEW.status, add_settings=NEW.add_settings,
-			init_quality=NEW.init_quality, head = NEW.head, pattern_id = NEW.pattern_id, demand = NEW.demand, demand_pattern_id = NEW.demand_pattern_id, emitter_coeff = NEW.emitter_coeff
+			init_quality=NEW.init_quality, head = NEW.head, pattern_id = NEW.pattern_id, demand = NEW.demand, demand_pattern_id = NEW.demand_pattern_id, emitter_coeff = NEW.emitter_coeff,
+			observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id;
 
 		ELSIF v_dscenario_type = 'TANK' THEN
 			UPDATE inp_dscenario_tank SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, initlevel=NEW.initlevel, minlevel=NEW.minlevel,
 			maxlevel=NEW.maxlevel, 	diameter=NEW.diameter, minvol=NEW.minvol, curve_id=NEW.curve_id, overflow=NEW.overflow,
 			mixing_model=NEW.mixing_model, mixing_fraction=NEW.mixing_fraction, reaction_coeff=NEW.reaction_coeff,  init_quality=NEW.init_quality, source_type=NEW.source_type,
-			source_quality=NEW.source_quality, source_pattern_id=NEW.source_pattern_id
+			source_quality=NEW.source_quality, source_pattern_id=NEW.source_pattern_id, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id;
 
 		ELSIF v_dscenario_type = 'SHORTPIPE' THEN
 			UPDATE inp_dscenario_shortpipe SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, minorloss=NEW.minorloss, status=NEW.status,
-			bulk_coeff = NEW.bulk_coeff, wall_coeff = NEW.wall_coeff, to_arc = NEW.to_arc, head = NEW.head, pattern_id = NEW.pattern_id, demand = NEW.demand, demand_pattern_id = NEW.demand_pattern_id, emitter_coeff = NEW.emitter_coeff
+			bulk_coeff = NEW.bulk_coeff, wall_coeff = NEW.wall_coeff, to_arc = NEW.to_arc, head = NEW.head, pattern_id = NEW.pattern_id, demand = NEW.demand, 
+			demand_pattern_id = NEW.demand_pattern_id, emitter_coeff = NEW.emitter_coeff, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id;
 
 		ELSIF v_dscenario_type = 'RESERVOIR' THEN
 			UPDATE inp_dscenario_reservoir SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, pattern_id=NEW.pattern_id, head=NEW.head,
-			init_quality=NEW.init_quality, source_type=NEW.source_type, source_quality=NEW.source_quality, source_pattern_id=NEW.source_pattern_id
+			init_quality=NEW.init_quality, source_type=NEW.source_type, source_quality=NEW.source_quality, source_pattern_id=NEW.source_pattern_id, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id;
 
 		ELSIF v_dscenario_type = 'PUMP' THEN
 			UPDATE inp_dscenario_pump SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, power=NEW.power, curve_id=NEW.curve_id,
 			speed=NEW.speed, pattern_id=NEW.pattern_id, status=NEW.status,
-			effic_curve_id = NEW.effic_curve_id, energy_price = NEW.energy_price, energy_pattern_id = NEW.energy_pattern_id
+			effic_curve_id = NEW.effic_curve_id, energy_price = NEW.energy_price, energy_pattern_id = NEW.energy_pattern_id, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id;
 
 		ELSIF v_dscenario_type = 'PIPE' THEN
 			UPDATE inp_dscenario_pipe SET dscenario_id=NEW.dscenario_id, arc_id=NEW.arc_id, minorloss=NEW.minorloss, status=NEW.status,
 			roughness=NEW.roughness, dint=NEW.dint,
-			bulk_coeff=NEW.bulk_coeff, wall_coeff = NEW.wall_coeff
+			bulk_coeff=NEW.bulk_coeff, wall_coeff = NEW.wall_coeff, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND arc_id=OLD.arc_id;
 
 		ELSIF v_dscenario_type = 'JUNCTION' THEN
 			UPDATE inp_dscenario_junction SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, demand=NEW.demand, pattern_id=NEW.pattern_id,
-			emitter_coeff=NEW.emitter_coeff, init_quality=NEW.init_quality, source_type=NEW.source_type, source_quality=NEW.source_quality, source_pattern_id=NEW.source_pattern_id
+			emitter_coeff=NEW.emitter_coeff, init_quality=NEW.init_quality, source_type=NEW.source_type, source_quality=NEW.source_quality, source_pattern_id=NEW.source_pattern_id, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id;
 
 		ELSIF v_dscenario_type = 'CONNEC' THEN
 			UPDATE inp_dscenario_connec SET dscenario_id=NEW.dscenario_id, connec_id=NEW.connec_id,
 			demand=NEW.demand, pattern_id=NEW.pattern_id, peak_factor=NEW.peak_factor,
 			custom_roughness=NEW.custom_roughness, custom_length=NEW.custom_length, custom_dint=NEW.custom_dint,
-			emitter_coeff=NEW.emitter_coeff, init_quality=NEW.init_quality, source_type=NEW.source_type, source_quality=NEW.source_quality, source_pattern_id=NEW.source_pattern_id
+			emitter_coeff=NEW.emitter_coeff, init_quality=NEW.init_quality, source_type=NEW.source_type, source_quality=NEW.source_quality, source_pattern_id=NEW.source_pattern_id, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND connec_id=OLD.connec_id;
 
 		ELSIF v_dscenario_type = 'INLET' THEN
 			UPDATE inp_dscenario_inlet SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, initlevel=NEW.initlevel, minlevel=NEW.minlevel,
 			maxlevel=NEW.maxlevel, diameter=NEW.diameter, minvol=NEW.minvol, curve_id=NEW.curve_id, overflow = NEW.overflow, pattern_id = NEW.pattern_id, head = NEW.head,
 			mixing_model=NEW.mixing_model, mixing_fraction=NEW.mixing_fraction, reaction_coeff=NEW.reaction_coeff,  init_quality=NEW.init_quality, source_type=NEW.source_type,
-			source_quality=NEW.source_quality, source_pattern_id=NEW.source_pattern_id, demand = NEW.demand, demand_pattern_id = NEW.demand_pattern_id, emitter_coeff = NEW.emitter_coeff
+			source_quality=NEW.source_quality, source_pattern_id=NEW.source_pattern_id, demand = NEW.demand, demand_pattern_id = NEW.demand_pattern_id, emitter_coeff = NEW.emitter_coeff, 
+			observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id;
 
 		ELSIF v_dscenario_type = 'VIRTUALPUMP' THEN
 			UPDATE inp_dscenario_virtualpump SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, power=NEW.power, curve_id=NEW.curve_id,
 			speed=NEW.speed, pattern_id=NEW.pattern_id, status=NEW.status,
-			effic_curve_id = NEW.effic_curve_id, energy_price = NEW.energy_price, energy_pattern_id = NEW.energy_pattern_id
+			effic_curve_id = NEW.effic_curve_id, energy_price = NEW.energy_price, energy_pattern_id = NEW.energy_pattern_id, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND arc_id=OLD.arc_id;
 
 		ELSIF v_dscenario_type = 'VIRTUALVALVE' THEN
 			UPDATE inp_dscenario_virtualvalve SET dscenario_id=NEW.dscenario_id, arc_id=NEW.arc_id, valve_type=NEW.valve_type, setting=NEW.setting,
-			curve_id=NEW.curve_id, minorloss=NEW.minorloss, status=NEW.status, init_quality=NEW.init_quality
+			curve_id=NEW.curve_id, minorloss=NEW.minorloss, status=NEW.status, init_quality=NEW.init_quality, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND arc_id=OLD.arc_id;
 
 		ELSIF v_dscenario_type = 'FLWREG-PUMP' THEN
 			UPDATE inp_dscenario_frpump SET dscenario_id=NEW.dscenario_id, element_id=NEW.element_id, power=NEW.power, curve_id=NEW.curve_id,
 			speed=NEW.speed, pattern_id=NEW.pattern_id, status=NEW.status,
-			effic_curve_id = NEW.effic_curve_id, energy_price = NEW.energy_price, energy_pattern_id = NEW.energy_pattern_id
+			effic_curve_id = NEW.effic_curve_id, energy_price = NEW.energy_price, energy_pattern_id = NEW.energy_pattern_id, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND element_id=OLD.element_id;
 
 		ELSIF v_dscenario_type = 'FLWREG-VALVE' THEN
 			UPDATE inp_dscenario_frvalve SET dscenario_id=NEW.dscenario_id, element_id=NEW.element_id, valve_type=NEW.valve_type, custom_dint=NEW.custom_dint,
-			setting=NEW.setting, curve_id=NEW.curve_id, minorloss=NEW.minorloss, add_settings=NEW.add_settings, init_quality=NEW.init_quality
+			setting=NEW.setting, curve_id=NEW.curve_id, minorloss=NEW.minorloss, add_settings=NEW.add_settings, init_quality=NEW.init_quality, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND element_id=OLD.element_id;
 
 		ELSIF v_dscenario_type = 'FLWREG-SHORTPIPE' THEN
 			UPDATE inp_dscenario_frshortpipe SET dscenario_id=NEW.dscenario_id, element_id=NEW.element_id, minorloss=NEW.minorloss,
-			bulk_coeff=NEW.bulk_coeff, wall_coeff=NEW.wall_coeff, custom_dint=NEW.custom_dint, status=NEW.status
+			bulk_coeff=NEW.bulk_coeff, wall_coeff=NEW.wall_coeff, custom_dint=NEW.custom_dint, status=NEW.status, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND element_id=OLD.element_id;
 
 		ELSIF v_dscenario_type = 'RULES' THEN
-			UPDATE inp_dscenario_rules SET dscenario_id = NEW.dscenario_id, sector_id= NEW.sector_id, text= NEW.text, active=NEW.active
+			UPDATE inp_dscenario_rules SET dscenario_id = NEW.dscenario_id, sector_id= NEW.sector_id, text= NEW.text, active=NEW.active, observ = NEW.observ
 			WHERE id=OLD.id;
 
 		ELSIF v_dscenario_type = 'CONTROLS' THEN
-			UPDATE inp_dscenario_controls SET dscenario_id = NEW.dscenario_id, sector_id= NEW.sector_id, text= NEW.text, active=NEW.active
+			UPDATE inp_dscenario_controls SET dscenario_id = NEW.dscenario_id, sector_id= NEW.sector_id, text= NEW.text, active=NEW.active, observ = NEW.observ
 			WHERE id=OLD.id;
 
 		ELSIF v_dscenario_type = 'MAPZONE' THEN
-			UPDATE inp_dscenario_mapzone SET pattern_id = NEW.pattern_id
+			UPDATE inp_dscenario_mapzone SET pattern_id = NEW.pattern_id, observ = NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND mapzone_id=OLD.mapzone_id AND mapzone_type=OLD.mapzone_type;
 		END IF;
 

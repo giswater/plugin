@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_dscenario_outfall',
     ARRAY[
         'dscenario_id', 'node_id', 'elev', 'ymax', 'outfall_type', 'stage',
-        'curve_id', 'timser_id', 'gate', 'route_to', 'the_geom'
+        'curve_id', 'timser_id', 'gate', 'route_to', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_outfall should have the correct columns'
 );
@@ -39,6 +39,7 @@ SELECT col_type_is('ve_inp_dscenario_outfall', 'timser_id', 'varchar(16)', 'Colu
 SELECT col_type_is('ve_inp_dscenario_outfall', 'gate', 'varchar(3)', 'Column gate should be varchar(3)');
 SELECT col_type_is('ve_inp_dscenario_outfall', 'route_to', 'varchar(16)', 'Column route_to should be varchar(16)');
 SELECT col_type_is('ve_inp_dscenario_outfall', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_outfall', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

@@ -10186,9 +10186,9 @@ DELETE FROM config_form_fields  WHERE formname = 've_arc';
 DELETE FROM config_form_fields  WHERE formname = 've_connec';
 DELETE FROM config_form_fields  WHERE formname = 've_node';
 DELETE FROM config_form_fields  WHERE formname = 've_gully';
-ALTER TABLE config_form_fields DISABLE TRIGGER ALL;
+ALTER TABLE config_form_fields DISABLE TRIGGER USER;
 UPDATE config_form_fields SET formname = REPLACE(formname, 'v_edit_', 've_') WHERE formname LIKE 'v_edit_%';
-ALTER TABLE config_form_fields ENABLE TRIGGER ALL;
+ALTER TABLE config_form_fields ENABLE TRIGGER USER;
 
 
 UPDATE sys_param_user SET formname = 'hidden' WHERE id = 'inp_options_networkmode';

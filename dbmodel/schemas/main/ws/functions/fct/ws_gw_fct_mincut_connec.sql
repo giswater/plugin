@@ -57,7 +57,7 @@ BEGIN
 	-- get connecs when mincut class = 3
 	IF v_mincut_class=3 THEN
 		INSERT INTO om_mincut_connec (result_id, connec_id) 
-		SELECT DISTINCT ON (connec_id) result_id, connec_id FROM v_hydrometer erh JOIN connec c ON erh.customer_code = c.customer_code JOIN om_mincut_hydrometer USING (hydrometer_id) 
+		SELECT DISTINCT ON (connec_id) result_id, connec_id FROM v_hydrometer erh JOIN connec c ON erh.feature_customer_code = c.customer_code JOIN om_mincut_hydrometer USING (hydrometer_id) 
 		WHERE result_id = v_mincut ON CONFLICT (result_id, connec_id) DO NOTHING;
 	ELSIF v_mincut_class=2 THEN
 		UPDATE om_mincut_connec m SET the_geom=c.the_geom, customer_code=c.customer_code FROM connec c 

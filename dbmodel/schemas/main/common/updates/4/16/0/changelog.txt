@@ -5,3 +5,4 @@
 - Fix `gw_trg_scada_graph_builder` to use `node_type`, `feature_class` and current schema.
 - Optimize `vf_node`, `vf_arc`, `vf_connec` and `vf_element` selector filters for large selector sets (hash-friendly `IN` / avoid `array_append` per row; skip psector LATERAL when none selected).
 - Fix `gw_fct_setselectors` envelope probe to use `vf_node` instead of `ve_node` (avoids multi-second `ve_node LIMIT 1` with all exploitations selected).
+- Add Force reconnect checkbox to Connect Link dialog (link_to_connec).

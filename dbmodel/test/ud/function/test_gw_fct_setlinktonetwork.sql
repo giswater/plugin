@@ -11,8 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 1 test
-SELECT plan(1);
+SELECT plan(27);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -38,20 +37,237 @@ SELECT is (
     'Check if gw_fct_setlinktonetwork returns status "Accepted"'
 );
 
--- TODO
--- gw_fct_setlinktonetwork
--- SELECT gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},
--- "feature":{"id":["10117","10118"]},"data":{"feature_type":"CONNEC", "forcedArcs":["2001","2002"]}}$$);
+UPDATE link SET userdefined_geom = TRUE
+WHERE feature_id = 3090 AND feature_type = 'CONNEC' AND state > 0;
 
--- SELECT gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},
--- "feature":{"id":["30012"]},"data":{"feature_type":"CONNEC"}}$$);
+CREATE TEMP TABLE _t_arc_3090 AS
+SELECT arc_id FROM connec WHERE connec_id = 3090;
 
--- SELECT gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},
--- "feature":{"id":["30014"]},"data":{"feature_type":"GULLY"}}$$);
+CREATE TEMP TABLE _t_link_3090 AS
+SELECT exit_id, the_geom FROM link
+WHERE feature_id = 3090 AND feature_type = 'CONNEC' AND state > 0
+LIMIT 1;
 
+CREATE TEMP TABLE _t_other_arc_3090 AS
+SELECT a.arc_id::text AS arc_id
+FROM ve_arc a
+JOIN connec c ON c.connec_id = 3090
+WHERE a.state > 0
+  AND a.arc_id IS DISTINCT FROM c.arc_id
+ORDER BY ST_Distance(a.the_geom, c.the_geom)
+LIMIT 1;
 
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3090"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "forceReconnect":true}}$$)::JSON)->>'status',
+    'Accepted',
+    'forceReconnect with userdefined_geom TRUE returns Accepted'
+);
 
--- Finish the test
+SELECT is (
+    (SELECT arc_id FROM connec WHERE connec_id = 3090),
+    (SELECT arc_id FROM _t_arc_3090),
+    'forceReconnect does not move a link with userdefined_geom TRUE'
+);
+
+SELECT is (
+    (gw_fct_setlinktonetwork(format(
+        $${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+        "feature":{"id":["3090"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+        "forcedArcs":["%s"], "forceReconnect":true}}$$,
+        (SELECT arc_id FROM _t_other_arc_3090)
+    )::json)::JSON)->>'status',
+    'Accepted',
+    'forcedArcs with userdefined_geom TRUE returns Accepted'
+);
+
+SELECT ok (
+    (SELECT l.exit_id IS NOT DISTINCT FROM s.exit_id AND ST_Equals(l.the_geom, s.the_geom)
+     FROM link l, _t_link_3090 s
+     WHERE l.feature_id = 3090 AND l.feature_type = 'CONNEC' AND l.state > 0
+     LIMIT 1),
+    'forcedArcs does not change a link with userdefined_geom TRUE'
+);
+
+UPDATE link SET userdefined_geom = FALSE
+WHERE feature_id = 3090 AND feature_type = 'CONNEC' AND state > 0;
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3090"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "forceReconnect":true}}$$)::JSON)->>'status',
+    'Accepted',
+    'forceReconnect with userdefined_geom FALSE returns Accepted'
+);
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3095"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC", "forceNode":true}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC forceNode returns status Accepted'
+);
+
+SELECT is (
+    (SELECT exit_type FROM link WHERE feature_id = 3095 AND feature_type = 'CONNEC' AND state > 0 ORDER BY link_id DESC LIMIT 1),
+    'NODE',
+    'CONNEC forceNode creates link with exit_type NODE'
+);
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3094"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC", "forcedNodes":["84"]}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC forcedNodes returns status Accepted'
+);
+
+SELECT is (
+    (SELECT exit_type FROM link WHERE feature_id = 3094 AND feature_type = 'CONNEC' AND state > 0 ORDER BY link_id DESC LIMIT 1),
+    'NODE',
+    'CONNEC forcedNodes creates link with exit_type NODE'
+);
+
+SELECT is (
+    (SELECT exit_id::text FROM link WHERE feature_id = 3094 AND feature_type = 'CONNEC' AND state > 0 ORDER BY link_id DESC LIMIT 1),
+    '84',
+    'CONNEC forcedNodes sets exit_id to the forced node'
+);
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["30014"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"GULLY", "forceNode":true}}$$)::JSON)->>'status',
+    'Accepted',
+    'GULLY forceNode returns status Accepted'
+);
+
+SELECT is (
+    (SELECT exit_type FROM link WHERE feature_id = 30014 AND feature_type = 'GULLY' AND state > 0 ORDER BY link_id DESC LIMIT 1),
+    'NODE',
+    'GULLY forceNode creates link with exit_type NODE'
+);
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["30014"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"GULLY", "forcedNodes":["49"]}}$$)::JSON)->>'status',
+    'Accepted',
+    'GULLY forcedNodes returns status Accepted'
+);
+
+SELECT is (
+    (SELECT exit_type FROM link WHERE feature_id = 30014 AND feature_type = 'GULLY' AND state > 0 ORDER BY link_id DESC LIMIT 1),
+    'NODE',
+    'GULLY forcedNodes creates link with exit_type NODE'
+);
+
+SELECT is (
+    (SELECT exit_id::text FROM link WHERE feature_id = 30014 AND feature_type = 'GULLY' AND state > 0 ORDER BY link_id DESC LIMIT 1),
+    '49',
+    'GULLY forcedNodes sets exit_id to the forced node'
+);
+
+SELECT isnt (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3091"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "forcedNodes":["84"], "forcedArcs":["210"]}}$$)::JSON)->>'status',
+    'Accepted',
+    'forcedNodes + forcedArcs does not return Accepted'
+);
+
+UPDATE arc SET fluid_type = 3 WHERE state > 0;
+UPDATE arc SET fluid_type = 1
+WHERE arc_id = (
+    SELECT a.arc_id FROM arc a
+    JOIN connec c ON c.connec_id = 3090
+    WHERE a.state > 0 AND a.arc_id IS DISTINCT FROM c.arc_id
+    ORDER BY ST_Distance(a.the_geom, c.the_geom)
+    LIMIT 1
+);
+
+CREATE TEMP TABLE _t_connec_3090 AS
+SELECT arc_id FROM connec WHERE connec_id = 3090;
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3090"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "extraFilters":{"fluid_type":1}}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC extraFilters without forceReconnect returns status Accepted'
+);
+
+SELECT is (
+    (SELECT arc_id FROM connec WHERE connec_id = 3090),
+    (SELECT arc_id FROM _t_connec_3090),
+    'CONNEC extraFilters without forceReconnect does not move an existing link'
+);
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3090"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "forceReconnect":true, "extraFilters":{"fluid_type":1}}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC extraFilters.fluid_type returns status Accepted'
+);
+
+SELECT is (
+    (SELECT a.fluid_type FROM connec c JOIN arc a ON a.arc_id = c.arc_id WHERE c.connec_id = 3090),
+    1,
+    'CONNEC extraFilters.fluid_type links to an arc with matching fluid_type'
+);
+
+SELECT is (
+    (SELECT l.exit_id::text FROM link l
+     WHERE l.feature_id = 3090 AND l.feature_type = 'CONNEC' AND l.state > 0
+     ORDER BY l.link_id DESC LIMIT 1),
+    (SELECT arc_id::text FROM connec WHERE connec_id = 3090),
+    'CONNEC extraFilters+forceReconnect sets link.exit_id to the new arc'
+);
+
+SELECT ok (
+    (SELECT ST_DWithin(ST_EndPoint(l.the_geom), a.the_geom, 0.01)
+     FROM link l
+     JOIN connec c ON c.connec_id = 3090
+     JOIN arc a ON a.arc_id = c.arc_id
+     WHERE l.feature_id = 3090 AND l.feature_type = 'CONNEC' AND l.state > 0
+     ORDER BY l.link_id DESC LIMIT 1),
+    'CONNEC extraFilters+forceReconnect endpoint lies on the target arc'
+);
+
+CREATE TEMP TABLE _t_connec_3090_nocand AS
+SELECT arc_id FROM connec WHERE connec_id = 3090;
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3090"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "forceReconnect":true, "extraFilters":{"fluid_type":99999}}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC extraFilters with no matching arc returns status Accepted'
+);
+
+SELECT is (
+    (SELECT arc_id FROM connec WHERE connec_id = 3090),
+    (SELECT arc_id FROM _t_connec_3090_nocand),
+    'CONNEC extraFilters with no matching arc does not move the existing link'
+);
+
+UPDATE node SET fluid_type = 3 WHERE state > 0;
+UPDATE node SET fluid_type = 1 WHERE node_id = 84;
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3091"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "forceNode":true, "extraFilters":{"fluid_type":1}}}$$)::JSON)->>'status',
+    'Accepted',
+    'CONNEC forceNode extraFilters.fluid_type returns status Accepted'
+);
+
+SELECT is (
+    (SELECT n.fluid_type FROM link l JOIN node n ON n.node_id = l.exit_id
+     WHERE l.feature_id = 3091 AND l.feature_type = 'CONNEC' AND l.exit_type = 'NODE' AND l.state > 0
+     ORDER BY l.link_id DESC LIMIT 1),
+    1,
+    'CONNEC forceNode extraFilters.fluid_type links to a node with matching fluid_type'
+);
+
 SELECT finish();
 
 ROLLBACK;

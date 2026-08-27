@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_junction',
     ARRAY[
         'dscenario_id', 'node_id', 'demand', 'pattern_id', 'peak_factor', 'emitter_coeff',
-        'init_quality', 'source_type', 'source_quality', 'source_pattern_id'
+        'init_quality', 'source_type', 'source_quality', 'source_pattern_id', 'observ'
     ],
     'Table inp_dscenario_junction should have the correct columns'
 );
@@ -38,6 +38,7 @@ SELECT col_type_is('inp_dscenario_junction', 'init_quality', 'float8', 'Column i
 SELECT col_type_is('inp_dscenario_junction', 'source_type', 'varchar(18)', 'Column source_type should be varchar(18)');
 SELECT col_type_is('inp_dscenario_junction', 'source_quality', 'float8', 'Column source_quality should be float8');
 SELECT col_type_is('inp_dscenario_junction', 'source_pattern_id', 'varchar(16)', 'Column source_pattern_id should be varchar(16)');
+SELECT col_type_is('inp_dscenario_junction', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_junction', 'Table inp_dscenario_junction should have foreign keys');

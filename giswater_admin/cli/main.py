@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from ..commands._helpers import SuperuserRequired
+from ..commands._helpers import SchemaAdminRequired
 from ..output import Out, configure_stderr_logging
 from .context import prepare_context
 from .parser import build_parser
@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         return args.func(args, out)
-    except SuperuserRequired:
+    except SchemaAdminRequired:
         return 1
     except Exception as e:  # noqa: BLE001 - CLI boundary
         out.error(str(e))

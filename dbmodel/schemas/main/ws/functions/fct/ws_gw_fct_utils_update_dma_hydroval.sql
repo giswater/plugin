@@ -30,10 +30,10 @@ BEGIN
 	-- Search path
 	SET search_path = "SCHEMA_NAME", public;
 	
-	UPDATE ext_rtc_dma_period SET m3_total_period=b.sum, m3_total_period_hydro=b.sum, effc=1 
-	FROM (	SELECT cat_period_id, dma_id, sum(sum) FROM v_hydrometer_data a
+	UPDATE ext_rtc_dma_period SET m3_total_period=b.billed_volume, m3_total_period_hydro=b.billed_volume, effc=1 
+	FROM (	SELECT cat_period_id, dma_id, sum(billed_volume) FROM v_hydrometer_period a
 			JOIN v_hydrometer erh ON erh.hydrometer_id=a.hydrometer_id
-			JOIN connec c ON erh.customer_code = c.customer_code
+			JOIN connec c ON erh.feature_customer_code = c.customer_code
 			group by cat_period_id, dma_id
 			order by 1, 2) b
 		WHERE ext_rtc_dma_period.cat_period_id=b.cat_period_id AND ext_rtc_dma_period.dma_id::integer=b.dma_id;

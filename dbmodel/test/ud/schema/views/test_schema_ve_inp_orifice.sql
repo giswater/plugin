@@ -26,7 +26,7 @@ SELECT columns_are(
         'gis_length', 'sector_id', 'macrosector_id', 'state', 'state_type', 'annotation',
         'inverted_slope', 'custom_length', 'expl_id', 'ori_type', 'offsetval', 'cd',
         'orate', 'flap', 'shape', 'geom1', 'geom2', 'geom3',
-        'geom4', 'the_geom'
+        'geom4', 'the_geom', 'p_state'
     ],
     'View ve_inp_orifice should have the correct columns'
 );
@@ -64,6 +64,7 @@ SELECT col_type_is('ve_inp_orifice', 'geom2', 'numeric(12,4)', 'Column geom2 sho
 SELECT col_type_is('ve_inp_orifice', 'geom3', 'numeric(12,4)', 'Column geom3 should be numeric(12,4)');
 SELECT col_type_is('ve_inp_orifice', 'geom4', 'numeric(12,4)', 'Column geom4 should be numeric(12,4)');
 SELECT col_type_is('ve_inp_orifice', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_orifice', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'node_id', 'initlevel', 'minlevel', 'maxlevel', 'diameter',
         'minvol', 'curve_id', 'overflow', 'mixing_model', 'mixing_fraction', 'reaction_coeff',
-        'init_quality', 'source_type', 'source_quality', 'source_pattern_id'
+        'init_quality', 'source_type', 'source_quality', 'source_pattern_id', 'observ'
     ],
     'Table inp_dscenario_tank should have the correct columns'
 );
@@ -45,6 +45,7 @@ SELECT col_type_is('inp_dscenario_tank', 'init_quality', 'float8', 'Column init_
 SELECT col_type_is('inp_dscenario_tank', 'source_type', 'varchar(18)', 'Column source_type should be varchar(18)');
 SELECT col_type_is('inp_dscenario_tank', 'source_quality', 'float8', 'Column source_quality should be float8');
 SELECT col_type_is('inp_dscenario_tank', 'source_pattern_id', 'varchar(16)', 'Column source_pattern_id should be varchar(16)');
+SELECT col_type_is('inp_dscenario_tank', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_tank', 'Table inp_dscenario_tank should have foreign keys');

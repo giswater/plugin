@@ -139,11 +139,27 @@ WHERE EXISTS (
 	);
 
 CREATE OR REPLACE VIEW vf_element AS
-SELECT e.element_id
+SELECT 
+	e.element_id,
+    COALESCE(pp.state, e.state) AS p_state
 FROM element e
+LEFT JOIN man_frelem mf ON e.element_id = mf.element_id 
+LEFT JOIN LATERAL (
+	SELECT pp_1.state
+	FROM plan_psector_x_node pp_1
+	WHERE pp_1.node_id = mf.node_id AND (
+		pp_1.psector_id IN (
+			SELECT sp.psector_id
+			FROM selector_psector sp
+			WHERE sp.cur_user = CURRENT_USER
+			)
+		)
+    ORDER BY pp_1.psector_id DESC
+	LIMIT 1
+) pp ON true
 WHERE EXISTS (
 		SELECT 1 FROM selector_state ss
-		WHERE ss.cur_user = CURRENT_USER AND ss.state_id = e.state
+		WHERE ss.cur_user = CURRENT_USER AND ss.state_id = COALESCE(pp.state, e.state)
 	)
 	AND (
 		e.sector_id IN (SELECT ssec.sector_id FROM selector_sector ssec WHERE ssec.cur_user = CURRENT_USER)
@@ -166,3 +182,8 @@ WHERE EXISTS (
 		WHERE se.cur_user = CURRENT_USER
 			AND (se.expl_id = e.expl_id OR se.expl_id = ANY (e.expl_visibility))
 	);
+
+-- Force reconnect checkbox on Connect Link dialog (connec)
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
+VALUES('generic', 'link_to_connec', 'tab_none', 'force_reconnect', 'lyt_connect_link_1', 3, 'boolean', 'check', 'Force reconnect:', 'Re-search closest arc ignoring current connection (applies pipe diameter / max distance)', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;

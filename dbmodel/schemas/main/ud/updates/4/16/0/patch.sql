@@ -120,3 +120,8 @@ WHERE EXISTS (
 		WHERE se.cur_user = CURRENT_USER
 			AND (se.expl_id = g.expl_id OR se.expl_id = ANY (g.expl_visibility))
 	);
+
+-- Force reconnect checkbox on Connect Link dialog (gully)
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
+VALUES('generic', 'link_to_gully', 'tab_none', 'force_reconnect', 'lyt_connect_link_1', 3, 'boolean', 'check', 'Force reconnect:', 'Re-search closest arc ignoring current connection (applies pipe diameter / max distance)', NULL, false, false, true, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;

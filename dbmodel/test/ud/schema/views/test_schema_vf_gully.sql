@@ -21,7 +21,7 @@ SELECT has_view('vf_gully'::name, 'View vf_gully should exist');
 SELECT columns_are(
     'vf_gully',
     ARRAY[
-        'gully_id', 'p_state', 'arc_id', 'pjoint_id', 'pjoint_type'
+        'gully_id', 'p_state', 'p_arc_id', 'p_pjoint_id', 'p_pjoint_type'
     ],
     'View vf_gully should have the correct columns'
 );
@@ -29,9 +29,9 @@ SELECT columns_are(
 -- Check column types
 SELECT col_type_is('vf_gully', 'gully_id', 'int4', 'Column gully_id should be int4');
 SELECT col_type_is('vf_gully', 'p_state', 'int2', 'Column p_state should be int2');
-SELECT col_type_is('vf_gully', 'arc_id', 'int4', 'Column arc_id should be int4');
-SELECT col_type_is('vf_gully', 'pjoint_id', 'int4', 'Column pjoint_id should be int4');
-SELECT col_type_is('vf_gully', 'pjoint_type', 'varchar(16)', 'Column pjoint_type should be varchar(16)');
+SELECT col_type_is('vf_gully', 'p_arc_id', 'int4', 'Column p_arc_id should be int4');
+SELECT col_type_is('vf_gully', 'p_pjoint_id', 'int4', 'Column p_pjoint_id should be int4');
+SELECT col_type_is('vf_gully', 'p_pjoint_type', 'varchar(16)', 'Column p_pjoint_type should be varchar(16)');
 
 SELECT * FROM finish();
 

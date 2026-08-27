@@ -39,9 +39,9 @@ BEGIN
 			IF NEW.barrels IS NULL THEN NEW.barrels = (SELECT barrels FROM ve_inp_conduit WHERE arc_id = NEW.arc_id);END IF;
 
 			INSERT INTO inp_dscenario_conduit (dscenario_id, arc_id, arccat_id, matcat_id, elev1, elev2, custom_n, barrels, culvert, kentry, kexit,
-			kavg, flap, q0, qmax, seepage)
+			kavg, flap, q0, qmax, seepage, observ)
 	 		VALUES (NEW.dscenario_id, NEW.arc_id, NEW.arccat_id, NEW.matcat_id, NEW.elev1, NEW.elev2, NEW.custom_n, NEW.barrels, NEW.culvert, NEW.kentry, NEW.kexit,
-	 		NEW.kavg, NEW.flap, NEW.q0, NEW.qmax, NEW.seepage);
+	 		NEW.kavg, NEW.flap, NEW.q0, NEW.qmax, NEW.seepage, NEW.observ);
 
 
 		ELSIF v_dscenario_type = 'FLWREG-ORIFICE' THEN
@@ -55,8 +55,8 @@ BEGIN
 			IF NEW.geom1 IS NULL THEN NEW.geom1 = (SELECT geom1 FROM ve_inp_frorifice WHERE element_id = NEW.element_id);END IF;
 			IF NEW.geom2 IS NULL THEN NEW.geom2 = (SELECT geom2 FROM ve_inp_frorifice WHERE element_id = NEW.element_id);END IF;
 
-			INSERT INTO inp_dscenario_frorifice (dscenario_id, element_id, orifice_type, offsetval, cd, orate, flap, shape, geom1, geom2, geom3, geom4)
-			VALUES (NEW.dscenario_id, NEW.element_id, NEW.orifice_type, NEW.offsetval, NEW.cd, NEW.orate, NEW.flap, NEW.shape, NEW.geom1, NEW.geom2, NEW.geom3, NEW.geom4);
+			INSERT INTO inp_dscenario_frorifice (dscenario_id, element_id, orifice_type, offsetval, cd, orate, flap, shape, geom1, geom2, geom3, geom4, observ)
+			VALUES (NEW.dscenario_id, NEW.element_id, NEW.orifice_type, NEW.offsetval, NEW.cd, NEW.orate, NEW.flap, NEW.shape, NEW.geom1, NEW.geom2, NEW.geom3, NEW.geom4, NEW.observ);
 
 	 	ELSIF v_dscenario_type = 'FLWREG-OUTLET' THEN
 
@@ -67,8 +67,8 @@ BEGIN
 			IF NEW.cd1 IS NULL THEN NEW.cd1 = (SELECT cd1 FROM ve_inp_froutlet WHERE element_id = NEW.element_id);END IF;
 			IF NEW.cd2 IS NULL THEN NEW.cd2 = (SELECT cd2 FROM ve_inp_froutlet WHERE element_id = NEW.element_id);END IF;
 
-			INSERT INTO inp_dscenario_froutlet (dscenario_id, element_id, outlet_type, offsetval, curve_id, cd1, cd2)
-			VALUES (NEW.dscenario_id, NEW.element_id, NEW.outlet_type, NEW.offsetval, NEW.curve_id, NEW.cd1, NEW.cd2);
+			INSERT INTO inp_dscenario_froutlet (dscenario_id, element_id, outlet_type, offsetval, curve_id, cd1, cd2, observ)
+			VALUES (NEW.dscenario_id, NEW.element_id, NEW.outlet_type, NEW.offsetval, NEW.curve_id, NEW.cd1, NEW.cd2, NEW.observ);
 
 	 	ELSIF v_dscenario_type = 'FLWREG-PUMP' THEN
 
@@ -78,8 +78,8 @@ BEGIN
 			IF NEW.startup IS NULL THEN NEW.startup = (SELECT startup FROM ve_inp_frpump WHERE element_id = NEW.element_id);END IF;
 			IF NEW.shutoff IS NULL THEN NEW.shutoff = (SELECT shutoff FROM ve_inp_frpump WHERE element_id = NEW.element_id);END IF;
 
-			INSERT INTO inp_dscenario_frpump (dscenario_id, element_id, curve_id, status, startup, shutoff)
-			VALUES (NEW.dscenario_id, NEW.element_id, NEW.curve_id, NEW.status, NEW.startup, NEW.shutoff);
+			INSERT INTO inp_dscenario_frpump (dscenario_id, element_id, curve_id, status, startup, shutoff, observ)
+			VALUES (NEW.dscenario_id, NEW.element_id, NEW.curve_id, NEW.status, NEW.startup, NEW.shutoff, NEW.observ);
 
 	 	ELSIF v_dscenario_type = 'FLWREG-WEIR' THEN
 
@@ -100,9 +100,9 @@ BEGIN
 			IF NEW.coef_curve IS NULL THEN NEW.coef_curve = (SELECT coef_curve FROM ve_inp_frweir WHERE element_id = NEW.element_id);END IF;
 
 			INSERT INTO inp_dscenario_frweir (dscenario_id, element_id, weir_type, offsetval, cd, ec,
-			cd2, flap, geom1, geom2, geom3, geom4, surcharge, road_width, road_surf, coef_curve)
+			cd2, flap, geom1, geom2, geom3, geom4, surcharge, road_width, road_surf, coef_curve, observ)
 			VALUES (NEW.dscenario_id, NEW.element_id, NEW.weir_type, NEW.offsetval, NEW.cd, NEW.ec,
-			NEW.cd2, NEW.flap, NEW.geom1, NEW.geom2, NEW.geom3, NEW.geom4, NEW.surcharge, NEW.road_width, NEW.road_surf, NEW.coef_curve);
+			NEW.cd2, NEW.flap, NEW.geom1, NEW.geom2, NEW.geom3, NEW.geom4, NEW.surcharge, NEW.road_width, NEW.road_surf, NEW.coef_curve, NEW.observ);
 
 		ELSIF v_dscenario_type = 'INFLOWS' THEN
 
@@ -111,8 +111,8 @@ BEGIN
 			IF NEW.base IS NULL THEN NEW.base = (SELECT base FROM ve_inp_inflows WHERE node_id = NEW.node_id AND order_id = NEW.order_id);END IF;
 			IF NEW.pattern_id IS NULL OR NEW.pattern_id='' THEN NEW.pattern_id = (SELECT pattern_id FROM ve_inp_inflows WHERE node_id = NEW.node_id AND order_id = NEW.order_id);END IF;
 
-			INSERT INTO inp_dscenario_inflows (dscenario_id, node_id, order_id, timser_id, sfactor, base, pattern_id)
-			VALUES(NEW.dscenario_id, NEW.node_id, NEW.order_id, NEW.timser_id, NEW.sfactor, NEW.base, NEW.pattern_id);
+			INSERT INTO inp_dscenario_inflows (dscenario_id, node_id, order_id, timser_id, sfactor, base, pattern_id, observ)
+			VALUES(NEW.dscenario_id, NEW.node_id, NEW.order_id, NEW.timser_id, NEW.sfactor, NEW.base, NEW.pattern_id, NEW.observ);
 
 	 	ELSIF v_dscenario_type = 'INFLOWS-POLL' THEN
 
@@ -124,8 +124,8 @@ BEGIN
 			IF NEW.base IS NULL THEN NEW.base = (SELECT base FROM ve_inp_inflows_poll ve_inp_inflows_poll WHERE node_id = NEW.node_id AND poll_id = NEW.poll_id);END IF;
 			IF NEW.pattern_id IS NULL THEN NEW.pattern_id = (SELECT pattern_id FROM ve_inp_inflows_poll WHERE node_id = NEW.node_id AND poll_id = NEW.poll_id);END IF;
 
-			INSERT INTO inp_dscenario_inflows_poll (dscenario_id, poll_id, node_id, timser_id, form_type, mfactor, sfactor, base, pattern_id)
-			VALUES (NEW.dscenario_id, NEW.poll_id,  NEW.node_id, NEW.timser_id, NEW.form_type, NEW.mfactor, NEW.sfactor, NEW.base, NEW.pattern_id);
+			INSERT INTO inp_dscenario_inflows_poll (dscenario_id, poll_id, node_id, timser_id, form_type, mfactor, sfactor, base, pattern_id, observ)
+			VALUES (NEW.dscenario_id, NEW.poll_id,  NEW.node_id, NEW.timser_id, NEW.form_type, NEW.mfactor, NEW.sfactor, NEW.base, NEW.pattern_id, NEW.observ);
 
 	 	ELSIF v_dscenario_type = 'JUNCTION' THEN
 
@@ -136,8 +136,8 @@ BEGIN
 			IF NEW.ysur IS NULL THEN NEW.ysur = (SELECT ysur FROM ve_inp_junction WHERE node_id = NEW.node_id);END IF;
 			IF NEW.apond IS NULL THEN NEW.apond = (SELECT apond FROM ve_inp_junction WHERE node_id = NEW.node_id);END IF;
 
-			INSERT INTO inp_dscenario_junction (dscenario_id, node_id, elev, ymax, y0, ysur, apond, outfallparam)
-	 		VALUES (NEW.dscenario_id, NEW.node_id, NEW.elev, NEW.ymax, NEW.y0, NEW.ysur, NEW.apond, NEW.outfallparam);
+			INSERT INTO inp_dscenario_junction (dscenario_id, node_id, elev, ymax, y0, ysur, apond, outfallparam, observ)
+	 		VALUES (NEW.dscenario_id, NEW.node_id, NEW.elev, NEW.ymax, NEW.y0, NEW.ysur, NEW.apond, NEW.outfallparam, NEW.observ);
 
 		ELSIF v_dscenario_type = 'LID-USAGE' THEN
 
@@ -159,8 +159,8 @@ BEGIN
 			IF NEW.descript IS NULL THEN NEW.descript = (SELECT descript FROM ve_inp_dscenario_lids
 			WHERE dscenario_id = NEW.dscenario_id AND subc_id=NEW.subc_id );END IF;
 
-			INSERT INTO inp_dscenario_lids (dscenario_id, subc_id, lidco_id, numelem, area, width, initsat, fromimp, toperv, rptfile, descript)
-	 		VALUES (NEW.dscenario_id, NEW.subc_id, NEW.lidco_id, NEW.numelem, NEW.area, NEW.width, NEW.initsat, NEW.fromimp, NEW.toperv, NEW.rptfile,NEW.descript);
+			INSERT INTO inp_dscenario_lids (dscenario_id, subc_id, lidco_id, numelem, area, width, initsat, fromimp, toperv, rptfile, descript, observ)
+	 		VALUES (NEW.dscenario_id, NEW.subc_id, NEW.lidco_id, NEW.numelem, NEW.area, NEW.width, NEW.initsat, NEW.fromimp, NEW.toperv, NEW.rptfile,NEW.descript, NEW.observ);
 
 
  		ELSIF v_dscenario_type = 'OUTFALL' THEN
@@ -174,8 +174,8 @@ BEGIN
 			IF NEW.timser_id IS NULL OR NEW.timser_id='' THEN NEW.timser_id = (SELECT timser_id FROM ve_inp_outfall WHERE node_id = NEW.node_id);END IF;
 			IF NEW.gate IS NULL OR NEW.gate='' THEN NEW.gate = (SELECT gate FROM ve_inp_outfall WHERE node_id = NEW.node_id);END IF;
 
-			INSERT INTO inp_dscenario_outfall(dscenario_id, node_id, outfall_type, stage, curve_id, timser_id, gate, elev, ymax)
-			VALUES (NEW.dscenario_id, NEW.node_id, NEW.outfall_type, NEW.stage, NEW.curve_id, NEW.timser_id, NEW.gate, NEW.elev, NEW.ymax);
+			INSERT INTO inp_dscenario_outfall(dscenario_id, node_id, outfall_type, stage, curve_id, timser_id, gate, elev, ymax, observ)
+			VALUES (NEW.dscenario_id, NEW.node_id, NEW.outfall_type, NEW.stage, NEW.curve_id, NEW.timser_id, NEW.gate, NEW.elev, NEW.ymax, NEW.observ);
 
 		ELSIF v_dscenario_type = 'RAINGAGE' THEN
 
@@ -188,8 +188,8 @@ BEGIN
 			IF NEW.sta IS NULL OR NEW.sta='' THEN NEW.sta = (SELECT sta FROM ve_raingage WHERE rg_id = NEW.rg_id);END IF;
 			IF NEW.units IS NULL OR NEW.units='' THEN NEW.units = (SELECT units FROM ve_raingage WHERE rg_id = NEW.rg_id);END IF;
 
-			INSERT INTO inp_dscenario_raingage (dscenario_id, rg_id, form_type, intvl, scf, rgage_type, timser_id, fname, sta, units)
-	 		VALUES (NEW.dscenario_id, NEW.rg_id, NEW.form_type, NEW.intvl, NEW.scf, NEW.rgage_type, NEW.timser_id, NEW.fname, NEW.sta, NEW.units);
+			INSERT INTO inp_dscenario_raingage (dscenario_id, rg_id, form_type, intvl, scf, rgage_type, timser_id, fname, sta, units, observ)
+	 		VALUES (NEW.dscenario_id, NEW.rg_id, NEW.form_type, NEW.intvl, NEW.scf, NEW.rgage_type, NEW.timser_id, NEW.fname, NEW.sta, NEW.units, NEW.observ);
 
 		ELSIF v_dscenario_type = 'STORAGE' THEN
 
@@ -208,22 +208,22 @@ BEGIN
 			IF NEW.y0 IS NULL THEN NEW.y0 = (SELECT y0 FROM ve_inp_storage WHERE node_id = NEW.node_id);END IF;
 			IF NEW.ysur IS NULL THEN NEW.ysur = (SELECT ysur FROM ve_inp_storage WHERE node_id = NEW.node_id);END IF;
 
-			INSERT INTO inp_dscenario_storage (dscenario_id, node_id, elev, ymax, storage_type, curve_id, a1, a2, a0, fevap, sh, hc, imd, y0, ysur)
+			INSERT INTO inp_dscenario_storage (dscenario_id, node_id, elev, ymax, storage_type, curve_id, a1, a2, a0, fevap, sh, hc, imd, y0, ysur, observ)
 			VALUES (NEW.dscenario_id, NEW.node_id, NEW.elev, NEW.ymax, NEW.storage_type, NEW.curve_id, NEW.a1, NEW.a2, NEW.a0,
-			NEW.fevap, NEW.sh, NEW.hc, NEW.imd, NEW.y0, NEW.ysur);
+			NEW.fevap, NEW.sh, NEW.hc, NEW.imd, NEW.y0, NEW.ysur, NEW.observ);
 
 	 	ELSIF v_dscenario_type = 'TREATMENT' THEN
 
 			-- default value
 			IF NEW.function IS NULL OR NEW.function='' THEN NEW.function = (SELECT function FROM ve_inp_treatment WHERE node_id = NEW.node_id AND poll_id = NEW.poll_id);END IF;
 
-			INSERT INTO inp_dscenario_treatment (dscenario_id, node_id, poll_id, function)
-			VALUES (NEW.dscenario_id, NEW.node_id, NEW.poll_id, NEW.function);
+			INSERT INTO inp_dscenario_treatment (dscenario_id, node_id, poll_id, function, observ)
+			VALUES (NEW.dscenario_id, NEW.node_id, NEW.poll_id, NEW.function, NEW.observ);
 
 		ELSIF v_dscenario_type = 'CONTROLS' THEN
 
-			INSERT INTO inp_dscenario_controls(dscenario_id, sector_id, text, active)
-			VALUES (NEW.dscenario_id, NEW.sector_id, NEW.text, NEW.active);
+			INSERT INTO inp_dscenario_controls(dscenario_id, sector_id, text, active, observ)
+			VALUES (NEW.dscenario_id, NEW.sector_id, NEW.text, NEW.active, NEW.observ);
 
 		ELSIF v_dscenario_type = 'INLET' THEN
 
@@ -245,8 +245,8 @@ BEGIN
 			IF NEW.efficiency IS NULL THEN NEW.efficiency = (SELECT efficiency FROM ve_inp_inlet WHERE node_id = NEW.node_id);END IF;
 
 
-			INSERT INTO inp_dscenario_inlet (dscenario_id, elev, ymax, node_id, y0, ysur, apond, inlet_type, outlet_type, gully_method, custom_top_elev, custom_depth, inlet_length, inlet_width, cd1, cd2, efficiency)
-	 		VALUES (NEW.dscenario_id, NEW.elev, NEW.ymax, NEW.node_id, NEW.y0, NEW.ysur, NEW.apond, NEW.inlet_type, NEW.outlet_type, NEW.gully_method, NEW.custom_top_elev, NEW.custom_depth, NEW.inlet_length, NEW.inlet_width, NEW.cd1, NEW.cd2, NEW.efficiency);
+			INSERT INTO inp_dscenario_inlet (dscenario_id, elev, ymax, node_id, y0, ysur, apond, inlet_type, outlet_type, gully_method, custom_top_elev, custom_depth, inlet_length, inlet_width, cd1, cd2, efficiency, observ)
+	 		VALUES (NEW.dscenario_id, NEW.elev, NEW.ymax, NEW.node_id, NEW.y0, NEW.ysur, NEW.apond, NEW.inlet_type, NEW.outlet_type, NEW.gully_method, NEW.custom_top_elev, NEW.custom_depth, NEW.inlet_length, NEW.inlet_width, NEW.cd1, NEW.cd2, NEW.efficiency, NEW.observ);
 
 		ELSIF v_dscenario_type = 'PATTERN' THEN
 			INSERT INTO inp_dscenario_pattern(dscenario_id, pattern_id, pattern_type, observ, tsparameters, expl_id, log, active)
@@ -263,72 +263,73 @@ BEGIN
 		IF v_dscenario_type = 'CONDUIT' THEN
 			UPDATE inp_dscenario_conduit SET dscenario_id=NEW.dscenario_id, arc_id=NEW.arc_id, arccat_id=NEW.arccat_id,
 			matcat_id=NEW.matcat_id, elev1=NEW.elev1, elev2=NEW.elev2, custom_n=NEW.custom_n, barrels=NEW.barrels, culvert=NEW.culvert,
-			kentry=NEW.kentry, kexit=NEW.kexit, kavg=NEW.kavg, flap=NEW.flap, q0=NEW.q0, qmax=NEW.qmax, seepage=NEW.seepage
+			kentry=NEW.kentry, kexit=NEW.kexit, kavg=NEW.kavg, flap=NEW.flap, q0=NEW.q0, qmax=NEW.qmax, seepage=NEW.seepage, observ=NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND arc_id=OLD.arc_id;
 
 		ELSIF v_dscenario_type = 'FLWREG-ORIFICE' THEN
 			UPDATE inp_dscenario_frorifice SET dscenario_id=NEW.dscenario_id, element_id=NEW.element_id,
 			orifice_type=NEW.orifice_type, offsetval=NEW.offsetval, cd=NEW.cd, orate=NEW.orate, flap=NEW.flap, shape=NEW.shape,
-			geom1=NEW.geom1, geom2=NEW.geom2, geom3=NEW.geom3, geom4=NEW.geom4
+			geom1=NEW.geom1, geom2=NEW.geom2, geom3=NEW.geom3, geom4=NEW.geom4, observ=NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND element_id=OLD.element_id;
 
 	 	ELSIF v_dscenario_type = 'FLWREG-OUTLET' THEN
 			UPDATE inp_dscenario_froutlet SET dscenario_id=NEW.dscenario_id, element_id=NEW.element_id,
-			outlet_type=NEW.outlet_type, offsetval=NEW.offsetval, curve_id=NEW.curve_id, cd1=NEW.cd1, cd2=NEW.cd2
+			outlet_type=NEW.outlet_type, offsetval=NEW.offsetval, curve_id=NEW.curve_id, cd1=NEW.cd1, cd2=NEW.cd2, observ=NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND element_id=OLD.element_id;
 
 	 	ELSIF v_dscenario_type = 'FLWREG-PUMP' THEN
 			UPDATE inp_dscenario_frpump SET dscenario_id=NEW.dscenario_id, element_id=NEW.element_id,
-			curve_id=NEW.curve_id, status=NEW.status, startup=NEW.startup, shutoff=NEW.shutoff
+			curve_id=NEW.curve_id, status=NEW.status, startup=NEW.startup, shutoff=NEW.shutoff, observ=NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND element_id=OLD.element_id;
 
 	 	ELSIF v_dscenario_type = 'FLWREG-WEIR' THEN
 			UPDATE inp_dscenario_frweir SET dscenario_id=NEW.dscenario_id, element_id=NEW.element_id, weir_type=NEW.weir_type,
 			offsetval=NEW.offsetval, cd=NEW.cd, ec=NEW.ec, cd2=NEW.cd2, flap=NEW.flap, geom1=NEW.geom1, geom2=NEW.geom2, geom3=NEW.geom3,
-			geom4=NEW.geom4, surcharge=NEW.surcharge, road_width=NEW.road_width, road_surf=NEW.road_surf, coef_curve=NEW.coef_curve
+			geom4=NEW.geom4, surcharge=NEW.surcharge, road_width=NEW.road_width, road_surf=NEW.road_surf, coef_curve=NEW.coef_curve, observ=NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND element_id=OLD.element_id;
 
 		ELSIF v_dscenario_type = 'INFLOWS' THEN
 			UPDATE inp_dscenario_inflows SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, order_id=NEW.order_id, timser_id=NEW.timser_id,
-			sfactor=NEW.sfactor, base=NEW.base, pattern_id=NEW.pattern_id
+			sfactor=NEW.sfactor, base=NEW.base, pattern_id=NEW.pattern_id, observ=NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id AND order_id = OLD.order_id;
 
 	 	ELSIF v_dscenario_type = 'INFLOWS-POLL' THEN
 			UPDATE inp_dscenario_inflows_poll SET dscenario_id=NEW.dscenario_id, poll_id=NEW.poll_id,  node_id=NEW.node_id, timser_id=NEW.timser_id,
-			form_type=NEW.form_type, mfactor=NEW.mfactor, sfactor=NEW.sfactor, base=NEW.base, pattern_id=NEW.pattern_id
+			form_type=NEW.form_type, mfactor=NEW.mfactor, sfactor=NEW.sfactor, base=NEW.base, pattern_id=NEW.pattern_id, observ=NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id AND poll_id = OLD.poll_id;
 
 		ELSIF v_dscenario_type = 'JUNCTION' THEN
 			UPDATE inp_dscenario_junction SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, elev=NEW.elev, ymax=NEW.ymax,
-		 	y0=NEW.y0, ysur=NEW.ysur, apond=NEW.apond, outfallparam=NEW.outfallparam
+		 	y0=NEW.y0, ysur=NEW.ysur, apond=NEW.apond, outfallparam=NEW.outfallparam, observ=NEW.observ
 		 	WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id;
 
 		 ELSIF v_dscenario_type = 'LIDS' THEN
 			UPDATE inp_dscenario_lids SET dscenario_id=NEW.dscenario_id, subc_id=NEW.subc_id, lidco_id=NEW.lidco_id,
-			numelem=NEW.numelem, area=NEW.area, width=NEW.width, initsat=NEW.initsat, fromimp=NEW.fromimp, toperv=NEW.toperv, rptfile=NEW.rptfile, descript=NEW.descript
+			numelem=NEW.numelem, area=NEW.area, width=NEW.width, initsat=NEW.initsat, fromimp=NEW.fromimp, toperv=NEW.toperv, rptfile=NEW.rptfile, descript=NEW.descript,
+			observ=NEW.observ
 			WHERE dscenario_id = OLD.dscenario_id AND subc_id=OLD.subc_id;
 
 		ELSIF v_dscenario_type = 'OUTFALL' THEN
 			UPDATE inp_dscenario_outfall SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, elev=NEW.elev, ymax=NEW.ymax, outfall_type=NEW.outfall_type, stage=NEW.stage,
-			curve_id=NEW.curve_id, timser_id=NEW.timser_id, gate=NEW.gate
+			curve_id=NEW.curve_id, timser_id=NEW.timser_id, gate=NEW.gate, observ=NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id;
 
 		ELSIF v_dscenario_type = 'RAINGAGE' THEN
 			UPDATE inp_dscenario_raingage SET dscenario_id=NEW.dscenario_id, rg_id=NEW.rg_id, form_type=NEW.form_type, intvl=NEW.intvl,
-			scf=NEW.scf, rgage_type=NEW.rgage_type, timser_id=NEW.timser_id, fname=NEW.fname, sta=NEW.sta, units=NEW.units
+			scf=NEW.scf, rgage_type=NEW.rgage_type, timser_id=NEW.timser_id, fname=NEW.fname, sta=NEW.sta, units=NEW.units, observ=NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND rg_id=OLD.rg_id;
 
 		ELSIF v_dscenario_type = 'STORAGE' THEN
 			UPDATE inp_dscenario_storage SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, elev=NEW.elev, ymax=New.ymax, storage_type=NEW.storage_type, curve_id=NEW.curve_id,
-			a1=NEW.a1, a2=NEW.a2, a0=NEW.a0, fevap=NEW.fevap, sh=NEW.sh, hc=NEW.hc, imd=NEW.imd, y0=NEW.y0, ysur=NEW.ysur
+			a1=NEW.a1, a2=NEW.a2, a0=NEW.a0, fevap=NEW.fevap, sh=NEW.sh, hc=NEW.hc, imd=NEW.imd, y0=NEW.y0, ysur=NEW.ysur, observ=NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id;
 
 	 	ELSIF v_dscenario_type = 'TREATMENT' THEN
-			UPDATE inp_dscenario_treatment SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, poll_id=NEW.poll_id, function=NEW.function
+			UPDATE inp_dscenario_treatment SET dscenario_id=NEW.dscenario_id, node_id=NEW.node_id, poll_id=NEW.poll_id, function=NEW.function, observ=NEW.observ
 			WHERE dscenario_id=OLD.dscenario_id AND node_id=OLD.node_id AND poll_id = OLD.poll_id;
 
 		ELSIF v_dscenario_type = 'CONTROLS' THEN
-			UPDATE inp_dscenario_controls SET dscenario_id = NEW.dscenario_id, sector_id= NEW.sector_id, text= NEW.text, active=NEW.active
+			UPDATE inp_dscenario_controls SET dscenario_id = NEW.dscenario_id, sector_id= NEW.sector_id, text= NEW.text, active=NEW.active, observ=NEW.observ
 			WHERE id=OLD.id;
 		END IF;
 

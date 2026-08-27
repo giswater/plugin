@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_dscenario_virtualvalve',
     ARRAY[
         'dscenario_id', 'arc_id', 'valve_type', 'diameter', 'setting', 'curve_id',
-        'minorloss', 'status', 'init_quality', 'the_geom'
+        'minorloss', 'status', 'init_quality', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_virtualvalve should have the correct columns'
 );
@@ -38,6 +38,7 @@ SELECT col_type_is('ve_inp_dscenario_virtualvalve', 'minorloss', 'numeric(12,4)'
 SELECT col_type_is('ve_inp_dscenario_virtualvalve', 'status', 'varchar(12)', 'Column status should be varchar(12)');
 SELECT col_type_is('ve_inp_dscenario_virtualvalve', 'init_quality', 'float8', 'Column init_quality should be float8');
 SELECT col_type_is('ve_inp_dscenario_virtualvalve', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_virtualvalve', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

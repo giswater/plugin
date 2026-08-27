@@ -64,7 +64,8 @@ class GwMapzoneManager:
         self.mapzone_mng_dlg = GwMapzoneManagerUi(self)
         tools_gw.load_settings(self.mapzone_mng_dlg)
         if not self._setup_dynamic_dialog():
-            tools_qgis.show_warning("Mapzone manager dynamic config not found.")
+            msg = "Mapzone manager dynamic config not found."
+            tools_qgis.show_warning(msg)
             return
 
         if not self._load_main_tabs():
@@ -128,7 +129,9 @@ class GwMapzoneManager:
         }
         missing = [name for name, widget in required_widgets.items() if widget is None]
         if missing:
-            tools_qgis.show_warning("Mapzone dynamic widgets not found", parameter=", ".join(missing), dialog=self.mapzone_mng_dlg)
+            msg = "Mapzone dynamic widgets not found: {0}"
+            msg_params = (", ".join(missing),)
+            tools_qgis.show_warning(msg, msg_params=msg_params, dialog=self.mapzone_mng_dlg)
             self._clear_dynamic_module_reference()
             return False
         return True
@@ -344,6 +347,21 @@ class GwMapzoneManager:
             return f'plan_netscenario_{mapzone_type}'
         return f've_{mapzone_type}'
 
+    def _get_mapzone_id_column(self, tableview):
+        """Return (columnname, col_idx) for the mapzone PK.
+
+        Do not use model column 0: netscenario tables lead with netscenario_id (often hidden).
+        headerData DisplayRole is the alias; get_model_column_name returns the SQL field.
+        """
+        mapzone_type = self._get_mapzone_type(tableview)
+        col_name = f"{mapzone_type}_id" if mapzone_type else None
+        if col_name == 'valve_id':
+            col_name = 'node_id'
+        col_idx = tools_qt.get_col_index_by_col_name(tableview, col_name) if col_name else None
+        if col_idx in (None, False):
+            col_idx = 0
+        return tools_gw.get_model_column_name(tableview, col_idx), col_idx
+
     def _load_main_tabs(self):
         """Create dynamic manager tabs (table views) for project mapzone types."""
         if self.mapzone_mng_dlg.main_tab is None:
@@ -369,7 +387,8 @@ class GwMapzoneManager:
             tabs.append((mapzone_type, tab_cfg.get('tabLabel') or mapzone_type.capitalize()))
 
         if not tabs:
-            tools_qgis.show_warning("Mapzone manager tabs not configured in DB.", dialog=self.mapzone_mng_dlg)
+            msg = "Mapzone manager tabs not configured in DB."
+            tools_qgis.show_warning(msg, dialog=self.mapzone_mng_dlg)
             return False
 
         for mapzone_type, tab_label in tabs:
@@ -727,7 +746,7 @@ class GwMapzoneManager:
         """Opens the toolbox 'flood_analysis' and runs the SQL function to create the temporal layer."""
         mapzone_name = self.mapzone_mng_dlg.main_tab.tabText(self.mapzone_mng_dlg.main_tab.currentIndex()).lower()
 
-        # Call gw_fct_getgraphinundation
+        # Call gw_fct_getgraphinundation (materializes rows into anl_graphinundation)
         extras_params = f'"mapzone": "{mapzone_name}"'
         if selected_arc_id is not None:
             extras_params += f', "selected_arc_id": "{selected_arc_id}"'
@@ -738,41 +757,33 @@ class GwMapzoneManager:
             msg = "No valid data received from the SQL function."
             tools_qgis.show_warning(msg, dialog=self.mapzone_mng_dlg)
             return
-        line_data = json_result.get('body', {}).get('data', {}).get('line')
-        if not line_data:
-            msg = "No valid line data received from the SQL function."
-            tools_qgis.show_warning(msg, dialog=self.mapzone_mng_dlg)
-            return
 
-        line_layers = line_data if isinstance(line_data, list) else [line_data]
+        data = (json_result.get('body') or {}).get('data') or {}
+        layer_name = data.get('layerName') or 'Graphanalytics tstep process'
+        table_name = data.get('tableName') or 'v_anl_graphinundation'
 
-        # Extract mapzone_ids with data from json_result
-        valid_mapzone_ids = set()
-        for layer_data in line_layers:
-            features = (layer_data or {}).get('features', [])
-            if features is not None:
-                for feature in features:
-                    properties = feature.get('properties', {})
-                    mapzone_id = properties.get('mapzone_id')
-                    if mapzone_id is not None:
-                        valid_mapzone_ids.add(mapzone_id)
-        # Add the flooding data to temporal layer(s)
-        vlayer_list = []
-        for layer_data in line_layers:
-            layer_name = (layer_data or {}).get('layerName')
-            if not layer_name:
-                continue
-            vlayer = tools_qgis.get_layer_by_layername(layer_name)
-            if not vlayer or not vlayer.isValid():
-                continue
-            # Apply styling only to valid mapzones
+        # Reload Postgres layer (avoid huge GeoJSON / OGR memory layers)
+        tools_qgis.remove_layer(custom_properties={"gw_id": table_name}, group_name='GW Temporal Layers')
+        tools_gw.add_layer_database(
+            table_name, the_geom='the_geom', field_id='id',
+            group='GW Temporal Layers', alias=layer_name
+        )
+        vlayer = tools_qgis.get_layer_by_layername(layer_name)
+        if not vlayer or not vlayer.isValid():
+            vlayer = tools_qgis.get_layer_by_tablename(table_name, show_warning_=False)
+
+        if vlayer and vlayer.isValid():
+            try:
+                symbol = vlayer.renderer().symbol()
+                symbol.setWidth(1.5)
+                symbol.setColor(QColor(0, 0, 255))
+                symbol.setOpacity(0.7)
+            except Exception:
+                pass
             self._setup_temporal_layer(vlayer)
-            vlayer_list.append(vlayer)
-
-        if vlayer_list:
             msg = "Temporal layer created successfully."
             tools_qgis.show_success(msg, dialog=self.mapzone_mng_dlg)
-            tools_qgis.zoom_to_layer(vlayer_list[0])
+            tools_qgis.zoom_to_layer(vlayer)
         else:
             msg = "Failed to retrieve the temporal layer"
             tools_qgis.show_warning(msg, dialog=self.mapzone_mng_dlg)
@@ -1053,6 +1064,22 @@ class GwMapzoneManager:
         # Set variables
         self._reset_config_vars()
 
+        # Help text (set in Python so i18n_searcher can detect it)
+        msg = (
+            "Using this form you can configure graphconfig field for the selected mapzone.\n\n"
+            "How does it work?\n"
+            "1- Select the header of the mapzone using the nodeParent selection tool.\n"
+            "2- Select the direction of the water using the toArc selection tool. Multiple selection is allowed.\n"
+            "3- Press ADD to visualize your configuration on the Preview. If there are more headers, "
+            "repeat the process and they will be added to the Preview.\n"
+            "4- If you want to configure a node that will always be closed for this mapzone, "
+            "select it using the forceClosed tool and ADD.\n"
+            "To remove some wrong configuration, you have to select the affected nodeParent and click REMOVE. "
+            "This node and its related toArc will be deleted from the Preview.\n\n"
+            "Click OK to end set your Preview as the value on graphconfig field."
+        )
+        tools_qt.set_widget_text(self.config_dlg, 'tab_log_txt_infolog', tools_qt.tr(msg))
+
         # Fill preview
         if graphconfig:
             tools_qt.set_widget_text(self.config_dlg, 'txt_preview', graphconfig)
@@ -1139,10 +1166,12 @@ class GwMapzoneManager:
             tools_qt.set_widget_visible(self.config_dlg, self.config_dlg.txt_toArc, False)
 
         # Open dialog
-        dlg_title = f"Mapzone config - {mapzone_name}"
+        title = "Mapzone config - {0}"
+        title_params = (mapzone_name,)
         if self.netscenario_id is not None:
-            dlg_title += f" (Netscenario {self.netscenario_id})"
-        tools_gw.open_dialog(self.config_dlg, 'mapzone_config', title=dlg_title)
+            title = "Mapzone config - {0} (Netscenario {1})"
+            title_params = (mapzone_name, self.netscenario_id)
+        tools_gw.open_dialog(self.config_dlg, 'mapzone_config', title=title, title_params=title_params)
 
     def _config_dlg_finished(self, dialog):
 
@@ -1207,19 +1236,23 @@ class GwMapzoneManager:
             return
         menu = QMenu(qtableview)
 
-        action_update = QAction("Update", qtableview)
+        title = "Update"
+        action_update = QAction(tools_qt.tr(title), qtableview)
         action_update.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_update"))
         menu.addAction(action_update)
 
-        action_delete = QAction("Delete", qtableview)
+        title = "Delete"
+        action_delete = QAction(tools_qt.tr(title), qtableview)
         action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete"))
         menu.addAction(action_delete)
 
-        action_toggle_active = QAction("Toggle Active", qtableview)
+        title = "Toggle Active"
+        action_toggle_active = QAction(tools_qt.tr(title), qtableview)
         action_toggle_active.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_toggle_active"))
         menu.addAction(action_toggle_active)
 
-        action_config = QAction("Config", qtableview)
+        title = "Config"
+        action_config = QAction(tools_qt.tr(title), qtableview)
         action_config.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_config"))
         menu.addAction(action_config)
 
@@ -1700,11 +1733,11 @@ class GwMapzoneManager:
             return
 
         # Get selected mapzone data
+        field_id, col_idx = self._get_mapzone_id_column(tableview)
+        active_col = tools_qt.get_col_index_by_col_name(tableview, 'active')
         for index in selected_list:
-            mapzone_id = index.sibling(index.row(), 0).data()
-            active = index.sibling(index.row(), tools_qt.get_col_index_by_col_name(tableview, 'active')).data()
-            active = tools_os.set_boolean(active)
-            field_id = tableview.model().headerData(0, Qt.Orientation.Horizontal)
+            mapzone_id = index.sibling(index.row(), col_idx).data()
+            active = tools_os.set_boolean(index.sibling(index.row(), active_col).data())
 
             sql = f"UPDATE {view} SET active = {str(not active).lower()} WHERE {field_id}::text = '{mapzone_id}'"
             tools_db.execute_sql(sql)
@@ -1726,14 +1759,7 @@ class GwMapzoneManager:
         if not tablename:
             return
 
-        col_name = f"{mapzone_type}_id"
-        col_idx = tools_qt.get_col_index_by_col_name(tableview, col_name)
-        if col_idx in (None, False):
-            field_id = tableview.model().headerData(0, Qt.Orientation.Horizontal)
-        else:
-            field_id = tableview.model().headerData(col_idx, Qt.Orientation.Horizontal)
-        if field_id:
-            field_id = str(field_id).lower()
+        field_id, _ = self._get_mapzone_id_column(tableview)
 
         # Execute getinfofromid
         feature = f'"tableName":"{tablename}"'
@@ -1743,7 +1769,9 @@ class GwMapzoneManager:
             return
         result = json_result
 
-        dlg_title = f"New {mapzone_type.capitalize()}"
+        title = "New {0}"
+        title_params = (mapzone_type.capitalize(),)
+        dlg_title = tools_qt.tr(title, list_params=title_params)
 
         self._build_generic_info(dlg_title, result, tablename, field_id, force_action="INSERT", on_close=on_close)
 
@@ -1765,13 +1793,8 @@ class GwMapzoneManager:
 
         # Get selected mapzone data
         index = tableview.selectionModel().currentIndex()
-        col_name = f"{mapzone_type}_id"
-        if col_name == 'valve_id':
-            col_name = 'node_id'
-        col_idx = tools_qt.get_col_index_by_col_name(tableview, col_name)
-
+        field_id, col_idx = self._get_mapzone_id_column(tableview)
         mapzone_id = index.sibling(index.row(), col_idx).data()
-        field_id = tableview.model().headerData(col_idx, Qt.Orientation.Horizontal).lower()
 
         # Execute getinfofromid
         _id = f"{mapzone_id}"
@@ -1784,7 +1807,9 @@ class GwMapzoneManager:
             return
         result = json_result
 
-        dlg_title = f"Update {mapzone_type.capitalize()} ({mapzone_id})"
+        title = "Update {0} ({1})"
+        title_params = (mapzone_type.capitalize(), mapzone_id)
+        dlg_title = tools_qt.tr(title, list_params=title_params)
 
         self._build_generic_info(dlg_title, result, tablename, field_id, force_action="UPDATE", on_close=on_close)
 
@@ -1801,8 +1826,8 @@ class GwMapzoneManager:
             return
 
         # Get selected mapzone data
-        field_id = tableview.model().headerData(0, Qt.Orientation.Horizontal)
-        mapzone_ids = [index.sibling(index.row(), 0).data() for index in selected_list]
+        field_id, col_idx = self._get_mapzone_id_column(tableview)
+        mapzone_ids = [index.sibling(index.row(), col_idx).data() for index in selected_list]
 
         record_labels = []
         for index in selected_list:
@@ -1847,9 +1872,8 @@ class GwMapzoneManager:
         layout = self.add_dlg.findChild(QGridLayout, 'lyt_main_1')
         self.add_dlg.actionEdit.setVisible(False)
 
-        # Disable widgets if updating
-        if force_action == "UPDATE":
-            tools_qt.set_widget_enabled(self.add_dlg, f'tab_none_{field_id}', False)
+        # PK is assigned by urn_id_seq on INSERT; never let the user edit it
+        tools_qt.set_widget_enabled(self.add_dlg, f'tab_none_{field_id}', False)
 
         # Populate netscenario_id
         if self.netscenario_id is not None:

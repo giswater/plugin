@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_dscenario_reservoir',
     ARRAY[
         'dscenario_id', 'node_id', 'pattern_id', 'head', 'init_quality', 'source_type',
-        'source_quality', 'source_pattern_id', 'the_geom'
+        'source_quality', 'source_pattern_id', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_reservoir should have the correct columns'
 );
@@ -37,6 +37,7 @@ SELECT col_type_is('ve_inp_dscenario_reservoir', 'source_type', 'varchar(18)', '
 SELECT col_type_is('ve_inp_dscenario_reservoir', 'source_quality', 'float8', 'Column source_quality should be float8');
 SELECT col_type_is('ve_inp_dscenario_reservoir', 'source_pattern_id', 'varchar(16)', 'Column source_pattern_id should be varchar(16)');
 SELECT col_type_is('ve_inp_dscenario_reservoir', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_reservoir', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

@@ -305,7 +305,7 @@ BEGIN
             FROM pgr_connectedcomponents($q$%s$q$)
         ),
         components AS (
-            SELECT c.component
+            SELECT DISTINCT c.component
             FROM connectedcomponents c
             WHERE cardinality($1) = 0
             OR EXISTS (
@@ -314,11 +314,11 @@ BEGIN
                 WHERE v.expl_visibility && $1
                 AND v.node_1 = c.node
             )
-            GROUP BY c.component
         )
         INSERT INTO temp_pgr_node (pgr_node_id)
         SELECT c.node
         FROM connectedcomponents c
+		JOIN v_temp_node n ON n.node_id = c.node -- only nodes that have exploitation visibility in vf_exploitation
         WHERE EXISTS (
             SELECT 1
             FROM components cc
@@ -537,51 +537,82 @@ BEGIN
 					LEFT JOIN LATERAL json_array_elements_text(use_item->'toArc') AS elem_to_arc(value) ON TRUE
 					WHERE t.graphconfig IS NOT NULL
 					AND t.active
-					AND (cardinality($1) = 0 OR t.expl_id && $1)
 					%s
-				), graphconfig_filtered AS (
-					SELECT g.* 
+				), mapzones_filtered AS (
+					SELECT DISTINCT g.mapzone_id
 					FROM graphconfig g
-					JOIN node n ON n.node_id = g.node_parent
-					WHERE EXISTS (SELECT 1 FROM vf_exploitation vfe WHERE vfe.expl_id = ANY(array_append(n.expl_visibility, n.expl_id)))
+					JOIN temp_pgr_node n ON n.pgr_node_id = g.node_parent
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id, pgr_arc_id)
 				SELECT
-				mapzone_id,
-				'use',
-				node_parent,
-				to_arc
-				FROM graphconfig_filtered
-				WHERE mapzone_id > 0
-				AND (node_parent IS DISTINCT FROM 0 OR to_arc IS DISTINCT FROM 0);
-			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux) USING v_expl_id_array;
+					g.mapzone_id,
+					'use',
+					g.node_parent,
+					g.to_arc
+				FROM graphconfig g
+				WHERE EXISTS (
+					SELECT 1
+					FROM mapzones_filtered m
+					WHERE m.mapzone_id = g.mapzone_id
+				)
+				AND g.mapzone_id > 0
+				AND (g.node_parent IS DISTINCT FROM 0 OR g.to_arc IS DISTINCT FROM 0);
+			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux);
 
 			-- forceClosed
 			EXECUTE format($sql$
+				WITH forceclosed AS (
+					SELECT
+						t.%I AS mapzone_id,
+						elem.value::int AS pgr_node_id
+					FROM %I t
+					JOIN LATERAL json_array_elements_text(t.graphconfig->'forceClosed') AS elem(value) ON TRUE
+					WHERE t.graphconfig IS NOT NULL
+						AND t.active
+						%s
+				), mapzones_filtered AS (
+					SELECT DISTINCT f.mapzone_id
+					FROM temp_pgr_graphconfig f
+				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id)
 				SELECT
-					t.%I,
+					f.mapzone_id,
 					'forceClosed',
-					elem.value::int
-				FROM %I t
-				JOIN LATERAL json_array_elements_text(t.graphconfig->'forceClosed') AS elem(value) ON TRUE
-				WHERE t.graphconfig IS NOT NULL
-					AND t.active
-					%s;
+					f.pgr_node_id
+				FROM forceclosed f
+				WHERE EXISTS (
+					SELECT 1
+					FROM mapzones_filtered m
+					WHERE m.mapzone_id = f.mapzone_id
+				);
 			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux);
 
 			-- forceOpen
 			EXECUTE format($sql$
+				WITH forceopen AS (
+					SELECT
+						t.%I AS mapzone_id,
+						elem.value::int AS pgr_node_id
+					FROM %I t
+					JOIN LATERAL json_array_elements_text(t.graphconfig->'ignore') AS elem(value) ON TRUE
+					WHERE t.graphconfig IS NOT NULL
+						AND t.active
+						%s
+				), mapzones_filtered AS (
+					SELECT DISTINCT f.mapzone_id
+					FROM temp_pgr_graphconfig f
+				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id)
 				SELECT
-					t.%I,
+					f.mapzone_id,
 					'forceOpen',
-					elem.value::int
-				FROM %I t
-				JOIN LATERAL json_array_elements_text(t.graphconfig->'ignore') AS elem(value) ON TRUE
-				WHERE t.graphconfig IS NOT NULL
-					AND t.active
-					%s;
+					f.pgr_node_id
+				FROM forceopen f
+				WHERE EXISTS (
+					SELECT 1
+					FROM mapzones_filtered m
+					WHERE m.mapzone_id = f.mapzone_id
+				);
 			$sql$, v_mapzone_field, v_mapzone_table, v_query_text_aux);
 
 			-- update temp_pgr_node (nodeParent)
@@ -675,12 +706,10 @@ BEGIN
 					JOIN LATERAL json_array_elements(t.graphconfig->'use') AS use_item ON TRUE
 					WHERE t.graphconfig IS NOT NULL
 					AND t.active
-					AND (cardinality($1) = 0 OR t.expl_id && $1)
-				), graphconfig_filtered AS (
-					SELECT g.* 
+				), mapzones_filtered AS (
+					SELECT DISTINCT g.mapzone_id
 					FROM graphconfig g
-					JOIN node n ON n.node_id = g.node_parent
-					WHERE EXISTS (SELECT 1 FROM vf_exploitation vfe WHERE vfe.expl_id = ANY(array_append(n.expl_visibility, n.expl_id)))
+					JOIN temp_pgr_node n ON n.pgr_node_id = g.node_parent
 				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_node_id, pgr_arc_id)
 				SELECT
@@ -688,36 +717,69 @@ BEGIN
 					'use',
 					g.node_parent,
 					a.arc_id
-				FROM graphconfig_filtered g
+				FROM graphconfig g
 				LEFT JOIN v_temp_arc a ON a.node_2 = g.node_parent
-				WHERE g.mapzone_id > 0
+				WHERE EXISTS (
+					SELECT 1
+					FROM mapzones_filtered m
+					WHERE m.mapzone_id = g.mapzone_id
+				)
+				AND g.mapzone_id > 0
 				AND g.node_parent IS DISTINCT FROM 0
-			$sql$, v_mapzone_field, v_mapzone_table) USING v_expl_id_array;
+			$sql$, v_mapzone_field, v_mapzone_table);
 
 			-- forceClosed
 			EXECUTE format($sql$
+				WITH forceclosed AS (
+					SELECT
+						t.%I AS mapzone_id,
+						elem.value::int AS pgr_arc_id
+					FROM %I t
+					JOIN LATERAL json_array_elements_text(t.graphconfig->'forceClosed') AS elem(value) ON TRUE
+					WHERE t.graphconfig IS NOT NULL
+						AND t.active
+				), mapzones_filtered AS (
+					SELECT DISTINCT f.mapzone_id
+					FROM temp_pgr_graphconfig f
+				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_arc_id)
 				SELECT
-					t.%I,
+					f.mapzone_id,
 					'forceClosed',
-					elem.value::int
-				FROM %I t
-				JOIN LATERAL json_array_elements_text(t.graphconfig->'forceClosed') AS elem(value) ON TRUE
-				WHERE t.graphconfig IS NOT NULL
-					AND t.active
+					f.pgr_arc_id
+				FROM forceclosed f
+				WHERE EXISTS (
+					SELECT 1
+					FROM mapzones_filtered m
+					WHERE m.mapzone_id = f.mapzone_id
+				);
 			$sql$, v_mapzone_field, v_mapzone_table);
 
 			-- ignore
 			EXECUTE format($sql$
+				WITH forceopen AS (
+					SELECT
+						t.%I AS mapzone_id,
+						elem.value::int AS pgr_arc_id
+					FROM %I t
+					JOIN LATERAL json_array_elements_text(t.graphconfig->'ignore') AS elem(value) ON TRUE
+					WHERE t.graphconfig IS NOT NULL
+						AND t.active
+				), mapzones_filtered AS (
+					SELECT DISTINCT f.mapzone_id
+					FROM temp_pgr_graphconfig f
+				)
 				INSERT INTO temp_pgr_graphconfig (mapzone_id, graph_type, pgr_arc_id)
 				SELECT
-					t.%I,
+					f.mapzone_id,
 					'forceOpen',
-					elem.value::int
-				FROM %I t
-				JOIN LATERAL json_array_elements_text(t.graphconfig->'ignore') AS elem(value) ON TRUE
-				WHERE t.graphconfig IS NOT NULL
-					AND t.active
+					f.pgr_arc_id
+				FROM forceopen f
+				WHERE EXISTS (
+					SELECT 1
+					FROM mapzones_filtered m
+					WHERE m.mapzone_id = f.mapzone_id
+				);
 			$sql$, v_mapzone_field, v_mapzone_table);
 
 			-- update temp_pgr_node (nodeParent)
@@ -996,7 +1058,7 @@ BEGIN
 				) sub;
 
 				IF message IS NOT NULL THEN
-					EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4532", "function":"2706","parameters":{"node_list":"\n' || message || '"}, "tempTable":"t_", "criticity":"2", "fid": '||v_checks_fid||'}}$$);';
+					EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4532", "function":"2706","parameters":{"node_list":"\n' || message || '"}, "tempTable":"t_", "criticity":"3", "fid": '||v_checks_fid||'}}$$);';
 				ELSE
 					EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4534", "function":"2706","parameters":null, "tempTable":"t_", "criticity":"1", "fid": '||v_checks_fid||'}}$$);';
 				END IF;
@@ -2361,9 +2423,15 @@ BEGIN
 				$sql$, v_mapzone_table, v_mapzone_field, v_class, v_mapzone_field);
 
 			ELSE
+				-- Direct table UPDATE bypasses ve_* triggers; regenerate code with the new geom
 				EXECUTE format($sql$
 					UPDATE %I m
 					SET
+						code = COALESCE(
+							NULLIF(btrim(m.code), ''),
+							gw_fct_generate_code('mapzone', %L, json_strip_nulls(json_build_object(%I, t.mapzone_id, 'the_geom', ST_AsGeoJSON(t.the_geom)::json))),
+							t.mapzone_id::text
+						),
 						expl_id = t.expl_id,
 						muni_id = t.muni_id,
 						the_geom = t.the_geom,
@@ -2375,7 +2443,7 @@ BEGIN
 					WHERE m.%I = t.mapzone_id
 						AND t.mapzone_id > 0
 					$sql$
-				, v_mapzone_table, v_mapzone_field);
+				, v_mapzone_table, v_class, v_mapzone_field, v_mapzone_field);
 			END IF;
 
 
@@ -2685,48 +2753,48 @@ BEGIN
 				-- update arc
 				EXECUTE format($sql$
 					UPDATE arc a
-					SET %I = ta.mapzone_id
+					SET %I = COALESCE(NULLIF(ta.mapzone_id, -1), 0)
 					FROM temp_pgr_arc ta
 					WHERE a.arc_id = ta.pgr_arc_id
-					AND a.%I IS DISTINCT FROM ta.mapzone_id
+					AND a.%I IS DISTINCT FROM COALESCE(NULLIF(ta.mapzone_id, -1), 0)
 					$sql$
 				, v_mapzone_field, v_mapzone_field);
 
 				-- node
 				EXECUTE format($sql$
 					UPDATE node n
-					SET %I = tn.mapzone_id
+					SET %I = COALESCE(NULLIF(tn.mapzone_id, -1), 0)
 					FROM temp_pgr_node tn
 					WHERE n.node_id = tn.pgr_node_id
-					AND n.%I IS DISTINCT FROM tn.mapzone_id
+					AND n.%I IS DISTINCT FROM COALESCE(NULLIF(tn.mapzone_id, -1), 0)
 					$sql$
 				, v_mapzone_field, v_mapzone_field);
 
 				IF v_class = 'SECTOR' THEN
-    				UPDATE element e
-    				SET sector_id = te.mapzone_id
-    				FROM temp_pgr_element te
-    				WHERE e.element_id = te.pgr_element_id
-    				    AND e.sector_id IS DISTINCT FROM te.mapzone_id;
+					UPDATE element e
+					SET sector_id = COALESCE(NULLIF(te.mapzone_id, -1), 0)
+					FROM temp_pgr_element te
+					WHERE e.element_id = te.pgr_element_id
+					AND e.sector_id IS DISTINCT FROM COALESCE(NULLIF(te.mapzone_id, -1), 0);
 
 					-- node_x_sector_visibility for borders (nodes for ws, arcs for ud) and for the Heads of the mapzones
-	                INSERT INTO node_x_sector_visibility (node_id, sector_id)
+					INSERT INTO node_x_sector_visibility (node_id, sector_id)
 					SELECT n.pgr_node_id, a.mapzone_id
-                    FROM temp_pgr_node n
-                    JOIN temp_pgr_arc a ON n.pgr_node_id = a.pgr_node_1 OR n.pgr_node_id = a.pgr_node_2
-                    WHERE n.mapzone_id >= 0
-                    AND a.mapzone_id > 0
+					FROM temp_pgr_node n
+					JOIN temp_pgr_arc a ON n.pgr_node_id = a.pgr_node_1 OR n.pgr_node_id = a.pgr_node_2
+					WHERE n.mapzone_id >= 0
+					AND a.mapzone_id > 0
 					AND a.mapzone_id <> n.mapzone_id
-                    ON CONFLICT DO NOTHING;
+					ON CONFLICT DO NOTHING;
 
-                    DELETE FROM node_x_sector_visibility nxsv
-                    WHERE NOT EXISTS (
-                        SELECT 1
-                        FROM temp_pgr_node n
-                        JOIN temp_pgr_arc a ON n.pgr_node_id = a.pgr_node_1 OR n.pgr_node_id = a.pgr_node_2
-                        WHERE nxsv.node_id = n.pgr_node_id
-                        AND nxsv.sector_id = a.mapzone_id
-                    );
+					DELETE FROM node_x_sector_visibility nxsv
+					WHERE NOT EXISTS (
+						SELECT 1
+						FROM temp_pgr_node n
+						JOIN temp_pgr_arc a ON n.pgr_node_id = a.pgr_node_1 OR n.pgr_node_id = a.pgr_node_2
+						WHERE nxsv.node_id = n.pgr_node_id
+						AND nxsv.sector_id = a.mapzone_id
+					);
 
 					v_query_text_aux := '';
 					IF v_project_type = 'UD' THEN
@@ -2796,21 +2864,21 @@ BEGIN
 				-- connec
 				EXECUTE format($sql$
 					UPDATE connec c
-					SET %I = tc.mapzone_id
+					SET %I = COALESCE(NULLIF(tc.mapzone_id, -1), 0)
 					FROM temp_pgr_connec tc
 					WHERE c.connec_id = tc.pgr_connec_id
-					AND c.%I IS DISTINCT FROM tc.mapzone_id
+					AND c.%I IS DISTINCT FROM COALESCE(NULLIF(tc.mapzone_id, -1), 0)
 					$sql$
 				, v_mapzone_field, v_mapzone_field);
 
 				-- link connec
 				EXECUTE format($sql$
 					UPDATE link l
-					SET %I = tc.mapzone_id
+					SET %I = COALESCE(NULLIF(tc.mapzone_id, -1), 0)
 					FROM temp_pgr_connec tc
 					WHERE l.feature_id = tc.pgr_connec_id
 					AND l.feature_type = 'CONNEC'
-					AND l.%I IS DISTINCT FROM tc.mapzone_id
+					AND l.%I IS DISTINCT FROM COALESCE(NULLIF(tc.mapzone_id, -1), 0)
 					$sql$
 				, v_mapzone_field, v_mapzone_field);
 
@@ -2818,21 +2886,21 @@ BEGIN
 					-- gully
 					EXECUTE format($sql$
 						UPDATE gully g
-						SET %I = tg.mapzone_id
+						SET %I = COALESCE(NULLIF(tg.mapzone_id, -1), 0)
 						FROM temp_pgr_gully tg
 						WHERE g.gully_id = tg.pgr_gully_id
-							AND g.%I IS DISTINCT FROM tg.mapzone_id
+							AND g.%I IS DISTINCT FROM COALESCE(NULLIF(tg.mapzone_id, -1), 0)
 						$sql$
 					, v_mapzone_field, v_mapzone_field);
 
 					-- link gully
 					EXECUTE format($sql$
 						UPDATE link l
-						SET %I = tg.mapzone_id
+						SET %I = COALESCE(NULLIF(tg.mapzone_id, -1), 0)
 						FROM temp_pgr_gully tg
 						WHERE l.feature_id = tg.pgr_gully_id
 							AND l.feature_type = 'GULLY'
-							AND l.%I IS DISTINCT FROM tg.mapzone_id
+							AND l.%I IS DISTINCT FROM COALESCE(NULLIF(tg.mapzone_id, -1), 0)
 						$sql$
 					, v_mapzone_field, v_mapzone_field);
 				END IF;
@@ -2927,7 +2995,7 @@ BEGIN
 
 					-- arcs, links
 					IF v_class = 'PRESSZONE' THEN
-						v_query_text_aux := ', staticpressure1 = NULL, staticpressure2 = NULL';
+						v_query_text_aux := '';
 					ELSIF v_class = 'DWFZONE' THEN
 						v_query_text_aux := ', drainzone_outfall = NULL, dwfzone_outfall = NULL';
 					ELSE
@@ -2947,6 +3015,14 @@ BEGIN
 						AND a.%I IS DISTINCT FROM 0
 						$sql$
 					, v_mapzone_field, v_query_text_aux, v_mapzone_field, v_mapzone_field);
+
+					IF v_class = 'PRESSZONE' THEN
+						v_query_text_aux := ', staticpressure1 = NULL, staticpressure2 = NULL';
+					ELSIF v_class = 'DWFZONE' THEN
+						v_query_text_aux := ', drainzone_outfall = NULL, dwfzone_outfall = NULL';
+					ELSE
+						v_query_text_aux := '';
+					END IF;
 
 					EXECUTE format($sql$
 						UPDATE link l
@@ -3032,24 +3108,6 @@ BEGIN
 						) t
 						WHERE cc.connec_id = t.connec_id
 						AND cc.staticpressure IS DISTINCT FROM t.staticpressure;
-
-						-- arc
-						UPDATE arc aa
-						SET staticpressure1 = t.staticpressure1,
-							staticpressure2 = t.staticpressure2
-						FROM (
-							SELECT
-								a.arc_id,
-								(p.head - a.elevation1 + COALESCE(a.depth1, 0))::numeric(12,3) AS staticpressure1,
-								(p.head - a.elevation2 + COALESCE(a.depth2, 0))::numeric(12,3) AS staticpressure2
-							FROM arc a
-							JOIN presszone p ON a.presszone_id = p.presszone_id
-							WHERE p.head IS DISTINCT FROM 0
-							AND EXISTS (SELECT 1 FROM temp_pgr_arc t WHERE t.pgr_arc_id = a.arc_id)
-						) t
-						WHERE aa.arc_id = t.arc_id
-						AND (aa.staticpressure1 IS DISTINCT FROM t.staticpressure1
-							OR aa.staticpressure2 IS DISTINCT FROM t.staticpressure2);
 
 						-- link
 						UPDATE link ll

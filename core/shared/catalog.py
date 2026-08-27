@@ -31,7 +31,8 @@ class GwCatalog:
         if json_result is None:
             return
 
-        group_box_1 = QGroupBox(tools_qt.tr("Filter"))
+        title = "Filter"
+        group_box_1 = QGroupBox(tools_qt.tr(title))
         self.filter_form = QGridLayout()
 
         self.dlg_catalog = GwInfoCatalogUi(self)
@@ -102,11 +103,6 @@ class GwCatalog:
         extras = None
         if tools_gw.get_project_type() == 'ws':
             extras = f'"fields":{{"matcat_id":"{matcat_id_value}", "pnom":"{pn_value}", "dnom":"{dn_value}"}}'
-            addparam = tools_gw.get_sysversion_addparam()
-            if addparam:
-                addtype = addparam.get("type")
-                if addtype.lower() == 'pc':
-                    extras = None
         elif tools_gw.get_project_type() == 'ud':
             extras = f'"fields":{{"matcat_id":"{matcat_id_value}", "shape":"{pn_value}", "geom1":"{dn_value}"}}'
 

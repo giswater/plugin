@@ -60,7 +60,7 @@ BEGIN
 	FOR v_addfields IN SELECT * FROM temp_csv WHERE cur_user=current_user AND fid = v_fid
 	LOOP
 		i = i+1;
-		INSERT INTO ext_scada_x_data (scada_id, node_id, value_date, value, value_status, annotation) VALUES
+		INSERT INTO ext_rtc_scada_x_data (scada_id, node_id, value_date, value, value_status, annotation) VALUES
 		(v_addfields.csv1, v_addfields.csv2::integer, v_addfields.csv3::date, v_addfields.csv4::float, v_addfields.csv5::integer, v_addfields.csv6);
 	END LOOP;
 

@@ -44,7 +44,8 @@ SELECT columns_are(
         'dqa_style', 'supplyzone_style', 'lock_level', 'expl_visibility', 'xcoord', 'ycoord',
         'lat', 'long', 'created_at', 'created_by', 'updated_at', 'updated_by',
         'the_geom', 'p_state', 'uuid', 'uncertain', 'xyz_date', 'linked_connec',
-        'drain_diam', 'drain_exit', 'drain_gully', 'drain_distance', 'arq_patrimony', 'com_state', 'dataquality', 'dataquality_obs'
+        'drain_diam', 'drain_exit', 'drain_gully', 'drain_distance', 'arq_patrimony', 'com_state', 'dataquality', 'dataquality_obs',
+        'p_arc_id', 'p_pjoint_id', 'p_pjoint_type'
     ],
     'View ve_connec_tap should have the correct columns'
 );
@@ -197,6 +198,9 @@ SELECT col_type_is('ve_connec_tap', 'com_state', 'varchar(254)', 'Column com_sta
 
 SELECT col_type_is('ve_connec_tap', 'dataquality', 'int4', 'Column dataquality should be int4');
 SELECT col_type_is('ve_connec_tap', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
+SELECT col_type_is('ve_connec_tap', 'p_arc_id', 'int4', 'Column p_arc_id should be int4');
+SELECT col_type_is('ve_connec_tap', 'p_pjoint_id', 'int4', 'Column p_pjoint_id should be int4');
+SELECT col_type_is('ve_connec_tap', 'p_pjoint_type', 'varchar(16)', 'Column p_pjoint_type should be varchar(16)');
 
 SELECT * FROM finish();
 

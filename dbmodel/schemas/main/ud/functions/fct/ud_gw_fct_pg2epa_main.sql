@@ -60,7 +60,7 @@ BEGIN
 	v_result =  (p_data->>'data')::json->>'resultId';
 	v_dumpsubcatch = NULLIF((p_data->>'data')::json->>'dumpSubcatch', '')::boolean;
 	v_step = (p_data->>'data')::json->>'step';
-	v_input = concat('{"data":{"parameters":{"isEmbebed":true, "resultId":"',v_result,'", "dumpSubcatch":"',v_dumpsubcatch,'", "fid":227}}}')::json;
+	v_input = concat('{"data":{"parameters":{"isEmbebed":true, "verifiedExceptions":true, "resultId":"',v_result,'", "dumpSubcatch":"',v_dumpsubcatch,'", "fid":227}}}')::json;
 
 
 	-- get user parameters
@@ -108,6 +108,7 @@ BEGIN
 		INSERT INTO selector_state (state_id, cur_user) VALUES (1, current_user);
 
 		-- create temp tables
+		PERFORM gw_fct_manage_temp_tables('{"data":{"parameters":{"fid":227, "project_type":"UD", "action":"DROP", "group":"EPAMAIN"}}}');
 		PERFORM gw_fct_manage_temp_tables('{"data":{"parameters":{"fid":227, "project_type":"UD", "action":"CREATE", "group":"EPAMAIN"}}}');
 
 		-- getting selectors

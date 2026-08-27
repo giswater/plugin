@@ -7,10 +7,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `observ` column to `inp_dscenario_%` tables.
+- Add `custom_code_autofill` column to `cat_feature` and `config_mapzones` tables.
+- Materialize graph inundation into `anl_graphinundation` / `v_anl_graphinundation` for QGIS temporal playback.
+- Extend `hydraulic_engine` Go2Epa path to UD (SWMM); fall back to classic EPA when the package is missing.
+- Allow Execute EPA on Linux for UD when `hydraulic_engine` is installed.
+- Add `btn_child` to campaign manager dialog to create a child campaign.
+- Add Force node checkbox and node picker on UD Connect / Gully to network dialogs (`forceNode` / `forcedNodes`, `exit_type=NODE`).
+- Add Extra filters on Connect to network dialogs (`extraFilters` for arc/node KNN). Extra filters retarget an existing link only when Force reconnect is checked; new links are always created.
+- Add editable `userdefined_geom` checkbox to link info forms.
+- Add filters to EPA result manager (status, network type, exploitation, exec date from).
+- Add validated flag (`isvalidated`) to EPA results with toggle and filter in EPA result.
+
+### Changed
+
+- Rename Connect / Gully to network dialog layouts (`lyt_link_configuration`, `lyt_feature_selection`, `lyt_arc_selection`, `lyt_node_selection`, `lyt_extra_filters`).
+- Generate `resources/gis/locales.sqlite` from `locales.sql` when missing instead of tracking the sqlite file.
+- Keep `link.userdefined_geom` when provided on `ve_link` edit; set it to TRUE only on INSERT or when geometry changes.
+- Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
+- Document macOS QPIP native-library codesign workaround for Go2Epa / `hydraulic_engine` in README.
+- Refactor Go2Epa hydraulic_engine integration to share execute/import flow for WS and UD.
+- Require `hydraulic_engine>=0.7.0` and align Go2Epa runners with its EPANET/SWMM export API.
+- Remove unused `DEPRECATED` EPA result status; migrate any remaining rows to `ARCHIVED`.
+
 ### Fixed
 
+- Clear `selector_inp_dscenario` when creating a sample (same as `selector_psector`); fix `gw_fct_setinitproject` to delete from `selector_inp_dscenario`.
+- Fix `gw_fct_linkexitgenerator` to filter links by sector_id > 0 when is called from `gw_fct_pg2epa_fill_data` function.
+- Do not mark read-only non-mandatory fields Unique: QGIS paste was inventing `_1` / `1,2,3` (ConfigLayerFields still uses Soft NotNull so native Add Feature OK stays enabled on empty PKs).
+- Fix Connect to network Force reconnect + Extra filters: rebuild link from the connect, join `vf_arc`/`vf_node` inside KNN on `arc`/`node`, and log when no candidate is found.
+- Drop `expl_id` parent filter on mapzone combos (`dma_id`, `presszone_id`, `dwfzone_id`); list all active mapzones like `sector_id` / `dqa_id`.
+- Auto-loaded ValueRelation lookups are created on the GUI thread only, using the VR `keyColumn` (not `id`). Invalid leftovers are dropped; missing tables are not added to HIDDEN.
+- UD `dwfzone_id` ValueRelation targets `ve_dwfzone` (not `ve_dma`); `gullycat_id` targets `cat_gully` (not `cat_grate`); `omzone_id` no longer points at `ve_dma`.
+- Add Layers no longer moves the HIDDEN autoload: it deletes, reloads, and rebinds ValueRelations to the new `layer.id()`.
+- ConfigLayerFields no longer leaves an empty ValueMap on text catalog fields (`macroexploitation.name` / `descript`): that made attribute-table edits revert on blur while the edit buffer stayed dirty.
+- Clear the `multiple_option` typeahead after selecting a value and drop that value from the suggestion list.
+- Load missing ValueRelation lookup tables (`sys_feature_type`, `macroexploitation`) into the HIDDEN group so native QGIS forms do not fall back to a frozen ValueMap.
+- `ve_exploitation.macroexpl_id` ValueRelation uses `macroexploitation`, not `ve_macroexploitation`.
+- Strip leftover self-ValueRelation from mapzone PK text fields (`ve_exploitation.expl_id`, `ve_dma.dma_id`, …).
+- Do not auto-load `macroexploitation` into MAP ZONES; VR puts it in HIDDEN if missing. Add Layers shows it unchecked while in HIDDEN; checking reloads it into MAP ZONES.
+- Apply native ValueRelation as configured (including `allowMulti`) instead of wiping the widget with an empty ValueMap first (`cat_material.feature_type` / `featurecat_id`).
+- ConfigLayerFields now resolves geometryless catalog tables (`cat_material`, `cat_*`) so native forms actually get `getinfofromid` / CFF.
+- Native form widgets fall back to `config_form_fields` when `gw_fct_getinfofromid` fails (missing `v_config_form_fields`).
+- Fix Go2Epa hydraulic-engine result import crash when JSON `message` is null (`NoneType` has no attribute `get`).
+- Fix EPANET-only `only_extrema` being passed to SWMM `export_result`.
+- Fix `gw_fct_setsearch` function to use `COALESCE` to handle NULL geometry in `ve_address` table.
+- Fix creation of temporary table `temp_ve_arc_geom_selector` to use `vf_arc` view.
+- Fix performance on `sys_fprocess` queries.
+- Fix open dialogs to skip database connection check when `skip_db_check` is True.
+- Fix link_to_gully dialog adding widgets to select arcs by expression and by canvas clicking on the map.
+- Mapzone manager create dialogs: `expl_id`/`sector_id`/`muni_id` arrays are optional with default Undefined (0); mapzone PK is empty, non-editable and assigned by `urn_id_seq`.
+- Update mapzone `code` via `gw_fct_generate_code` when `gw_fct_graphanalytics_mapzones_v1` writes geometry directly to the table.
+- Feature form `muni_id` uses ValueRelation on `ve_municipality` instead of a frozen ValueMap.
+
+## [4.16.1] - 2026-07-31
+
+### Added
+
+- Show hydraulic steps progress in EPA Execute dialog.
+
+### Changed
+
+- Improve EPA Execute cancel behavior.
+- Improve general progress display in EPA Execute dialog.
+- `gw_fct_getgraphinundation` now inserts into Postgres instead of returning a large GeoJSON FeatureCollection.
+
+### Fixed
+
+- Ensure QPIP dependency folder stays on `sys.path` when QPIP is disabled or uninstalled.
+- Fix open advanced settings dialog.
+- Update database connection handling.
+- Update condition to exclude 'MINSECTOR' in query text exploitation.
+- Comment out repeated paths check for future consideration
+- Reorder utilities icons list.
+- Fix `gw_fct_linktonetwork` function to add `minPipeDiameter` variable for massive process and adjust diameter comparison logic.
+- Fix visits views to use selector filters.
+
+## [4.16.0] - 2026-07-24
+
+### Added
+
+- Add force reconnect parameter to `gw_fct_setlinktonetwork` function.
+- Integrate `hydraulic_engine` in Go2Epa for WS (EPANET) execute and result import; UD and missing package keep the classic EPA path.
+- Allow Execute EPA on Linux for WS when `hydraulic_engine` is installed; keep it Windows-only for UD.
+- Require Execute EPA when Import results is selected in Go2Epa.
+- Add `inp_report_onlymaxmin_values` EPA option to store only max/min results when importing with hydraulic_engine.
+- Add `hydraulic_engine` dependency to `requirements.txt`.
+
+### Fixed
+
+- Fix blank multilingual projects: respect locale `cat_feature.active` and keep MULTI-CREATE `config_form_fields` (skip sample CFF wipe in empty profile).
 - Fix `gw_fct_mincut_minsector` and `gw_fct_setmincut` functions to count hydrometers correctly.
 - Fix selector performance on large projects: optimize `vf_node`/`vf_arc`/`vf_connec`/`vf_element`/`vf_link` filters and stop probing `ve_node` inside `gw_fct_setselectors` (check-all exploitations was multi-second).
+- Fix `vf_element` view to use `COALESCE(pp.state, e.state)` instead of `e.state` with plan_psector_x_node.
+- Fix `admin_catalog` to check if audit schema is fully installed.
+- Fix `update` to use the correct language from `sys_version` table.
+- Fix `gw_fct_create_querytables` and `gw_fct_manage_temp_tables` functions to create indexes on the geometry columns.
+
+## [4.15.4] - 2026-07-21
+
+### Fixed
+
+- Fix admin dialog: refresh Project Schema list after a connection error.
+- Fix admin dialog: list all WS/UD schemas on the active connection.
+
+## [4.15.3] - 2026-07-17
+
+### Fixed
+
+- Fix `tools_db.ensure_service_auth` to get correct credentials from `pg_service.conf`.
+- Fix config_form_fields `dv_querytext` to use `vf_hydrometer` and `hydro_customer_code` instead of `v_rtc_hydrometer` and `hydrometer_customer_code`.
 
 ## [4.15.2] - 2026-07-16
 
@@ -518,7 +626,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.15.2...main
+[unreleased]: https://github.com/giswater/plugin/compare/v4.16.1...main
+[4.16.1]: https://github.com/giswater/plugin/compare/v4.16.0...v4.16.1
+[4.16.0]: https://github.com/giswater/plugin/compare/v4.15.4...v4.16.0
+[4.15.4]: https://github.com/giswater/plugin/compare/v4.15.3...v4.15.4
+[4.15.3]: https://github.com/giswater/plugin/compare/v4.15.2...v4.15.3
 [4.15.2]: https://github.com/giswater/plugin/compare/v4.15.1...v4.15.2
 [4.15.1]: https://github.com/giswater/plugin/compare/v4.15.0...v4.15.1
 [4.15.0]: https://github.com/giswater/plugin/compare/v4.14.5...v4.15.0

@@ -36,7 +36,7 @@ SELECT is (
     "feature":{"id":["82"]}, "data":{"filterFields":{}, "pageInfo":{}, "enddate":"2024-08-22",
     "workcatId":"work1", "action_mode": 0}}$$)::JSON)->>'status',
     'Accepted',
-    'Check if gw_fct_setcatalog returns status "Accepted"'
+    'Check if gw_fct_setarcfusion returns status "Accepted"'
 );
 
 -- Finish the test

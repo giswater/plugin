@@ -43,6 +43,7 @@ dx float;
 dy float;
 v_x float;
 v_y float;
+v_codeautofill boolean;
 v_srid integer;
 v_featurecat text;
 v_psector_vdefault integer;
@@ -69,6 +70,8 @@ v_childtable_name text;
 v_schemaname text;
 v_featureclass text;
 v_sys_code_autofill text;
+
+v_district_ids _int4;
 
 BEGIN
 
@@ -224,7 +227,7 @@ BEGIN
 			END IF;
 
 			-- getting value from geometry of mapzone
-			IF (NEW.sector_id IS NULL) THEN
+			IF (NEW.sector_id IS NULL) AND (SELECT is_dynamic FROM config_mapzones WHERE id = 'SECTOR') IS FALSE THEN
 				SELECT count(*) INTO v_count FROM sector WHERE ST_DWithin(NEW.the_geom, sector.the_geom,0.001) AND active IS TRUE ;
 				IF v_count = 1 THEN
 					NEW.sector_id = (SELECT sector_id FROM sector WHERE ST_DWithin(NEW.the_geom, sector.the_geom,0.001) AND active IS TRUE LIMIT 1);
@@ -256,7 +259,7 @@ BEGIN
 			END IF;
 
 			-- getting value from geometry of mapzone
-			IF (NEW.omzone_id IS NULL) THEN
+			IF (NEW.omzone_id IS NULL) AND (SELECT is_dynamic FROM config_mapzones WHERE id = 'OMZONE') IS FALSE THEN
 				SELECT count(*) INTO v_count FROM omzone WHERE ST_DWithin(NEW.the_geom, omzone.the_geom,0.001) AND active IS TRUE ;
 				IF v_count = 1 THEN
 					NEW.omzone_id = (SELECT omzone_id FROM omzone WHERE ST_DWithin(NEW.the_geom, omzone.the_geom,0.001) AND active IS TRUE LIMIT 1);
@@ -273,8 +276,23 @@ BEGIN
 		END IF;
 
 
+		-- District
+		IF (NEW.district_id IS NULL) THEN
+			-- getting value from geometry of mapzone
+			v_district_ids = (SELECT array_agg(district_id) FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001));
+			IF cardinality(v_district_ids) = 1 THEN
+				NEW.district_id := v_district_ids[1];
+			ELSIF cardinality(v_district_ids) > 1 THEN
+				NEW.district_id := (SELECT district_id FROM ve_arc WHERE district_id = ANY(v_district_ids) ORDER BY ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
+			END IF;
+		END IF;
+
 		-- Municipality
 		IF (NEW.muni_id IS NULL) THEN
+
+			IF NEW.district_id IS NOT NULL THEN
+				NEW.muni_id := (SELECT muni_id FROM v_municipality WHERE district_id = NEW.district_id AND active IS TRUE LIMIT 1);
+			END IF;
 
 			-- getting value default
 			IF (NEW.muni_id IS NULL) THEN
@@ -289,21 +307,6 @@ BEGIN
 					AND active IS TRUE LIMIT 1);
 				ELSE
 					NEW.muni_id =(SELECT muni_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
-					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
-				END IF;
-			END IF;
-		END IF;
-
-		-- District
-		IF (NEW.district_id IS NULL) THEN
-
-			-- getting value from geometry of mapzone
-			IF (NEW.district_id IS NULL) THEN
-				SELECT count(*) INTO v_count FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001);
-				IF v_count = 1 THEN
-					NEW.district_id = (SELECT district_id FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001) LIMIT 1);
-				ELSIF v_count > 1 THEN
-					NEW.district_id =(SELECT district_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
 					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
 				END IF;
 			END IF;
@@ -365,9 +368,6 @@ BEGIN
 		--Builtdate
 		IF (NEW.builtdate IS NULL) THEN
 			NEW.builtdate :=(SELECT "value" FROM config_param_user WHERE "parameter"='edit_builtdate_vdefault' AND "cur_user"="current_user"() LIMIT 1);
-			IF (NEW.builtdate IS NULL) AND (SELECT value::boolean FROM config_param_system WHERE parameter='edit_feature_auto_builtdate') IS TRUE THEN
-				NEW.builtdate :=date(now());
-			END IF;
 		END IF;
 
 		--Address
@@ -424,7 +424,7 @@ BEGIN
 		END IF;
 
 		IF NEW.sys_code IS NOT NULL AND v_sys_code_autofill NOT IN ('false', 'none') THEN
-			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4678", "function":"1206"}}$$);';	
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4678", "function":"1206"}}$$);';
 		END IF;
 
 		--Sys_code (uuid | code | none)
@@ -953,7 +953,7 @@ BEGIN
 			asset_id=NEW.asset_id, epa_type=NEW.epa_type, units_placement=NEW.units_placement, groove_height=NEW.groove_height,
 			groove_length=NEW.groove_length, expl_visibility=NEW.expl_visibility, adate=NEW.adate, adescript=NEW.adescript, siphon_type=NEW.siphon_type, odorflap=NEW.odorflap, connec_y2=NEW.connec_y2,
 			placement_type=NEW.placement_type, label_quadrant=NEW.label_quadrant, access_type=NEW.access_type, lock_level=NEW.lock_level, length=NEW.length, width=NEW.width, drainzone_outfall=NEW.drainzone_outfall, 
-			dwfzone_outfall=NEW.dwfzone_outfall, omunit_id=NEW.omunit_id, dma_id=NEW.dma_id, has_treatment=NEW.has_treatment
+			dwfzone_outfall=NEW.dwfzone_outfall, omunit_id=NEW.omunit_id, dma_id=NEW.dma_id, has_treatment=NEW.has_treatment, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
 			WHERE gully_id = OLD.gully_id;
 
 		ELSE
@@ -970,7 +970,7 @@ BEGIN
 			asset_id=NEW.asset_id, epa_type=NEW.epa_type, units_placement=NEW.units_placement, groove_height=NEW.groove_height,
 			groove_length=NEW.groove_length, expl_visibility=NEW.expl_visibility, adate=NEW.adate, adescript=NEW.adescript, siphon_type=NEW.siphon_type, odorflap=NEW.odorflap, connec_y2=NEW.connec_y2,
 			placement_type=NEW.placement_type, label_quadrant=NEW.label_quadrant, access_type=NEW.access_type, lock_level=NEW.lock_level, length=NEW.length, width=NEW.width, drainzone_outfall=NEW.drainzone_outfall, 
-			dwfzone_outfall=NEW.dwfzone_outfall, omunit_id=NEW.omunit_id, dma_id=NEW.dma_id, has_treatment=NEW.has_treatment
+			dwfzone_outfall=NEW.dwfzone_outfall, omunit_id=NEW.omunit_id, dma_id=NEW.dma_id, has_treatment=NEW.has_treatment, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
 			WHERE gully_id = OLD.gully_id;
 
 		END IF;

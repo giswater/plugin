@@ -1,8 +1,8 @@
 """
 Connection resolution. Layered sources, evaluated in order:
 
-  1. ``--conn 'postgres://user:pass@host:port/dbname'``
-  2. ``--config /path/to/yaml`` with host/port/user/password/dbname
+  1. ``--conn`` — URL, ``service=NAME``, or a bare pg_service name
+  2. ``--config /path/to/yaml`` with host/port/user/password/dbname/service
   3. User config (``gw config set database.conn`` or ``database.config``)
   4. Environment: PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE,
      PGSERVICE (psycopg2 will read PGSERVICE for free when nothing else
@@ -16,8 +16,11 @@ through ``safe_repr()``.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from urllib.parse import unquote, urlparse
+
+_SERVICE_NAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
 
 _NO_CONNECTION_MSG = (
     "No connection info. Pass --conn, --config, run "
@@ -48,12 +51,12 @@ class ConnInfo:
 def resolve(conn_url: str | None, config_path: str | None) -> ConnInfo:
     """Pick the highest-priority source that yields enough info."""
     if conn_url:
-        return _from_url(conn_url)
+        return _from_conn_arg(conn_url)
     if config_path:
         return _from_config(config_path)
     user_conn = _user_config_conn_url()
     if user_conn:
-        return _from_url(user_conn)
+        return _from_conn_arg(user_conn)
     user_config = _user_config_file()
     if user_config:
         return _from_config(user_config)
@@ -61,6 +64,22 @@ def resolve(conn_url: str | None, config_path: str | None) -> ConnInfo:
     if not info.dbname and not info.service:
         raise RuntimeError(_NO_CONNECTION_MSG)
     return info
+
+
+def _from_conn_arg(value: str) -> ConnInfo:
+    text = value.strip()
+    if text.lower().startswith("service="):
+        name = text.split("=", 1)[1].strip()
+        if not _SERVICE_NAME_RE.fullmatch(name):
+            raise RuntimeError(f"--conn service= needs a pg_service name (got: {value!r})")
+        return ConnInfo(service=name)
+    if "://" in text:
+        return _from_url(text)
+    if _SERVICE_NAME_RE.fullmatch(text):
+        return ConnInfo(service=text)
+    raise RuntimeError(
+        f"--conn must be a postgres URL, service=NAME, or a pg_service name (got: {value!r})"
+    )
 
 
 def _from_url(url: str) -> ConnInfo:

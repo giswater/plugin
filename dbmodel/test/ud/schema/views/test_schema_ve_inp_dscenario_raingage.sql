@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_dscenario_raingage',
     ARRAY[
         'dscenario_id', 'rg_id', 'form_type', 'intvl', 'scf', 'rgage_type',
-        'timser_id', 'fname', 'sta', 'units', 'the_geom'
+        'timser_id', 'fname', 'sta', 'units', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_raingage should have the correct columns'
 );
@@ -39,6 +39,7 @@ SELECT col_type_is('ve_inp_dscenario_raingage', 'fname', 'varchar(254)', 'Column
 SELECT col_type_is('ve_inp_dscenario_raingage', 'sta', 'varchar(12)', 'Column sta should be varchar(12)');
 SELECT col_type_is('ve_inp_dscenario_raingage', 'units', 'varchar(3)', 'Column units should be varchar(3)');
 SELECT col_type_is('ve_inp_dscenario_raingage', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_raingage', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

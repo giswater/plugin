@@ -13,10 +13,10 @@ AS $function$
 /*
 
 Documentation:
-Takes the node_1 and node_2 (from p_data) and connects them using pgrouting. Then, their attributes are inserted into  om_scada_graph table.
+Takes object_1 and object_2 and connects them with pgr_dijkstra (operative arcs).
+Writes the_geom, attrib.arcs and is_scadamap on the path.
 
-TROUBLESHOOTING: If CREATE TEMP TABLE temp_graph fails trying to invoke json_array_elements en un no-array, 
-it's because there is no continuity in the path, therefore, the profile does not return de keys needed to create the table. 
+TROUBLESHOOTING: If it raises "No network path", there is no continuity between the two nodes. 
 
  */
 
@@ -31,7 +31,6 @@ v_sql_1 TEXT;
 
 -- Vars
 v_arc_geom public.geometry(LINESTRING, SRID_VALUE);
-v_test int;
 v_sql TEXT;
 v_arcs TEXT;
 v_column_name TEXT;
@@ -53,45 +52,92 @@ BEGIN
     SET search_path = SCHEMA_NAME, public;
 
     -- Init params
-    SELECT project_type, epsg INTO v_project_type, v_srid FROM sys_version ORDER BY id DESC LIMIT 1;
+    SELECT upper(project_type), epsg INTO v_project_type, v_srid FROM sys_version ORDER BY id DESC LIMIT 1;
 
 	IF TG_WHEN = 'BEFORE' THEN
 	
 	    IF TG_OP IN ('INSERT', 'UPDATE') THEN
-	
-	    	-- prepare data (=get arcs i nodes of the routing)   		
-    		EXECUTE format(
-    		'CREATE TEMP TABLE temp_graph as
-		    WITH mec AS (
-		        SELECT gw_fct_getprofilevalues(''{"data":{"initNode":"%s", "endNode":"%s", "linksDistance":5}}'') AS v_return
-		    )
-		    SELECT 
-		        (json_array_elements(v_return -> ''body'' -> ''data'' -> ''node'') ->> ''node_id'')::int as node_id,
-		        (json_array_elements(v_return -> ''body'' -> ''data'' -> ''arc'') ->> ''arc_id'')::int as arc_id
-		    FROM mec', 
-		    NEW.object_1, 
-		    NEW.object_2
-			);
-			
-			-- get values to update row
-			EXECUTE '
-			SELECT st_astext(ST_LineMerge(ST_Collect(b.the_geom))) FROM temp_graph a
-	        JOIN arc b ON a.arc_id = b.arc_id::int'
-			INTO NEW.the_geom;
-		
-			EXECUTE '
-			select 
-			json_build_object(
-				''arcs'', json_agg(arc_id)
-			) from temp_graph where arc_id is not null' 
-			INTO NEW.attrib;
-			
-		
-	      	EXECUTE 'UPDATE arc SET is_scadamap = TRUE WHERE arc_id::int IN (SELECT arc_id FROM temp_graph)';
-			EXECUTE 'UPDATE node SET is_scadamap = TRUE WHERE node_id::int IN (SELECT node_id FROM temp_graph)';
-	
+
+			IF EXISTS (
+				SELECT 1 FROM om_scada_graph g
+				WHERE g.object_1 = NEW.object_1
+				  AND g.object_2 = NEW.object_2
+				  AND (TG_OP = 'INSERT' OR g.edge_id IS DISTINCT FROM NEW.edge_id)
+			) THEN
+				RAISE EXCEPTION 'Scada graph edge already exists for object_1=% and object_2=%', NEW.object_1, NEW.object_2
+					USING ERRCODE = 'unique_violation';
+			END IF;
+
+	    	-- shortest path on operative arcs (not gw_fct_getprofilevalues)
 			DROP TABLE IF EXISTS temp_graph;
-	      
+			IF v_project_type = 'WS' THEN
+				CREATE TEMP TABLE temp_graph AS
+				SELECT d.edge AS arc_id, d.node AS node_id
+				FROM pgr_dijkstra(
+					$pgr$WITH
+						closed_valve AS (
+							SELECT n.node_id
+							FROM node n
+							JOIN value_state_type s ON n.state_type = s.id
+							JOIN man_valve m ON n.node_id = m.node_id
+							JOIN cat_node cn ON n.nodecat_id = cn.id
+							JOIN cat_feature_node cf ON cf.id = cn.node_type
+							WHERE n.state = 1 AND s.is_operative
+							AND m.closed AND 'MINSECTOR' = ANY (cf.graph_delimiter)
+						)
+						SELECT a.arc_id::int AS id, a.node_1::int AS source, a.node_2::int AS target,  st_length(a.the_geom) AS cost
+						FROM arc a
+						JOIN value_state_type s ON a.state_type = s.id
+						WHERE a.state = 1 AND s.is_operative
+						AND a.node_1 IS NOT NULL AND a.node_2 IS NOT NULL
+						AND NOT EXISTS (SELECT 1 FROM closed_valve cv WHERE cv.node_id = a.node_1 OR cv.node_id = a.node_2)
+					$pgr$,
+					NEW.object_1,
+					NEW.object_2,
+					directed := false
+				) d
+				WHERE d.edge > 0;
+			ELSIF v_project_type = 'UD' THEN
+				CREATE TEMP TABLE temp_graph AS
+				SELECT d.edge AS arc_id, d.node AS node_id
+				FROM pgr_dijkstra(
+					$pgr$SELECT a.arc_id::int AS id, a.node_1::int AS source, a.node_2::int AS target,  st_length(a.the_geom) AS cost, -1.0 AS reverse_cost
+						FROM arc a
+						JOIN value_state_type s ON a.state_type = s.id 
+						WHERE a.state = 1 AND s.is_operative AND a.node_1 IS NOT NULL AND a.node_2 IS NOT NULL
+					$pgr$,
+					NEW.object_1,
+					NEW.object_2,
+					directed := true
+				) d
+				WHERE d.edge > 0;
+			END IF;
+
+			IF NOT EXISTS (SELECT 1 FROM temp_graph) THEN
+				RAISE EXCEPTION 'No network path between object_1=% and object_2=%', NEW.object_1, NEW.object_2;
+			END IF;
+
+			SELECT ST_Multi(ST_LineMerge(ST_Collect(b.the_geom)))
+			FROM temp_graph a
+			JOIN arc b ON a.arc_id = b.arc_id::int
+			INTO NEW.the_geom;
+
+			SELECT json_build_object('arcs', json_agg(arc_id))
+			FROM temp_graph
+			WHERE arc_id IS NOT NULL
+			INTO NEW.attrib;
+
+			UPDATE arc SET is_scadamap = TRUE
+			WHERE arc_id::int IN (SELECT arc_id FROM temp_graph);
+			UPDATE node SET is_scadamap = TRUE
+			WHERE node_id::int IN (
+				SELECT node_id FROM temp_graph
+				UNION SELECT NEW.object_1
+				UNION SELECT NEW.object_2
+			);
+
+			DROP TABLE IF EXISTS temp_graph;
+
 			RETURN NEW;
 		END IF;
 	
@@ -99,7 +145,8 @@ BEGIN
 	
 		IF TG_OP IN ('INSERT', 'UPDATE') THEN
 
-		CREATE TEMP TABLE IF NOT EXISTS v_om_scada_graph  AS
+		DROP TABLE IF EXISTS v_om_scada_graph;
+		CREATE TEMP TABLE v_om_scada_graph AS
 		WITH mec AS (
 			SELECT a_1.edge_id,
 				a_1.order_id,
@@ -118,6 +165,7 @@ BEGIN
 			FROM  om_scada_graph a_1
 				LEFT JOIN node b_1 ON a_1.object_1 = b_1.node_id::integer
 				LEFT JOIN node c_1 ON a_1.object_2 = c_1.node_id::integer
+			WHERE a_1.edge_id = NEW.edge_id
 		)
 		SELECT a.edge_id,
 			a.order_id,
@@ -159,14 +207,15 @@ BEGIN
 				WHERE edge_id = NEW.edge_id
 			)a WHERE t.edge_id = a.edge_id;
 			
-			-- attrs from the graph 
-	 		UPDATE om_scada_graph t SET order_id = a.agg_cost FROM (
-				SELECT a.agg_cost, b.edge_id FROM pgr_drivingdistance(
-				'SELECT edge_id AS id, object_1 AS SOURCE, object_2 AS TARGET, 1.0 AS COST FROM om_scada_graph',
-				(SELECT array_agg(object_1) FROM  om_scada_graph WHERE object_1 NOT IN (SELECT object_2 FROM om_scada_graph)),
-				9999,
-				FALSE)a JOIN om_scada_graph b ON a.edge = b.edge_id
-			)a WHERE t.edge_id = a.edge_id;
+			-- order_id only for this row (parent hop + 1, or 1 if object_1 is a root)
+	 		UPDATE om_scada_graph t SET order_id = COALESCE((
+				SELECT MIN(g.order_id) + 1
+				FROM om_scada_graph g
+				WHERE g.object_2 = NEW.object_1
+				  AND g.edge_id IS DISTINCT FROM NEW.edge_id
+				  AND g.order_id IS NOT NULL
+			), 1)
+			WHERE t.edge_id = NEW.edge_id;
 		
 			v_sql = '
 			SELECT v.object_id_col, v.object_id_val, v.object_type_col, v.object_type_val, v.object_name_col,

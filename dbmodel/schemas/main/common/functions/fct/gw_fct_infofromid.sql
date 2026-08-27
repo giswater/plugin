@@ -407,7 +407,12 @@ BEGIN
 	-- Set layouts orientation
 	v_form_orientation = '"layouts": {';
 
-	SELECT array_agg(distinct layoutname) INTO v_layouts FROM config_form_fields  WHERE formtype = 'form_feature';
+	SELECT array_agg(distinct layoutname) INTO v_layouts
+	FROM config_form_fields
+	WHERE formtype = 'form_feature';
+	IF to_regclass('v_config_form_fields') IS NOT NULL THEN
+		SELECT array_agg(distinct layoutname) INTO v_layouts FROM v_config_form_fields WHERE formtype = 'form_feature';
+	END IF;
 	layout_orientation_exist = false;
 
 	IF v_layouts IS NOT NULL THEN
@@ -628,7 +633,7 @@ BEGIN
                        ELSE 3
                    END
            ) as rn
-    FROM config_form_tabs
+    FROM v_config_form_tabs
     WHERE (formname ='||quote_nullable(v_table_parent)||' OR formname ='||quote_nullable(v_table_class)||' OR formname ='||quote_nullable(v_table_child)||' OR formname ='||quote_nullable(v_tablename)||' OR formname IS NULL)
           AND '||quote_nullable(v_device)||' = ANY(device)
 	) AS subquery
@@ -770,9 +775,8 @@ BEGIN
 			IF v_id IS NULL AND v_isepa IS true THEN
 			    v_id = '';
 			ELSIF v_id IS NULL AND v_tablename in  ('ve_dma', 've_dqa', 've_sector', 've_drainzone', 've_supplyzone', 've_macrodma', 've_macrodqa', 've_macrosector', 've_dwfzone', 've_omzone', 've_macroomzone', 've_presszone') THEN
-				v_zone = replace(v_tablename,'ve_','');
-				v_querystring = format('SELECT max(%I_id::integer)+1 FROM %I WHERE %I_id::text ~ ''^[0-9]+$''', v_zone, v_zone, v_zone);
-				EXECUTE v_querystring INTO v_id;
+				-- PK is assigned by urn_id_seq on INSERT; keep empty so the dialog does not consume nextval
+				v_id = '';
 			ELSIF v_id IS NULL AND v_tablename IN ('plan_netscenario_dma', 'plan_netscenario_presszone') THEN
 				v_zone = replace(v_tablename, 'plan_netscenario_', '');
 				v_querystring = format('SELECT coalesce(max(%I_id::integer)+1, 1) FROM %I WHERE %I_id::text ~ ''^[0-9]+$''', v_zone, v_tablename, v_zone);

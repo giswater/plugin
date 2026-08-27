@@ -24,7 +24,7 @@ SELECT columns_are(
         'dscenario_id', 'node_id', 'initlevel', 'minlevel', 'maxlevel', 'diameter',
         'minvol', 'curve_id', 'head', 'pattern_id', 'overflow', 'mixing_model',
         'mixing_fraction', 'reaction_coeff', 'init_quality', 'source_type', 'source_quality', 'source_pattern_id',
-        'demand', 'demand_pattern_id', 'emitter_coeff'
+        'demand', 'demand_pattern_id', 'emitter_coeff', 'observ'
     ],
     'Table inp_dscenario_inlet should have the correct columns'
 );
@@ -51,6 +51,7 @@ SELECT col_type_is('inp_dscenario_inlet', 'source_pattern_id', 'varchar(16)', 'C
 SELECT col_type_is('inp_dscenario_inlet', 'demand', 'numeric(12,6)', 'Column demand should be numeric(12,6)');
 SELECT col_type_is('inp_dscenario_inlet', 'demand_pattern_id', 'varchar(16)', 'Column demand_pattern_id should be varchar(16)');
 SELECT col_type_is('inp_dscenario_inlet', 'emitter_coeff', 'float8', 'Column emitter_coeff should be float8');
+SELECT col_type_is('inp_dscenario_inlet', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_inlet', 'Table inp_dscenario_inlet should have foreign keys');

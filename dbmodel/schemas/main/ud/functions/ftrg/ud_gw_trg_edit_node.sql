@@ -88,6 +88,8 @@ v_dist_sign numeric;
 v_label_dist numeric;
 v_sys_code_autofill text;
 
+v_district_ids _int4;
+
 BEGIN
 
 	EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
@@ -313,7 +315,7 @@ BEGIN
 			END IF;
 
 			-- getting value from geometry of mapzone
-			IF (NEW.sector_id IS NULL) THEN
+			IF (NEW.sector_id IS NULL) AND (SELECT is_dynamic FROM config_mapzones WHERE id = 'SECTOR') IS FALSE THEN
 				SELECT count(*) INTO v_count FROM sector WHERE ST_DWithin(NEW.the_geom, sector.the_geom,0.001) AND active IS TRUE;
 				IF v_count = 1 THEN
 					NEW.sector_id = (SELECT sector_id FROM sector WHERE ST_DWithin(NEW.the_geom, sector.the_geom,0.001) AND active IS TRUE LIMIT 1);
@@ -344,7 +346,7 @@ BEGIN
 			END IF;
 
 			-- getting value from geometry of mapzone
-			IF (NEW.omzone_id IS NULL) THEN
+			IF (NEW.omzone_id IS NULL) AND (SELECT is_dynamic FROM config_mapzones WHERE id = 'OMZONE') IS FALSE THEN
 				SELECT count(*) INTO v_count FROM omzone WHERE ST_DWithin(NEW.the_geom, omzone.the_geom,0.001) AND active IS TRUE ;
 				IF v_count = 1 THEN
 					NEW.omzone_id = (SELECT omzone_id FROM omzone WHERE ST_DWithin(NEW.the_geom, omzone.the_geom,0.001) AND active IS TRUE LIMIT 1);
@@ -360,8 +362,23 @@ BEGIN
 			END IF;
 		END IF;
 
+		-- District
+		IF (NEW.district_id IS NULL) THEN
+			-- getting value from geometry of mapzone
+			v_district_ids = (SELECT array_agg(district_id) FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001));
+			IF cardinality(v_district_ids) = 1 THEN
+				NEW.district_id := v_district_ids[1];
+			ELSIF cardinality(v_district_ids) > 1 THEN
+				NEW.district_id := (SELECT district_id FROM ve_arc WHERE district_id = ANY(v_district_ids) ORDER BY ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
+			END IF;
+		END IF;
+
 		-- Municipality
 		IF (NEW.muni_id IS NULL) THEN
+
+			IF NEW.district_id IS NOT NULL THEN
+				NEW.muni_id := (SELECT muni_id FROM v_municipality WHERE district_id = NEW.district_id AND active IS TRUE LIMIT 1);
+			END IF;
 
 			-- getting value default
 			IF (NEW.muni_id IS NULL) THEN
@@ -389,20 +406,8 @@ BEGIN
 			END IF;
 		END IF;
 
-		-- District
-		IF (NEW.district_id IS NULL) THEN
 
-			-- getting value from geometry of mapzone
-			IF (NEW.district_id IS NULL) THEN
-				SELECT count(*) INTO v_count FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001);
-				IF v_count = 1 THEN
-					NEW.district_id = (SELECT district_id FROM v_district WHERE ST_DWithin(NEW.the_geom, v_district.the_geom,0.001) LIMIT 1);
-				ELSIF v_count > 1 THEN
-					NEW.district_id =(SELECT district_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
-					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
-				END IF;
-			END IF;
-		END IF;
+
 
 		-- Verified
 		IF (NEW.verified IS NULL) THEN
@@ -497,9 +502,6 @@ BEGIN
 		--Builtdate
 		IF (NEW.builtdate IS NULL) THEN
 			NEW.builtdate :=(SELECT "value" FROM config_param_user WHERE "parameter"='edit_builtdate_vdefault' AND "cur_user"="current_user"() LIMIT 1);
-			IF (NEW.builtdate IS NULL) AND (SELECT value::boolean FROM config_param_system WHERE parameter='edit_feature_auto_builtdate') IS TRUE THEN
-				NEW.builtdate :=date(now());
-			END IF;
 		END IF;
 
 		--Address
@@ -598,14 +600,18 @@ BEGIN
 			NEW.uuid = gen_random_uuid();
 		END IF;
 
-		-- feature insert
+		IF NEW.has_access IS NULL THEN
+			NEW.has_access = (select isprofilesurface from cat_feature_node where id=NEW.node_type);
+		END IF;
+
+		-- feature insert  
 		IF v_matfromcat THEN
 			INSERT INTO node (node_id, code, sys_code, top_elev, custom_top_elev, ymax, elev, custom_elev, node_type,nodecat_id,epa_type,sector_id,"state", state_type, annotation,observ,"comment",
 			omzone_id,soilcat_id, function_type, category_type,fluid_type,location_type,workcat_id, workcat_id_end, workcat_id_plan, builtdate, enddate, ownercat_id, conserv_state,
 			muni_id, streetaxis_id, postcode, district_id, streetaxis2_id,postnumber, postnumber2, postcomplement, postcomplement2, descript,rotation,link,verified,
 			label_x,label_y,label_rotation,the_geom, expl_id, publish, inventory, uncertain, xyz_date, unconnected, num_value, updated_at, updated_by,
 			asset_id, parent_id, arc_id, expl_visibility, adate, adescript, placement_type, label_quadrant, access_type, brand_id, model_id, serial_number, lock_level, is_scadamap, pavcat_id, hemisphere,
-			drainzone_outfall, dwfzone_outfall, dma_id, omunit_id, uuid, treatment_type, has_treatment, dataquality, dataquality_obs)
+			drainzone_outfall, dwfzone_outfall, dma_id, omunit_id, uuid, treatment_type, has_treatment, has_access, dataquality, dataquality_obs)
 			VALUES (NEW.node_id, NEW.code, NEW.sys_code, NEW.top_elev,NEW.custom_top_elev, NEW.ymax, NEW. elev, NEW. custom_elev, NEW.node_type,NEW.nodecat_id,NEW.epa_type,COALESCE(NEW.sector_id, 0),
 			NEW.state, NEW.state_type, NEW.annotation,NEW.observ, NEW.comment,COALESCE(NEW.omzone_id, 0),NEW.soilcat_id, NEW. function_type, NEW.category_type,COALESCE(NEW.fluid_type, 0),NEW.location_type,
 			NEW.workcat_id, NEW.workcat_id_end, NEW.workcat_id_plan,NEW.builtdate, NEW.enddate, NEW.ownercat_id, NEW.conserv_state,
@@ -614,14 +620,14 @@ BEGIN
 			COALESCE(NEW.expl_id, 0), NEW.publish, NEW.inventory, NEW.uncertain, NEW.xyz_date, NEW.unconnected, NEW.num_value, NEW.updated_at, NEW.updated_by,
 			NEW.asset_id,  NEW.parent_id, NEW.arc_id, NEW.expl_visibility, NEW.adate, NEW.adescript, NEW.placement_type, NEW.label_quadrant,
 			NEW.access_type, NEW.brand_id, NEW.model_id, NEW.serial_number, NEW.lock_level, NEW.is_scadamap, NEW.pavcat_id, NEW.hemisphere,
-			NEW.drainzone_outfall, NEW.dwfzone_outfall, COALESCE(NEW.dma_id, 0), COALESCE(NEW.omunit_id, 0), NEW.uuid, COALESCE(NEW.treatment_type, 0), NEW.has_treatment, NEW.dataquality, NEW.dataquality_obs);
+			NEW.drainzone_outfall, NEW.dwfzone_outfall, COALESCE(NEW.dma_id, 0), COALESCE(NEW.omunit_id, 0), NEW.uuid, COALESCE(NEW.treatment_type, 0), NEW.has_treatment, NEW.has_access, NEW.dataquality, NEW.dataquality_obs);
 		ELSE
 			INSERT INTO node (node_id, code, sys_code, top_elev, custom_top_elev, ymax, elev, custom_elev, node_type,nodecat_id,epa_type,sector_id,"state", state_type, annotation,observ,"comment",
 			omzone_id,soilcat_id, function_type, category_type,fluid_type,location_type,workcat_id, workcat_id_end, workcat_id_plan, builtdate, enddate, ownercat_id, conserv_state,
 			muni_id, streetaxis_id, postcode, district_id, streetaxis2_id,postnumber, postnumber2, postcomplement, postcomplement2, descript,rotation,link,verified,
 			label_x,label_y,label_rotation,the_geom, expl_id, publish, inventory, uncertain, xyz_date, unconnected, num_value, updated_at, updated_by, matcat_id,
 			asset_id, parent_id, arc_id, expl_visibility, adate, adescript, placement_type, label_quadrant, access_type, brand_id, model_id, serial_number, lock_level, is_scadamap, pavcat_id, hemisphere,
-			drainzone_outfall, dwfzone_outfall, dma_id, omunit_id, uuid, treatment_type, has_treatment, dataquality, dataquality_obs)
+			drainzone_outfall, dwfzone_outfall, dma_id, omunit_id, uuid, treatment_type, has_treatment, has_access, dataquality, dataquality_obs)
 			VALUES (NEW.node_id, NEW.code, NEW.sys_code, NEW.top_elev,NEW.custom_top_elev, NEW.ymax, NEW. elev, NEW. custom_elev, NEW.node_type,NEW.nodecat_id,NEW.epa_type,COALESCE(NEW.sector_id, 0),
 			NEW.state, NEW.state_type, NEW.annotation,NEW.observ, NEW.comment,COALESCE(NEW.omzone_id, 0),NEW.soilcat_id, NEW. function_type, NEW.category_type,COALESCE(NEW.fluid_type, 0),NEW.location_type,
 			NEW.workcat_id, NEW.workcat_id_end, NEW.workcat_id_plan,NEW.builtdate, NEW.enddate, NEW.ownercat_id, NEW.conserv_state,
@@ -630,7 +636,7 @@ BEGIN
 			COALESCE(NEW.expl_id, 0), NEW.publish, NEW.inventory, NEW.uncertain, NEW.xyz_date, NEW.unconnected, NEW.num_value,  NEW.updated_at, NEW.updated_by,NEW.matcat_id,
 			NEW.asset_id,  NEW.parent_id, NEW.arc_id, NEW.expl_visibility, NEW.adate, NEW.adescript, NEW.placement_type,
 			NEW.label_quadrant, NEW.access_type, NEW.brand_id, NEW.model_id, NEW.serial_number, NEW.lock_level, NEW.is_scadamap, NEW.pavcat_id, NEW.hemisphere,
-			NEW.drainzone_outfall, NEW.dwfzone_outfall, COALESCE(NEW.dma_id, 0), COALESCE(NEW.omunit_id, 0), NEW.uuid, COALESCE(NEW.treatment_type, 0), NEW.has_treatment, NEW.dataquality, NEW.dataquality_obs);
+			NEW.drainzone_outfall, NEW.dwfzone_outfall, COALESCE(NEW.dma_id, 0), COALESCE(NEW.omunit_id, 0), NEW.uuid, COALESCE(NEW.treatment_type, 0), NEW.has_treatment, NEW.has_access, NEW.dataquality, NEW.dataquality_obs);
 		END IF;
 
 		-- insert into node_add
@@ -932,7 +938,8 @@ BEGIN
 			asset_id=NEW.asset_id, parent_id=NEW.parent_id, arc_id = NEW.arc_id, expl_visibility=NEW.expl_visibility, adate=NEW.adate, adescript=NEW.adescript,
 			placement_type=NEW.placement_type, label_quadrant=NEW.label_quadrant,
 			access_type=NEW.access_type, brand_id=NEW.brand_id, model_id=NEW.model_id, serial_number=NEW.serial_number, lock_level=NEW.lock_level, is_scadamap=NEW.is_scadamap,
-			pavcat_id=NEW.pavcat_id, drainzone_outfall=NEW.drainzone_outfall, dwfzone_outfall=NEW.dwfzone_outfall, dma_id=NEW.dma_id, omunit_id=NEW.omunit_id, has_treatment=NEW.has_treatment, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
+			pavcat_id=NEW.pavcat_id, drainzone_outfall=NEW.drainzone_outfall, dwfzone_outfall=NEW.dwfzone_outfall, dma_id=NEW.dma_id, omunit_id=NEW.omunit_id, has_treatment=NEW.has_treatment,
+			has_access=NEW.has_access, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
 			WHERE node_id = OLD.node_id;
 		ELSE
 			UPDATE node
@@ -946,7 +953,8 @@ BEGIN
 			xyz_date=NEW.xyz_date, unconnected=NEW.unconnected, expl_id=NEW.expl_id, num_value=NEW.num_value, updated_at=now(), updated_by=current_user, matcat_id = NEW.matcat_id,
 			asset_id=NEW.asset_id, parent_id=NEW.parent_id, arc_id = NEW.arc_id, expl_visibility=NEW.expl_visibility, adate=NEW.adate, adescript=NEW.adescript,
 			placement_type=NEW.placement_type, label_quadrant=NEW.label_quadrant, access_type=NEW.access_type, brand_id=NEW.brand_id, model_id=NEW.model_id, serial_number=NEW.serial_number,
-			lock_level=NEW.lock_level, is_scadamap=NEW.is_scadamap, pavcat_id=NEW.pavcat_id, drainzone_outfall=NEW.drainzone_outfall, dwfzone_outfall=NEW.dwfzone_outfall, dma_id=NEW.dma_id, omunit_id=NEW.omunit_id, has_treatment=NEW.has_treatment, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
+			lock_level=NEW.lock_level, is_scadamap=NEW.is_scadamap, pavcat_id=NEW.pavcat_id, drainzone_outfall=NEW.drainzone_outfall, dwfzone_outfall=NEW.dwfzone_outfall, dma_id=NEW.dma_id, omunit_id=NEW.omunit_id, has_treatment=NEW.has_treatment,
+			has_access=NEW.has_access, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
 			WHERE node_id = OLD.node_id;
 		END IF;
 
@@ -997,7 +1005,7 @@ BEGIN
 			WHERE node_id=OLD.node_id;
 
 		ELSIF v_man_table='man_valve' THEN
-			UPDATE man_valve SET name=NEW.name, flowsetting=NEW.flowsetting
+			UPDATE man_valve SET name=NEW.name, flowsetting=NEW.flowsetting, turns_count=NEW.turns_count
 			WHERE node_id=OLD.node_id;
 
 		ELSIF v_man_table='man_chamber' THEN
@@ -1079,7 +1087,7 @@ BEGIN
 		FROM cat_feature WHERE id = '||quote_literal(new.node_type)||'
 		' INTO v_dist_ylab;
 
-		if new.label_x != old.label_x and new.label_y != old.label_y then
+		if new.label_x != old.label_x or new.label_y != old.label_y then
 
 			update node set label_x = new.label_x, label_y = new.label_y where node_id = new.node_id;
 
@@ -1212,9 +1220,6 @@ BEGIN
 					v_dist_xlab = v_dist_xlab * (-1);
 					v_dist_ylab = v_dist_ylab * (-1);
 				end if;
-
-				v_rot1=coalesce(v_rot1, 0);
-				v_rot2=coalesce(v_rot2, 0);
 
 				v_sql = '
 				with mec as (

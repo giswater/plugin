@@ -252,6 +252,7 @@ class GwDocument(QObject):
         table_name = "v_ui_doc_x_workcat"
 
         tools_qt.fill_table(self.dlg_add_doc.tbl_doc_x_workcat, table_name, expr_filter)
+        tools_gw.set_tablemodel_config(self.dlg_add_doc, self.dlg_add_doc.tbl_doc_x_workcat, table_name)
 
     def _insert_workcat(self, dialog):
         """Associate an existing workcat with the current document, ensuring no duplicates and clearing the input field"""
@@ -309,6 +310,7 @@ class GwDocument(QObject):
         table_name = "v_ui_doc_x_psector"
 
         tools_qt.fill_table(self.dlg_add_doc.tbl_doc_x_psector, table_name, expr_filter)
+        tools_gw.set_tablemodel_config(self.dlg_add_doc, self.dlg_add_doc.tbl_doc_x_psector, table_name)
 
     def _insert_psector(self, dialog):
         """Associate an existing psector with the current document, ensuring no duplicates and clearing the input field"""
@@ -387,6 +389,7 @@ class GwDocument(QObject):
         table_name = "v_ui_doc_x_visit"
 
         tools_qt.fill_table(self.dlg_add_doc.tbl_doc_x_visit, table_name, expr_filter)
+        tools_gw.set_tablemodel_config(self.dlg_add_doc, self.dlg_add_doc.tbl_doc_x_visit, table_name)
 
     def _insert_visit(self, dialog):
         """Associate an existing visit with the current document, ensuring no duplicates and clearing the input field"""
@@ -543,7 +546,7 @@ class GwDocument(QObject):
         """ Executes query and fill combo box """
 
         sql = ("SELECT id, idval"
-               " FROM edit_typevalue"
+               " FROM v_edit_typevalue"
                " WHERE typevalue = 'doc_type'"
                " ORDER BY id;")
         rows = tools_db.get_rows(sql)
@@ -576,10 +579,11 @@ class GwDocument(QObject):
         expr_filter = f"{feature_type}_id = '{feature_id}'"
 
         # Set model of selected widget
-        table_name = f"{self.schema_name}.ve_{feature_type}"
-        message = tools_qt.fill_table(widget, table_name, expr_filter)
+        table_name = f"ve_{feature_type}"
+        message = tools_qt.fill_table(widget, f"{self.schema_name}.{table_name}", expr_filter)
         if message:
             tools_qgis.show_warning(message)
+        tools_gw.set_tablemodel_config(dialog, widget, table_name)
 
     def _manage_document_accept(self, table_object, tablename=None, qtable=None, item_id=None, close_dlg=True):
         """ Insert or update table 'document'. Add document to selected feature """
@@ -731,6 +735,7 @@ class GwDocument(QObject):
             message = tools_qt.fill_table(qtable, f"{self.schema_name}.v_ui_doc_x_{tablename}", expr)
             if message:
                 tools_qgis.show_warning(message)
+            tools_gw.set_tablemodel_config(self.dlg_add_doc, qtable, f"v_ui_doc_x_{tablename}")
 
     def _get_associated_workcat_ids(self, doc_id=None):
         """Get workcat_ids linked to documento"""

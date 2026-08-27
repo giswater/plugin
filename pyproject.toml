@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "giswater-cli"
-version = "0.3.1"
+version = "0.4.4"
 description = "Headless CLI for Giswater database schema lifecycle (create, update, drop)"
 readme = "giswater_admin/README.md"
 requires-python = ">=3.9"
@@ -39,3 +39,8 @@ Documentation = "https://github.com/giswater/plugin/blob/main/giswater_admin/REA
 
 [tool.setuptools.packages.find]
 include = ["giswater_admin*"]
+
+[tool.pytest.ini_options]
+# Repo-root __init__.py is the QGIS plugin. importlib avoids extra package
+# walks; __init__.py also guards the qgis import for headless CLI CI.
+addopts = "--import-mode=importlib"

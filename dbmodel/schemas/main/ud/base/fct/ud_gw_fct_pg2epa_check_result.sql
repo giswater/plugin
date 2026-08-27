@@ -104,8 +104,8 @@ BEGIN
 	SELECT project_type, giswater  INTO v_project_type, v_version FROM sys_version ORDER BY id DESC LIMIT 1;
 
 	-- get user values
-	v_checkresult = (SELECT value::json->>'checkResult' FROM config_param_user WHERE parameter='inp_options_debug' AND cur_user=current_user)::boolean;
-	v_graphiclog = (SELECT (value::json->>'graphicLog') FROM config_param_user WHERE parameter='inp_options_debug' AND cur_user=current_user)::boolean;
+	v_checkresult = NULLIF((SELECT value::json->>'checkResult' FROM config_param_user WHERE parameter='inp_options_debug' AND cur_user=current_user), '')::boolean;
+	v_graphiclog = NULLIF((SELECT (value::json->>'graphicLog') FROM config_param_user WHERE parameter='inp_options_debug' AND cur_user=current_user), '')::boolean;
 	v_networkmode = (SELECT (value) FROM config_param_user WHERE parameter='inp_options_networkmode' AND cur_user=current_user)::integer;
 	v_setallraingages = (SELECT (value) FROM config_param_user WHERE parameter='inp_options_setallraingages' AND cur_user=current_user);
 
@@ -136,13 +136,13 @@ BEGIN
 	END IF;
 
 	-- get settings values
-	v_default = (SELECT value::json->>'status' FROM config_param_user WHERE parameter = 'inp_options_vdefault' AND cur_user=current_user);
+	v_default = NULLIF((SELECT value::json->>'status' FROM config_param_user WHERE parameter = 'inp_options_vdefault' AND cur_user=current_user), '')::boolean;
 	v_defaultval = (SELECT value::json->>'parameters' FROM config_param_user WHERE parameter = 'inp_options_vdefault' AND cur_user=current_user);
 
-	v_advanced = (SELECT value::json->>'status' FROM config_param_user WHERE parameter = 'inp_options_advancedsettings' AND cur_user=current_user);
+	v_advanced = NULLIF((SELECT value::json->>'status' FROM config_param_user WHERE parameter = 'inp_options_advancedsettings' AND cur_user=current_user), '')::boolean;
 	v_advancedval = (SELECT value::json->>'parameters' FROM config_param_user WHERE parameter = 'inp_options_advancedsettings' AND cur_user=current_user);
 
-	v_debug = (SELECT value::json->>'showLog' FROM config_param_user WHERE parameter = 'inp_options_debug' AND cur_user=current_user);
+	v_debug = NULLIF((SELECT value::json->>'showLog' FROM config_param_user WHERE parameter = 'inp_options_debug' AND cur_user=current_user), '')::boolean;
 	v_debugval = (SELECT value FROM config_param_user WHERE parameter = 'inp_options_debug' AND cur_user=current_user);
 
 	v_exportmodeval = (SELECT idval FROM config_param_user, inp_typevalue WHERE id = value AND typevalue = 'inp_options_networkmode' and cur_user = current_user and parameter = 'inp_options_networkmode');
@@ -208,7 +208,8 @@ BEGIN
 		WHERE project_type IN (LOWER('||quote_literal(v_project_type)||'), ''utils'') 
 		AND addparam IS NULL 
 		AND query_text IS NOT NULL 
-		AND function_name ILIKE ''%gw_fct_pg2epa_check_result%'' AND function_name NOT ILIKE ''%gw_fct_pg2epa_check_result_%''
+		AND function_name ILIKE ''%gw_fct_pg2epa_check_result%'' 
+		AND function_name NOT ILIKE ''%gw_fct_pg2epa_check_result\_%''
 		AND active ORDER BY fid ASC
 		';
 

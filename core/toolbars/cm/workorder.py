@@ -1,7 +1,7 @@
 from functools import partial
 
 from qgis.PyQt.QtCore import QDate
-from qgis.PyQt.QtWidgets import QMessageBox, QTableView, QLabel, QLineEdit, QComboBox, QDateEdit, \
+from qgis.PyQt.QtWidgets import QTableView, QLabel, QLineEdit, QComboBox, QDateEdit, \
                                 QWidget, QTextEdit, QCheckBox
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem
 
@@ -123,7 +123,7 @@ class Workorder:
             # On update, take the first selected row
             selected = self.manager_dialog.tbl_workorder.selectionModel().selectedRows()
             if not selected:
-                msg = tools_qt.tr("Please select a workorder to open.", context_name="cm")
+                msg = "Please select a workorder to open"
                 tools_qgis.show_warning(msg, dialog=self.manager_dialog)
                 return
             workorder_id = selected[0].data()
@@ -142,14 +142,14 @@ class Workorder:
             try:
                 body["feature"]["id"] = int(workorder_id)
             except (TypeError, ValueError):
-                msg = tools_qt.tr("Invalid workorder ID.", context_name="cm")
+                msg = "Invalid workorder ID"
                 tools_qgis.show_warning(msg, dialog=self.manager_dialog)
                 return
 
         p_data = tools_gw.create_body(body=body)
         res = tools_gw.execute_procedure('gw_fct_cm_getworkorder', p_data, schema_name='cm')
         if not res or res.get('status') != 'Accepted':
-            msg = tools_qt.tr("Failed to load workorder form.", context_name="cm")
+            msg = "Failed to load workorder form"
             tools_qgis.show_warning(msg)
             return
 
@@ -218,11 +218,9 @@ class Workorder:
 
         # 2) If any mandatory fields are missing, abort
         if missing:
-            QMessageBox.warning(
-                self.dialog,
-                tools_qt.tr("Missing Data", context_name="cm"),
-                tools_qt.tr("Please fill all mandatory fields (highlighted in red).", context_name="cm")
-            )
+            title = "Missing Data"
+            msg = "Please fill all mandatory fields (highlighted in red)."
+            tools_qt.show_warning_box(msg, title=title, parent=self.dialog)
             return False
 
         # 3) Convert empty strings to None so JSON nulls land in numeric/date cols
@@ -259,23 +257,22 @@ class Workorder:
             self.load_workorders_into_manager()
             return True
         else:
-            QMessageBox.critical(
-                self.dialog,
-                tools_qt.tr("Error", context_name="cm"),
-                tools_qt.tr("An error occurred saving the workorder.", context_name="cm")
-            )
+            title = "Error"
+            msg = "An error occurred saving the workorder."
+            tools_qt.show_warning_box(msg, title=title, parent=self.dialog)
             return False
 
     def delete_selected_workorder(self):
         """Delete selected workorder with confirmation"""
         sel = self.manager_dialog.tbl_workorder.selectionModel().selectedRows()
         if not sel:
-            msg = tools_qt.tr("Select a workorder to delete.", context_name="cm")
+            msg = "Select a workorder to delete"
             tools_qgis.show_warning(msg, dialog=self.manager_dialog)
             return
-        msg = tools_qt.tr("Are you sure you want to delete {0} workorder(s)?", context_name="cm")
+        msg = "Are you sure you want to delete {0} workorder(s)?"
         msg_params = (len(sel),)
-        if not tools_qt.show_question(msg, msg_params=msg_params, title=tools_qt.tr("Delete Workorder(s)", context_name="cm")):
+        title = "Delete Workorder(s)"
+        if not tools_qt.show_question(msg, msg_params=msg_params, title=title):
             return
 
         deleted = 0
@@ -287,7 +284,7 @@ class Workorder:
             sql = f"DELETE FROM cm.workorder WHERE workorder_id = {wid}"
             if tools_db.execute_sql(sql):
                 deleted += 1
-        msg = tools_qt.tr("{0} workorder(s) deleted.", context_name="cm")
+        msg = "{0} workorder(s) deleted."
         msg_params = (deleted,)
         tools_qgis.show_info(msg, msg_params=msg_params, dialog=self.manager_dialog)
         self.load_workorders_into_manager()

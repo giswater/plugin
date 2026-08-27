@@ -1,18 +1,46 @@
 name: "🖲️ i18n: Update i18n DB"
 
 on:
-  workflow_dispatch: # for testing
+  workflow_dispatch: # for testing, and for PR-merge retrigger on main
+    inputs:
+      source_event:
+        description: "Original trigger when chained after a merge (pull_request)"
+        required: false
+        default: ""
+        type: string
   schedule:
     - cron: "0 22 * * *"
   release:
     types: [published]
+  pull_request:
+    types: [closed]
+    branches:
+      - main
 
 permissions:
   contents: read
   actions: write
 
 jobs:
+  # pull_request runs are always labeled with the head branch in the Actions UI.
+  # Re-dispatch on main so the real i18n search appears on main, not the PR branch.
+  retrigger-on-main:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    name: Retrigger on main
+    steps:
+      - name: Dispatch this workflow on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh workflow run "i18n_update.yml" \
+            --repo "${{ github.repository }}" \
+            --ref main \
+            -f "source_event=pull_request"
+
   pgtap-main:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -29,34 +57,20 @@ jobs:
       GW_SCHEMA_DUMP: /workspace/dbmodel/gw-schema-pg${{ matrix.pg_version }}-${{ matrix.project }}.dump
 
     steps:
-      - name: Skip matrix cell (workflow_dispatch filter)
-        id: filter
-        run: |
-          active=true
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            req="${{ github.event.inputs.pg_version }}"
-            if [[ "${req}" != "all" && "${req}" != "${{ matrix.pg_version }}" ]]; then
-              active=false
-            fi
-          fi
-          echo "active=${active}" >> "${GITHUB_OUTPUT}"
-
       - name: Checkout repository
-        if: steps.filter.outputs.active == 'true'
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
 
       - name: Build Docker images
-        if: steps.filter.outputs.active == 'true'
         working-directory: dbmodel
         run: docker compose -f docker-compose.test.yml build --quiet postgres runner
 
       - name: Start Postgres
-        if: steps.filter.outputs.active == 'true'
         working-directory: dbmodel
         run: docker compose -f docker-compose.test.yml up -d postgres --wait
 
       - name: Bootstrap, dump, and pgTAP
-        if: steps.filter.outputs.active == 'true'
         working-directory: dbmodel
         run: |
           chmod +x test/*.sh ../scripts/gw_*.sh ../scripts/gw_bootstrap_network.sh ../scripts/verify_dbmodel_ci_checks.sh 2>/dev/null || chmod +x test/*.sh
@@ -64,7 +78,7 @@ jobs:
             bash /workspace/dbmodel/test/pgtap_main_inner.sh ${{ matrix.project }}
 
       - name: Upload schema dump artifact
-        if: steps.filter.outputs.active == 'true' && success()
+        if: success()
         uses: actions/upload-artifact@v7
         with:
           name: gw-schema-pg${{ matrix.pg_version }}-${{ matrix.project }}
@@ -72,11 +86,13 @@ jobs:
           retention-days: 2
 
       - name: Stop Postgres
-        if: always() && steps.filter.outputs.active == 'true'
+        if: always()
         working-directory: dbmodel
         run: docker compose -f docker-compose.test.yml down
-    
+
   run-i18n-searcher:
+    if: github.event_name != 'pull_request'
+    needs: pgtap-main
     runs-on: ubuntu-latest
     name: Run i18n searcher
     env:
@@ -113,8 +129,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: giswater/plugin
-          ref: ${{ github.event.inputs.ref || github.ref }}
+          ref: ${{ github.ref }}
           path: plugin
+          submodules: recursive
 
       - name: Bootstrap sample network (ws, ud) with language no_TR
         working-directory: plugin/dbmodel
@@ -166,7 +183,7 @@ jobs:
         run: docker compose -f docker-compose.test.yml down
 
   trigger-generate-i18n:
-    needs: run-i18n-searcher
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     name: Trigger Generate i18n
     steps:
@@ -175,12 +192,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          SOURCE_EVENT="${{ github.event_name }}"
+          SOURCE_EVENT="${{ github.event.inputs.source_event || github.event_name }}"
           PUBLISH_MODE="latest"
           VERSION=""
-          REF="${{ github.event.inputs.ref || github.ref }}"
+          REF="${{ github.ref }}"
+          WORKFLOW_REF="${{ github.ref_name }}"
 
-          if [ "$SOURCE_EVENT" = "release" ]; then
+          if [ "${{ github.event_name }}" = "release" ]; then
             PUBLISH_MODE="release"
             VERSION="${{ github.event.release.tag_name }}"
             VERSION="${VERSION#v}"
@@ -188,7 +206,7 @@ jobs:
 
           gh workflow run "i18n_generate.yml" \
             --repo "${{ github.repository }}" \
-            --ref "${{ github.ref_name }}" \
+            --ref "${WORKFLOW_REF}" \
             -f "source_event=${SOURCE_EVENT}" \
             -f "publish_mode=${PUBLISH_MODE}" \
             -f "ref=${REF}" \

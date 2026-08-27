@@ -585,15 +585,15 @@ BEGIN
 		    CASE WHEN inp_lid_value.value_3 = 0 THEN 0 ELSE inp_lid_value.value_3 END AS other2,
 		    CASE WHEN inp_lid_value.value_4 = 0 THEN 0 ELSE inp_lid_value.value_4 END AS other3,
 		    CASE WHEN inp_lid_value.value_5 = 0 THEN 0 ELSE inp_lid_value.value_5 END AS other4,
-		    CASE 
+		    CASE
 			    WHEN inp_lid_value.value_6 ~ '^[0-9]+(\.[0-9]+)?$' AND inp_lid_value.value_6::NUMERIC = 0 THEN '0'
 			    ELSE inp_lid_value.value_6::TEXT
 			END AS other5,
-			CASE 
+			CASE
 			    WHEN inp_lid_value.value_7 ~ '^[0-9]+(\.[0-9]+)?$' AND inp_lid_value.value_7::NUMERIC = 0 THEN '0'
 			    ELSE inp_lid_value.value_7::TEXT
 			END AS other6,
-			CASE 
+			CASE
 			    WHEN inp_lid_value.value_8 ~ '^[0-9]+(\.[0-9]+)?$' AND inp_lid_value.value_8::NUMERIC = 0 THEN '0'
 			    ELSE inp_lid_value.value_8::TEXT
 			END AS other7
@@ -1324,13 +1324,13 @@ BEGIN
 			SELECT v_fid,rpad(concat(';;',c1),20),rpad(c2,20),rpad(c3,20),rpad(c4,20),rpad(c5,20),rpad(c6,20),rpad(c7,20),rpad(c8,20),rpad(c9,20),rpad(c10,20),rpad(c11,20),rpad(c12,20)
 			,rpad(c13,20),rpad(c14,20),rpad(c15,20),rpad(c16,20),rpad(c17,20),rpad(c18,20),rpad(c19,20),rpad(c20,20),rpad(c21,20),rpad(c22,20),rpad(c23,20),rpad(c24,20),rpad(c25,20),rpad(c26,20)
 			,rpad(c27,20),rpad(c28,20),rpad(c29,20),rpad(c30,20)
-			FROM crosstab('SELECT table_name::text,  data_type::text, column_name::text FROM information_schema.columns WHERE table_name='''||rec_table.tablename||'''::text')
+			FROM crosstab('SELECT table_name::text,  data_type::text, column_name::text FROM information_schema.columns WHERE table_name='''||rec_table.tablename||'''::text AND column_name <> ''other''')
 			AS rpt(table_name text, c1 text, c2 text, c3 text, c4 text, c5 text, c6 text, c7 text, c8 text, c9 text, c10 text, c11 text, c12 text, c13 text, c14 text, c15 text,
 			c16 text, c17 text, c18 text, c19 text, c20 text, c21 text, c22 text, c23 text, c24 text, c25 text, c26 text, c27 text, c28 text, c29 text, c30 text);
 
 			INSERT INTO temp_t_csv (fid) VALUES (141) RETURNING id INTO id_last;
 
-			SELECT count(*)::text INTO num_column from information_schema.columns where table_name=rec_table.tablename;
+			SELECT count(*)::text INTO num_column from information_schema.columns where table_name=rec_table.tablename AND column_name <> 'other';
 
 			--add underlines
 			FOR num_col_rec IN 1..num_column
@@ -1357,6 +1357,42 @@ BEGIN
 				-- on the fly transformation of epsg
 				INSERT INTO temp_t_csv SELECT nextval('temp_csv_id_seq'::regclass), v_fid, current_user,'vi_t_symbols',
 				rg_id, ROUND(ST_x(ST_transform(the_geom, v_client_epsg))::numeric, 3), ROUND(ST_y(ST_transform(the_geom, v_client_epsg))::numeric, 3)  FROM vi_t_symbols;
+
+			WHEN rec_table.tablename = 'vi_t_junctions' THEN
+				-- comment on its own line, then object data (swmm_api compatible)
+				INSERT INTO temp_t_csv (id, fid, cur_user, source, csv1, csv2, csv3, csv4, csv5, csv6)
+				SELECT nextval('temp_csv_id_seq'::regclass), v_fid, current_user, 'vi_t_junctions',
+					v.csv1, v.csv2, v.csv3, v.csv4, v.csv5, v.csv6
+				FROM (
+					SELECT node_id::text AS ord, 1 AS step,
+						other AS csv1, NULL::text AS csv2, NULL::text AS csv3,
+						NULL::text AS csv4, NULL::text AS csv5, NULL::text AS csv6
+					FROM vi_t_junctions
+					UNION ALL
+					SELECT node_id::text AS ord, 2 AS step,
+						node_id::text, elev::text, ymax::text, y0::text, ysur::text, apond::text
+					FROM vi_t_junctions
+				) v
+				ORDER BY v.ord, v.step;
+
+			WHEN rec_table.tablename = 'vi_t_conduits' THEN
+				-- comment on its own line, then object data (swmm_api compatible)
+				INSERT INTO temp_t_csv (id, fid, cur_user, source, csv1, csv2, csv3, csv4, csv5, csv6, csv7, csv8, csv9)
+				SELECT nextval('temp_csv_id_seq'::regclass), v_fid, current_user, 'vi_t_conduits',
+					v.csv1, v.csv2, v.csv3, v.csv4, v.csv5, v.csv6, v.csv7, v.csv8, v.csv9
+				FROM (
+					SELECT arc_id::text AS ord, 1 AS step,
+						other AS csv1, NULL::text AS csv2, NULL::text AS csv3, NULL::text AS csv4,
+						NULL::text AS csv5, NULL::text AS csv6, NULL::text AS csv7, NULL::text AS csv8, NULL::text AS csv9
+					FROM vi_t_conduits
+					UNION ALL
+					SELECT arc_id::text AS ord, 2 AS step,
+						arc_id::text, node_1::text, node_2::text, length::text, n::text,
+						z1::text, z2::text, q0::text, qmax::text
+					FROM vi_t_conduits
+				) v
+				ORDER BY v.ord, v.step;
+
 			ELSE
 				EXECUTE 'INSERT INTO temp_t_csv SELECT nextval(''temp_csv_id_seq''::regclass),'||v_fid||',current_user,'''||rec_table.tablename::text||''',*  FROM '||rec_table.tablename||';';
 			END CASE;
@@ -1374,12 +1410,18 @@ BEGIN
 		union
 			select id, csv1 as text from temp_t_csv where fid  = 141 and cur_user = current_user and source in ('vi_t_transects','vi_t_controls','vi_t_rules', 'vi_t_hydrographs','vi_t_polygons')
 		union
-			select id, concat(rpad(csv1,20), ' ', rpad(coalesce(csv2,''),20), ' ', rpad(coalesce(csv3,''),20), ' ', rpad(coalesce(csv4,''),20), ' ', rpad(coalesce(csv5,''),20), ' ', rpad(coalesce(csv6,''),20), ' ', csv7) as text
-			from temp_t_csv where fid  = 141 and cur_user = current_user and source in ('vi_t_junctions')
+    		select id,
+    			CASE WHEN csv2 IS NULL THEN csv1
+    			ELSE concat(rpad(csv1,20), ' ', rpad(coalesce(csv2,''),20), ' ', rpad(coalesce(csv3,''),20), ' ', rpad(coalesce(csv4,''),20), ' ', rpad(coalesce(csv5,''),20), ' ', rpad(coalesce(csv6,''),20))
+    			END as text
+    		from temp_t_csv where fid  = 141 and cur_user = current_user and source in ('vi_t_junctions')
 		union
-			select id, concat(rpad(csv1,20), ' ', rpad(coalesce(csv2,''),20), ' ', rpad(coalesce(csv3,''),20), ' ', rpad(coalesce(csv4,''),20), ' ', rpad(coalesce(csv5,''),20), ' ', rpad(coalesce(csv6,''),20),
-			' ', rpad(coalesce(csv7,''),20) , ' ', rpad(coalesce(csv8,''),20), ' ', rpad(coalesce(csv8,''),20), ' ',
-			csv10) as text from temp_t_csv where fid  = 141 and cur_user = current_user and source in ('vi_t_conduits')
+    		select id,
+    			CASE WHEN csv2 IS NULL THEN csv1
+    			ELSE concat(rpad(csv1,20), ' ', rpad(coalesce(csv2,''),20), ' ', rpad(coalesce(csv3,''),20), ' ', rpad(coalesce(csv4,''),20), ' ', rpad(coalesce(csv5,''),20), ' ', rpad(coalesce(csv6,''),20),
+    			' ', rpad(coalesce(csv7,''),20), ' ', rpad(coalesce(csv8,''),20), ' ', rpad(coalesce(csv9,''),20))
+    			END as text
+    		from temp_t_csv where fid  = 141 and cur_user = current_user and source in ('vi_t_conduits')
 		union
 			select id, concat(rpad(csv1,20), ' ', csv2)as text from temp_t_csv where fid = 141 and cur_user = current_user and source in ('header', 'vi_t_evaporation','vi_t_temperature', 'vi_t_report', 'vi_t_map')
 		union

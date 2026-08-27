@@ -51,7 +51,8 @@ INSERT INTO cat_arc_shape (id, epa) VALUES
 ('CALAIX', 'RECT_CLOSED'),
 ('FORÇADA', 'FORCE_MAIN'),
 ('CIRCULAR', 'CIRCULAR'),
-('VIRTUAL', 'VIRTUAL')
+('VIRTUAL', 'VIRTUAL'),
+('PERSONALITZAT', 'CUSTOM')
 ON CONFLICT (id) DO UPDATE SET epa = EXCLUDED.epa;
 
 INSERT INTO cat_feature (id, feature_class, feature_type, active, parent_layer, child_layer) VALUES
@@ -80,7 +81,7 @@ INSERT INTO cat_feature (id, feature_class, feature_type, active, parent_layer, 
 ('EWEIR', 'FRELEM', 'ELEMENT', TRUE, 've_element', 've_element_eweir'),
 ('EORIFICE', 'FRELEM', 'ELEMENT', TRUE, 've_element', 've_element_eorifice'),
 ('EOUTLET', 'FRELEM', 'ELEMENT', TRUE, 've_element', 've_element_eoutlet')
-ON CONFLICT (id) DO UPDATE SET feature_class = EXCLUDED.feature_class, feature_type = EXCLUDED.feature_type, active = EXCLUDED.active;
+ON CONFLICT (id) DO UPDATE SET feature_class = EXCLUDED.feature_class, feature_type = EXCLUDED.feature_type, active = EXCLUDED.active, parent_layer = EXCLUDED.parent_layer, child_layer = EXCLUDED.child_layer;
 
 INSERT INTO cat_feature_node (id, epa_default, isarcdivide, graph_delimiter) VALUES
 ('ARQUETA', 'JUNCTION', TRUE, '{NONE}'),

@@ -24,7 +24,6 @@ from release_lib import (
     create_github_release,
     create_tag,
     ensure_clean,
-    ensure_dbmodel_ci_green,
     ensure_expected_branch,
     ensure_tag_available,
     ensure_ruff,
@@ -93,15 +92,12 @@ def prepare_initial_cli_release(args: argparse.Namespace, root: Path, version) -
 
     if not execute:
         print_initial_cli_commands(args, version, next_patch)
-        ensure_dbmodel_ci_green(root, execute=False, cli_release=True)
         if args.create_github_release:
             create_github_release(root, version=version, notes=release_body, execute=False)
         return
 
     git(root, "fetch", args.remote, "--tags", execute=True)
     ensure_tag_available(root, version.tag, resume=args.resume)
-
-    ensure_dbmodel_ci_green(root, execute=True, cli_release=True)
 
     create_tag(root, tag=version.tag, execute=True, resume=args.resume)
     git(root, "push", args.remote, "main", version.tag, execute=True)
@@ -175,7 +171,6 @@ def prepare_standard_cli_release(args: argparse.Namespace, root: Path, version) 
 
     if not execute:
         print_standard_cli_commands(args, version, next_patch)
-        ensure_dbmodel_ci_green(root, execute=False, cli_release=True)
         if args.create_github_release:
             create_github_release(root, version=version, notes=release_body, execute=False)
         return
@@ -190,8 +185,6 @@ def prepare_standard_cli_release(args: argparse.Namespace, root: Path, version) 
         paths=[changelog_path],
         message=f"chore(cli): release {version.text}",
     )
-
-    ensure_dbmodel_ci_green(root, execute=True, cli_release=True)
 
     create_tag(root, tag=version.tag, execute=True, resume=args.resume)
     git(root, "push", args.remote, "main", version.tag, execute=True)

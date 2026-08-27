@@ -24,7 +24,7 @@ SELECT columns_are(
         'dscenario_id', 'node_id', 'initlevel', 'minlevel', 'maxlevel', 'diameter',
         'minvol', 'curve_id', 'overflow', 'mixing_model', 'mixing_fraction', 'reaction_coeff',
         'init_quality', 'source_type', 'source_quality', 'source_pattern_id', 'head', 'pattern_id',
-        'demand', 'demand_pattern_id', 'emitter_coeff', 'the_geom'
+        'demand', 'demand_pattern_id', 'emitter_coeff', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_inlet should have the correct columns'
 );
@@ -52,6 +52,7 @@ SELECT col_type_is('ve_inp_dscenario_inlet', 'demand', 'numeric(12,6)', 'Column 
 SELECT col_type_is('ve_inp_dscenario_inlet', 'demand_pattern_id', 'varchar(16)', 'Column demand_pattern_id should be varchar(16)');
 SELECT col_type_is('ve_inp_dscenario_inlet', 'emitter_coeff', 'float8', 'Column emitter_coeff should be float8');
 SELECT col_type_is('ve_inp_dscenario_inlet', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_inlet', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

@@ -6,32 +6,12 @@ or (at your option) any later version.
 */
 
 --FUNCTION CODE: 3200
+-- No-op stub: denormalized arc node values are computed in ve_arc (JOIN).
+-- Kept so historical patches (e.g. 4/1/0) can CREATE TRIGGER; dropped in 4/17/0.
 
 CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_trg_arc_node_values() RETURNS trigger AS $BODY$
-DECLARE
-
-v_nodecat text;
-v_message text;
-
-
 BEGIN
-
-	EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
-
-	IF (SELECT value::boolean FROM config_param_user WHERE parameter = 'edit_disable_update_nodevalues' and cur_user = current_user) IS NOT FALSE THEN
-
-		UPDATE arc a SET nodetype_1 = node_type ,elevation1 = n.sys_top_elev, depth1 = n.depth, staticpressure1 = n.staticpressure
-		FROM ve_node n
-		WHERE a.arc_id = NEW.arc_id AND node_id = node_1;
-
-		UPDATE arc a SET nodetype_2 = node_type ,elevation2 = n.sys_top_elev, depth2 = n.depth, staticpressure2 = n.staticpressure
-		FROM ve_node n
-		WHERE a.arc_id = NEW.arc_id AND node_id = node_2;
-
-	END IF;
-
-RETURN NEW;
-
+	RETURN NEW;
 END;
 $BODY$
   LANGUAGE plpgsql VOLATILE

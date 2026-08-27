@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_dwf',
     ARRAY[
         'dwfscenario_id', 'node_id', 'value', 'pat1', 'pat2', 'pat3',
-        'pat4'
+        'pat4', 'p_state'
     ],
     'View ve_inp_dwf should have the correct columns'
 );
@@ -35,6 +35,7 @@ SELECT col_type_is('ve_inp_dwf', 'pat1', 'varchar(16)', 'Column pat1 should be v
 SELECT col_type_is('ve_inp_dwf', 'pat2', 'varchar(16)', 'Column pat2 should be varchar(16)');
 SELECT col_type_is('ve_inp_dwf', 'pat3', 'varchar(16)', 'Column pat3 should be varchar(16)');
 SELECT col_type_is('ve_inp_dwf', 'pat4', 'varchar(16)', 'Column pat4 should be varchar(16)');
+SELECT col_type_is('ve_inp_dwf', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

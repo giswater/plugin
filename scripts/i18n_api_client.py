@@ -10,6 +10,7 @@ Authentication matches scripts/i18n_export_zips.py::
 Configurable endpoints (defaults are placeholders until the API is deployed)::
 
   GET  /api/i18n/messages          (full baseline, no query params)
+  POST /api/i18n/clear_pending_detections  (body: {detected_version}; before cat_* uploads)
   POST /api/i18n/cat_changed_text
   POST /api/i18n/cat_delete_text
   POST /api/i18n/cat_new_text
@@ -26,9 +27,11 @@ import requests
 SIGN_IN_PATH = "/api/auth/sign-in/username"
 LOG_OUT_PATH = "/api/auth/log-out"
 DEFAULT_MESSAGES_PATH = "/api/i18n/messages"
+DEFAULT_CLEAR_PENDING_PATH = "/api/i18n/clear_pending_detections"
 DEFAULT_CHANGED_PATH = "/api/i18n/cat_changed_text"
 DEFAULT_DELETED_PATH = "/api/i18n/cat_delete_text"
 DEFAULT_NEW_PATH = "/api/i18n/cat_new_text"
+EXPECTED_CLEARED_KINDS = ("new", "changed", "deleted")
 
 DEFAULT_DETECTIONS_BATCH_SIZE = 1000
 
@@ -37,6 +40,8 @@ TABLE_SPECIFIC_PK_COLUMNS: dict[str, tuple[str, ...]] = {
     "dbconfig_form_fields": ("formname", "formtype", "tabname", "source"),
     "dbconfig_form_fields_feat": ("feature_type", "formtype", "tabname", "source"),
     "dbconfig_form_fields_json": ("formname", "formtype", "tabname", "source", "hint"),
+    "dbconfig_form_fields_query": ("formname", "formtype", "tabname", "source", "hint"),
+    "dbconfig_report_query": ("source", "hint"),
     "dbparam_user": ("source",),
     "dbconfig_param_system": ("source",),
     "dbconfig_typevalue": ("formname", "source"),
@@ -55,10 +60,20 @@ TABLE_SPECIFIC_PK_COLUMNS: dict[str, tuple[str, ...]] = {
     "dbconfig_visit_parameter": ("source",),
     "dbconfig_engine": ("parameter", "method"),
     "dbjson": ("source", "hint"),
-    "dbstyle": ("source", "layername"),
+    "dbstyle": ("source", "layername", "hint"),
     "pydialog": ("dialog_name", "toolbar_name", "source"),
     "pymessage": ("source",),
     "pytoolbar": ("source",),
+}
+
+# Non-PK, non-*_en_us baseline columns required for insert/export (POST extra_columns).
+TABLE_EXTRA_COLUMNS: dict[str, tuple[str, ...]] = {
+    "dbjson": ("text",),
+    "dbconfig_form_fields_json": ("text",),
+    "dbconfig_form_fields_query": ("text",),
+    "dbconfig_report_query": ("text",),
+    "dbconfig_form_fields_feat": ("formname",),
+    "dbstyle": ("org_text",),
 }
 
 
@@ -68,21 +83,24 @@ _PY_PRIMARY_KEY_COLUMNS: dict[str, tuple[str, ...]] = {
     "pytoolbar": ("source", "source_code"),
     "pydialog": ("dialog_name", "toolbar_name", "source", "project_type", "source_code"),
 }
-_PY_DEFAULT_PROJECT_TYPE = {
-    "pydialog": "utils",
-}
 
 
 def shared_pk_columns(table_name: str) -> tuple[str, ...]:
     return ("project_type", "context", "source_code")
 
 
-def normalize_pk_value(value: Any) -> str:
+def normalize_pk_value(value: Any, *, strip: bool = True) -> str:
     if value is None:
         return ""
     if isinstance(value, bool):
         return "true" if value else "false"
-    return str(value).strip()
+    text = str(value)
+    return text.strip() if strip else text
+
+
+def _preserve_source_whitespace(table_name: str, column: str) -> bool:
+    """pymessage/pytoolbar source is the literal Python string and may start with spaces."""
+    return table_name in ("pymessage", "pytoolbar") and column == "source"
 
 
 def catalog_primary_key_columns(table_name: str) -> tuple[str, ...]:
@@ -93,14 +111,97 @@ def catalog_primary_key_columns(table_name: str) -> tuple[str, ...]:
 
 
 def primary_keys_from_row(table_name: str, row: dict[str, Any]) -> dict[str, str]:
-    """Build the primary_keys object used for detection_key hashing."""
-    primary_keys = {
-        column: normalize_pk_value(row.get(column, ""))
+    """Build the primary_keys object used for detection_key hashing.
+
+    Values are taken from ``row`` as found. Callers that create *new* rows may
+    fill defaults before calling; deleted/changed rows must keep baseline PKs.
+    """
+    return {
+        column: normalize_pk_value(
+            row.get(column, ""),
+            strip=not _preserve_source_whitespace(table_name, column),
+        )
         for column in catalog_primary_key_columns(table_name)
     }
-    if table_name == "pydialog" and not primary_keys.get("project_type"):
-        primary_keys["project_type"] = _PY_DEFAULT_PROJECT_TYPE["pydialog"]
-    return primary_keys
+
+
+def _normalize_extra_column_value(value: Any) -> str | None:
+    """Normalize a scalar extra_columns value (stored as string or null)."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+    if isinstance(value, (int, float)):
+        return str(value)
+    return str(value)
+
+
+def extra_columns_from_row(
+    table_name: str,
+    row: dict[str, Any],
+    *,
+    kind: str,
+) -> dict[str, str | None]:
+    """Build extra_columns from declared table spec; empty dict when none declared."""
+    declared = TABLE_EXTRA_COLUMNS.get(table_name, ())
+    if not declared:
+        return {}
+    extra: dict[str, str | None] = {}
+    for column in declared:
+        if column in row:
+            extra[column] = _normalize_extra_column_value(row.get(column))
+        elif kind == "new":
+            extra[column] = _normalize_extra_column_value(None)
+    return extra
+
+
+def validate_detection_record(record: dict[str, Any], *, kind: str) -> None:
+    """Validate a detection record before POST (mirrors server extra_columns rules)."""
+    table_name = str(record.get("table_name", "") or "")
+    extra = record.get("extra_columns")
+    if extra is None:
+        extra = {}
+    if not isinstance(extra, dict):
+        raise ValueError(f"extra_columns must be a JSON object for table {table_name!r}")
+
+    declared = TABLE_EXTRA_COLUMNS.get(table_name, ())
+    pk_columns = set(catalog_primary_key_columns(table_name))
+
+    for key, value in extra.items():
+        if key.endswith("_en_us"):
+            raise ValueError(
+                f"extra_columns must not contain *_en_us key {key!r} on table {table_name!r}"
+            )
+        if key in pk_columns:
+            raise ValueError(
+                f"extra_columns must not contain PK column {key!r} on table {table_name!r}"
+            )
+        if declared and key not in declared:
+            raise ValueError(
+                f"unknown extra_columns key {key!r} for table {table_name!r}; "
+                f"allowed: {', '.join(declared)}"
+            )
+        if value is not None and not isinstance(value, (str, int, float, bool)):
+            raise ValueError(
+                f"extra_columns.{key} must be a scalar (string, number, boolean, or null)"
+            )
+
+    if kind == "new" and declared:
+        for column in declared:
+            if column not in extra:
+                raise ValueError(
+                    f"missing required extra_columns.{column} for new {table_name!r} detection"
+                )
+
+    if declared:
+        for column in declared:
+            if column in record and column not in pk_columns and not column.endswith("_en_us"):
+                raise ValueError(
+                    f"column {column!r} must be nested under extra_columns, not flat, "
+                    f"for table {table_name!r}"
+                )
 
 
 def resolve_setting(cli_value: str | None, env_name: str, default: str | None = None) -> str | None:
@@ -317,6 +418,42 @@ def fetch_i18n_messages(
     raise RuntimeError("Unexpected i18n messages payload: expected list or {rows|data|messages: [...]}")
 
 
+def clear_pending_detections(
+    api: TranslationsApiClient,
+    detected_version: str,
+    path: str = DEFAULT_CLEAR_PENDING_PATH,
+    *,
+    dry_run: bool = False,
+) -> list[str]:
+    """POST ``{detected_version}`` to clear pending new/changed/deleted detections.
+
+    Must run before ``cat_*_text`` uploads so prior pending rows do not linger.
+    """
+    if not detected_version:
+        raise ValueError("detected_version is required for clear_pending_detections")
+
+    body = {"detected_version": detected_version}
+    if dry_run:
+        print(f"DRY-RUN POST {path}: {body!r}")
+        return list(EXPECTED_CLEARED_KINDS)
+
+    url = api._url(path)
+    status, payload = api.post_json(path, body, with_status=True)
+    if status != 200 or not isinstance(payload, dict):
+        raise RuntimeError(
+            f"clear_pending_detections: POST {url} returned unexpected response "
+            f"(HTTP {status}): {payload!r}"
+        )
+    cleared = payload.get("cleared")
+    if cleared != list(EXPECTED_CLEARED_KINDS):
+        raise RuntimeError(
+            f"clear_pending_detections: POST {url} did not clear expected kinds "
+            f"{list(EXPECTED_CLEARED_KINDS)!r}; got {payload!r}"
+        )
+    print(f"POST {path}: HTTP {status} -> cleared={cleared}")
+    return list(cleared)
+
+
 def post_detection(
     api: TranslationsApiClient,
     path: str,
@@ -328,8 +465,20 @@ def post_detection(
     label = kind or path
     url = api._url(path)
     status, payload = api.post_json(path, {"records": records}, with_status=True)
+    if status == 204 or payload is None or payload == "":
+        return {
+            "kind": label,
+            "status": status,
+            "url": url,
+            "response": {"inserted": 0, "updated": 0, "errors": []},
+        }
     if not isinstance(payload, dict):
-        raise RuntimeError(f"{label}: unexpected response from {url}: {payload!r}")
+        return {
+            "kind": label,
+            "status": status,
+            "url": url,
+            "response": {"inserted": 0, "updated": 0, "errors": []},
+        }
     errors = payload.get("errors") or []
     if errors:
         raise RuntimeError(
@@ -348,6 +497,7 @@ def upload_detection_records(
     batch_size: int | None = None,
 ) -> int:
     if not records:
+        print("No records to upload")
         return 0
     if dry_run:
         print(f"DRY-RUN POST {path}: {len(records)} record(s)")
@@ -357,14 +507,16 @@ def upload_detection_records(
         batch_size = int(
             os.environ.get("I18N_DETECTIONS_BATCH_SIZE", str(DEFAULT_DETECTIONS_BATCH_SIZE))
         )
+        print(f"Batch size not set, using default: {batch_size}")
     batch_size = max(1, batch_size)
-
     total_inserted = 0
     total_updated = 0
     label = kind or path
     batch_count = (len(records) + batch_size - 1) // batch_size
     for batch_no, offset in enumerate(range(0, len(records), batch_size), start=1):
         chunk = records[offset: offset + batch_size]
+        for record in chunk:
+            validate_detection_record(record, kind=kind or "new")
         result = post_detection(api, path, chunk, kind=kind)
         response = result["response"]
         inserted = int(response.get("inserted") or 0)

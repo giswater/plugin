@@ -4,13 +4,14 @@
 # Usage:
 #   verify_dbmodel_ci_checks.sh --sha abc123
 #   verify_dbmodel_ci_checks.sh --tag v4.15.0 --wait
-#   verify_dbmodel_ci_checks.sh --tag cli-v0.2.0 --cli-release
+#
+# For plugin releases (vX.Y.Z) that ship dbmodel/. Not used for cli-v* PyPI
+# releases — the wheel does not include dbmodel/.
 #
 # Requires: gh (authenticated) or GITHUB_TOKEN + git for --tag resolution.
 set -euo pipefail
 
 REPO="${GITHUB_REPOSITORY:-giswater/plugin}"
-CLI_RELEASE=false
 WAIT=false
 TIMEOUT_SECONDS=1200
 POLL_SECONDS=15
@@ -18,7 +19,7 @@ SHA=""
 TAG=""
 
 usage() {
-  sed -n '2,8p' "$0"
+  sed -n '2,10p' "$0"
   exit 1
 }
 
@@ -26,7 +27,6 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --sha) SHA="${2:?}"; shift 2 ;;
     --tag) TAG="${2:?}"; shift 2 ;;
-    --cli-release) CLI_RELEASE=true; shift ;;
     --wait) WAIT=true; shift ;;
     --timeout-seconds) TIMEOUT_SECONDS="${2:?}"; shift 2 ;;
     --poll-seconds) POLL_SECONDS="${2:?}"; shift 2 ;;
@@ -57,21 +57,6 @@ if [[ -z "${SHA}" ]]; then
 fi
 
 echo "==> verify dbmodel CI checks on ${SHA} (repo ${REPO})"
-
-if [[ "${CLI_RELEASE}" == true ]]; then
-  prev_tag=""
-  if [[ -n "${TAG}" ]]; then
-    prev_tag="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
-    diff_end="${SHA}"
-  else
-    prev_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
-    diff_end="HEAD"
-  fi
-  if [[ -n "${prev_tag}" ]] && git diff --quiet "${prev_tag}" "${diff_end}" -- dbmodel/ 2>/dev/null; then
-    echo "dbmodel/ unchanged since ${prev_tag}; skipping dbmodel CI verify for CLI release"
-    exit 0
-  fi
-fi
 
 REQUIRED_CHECKS=(
   "pgTAP ws (PG 16)"

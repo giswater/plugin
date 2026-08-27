@@ -1,0 +1,11 @@
+- Keep `link.userdefined_geom` when provided on `ve_link` edit; set TRUE on INSERT or geom change.
+- Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
+- Add editable `userdefined_geom` checkbox to link info forms.
+- Add Arc widgets (arc_id, set to arc, expression) to Gully to network dialog (link_to_gully).
+- Add Force node checkbox and node picker (UD) to Connect / Gully to network dialogs; link with exit_type NODE.
+- Rename Connect / Gully to network dialog layouts (`lyt_link_configuration`, `lyt_feature_selection`, `lyt_arc_selection`, `lyt_node_selection`, `lyt_extra_filters`).
+- Add Extra filters layout on Connect / Gully to network dialogs (`extraFilters` on `gw_fct_linktonetwork`). Extra filters retarget an existing link only with Force reconnect.
+- Fix `gw_fct_linktonetwork` Force reconnect + Extra filters: rebuild link geometry from the connect, join `vf_arc`/`vf_node` inside KNN on `arc`/`node`, and log when no candidate is found.
+- Recreate `v_ui_rpt_cat_result` including `isvalidated`.
+- Drop denormalized node fields from `arc`; compute node attrs in `ve_arc` via JOIN; remove `gw_trg_arc_node_values`, retarget `gw_trg_autoupdate_arc_topology`, drop legacy `v_arc`/`vu_arc` views.
+- Use typeahead for Gully Id on Gully to network dialog (same as Connec Id).

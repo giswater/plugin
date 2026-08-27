@@ -13,9 +13,8 @@ from ....utils import tools_gw
 from .....libs import lib_vars, tools_db, tools_qgis, tools_qt
 from ..... import global_vars
 
-from qgis.PyQt.QtWidgets import QHeaderView, QTableView, QMenu, QAction, QPushButton
+from qgis.PyQt.QtWidgets import QHeaderView, QMenu, QAction, QPushButton
 from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtSql import QSqlTableModel
 from qgis.PyQt.QtGui import QCursor
 from qgis.core import Qgis
 
@@ -203,38 +202,28 @@ class GwStyleManager:
             filter_str += f"category = '{selected_stylegroup_name}'"
 
         model = self.style_mng_dlg.tbl_style.model()
+        if model is None:
+            return
         model.setFilter(filter_str)
         model.select()
 
     def _load_styles(self):
         """Loads styles into the table based on the selected style group."""
-        selected_stylegroup_name = self.style_mng_dlg.cmb_stylegroup.currentText()
+        tools_qt.fill_table(self.style_mng_dlg.tbl_style, 'v_ui_style')
 
-        # Prepare the SQL query to load data from the view
-        model = QSqlTableModel(db=lib_vars.qgis_db_credentials)
-        model.setTable(f"{lib_vars.schema_name}.v_ui_style")
-
-        if selected_stylegroup_name:
-            # Apply filter based on the selected style group
-            model.setFilter(f"category = '{selected_stylegroup_name}'")
-        model.select()
-
-        # Check for any errors
-        if model.lastError().isValid():
+        model = self.style_mng_dlg.tbl_style.model()
+        if model is not None and model.lastError().isValid():
             msg = "Database Error"
             param = model.lastError().text()
             tools_qgis.show_warning(msg, dialog=self.style_mng_dlg, parameter=param)
             return
 
-        self.style_mng_dlg.tbl_style.setModel(model)
-        model.setEditStrategy(QSqlTableModel.EditStrategy.OnManualSubmit)
-        self.style_mng_dlg.tbl_style.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
-        self.style_mng_dlg.tbl_style.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
-
-        # Customize table view
-        header = self.style_mng_dlg.tbl_style.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        header.setStretchLastSection(True)
+        tools_gw.set_tablemodel_config(self.style_mng_dlg, self.style_mng_dlg.tbl_style, 'v_ui_style')
+        tools_qt.set_tableview_config(
+            self.style_mng_dlg.tbl_style,
+            section_resize_mode=QHeaderView.ResizeMode.Interactive,
+        )
+        self._filter_styles()
 
     def _check_style_exists(self, dialog_create):
         feature_id_text = dialog_create.feature_id.text().strip()
@@ -397,13 +386,16 @@ class GwStyleManager:
             return
 
         try:
+            model = self.style_mng_dlg.tbl_style.model()
+            layername_col = tools_qt.get_col_index_by_col_name(self.style_mng_dlg.tbl_style, 'layername')
+            category_col = tools_qt.get_col_index_by_col_name(self.style_mng_dlg.tbl_style, 'category')
+            if layername_col is None or category_col is None:
+                return
+
             for index in selected_rows:
                 row = index.row()
-                layername_index = self.style_mng_dlg.tbl_style.model().index(row, 0)
-                idval_index = self.style_mng_dlg.tbl_style.model().index(row, 1)
-
-                layername = self.style_mng_dlg.tbl_style.model().data(layername_index)
-                idval = self.style_mng_dlg.tbl_style.model().data(idval_index)
+                layername = model.data(model.index(row, layername_col))
+                idval = model.data(model.index(row, category_col))
 
                 sql_get_id = (
                     f"SELECT id FROM {lib_vars.schema_name}.config_style "
@@ -419,9 +411,9 @@ class GwStyleManager:
 
                 styleconfig_id = row_result[0]
 
-                # Delete the selected row from sys_style using the retrieved numeric `styleconfig_id`
+                # Delete the selected row from v_sys_style using the retrieved numeric `styleconfig_id`
                 sql_delete_style = (
-                    f"DELETE FROM {lib_vars.schema_name}.sys_style "
+                    f"DELETE FROM {lib_vars.schema_name}.v_sys_style "
                     f"WHERE layername = '{layername}' AND styleconfig_id = {styleconfig_id};"
                 )
                 tools_db.execute_sql(sql_delete_style)
@@ -527,7 +519,7 @@ class GwStyleManager:
             new_styleconfig_id = row_result[0]
             sql_check_exists = (
                 f"SELECT COUNT(*) "
-                f"FROM {lib_vars.schema_name}.sys_style "
+                f"FROM {lib_vars.schema_name}.v_sys_style "
                 f"WHERE layername = '{table_name}' AND styleconfig_id = {new_styleconfig_id};"
             )
             style_exists = tools_db.get_row(sql_check_exists)[0] > 0
@@ -540,7 +532,7 @@ class GwStyleManager:
 
             sql_gw_basic = (
                 f"SELECT styletype, stylevalue, active "
-                f"FROM {lib_vars.schema_name}.sys_style "
+                f"FROM {lib_vars.schema_name}.v_sys_style "
                 f"WHERE layername = '{table_name}' AND styleconfig_id = ("
                 f"SELECT id FROM {lib_vars.schema_name}.config_style WHERE idval = 'GwBasic'"
                 f");"
@@ -556,7 +548,7 @@ class GwStyleManager:
                 active = True
 
             sql_insert_style = (
-                f"INSERT INTO {lib_vars.schema_name}.sys_style "
+                f"INSERT INTO {lib_vars.schema_name}.v_sys_style "
                 f"(layername, styleconfig_id, styletype, stylevalue, active) "
                 f"VALUES ('{table_name}', {new_styleconfig_id}, '{styletype}', '{stylevalue_clean}', {active});"
             )
@@ -587,12 +579,15 @@ class GwStyleManager:
             return
 
         try:
-            for index in selected_rows:
-                layername_index = self.style_mng_dlg.tbl_style.model().index(index.row(), 0)
-                idval_index = self.style_mng_dlg.tbl_style.model().index(index.row(), 1)
+            model = self.style_mng_dlg.tbl_style.model()
+            layername_col = tools_qt.get_col_index_by_col_name(self.style_mng_dlg.tbl_style, 'layername')
+            category_col = tools_qt.get_col_index_by_col_name(self.style_mng_dlg.tbl_style, 'category')
+            if layername_col is None or category_col is None:
+                return
 
-                layername = self.style_mng_dlg.tbl_style.model().data(layername_index)
-                idval = self.style_mng_dlg.tbl_style.model().data(idval_index)
+            for index in selected_rows:
+                layername = model.data(model.index(index.row(), layername_col))
+                idval = model.data(model.index(index.row(), category_col))
 
                 msg = ("Are you sure you want to update the style of {0} ({1}) with the symbology"
                         " of the layer in the project? \nYou are going to lose previous information!")

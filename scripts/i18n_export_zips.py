@@ -168,7 +168,7 @@ def main() -> int:
             if downloaded:
                 print(f"Downloaded {len(downloaded)} ZIP file(s) to {output_dir.resolve()}")
 
-            if failures:
+            if failures > 0:
                 print(f"Failed to export {failures} language(s).", file=sys.stderr)
                 return 1
 

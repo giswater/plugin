@@ -125,7 +125,7 @@ BEGIN
 
 	RETURN gw_fct_json_create_return(('{"status":"Accepted", "message":{"level":1, "text":"Network JSON graph successfully created"}, "version":""'||
 				',"body":{"form":{}'||
-				',"data":{  "info":'||v_result_info||', "result":'||v_json_result_return||'}}'||
+				',"data":{  "info":'||v_result_info||'}}'||
 			'}')::json, 3546, null, null, null);
 
 EXCEPTION WHEN OTHERS THEN

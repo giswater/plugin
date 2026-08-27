@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'dscenario_id', 'element_id', 'node_id', 'weir_type', 'offsetval', 'cd',
         'ec', 'cd2', 'flap', 'geom1', 'geom2', 'geom3',
-        'geom4', 'surcharge', 'road_width', 'road_surf', 'coef_curve', 'the_geom'
+        'geom4', 'surcharge', 'road_width', 'road_surf', 'coef_curve', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_frweir should have the correct columns'
 );
@@ -47,6 +47,7 @@ SELECT col_type_is('ve_inp_dscenario_frweir', 'road_width', 'float8', 'Column ro
 SELECT col_type_is('ve_inp_dscenario_frweir', 'road_surf', 'varchar(16)', 'Column road_surf should be varchar(16)');
 SELECT col_type_is('ve_inp_dscenario_frweir', 'coef_curve', 'float8', 'Column coef_curve should be float8');
 SELECT col_type_is('ve_inp_dscenario_frweir', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_frweir', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

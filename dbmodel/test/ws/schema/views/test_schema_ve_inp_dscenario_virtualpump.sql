@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_dscenario_virtualpump',
     ARRAY[
         'dscenario_id', 'arc_id', 'power', 'curve_id', 'speed', 'pattern_id',
-        'status', 'pump_type', 'effic_curve_id', 'energy_price', 'energy_pattern_id', 'the_geom'
+        'status', 'pump_type', 'effic_curve_id', 'energy_price', 'energy_pattern_id', 'the_geom', 'observ'
     ],
     'View ve_inp_dscenario_virtualpump should have the correct columns'
 );
@@ -40,6 +40,7 @@ SELECT col_type_is('ve_inp_dscenario_virtualpump', 'effic_curve_id', 'varchar(18
 SELECT col_type_is('ve_inp_dscenario_virtualpump', 'energy_price', 'float8', 'Column energy_price should be float8');
 SELECT col_type_is('ve_inp_dscenario_virtualpump', 'energy_pattern_id', 'varchar(18)', 'Column energy_pattern_id should be varchar(18)');
 SELECT col_type_is('ve_inp_dscenario_virtualpump', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_dscenario_virtualpump', 'observ', 'text', 'Column observ should be text');
 
 SELECT * FROM finish();
 

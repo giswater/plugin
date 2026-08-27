@@ -35,7 +35,7 @@ BEGIN
     -- Check if result_ids is NULL or has an invalid value
     IF result_ids IS NULL OR array_length(result_ids, 1) IS NULL THEN
         RETURN gw_fct_json_create_return(
-            '{"status":"Failed", "message":{"level":3, "text":"Invalid input"}}'::json, 2218, null, null, null
+            '{"status":"Failed", "message":{"level":3, "text":"Invalid input"}}'::json, 3310, null, null, null
         );
     END IF;
 
@@ -68,7 +68,7 @@ BEGIN
         '"point":' || COALESCE(v_node::text, '{"type":"FeatureCollection","features":[]}') || ',' ||
         '"line":' || COALESCE(v_result_line::text, '{"type":"FeatureCollection","features":[]}') || ',' ||
         '"polygon":' || COALESCE(v_result_polygon::text, '{"type":"FeatureCollection","features":[]}') || '}}}'
-        )::json, 2218, null, null, null
+        )::json, 3310, null, null, null
     );
 
 EXCEPTION
@@ -80,7 +80,7 @@ EXCEPTION
                     'level', 3,
                     'text', replace(SQLERRM, '"', '\"')
                 )
-            ), 2218, null, null, null
+            ), 3310, null, null, null
         );
 END;
 $function$;

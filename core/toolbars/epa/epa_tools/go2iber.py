@@ -103,7 +103,7 @@ class Go2Iber:
         mesh = tools_qt.get_combo_value(self.dlg_go2iber, 'cmb_mesh', 1)
         if mesh is None or mesh == "" or mesh == -1:
             msg = "You need to have a mesh"
-            tools_qt.show_warning(msg)
+            tools_qgis.show_warning(msg)
             return
 
         # Save user values
@@ -218,7 +218,9 @@ class Go2Iber:
 
         tf = time()  # Final time
         td = tf - self.t0  # Delta time
-        self._update_time_elapsed(f"Exec. time: {timedelta(seconds=round(td))}", dialog)
+        msg = "Exec. time: {0}"
+        msg_params = (timedelta(seconds=round(td)),)
+        self._update_time_elapsed(tools_qt.tr(msg, list_params=msg_params), dialog)
 
     def _update_time_elapsed(self, text, dialog):
 
@@ -250,8 +252,9 @@ class Go2Iber:
                 qml_name = layer_name + '.qml'
                 qml_path = f"{plugin_folder}{os.sep}resources{os.sep}templates{os.sep}{qml_name}"
                 if not os.path.exists(qml_path):
-                    msg = f"QML file {qml_path} not found"
-                    tools_qgis.show_warning(msg)
+                    msg = "QML file {0} not found"
+                    msg_params = (qml_path,)
+                    tools_qgis.show_warning(msg, msg_params=msg_params)
                 else:
                     layer.loadNamedStyle(qml_path)
                 tools_qgis.add_layer_to_toc(layer, group=f'IBERGIS - {os.path.basename(file_path)}', sub_group=group_name, create_groups=True, custom_properties={"gw_id": layer_name})

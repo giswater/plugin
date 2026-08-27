@@ -40,6 +40,8 @@ v_expl_id text;
 v_action TEXT;
 v_object_1 integer;
 v_object_2 integer;
+v_edge_id integer;
+v_edge_filter text;
 
 -- Vars
 rec record;
@@ -67,8 +69,17 @@ BEGIN
 	v_action := COALESCE(p_data ->'data'->'parameters'->>'action', p_data ->'data'->>'action');
 	v_object_1 := COALESCE((p_data ->'data'->'parameters'->>'object_1')::integer, (p_data ->'data'->>'object_1')::integer);
 	v_object_2 := COALESCE((p_data ->'data'->'parameters'->>'object_2')::integer, (p_data ->'data'->>'object_2')::integer);
+	v_edge_id := COALESCE((p_data ->'data'->'parameters'->>'edgeId')::integer, (p_data ->'data'->>'edgeId')::integer);
 
-	-- expl_id optional: resolve from om_scada_graph edge (trigger sets expl_1/expl_2 on insert)
+	IF v_edge_id IS NULL AND v_object_1 IS NOT NULL AND v_object_2 IS NOT NULL THEN
+		SELECT edge_id INTO v_edge_id
+		FROM om_scada_graph
+		WHERE object_1 = v_object_1 AND object_2 = v_object_2
+		ORDER BY edge_id DESC LIMIT 1;
+	END IF;
+
+	v_edge_filter := CASE WHEN v_edge_id IS NOT NULL THEN format(' AND a.edge_id = %s', v_edge_id) ELSE '' END;
+
 	IF v_expl_id IS NULL AND v_object_1 IS NOT NULL AND v_object_2 IS NOT NULL THEN
 		SELECT COALESCE(expl_1, expl_2)::text INTO v_expl_id
 		FROM om_scada_graph
@@ -86,7 +97,8 @@ BEGIN
 	CREATE TEMP TABLE IF NOT EXISTS temp_anl_node (LIKE SCHEMA_NAME.anl_node INCLUDING ALL);
 	CREATE TEMP TABLE IF NOT EXISTS temp_audit_check_data (LIKE SCHEMA_NAME.audit_check_data INCLUDING ALL);
 
-	CREATE TEMP TABLE IF NOT EXISTS v_om_scada_graph AS
+	DROP TABLE IF EXISTS v_om_scada_graph;
+	CREATE TEMP TABLE v_om_scada_graph AS
 	WITH mec AS (
 			SELECT a_1.edge_id,
 				a_1.order_id,
@@ -105,6 +117,7 @@ BEGIN
 			FROM om_scada_graph a_1
 				LEFT JOIN node b_1 ON a_1.object_1 = b_1.node_id::integer
 				LEFT JOIN node c_1 ON a_1.object_2 = c_1.node_id::integer
+			WHERE v_edge_id IS NULL OR a_1.edge_id = v_edge_id
 			)
 	SELECT a.edge_id,
 		a.order_id,
@@ -128,15 +141,21 @@ BEGIN
 		LEFT JOIN dma e ON a.dma_id_1 = e.dma_id
 		LEFT JOIN dma f ON a.dma_id_2 = f.dma_id;
 
+	-- Quality scans are for action=check only. action=fix must not pay for
+	-- full-network orphan queries (node_1/node_2 UNION ALL FROM arc).
+	IF v_action IS DISTINCT FROM 'fix' THEN
+
+	DROP TABLE IF EXISTS temp_om_scada_graph;
 	EXECUTE '
-	CREATE TEMP TABLE IF NOT EXISTS temp_om_scada_graph AS 
+	CREATE TEMP TABLE temp_om_scada_graph AS 
 	SELECT a.edge_id, a.the_geom, b.the_geom AS geom_1, c.the_geom AS geom_2,
 	a.object_1, a.objecttype_1, b.state AS state_1, a.expl_1, 
 	a.object_2, a.objecttype_2, c.state AS state_2, a.expl_2
 	FROM om_scada_graph a
 	LEFT JOIN node b ON a.object_1 = b.node_id::int
 	LEFT JOIN node c ON a.object_2 = c.node_id::int
-	WHERE b.expl_id IN ('||v_expl_id||') OR c.expl_id IN ('||v_expl_id||')';
+	WHERE (b.expl_id IN ('||v_expl_id||') OR c.expl_id IN ('||v_expl_id||'))'
+	|| v_edge_filter;
 
 
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (1, null, 4, concat('CHECK DATA QUALITY - OM_SCADA_GRAPH'));
@@ -163,15 +182,6 @@ BEGIN
 	
 
 	raise notice '2 - object_1 and object_2 must not be orphan nodes';
-/*
-	INSERT INTO temp_anl_node (fid, result_id, node_id, nodecat_id, state, expl_id, arc_id, the_geom, descript)
-	SELECT v_fid, '2', object_1, objecttype_1, state_1, expl_1, edge_id, geom_1, 
-	concat('Object_1 from edge_id ', edge_id, ' is orphan.') 
-	FROM temp_om_scada_graph a 
-	WHERE object_1::text NOT IN (
-		SELECT node_1 FROM arc UNION ALL SELECT node_2 FROM arc
-	);
-*/
 	execute 'INSERT INTO temp_anl_node (fid, result_id, node_id, nodecat_id, state, expl_id, arc_id, the_geom,descript)
 	WITH temp_om_scada_graph AS (
 	SELECT a.edge_id, a.the_geom, b.the_geom AS geom_1, c.the_geom AS geom_2,
@@ -180,7 +190,8 @@ BEGIN
 	FROM om_scada_graph a
 	LEFT JOIN node b ON a.object_1 = b.node_id::int
 	LEFT JOIN node c ON a.object_2 = c.node_id::int
-	WHERE b.expl_id IN ('||v_expl_id||') OR c.expl_id IN ('||v_expl_id||')
+	WHERE (b.expl_id IN ('||v_expl_id||') OR c.expl_id IN ('||v_expl_id||'))'
+	|| v_edge_filter || '
 	), mec AS (
 		SELECT * FROM temp_om_scada_graph a WHERE object_1 IN (SELECT node_1 FROM arc UNION ALL SELECT node_2 FROM arc)
 	)
@@ -188,16 +199,6 @@ BEGIN
 	concat(''Object_1 from edge_id '', edge_id, '' is orphan.'') FROM temp_om_scada_graph 
 	WHERE object_1 NOT IN (SELECT object_1 FROM mec)';
 
-
-/*
-	INSERT INTO temp_anl_node (fid, result_id, node_id, nodecat_id, state, expl_id, arc_id, the_geom,descript)
-	SELECT v_fid, '2', object_2, objecttype_2, state_2, expl_2, edge_id, geom_2, 
-	concat('Object_2 from edge_id ', edge_id, ' is orphan.') 
-	FROM temp_om_scada_graph a
-	WHERE a.object_2::text NOT IN (
-		SELECT node_1 FROM arc UNION ALL SELECT node_2 FROM arc
-	);
-*/
 	execute 'INSERT INTO temp_anl_node (fid, result_id, node_id, nodecat_id, state, expl_id, arc_id, the_geom,descript)
 	WITH temp_om_scada_graph AS (
 	SELECT a.edge_id, a.the_geom, b.the_geom AS geom_1, c.the_geom AS geom_2,
@@ -206,7 +207,8 @@ BEGIN
 	FROM om_scada_graph a
 	LEFT JOIN node b ON a.object_1 = b.node_id::int
 	LEFT JOIN node c ON a.object_2 = c.node_id::int
-	WHERE b.expl_id IN ('||v_expl_id||') OR c.expl_id IN ('||v_expl_id||')
+	WHERE (b.expl_id IN ('||v_expl_id||') OR c.expl_id IN ('||v_expl_id||'))'
+	|| v_edge_filter || '
 	), mec AS (
 		SELECT * FROM temp_om_scada_graph a WHERE object_2 IN (SELECT node_1 FROM arc UNION ALL SELECT node_2 FROM arc)
 	)
@@ -222,6 +224,8 @@ BEGIN
 	SELECT concat('The edge_id ', edge_id, ' has at least 1 object_id missing in table of nodes') FROM temp_om_scada_graph 
 	WHERE object_1 NOT IN (SELECT node_id FROM node)
 	OR object_2 NOT IN (SELECT node_id FROM node);
+
+	END IF;
 
 	
 
@@ -243,13 +247,12 @@ BEGIN
 	ELSIF v_action = 'fix' THEN -- update attrib.om_scada_graph AND ALL obsolete attrs
 	
 		FOR rec IN EXECUTE '
-		SELECT edge_id, object_1, object_2, expl_1, expl_2 FROM om_scada_graph
-		WHERE (expl_1 IN ('||v_expl_id||') OR expl_2 IN ('||v_expl_id||'))
+		SELECT edge_id, object_1, object_2, expl_1, expl_2 FROM om_scada_graph a
+		WHERE (expl_1 IN ('||v_expl_id||') OR expl_2 IN ('||v_expl_id||'))'
+		|| v_edge_filter || '
 		ORDER BY edge_id asc'
 		LOOP
-	
-			RAISE NOTICE '%', rec.edge_id;
-			
+
 			EXECUTE format(
 			'SELECT json_build_object(
 				''arcs'', json_agg(edge)
@@ -296,10 +299,11 @@ BEGIN
 			FROM mic
 
 		LOOP
-			
-			RAISE NOTICE '%', rec;
-		
+
 			v_sql = 'UPDATE om_scada_graph t SET '||rec.om_column||' = a.'||rec.column_name||' FROM '||rec.man_addf_table||' a WHERE a.node_id::int = t.object_'||rec.serie||' and a.'||rec.column_name||' is not null';
+			IF v_edge_id IS NOT NULL THEN
+				v_sql := v_sql || format(' AND t.edge_id = %s', v_edge_id);
+			END IF;
 			EXECUTE v_sql;	
 	
 		END LOOP;
@@ -316,6 +320,7 @@ BEGIN
 								        ('object_2', g.object_2, 'objecttype_2', g.objecttype_2, 'object_name_2', g.object_name_2)
 								) AS v(object_id_col, object_id_val, object_type_col, object_type_val, object_name_col, object_name)
 				LEFT JOIN cat_feature b ON v.object_type_val = b.id
+				WHERE v_edge_id IS NULL OR g.edge_id = v_edge_id
 			)
 			SELECT DISTINCT sys_man_table, concat('object_name_', serie) AS object_name_col, serie FROM mec 
 			CROSS JOIN generate_series(1, 2) AS serie
@@ -326,6 +331,9 @@ BEGIN
 		LOOP
 			
 			v_sql = 'UPDATE om_scada_graph t SET '||rec.object_name_col||' = a.name from '||rec.sys_man_table||' a where a.node_id::int = t.object_'||rec.serie||' and a.name is not null';
+			IF v_edge_id IS NOT NULL THEN
+				v_sql := v_sql || format(' AND t.edge_id = %s', v_edge_id);
+			END IF;
 		
 			EXECUTE v_sql;
 			

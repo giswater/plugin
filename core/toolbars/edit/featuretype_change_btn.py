@@ -178,8 +178,7 @@ class GwFeatureTypeChangeButton(GwMaptool):
 
         layout_orientations = {}
         old_widget_pos = 0
-        # Define a fixed width for labels to ensure alignment
-        label_fixed_width = 100
+        fields_widgets = []
 
         # Retrieve layout orientations from the JSON response if provided
         for layout_name, layout_info in complet_result['body']['form']['layouts'].items():
@@ -187,7 +186,7 @@ class GwFeatureTypeChangeButton(GwMaptool):
             if orientation:
                 layout_orientations[layout_name] = orientation
 
-        # Loop through fields to add them to the appropriate layout
+        # Create widgets first so label width can fit the longest translated text
         for field in complet_result['body']['data']['fields']:
             # Skip hidden fields based on conditions
             if field.get('hidden'):
@@ -198,8 +197,16 @@ class GwFeatureTypeChangeButton(GwMaptool):
             if widget is None:
                 continue
 
-            # Check if the label is valid before applying size adjustments
+            fields_widgets.append((field, label, widget))
+
+        label_fixed_width = 0
+        for _, label, _ in fields_widgets:
             if label is not None:
+                label_fixed_width = max(label_fixed_width, label.sizeHint().width())
+
+        for field, label, widget in fields_widgets:
+            if label is not None and label_fixed_width:
+                # Check if the label is valid before applying size adjustments
                 label.setFixedWidth(label_fixed_width)
 
             # Find the layout for the current field based on layoutname
@@ -325,7 +332,7 @@ def btn_accept_featuretype_change(**kwargs):
             if "Accepted" in complet_result['status']:
                 msg = complet_result['message']['text']
                 if msg is None:
-                    msg = tools_qt.tr('Replace feature done successfully')
+                    msg = 'Replace feature done successfully'
                 tools_qgis.show_info(msg)
             elif "Failed" in complet_result['status']:
                 return

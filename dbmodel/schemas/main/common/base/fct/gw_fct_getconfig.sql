@@ -97,7 +97,7 @@ BEGIN
 
 	-- basic_tab
 	-------------------------
-	SELECT * INTO rec_tab FROM config_form_tabs WHERE formname='config' AND tabname='tab_user';
+	SELECT * INTO rec_tab FROM v_config_form_tabs WHERE formname='config' AND tabname='tab_user';
 	IF rec_tab.tabname IS NOT NULL THEN
 
 		-- Get all parameters from audit_cat param_user
@@ -111,12 +111,13 @@ BEGIN
 					isparent, sys_role, project_type, widgetcontrols::text,
 					(CASE WHEN value IS NOT NULL AND value != ''false'' THEN True ELSE False END) AS checked, placeholder, descript AS tooltip, 
 					dv_parent_id, dv_querytext, dv_querytext_filterc, dv_orderby_id, dv_isnullvalue	
-					FROM sys_param_user 
+					FROM v_sys_param_user AS sys_param_user 
 					LEFT JOIN (SELECT * FROM config_param_user WHERE cur_user=current_user) a ON a.parameter=sys_param_user.id 
 					WHERE sys_role IN (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
 					AND formname =',quote_literal(lower(v_formname)),'
 					AND (project_type =''utils'' or project_type=',quote_literal(lower(v_project_type)),')
 					AND isenabled IS TRUE
+					AND (sys_param_user.id <> ''multilang_language'' OR to_regclass(''multilang.cat_language'') IS NOT NULL)
 					AND sys_param_user.id NOT LIKE ''feat_%''
 					UNION
 				SELECT label, sys_param_user.id as widgetname, value , datatype, widgettype, layoutorder, layoutname,
@@ -124,7 +125,7 @@ BEGIN
 					isparent, sys_role, project_type, widgetcontrols::text,
 					(CASE WHEN value IS NOT NULL AND value != ''false'' THEN True ELSE False END) AS checked, placeholder, sys_param_user.descript AS tooltip, 
 					dv_parent_id, dv_querytext, dv_querytext_filterc, dv_orderby_id, dv_isnullvalue	
-					FROM sys_param_user 
+					FROM v_sys_param_user AS sys_param_user 
 					JOIN cat_feature ON concat(''feat_'', lower(cat_feature.id),''_vdefault'') = sys_param_user.id
 					LEFT JOIN (SELECT * FROM config_param_user WHERE cur_user=current_user) a ON a.parameter=sys_param_user.id 
 					WHERE sys_role IN (SELECT rolname FROM pg_roles WHERE  pg_has_role( current_user, oid, ''member''))
@@ -336,7 +337,7 @@ BEGIN
 
 	-- Admin tab
 	--------------
-    SELECT * INTO rec_tab FROM config_form_tabs WHERE formname='config' AND tabname='tab_admin' ;
+    SELECT * INTO rec_tab FROM v_config_form_tabs WHERE formname='config' AND tabname='tab_admin' ;
 
     -- only form config form (epaoptions not need admin tab)
     IF v_formname='config' THEN
@@ -348,7 +349,7 @@ BEGIN
 							widgettype, datatype, layoutname, layoutorder, row_number() over (order by layoutname, layoutorder) as orderby, descript as tooltip,
 							(CASE WHEN iseditable IS NULL OR iseditable IS TRUE THEN True ELSE False END) AS iseditable,
 							placeholder
-							FROM config_param_system WHERE isenabled=TRUE AND layoutname IS NOT NULL AND layoutorder IS NOT NULL AND (project_type =''utils'' or project_type=',
+							FROM v_config_param_system WHERE isenabled=TRUE AND layoutname IS NOT NULL AND layoutorder IS NOT NULL AND (project_type =''utils'' or project_type=',
 							quote_literal(lower(v_project_type)),') ORDER BY orderby) a');
 			v_debug_vars := json_build_object('v_project_type', v_project_type);
 			v_debug := json_build_object('querystring', v_querystring, 'vars', v_debug_vars, 'funcname', 'gw_fct_getconfig', 'flag', 80);
@@ -360,7 +361,7 @@ BEGIN
 			v_querystring = concat('SELECT (array_agg(row_to_json(a))) FROM (SELECT label, parameter AS widgetname, parameter as widgetname, concat(''admin_'',parameter), value, 
 							widgettype, datatype, layoutname, layoutorder, row_number() over (order by layoutname, layoutorder) as orderby, descript as tooltip, FALSE AS iseditable,
 							placeholder
-							FROM config_param_system WHERE isenabled=TRUE AND (project_type =''utils'' or project_type=',quote_literal(lower(v_project_type)),') ORDER BY orderby) a');
+							FROM v_config_param_system WHERE isenabled=TRUE AND (project_type =''utils'' or project_type=',quote_literal(lower(v_project_type)),') ORDER BY orderby) a');
 			v_debug_vars := json_build_object('v_project_type', v_project_type);
 			v_debug := json_build_object('querystring', v_querystring, 'vars', v_debug_vars, 'funcname', 'gw_fct_getconfig', 'flag', 90);
 			SELECT gw_fct_debugsql(v_debug) INTO v_msgerr;

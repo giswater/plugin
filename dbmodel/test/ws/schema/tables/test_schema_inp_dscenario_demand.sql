@@ -22,7 +22,7 @@ SELECT columns_are(
     'inp_dscenario_demand',
     ARRAY[
         'id', 'dscenario_id', 'feature_id', 'feature_type', 'demand', 'pattern_id',
-        'demand_type', 'source'
+        'demand_type', 'source', 'observ'
     ],
     'Table inp_dscenario_demand should have the correct columns'
 );
@@ -36,6 +36,7 @@ SELECT col_type_is('inp_dscenario_demand', 'demand', 'numeric(12,6)', 'Column de
 SELECT col_type_is('inp_dscenario_demand', 'pattern_id', 'varchar(16)', 'Column pattern_id should be varchar(16)');
 SELECT col_type_is('inp_dscenario_demand', 'demand_type', 'varchar(18)', 'Column demand_type should be varchar(18)');
 SELECT col_type_is('inp_dscenario_demand', 'source', 'text', 'Column source should be text');
+SELECT col_type_is('inp_dscenario_demand', 'observ', 'text', 'Column observ should be text');
 
 -- Check foreign keys
 SELECT has_fk('inp_dscenario_demand', 'Table inp_dscenario_demand should have foreign keys');

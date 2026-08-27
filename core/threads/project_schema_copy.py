@@ -50,8 +50,12 @@ class GwCopySchemaTask(GwTask):
 
         extras = f'"parameters":{{"source_schema":"{schema}", "dest_schema":"{new_schema_name}"}}'
         body = tools_gw.create_body(extras=extras)
-        result = tools_gw.execute_procedure('gw_fct_admin_schema_clone', body, schema, commit=False,
-                                            is_thread=True, aux_conn=self.aux_conn)
+        tools_db.execute_sql("SET ROLE role_system", commit=False, is_thread=True, aux_conn=self.aux_conn)
+        try:
+            result = tools_gw.execute_procedure('gw_fct_admin_schema_clone', body, schema, commit=False,
+                                                is_thread=True, aux_conn=self.aux_conn)
+        finally:
+            tools_db.execute_sql("RESET ROLE", commit=False, is_thread=True, aux_conn=self.aux_conn)
         if not result or result['status'] == 'Failed':
             return False
 

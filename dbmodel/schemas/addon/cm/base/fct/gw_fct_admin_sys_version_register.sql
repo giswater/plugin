@@ -66,8 +66,23 @@ BEGIN
 		v_gwversion := NULLIF(btrim(v_prev.giswater), '');
 	END IF;
 
+	-- Reject schema version downgrades (semver M.m.p; not lexicographic text order).
+	IF v_prev IS NOT NULL AND v_gwversion IS NOT NULL AND v_prev.giswater IS NOT NULL THEN
+		IF (
+			COALESCE(NULLIF(split_part(v_gwversion, '.', 1), '')::int, 0),
+			COALESCE(NULLIF(split_part(v_gwversion, '.', 2), '')::int, 0),
+			COALESCE(NULLIF(split_part(v_gwversion, '.', 3), '')::int, 0)
+		) < (
+			COALESCE(NULLIF(split_part(v_prev.giswater, '.', 1), '')::int, 0),
+			COALESCE(NULLIF(split_part(v_prev.giswater, '.', 2), '')::int, 0),
+			COALESCE(NULLIF(split_part(v_prev.giswater, '.', 3), '')::int, 0)
+		) THEN
+			RAISE EXCEPTION 'cannot downgrade schema version to % (current %)', v_gwversion, v_prev.giswater;
+		END IF;
+	END IF;
+
 	IF v_isnew IS NOT TRUE AND v_prev IS NOT NULL THEN
-		v_language := COALESCE(v_language, v_prev.language);
+		v_language := COALESCE(v_prev.language, v_language);
 		v_epsg := COALESCE(v_epsg, v_prev.epsg);
 		v_projecttype := COALESCE(v_projecttype, v_prev.project_type);
 		v_creation_profile := COALESCE(v_creation_profile, v_prev.addparam -> 'environment' ->> 'creation_profile');

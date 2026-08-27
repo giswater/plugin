@@ -835,7 +835,6 @@ def fill_tbl(complet_result, dialog, widgetname, linkedobject, filter_fields):
         tab_name = 'main'
         no_tabs = True
     complet_list = _get_list(complet_result, filter_fields, linkedobject)
-    print(f"complet_list: {complet_list}")
     if complet_list is False:
         return False, False
 

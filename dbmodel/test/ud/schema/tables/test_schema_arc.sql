@@ -21,9 +21,8 @@ SELECT has_table('arc'::name, 'Table arc should exist');
 SELECT columns_are(
     'arc',
     ARRAY[
-        'arc_id', 'code', 'sys_code', 'node_1', 'nodetype_1', 'node_top_elev_1',
-        'node_elev_1', 'elev1', 'custom_elev1', 'y1', 'node_2', 'nodetype_2',
-        'node_top_elev_2', 'node_elev_2', 'elev2', 'custom_elev2', 'y2', 'feature_type',
+        'arc_id', 'code', 'sys_code', 'node_1', 'elev1', 'custom_elev1', 'y1', 'node_2',
+        'elev2', 'custom_elev2', 'y2', 'feature_type',
         'arc_type', 'matcat_id', 'arccat_id', 'epa_type', 'state', 'state_type',
         'parent_id', 'expl_id', 'muni_id', 'sector_id', 'dma_id', 'drainzone_outfall',
         'dwfzone_id', 'dwfzone_outfall', 'omzone_id', 'omunit_id', 'minsector_id', 'pavcat_id',
@@ -37,7 +36,7 @@ SELECT columns_are(
         'datasource', 'label_x', 'label_y', 'label_rotation', 'label_quadrant', 'inventory',
         'publish', 'is_scadamap', 'lock_level', 'initoverflowpath', 'inverted_slope', 'negative_offset',
         'expl_visibility', 'created_at', 'created_by', 'updated_at', 'updated_by', 'the_geom',
-        'meandering', 'uuid', 'node_custom_top_elev_1', 'node_custom_elev_1', 'node_custom_top_elev_2', 'node_custom_elev_2', 'dataquality', 'dataquality_obs'
+        'meandering', 'uuid', 'dataquality', 'dataquality_obs'
     ],
     'Table arc should have the correct columns'
 );
@@ -47,16 +46,10 @@ SELECT col_type_is('arc', 'arc_id', 'int4', 'Column arc_id should be int4');
 SELECT col_type_is('arc', 'code', 'text', 'Column code should be text');
 SELECT col_type_is('arc', 'sys_code', 'text', 'Column sys_code should be text');
 SELECT col_type_is('arc', 'node_1', 'int4', 'Column node_1 should be int4');
-SELECT col_type_is('arc', 'nodetype_1', 'varchar(30)', 'Column nodetype_1 should be varchar(30)');
-SELECT col_type_is('arc', 'node_top_elev_1', 'numeric(12,3)', 'Column node_top_elev_1 should be numeric(12,3)');
-SELECT col_type_is('arc', 'node_elev_1', 'numeric(12,3)', 'Column node_elev_1 should be numeric(12,3)');
 SELECT col_type_is('arc', 'elev1', 'numeric(12,3)', 'Column elev1 should be numeric(12,3)');
 SELECT col_type_is('arc', 'custom_elev1', 'numeric(12,3)', 'Column custom_elev1 should be numeric(12,3)');
 SELECT col_type_is('arc', 'y1', 'numeric(12,3)', 'Column y1 should be numeric(12,3)');
 SELECT col_type_is('arc', 'node_2', 'int4', 'Column node_2 should be int4');
-SELECT col_type_is('arc', 'nodetype_2', 'varchar(30)', 'Column nodetype_2 should be varchar(30)');
-SELECT col_type_is('arc', 'node_top_elev_2', 'numeric(12,3)', 'Column node_top_elev_2 should be numeric(12,3)');
-SELECT col_type_is('arc', 'node_elev_2', 'numeric(12,3)', 'Column node_elev_2 should be numeric(12,3)');
 SELECT col_type_is('arc', 'elev2', 'numeric(12,3)', 'Column elev2 should be numeric(12,3)');
 SELECT col_type_is('arc', 'custom_elev2', 'numeric(12,3)', 'Column custom_elev2 should be numeric(12,3)');
 SELECT col_type_is('arc', 'y2', 'numeric(12,3)', 'Column y2 should be numeric(12,3)');
@@ -141,10 +134,6 @@ SELECT col_type_is('arc', 'updated_by', 'varchar(50)', 'Column updated_by should
 SELECT col_type_is('arc', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
 SELECT col_type_is('arc', 'meandering', 'int4', 'Column meandering should be int4');
 SELECT col_type_is('arc', 'uuid', 'uuid', 'Column uuid should be uuid');
-SELECT col_type_is('arc', 'node_custom_top_elev_1', 'numeric(12,3)', 'Column node_custom_top_elev_1 should be numeric(12,3)');
-SELECT col_type_is('arc', 'node_custom_elev_1', 'numeric(12,3)', 'Column node_custom_elev_1 should be numeric(12,3)');
-SELECT col_type_is('arc', 'node_custom_top_elev_2', 'numeric(12,3)', 'Column node_custom_top_elev_2 should be numeric(12,3)');
-SELECT col_type_is('arc', 'node_custom_elev_2', 'numeric(12,3)', 'Column node_custom_elev_2 should be numeric(12,3)');
 
 SELECT col_type_is('arc', 'dataquality', 'int4', 'Column dataquality should be int4');
 SELECT col_type_is('arc', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
