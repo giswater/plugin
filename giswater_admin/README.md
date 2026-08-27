@@ -330,7 +330,7 @@ Env: `SATELLITES=utils,cibs`, `PARENT_PROFILE=empty|sample|inventory`, `PLUGIN_V
 
 Resolution order (first match wins):
 
-1. `--conn` — `postgresql://user:pass@host:port/dbname` (or `postgres://…`)
+1. `--conn` — `postgresql://user:pass@host:port/dbname`, `service=NAME`, or a bare pg_service name
 2. `--config` — YAML with `host`, `port`, `user`, `password`, `dbname`, and/or `service`
 3. User config — `gw config set database.conn …` or `database.config /path/to/conn.yaml`
 4. Environment — `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `PGSERVICE`
@@ -353,6 +353,10 @@ gw config set database.conn null   # clear URL
 ```bash
 export CONN='postgresql://gisadmin:secret@127.0.0.1:5432/giswater_cli'
 python3 -m giswater_admin status --conn "$CONN"
+
+# or a pg_service from ~/.pg_service.conf (beats user config, unlike PGSERVICE)
+gw schema list --conn giswater
+gw schema list --conn service=giswater
 ```
 
 ### Windows (PowerShell)
