@@ -85,7 +85,13 @@ BEGIN
 							WHERE n.state = 1 AND s.is_operative
 							AND m.closed AND 'MINSECTOR' = ANY (cf.graph_delimiter)
 						)
-						SELECT a.arc_id::int AS id, a.node_1::int AS source, a.node_2::int AS target,  st_length(a.the_geom) AS cost
+						SELECT
+							a.arc_id::int AS id,
+							a.node_1::int AS source,
+							a.node_2::int AS target,
+							COALESCE(a.custom_length, st_length(a.the_geom)) / (
+								COALESCE(NULLIF(ca.dint, 0), 1)::float ^ 2
+							) AS cost
 						FROM arc a
 						JOIN value_state_type s ON a.state_type = s.id
 						WHERE a.state = 1 AND s.is_operative
@@ -101,7 +107,16 @@ BEGIN
 				CREATE TEMP TABLE temp_graph AS
 				SELECT d.edge AS arc_id, d.node AS node_id
 				FROM pgr_dijkstra(
-					$pgr$SELECT a.arc_id::int AS id, a.node_1::int AS source, a.node_2::int AS target,  st_length(a.the_geom) AS cost, -1.0 AS reverse_cost
+					$pgr$SELECT
+							a.arc_id::int AS id,
+							a.node_1::int AS source,
+							a.node_2::int AS target,
+							COALESCE(a.custom_length, st_length(a.the_geom)) / COALESCE(
+								COALESCE(NULLIF(ca.geom1, 0), NULLIF(ca.geom2, 0)) 
+								* COALESCE(NULLIF(ca.geom2, 0), NULLIF(ca.geom1, 0)),
+								1
+							) AS cost, -- geom1*geom2 (geom1,geom2>0) or geom1*geom1(geom2=0) or geom2*geom2(geom1=0) or 1 (geom1=geom2=0)
+							-1.0 AS reverse_cost
 						FROM arc a
 						JOIN value_state_type s ON a.state_type = s.id 
 						WHERE a.state = 1 AND s.is_operative AND a.node_1 IS NOT NULL AND a.node_2 IS NOT NULL
