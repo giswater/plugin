@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-08-27
+
 ### Added
 
 - `--conn` accepts a pg_service (`service=NAME` or a bare service name), not only a postgres URL.
@@ -100,7 +102,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timing reports and structured log output for automation and CI.
 - Legacy command aliases (`create`, `update`, `drop`, `status`, `init-db`, `update-network`, `audit …`) with stderr deprecation warnings.
 
-[unreleased]: https://github.com/giswater/plugin/compare/cli-v0.4.2...main
+[unreleased]: https://github.com/giswater/plugin/compare/cli-v0.4.3...main
+[0.4.3]: https://github.com/giswater/plugin/compare/cli-v0.4.2...cli-v0.4.3
 [0.4.2]: https://github.com/giswater/plugin/compare/cli-v0.4.1...cli-v0.4.2
 [0.4.1]: https://github.com/giswater/plugin/compare/cli-v0.4.0...cli-v0.4.1
 [0.4.0]: https://github.com/giswater/plugin/compare/cli-v0.3.0...cli-v0.4.0
