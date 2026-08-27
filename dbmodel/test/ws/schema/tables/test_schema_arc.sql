@@ -21,9 +21,8 @@ SELECT has_table('arc'::name, 'Table arc should exist');
 SELECT columns_are(
     'arc',
     ARRAY[
-        'arc_id', 'code', 'sys_code', 'node_1', 'nodetype_1', 'elevation1',
-        'depth1', 'staticpressure1', 'node_2', 'nodetype_2', 'elevation2', 'depth2',
-        'staticpressure2', 'feature_type', 'arccat_id', 'epa_type', 'state', 'state_type',
+        'arc_id', 'code', 'sys_code', 'node_1', 'node_2', 'feature_type', 'arccat_id',
+        'epa_type', 'state', 'state_type',
         'parent_id', 'expl_id', 'muni_id', 'sector_id', 'supplyzone_id', 'presszone_id',
         'dma_id', 'dqa_id', 'omzone_id', 'minsector_id', 'pavcat_id', 'soilcat_id',
         'function_type', 'category_type', 'location_type', 'fluid_type', 'descript', 'custom_length',
@@ -44,15 +43,7 @@ SELECT col_type_is('arc', 'arc_id', 'int4', 'Column arc_id should be int4');
 SELECT col_type_is('arc', 'code', 'text', 'Column code should be text');
 SELECT col_type_is('arc', 'sys_code', 'text', 'Column sys_code should be text');
 SELECT col_type_is('arc', 'node_1', 'int4', 'Column node_1 should be int4');
-SELECT col_type_is('arc', 'nodetype_1', 'varchar(30)', 'Column nodetype_1 should be varchar(30)');
-SELECT col_type_is('arc', 'elevation1', 'numeric(12,4)', 'Column elevation1 should be numeric(12,4)');
-SELECT col_type_is('arc', 'depth1', 'numeric(12,4)', 'Column depth1 should be numeric(12,4)');
-SELECT col_type_is('arc', 'staticpressure1', 'numeric(12,3)', 'Column staticpressure1 should be numeric(12,3)');
 SELECT col_type_is('arc', 'node_2', 'int4', 'Column node_2 should be int4');
-SELECT col_type_is('arc', 'nodetype_2', 'varchar(30)', 'Column nodetype_2 should be varchar(30)');
-SELECT col_type_is('arc', 'elevation2', 'numeric(12,4)', 'Column elevation2 should be numeric(12,4)');
-SELECT col_type_is('arc', 'depth2', 'numeric(12,4)', 'Column depth2 should be numeric(12,4)');
-SELECT col_type_is('arc', 'staticpressure2', 'numeric(12,3)', 'Column staticpressure2 should be numeric(12,3)');
 SELECT col_type_is('arc', 'feature_type', 'varchar(16)', 'Column feature_type should be varchar(16)');
 SELECT col_type_is('arc', 'arccat_id', 'varchar(30)', 'Column arccat_id should be varchar(30)');
 SELECT col_type_is('arc', 'epa_type', 'varchar(16)', 'Column epa_type should be varchar(16)');
