@@ -83,7 +83,7 @@
       </property>
       <property name="font">
        <font>
-        <pointsize>10</pointsize>
+        <pointsize>8</pointsize>
         <bold>false</bold>
        </font>
       </property>

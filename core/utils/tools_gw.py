@@ -253,8 +253,6 @@ class ThemeManager:
         font = cls.normalize_font_weight(font)
         if sys.platform == 'darwin' and cls._font_weight_value(font) < QFont.Weight.Medium:
             font.setWeight(QFont.Weight.Medium)
-        if font.pointSize() > 0 and font.pointSize() < 10:
-            font.setPointSize(10)
         return font
 
     @classmethod
@@ -268,15 +266,13 @@ class ThemeManager:
             font = cls.normalize_font_weight(QFont(widget.font()))
             if sys.platform == 'darwin' and cls._font_weight_value(font) < QFont.Weight.Medium:
                 font.setWeight(QFont.Weight.Medium)
-            if font.pointSize() > 0 and font.pointSize() < 10:
-                font.setPointSize(10)
             widget.setFont(font)
 
         for label in dialog.findChildren(QLabel):
             stylesheet = label.styleSheet() or ''
             if 'font-weight' in stylesheet:
                 continue
-            cls.apply_label_font(label, reference=dialog)
+            cls.apply_label_font(label)
 
 
 def _get_geom_type(geometry_type: QgsGeometryType = None):
