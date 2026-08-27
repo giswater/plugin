@@ -93,6 +93,7 @@ BEGIN
 								COALESCE(NULLIF(ca.dint, 0), 1)::float ^ 2
 							) AS cost
 						FROM arc a
+						JOIN cat_arc ca ON ca.id = a.arccat_id
 						JOIN value_state_type s ON a.state_type = s.id
 						WHERE a.state = 1 AND s.is_operative
 						AND a.node_1 IS NOT NULL AND a.node_2 IS NOT NULL
@@ -118,6 +119,7 @@ BEGIN
 							) AS cost, -- geom1*geom2 (geom1,geom2>0) or geom1*geom1(geom2=0) or geom2*geom2(geom1=0) or 1 (geom1=geom2=0)
 							-1.0 AS reverse_cost
 						FROM arc a
+						JOIN cat_arc ca ON ca.id = a.arccat_id
 						JOIN value_state_type s ON a.state_type = s.id 
 						WHERE a.state = 1 AND s.is_operative AND a.node_1 IS NOT NULL AND a.node_2 IS NOT NULL
 					$pgr$,
