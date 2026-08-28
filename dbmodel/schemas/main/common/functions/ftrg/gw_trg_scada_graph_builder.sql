@@ -102,8 +102,7 @@ BEGIN
 					NEW.object_1,
 					NEW.object_2,
 					directed := false
-				) d
-				WHERE d.edge > 0;
+				) d;
 			ELSIF v_project_type = 'UD' THEN
 				CREATE TEMP TABLE temp_graph AS
 				SELECT d.edge AS arc_id, d.node AS node_id
@@ -126,8 +125,7 @@ BEGIN
 					NEW.object_1,
 					NEW.object_2,
 					directed := true
-				) d
-				WHERE d.edge > 0;
+				) d;
 			END IF;
 
 			IF NOT EXISTS (SELECT 1 FROM temp_graph) THEN
@@ -141,16 +139,15 @@ BEGIN
 
 			SELECT json_build_object('arcs', json_agg(arc_id))
 			FROM temp_graph
-			WHERE arc_id IS NOT NULL
+			WHERE arc_id <> -1
 			INTO NEW.attrib;
 
 			UPDATE arc SET is_scadamap = TRUE
 			WHERE arc_id::int IN (SELECT arc_id FROM temp_graph);
+
 			UPDATE node SET is_scadamap = TRUE
 			WHERE node_id::int IN (
 				SELECT node_id FROM temp_graph
-				UNION SELECT NEW.object_1
-				UNION SELECT NEW.object_2
 			);
 
 			DROP TABLE IF EXISTS temp_graph;
