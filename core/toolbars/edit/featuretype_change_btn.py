@@ -56,6 +56,8 @@ class GwFeatureTypeChangeButton(GwMaptool):
         if toolbar is not None:
             self.action.setMenu(self.menu)
             toolbar.addAction(self.action)
+            title = "Change feature type"
+            self.action.setText(tools_qt.tr(title))
 
     # region QgsMapTools inherited
     """ QgsMapTools inherited event functions """
