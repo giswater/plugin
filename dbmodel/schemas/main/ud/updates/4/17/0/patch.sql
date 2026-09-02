@@ -2656,3 +2656,17 @@ ve_arc FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_arc('parent');
 
 CREATE TRIGGER gw_trg_autoupdate_arc_topology BEFORE INSERT OR UPDATE OF node_1, node_2, y1, y2, elev1, elev2 ON
 arc FOR EACH ROW EXECUTE FUNCTION gw_trg_autoupdate_arc_topology();
+
+INSERT INTO config_function (id, function_name, "style", layermanager, actions)
+VALUES(3424, 'gw_fct_graphanalytics_fluid_type', '{
+  "style": {
+    "point": {
+      "style": "qml",
+      "id": "101"
+    },
+    "line": {
+      "style": "qml",
+      "id": "101"
+    }
+  }
+}'::json, NULL, NULL) ON CONFLICT DO NOTHING;
