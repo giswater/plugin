@@ -9,7 +9,7 @@ import os
 import sys
 
 from qgis.PyQt import QtCore
-from qgis.PyQt.QtWidgets import QMainWindow, QShortcut, QSizePolicy, QStackedLayout, QWidget
+from qgis.PyQt.QtWidgets import QMainWindow, QShortcut, QSizePolicy, QVBoxLayout, QWidget
 from qgis.PyQt.QtGui import QKeySequence, QIcon
 
 from qgis.gui import QgsMessageBar
@@ -50,26 +50,25 @@ class GwMainWindow(QMainWindow):
 
         # Create message bar
         try:
-            # Wrap the existing layout in a widget
-            main_widget = QWidget()
-            # NOTE: This crashes QGIS if the dialog has no layout
-            main_widget.setLayout(self.layout())
+            central = self.centralWidget()
+            if central is not None and central.layout() is not None:
+                content_widget = QWidget()
+                content_widget.setLayout(central.layout())
 
-            # Create a stacked layout to overlay the message bar
-            self.stacked_layout = QStackedLayout(self)
-            self.setLayout(self.stacked_layout)
-            self.stacked_layout.setStackingMode(QStackedLayout.StackingMode.StackAll)
+                wrapper = QWidget()
+                outer_layout = QVBoxLayout(wrapper)
+                outer_layout.setContentsMargins(0, 0, 0, 0)
+                outer_layout.setSpacing(0)
 
-            # Create the message bar
-            self._messageBar = QgsMessageBar()
-            self._messageBar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)  # Full width, fixed height
-            self._messageBar.setMaximumHeight(35)
+                self._messageBar = QgsMessageBar()
+                self._messageBar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                self._messageBar.setMaximumHeight(35)
 
-            # Add message bar to stacked layout
-            self.stacked_layout.addWidget(self._messageBar)
-
-            # Add the main widget to the stacked layout
-            self.stacked_layout.addWidget(main_widget)
+                outer_layout.addWidget(self._messageBar)
+                outer_layout.addWidget(content_widget)
+                self.setCentralWidget(wrapper)
+            else:
+                raise ValueError("Main window has no central layout")
         except Exception as e:
             print("Exception in GwMainWindow:", e)
             self._messageBar = global_vars.iface.messageBar()
@@ -119,7 +118,6 @@ class GwMainWindow(QMainWindow):
                 self.key_enter.emit()
                 return super().keyPressEvent(event)
         except RuntimeError:
-            # Multiples signals are emited when we use key_scape in order to close dialog
             pass
 
     def messageBar(self):

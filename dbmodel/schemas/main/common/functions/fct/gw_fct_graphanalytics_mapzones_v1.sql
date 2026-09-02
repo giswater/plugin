@@ -2280,7 +2280,7 @@ BEGIN
 								t.mapzone_id,
 								vp.the_geom AS geom
 							FROM temp_pgr_connec t
-							JOIN connec vc ON t.pgr_connected_id = vc.connec_id
+							JOIN connec vc ON t.pgr_connec_id = vc.connec_id
 							LEFT JOIN v_plot vp
 								ON vc.plot_id = vp.id
 							AND ST_DWithin(vc.the_geom, vp.the_geom, 0.001)

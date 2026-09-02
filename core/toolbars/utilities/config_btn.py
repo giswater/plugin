@@ -265,6 +265,7 @@ class GwConfigButton(GwAction):
                     lbl.setMinimumSize(160, 0)
                     lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
                     lbl.setToolTip(field['tooltip'])
+                    tools_gw.ThemeManager.apply_label_font(lbl, reference=self.dlg_config)
 
                     if self.tab == 'user':
                         self.chk = QCheckBox()

@@ -36,6 +36,7 @@ DECLARE
     v_mapzone_field text;
     v_query_text_exploitation TEXT;
     v_query_text_epa TEXT;
+    v_query_text_epa_connec TEXT;
     v_query_text_minlength TEXT;
 
     -- CHECKS
@@ -320,6 +321,12 @@ BEGIN
 
         IF v_fct_name = 'SECTOR' THEN
             v_query_text_epa := 'AND t.epa_type <> ''UNDEFINED''';
+            
+            IF v_project_type = 'WS' THEN
+                v_query_text_epa_connec := 'AND t.epa_type <> ''UNDEFINED''';
+            ELSE
+                v_query_text_epa_connec := 'AND FALSE';
+            END IF;
 
             IF v_project_type = 'WS' THEN
                 v_query_text_minlength := 'AND st_length(t.the_geom) >= ' || v_minlength;
@@ -431,7 +438,7 @@ BEGIN
                 %s
                 %s
                 AND e.active = TRUE;
-            $sql$, v_mapzone_field, v_query_text_exploitation, v_query_text_epa);
+            $sql$, v_mapzone_field, v_query_text_exploitation, v_query_text_epa_connec);
 
             -- in psector mode elements does not change.
             EXECUTE format($sql$
@@ -632,7 +639,7 @@ BEGIN
                 %s
                 %s
                 AND e.active = TRUE;
-            $sql$, v_mapzone_field, v_query_text_exploitation, v_query_text_epa);
+            $sql$, v_mapzone_field, v_query_text_exploitation, v_query_text_epa_connec);
 
             EXECUTE format($sql$
                 CREATE OR REPLACE TEMPORARY VIEW v_temp_element AS

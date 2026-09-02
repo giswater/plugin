@@ -85,8 +85,15 @@ BEGIN
 							WHERE n.state = 1 AND s.is_operative
 							AND m.closed AND 'MINSECTOR' = ANY (cf.graph_delimiter)
 						)
-						SELECT a.arc_id::int AS id, a.node_1::int AS source, a.node_2::int AS target,  st_length(a.the_geom) AS cost
+						SELECT
+							a.arc_id::int AS id,
+							a.node_1::int AS source,
+							a.node_2::int AS target,
+							COALESCE(a.custom_length, st_length(a.the_geom)) / (
+								COALESCE(NULLIF(ca.dint, 0), 1)::float ^ 2
+							) AS cost
 						FROM arc a
+						JOIN cat_arc ca ON ca.id = a.arccat_id
 						JOIN value_state_type s ON a.state_type = s.id
 						WHERE a.state = 1 AND s.is_operative
 						AND a.node_1 IS NOT NULL AND a.node_2 IS NOT NULL
@@ -95,22 +102,30 @@ BEGIN
 					NEW.object_1,
 					NEW.object_2,
 					directed := false
-				) d
-				WHERE d.edge > 0;
+				) d;
 			ELSIF v_project_type = 'UD' THEN
 				CREATE TEMP TABLE temp_graph AS
 				SELECT d.edge AS arc_id, d.node AS node_id
 				FROM pgr_dijkstra(
-					$pgr$SELECT a.arc_id::int AS id, a.node_1::int AS source, a.node_2::int AS target,  st_length(a.the_geom) AS cost, -1.0 AS reverse_cost
+					$pgr$SELECT
+							a.arc_id::int AS id,
+							a.node_1::int AS source,
+							a.node_2::int AS target,
+							COALESCE(a.custom_length, st_length(a.the_geom)) / COALESCE(
+								COALESCE(NULLIF(ca.geom1, 0), NULLIF(ca.geom2, 0)) 
+								* COALESCE(NULLIF(ca.geom2, 0), NULLIF(ca.geom1, 0)),
+								1
+							) AS cost, -- geom1*geom2 (geom1,geom2>0) or geom1*geom1(geom2=0) or geom2*geom2(geom1=0) or 1 (geom1=geom2=0)
+							-1.0 AS reverse_cost
 						FROM arc a
+						JOIN cat_arc ca ON ca.id = a.arccat_id
 						JOIN value_state_type s ON a.state_type = s.id 
 						WHERE a.state = 1 AND s.is_operative AND a.node_1 IS NOT NULL AND a.node_2 IS NOT NULL
 					$pgr$,
 					NEW.object_1,
 					NEW.object_2,
 					directed := true
-				) d
-				WHERE d.edge > 0;
+				) d;
 			END IF;
 
 			IF NOT EXISTS (SELECT 1 FROM temp_graph) THEN
@@ -124,16 +139,15 @@ BEGIN
 
 			SELECT json_build_object('arcs', json_agg(arc_id))
 			FROM temp_graph
-			WHERE arc_id IS NOT NULL
+			WHERE arc_id <> -1
 			INTO NEW.attrib;
 
 			UPDATE arc SET is_scadamap = TRUE
 			WHERE arc_id::int IN (SELECT arc_id FROM temp_graph);
+
 			UPDATE node SET is_scadamap = TRUE
 			WHERE node_id::int IN (
 				SELECT node_id FROM temp_graph
-				UNION SELECT NEW.object_1
-				UNION SELECT NEW.object_2
 			);
 
 			DROP TABLE IF EXISTS temp_graph;
@@ -209,7 +223,7 @@ BEGIN
 			
 			-- order_id only for this row (parent hop + 1, or 1 if object_1 is a root)
 	 		UPDATE om_scada_graph t SET order_id = COALESCE((
-				SELECT MIN(g.order_id) + 1
+				SELECT MAX(g.order_id) + 1
 				FROM om_scada_graph g
 				WHERE g.object_2 = NEW.object_1
 				  AND g.edge_id IS DISTINCT FROM NEW.edge_id
