@@ -1437,3 +1437,30 @@ BEGIN
 	END IF;
 END
 $patch$;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_class WHERE relname = 'ext_hydrometer'
+    ) THEN
+
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_attribute
+            WHERE attrelid = 'ext_hydrometer'::regclass AND attname = 'brand_id' AND NOT attisdropped
+        ) THEN
+            ALTER TABLE ext_hydrometer ADD COLUMN brand_id varchar(50);
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_attribute
+            WHERE attrelid = 'ext_hydrometer'::regclass AND attname = 'model_id' AND NOT attisdropped
+        ) THEN
+            ALTER TABLE ext_hydrometer ADD COLUMN model_id varchar(50);
+        END IF;
+
+    END IF;
+END
+$$;
+
+CREATE OR REPLACE VIEW v_hydrometer AS
+SELECT * FROM ext_hydrometer;

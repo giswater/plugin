@@ -2670,3 +2670,69 @@ VALUES(3424, 'gw_fct_graphanalytics_fluid_type', '{
     }
   }
 }'::json, NULL, NULL) ON CONFLICT DO NOTHING;
+
+CREATE OR REPLACE VIEW vf_hydrometer AS
+WITH sel_expl AS (
+    SELECT selector_expl.expl_id
+    FROM selector_expl
+    WHERE selector_expl.cur_user = CURRENT_USER
+)
+SELECT
+    vh.hydrometer_id,
+    vh.hydro_customer_code,
+    connec.connec_id AS feature_id,
+    'CONNEC'::text AS feature_type,
+    COALESCE(
+        vh.feature_customer_code,
+        'XXXX'::character varying
+    ) AS feature_customer_code,
+    vh.contract_id,
+    vh.identif,
+    vchs.name AS state,
+    vchs.is_operative,
+    connec.expl_id,
+    exploitation.name AS expl_name,
+    vh.priority_id,
+    vh.catalog_id,
+    vh.category_id,
+    vh.crmzone_id,
+    vh.crmzone_order,
+    vh.wmeter_builtdate,
+    vh.wmeter_instaldate,
+    vh.plot_code,
+    vh.muni_id,
+    v_municipality.name AS muni_name,
+    vh.start_date,
+    vh.update_date,
+    vh.shutdown_date,
+    vh.end_date,
+    vh.address1_1,
+    vh.address1_2,
+    vh.address1_3,
+    vh.address2_1,
+    vh.address2_2,
+    vh.address2_3,
+    vh.assessed_volume,
+    vh.is_waterbal,
+    concat(
+        COALESCE(
+            (SELECT config_param_system.value
+            FROM config_param_system
+            WHERE config_param_system.parameter::text = 'edit_hydro_link_absolute_path'::text)
+            , ''
+        ),
+        vh.link
+    ) AS hydrometer_link,
+    vh.hydro_number,
+    vh.brand_id,
+    vh.model_id
+FROM v_hydrometer vh
+    JOIN v_cat_hydrometer_state vchs ON vchs.id = vh.state_id
+    JOIN connec ON connec.customer_code::text = vh.feature_customer_code::text
+    LEFT JOIN v_municipality ON v_municipality.muni_id = connec.muni_id
+    LEFT JOIN exploitation ON exploitation.expl_id = connec.expl_id
+WHERE EXISTS (
+    SELECT 1
+    FROM sel_expl
+    WHERE sel_expl.expl_id = connec.expl_id
+);

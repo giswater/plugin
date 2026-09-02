@@ -129,6 +129,8 @@ CREATE TABLE cibs.hydrometer (
     link text,
     wmeter_state text,
     wmeter_brand text,
+	brand_id varchar(50) NULL,
+	model_id varchar(50) NULL,
     CONSTRAINT hydrometer_pkey PRIMARY KEY (hydrometer_id),
     CONSTRAINT hydrometer_code_unique UNIQUE (code),
 	CONSTRAINT hydrometer_cat_hydrometer_priority_fk FOREIGN KEY (priority_id) REFERENCES cat_hydrometer_priority(id),

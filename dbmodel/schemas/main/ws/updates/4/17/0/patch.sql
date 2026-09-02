@@ -1970,3 +1970,102 @@ SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE", "bat
 
 CREATE TRIGGER gw_trg_edit_arc INSTEAD OF INSERT OR DELETE OR UPDATE ON
 ve_arc FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_arc('parent');
+
+CREATE OR REPLACE VIEW vf_hydrometer AS
+WITH sel_expl AS (
+    SELECT selector_expl.expl_id
+    FROM selector_expl
+    WHERE selector_expl.cur_user = CURRENT_USER
+), node_data AS (
+    SELECT
+        v_hydrometer.hydrometer_id,
+        node.node_id,
+        node.expl_id,
+        node.muni_id
+    FROM v_hydrometer
+        JOIN man_netwjoin ON man_netwjoin.customer_code::text = v_hydrometer.feature_customer_code::text
+        JOIN node ON node.node_id = man_netwjoin.node_id
+), connec_data AS (
+    SELECT
+        v_hydrometer.hydrometer_id,
+        connec.connec_id,
+        connec.expl_id,
+        connec.muni_id
+    FROM v_hydrometer
+        JOIN connec ON connec.customer_code::text = v_hydrometer.feature_customer_code::text
+), feature_data AS (
+    SELECT
+        connec_data.hydrometer_id,
+        connec_data.connec_id AS feature_id,
+        'CONNEC'::text AS feature_type,
+        connec_data.expl_id,
+        connec_data.muni_id
+    FROM connec_data
+    UNION
+    SELECT
+        node_data.hydrometer_id,
+        node_data.node_id AS feature_id,
+        'NODE'::text AS feature_type,
+        node_data.expl_id,
+        node_data.muni_id
+    FROM node_data
+)
+SELECT
+    v_hydrometer.hydrometer_id,
+    v_hydrometer.hydro_customer_code,
+    d.feature_id,
+    d.feature_type,
+    COALESCE(
+        v_hydrometer.feature_customer_code,
+        'XXXX'::character varying(30)
+    ) AS feature_customer_code,
+    v_hydrometer.contract_id,
+    v_hydrometer.identif,
+    v_cat_hydrometer_state.name AS state,
+    v_cat_hydrometer_state.is_operative,
+    d.expl_id,
+    exploitation.name AS expl_name,
+    v_hydrometer.priority_id,
+    v_hydrometer.catalog_id,
+    v_hydrometer.category_id,
+    v_hydrometer.crmzone_id,
+    v_hydrometer.crmzone_order,
+    v_hydrometer.wmeter_builtdate,
+    v_hydrometer.wmeter_instaldate,
+    v_hydrometer.plot_code,
+    v_hydrometer.muni_id,
+    v_municipality.name AS muni_name,
+    v_hydrometer.start_date,
+    v_hydrometer.update_date,
+    v_hydrometer.shutdown_date,
+    v_hydrometer.end_date,
+    v_hydrometer.address1_1,
+    v_hydrometer.address1_2,
+    v_hydrometer.address1_3,
+    v_hydrometer.address2_1,
+    v_hydrometer.address2_2,
+    v_hydrometer.address2_3,
+    v_hydrometer.assessed_volume,
+    v_hydrometer.is_waterbal,
+    concat(
+        COALESCE(
+            (SELECT config_param_system.value
+            FROM config_param_system
+            WHERE config_param_system.parameter::text = 'edit_hydro_link_absolute_path'::text)
+            , ''
+        ),
+        v_hydrometer.link
+    ) AS hydrometer_link,
+    v_hydrometer.hydro_number,
+    v_hydrometer.brand_id,
+    v_hydrometer.model_id
+FROM feature_data d
+    JOIN v_hydrometer ON v_hydrometer.hydrometer_id = d.hydrometer_id
+    JOIN v_cat_hydrometer_state ON v_cat_hydrometer_state.id = v_hydrometer.state_id
+    LEFT JOIN v_municipality ON v_municipality.muni_id = d.muni_id
+    LEFT JOIN exploitation ON exploitation.expl_id = d.expl_id
+    WHERE EXISTS (
+        SELECT 1
+        FROM sel_expl
+        WHERE sel_expl.expl_id = d.expl_id
+    );
