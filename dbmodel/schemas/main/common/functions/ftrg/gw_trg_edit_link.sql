@@ -958,7 +958,7 @@ BEGIN
 		enddate = NEW.enddate, uncertain = NEW.uncertain, muni_id = NEW.muni_id, sector_id=v_sector, verified = NEW.verified, custom_length = NEW.custom_length,
 		datasource = NEW.datasource, location_type=NEW.location_type, annotation=NEW.annotation, observ=NEW.observ, comment=NEW.comment,
 		descript=NEW.descript, link=NEW.link, num_value=NEW.num_value, state_type=NEW.state_type, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs,
-		userdefined_geom = v_userdefined_geom
+		userdefined_geom = v_userdefined_geom, linkcat_id = NEW.linkcat_id
 		WHERE link_id=NEW.link_id;
 
 		IF v_man_table = 'VLINK' THEN

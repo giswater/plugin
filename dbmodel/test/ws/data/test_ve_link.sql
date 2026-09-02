@@ -11,7 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(17);
+SELECT plan(19);
 
 -- Delete existing sample link
 DELETE FROM link WHERE feature_id = 3008 AND feature_type = 'CONNEC';
@@ -39,6 +39,10 @@ SELECT is((SELECT userdefined_geom FROM link WHERE code = '-901'), FALSE, 'UPDAT
 UPDATE ve_link SET verified = 1 WHERE code = '-901';
 SELECT is((SELECT verified::integer FROM ve_link WHERE code = '-901'), 1, 'UPDATE: ve_link -901 was updated');
 SELECT is((SELECT verified::integer FROM link WHERE code = '-901'), 1, 'UPDATE: link -901 was updated');
+
+UPDATE ve_link SET linkcat_id = 'PVC32-PN16' WHERE code = '-901';
+SELECT is((SELECT linkcat_id FROM ve_link WHERE code = '-901'), 'PVC32-PN16', 'UPDATE: ve_link linkcat_id was updated');
+SELECT is((SELECT linkcat_id FROM link WHERE code = '-901'), 'PVC32-PN16', 'UPDATE: link linkcat_id was updated');
 
 
 DELETE FROM ve_link WHERE code = '-901';
