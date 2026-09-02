@@ -74,6 +74,26 @@ DELETE FROM ve_link WHERE code = '-901';
 SELECT is((SELECT count(*)::integer FROM ve_link WHERE code = '-901'), 0, 'DELETE: ve_link -901 was deleted');
 SELECT is((SELECT count(*)::integer FROM link WHERE code = '-901'), 0, 'DELETE: link -901 was deleted');
 
+-- Child view: cat_feature.id CONDLINK must resolve to man_conduitlink
+INSERT INTO ve_link_condlink (code, sys_code, link_type, feature_type, feature_id, exit_type, exit_id, state, state_type, expl_id, sector_id, the_geom, linkcat_id, fluid_type)
+SELECT '-902', '-902', 'CONDLINK', 'CONNEC', c.connec_id, 'ARC', a.arc_id, 1, 2, c.expl_id, c.sector_id,
+	ST_MakeLine(c.the_geom, ST_ClosestPoint(a.the_geom, c.the_geom)),
+	cl.id, 0
+FROM connec c
+JOIN LATERAL (
+	SELECT arc_id, the_geom FROM ve_arc
+	WHERE state > 0
+	ORDER BY the_geom <-> c.the_geom
+	LIMIT 1
+) a ON true
+CROSS JOIN LATERAL (SELECT id FROM cat_link WHERE link_type = 'CONDLINK' LIMIT 1) cl
+WHERE c.connec_id = 3095;
+
+SELECT is((SELECT count(*)::integer FROM ve_link_condlink WHERE code = '-902'), 1, 'INSERT: ve_link_condlink -902 was inserted');
+SELECT is((SELECT count(*)::integer FROM link WHERE code = '-902'), 1, 'INSERT: link -902 was inserted');
+SELECT is((SELECT count(*)::integer FROM man_conduitlink mc JOIN link l ON l.link_id = mc.link_id WHERE l.code = '-902'), 1,
+	'INSERT: man_conduitlink row created for ve_link_condlink -902');
+
 SELECT * FROM finish();
 
 ROLLBACK;

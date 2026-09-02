@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Clear `selector_inp_dscenario` when creating a sample (same as `selector_psector`); fix `gw_fct_setinitproject` to delete from `selector_inp_dscenario`.
+- Resolve `v_man_table` from `cat_feature` on `gw_trg_edit_link` child views so inserts into `ve_link_link` / `ve_link_condlink` write `man_pipelink` / `man_conduitlink`.
 - Fix `gw_fct_linkexitgenerator` to filter links by sector_id > 0 when is called from `gw_fct_pg2epa_fill_data` function.
 - Do not mark read-only non-mandatory fields Unique: QGIS paste was inventing `_1` / `1,2,3` (ConfigLayerFields still uses Soft NotNull so native Add Feature OK stays enabled on empty PKs).
 - Fix Connect to network Force reconnect + Extra filters: rebuild link from the connect, join `vf_arc`/`vf_node` inside KNN on `arc`/`node`, and log when no candidate is found.
@@ -61,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mapzone manager create dialogs: `expl_id`/`sector_id`/`muni_id` arrays are optional with default Undefined (0); mapzone PK is empty, non-editable and assigned by `urn_id_seq`.
 - Update mapzone `code` via `gw_fct_generate_code` when `gw_fct_graphanalytics_mapzones_v1` writes geometry directly to the table.
 - Feature form `muni_id` uses ValueRelation on `ve_municipality` instead of a frozen ValueMap.
+- `gw_fct_setfeaturereplace` restores `edit_connec_proximity` / `edit_gully_proximity` / `edit_arc_searchnodes` from the original column so a NULL `value` does not rewrite the param.
 
 ## [4.16.1] - 2026-07-31
 

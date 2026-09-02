@@ -66,6 +66,20 @@ SELECT is((SELECT count(*)::integer FROM ve_link WHERE code = '-901'), 0, 'DELET
 SELECT is((SELECT count(*)::integer FROM link WHERE code = '-901'), 0, 'DELETE: link -901 was deleted');
 
 
+-- Child view: cat_feature.id LINK must resolve to man_pipelink
+INSERT INTO ve_link_link (link_id, code, link_type, feature_type, feature_id, exit_type, exit_id, state, expl_id, the_geom, linkcat_id)
+SELECT -902, '-902', 'LINK', 'CONNEC', '3008', 'ARC', '2067', 1, 1,
+	'SRID=25831;LINESTRING (419084.18264611065 4576806.076099069, 419093.3076407612 4576819.998540623)'::public.geometry,
+	cl.id
+FROM cat_link cl
+WHERE cl.link_type = 'LINK'
+LIMIT 1;
+SELECT is((SELECT count(*)::integer FROM ve_link_link WHERE code = '-902'), 1, 'INSERT: ve_link_link -902 was inserted');
+SELECT is((SELECT count(*)::integer FROM link WHERE code = '-902'), 1, 'INSERT: link -902 was inserted');
+SELECT is((SELECT count(*)::integer FROM man_pipelink mp JOIN link l ON l.link_id = mp.link_id WHERE l.code = '-902'), 1,
+	'INSERT: man_pipelink row created for ve_link_link -902');
+
+
 SELECT * FROM finish();
 
 ROLLBACK;

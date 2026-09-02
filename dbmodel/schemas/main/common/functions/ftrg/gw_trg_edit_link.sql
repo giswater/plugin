@@ -100,8 +100,10 @@ BEGIN
 	v_check_arcdnom_status:= (SELECT value::json->>'status' FROM config_param_system WHERE parameter = 'edit_link_check_arcdnom');
 	v_check_arcdnom:= (SELECT value::json->>'diameter' FROM config_param_system WHERE parameter = 'edit_link_check_arcdnom');
 
+	-- modify values for custom view inserts
 	IF v_man_table IN (SELECT id FROM cat_feature WHERE feature_type = 'LINK') THEN
-		v_customfeature := v_man_table;
+		v_customfeature:=v_man_table;
+		v_man_table:=(SELECT man_table FROM cat_feature_link c JOIN cat_feature cf ON cf.id = c.id JOIN sys_feature_class s ON cf.feature_class = s.id WHERE c.id=v_man_table);
 	END IF;
 
 	-- Control insertions ID
@@ -770,11 +772,11 @@ BEGIN
 			NEW.annotation, NEW.observ, NEW.comment, NEW.descript, NEW.link, NEW.num_value, NEW.drainzone_outfall, NEW.dwfzone_outfall, NEW.brand_id, NEW.model_id, NEW.uuid, NEW.omunit_id, COALESCE(NEW.treatment_type, 0)::integer, NEW.dataquality, NEW.dataquality_obs);
 		END IF;
 
-		IF v_man_table = 'VLINK' THEN
+		IF v_man_table = 'man_vlink' THEN
 			INSERT INTO man_vlink VALUES (NEW.link_id);
-		ELSIF v_man_table = 'CONDUITLINK' THEN
+		ELSIF v_man_table = 'man_conduitlink' THEN
 			INSERT INTO man_conduitlink VALUES (NEW.link_id);
-		ELSIF v_man_table = 'PIPELINK' THEN
+		ELSIF v_man_table = 'man_pipelink' THEN
 			INSERT INTO man_pipelink VALUES (NEW.link_id);
 		ELSIF v_man_table='parent' THEN
 			v_man_table := (SELECT man_table FROM cat_feature_link c JOIN cat_feature cf ON cf.id = c.id JOIN sys_feature_class s ON cf.feature_class = s.id WHERE c.id = NEW.link_type);
@@ -961,11 +963,11 @@ BEGIN
 		userdefined_geom = v_userdefined_geom, linkcat_id = NEW.linkcat_id
 		WHERE link_id=NEW.link_id;
 
-		IF v_man_table = 'VLINK' THEN
+		IF v_man_table IN ('VLINK', 'man_vlink') THEN
 			UPDATE man_vlink SET link_id = NEW.link_id WHERE link_id = OLD.link_id;
-		ELSIF v_man_table = 'CONDUITLINK' THEN
+		ELSIF v_man_table IN ('CONDUITLINK', 'man_conduitlink') THEN
 			UPDATE man_conduitlink SET link_id = NEW.link_id WHERE link_id = OLD.link_id;
-		ELSIF v_man_table = 'PIPELINK' THEN
+		ELSIF v_man_table IN ('PIPELINK', 'man_pipelink') THEN
 			UPDATE man_pipelink SET link_id = NEW.link_id WHERE link_id = OLD.link_id;
 		ELSIF v_man_table='parent' THEN
 			v_man_table := (SELECT man_table FROM cat_feature_link c JOIN cat_feature cf ON cf.id = c.id JOIN sys_feature_class s ON cf.feature_class = s.id WHERE c.id = NEW.link_type);
