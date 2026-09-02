@@ -20,6 +20,7 @@ from qgis.PyQt.QtWidgets import (
     QProxyStyle,
     QStyle,
     QStyleFactory,
+    QToolTip,
 )
 from qgis.core import QgsApplication
 
@@ -68,11 +69,7 @@ class _ComboListModel(QAbstractListModel):
         if row < 0 or row >= len(self._rows):
             return None
         item = self._rows[row]
-        if role in (
-            Qt.ItemDataRole.DisplayRole,
-            Qt.ItemDataRole.EditRole,
-            Qt.ItemDataRole.ToolTipRole,
-        ):
+        if role in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
             return item[1]
         if role == Qt.ItemDataRole.UserRole:
             # Keep `[id, idval]` as a list so existing code that does
@@ -123,6 +120,11 @@ _SEARCH_H_PAD = 6
 _SEARCH_V_PAD = 4
 _QWIDGETSIZE_MAX = 16777215
 
+
+def _is_macos() -> bool:
+    return sys.platform == "darwin"
+
+
 # macOS Cocoa QComboBox ignores most stylesheets and paints the old aqua
 # beveled button. Fusion + this QSS makes the closed combo look like a
 # typeahead field (line-edit + chevron) without touching the app style.
@@ -131,9 +133,9 @@ QComboBox {
     background-color: palette(base);
     color: palette(text);
     border: 1px solid palette(mid);
-    border-radius: 4px;
-    padding: 3px 6px 3px 8px;
-    min-height: 22px;
+    border-radius: 7px;
+    padding: 4px 8px 4px 10px;
+    min-height: 24px;
 }
 QComboBox:hover {
     border-color: palette(dark);
@@ -144,44 +146,50 @@ QComboBox:focus, QComboBox:on {
 QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
-    width: 20px;
+    width: 22px;
     border: none;
     background: transparent;
 }
 QComboBox QAbstractItemView {
     background-color: palette(base);
     color: palette(text);
-    border: 1px solid palette(mid);
-    border-radius: 4px;
+    border: none;
     outline: 0;
     selection-background-color: palette(highlight);
     selection-color: palette(highlighted-text);
 }
 """
 
-_POPUP_SEARCH_QSS = """
-QLineEdit {
+
+def _popup_search_qss() -> str:
+    radius = 6 if _is_macos() else 3
+    return f"""
+QLineEdit {{
     background-color: palette(base);
     color: palette(text);
     border: 1px solid palette(mid);
-    border-radius: 3px;
-    padding: 3px 8px;
+    border-radius: {radius}px;
+    padding: 2px 6px;
     selection-background-color: palette(highlight);
     selection-color: palette(highlighted-text);
-}
+}}
 """
 
-_POPUP_VIEW_QSS = """
+
+def _popup_view_qss() -> str:
+    # Do not set item margin / min-height: Windows Vista style treats those
+    # as stretching the *selected* row to the viewport, which then makes
+    # `_popup_list_height` (visualRect) keep a 15-row popup.
+    return """
 QListView {
     background-color: palette(base);
     color: palette(text);
     border: none;
     outline: 0;
-    padding: 2px 0px;
+    padding: 0px;
 }
 QListView::item {
-    padding: 4px 10px;
-    min-height: 18px;
+    padding: 2px 8px;
 }
 QListView::item:selected {
     background-color: palette(highlight);
@@ -191,6 +199,32 @@ QListView::item:hover:!selected {
     background-color: palette(alternate-base);
 }
 """
+
+
+def _style_closed_combo(combo: QComboBox) -> None:
+    """Platform chrome for the closed combo (not the popup).
+
+    On macOS the native style paints an aqua beveled button and ignores QSS,
+    so we swap in Fusion + a line-edit-like sheet. On GTK+/KDE we only need
+    the non-native popup hint. Windows already paints a non-native popup.
+
+    `QWidget.setStyle` does **not** take ownership of the QStyle. Keep a
+    Python reference on the combo so sip/GC cannot free it while Qt still
+    paints (that double-free is a hard QGIS crash).
+    """
+    if combo is None:
+        return
+    if not sys.platform.startswith("win"):
+        try:
+            proxy = _build_non_native_combo_style()
+            if proxy is not None:
+                combo._gw_combo_style = proxy
+                combo.setStyle(proxy)
+        except Exception:
+            pass
+    if _is_macos():
+        combo.setAttribute(Qt.WidgetAttribute.WA_MacShowFocusRect, False)
+        combo.setStyleSheet(_ASYNC_COMBO_MAC_QSS)
 
 
 class _NonNativeComboPopupStyle(QProxyStyle):
@@ -227,7 +261,7 @@ def _build_non_native_combo_style() -> Optional[QProxyStyle]:
     app_style = QApplication.style()
     if app_style is None:
         return None
-    if sys.platform == "darwin":
+    if _is_macos():
         base = QStyleFactory.create("Fusion")
         if base is not None:
             return _NonNativeComboPopupStyle(base)
@@ -272,7 +306,9 @@ class _ComboPopupView(QListView):
             self.setUniformItemSizes(True)
         except AttributeError:
             pass
-        self.setStyleSheet(_POPUP_VIEW_QSS)
+        self.setMouseTracking(True)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setStyleSheet(_popup_view_qss())
         self._top_margin = 0
         self._top_widget: Optional[QLineEdit] = None
 
@@ -286,6 +322,26 @@ class _ComboPopupView(QListView):
     def top_margin(self) -> int:
         return self._top_margin
 
+    def indexAt(self, pos):  # noqa: N802 - Qt API
+        # Search overlay lives in the top viewport margin. Qt's combo
+        # container maps mouse/key moves through indexAt; a y < 0 (or a
+        # view-local y that still sits in the header) must not resolve to
+        # a row — that's what jumped selection from item 0 to item 1.
+        if self._top_margin > 0 and pos.y() < 0:
+            return QModelIndex()
+        return super().indexAt(pos)
+
+    def mousePressEvent(self, event):  # noqa: N802 - Qt API
+        if self._top_margin > 0 and event.pos().y() < self._top_margin:
+            event.ignore()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):  # noqa: N802 - Qt API
+        if self._top_margin > 0 and event.pos().y() < self._top_margin:
+            return
+        super().mouseMoveEvent(event)
+
     def resizeEvent(self, event):  # noqa: N802 - Qt API
         super().resizeEvent(event)
         # Keep the registered search overlay anchored at the top, full-width.
@@ -297,6 +353,39 @@ class _ComboPopupView(QListView):
             self._top_widget.setGeometry(_SEARCH_H_PAD, _SEARCH_V_PAD, width, height)
         except RuntimeError:
             self._top_widget = None
+
+    def viewportEvent(self, event):  # noqa: N802 - Qt API
+        # Only tooltip when the label is actually elided. Repeating the
+        # visible item text (Windows yellow balloon) is just noise.
+        if event.type() == QEvent.Type.ToolTip:
+            try:
+                index = self.indexAt(event.pos())
+                if not index.isValid():
+                    QToolTip.hideText()
+                    return True
+                text = index.data(Qt.ItemDataRole.DisplayRole)
+                if not text:
+                    QToolTip.hideText()
+                    return True
+                label = str(text)
+                rect = self.visualRect(index)
+                metrics = self.fontMetrics()
+                try:
+                    text_w = metrics.horizontalAdvance(label)
+                except AttributeError:
+                    text_w = metrics.width(label)
+                if text_w > max(0, rect.width() - 8):
+                    if hasattr(event, "globalPosition"):
+                        pos = event.globalPosition().toPoint()
+                    else:
+                        pos = event.globalPos()
+                    QToolTip.showText(pos, label, self.viewport())
+                else:
+                    QToolTip.hideText()
+                return True
+            except RuntimeError:
+                return True
+        return super().viewportEvent(event)
 
 
 class _ComboPopupSearchController(QObject):
@@ -320,6 +409,8 @@ class _ComboPopupSearchController(QObject):
         self._hidden_rows: set = set()
         self._orig_show_popup = None
         self._orig_hide_popup = None
+        self._popup_index_on_open: Optional[int] = None
+        self._popup_commit: bool = False
 
     def clear_filter_state(self) -> None:
         self._hidden_rows = set()
@@ -337,8 +428,7 @@ class _ComboPopupSearchController(QObject):
         self.install_overlay()
 
     def _hook_hide_popup(self) -> None:
-        self.teardown_overlay()
-        self._orig_hide_popup()
+        self._close_popup(self._orig_hide_popup)
 
     def install_overlay(self) -> None:
         view = self._combo.view()
@@ -352,7 +442,7 @@ class _ComboPopupSearchController(QObject):
             edit.setPlaceholderText(self._combo.tr("Type to filter..."))
             edit.setClearButtonEnabled(True)
             edit.setFrame(False)
-            edit.setStyleSheet(_POPUP_SEARCH_QSS)
+            edit.setStyleSheet(_popup_search_qss())
             edit.textChanged.connect(self._apply_search_filter)
             edit.installEventFilter(self)
             self._search_edit = edit
@@ -378,8 +468,39 @@ class _ComboPopupSearchController(QObject):
         edit.raise_()
         edit.setFocus(Qt.FocusReason.PopupFocusReason)
 
+        self._popup_index_on_open = self._combo.currentIndex()
+        self._popup_commit = False
+        if not getattr(view, '_gw_combo_commit_hooked', False):
+            # `pressed` fires before QComboBox's clicked→hidePopup, so we
+            # can mark a real item click before restore-on-close runs.
+            view.pressed.connect(self._mark_popup_commit)
+            view.activated.connect(self._mark_popup_commit)
+            view._gw_combo_commit_hooked = True
+
         self._search_active = True
         self._apply_search_filter("")
+
+    def _mark_popup_commit(self, *_args) -> None:
+        self._popup_commit = True
+
+    def _close_popup(self, orig_hide) -> None:
+        """Hide without applying a highlight that came from the search header.
+
+        QComboBox commits ``view.currentIndex()`` on close. Mouse/Up in the
+        filter box can move that highlight to row 1; restore the index from
+        open unless the user clicked a row or pressed Enter.
+        """
+        commit = self._popup_commit
+        restore = self._popup_index_on_open
+        self.teardown_overlay()
+        orig_hide()
+        if commit or restore is None:
+            return
+        try:
+            if self._combo.currentIndex() != restore:
+                self._combo.setCurrentIndex(restore)
+        except RuntimeError:
+            pass
 
     def teardown_overlay(self) -> None:
         self._search_active = False
@@ -498,9 +619,16 @@ class _ComboPopupSearchController(QObject):
         self._hidden_rows = new_hidden
 
         if first_visible >= 0:
-            new_idx = self._index_at(first_visible)
+            current = self._combo.currentIndex()
+            if (
+                not needle
+                and current >= 0
+                and current not in self._hidden_rows
+            ):
+                new_idx = self._index_at(current)
+            else:
+                new_idx = self._index_at(first_visible)
             view.setCurrentIndex(new_idx)
-            view.scrollTo(new_idx)
 
         self._update_search_status(match_count, visible_count, needle, total)
         display_rows = 0 if match_count <= 0 else min(match_count, self._combo.maxVisibleItems())
@@ -520,27 +648,27 @@ class _ComboPopupSearchController(QObject):
                 break
         return first, last
 
+    def _popup_row_height(self, view) -> int:
+        # Keep this tight. `sizeHintForRow` / selected `visualRect` can report
+        # ~2x the painted row while Qt's first popup is still 15 items tall;
+        # using that leaves a blank band under the last row.
+        return max(16, view.fontMetrics().height() + 4)
+
     def _popup_list_height(self, view, display_rows: int) -> int:
         if display_rows <= 0:
             return max(12, view.fontMetrics().height() // 2)
-
+        expected = self._popup_row_height(view) * display_rows
         first, last = self._visible_row_span(display_rows)
-        if first is not None and last is not None:
-            top = view.visualRect(self._index_at(first)).top()
-            bottom = view.visualRect(self._index_at(last)).bottom()
-            if bottom > top:
-                return bottom - top + 1
-
-        total = 0
-        shown = 0
-        for i in range(self._row_count()):
-            if i in self._hidden_rows:
-                continue
-            total += view.sizeHintForRow(i) or (view.fontMetrics().height() + 4)
-            shown += 1
-            if shown >= display_rows:
-                return total
-        return 0
+        if first is None or last is None:
+            return expected
+        top = view.visualRect(self._index_at(first)).top()
+        bottom = view.visualRect(self._index_at(last)).bottom()
+        span = bottom - top + 1
+        # Painted span is authoritative only when it is smaller than the
+        # estimate. A larger span is the leftover 15-row viewport.
+        if 0 < span <= expected:
+            return span
+        return expected
 
     def _layout_popup(self, display_rows: int, attempt: int = 0) -> None:
         if not self._search_active:
@@ -567,6 +695,18 @@ class _ComboPopupSearchController(QObject):
         width = self._combo.width() or (container.width() if container is not None else 0)
         height = header_h + list_h + _POPUP_FRAME_PAD
         self._set_popup_height(width, height)
+
+        try:
+            unhidden = max(0, self._row_count() - len(self._hidden_rows))
+            if unhidden > display_rows:
+                view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            else:
+                view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            bar = view.verticalScrollBar()
+            if bar is not None:
+                bar.setValue(0)
+        except RuntimeError:
+            pass
 
         if getattr(self._combo, 'popup_opens_upward', False):
             popup = view.window()
@@ -597,10 +737,23 @@ class _ComboPopupSearchController(QObject):
         self._search_edit.setToolTip(tip)
         self._search_edit.setPlaceholderText(tip)
 
+    def _first_visible_row(self) -> int:
+        for i in range(self._row_count()):
+            if i not in self._hidden_rows:
+                return i
+        return -1
+
     def _forward_navigation(self, event: QKeyEvent) -> None:
         view = self._combo.view()
         if view is None:
             return
+        # Search already has focus. Up on the first row must not move the
+        # list — Qt maps that through the header and lands on row 1.
+        if event.key() == Qt.Key.Key_Up:
+            current = view.currentIndex().row() if view.currentIndex().isValid() else -1
+            first = self._first_visible_row()
+            if first >= 0 and (current < 0 or current <= first):
+                return
         QApplication.sendEvent(view, event)
 
     def _activate_highlighted(self) -> None:
@@ -610,6 +763,7 @@ class _ComboPopupSearchController(QObject):
             return
         idx = view.currentIndex()
         if idx.isValid() and not view.isRowHidden(idx.row()):
+            self._popup_commit = True
             self._combo.setCurrentIndex(idx.row())
         self._combo.hidePopup()
 
@@ -687,16 +841,7 @@ class GwAsyncComboBox(QComboBox):
         # instance — passing `self.style()` would let the proxy reparent
         # (and later free) the application style, which crashes any
         # subsequent `style()` lookup (e.g. `QMenuPrivate::init`).
-        if not sys.platform.startswith("win"):
-            try:
-                proxy = _build_non_native_combo_style()
-                if proxy is not None:
-                    self.setStyle(proxy)
-            except Exception:
-                pass
-        if sys.platform == "darwin":
-            self.setAttribute(Qt.WidgetAttribute.WA_MacShowFocusRect, False)
-            self.setStyleSheet(_ASYNC_COMBO_MAC_QSS)
+        _style_closed_combo(self)
         self.setMaxVisibleItems(MAX_POPUP_VISIBLE_HEIGHT_ITEMS)
 
         # Use a custom QAbstractListModel; this is the whole point of the
@@ -900,8 +1045,7 @@ class GwAsyncComboBox(QComboBox):
         self._popup_search.install_overlay()
 
     def hidePopup(self):  # noqa: N802 - Qt API
-        self._popup_search.teardown_overlay()
-        super().hidePopup()
+        self._popup_search._close_popup(lambda: QComboBox.hidePopup(self))
     # endregion
 
     # region Internals
