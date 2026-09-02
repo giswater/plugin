@@ -80,9 +80,13 @@ class GwPsector:
     def get_psector(self, psector_id=None, list_coord=None):
         """ Buttons 51 and 52: New psector """
 
+        self.sys_currency = OrderedDict([("symbol", "$"), ("separator", ","), ("decimals", True)])
         row = tools_gw.get_config_value(parameter='admin_currency', columns='value::text', table='v_config_param_system')
         if row:
-            self.sys_currency = json.loads(row[0], object_pairs_hook=OrderedDict)
+            try:
+                self.sys_currency = json.loads(row[0], object_pairs_hook=OrderedDict)
+            except (TypeError, ValueError):
+                pass
 
         # Create the dialog and signals
         self.dlg_plan_psector = GwPsectorUi(self)
@@ -307,8 +311,9 @@ class GwPsector:
                 'cur_total_node', 'cur_total_arc', 'cur_total_other', 'cur_pem', 'cur_pec_pem',
                 'cur_pec', 'cur_pecvat_pem', 'cur_pec_vat', 'cur_pca_pecvat', 'cur_pca'
             )
+            currency_symbol = self.sys_currency.get('symbol', '')
             for label in currency_labels:
-                tools_qt.set_widget_text(self.dlg_plan_psector, label, self.sys_currency['symbol'])
+                tools_qt.set_widget_text(self.dlg_plan_psector, label, currency_symbol)
 
         widget_to_ignore = ('btn_accept', 'btn_cancel', 'btn_reports', 'btn_open_doc')
         restriction = ('role_basic', 'role_om', 'role_epa', 'role_om')

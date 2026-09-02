@@ -5494,7 +5494,7 @@ def get_config_value(parameter='', columns='value', table='config_param_user', s
 
     if not check_db_connection():
         return None
-    if not tools_db.check_table(table):
+    if not tools_db.check_table(table) and not tools_db.check_view(table):
         msg = "Table not found: {0}"
         msg_params = (table,)
         tools_log.log_warning(msg, msg_params=msg_params)
