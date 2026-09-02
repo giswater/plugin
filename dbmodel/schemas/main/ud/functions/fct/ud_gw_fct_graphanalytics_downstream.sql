@@ -206,7 +206,7 @@ BEGIN
 	USING v_mainstream, v_query, v_node, v_distance;
 
 	INSERT INTO t_anl_arc (arc_id, fid, arccat_id, state, expl_id, drainzone_id, addparam, omunit_id, the_geom)
-	SELECT a.arc_id, v_fid, a.arc_type, a.state, a.expl_id, a.drainzone_id, n2.addparam, a.omunit_id, a.the_geom
+	SELECT a.arc_id, v_fid, a.arc_type, a.state, a.expl_id, dwf.drainzone_id, n2.addparam, a.omunit_id, a.the_geom
 	FROM arc a
 	JOIN vf_arc vfa ON vfa.arc_id = a.arc_id
 	JOIN t_anl_node n1 ON a.node_1 = n1.node_id
