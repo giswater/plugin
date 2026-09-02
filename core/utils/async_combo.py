@@ -118,8 +118,79 @@ MAX_POPUP_VISIBLE_HEIGHT_ITEMS = 15
 # Popup layout: Qt may not have painted rows on the first pass.
 _POPUP_LAYOUT_RETRY_MS = 10
 _POPUP_LAYOUT_MAX_ATTEMPTS = 3
-_POPUP_FRAME_PAD = 2
+_POPUP_FRAME_PAD = 4
+_SEARCH_H_PAD = 6
+_SEARCH_V_PAD = 4
 _QWIDGETSIZE_MAX = 16777215
+
+# macOS Cocoa QComboBox ignores most stylesheets and paints the old aqua
+# beveled button. Fusion + this QSS makes the closed combo look like a
+# typeahead field (line-edit + chevron) without touching the app style.
+_ASYNC_COMBO_MAC_QSS = """
+QComboBox {
+    background-color: palette(base);
+    color: palette(text);
+    border: 1px solid palette(mid);
+    border-radius: 4px;
+    padding: 3px 6px 3px 8px;
+    min-height: 22px;
+}
+QComboBox:hover {
+    border-color: palette(dark);
+}
+QComboBox:focus, QComboBox:on {
+    border: 1px solid palette(highlight);
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    border: none;
+    background: transparent;
+}
+QComboBox QAbstractItemView {
+    background-color: palette(base);
+    color: palette(text);
+    border: 1px solid palette(mid);
+    border-radius: 4px;
+    outline: 0;
+    selection-background-color: palette(highlight);
+    selection-color: palette(highlighted-text);
+}
+"""
+
+_POPUP_SEARCH_QSS = """
+QLineEdit {
+    background-color: palette(base);
+    color: palette(text);
+    border: 1px solid palette(mid);
+    border-radius: 3px;
+    padding: 3px 8px;
+    selection-background-color: palette(highlight);
+    selection-color: palette(highlighted-text);
+}
+"""
+
+_POPUP_VIEW_QSS = """
+QListView {
+    background-color: palette(base);
+    color: palette(text);
+    border: none;
+    outline: 0;
+    padding: 2px 0px;
+}
+QListView::item {
+    padding: 4px 10px;
+    min-height: 18px;
+}
+QListView::item:selected {
+    background-color: palette(highlight);
+    color: palette(highlighted-text);
+}
+QListView::item:hover:!selected {
+    background-color: palette(alternate-base);
+}
+"""
 
 
 class _NonNativeComboPopupStyle(QProxyStyle):
@@ -149,13 +220,18 @@ def _build_non_native_combo_style() -> Optional[QProxyStyle]:
     """Build a `_NonNativeComboPopupStyle` over a fresh copy of the current
     application style. Returns `None` if no suitable style key is found
     (caller should then skip applying the proxy).
+
+    On macOS the native style is skipped on purpose: Cocoa paints the
+    closed combo as an aqua button and ignores QSS. Fusion is used instead.
     """
     app_style = QApplication.style()
     if app_style is None:
         return None
-    # Try the QObject name first. QStyleFactory sets it to the key it was
-    # created with (e.g. "Fusion"); native platform styles often have it
-    # too (e.g. "Breeze" on KDE).
+    if sys.platform == "darwin":
+        base = QStyleFactory.create("Fusion")
+        if base is not None:
+            return _NonNativeComboPopupStyle(base)
+
     style_key = app_style.objectName()
     if not style_key:
         # Fall back: derive from class name (QFusionStyle -> Fusion).
@@ -163,6 +239,9 @@ def _build_non_native_combo_style() -> Optional[QProxyStyle]:
         if cls_name.startswith("Q") and cls_name.endswith("Style"):
             style_key = cls_name[1:-len("Style")]
     base = None
+    # Try the QObject name first. QStyleFactory sets it to the key it was
+    # created with (e.g. "Fusion"); native platform styles often have it
+    # too (e.g. "Breeze" on KDE).
     if style_key:
         base = QStyleFactory.create(style_key)
     if base is None:
@@ -193,6 +272,7 @@ class _ComboPopupView(QListView):
             self.setUniformItemSizes(True)
         except AttributeError:
             pass
+        self.setStyleSheet(_POPUP_VIEW_QSS)
         self._top_margin = 0
         self._top_widget: Optional[QLineEdit] = None
 
@@ -212,7 +292,9 @@ class _ComboPopupView(QListView):
         if self._top_margin <= 0 or self._top_widget is None:
             return
         try:
-            self._top_widget.setGeometry(0, 0, self.width(), self._top_margin)
+            width = max(0, self.width() - 2 * _SEARCH_H_PAD)
+            height = max(0, self._top_margin - 2 * _SEARCH_V_PAD)
+            self._top_widget.setGeometry(_SEARCH_H_PAD, _SEARCH_V_PAD, width, height)
         except RuntimeError:
             self._top_widget = None
 
@@ -269,6 +351,8 @@ class _ComboPopupSearchController(QObject):
             edit.setObjectName(f"{self._combo.objectName() or 'gw_combo'}_search")
             edit.setPlaceholderText(self._combo.tr("Type to filter..."))
             edit.setClearButtonEnabled(True)
+            edit.setFrame(False)
+            edit.setStyleSheet(_POPUP_SEARCH_QSS)
             edit.textChanged.connect(self._apply_search_filter)
             edit.installEventFilter(self)
             self._search_edit = edit
@@ -280,14 +364,16 @@ class _ComboPopupSearchController(QObject):
 
         edit = self._search_edit
         edit_h = edit.sizeHint().height()
+        header_h = edit_h + 2 * _SEARCH_V_PAD
         edit.blockSignals(True)
         edit.clear()
         edit.blockSignals(False)
 
         if isinstance(view, _ComboPopupView):
-            view.set_top_margin(edit_h)
+            view.set_top_margin(header_h)
 
-        edit.setGeometry(0, 0, view.width(), edit_h)
+        width = max(0, view.width() - 2 * _SEARCH_H_PAD)
+        edit.setGeometry(_SEARCH_H_PAD, _SEARCH_V_PAD, width, edit_h)
         edit.show()
         edit.raise_()
         edit.setFocus(Qt.FocusReason.PopupFocusReason)
@@ -471,10 +557,15 @@ class _ComboPopupSearchController(QObject):
             )
             return
 
-        edit_h = self._search_edit.sizeHint().height() if self._search_edit else 0
+        if isinstance(view, _ComboPopupView):
+            header_h = view.top_margin()
+        elif self._search_edit is not None:
+            header_h = self._search_edit.sizeHint().height() + 2 * _SEARCH_V_PAD
+        else:
+            header_h = 0
         container = self._popup_container()
         width = self._combo.width() or (container.width() if container is not None else 0)
-        height = edit_h + list_h + _POPUP_FRAME_PAD
+        height = header_h + list_h + _POPUP_FRAME_PAD
         self._set_popup_height(width, height)
 
         if getattr(self._combo, 'popup_opens_upward', False):
@@ -603,6 +694,9 @@ class GwAsyncComboBox(QComboBox):
                     self.setStyle(proxy)
             except Exception:
                 pass
+        if sys.platform == "darwin":
+            self.setAttribute(Qt.WidgetAttribute.WA_MacShowFocusRect, False)
+            self.setStyleSheet(_ASYNC_COMBO_MAC_QSS)
         self.setMaxVisibleItems(MAX_POPUP_VISIBLE_HEIGHT_ITEMS)
 
         # Use a custom QAbstractListModel; this is the whole point of the
