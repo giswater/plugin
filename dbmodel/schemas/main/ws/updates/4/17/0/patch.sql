@@ -1737,3 +1737,236 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,widgetcontrols,hidden)
 	VALUES ('cat_arc','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
   ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+-- Drop denormalized node fields from arc; compute them in ve_arc via JOIN
+DROP TRIGGER IF EXISTS gw_trg_arc_node_values ON arc;
+
+DROP VIEW IF EXISTS v_edit_arc; -- BREAKING CHANGE: v_edit_arc is no longer supported
+
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"SAVE-DROP", "rootViews":["ve_arc"], "batchId":17}}$$);
+
+CREATE OR REPLACE VIEW ve_arc
+AS WITH typevalue AS (
+         SELECT edit_typevalue.typevalue,
+            edit_typevalue.id,
+            edit_typevalue.idval
+           FROM edit_typevalue
+          WHERE edit_typevalue.typevalue::text = ANY (ARRAY['sector_type'::text, 'presszone_type'::text, 'dma_type'::text, 'dqa_type'::text, 'supplyzone_type'::text, 'omzone_type'::text])
+        ), sector_table AS (
+         SELECT sector.sector_id,
+            sector.macrosector_id,
+            sector.stylesheet,
+            t.id AS sector_type
+           FROM sector
+             LEFT JOIN typevalue t ON t.id::text = sector.sector_type::text AND t.typevalue::text = 'sector_type'::text
+        ), dma_table AS (
+         SELECT dma.dma_id,
+            dma.macrodma_id,
+            dma.stylesheet,
+            t.id AS dma_type
+           FROM dma
+             LEFT JOIN typevalue t ON t.id::text = dma.dma_type::text AND t.typevalue::text = 'dma_type'::text
+        ), presszone_table AS (
+         SELECT presszone.presszone_id,
+            presszone.head AS presszone_head,
+            presszone.stylesheet,
+            t.id AS presszone_type
+           FROM presszone
+             LEFT JOIN typevalue t ON t.id::text = presszone.presszone_type AND t.typevalue::text = 'presszone_type'::text
+        ), dqa_table AS (
+         SELECT dqa.dqa_id,
+            dqa.stylesheet,
+            t.id AS dqa_type,
+            dqa.macrodqa_id
+           FROM dqa
+             LEFT JOIN typevalue t ON t.id::text = dqa.dqa_type::text AND t.typevalue::text = 'dqa_type'::text
+        ), supplyzone_table AS (
+         SELECT supplyzone.supplyzone_id,
+            supplyzone.stylesheet,
+            t.id AS supplyzone_type
+           FROM supplyzone
+             LEFT JOIN typevalue t ON t.id::text = supplyzone.supplyzone_type::text AND t.typevalue::text = 'supplyzone_type'::text
+        ), omzone_table AS (
+         SELECT omzone.omzone_id,
+            t.id AS omzone_type,
+            omzone.macroomzone_id
+           FROM omzone
+             LEFT JOIN typevalue t ON t.id::text = omzone.omzone_type::text AND t.typevalue::text = 'omzone_type'::text
+        )
+ SELECT a.arc_id,
+    a.code,
+    a.sys_code,
+    a.node_1,
+    cn1.node_type AS nodetype_1,
+    n1.top_elev AS elevation1,
+    n1.depth AS depth1,
+    n1.staticpressure AS staticpressure1,
+    a.node_2,
+    cn2.node_type AS nodetype_2,
+    n2.staticpressure AS staticpressure2,
+    n2.top_elev AS elevation2,
+    n2.depth AS depth2,
+    ((COALESCE(n1.depth, 0::numeric) + COALESCE(n2.depth, 0::numeric)) / 2::numeric)::numeric(12,2) AS depth,
+    cat_arc.arc_type,
+    a.arccat_id,
+    cat_feature.feature_class AS sys_type,
+    cat_arc.matcat_id AS cat_matcat_id,
+    cat_arc.pnom AS cat_pnom,
+    cat_arc.dnom AS cat_dnom,
+    cat_arc.dint AS cat_dint,
+    cat_arc.dr AS cat_dr,
+    a.epa_type,
+    a.state,
+    a.state_type,
+    a.parent_id,
+    a.expl_id,
+    exploitation.macroexpl_id,
+    a.muni_id,
+    a.sector_id,
+    sector_table.macrosector_id,
+    sector_table.sector_type,
+    a.supplyzone_id,
+    supplyzone_table.supplyzone_type,
+    a.presszone_id,
+    presszone_table.presszone_type,
+    presszone_table.presszone_head,
+    a.dma_id,
+    dma_table.macrodma_id,
+    dma_table.dma_type,
+    a.dqa_id,
+    dqa_table.macrodqa_id,
+    dqa_table.dqa_type,
+    a.omzone_id,
+    omzone_table.macroomzone_id,
+    omzone_table.omzone_type,
+    a.minsector_id,
+    a.pavcat_id,
+    a.soilcat_id,
+    a.function_type,
+    a.category_type,
+    a.location_type,
+    a.fluid_type,
+    a.descript,
+    st_length2d(a.the_geom)::numeric(12,2) AS gis_length,
+    a.custom_length,
+    a.annotation,
+    a.observ,
+    a.comment,
+    concat(cat_feature.link_path, a.link) AS link,
+    a.num_value,
+    a.district_id,
+    a.postcode,
+    a.streetaxis_id,
+    a.postnumber,
+    a.postcomplement,
+    a.streetaxis2_id,
+    a.postnumber2,
+    a.postcomplement2,
+    vm.region_id,
+    vm.province_id,
+    a.workcat_id,
+    a.workcat_id_end,
+    a.workcat_id_plan,
+    a.builtdate,
+    a.enddate,
+    a.ownercat_id,
+    a.om_state,
+    a.conserv_state,
+    COALESCE(a.brand_id, cat_arc.brand_id) AS brand_id,
+    COALESCE(a.model_id, cat_arc.model_id) AS model_id,
+    a.serial_number,
+    a.asset_id,
+    a.adate,
+    a.adescript,
+    a.verified,
+    a.datasource,
+    cat_arc.label,
+    a.label_x,
+    a.label_y,
+    a.label_rotation,
+    a.label_quadrant,
+    a.inventory,
+    a.publish,
+    vst.is_operative,
+    a.is_scadamap,
+        CASE
+            WHEN a.sector_id > 0 AND vst.is_operative = true AND a.epa_type::text <> 'UNDEFINED'::text THEN a.epa_type::text
+            ELSE NULL::text
+        END AS inp_type,
+    arc_add.result_id,
+    arc_add.flow_max,
+    arc_add.flow_min,
+    arc_add.flow_avg,
+    arc_add.vel_max,
+    arc_add.vel_min,
+    arc_add.vel_avg,
+    arc_add.tot_headloss_max,
+    arc_add.tot_headloss_min,
+    arc_add.mincut_connecs,
+    arc_add.mincut_hydrometers,
+    arc_add.mincut_length,
+    arc_add.mincut_watervol,
+    arc_add.mincut_criticality,
+    arc_add.hydraulic_criticality,
+    arc_add.pipe_capacity,
+    arc_add.mincut_impact_topo,
+    arc_add.mincut_impact_hydro,
+    sector_table.stylesheet ->> 'featureColor'::text AS sector_style,
+    dma_table.stylesheet ->> 'featureColor'::text AS dma_style,
+    presszone_table.stylesheet ->> 'featureColor'::text AS presszone_style,
+    dqa_table.stylesheet ->> 'featureColor'::text AS dqa_style,
+    supplyzone_table.stylesheet ->> 'featureColor'::text AS supplyzone_style,
+    a.lock_level,
+    a.expl_visibility,
+    date_trunc('second'::text, a.created_at) AS created_at,
+    a.created_by,
+    date_trunc('second'::text, a.updated_at) AS updated_at,
+    a.updated_by,
+    a.the_geom,
+    vf.p_state,
+    a.uuid,
+    a.uncertain,
+    a.dataquality,
+    a.dataquality_obs
+   FROM arc a
+     JOIN vf_arc vf ON vf.arc_id = a.arc_id
+     JOIN cat_arc ON cat_arc.id::text = a.arccat_id::text
+     JOIN cat_feature ON cat_feature.id::text = cat_arc.arc_type::text
+     JOIN exploitation ON a.expl_id = exploitation.expl_id
+     JOIN v_municipality vm ON a.muni_id = vm.muni_id
+     JOIN sector_table ON sector_table.sector_id = a.sector_id
+     LEFT JOIN node n1 ON n1.node_id = a.node_1
+     LEFT JOIN cat_node cn1 ON cn1.id::text = n1.nodecat_id::text
+     LEFT JOIN node n2 ON n2.node_id = a.node_2
+     LEFT JOIN cat_node cn2 ON cn2.id::text = n2.nodecat_id::text
+     LEFT JOIN presszone_table ON presszone_table.presszone_id = a.presszone_id
+     LEFT JOIN dma_table ON dma_table.dma_id = a.dma_id
+     LEFT JOIN dqa_table ON dqa_table.dqa_id = a.dqa_id
+     LEFT JOIN supplyzone_table ON supplyzone_table.supplyzone_id = a.supplyzone_id
+     LEFT JOIN omzone_table ON omzone_table.omzone_id = a.omzone_id
+     LEFT JOIN arc_add ON arc_add.arc_id = a.arc_id
+     LEFT JOIN value_state_type vst ON vst.id = a.state_type;
+
+DROP FUNCTION IF EXISTS gw_trg_arc_node_values();
+
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"arc", "column":"nodetype_1"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"arc", "column":"elevation1"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"arc", "column":"depth1"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"arc", "column":"staticpressure1"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"arc", "column":"nodetype_2"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"arc", "column":"elevation2"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"arc", "column":"depth2"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"arc", "column":"staticpressure2"}}$$);
+
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"archived_psector_arc", "column":"nodetype_1"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"archived_psector_arc", "column":"elevation1"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"archived_psector_arc", "column":"depth1"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"archived_psector_arc", "column":"staticpressure1"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"archived_psector_arc", "column":"nodetype_2"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"archived_psector_arc", "column":"elevation2"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"archived_psector_arc", "column":"depth2"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"archived_psector_arc", "column":"staticpressure2"}}$$);
+
+SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"RESTORE", "batchId":17}}$$);
+
+CREATE TRIGGER gw_trg_edit_arc INSTEAD OF INSERT OR DELETE OR UPDATE ON
+ve_arc FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_arc('parent');

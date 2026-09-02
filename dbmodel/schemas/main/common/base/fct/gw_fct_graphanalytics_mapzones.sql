@@ -1454,11 +1454,6 @@ BEGIN
 		v_querytext = 'UPDATE arc SET '||quote_ident(v_field)||' = a.'||quote_ident(v_field)||', updated_by = a.updated_by, updated_at = a.updated_at 
 		FROM temp_t_arc a WHERE a.arc_id=arc.arc_id';
 		EXECUTE v_querytext;
-		IF v_class = 'PRESSZONE' THEN
-			-- static pressure for arcs
-			UPDATE arc SET staticpressure1 = n.staticpressure FROM temp_t_node n WHERE node_id = node_1;
-			UPDATE arc SET staticpressure2 = n.staticpressure FROM temp_t_node n WHERE node_id = node_2;
-		END IF;
 
 		-- node
 		v_querytext = 'UPDATE node SET '||quote_ident(v_field)||' = n.'||quote_ident(v_field)||', updated_by = n.updated_by, updated_at = n.updated_at 

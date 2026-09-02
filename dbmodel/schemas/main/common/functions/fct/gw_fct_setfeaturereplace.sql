@@ -314,8 +314,6 @@ BEGIN
 
 			END IF;
 
-			INSERT INTO audit_check_data (fid, result_id, error_message)
-			VALUES (v_fid, v_result_id, concat('New feature (',v_id,') inserted into node table.'));
 					EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
                        "data":{"message":"3346", "function":"2714", "parameters":{"v_id":"'||v_id||'"}, "fid":"'||v_fid||'", "result_id":"'||quote_nullable(v_result_id)||'", "is_process":true}}$$)';
 
@@ -696,27 +694,6 @@ BEGIN
 				END IF;
 			END IF;
 		END IF;
-
-		-- update nodetype on arc
-		IF v_feature_type='node' then
-
-			FOR rec_arc IN SELECT arc_id, nodetype_1 FROM arc WHERE node_1=v_id
-			loop
-				select node_type from ve_node where node_id=v_id into v_nodetype;
-				UPDATE arc SET nodetype_1=v_nodetype where arc_id=rec_arc.arc_id;
-				EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
-                       "data":{"message":"3340", "function":"2714", "parameters":{"rec_arc.arc_id":"'||rec_arc.arc_id||'"}, "fid":"'||v_fid||'", "result_id":"'||quote_nullable(v_result_id)||'", "is_process":true}}$$)';
-			END LOOP;
-
-			FOR rec_arc IN SELECT arc_id, nodetype_2 FROM arc WHERE node_2=v_id
-			loop
-				select node_type from ve_node where node_id=v_id into v_nodetype;
-				UPDATE arc SET nodetype_2=v_nodetype where arc_id=rec_arc.arc_id;
-				EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
-                       "data":{"message":"3340", "function":"2714", "parameters":{"rec_arc.arc_id":"'||rec_arc.arc_id||'"}, "fid":"'||v_fid||'", "result_id":"'||quote_nullable(v_result_id)||'", "is_process":true}}$$)';
-
-			END LOOP;
-		end if;
 
 		--reset mapzone configuration
 		IF v_project_type='WS' THEN

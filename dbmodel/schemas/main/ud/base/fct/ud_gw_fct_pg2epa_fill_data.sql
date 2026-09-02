@@ -52,8 +52,8 @@ BEGIN
 		a.arc_id,
 		a.node_1,
 		a.node_2,
-		COALESCE(a.custom_elev1, a.elev1, a.node_custom_elev_1, a.node_elev_1) AS elevmax1,
-		COALESCE(a.custom_elev2, a.elev2, a.node_custom_elev_2, a.node_elev_2) AS elevmax2,
+		COALESCE(a.custom_elev1, a.elev1, n1.custom_elev, n1.elev) AS elevmax1,
+		COALESCE(a.custom_elev2, a.elev2, n2.custom_elev, n2.elev) AS elevmax2,
 		a.arc_type,
 		a.arccat_id,
 		a.epa_type,
@@ -69,7 +69,7 @@ BEGIN
 		ic.qmax,
 		ic.barrels,
 		CASE
-            WHEN a.sys_slope IS NULL THEN ((COALESCE(a.node_custom_elev_1, a.node_elev_1, a.elev1, a.node_top_elev_1 - a.y1, a.node_elev_1) - COALESCE(a.node_custom_elev_2, a.node_elev_2, a.elev2, a.node_top_elev_2 - a.y2, a.node_elev_2))::double precision / st_length(a.the_geom))::numeric(12,4)
+            WHEN a.sys_slope IS NULL THEN ((COALESCE(n1.custom_elev, n1.elev, a.elev1, n1.top_elev - a.y1, n1.elev) - COALESCE(n2.custom_elev, n2.elev, a.elev2, n2.top_elev - a.y2, n2.elev))::double precision / st_length(a.the_geom))::numeric(12,4)
             ELSE a.sys_slope
         END AS slope,
 		ic.culvert,
@@ -80,15 +80,12 @@ BEGIN
 		ic.seepage,
 		((now()::date - a.builtdate) / 30) AS age
 	FROM arc a
+		LEFT JOIN node n1 ON n1.node_id = a.node_1
+		LEFT JOIN node n2 ON n2.node_id = a.node_2
 		JOIN vf_arc vf ON vf.arc_id = a.arc_id
-		LEFT JOIN value_state_type vst ON vst.id = a.state_type
-		LEFT JOIN cat_material cm ON a.matcat_id = cm.id
-		LEFT JOIN inp_conduit ic ON a.arc_id = ic.arc_id
-	WHERE (
-		'ARC' = ANY (cm.feature_type)
-		OR cm.feature_type IS NULL
-	);
-
+		JOIN cat_arc ca ON a.arccat_id = ca.id
+		LEFT JOIN cat_material cm ON ca.matcat_id = cm.id
+		LEFT JOIN inp_conduit ic ON a.arc_id = ic.arc_id;
 
 	-- Insert on node temp_t_node table
 	-- the strategy of selector_sector is not used for nodes. The reason is to enable the posibility to export the sector=-1. In addition using this it's impossible to export orphan nodes

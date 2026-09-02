@@ -214,14 +214,9 @@ BEGIN
 			EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
                        "data":{"message":"3492", "function":"2736", "parameters":{"v_feature_id":"'||v_feature_id||'"}, "fid":"152", "result_id":"'||quote_nullable(v_result_id)||'", "is_process":true}}$$)';
 		ELSE
-			--set final nodes to NULL and delete node
-			IF v_project_type = 'WS' THEN
-				EXECUTE'UPDATE arc SET node_1=NULL, nodetype_1=NULL, elevation1=NULL, depth1=NULL, staticpressure1 = NULL WHERE node_1='||v_feature_id||';';
-				EXECUTE'UPDATE arc SET node_2=NULL, nodetype_2=NULL, elevation2=NULL, depth2=NULL, staticpressure2 = NULL WHERE node_2='||v_feature_id||';';
-			ELSE
-				EXECUTE'UPDATE arc SET node_1=NULL, nodetype_1=NULL, node_top_elev_1=NULL, node_elev_1=NULL, node_custom_top_elev_1=NULL, node_custom_elev_1=NULL WHERE node_1='||v_feature_id||';';
-				EXECUTE'UPDATE arc SET node_2=NULL, nodetype_2=NULL, node_top_elev_2=NULL, node_elev_2=NULL, node_custom_top_elev_2=NULL, node_custom_elev_2=NULL WHERE node_2='||v_feature_id||';';
-			END IF;
+			--set final nodes to NULL and delete node (node attrs are computed in ve_arc via JOIN)
+			EXECUTE'UPDATE arc SET node_1=NULL WHERE node_1='||v_feature_id||';';
+			EXECUTE'UPDATE arc SET node_2=NULL WHERE node_2='||v_feature_id||';';
 			EXECUTE 'DELETE FROM '||v_feature_childview_name||' WHERE node_id='||v_feature_id||';';
 
 			EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},

@@ -179,9 +179,6 @@ BEGIN
 		INSERT INTO audit_check_data (fid,  criticity, error_message) VALUES (101, 4, v_errortext);
 	END IF;
 
-	-- Force muni selector for 0 values
-	INSERT INTO selector_municipality VALUES (0, current_user) ON CONFLICT (muni_id, cur_user) DO NOTHING;
-
 	--Force hydrology_selector when null values from user
 	IF v_project_type='UD' THEN
 		IF (SELECT hydrology_id FROM cat_hydrology LIMIT 1) IS NOT NULL THEN

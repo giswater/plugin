@@ -36,7 +36,7 @@ def _sql_root() -> str:
 class TestMultilangSeedSql(unittest.TestCase):
 
     def test_target_table_mapping(self):
-        self.assertEqual(len(MULTILANG_UI_TABLES), 22)
+        self.assertEqual(len(MULTILANG_UI_TABLES), 23)
         self.assertIn("value_state", MULTILANG_UI_TABLES)
         self.assertIn("value_state_type", MULTILANG_UI_TABLES)
         self.assertIn("plan_price", MULTILANG_UI_TABLES)
@@ -67,6 +67,10 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbstyle"], "sys_style")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_toolbox"], "config_toolbox")
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbconfig_report"], "config_report")
+        self.assertEqual(
+            BASELINE_TO_MULTILANG_TABLE["dbconfig_report_query"],
+            "config_report_query",
+        )
         self.assertEqual(BASELINE_TO_MULTILANG_TABLE["dbjson"], "config_json")
         self.assertEqual(
             BASELINE_TO_MULTILANG_TABLE["dbconfig_form_tableview"],
@@ -176,6 +180,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("INSERT INTO multilang.plan_price", joined)
         self.assertIn("INSERT INTO multilang.config_toolbox", joined)
         self.assertIn("INSERT INTO multilang.config_report", joined)
+        self.assertIn("INSERT INTO multilang.config_report_query", joined)
         self.assertIn("INSERT INTO multilang.config_json", joined)
         self.assertIn("INSERT INTO multilang.config_form_tableview", joined)
         self.assertIn("INSERT INTO multilang.config_csv", joined)
@@ -381,6 +386,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("plan_price", tables)
         self.assertIn("config_toolbox", tables)
         self.assertIn("config_report", tables)
+        self.assertIn("config_report_query", tables)
         self.assertIn("config_json", tables)
         json_hints = {
             row.values.get("hint")
@@ -488,6 +494,30 @@ class TestMultilangSeedSql(unittest.TestCase):
         inserts = build_insert_sql("config_report", rows)
         self.assertEqual(len(inserts), 1)
         self.assertIn("INSERT INTO multilang.config_report", inserts[0])
+
+
+    def test_parse_dbconfig_report_query_maps_query_text(self):
+        sql = """
+        UPDATE config_report AS t SET query_text = v.text FROM (
+            VALUES
+            (102, 'SELECT w.exploitation as "Exploitation", w.dma as "Dma" FROM v_om_waterbalance w')
+        ) AS v(id, text)
+        WHERE t.id = v.id;
+        """
+        blocks = parse_update_blocks(sql)
+        rows = blocks_to_multilang_rows("dbconfig_report_query", blocks, project_type="ws")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].table, "config_report_query")
+        self.assertEqual(rows[0].values["source"], "102")
+        self.assertEqual(rows[0].values["hint"], "query_text")
+        self.assertEqual(rows[0].values["context"], "config_report")
+        self.assertIn('as "Exploitation"', rows[0].values["text"])
+
+        inserts = build_insert_sql("config_report_query", rows)
+        self.assertEqual(len(inserts), 1)
+        self.assertIn("INSERT INTO multilang.config_report_query", inserts[0])
+        self.assertIn('"text"', inserts[0])
+        self.assertNotIn("'::json", inserts[0])
 
 
     def test_parse_dbconfig_toolbox_maps_alias(self):
@@ -910,6 +940,8 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("CREATE OR REPLACE VIEW", ddl)
         self.assertIn("sys_style", ddl)
         self.assertIn("COALESCE(ml.tx, t.stylevalue)", ddl)
+        self.assertIn("COALESCE(mlq.text, t.query_text)", ddl)
+        self.assertIn("config_report_query", ddl)
         self.assertNotIn("gw_fct_apply_style_labels", ddl)
 
     def test_ensure_multilang_tables_ddl_creates_config_typevalue(self):
@@ -923,6 +955,7 @@ class TestMultilangSeedSql(unittest.TestCase):
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.value_state_type", ddl)
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.plan_price", ddl)
         self.assertIn("CREATE TABLE IF NOT EXISTS multilang.sys_style", ddl)
+        self.assertIn("CREATE TABLE IF NOT EXISTS multilang.config_report_query", ddl)
         self.assertIn("tx text NULL", ddl)
         self.assertIn("DROP TABLE multilang.sys_style", ddl)
         self.assertIn("typevalue text NOT NULL", ddl)

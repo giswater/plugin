@@ -2316,6 +2316,7 @@ def fill_tab_log(dialog, data, force_tab=True, reset_text=True, tab_idx=1, call_
     infolog_widget = dialog.findChild(QTextEdit, 'tab_log_txt_infolog')
     if infolog_widget:
         infolog_widget.setReadOnly(True)
+        infolog_widget.setStyleSheet(None)
     qtabwidget = dialog.findChild(QTabWidget, 'mainTab')
     if qtabwidget is not None:
         qtabwidget.setTabEnabled(qtabwidget.count() - 1, True)
@@ -3537,7 +3538,12 @@ def set_widget_readonly(widget, readonly, from_apply=False):
 
     if readonly:
         widget.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
-        if type(widget) is GwHyperLinkLineEdit:
+        # QTextEdit keeps the native palette (same as go2epa infolog). Themed/hardcoded
+        # gray looks like a disabled field and breaks dark theme.
+        if type(widget) is QTextEdit:
+            if not from_apply:
+                widget.setStyleSheet(None)
+        elif type(widget) is GwHyperLinkLineEdit:
             widget.setStyleSheet(ThemeManager.readonly_hyperlink_style(widget))
         else:
             ThemeManager.apply_readonly_style(widget, readonly=True)
