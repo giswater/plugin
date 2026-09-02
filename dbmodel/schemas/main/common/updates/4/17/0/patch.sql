@@ -1391,3 +1391,8 @@ UPDATE config_param_system
 	WHERE "parameter"='qgis_mapzone_inundation_from_arc';
 
 DELETE FROM sys_function WHERE id = 3368;
+
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
+VALUES (4692, 'SKIPPED: Link for %feature_type% with id %connect_id% was not modified because it has user-defined geometry.',
+ 'Uncheck userdefined_geom on the link, or reconnect from a psector / arc divide.', 0, true, 'utils', 'core', 'AUDIT')
+ON CONFLICT (id) DO NOTHING;

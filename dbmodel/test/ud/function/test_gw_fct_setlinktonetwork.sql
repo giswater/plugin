@@ -11,7 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(27);
+SELECT plan(30);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -266,6 +266,46 @@ SELECT is (
      ORDER BY l.link_id DESC LIMIT 1),
     1,
     'CONNEC forceNode extraFilters.fluid_type links to a node with matching fluid_type'
+);
+
+-- Planned reconnect must clone a userdefined operative link (state=2), not skip it
+UPDATE link SET userdefined_geom = TRUE
+WHERE feature_id = 3092 AND feature_type = 'CONNEC' AND state = 1;
+
+INSERT INTO config_param_user (parameter, value, cur_user)
+SELECT 'edit_statetype_2_vdefault', '3', current_user
+WHERE NOT EXISTS (
+	SELECT 1 FROM config_param_user
+	WHERE parameter = 'edit_statetype_2_vdefault' AND cur_user = current_user
+);
+
+INSERT INTO selector_psector (psector_id, cur_user)
+SELECT 1, current_user
+WHERE NOT EXISTS (
+	SELECT 1 FROM selector_psector WHERE psector_id = 1 AND cur_user = current_user
+);
+
+SELECT is (
+    (gw_fct_setlinktonetwork($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"id":["3092"]}, "data":{"filterFields":{}, "pageInfo":{}, "feature_type":"CONNEC",
+    "psectorId":"1"}}$$)::JSON)->>'status',
+    'Accepted',
+    'psector reconnect with userdefined_geom TRUE returns Accepted'
+);
+
+SELECT ok (
+    (SELECT EXISTS (
+        SELECT 1 FROM link
+        WHERE feature_id = 3092 AND feature_type = 'CONNEC' AND state = 2
+    )),
+    'psector reconnect with userdefined_geom TRUE creates a planned link'
+);
+
+SELECT ok (
+    (SELECT link_id IS NOT NULL FROM plan_psector_x_connec
+     WHERE connec_id = 3092 AND psector_id = 1 AND state = 1
+     LIMIT 1),
+    'psector reconnect with userdefined_geom TRUE fills plan_psector_x_connec.link_id'
 );
 
 SELECT finish();

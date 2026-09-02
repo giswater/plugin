@@ -435,8 +435,14 @@ BEGIN
 				SELECT * INTO v_link FROM ve_link WHERE feature_id = v_connect_id limit 1;
 			END IF;
 
-			-- skip all processing for links with user-defined geometry
-			IF v_link.userdefined_geom IS TRUE THEN
+			-- skip userdefined links in inventory mode only.
+			-- Planned clone (psector / arc-divide) must still create a state=2 link from the operative geom.
+			IF v_link.userdefined_geom IS TRUE
+				AND COALESCE(v_isoperative_psector, false) IS FALSE
+				AND COALESCE(v_ispsector, false) IS FALSE
+				AND COALESCE(v_isarcdivide, false) IS FALSE THEN
+				EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "4692","function":"3188","fid": 217,"v_criticity": 2,
+				"parameters":{"feature_type":"'||lower(v_feature_type)||'", "connect_id":"'||v_connect_id||'"}}}$$);';
 				v_connect := null;
 				v_link := null;
 				v_arc := null;
