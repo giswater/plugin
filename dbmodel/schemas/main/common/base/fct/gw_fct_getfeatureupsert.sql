@@ -1129,88 +1129,122 @@ BEGIN
 			-- setting values
 			IF (aux_json->>'widgettype')='combo' OR (aux_json->>'widgettype')='multiple_checkbox' OR (aux_json->>'widgettype')='multiple_option' THEN
 
-				-- Set default value if exist when inserting and feild_value is null
-				IF v_tg_op ='INSERT' AND (field_value IS NULL OR field_value = '') THEN
-					IF (aux_json->>'widgetcontrols') IS NOT NULL THEN
-						IF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_value') THEN
-							IF (aux_json->>'widgetcontrols')::json->>'vdefault_value'::text in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+				IF (aux_json->>'widgettype') = 'combo' THEN
+					-- Plain combos load their items asynchronously in Python from
+					-- dv_querytext. There is no comboIds list to validate against
+					-- here: just apply vdefault_value/vdefault_querytext on INSERT
+					-- and forward selectedId. The Python widget guarantees the
+					-- selected id is shown even before the full list is loaded.
+					IF v_tg_op ='INSERT' AND (field_value IS NULL OR field_value = '') THEN
+						IF (aux_json->>'widgetcontrols') IS NOT NULL THEN
+							IF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_value') THEN
 								field_value = (aux_json->>'widgetcontrols')::json->>'vdefault_value';
-							END IF;
-						ELSEIF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_querytext') THEN
-							EXECUTE (aux_json->>'widgetcontrols')::json->>'vdefault_querytext'::text INTO vdefault_querytext;
-							IF vdefault_querytext in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
-								field_value = vdefault_querytext;
-							END iF;
-						END IF;
-					END IF;
-				END IF;
-
-				-- Apply default also on UPDATE for filter combos (their value is not persisted)
-				IF COALESCE((aux_json->>'isfilter')::boolean, false) = TRUE
-				   AND (field_value IS NULL OR field_value = '') THEN
-					IF (aux_json->>'widgetcontrols') IS NOT NULL THEN
-						IF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_value') THEN
-							IF (aux_json->>'widgetcontrols')::json->>'vdefault_value'::text in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
-								field_value = (aux_json->>'widgetcontrols')::json->>'vdefault_value';
-							END IF;
-						ELSEIF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_querytext') THEN
-							EXECUTE (aux_json->>'widgetcontrols')::json->>'vdefault_querytext'::text INTO vdefault_querytext;
-							IF vdefault_querytext in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+							ELSEIF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_querytext') THEN
+								EXECUTE (aux_json->>'widgetcontrols')::json->>'vdefault_querytext'::text INTO vdefault_querytext;
 								field_value = vdefault_querytext;
 							END IF;
 						END IF;
 					END IF;
-				END IF;
 
-				--check if selected id is on combo list
-				IF field_value::text not in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) AND field_value IS NOT NULL then
-					--find dvquerytext for combo
-					v_querystring = concat('SELECT dv_querytext FROM config_form_fields WHERE
-					columnname::text = (',quote_literal(v_fields_array[array_index]),'::json->>''columnname'')::text
-					and formname = ',quote_literal(v_table_id),';');
+					-- Apply default also on UPDATE for filter combos (their value is not persisted)
+					IF COALESCE((aux_json->>'isfilter')::boolean, false) = TRUE
+					   AND (field_value IS NULL OR field_value = '') THEN
+						IF (aux_json->>'widgetcontrols') IS NOT NULL THEN
+							IF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_value') THEN
+								field_value = (aux_json->>'widgetcontrols')::json->>'vdefault_value';
+							ELSEIF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_querytext') THEN
+								EXECUTE (aux_json->>'widgetcontrols')::json->>'vdefault_querytext'::text INTO vdefault_querytext;
+								field_value = vdefault_querytext;
+							END IF;
+						END IF;
+					END IF;
+				ELSE
+					-- multiple_checkbox / multiple_option still ship comboIds/comboNames
+					-- in the JSON, so the legacy validation against that list applies.
 
-					EXECUTE v_querystring INTO v_querystring;
+					-- Set default value if exist when inserting and field_value is null
+					IF v_tg_op ='INSERT' AND (field_value IS NULL OR field_value = '') THEN
+						IF (aux_json->>'widgetcontrols') IS NOT NULL THEN
+							IF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_value') THEN
+								IF (aux_json->>'widgetcontrols')::json->>'vdefault_value'::text in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+									field_value = (aux_json->>'widgetcontrols')::json->>'vdefault_value';
+								END IF;
+							ELSEIF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_querytext') THEN
+								EXECUTE (aux_json->>'widgetcontrols')::json->>'vdefault_querytext'::text INTO vdefault_querytext;
+								IF vdefault_querytext in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+									field_value = vdefault_querytext;
+								END iF;
+							END IF;
+						END IF;
+					END IF;
 
-					if v_querystring is not null then
-						v_querystring = replace(lower(v_querystring),'active is true','1=1');
+					-- Apply default also on UPDATE for filter combos (their value is not persisted)
+					IF COALESCE((aux_json->>'isfilter')::boolean, false) = TRUE
+					   AND (field_value IS NULL OR field_value = '') THEN
+						IF (aux_json->>'widgetcontrols') IS NOT NULL THEN
+							IF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_value') THEN
+								IF (aux_json->>'widgetcontrols')::json->>'vdefault_value'::text in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+									field_value = (aux_json->>'widgetcontrols')::json->>'vdefault_value';
+								END IF;
+							ELSEIF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_querytext') THEN
+								EXECUTE (aux_json->>'widgetcontrols')::json->>'vdefault_querytext'::text INTO vdefault_querytext;
+								IF vdefault_querytext in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+									field_value = vdefault_querytext;
+								END IF;
+							END IF;
+						END IF;
+					END IF;
 
-						--select values for missing id
-						v_querystring = concat('SELECT id, idval FROM (',v_querystring,')a
-						WHERE id::text = ',quote_literal(field_value),'');
+					--check if selected id is on combo list
+					IF field_value::text not in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) AND field_value IS NOT NULL then
+						--find dvquerytext for combo
+						v_querystring = concat('SELECT dv_querytext FROM config_form_fields WHERE
+						columnname::text = (',quote_literal(v_fields_array[array_index]),'::json->>''columnname'')::text
+						and formname = ',quote_literal(v_table_id),';');
 
-						EXECUTE v_querystring INTO v_selected_id,v_selected_idval;
+						EXECUTE v_querystring INTO v_querystring;
 
-					end if;
+						if v_querystring is not null then
+							v_querystring = replace(lower(v_querystring),'active is true','1=1');
 
-					v_current_id =json_extract_path_text(v_fields_array[array_index],'comboIds');
+							--select values for missing id
+							v_querystring = concat('SELECT id, idval FROM (',v_querystring,')a
+							WHERE id::text = ',quote_literal(field_value),'');
 
-					IF v_current_id='[]' and v_selected_id is not null then
-						--case when list is empty
-						EXECUTE concat('SELECT  array_to_json(''{',v_selected_id,'}''::text[])')
-						INTO v_new_id;
-						v_fields_array[array_index] = gw_fct_json_object_set_key(v_fields_array[array_index],'comboIds',v_new_id::json);
-						EXECUTE concat('SELECT  array_to_json(''{',v_selected_idval,'}''::text[])')
-						INTO v_new_id;
-						v_fields_array[array_index] = gw_fct_json_object_set_key(v_fields_array[array_index],'comboNames',v_new_id::json);
-					ELSE
-					    IF v_selected_id IS NOT NULL THEN
-                            select string_agg(quote_ident(a),',') into v_new_id from json_array_elements_text(v_current_id::json) a ;
-                            --remove current combo Ids from return json
-                            v_fields_array[array_index] = v_fields_array[array_index]::jsonb - 'comboIds'::text;
-                            EXECUTE 'SELECT  array_to_json(''{'||v_selected_id||'}''::text[])'
-                            INTO v_new_id;
-                            --add new combo Ids to return json
-                            v_fields_array[array_index] = gw_fct_json_object_set_key(v_fields_array[array_index],'comboIds',v_new_id::json);
+							EXECUTE v_querystring INTO v_selected_id,v_selected_idval;
 
-                            v_current_id =json_extract_path_text(v_fields_array[array_index],'comboNames');
-                            select string_agg(quote_ident(a),',') into v_new_id from json_array_elements_text(v_current_id::json) a ;
-                            --remove current combo names from return json
-                            v_fields_array[array_index] = v_fields_array[array_index]::jsonb - 'comboNames'::text;
-                            EXECUTE 'SELECT  array_to_json(ARRAY['||quote_literal(v_selected_idval)||'])::text'
-                            INTO v_new_id;
-                            --add new combo names to return json
-                            v_fields_array[array_index] = gw_fct_json_object_set_key(v_fields_array[array_index],'comboNames',v_new_id::json);
-					    END IF;
+						end if;
+
+						v_current_id =json_extract_path_text(v_fields_array[array_index],'comboIds');
+
+						IF v_current_id='[]' and v_selected_id is not null then
+							--case when list is empty
+							EXECUTE concat('SELECT  array_to_json(''{',v_selected_id,'}''::text[])')
+							INTO v_new_id;
+							v_fields_array[array_index] = gw_fct_json_object_set_key(v_fields_array[array_index],'comboIds',v_new_id::json);
+							EXECUTE concat('SELECT  array_to_json(''{',v_selected_idval,'}''::text[])')
+							INTO v_new_id;
+							v_fields_array[array_index] = gw_fct_json_object_set_key(v_fields_array[array_index],'comboNames',v_new_id::json);
+						ELSE
+						    IF v_selected_id IS NOT NULL THEN
+	                            select string_agg(quote_ident(a),',') into v_new_id from json_array_elements_text(v_current_id::json) a ;
+	                            --remove current combo Ids from return json
+	                            v_fields_array[array_index] = v_fields_array[array_index]::jsonb - 'comboIds'::text;
+	                            EXECUTE 'SELECT  array_to_json(''{'||v_selected_id||'}''::text[])'
+	                            INTO v_new_id;
+	                            --add new combo Ids to return json
+	                            v_fields_array[array_index] = gw_fct_json_object_set_key(v_fields_array[array_index],'comboIds',v_new_id::json);
+
+	                            v_current_id =json_extract_path_text(v_fields_array[array_index],'comboNames');
+	                            select string_agg(quote_ident(a),',') into v_new_id from json_array_elements_text(v_current_id::json) a ;
+	                            --remove current combo names from return json
+	                            v_fields_array[array_index] = v_fields_array[array_index]::jsonb - 'comboNames'::text;
+	                            EXECUTE 'SELECT  array_to_json(ARRAY['||quote_literal(v_selected_idval)||'])::text'
+	                            INTO v_new_id;
+	                            --add new combo names to return json
+	                            v_fields_array[array_index] = gw_fct_json_object_set_key(v_fields_array[array_index],'comboNames',v_new_id::json);
+						    END IF;
+						END IF;
 					END IF;
 				END IF;
 				v_fields_array[array_index] := gw_fct_json_object_set_key(v_fields_array[array_index], 'selectedId', COALESCE(field_value, ''));

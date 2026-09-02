@@ -547,7 +547,7 @@ class GwImportSwmm:
                 first_column.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 tbl_nodes.setItem(row, 0, first_column)
 
-                combo_cat = QComboBox()
+                combo_cat = tools_gw.create_combo_box()
                 tbl_nodes.setCellWidget(row, 1, combo_cat)
 
                 new_cat_name = QTableWidgetItem("")
@@ -581,7 +581,7 @@ class GwImportSwmm:
                     item.setFlags(Qt.ItemFlag.ItemIsEnabled)
                     tbl_arcs.setItem(row, idx + 1, item)
 
-                combo_cat = QComboBox()
+                combo_cat = tools_gw.create_combo_box()
                 tbl_arcs.setCellWidget(row, 6, combo_cat)
 
                 new_cat_name = QTableWidgetItem("")
@@ -611,7 +611,7 @@ class GwImportSwmm:
                 first_column.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 tbl_material.setItem(row, 0, first_column)
 
-                combo_mat = QComboBox()
+                combo_mat = tools_gw.create_combo_box()
                 tbl_material.setCellWidget(row, 1, combo_mat)
 
                 self.tbl_elements["materials"][roughness] = (combo_mat,)
@@ -647,7 +647,7 @@ class GwImportSwmm:
             first_column.setFlags(Qt.ItemFlag.ItemIsEnabled)
             tbl_feature.setItem(row, 0, first_column)
 
-            combo_feat = QComboBox()
+            combo_feat = tools_gw.create_combo_box()
             tbl_feature.setCellWidget(row, 1, combo_feat)
 
             self.tbl_elements["features"][tag.lower()] = (combo_feat,)
@@ -922,7 +922,7 @@ class GwImportSwmm:
             tbl.setItem(row, 0, first_column)
 
             # Create the combo box and put it in the second or fourth column
-            combo_cat = QComboBox()
+            combo_cat = tools_gw.create_combo_box()
             combo_idx = 6 if feature_type == "ARC" else 1
             tbl.setCellWidget(row, combo_idx, combo_cat)
 

@@ -157,7 +157,10 @@ BEGIN
 	END LOOP;
 
 	-- combo no childs
-	FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array)) AS a WHERE (a->>'widgettype' = 'combo' OR a->>'widgettype' = 'multiple_checkbox')  AND  a->>'parentId' IS NULL
+	-- NOTE: For widgettype = 'combo', dv_querytext is NOT executed server-side anymore.
+	-- The JSON keeps queryText/queryTextFilter/parentId/orderById/isNullValue so the
+	-- Python client loads items asynchronously (see GwAsyncComboBox).
+	FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array)) AS a WHERE (a->>'widgettype' = 'multiple_checkbox')  AND  a->>'parentId' IS NULL
 	LOOP
 		v_array := null;
 		-- Define the order by column
@@ -212,9 +215,12 @@ BEGIN
 	END LOOP;
 
 	-- combo childs
+	-- NOTE: For child combos we no longer execute dv_querytext server-side. We only
+	-- compute parent-driven editability so the client can disable the widget when
+	-- needed; the Python client (GwAsyncComboBox) re-runs the query with the
+	-- current parent value when the parent combo changes.
 	FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array)) AS a WHERE a->>'widgettype' = 'combo' AND  a->>'parentId' IS NOT NULL
 	LOOP
-
 
 		-- Get selected value from parent
 		IF p_tgop ='INSERT' THEN
@@ -227,9 +233,6 @@ BEGIN
 				v_selected_id = p_id;
 			ELSIF (aux_json->>'parentId') = 'team_id' THEN -- specific case for team_id as parent
 				v_selected_id = p_values_array->>'team_id';
-				/*IF v_selected_id IS NULL THEN
-					v_selected_id = (select team_id from om_visit_lot_x_user where user_id = current_user and endtime is null);
-				END IF;*/
 			ELSE
 				v_querystring = concat('SELECT value::text FROM sys_param_user JOIN config_param_user ON sys_param_user.id=parameter
 					WHERE cur_user=current_user AND feature_field_id=',quote_literal(quote_ident(aux_json->>'parentId')));
@@ -241,75 +244,17 @@ BEGIN
 
 		END IF;
 
-		-- Define the order by column
-		IF (aux_json->>'orderById')::boolean IS TRUE THEN
-			v_orderby='id';
-		ELSE
-			v_orderby='idval';
-		END IF;
+		-- set false the editability based on parent value (must keep, the client
+		-- needs this hint; query execution moved to Python).
+		IF v_selected_id IS NOT NULL AND (aux_json->>'widgetcontrols') IS NOT NULL
+			AND ((aux_json->>'widgetcontrols')::json->>'enableWhenParent') IS NOT NULL THEN
 
-		-- Get combo id's
-		IF (aux_json->>'queryTextFilter') IS NOT NULL AND v_selected_id IS NOT NULL THEN
+			v_editability = replace (((aux_json->>'widgetcontrols')::json->>'enableWhenParent'), '[', '{');
+			v_editability = replace (v_editability, ']', '}');
 
-			v_querystring = concat('SELECT (array_agg(id)) FROM (', (aux_json->>'queryText') ,' ',(aux_json->>'queryTextFilter'),'::text = ',quote_literal(v_selected_id)
-			,' ORDER BY ',v_orderby,') a');
-
-
-			EXECUTE v_querystring INTO v_array;
-		ELSE
-			v_querystring = concat('SELECT (array_agg(id)) FROM (',(aux_json->>'queryText'),' ORDER BY ',v_orderby,')a');
-			EXECUTE v_querystring INTO v_array;
-
-		END IF;
-
-		-- set false the editability
-		v_editability = replace (((aux_json->>'widgetcontrols')::json->>'enableWhenParent'), '[', '{');
-		v_editability = replace (v_editability, ']', '}');
-
-		IF v_selected_id::text != ANY (v_editability::text[]) THEN
-			fields_array[(aux_json->>'orderby')::INT] := gw_fct_cm_json_object_set_key(fields_array[(aux_json->>'orderby')::INT], 'iseditable', false);
-		END IF;
-
-		-- Enable null values
-		IF (aux_json->>'dv_isnullvalue')::boolean IS TRUE THEN
-			v_array = array_prepend('',v_array);
-		END IF;
-		combo_json = array_to_json(v_array);
-		fields_array[(aux_json->>'orderby')::INT] := gw_fct_cm_json_object_set_key(fields_array[(aux_json->>'orderby')::INT], 'comboIds', COALESCE(combo_json, '[]'));
-
-		-- Get combo values
-		IF (aux_json->>'queryTextFilter') IS NOT NULL AND v_selected_id IS NOT NULL THEN
-			v_querystring = concat('SELECT (array_agg(idval)) FROM (', (aux_json->>'queryText') , ' ' ,(aux_json->>'queryTextFilter'),'::text = ',quote_literal(v_selected_id)
-			,' ORDER BY ',v_orderby,') a');
-			EXECUTE v_querystring INTO v_array;
-		ELSE
-			v_querystring = concat('SELECT (array_agg(idval)) FROM (',(aux_json->>'queryText'),' ORDER BY ',v_orderby,')a');
-			EXECUTE v_querystring INTO v_array;
-		END IF;
-
-		-- Enable null values
-		IF (aux_json->>'dv_isnullvalue')::boolean IS TRUE THEN
-			v_array = array_prepend('',v_array);
-			-- remove key when is used
-			fields_array[(aux_json->>'orderby')::INT] := gw_fct_cm_json_object_delete_keys(fields_array[(aux_json->>'orderby')::INT], 'isNullValue');
-		END IF;
-		combo_json = array_to_json(v_array);
-
-		combo_json := COALESCE(combo_json, '[]');
-		fields_array[(aux_json->>'orderby')::INT] := gw_fct_cm_json_object_set_key(fields_array[(aux_json->>'orderby')::INT], 'comboNames', combo_json);
-
-		-- for typeahead widgets
-		IF aux_json->>'widgettype' = 'typeahead' and (aux_json->>'queryText') IS NOT NULL THEN
-
-			fields_array[(aux_json->>'orderby')::INT] := gw_fct_cm_json_object_set_key(fields_array[(aux_json->>'orderby')::INT], 'getDataAction', 'dataset'::text);
-			fields_array[(aux_json->>'orderby')::INT] := gw_fct_cm_json_object_set_key(fields_array[(aux_json->>'orderby')::INT], 'selectAction', 'setWidgetValue'::text);
-			fields_array[(aux_json->>'orderby')::INT] := gw_fct_cm_json_object_set_key(fields_array[(aux_json->>'orderby')::INT], 'threshold', 3);
-			fields_array[(aux_json->>'orderby')::INT] := gw_fct_cm_json_object_set_key(fields_array[(aux_json->>'orderby')::INT], 'dataset', combo_json);
-
-		ELSE
-			--removing the not used keys
-			fields_array[(aux_json->>'orderby')::INT] := gw_fct_cm_json_object_delete_keys(fields_array[(aux_json->>'orderby')::INT],
-			'queryText', 'orderById', 'parentId', 'queryTextFilter');
+			IF v_selected_id::text != ANY (v_editability::text[]) THEN
+				fields_array[(aux_json->>'orderby')::INT] := gw_fct_cm_json_object_set_key(fields_array[(aux_json->>'orderby')::INT], 'iseditable', false);
+			END IF;
 		END IF;
 
 	END LOOP;

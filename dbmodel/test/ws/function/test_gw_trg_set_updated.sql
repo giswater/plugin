@@ -9,7 +9,7 @@ BEGIN;
 SET client_min_messages TO WARNING;
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(15);
+SELECT plan(16);
 
 INSERT INTO config_param_user (parameter, value, cur_user)
 VALUES ('edit_disable_editcontrols', 'true', current_user)

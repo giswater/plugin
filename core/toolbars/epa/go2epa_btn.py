@@ -15,7 +15,7 @@ from time import time
 from datetime import timedelta
 
 from qgis.PyQt.QtCore import QStringListModel, Qt, QTimer, QRegularExpression, QPoint
-from qgis.PyQt.QtWidgets import QWidget, QComboBox, QCompleter, QGroupBox, QSpacerItem, QSizePolicy, QGridLayout, QLabel, QTabWidget, QMenu, QAction, QActionGroup
+from qgis.PyQt.QtWidgets import QWidget, QCompleter, QGroupBox, QSpacerItem, QSizePolicy, QGridLayout, QLabel, QTabWidget, QMenu, QAction, QActionGroup
 from qgis.PyQt.QtGui import QIcon
 from qgis.core import QgsApplication
 
@@ -636,16 +636,20 @@ class GwGo2EpaButton(GwAction):
 
     def _get_event_combo_parent(self, complet_result):
 
-        for field in complet_result['body']['form']['formTabs'][0]["fields"]:
-            if field['isparent']:
-                widget = self.dlg_go2epa_options.findChild(QComboBox, field['widgetname'])
-                if widget:
-                    widget.currentIndexChanged.connect(partial(self._fill_child, self.dlg_go2epa_options, widget))
+        fields = complet_result['body']['form']['formTabs'][0].get('fields', [])
+        tools_gw.connect_isparent_combos(
+            self.dlg_go2epa_options,
+            fields,
+            self._fill_child,
+        )
 
     def _fill_child(self, dialog, widget):
 
+        combo_id = tools_qt.get_combo_value(dialog, widget, 0)
+        if combo_id in (None, '', -1):
+            return False
+
         combo_parent = widget.objectName()
-        combo_id = tools_qt.get_combo_value(dialog, widget)
         # TODO cambiar por gw_fct_getchilds then unified with tools_gw.get_child if posible
         json_result = tools_gw.execute_procedure('gw_fct_getcombochilds', f"'epaoptions', '', '', '{combo_parent}', '{combo_id}', ''")
         if not json_result or json_result['status'] == 'Failed':
@@ -653,7 +657,7 @@ class GwGo2EpaButton(GwAction):
 
         for combo_child in json_result['fields']:
             if combo_child is not None:
-                tools_gw.manage_combo_child(dialog, widget, combo_child)
+                tools_gw.manage_combo_child(dialog, widget, combo_child, combo_id)
 
     def _calculate_elapsed_time(self, dialog):
 

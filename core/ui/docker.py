@@ -10,6 +10,7 @@ from qgis.PyQt import QtCore
 from qgis.PyQt.QtWidgets import QDockWidget
 
 from ...libs import lib_vars
+from ..utils import tools_gw
 
 
 class GwDocker(QDockWidget):
@@ -35,6 +36,7 @@ class GwDocker(QDockWidget):
         # TODO: Check try/catch. Strange error: "GwDocker object has no attribute 'setupUi"
         try:
             self.setupUi(self)
+            tools_gw.upgrade_dialog_combos(self)
         except Exception:
             pass
 

@@ -772,6 +772,8 @@ class GwInfo(QObject):
                 layout_orientations[layout_name] = orientation
 
         current_layout = ""
+        self.dlg_cf.setProperty('_gw_defer_filtered_child_combos', not reload_epa)
+        tools_gw.set_form_field_values(self.dlg_cf, result.get('fields'))
         for field in complet_result['body']['data']['fields']:
 
             if field.get('hidden'):
@@ -850,15 +852,16 @@ class GwInfo(QObject):
 
         if reload_epa:
             return
+        self.dlg_cf.setProperty('_gw_defer_filtered_child_combos', False)
         # Manage combo parents and children:
-        for field in result['fields']:
-            if field['isparent']:
-                if field['widgettype'] == 'combo':
-                    widget = self.dlg_cf.findChild(QComboBox, field['widgetname'])
-                    if widget is not None:
-                        widget.currentIndexChanged.connect(partial(
-                            self._get_combo_child, self.dlg_cf, widget, self.feature_type,
-                            self.tablename, self.field_id))
+        tools_gw.connect_isparent_combos(
+            self.dlg_cf,
+            result['fields'],
+            self._get_combo_child,
+            self.feature_type,
+            self.tablename,
+            self.field_id,
+        )
 
     def _manage_actions_signals(self, complet_result, list_points, new_feature, tab_type, result):
         """ Connects signals to the actions """
@@ -3275,7 +3278,9 @@ class GwInfo(QObject):
         """
 
         combo_parent = widget.property('columnname')
-        combo_id = tools_qt.get_combo_value(dialog, widget)
+        combo_id = tools_qt.get_combo_value(dialog, widget, 0)
+        if combo_id in (None, '', -1):
+            return False
 
         feature = f'"featureType":"{feature_type}", '
         feature += f'"tableName":"{tablename}", '
@@ -3288,7 +3293,7 @@ class GwInfo(QObject):
 
         for combo_child in result['body']['data']:
             if combo_child is not None:
-                tools_gw.manage_combo_child(dialog, widget, combo_child)
+                tools_gw.manage_combo_child(dialog, widget, combo_child, combo_id)
 
     def _get_point_xy(self):
         """ Capture point XY from the canvas """

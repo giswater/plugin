@@ -32,6 +32,7 @@ class GwDialog(QDialog):
         else:
             super().__init__(iface.mainWindow())
         self.setupUi(self)
+        tools_gw.upgrade_dialog_combos(self)
 
         # Check if CONTEXT and UINAME are defined and set properties accordingly
         context = getattr(self, 'CONTEXT', None)

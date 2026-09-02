@@ -5,7 +5,6 @@ General Public License as published by the Free Software Foundation, either vers
 or (at your option) any later version.
 """
 # -*- coding: latin-1 -*-
-import operator
 from functools import partial
 
 from qgis.PyQt.QtWidgets import QGridLayout, QLabel, QLineEdit, QComboBox, QGroupBox, QSpacerItem, QSizePolicy, QWidget
@@ -164,7 +163,7 @@ class GwCatalog:
     def _add_combobox(self, field):
         """ Add QComboBox to dialog """
 
-        widget = QComboBox()
+        widget = tools_gw.create_combo_box()
         widget.setObjectName(field['columnname'])
         widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._fill_combo(widget, field)
@@ -173,30 +172,22 @@ class GwCatalog:
         return widget
 
     def _fill_combo(self, widget, field):
-        """
-        Fill QComboBox
-            :param widget: combobox destination (QComboBox)
-            :param field: json where find values (Json)
-        """
-
-        # Generate list of items to add into combo
-        widget.blockSignals(True)
-        widget.clear()
-        widget.blockSignals(False)
-        combolist = []
-        comboIds = field.get('comboIds')
-        comboNames = field.get('comboNames')
-        if None not in (comboIds, comboNames):
-            for i in range(0, len(comboIds)):
-                if comboIds[i] is not None and comboNames[i] is not None:
-                    elem = [comboIds[i], comboNames[i]]
-                    combolist.append(elem)
-            records_sorted = sorted(combolist, key=operator.itemgetter(1))
-            # Populate combo
-            if widget.objectName() != 'id':
-                records_sorted.insert(0, ['', ''])
-            for record in records_sorted:
-                widget.addItem(str(record[1]), record)
+        """Fill combo via shared async-aware ``fill_combo`` / ``fill_combo_values``."""
+        rows = []
+        combo_ids = field.get('comboIds')
+        combo_names = field.get('comboNames')
+        if None not in (combo_ids, combo_names):
+            for i in range(len(combo_ids)):
+                if combo_ids[i] is not None and combo_names[i] is not None:
+                    rows.append([combo_ids[i], combo_names[i]])
+        add_empty = widget.objectName() != 'id'
+        tools_qt.fill_combo_values(
+            widget,
+            rows,
+            add_empty=add_empty,
+            sort_combo=True,
+            sort_by=1,
+        )
 
     def _fill_geomcat_id(self, previous_dialog, widget_name):
         """ Fill the widget of the previous dialogue """

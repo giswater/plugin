@@ -145,18 +145,30 @@ BEGIN
 			-- Update array
 			IF (aux_json->>'widgettype')='combo' OR (aux_json->>'widgettype')='multiple_checkbox' THEN
 
-				-- Set default value if exist when inserting and feild_value is null
+				-- Set default value if exist when inserting and field_value is null.
+				-- Plain combos no longer ship comboIds (Python loads them async from
+				-- dv_querytext), so vdefault_* is applied directly. multiple_checkbox
+				-- still has comboIds and keeps the old validation against it.
 				IF p_tg_op ='INSERT' AND (field_value IS NULL OR field_value = '') THEN
 					IF (aux_json->>'widgetcontrols') IS NOT NULL THEN
-						IF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_value') THEN
-							IF (aux_json->>'widgetcontrols')::json->>'vdefault_value'::text in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+						IF (aux_json->>'widgettype') = 'combo' THEN
+							IF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_value') THEN
 								field_value = (aux_json->>'widgetcontrols')::json->>'vdefault_value';
-							END IF;
-						ELSEIF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_querytext') THEN
-							EXECUTE aux_json->>'widgetcontrols'::json->'vdefault_querytext'::text INTO vdefault_querytext;
-							IF vdefault_querytext in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+							ELSEIF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_querytext') THEN
+								EXECUTE aux_json->>'widgetcontrols'::json->'vdefault_querytext'::text INTO vdefault_querytext;
 								field_value = vdefault_querytext;
-							END iF;
+							END IF;
+						ELSE
+							IF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_value') THEN
+								IF (aux_json->>'widgetcontrols')::json->>'vdefault_value'::text in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+									field_value = (aux_json->>'widgetcontrols')::json->>'vdefault_value';
+								END IF;
+							ELSEIF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_querytext') THEN
+								EXECUTE aux_json->>'widgetcontrols'::json->'vdefault_querytext'::text INTO vdefault_querytext;
+								IF vdefault_querytext in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+									field_value = vdefault_querytext;
+								END iF;
+							END IF;
 						END IF;
 					END IF;
 				END IF;

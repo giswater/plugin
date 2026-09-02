@@ -145,10 +145,10 @@ BEGIN
 		-- Define the order by column
 		IF (v_aux_json_child->>'dv_orderby_id')::boolean IS TRUE THEN
 			v_orderby='id';
-		ELSE 
+		ELSE
 			v_orderby='idval';
 		END IF;
-		
+
 		-- set false the editability
 		v_editability = replace (((v_aux_json_child->>'editability')::json->>'trueWhenParentIn'), '[', '{');
 		v_editability = replace (v_editability, ']', '}');
@@ -158,66 +158,52 @@ BEGIN
 			v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'iseditable', false);
 		END IF;
 
-		-- Get combo child name
-		--v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'widgetname', (v_aux_json_child->>'widgetname'));
-		
-		-- Get combo id's
-		IF (v_aux_json_child->>'dv_querytext_filterc') IS NOT NULL AND v_combovalue IS NOT NULL THEN
-			query_text = concat('SELECT array_to_json(array_agg(id)) FROM (',((v_aux_json_child->>'dv_querytext')),((v_aux_json_child->>'dv_querytext_filterc')),'::text = ',(quote_literal(v_combovalue)),' ORDER BY ',v_orderby,') a');
-			v_debug_vars := json_build_object('v_aux_json_child->>''dv_querytext''', (v_aux_json_child->>'dv_querytext'), 'v_aux_json_child->>''dv_querytext_filterc''', (v_aux_json_child->>'dv_querytext_filterc'), 'v_combovalue', v_combovalue, 'v_orderby', v_orderby);
-			v_debug := json_build_object('querystring', query_text, 'vars', v_debug_vars, 'funcname', 'gw_fct_getchilds', 'flag', 50);
-			SELECT gw_fct_debugsql(v_debug) INTO v_msgerr;
-			EXECUTE query_text INTO combo_json_child;
-		ELSE 	
-			v_querystring = concat('SELECT array_to_json(array_agg(id)) FROM (',((v_aux_json_child->>'dv_querytext')),' ORDER BY ',v_orderby,')a');
-			v_debug_vars := json_build_object('v_aux_json_child->>''dv_querytext''', (v_aux_json_child->>'dv_querytext'), 'v_orderby', v_orderby);
-			v_debug := json_build_object('querystring', v_querystring, 'vars', v_debug_vars, 'funcname', 'gw_fct_getchilds', 'flag', 60);
-			SELECT gw_fct_debugsql(v_debug) INTO v_msgerr;
-			EXECUTE v_querystring INTO combo_json_child;
-		END IF;
-		
-		combo_json_child := COALESCE(combo_json_child, '[]');
-		v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'comboIds', COALESCE(combo_json_child, '[]'));
-	
-		-- Get combo value's
-		IF (v_aux_json_child->>'dv_querytext_filterc') IS NOT NULL AND v_combovalue IS NOT NULL THEN
-			query_text = concat('SELECT array_to_json(array_agg(idval)) FROM (',(v_aux_json_child->>'dv_querytext'),(v_aux_json_child->>'dv_querytext_filterc'),'::text = ',quote_literal(v_combovalue),' ORDER BY ',v_orderby,') a');
-			v_debug_vars := json_build_object('v_aux_json_child->>''dv_querytext''', (v_aux_json_child->>'dv_querytext'), 'v_aux_json_child->>''dv_querytext_filterc''', (v_aux_json_child->>'dv_querytext_filterc'), 'v_combovalue', v_combovalue, 'v_orderby', v_orderby);
-			v_debug := json_build_object('querystring', query_text, 'vars', v_debug_vars, 'funcname', 'gw_fct_getchilds', 'flag', 70);
-			SELECT gw_fct_debugsql(v_debug) INTO v_msgerr;
-			EXECUTE query_text INTO combo_json_child;
-		ELSE 	
-			v_querystring = concat('SELECT array_to_json(array_agg(idval)) FROM (',((v_aux_json_child->>'dv_querytext')),' ORDER BY ',v_orderby,')a');
-			v_debug_vars := json_build_object('v_aux_json_child->>''dv_querytext''', (v_aux_json_child->>'dv_querytext'), 'v_orderby', v_orderby);
-			v_debug := json_build_object('querystring', v_querystring, 'vars', v_debug_vars, 'funcname', 'gw_fct_getchilds', 'flag', 80);
-			SELECT gw_fct_debugsql(v_debug) INTO v_msgerr;
-			EXECUTE v_querystring INTO combo_json_child;
-		END IF;
-		combo_json_child := COALESCE(combo_json_child, '[]');
-		v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'comboNames', combo_json_child);
-
-		-- Set current value
+		-- NOTE: dv_querytext is NOT executed here for feature dialogs anymore.
+		-- The Python widget (`GwAsyncComboBox`) loads the items asynchronously
+		-- using the parent value passed in from manage_combo_child. We still
+		-- compute selectedId from sys_param_user so the new value can be
+		-- restored once the items are loaded client-side.
 		IF v_formtype != 'feature' THEN
+			-- Legacy path for catalog/config-style flows that still expect a
+			-- pre-filtered list. (No known active caller, but kept for safety.)
+			IF (v_aux_json_child->>'dv_querytext_filterc') IS NOT NULL AND v_combovalue IS NOT NULL THEN
+				query_text = concat('SELECT array_to_json(array_agg(id)) FROM (',((v_aux_json_child->>'dv_querytext')),((v_aux_json_child->>'dv_querytext_filterc')),'::text = ',(quote_literal(v_combovalue)),' ORDER BY ',v_orderby,') a');
+				EXECUTE query_text INTO combo_json_child;
+			ELSE
+				v_querystring = concat('SELECT array_to_json(array_agg(id)) FROM (',((v_aux_json_child->>'dv_querytext')),' ORDER BY ',v_orderby,')a');
+				EXECUTE v_querystring INTO combo_json_child;
+			END IF;
+			combo_json_child := COALESCE(combo_json_child, '[]');
+			v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'comboIds', combo_json_child);
+
+			IF (v_aux_json_child->>'dv_querytext_filterc') IS NOT NULL AND v_combovalue IS NOT NULL THEN
+				query_text = concat('SELECT array_to_json(array_agg(idval)) FROM (',(v_aux_json_child->>'dv_querytext'),(v_aux_json_child->>'dv_querytext_filterc'),'::text = ',quote_literal(v_combovalue),' ORDER BY ',v_orderby,') a');
+				EXECUTE query_text INTO combo_json_child;
+			ELSE
+				v_querystring = concat('SELECT array_to_json(array_agg(idval)) FROM (',((v_aux_json_child->>'dv_querytext')),' ORDER BY ',v_orderby,')a');
+				EXECUTE v_querystring INTO combo_json_child;
+			END IF;
+			combo_json_child := COALESCE(combo_json_child, '[]');
+			v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'comboNames', combo_json_child);
+
 			v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'selectedId', combo_json_child->0);
 		ELSE
-			--looping for the differents velues on sys_param_user that are coincident with the child parameter
+			-- Compute current value from sys_param_user / config_param_user.
 			FOR v_config_param_user IN SELECT * FROM sys_param_user WHERE feature_field_id = (v_aux_json_child->>'columnname')
 			LOOP
-				IF v_config_param_user.feature_dv_parent_value IS NULL THEN 
-					-- if there is only one because dv_parent_value is null then
-					v_current_value = (SELECT value FROM config_param_user JOIN sys_param_user ON sys_param_user.id=config_param_user.parameter 
+				IF v_config_param_user.feature_dv_parent_value IS NULL THEN
+					v_current_value = (SELECT value FROM config_param_user JOIN sys_param_user ON sys_param_user.id=config_param_user.parameter
 							WHERE feature_field_id = (v_aux_json_child->>'columnname')
-							AND cur_user=current_user LIMIT 1);			
+							AND cur_user=current_user LIMIT 1);
 				ELSE
-					-- if there are more than one, taking that parameter with the same feature_dv_parent_value
-					v_current_value = (SELECT value FROM config_param_user JOIN sys_param_user ON sys_param_user.id=config_param_user.parameter 
+					v_current_value = (SELECT value FROM config_param_user JOIN sys_param_user ON sys_param_user.id=config_param_user.parameter
 							WHERE feature_field_id = quote_ident(v_aux_json_child->>'columnname')
 							AND feature_dv_parent_value = v_combovalue
 							AND cur_user=current_user LIMIT 1);
 				END IF;
 			END LOOP;
-			
-			v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'selectedId', v_current_value);           		
+
+			v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'selectedId', v_current_value);
 		END IF;
 
 	END LOOP;

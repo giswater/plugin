@@ -668,9 +668,11 @@ def refresh_attribute_table(**kwargs):
 
             # Manage fields
             if field['widgettype'] == 'combo':
-                if 'comboIds' in field:
-                    for i in range(0, len(field['comboIds'])):
-                        _values[field['comboNames'][i]] = field['comboIds'][i]
+                # Plain combos no longer ship comboIds/comboNames in the JSON;
+                # `tools_gw.resolve_combo_valuemap` falls back to executing
+                # dv_querytext so the QGIS native attribute form keeps showing
+                # a dropdown.
+                _values.update(tools_gw.resolve_combo_valuemap(field))
                 # Set values into valueMap
                 editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': _values})
                 layer.setEditorWidgetSetup(field_idx, editor_widget_setup)
