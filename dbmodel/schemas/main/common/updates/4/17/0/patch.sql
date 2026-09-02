@@ -1396,3 +1396,44 @@ INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, 
 VALUES (4692, 'SKIPPED: Link for %feature_type% with id %connect_id% was not modified because it has user-defined geometry.',
  'Uncheck userdefined_geom on the link, or reconnect from a psector / arc divide.', 0, true, 'utils', 'core', 'AUDIT')
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO sys_function (id, function_name, project_type, function_type, input_params, return_type, descript, sys_role, sample_query, "source", function_alias)
+VALUES(3572, 'gw_trg_set_updated', 'utils', 'trigger', NULL, 'trigger',
+'BEFORE UPDATE trigger: always set updated_at and updated_by from clock_timestamp() and current_user',
+'role_basic', NULL, 'core', NULL)
+ON CONFLICT (id) DO UPDATE SET
+  function_name = EXCLUDED.function_name,
+  function_type = EXCLUDED.function_type,
+  descript = EXCLUDED.descript;
+
+DO $patch$
+DECLARE
+	r record;
+BEGIN
+	FOR r IN
+		SELECT c.relname
+		FROM pg_class c
+		JOIN pg_namespace n ON n.oid = c.relnamespace
+		JOIN pg_attribute a1 ON a1.attrelid = c.oid AND a1.attname = 'updated_at' AND NOT a1.attisdropped
+		JOIN pg_attribute a2 ON a2.attrelid = c.oid AND a2.attname = 'updated_by' AND NOT a2.attisdropped
+		WHERE n.nspname = current_schema()
+			AND c.relkind = 'r'
+		ORDER BY c.relname
+	LOOP
+		EXECUTE format('DROP TRIGGER IF EXISTS gw_trg_set_updated ON %I', r.relname);
+		EXECUTE format(
+			'CREATE TRIGGER gw_trg_set_updated BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION gw_trg_set_updated()',
+			r.relname
+		);
+	END LOOP;
+
+	IF to_regclass('plan_netscenario_dma') IS NOT NULL THEN
+		ALTER TABLE plan_netscenario_dma ALTER COLUMN updated_at DROP DEFAULT;
+		ALTER TABLE plan_netscenario_dma ALTER COLUMN updated_by DROP DEFAULT;
+	END IF;
+	IF to_regclass('plan_netscenario_presszone') IS NOT NULL THEN
+		ALTER TABLE plan_netscenario_presszone ALTER COLUMN updated_at DROP DEFAULT;
+		ALTER TABLE plan_netscenario_presszone ALTER COLUMN updated_by DROP DEFAULT;
+	END IF;
+END
+$patch$;
