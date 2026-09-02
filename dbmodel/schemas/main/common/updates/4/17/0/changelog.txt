@@ -1,3 +1,4 @@
+- Persist `linkcat_id` on `ve_link` UPDATE (`gw_trg_edit_link`).
 - Fix `gw_fct_linkexitgenerator` to filter links by sector_id > 0 when is called from `gw_fct_pg2epa_fill_data` function.
 - Improve selector_sector to use sector_id >= 0, now users can select also the 0 sector.
 - Refactor gw_fct_getfeatures with shared list/filter helpers (gw_fct_build_filters_sql, gw_fct_resolve_list_query, gw_fct_build_canvas_filter_sql).
@@ -7,6 +8,7 @@
 - Fix `gw_fct_linktonetwork` Force reconnect + Extra filters: rebuild link geometry from the connect, join `vf_arc`/`vf_node` inside KNN on `arc`/`node`, and log when no candidate is found.
 - Keep `link.userdefined_geom` when provided on `ve_link` edit; set TRUE on INSERT or geom change.
 - Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
+- Do not skip `userdefined_geom` when `gw_fct_linktonetwork` creates a planned link (psector / arc divide); log sys_message 4692 when skipping in inventory mode.
 - Add editable `userdefined_geom` checkbox to link info forms.
 - Add `isvalidated` boolean to `rpt_cat_result` and expose it on `v_ui_rpt_cat_result` / EPA manager tableview.
 - Remove unused `DEPRECATED` (`status=0`) from `inp_result_status`; migrate existing rows to `ARCHIVED`.
@@ -28,3 +30,4 @@
 - Fill CRM dscenario and water-balance toolbox descriptions with proposed end date from sys_message 4690.
 - Point `config_report.filterparam.columnname` at SQL columns (not display aliases) so report filters stay stable when query aliases are translated.
 - Give quoted aliases to all columns in report 101 (`connec_id`, `code`, `customer_code`) so they can be translated.
+- Stamp `updated_at`/`updated_by` on every UPDATE of tables that have those columns (`gw_trg_set_updated`).

@@ -11,7 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(11);
+SELECT plan(13);
 
 DELETE FROM link WHERE feature_id = 3095 AND feature_type = 'CONNEC';
 
@@ -26,7 +26,11 @@ JOIN LATERAL (
 	ORDER BY the_geom <-> c.the_geom
 	LIMIT 1
 ) a ON true
-CROSS JOIN LATERAL (SELECT id, link_type FROM cat_link LIMIT 1) cl
+CROSS JOIN LATERAL (
+	SELECT id, link_type FROM cat_link
+	WHERE link_type IN (SELECT link_type FROM cat_link GROUP BY link_type HAVING count(*) > 1)
+	LIMIT 1
+) cl
 WHERE c.connec_id = 3095;
 
 SELECT is((SELECT count(*)::integer FROM ve_link WHERE code = '-901'), 1, 'INSERT: ve_link -901 was inserted');
@@ -49,6 +53,22 @@ SELECT is((SELECT userdefined_geom FROM link WHERE code = '-901'), FALSE, 'UPDAT
 UPDATE ve_link SET verified = 1 WHERE code = '-901';
 SELECT is((SELECT verified::integer FROM ve_link WHERE code = '-901'), 1, 'UPDATE: ve_link -901 was updated');
 SELECT is((SELECT verified::integer FROM link WHERE code = '-901'), 1, 'UPDATE: link -901 was updated');
+
+CREATE TEMP TABLE _linkcat_update AS
+SELECT
+	(SELECT linkcat_id FROM ve_link WHERE code = '-901') AS old_id,
+	(SELECT id FROM cat_link
+	 WHERE link_type = (SELECT link_type FROM ve_link WHERE code = '-901')
+	   AND id IS DISTINCT FROM (SELECT linkcat_id FROM ve_link WHERE code = '-901')
+	 LIMIT 1) AS new_id;
+
+UPDATE ve_link SET linkcat_id = (SELECT new_id FROM _linkcat_update) WHERE code = '-901';
+SELECT is((SELECT linkcat_id FROM ve_link WHERE code = '-901'),
+	(SELECT new_id FROM _linkcat_update),
+	'UPDATE: ve_link linkcat_id was updated');
+SELECT is((SELECT linkcat_id FROM link WHERE code = '-901'),
+	(SELECT new_id FROM _linkcat_update),
+	'UPDATE: link linkcat_id was updated');
 
 DELETE FROM ve_link WHERE code = '-901';
 SELECT is((SELECT count(*)::integer FROM ve_link WHERE code = '-901'), 0, 'DELETE: ve_link -901 was deleted');
