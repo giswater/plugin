@@ -1770,7 +1770,8 @@ class GwInfo(QObject):
         tools_gw.load_settings(dlg_sections)
 
         # Set dialog not resizable
-        dlg_sections.setFixedSize(757, 462)
+        dlg_sections.resize(757, 462)
+        dlg_sections.setMinimumSize(757, 462)
 
         feature = '"id":"' + self.feature_id + '"'
         body = tools_gw.create_body(feature=feature)
@@ -1991,7 +1992,7 @@ class GwInfo(QObject):
                 widget.setStyleSheet(None)
                 value = tools_qt.get_text(dialog, widget)
                 if value in ('null', None, ''):
-                    widget.setStyleSheet("border: 1px solid red")
+                    widget.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
                     list_mandatory.append(field['widgetname'])
         return fields_reload
 
@@ -2065,7 +2066,7 @@ class GwInfo(QObject):
             widget.setStyleSheet(None)
             btn_accept.setEnabled(True)
         else:
-            widget.setStyleSheet("border: 1px solid red")
+            widget.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
             btn_accept.setEnabled(False)
 
     def _check_integer(self, value, widget, btn_accept):
@@ -2078,7 +2079,7 @@ class GwInfo(QObject):
             widget.setStyleSheet(None)
             btn_accept.setEnabled(True)
         else:
-            widget.setStyleSheet("border: 1px solid red")
+            widget.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
             btn_accept.setEnabled(False)
 
     def _check_min_max_value(self, dialog, widget, btn_accept):
@@ -2087,13 +2088,13 @@ class GwInfo(QObject):
         try:
             if value and ((widget.property('minValue') and float(value) < float(widget.property('minValue')))
                     or (widget.property('maxValue') and float(value) > float(widget.property('maxValue')))):
-                widget.setStyleSheet("border: 1px solid red")
+                widget.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
                 btn_accept.setEnabled(False)
             else:
                 widget.setStyleSheet(None)
                 btn_accept.setEnabled(True)
         except ValueError:
-            widget.setStyleSheet("border: 1px solid red")
+            widget.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
             btn_accept.setEnabled(False)
 
     def _check_tab_data(self, field):
@@ -2263,9 +2264,8 @@ class GwInfo(QObject):
         # Restore QLineEdit stylesheet
         widget_list = dialog.tab_data.findChildren(QLineEdit)
         for widget in widget_list:
-            is_readonly = widget.isReadOnly()
-            if is_readonly:
-                widget.setStyleSheet("QLineEdit {background: rgb(244, 244, 244); color: rgb(100, 100, 100)}")
+            if widget.isReadOnly():
+                tools_gw.ThemeManager.apply_readonly_style(widget, readonly=True)
             else:
                 widget.setStyleSheet(None)
 
@@ -2285,12 +2285,12 @@ class GwInfo(QObject):
                 if str(cur_value) != str(value):
                     widget.setText(value)
                     if not isinstance(widget, QPushButton):
-                        widget.setStyleSheet(f"border: 2px solid {changed_color}")
+                        widget.setStyleSheet(tools_gw.ThemeManager.changed_field_style(widget, color=changed_color))
                     else:
                         changed_color = "#EB9438"
                     if getattr(widget, 'isReadOnly', False):
-                        widget.setStyleSheet(f"QLineEdit {{background: rgb(244, 244, 244); color: rgb(100, 100, 100); "
-                                             f"border: 2px solid {changed_color}}}")
+                        widget.setStyleSheet(tools_gw.ThemeManager.changed_field_style(
+                            widget, color=changed_color, readonly=True))
 
             elif "message" in field:
                 level = field['message']['level'] if 'level' in field['message'] else 0
@@ -3025,7 +3025,7 @@ class GwInfo(QObject):
             value = tools_qt.get_text(dialog, widget, False, False)
             if widget.property('ismandatory') and value in (None, ''):
                 missing_mandatory = True
-                tools_qt.set_stylesheet(widget, "border: 2px solid red")
+                tools_qt.set_stylesheet(widget, tools_gw.ThemeManager.validation_border_style(2))
         if missing_mandatory:
             message = "Mandatory field is missing. Please, set a value"
             tools_qgis.show_warning(message)
@@ -3828,7 +3828,7 @@ def accept_add_dlg(dialog, tablename, pkey, feature_id, my_json, complet_result,
             widget.setStyleSheet(None)
             value = tools_qt.get_text(dialog, widget)
             if value in ('null', None, ''):
-                widget.setStyleSheet("border: 1px solid red")
+                widget.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
                 list_mandatory.append(field['widgetname'])
             else:
                 elem = [field['columnname'], value]
@@ -4647,8 +4647,7 @@ def open_visit_event(**kwargs):
         widget_list.append(w)
     for widget in widget_list:
         widget.setReadOnly(True)
-        widget.setStyleSheet("QWidget { background: rgb(242, 242, 242);"
-                             " color: rgb(100, 100, 100)}")
+        tools_gw.ThemeManager.apply_readonly_style(widget, readonly=True)
     dlg_event_full.btn_close.clicked.connect(partial(tools_gw.close_dialog, dlg_event_full))
     dlg_event_full.tbl_docs_x_event.doubleClicked.connect(partial(_open_file, dlg_event_full))
     tools_qt.set_tableview_config(dlg_event_full.tbl_docs_x_event)

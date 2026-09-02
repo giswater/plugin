@@ -29,12 +29,12 @@ from datetime import datetime
 from qgis.PyQt.QtCore import Qt, QStringListModel, QVariant, QDate, QRegularExpression, \
     QItemSelectionModel, QTimer, QSettings
 from qgis.PyQt.QtGui import QCursor, QPixmap, QColor, QStandardItemModel, QIcon, QStandardItem, \
-    QIntValidator, QDoubleValidator, QRegularExpressionValidator, QPalette
+    QIntValidator, QDoubleValidator, QRegularExpressionValidator, QPalette, QFont
 from qgis.PyQt.QtSql import QSqlTableModel
 from qgis.PyQt.QtWidgets import QSpacerItem, QSizePolicy, QLineEdit, QLabel, QComboBox, QGridLayout, QTabWidget, \
     QCompleter, QPushButton, QTableView, QFrame, QCheckBox, QDoubleSpinBox, QSpinBox, QDateEdit, QTextEdit, \
     QToolButton, QWidget, QApplication, QMenu, QAction, QDialog, QListWidget, QListWidgetItem, QAbstractScrollArea, \
-    QVBoxLayout, QHeaderView
+    QVBoxLayout, QHeaderView, QGroupBox
 from qgis.core import Qgis, QgsProject, QgsPointXY, QgsVectorLayer, QgsField, QgsFeature, QgsSymbol, \
     QgsFeatureRequest, QgsSimpleFillSymbolLayer, QgsRendererCategory, QgsCategorizedSymbolRenderer, \
     QgsCoordinateTransform, QgsCoordinateReferenceSystem, QgsVectorFileWriter, QgsCoordinateTransformContext, \
@@ -129,6 +129,150 @@ class ThemeManager:
         if cls.is_dark_mode(widget):
             return alt, base
         return base, alt
+
+    @classmethod
+    def _widget_selector(cls, widget):
+        if widget is None:
+            return "QWidget"
+        return widget.__class__.__name__
+
+    @classmethod
+    def prefer_native_readonly(cls, widget=None):
+        return sys.platform == 'darwin' and not cls.is_dark_mode(widget)
+
+    @classmethod
+    def readonly_field_style(cls, widget=None, border=None):
+        if cls.prefer_native_readonly(widget):
+            if border:
+                selector = cls._widget_selector(widget)
+                return f"{selector} {{ border: {border}; }}"
+            return None
+
+        bg = cls.alternate_base_color(widget)
+        text = cls.color(QPalette.ColorRole.Text, widget=widget, fallback="#6e6e6e")
+        selector = cls._widget_selector(widget)
+        if border:
+            return f"{selector} {{ background: {bg}; color: {text}; border: {border}; }}"
+        return f"{selector} {{ background: {bg}; color: {text}; }}"
+
+    @classmethod
+    def apply_readonly_style(cls, widget, readonly=True, border=None):
+        if readonly:
+            style = cls.readonly_field_style(widget, border=border)
+            widget.setStyleSheet(style if style else None)
+        else:
+            widget.setStyleSheet(None)
+
+    @classmethod
+    def disabled_text_style(cls, widget=None):
+        text = cls.color(QPalette.ColorRole.Text, widget=widget, fallback="#6e6e6e")
+        selector = cls._widget_selector(widget)
+        return f"{selector} {{ color: {text}; }}"
+
+    @classmethod
+    def validation_border_style(cls, width=1):
+        return f"border: {width}px solid red"
+
+    @classmethod
+    def changed_field_style(cls, widget, color="#3ED396", border_width=2, readonly=False):
+        border = f"{border_width}px solid {color}"
+        if readonly:
+            style = cls.readonly_field_style(widget, border=border)
+            return style if style else f"border: {border}"
+        return f"border: {border}"
+
+    @classmethod
+    def hyperlink_style(cls, widget=None, visited=False):
+        palette = cls._get_palette(widget)
+        if palette is None:
+            color = "purple" if visited else "blue"
+        else:
+            link = palette.color(QPalette.ColorRole.Link)
+            if visited:
+                link = link.darker(120)
+            color = link.name()
+        selector = cls._widget_selector(widget)
+        return f"{selector} {{ color: {color}; text-decoration: underline; }}"
+
+    @classmethod
+    def readonly_hyperlink_style(cls, widget=None, visited=False):
+        if cls.prefer_native_readonly(widget):
+            return cls.hyperlink_style(widget, visited=visited)
+
+        bg = cls.alternate_base_color(widget)
+        palette = cls._get_palette(widget)
+        if palette is None:
+            color = "purple" if visited else "blue"
+        else:
+            link = palette.color(QPalette.ColorRole.Link)
+            if visited:
+                link = link.darker(120)
+            color = link.name()
+        selector = cls._widget_selector(widget)
+        return (f"{selector} {{ background: {bg}; color: {color}; "
+                f"text-decoration: underline; border: none; }}")
+
+    @classmethod
+    def set_stylesheet_for_field(cls, field, widget, wtype='label'):
+        if field.get('stylesheet') is None or wtype not in field['stylesheet']:
+            return widget
+        selector = 'QLabel' if wtype == 'label' else cls._widget_selector(widget)
+        widget.setStyleSheet(f"{selector}{{{field['stylesheet'][wtype]}}}")
+        return widget
+
+    @classmethod
+    def _font_weight_value(cls, font):
+        weight = font.weight()
+        try:
+            return int(weight)
+        except TypeError:
+            return int(weight.value)
+
+    @classmethod
+    def normalize_font_weight(cls, font):
+        """Map legacy Qt Designer weights (0-99) to Qt6 QFont.Weight."""
+        weight = cls._font_weight_value(font)
+        if 0 < weight < 100:
+            if weight <= 25:
+                font.setWeight(QFont.Weight.Light)
+            elif weight >= 75:
+                font.setWeight(QFont.Weight.Bold)
+            else:
+                font.setWeight(QFont.Weight.Normal)
+        elif weight < QFont.Weight.Normal:
+            font.setWeight(QFont.Weight.Normal)
+        return font
+
+    @classmethod
+    def label_font(cls, reference=None):
+        if reference is not None and hasattr(reference, 'font'):
+            font = QFont(reference.font())
+        else:
+            app = QApplication.instance()
+            font = QFont(app.font() if app is not None else QFont())
+        font = cls.normalize_font_weight(font)
+        if sys.platform == 'darwin' and cls._font_weight_value(font) < QFont.Weight.Medium:
+            font.setWeight(QFont.Weight.Medium)
+        return font
+
+    @classmethod
+    def apply_label_font(cls, label, reference=None):
+        label.setFont(cls.label_font(reference or label))
+
+    @classmethod
+    def normalize_dialog_fonts(cls, dialog):
+        """Fix legacy thin .ui fonts and improve label legibility on macOS."""
+        for widget in dialog.findChildren(QTabWidget) + dialog.findChildren(QGroupBox):
+            font = cls.normalize_font_weight(QFont(widget.font()))
+            if sys.platform == 'darwin' and cls._font_weight_value(font) < QFont.Weight.Medium:
+                font.setWeight(QFont.Weight.Medium)
+            widget.setFont(font)
+
+        for label in dialog.findChildren(QLabel):
+            stylesheet = label.styleSheet() or ''
+            if 'font-weight' in stylesheet:
+                continue
+            cls.apply_label_font(label)
 
 
 def _get_geom_type(geometry_type: QgsGeometryType = None):
@@ -532,7 +676,10 @@ def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, title_params=
 
     dlg.setWindowFlags(flags)
     if issubclass(type(dlg), GwDialog):
-        dlg.setModal(False)
+        if sys.platform == 'darwin':
+            dlg.setWindowModality(Qt.WindowModality.ApplicationModal)
+        else:
+            dlg.setModal(False)
 
     if hide_config_widgets:
         hide_widgets_form(dlg, dlg_name)
@@ -545,6 +692,8 @@ def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, title_params=
 
     # Create btn_help
     add_btn_help(dlg)
+
+    ThemeManager.normalize_dialog_fonts(dlg)
 
     # Show dialog
     dlg.show()
@@ -2268,7 +2417,10 @@ def enable_widgets(dialog, result, enable):
                         set_widget_readonly(widget, not enable)
                     elif isinstance(widget, (QComboBox, QgsDateTimeEdit, QCheckBox)):
                         widget.setEnabled(enable)
-                        widget.setStyleSheet("QWidget {color: rgb(110, 110, 110)}")
+                        if enable:
+                            widget.setStyleSheet(None)
+                        else:
+                            widget.setStyleSheet(ThemeManager.disabled_text_style(widget))
                     elif type(widget) is QPushButton:
                         # Manage the clickability of the buttons according to the configuration
                         # in the table config_form_fields simultaneously with the edition,
@@ -2311,10 +2463,7 @@ def enable_all(dialog, result, from_apply=False):
 
 def set_stylesheet(field, widget, wtype='label'):
 
-    if field.get('stylesheet') is not None:
-        if wtype in field['stylesheet']:
-            widget.setStyleSheet("QWidget{" + field['stylesheet'][wtype] + "}")
-    return widget
+    return ThemeManager.set_stylesheet_for_field(field, widget, wtype=wtype)
 
 
 def delete_selected_rows(widget, table_object, field_object_id=None, col_idx=0):
@@ -2525,6 +2674,7 @@ def build_dialog_info(dialog, result, my_json=None, layout_positions=None, tab_n
         label = QLabel()
         label.setObjectName('lbl_' + field['label'])
         label.setText(field['label'].capitalize())
+        ThemeManager.apply_label_font(label, reference=dialog)
 
         if 'tooltip' in field:
             label.setToolTip(field['tooltip'])
@@ -2685,6 +2835,7 @@ def build_dialog_options(dialog, row, pos, _json, temp_layers_added=None, module
                 lbl.setText(field['label'])
                 lbl.setMinimumSize(160, 0)
                 lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+                ThemeManager.apply_label_font(lbl, reference=dialog)
                 if 'tooltip' in field:
                     lbl.setToolTip(field['tooltip'])
 
@@ -3371,7 +3522,6 @@ def set_widget_size(widget, field):
 
     if field.get('widgetcontrols') and field['widgetcontrols'].get('widgetdim'):
         widget.setMaximumWidth(field['widgetcontrols']['widgetdim'])
-        widget.setMinimumWidth(field['widgetcontrols']['widgetdim'])
 
     return widget
 
@@ -3388,17 +3538,15 @@ def set_widget_readonly(widget, readonly, from_apply=False):
 
     if readonly:
         widget.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
-        # QTextEdit keeps the native palette (same as go2epa infolog). Hardcoded light-gray
-        # looks like a disabled field and breaks dark theme.
+        # QTextEdit keeps the native palette (same as go2epa infolog). Themed/hardcoded
+        # gray looks like a disabled field and breaks dark theme.
         if type(widget) is QTextEdit:
             if not from_apply:
                 widget.setStyleSheet(None)
         elif type(widget) is GwHyperLinkLineEdit:
-            widget.setStyleSheet(
-                "QLineEdit { background: rgb(242, 242, 242); color:blue; text-decoration: underline; border: none;}"
-            )
+            widget.setStyleSheet(ThemeManager.readonly_hyperlink_style(widget))
         else:
-            widget.setStyleSheet("QWidget { background: rgb(242, 242, 242); color: rgb(110, 110, 110)}")
+            ThemeManager.apply_readonly_style(widget, readonly=True)
     else:
         widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         if not from_apply:
@@ -3526,7 +3674,7 @@ def add_combo(field, dialog=None, complet_result=None, ignore_function=False, cl
     if 'iseditable' in field:
         widget.setEnabled(bool(field['iseditable']))
         if not field['iseditable']:
-            widget.setStyleSheet("QComboBox { background: rgb(242, 242, 242); color: rgb(100, 100, 100)}")
+            ThemeManager.apply_readonly_style(widget, readonly=True)
 
     if not ignore_function and 'widgetfunction' in field and field['widgetfunction']:
         widgetfunction = field['widgetfunction']
@@ -8334,7 +8482,10 @@ def set_widgets(dialog, complet_result, field, tablename, class_info):
         else:
             label.setToolTip(field['label'].capitalize())
         if 'widgetcontrols' in field and field['widgetcontrols'] is not None and 'labelSize' in field['widgetcontrols']:
-            label.setFixedWidth(field['widgetcontrols']['labelSize'])
+            label.setMinimumWidth(field['widgetcontrols']['labelSize'])
+            label.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
+        if 'font-weight' not in (label.styleSheet() or ''):
+            ThemeManager.apply_label_font(label, reference=dialog)
 
     if 'widgettype' in field and not field['widgettype']:
         msg = "The field widgettype is not configured for"

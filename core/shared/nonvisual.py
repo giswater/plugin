@@ -2659,7 +2659,9 @@ class GwNonVisual:
         self.dialog = GwNonVisualLidsUi(self)
 
         # Set dialog not resizable
-        self.dialog.setFixedSize(self.dialog.size())
+        initial_size = self.dialog.size()
+        self.dialog.resize(initial_size)
+        self.dialog.setMinimumSize(initial_size)
 
         tools_gw.load_settings(self.dialog)
 
