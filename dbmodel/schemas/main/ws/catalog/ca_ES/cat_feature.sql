@@ -156,9 +156,9 @@ ON CONFLICT (id) DO UPDATE SET node_type = EXCLUDED.node_type;
 INSERT INTO cat_arc (id, arc_type, matcat_id, dnom) VALUES
 ('PVC110', 'TRAM', 'PVC', 110),
 ('PVC160', 'TRAM', 'PVC', 160),
-('PE63', 'TRAM', 'PE', 63),
-('PE110', 'TRAM', 'PE', 110),
-('PE160', 'TRAM', 'PE', 160),
+('PE63', 'TRAM', 'PE-HD', 63),
+('PE110', 'TRAM', 'PE-HD', 110),
+('PE160', 'TRAM', 'PE-HD', 160),
 ('FD150', 'TRAM', 'FD', 150),
 ('FD200', 'TRAM', 'FD', 200),
 ('TRAMV', 'TRAMV', NULL, 0)
@@ -176,9 +176,9 @@ INSERT INTO cat_connec (id, connec_type) VALUES
 ON CONFLICT (id) DO UPDATE SET connec_type = EXCLUDED.connec_type;
 
 INSERT INTO cat_link (id, link_type, matcat_id, dnom) VALUES
-('PE25', 'RAMAL', 'PE', 25),
-('PE32', 'RAMAL', 'PE', 32),
-('PE50', 'RAMAL', 'PE', 50),
+('PE25', 'RAMAL', 'PE-HD', 25),
+('PE32', 'RAMAL', 'PE-HD', 32),
+('PE50', 'RAMAL', 'PE-HD', 50),
 ('RAMALV', 'RAMALV', NULL, 0)
 ON CONFLICT (id) DO UPDATE SET link_type = EXCLUDED.link_type, matcat_id = EXCLUDED.matcat_id, dnom = EXCLUDED.dnom;
 
