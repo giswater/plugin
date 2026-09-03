@@ -322,26 +322,6 @@ class _ComboPopupView(QListView):
     def top_margin(self) -> int:
         return self._top_margin
 
-    def indexAt(self, pos):  # noqa: N802 - Qt API
-        # Search overlay lives in the top viewport margin. Qt's combo
-        # container maps mouse/key moves through indexAt; a y < 0 (or a
-        # view-local y that still sits in the header) must not resolve to
-        # a row — that's what jumped selection from item 0 to item 1.
-        if self._top_margin > 0 and pos.y() < 0:
-            return QModelIndex()
-        return super().indexAt(pos)
-
-    def mousePressEvent(self, event):  # noqa: N802 - Qt API
-        if self._top_margin > 0 and event.pos().y() < self._top_margin:
-            event.ignore()
-            return
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):  # noqa: N802 - Qt API
-        if self._top_margin > 0 and event.pos().y() < self._top_margin:
-            return
-        super().mouseMoveEvent(event)
-
     def resizeEvent(self, event):  # noqa: N802 - Qt API
         super().resizeEvent(event)
         # Keep the registered search overlay anchored at the top, full-width.
@@ -409,8 +389,6 @@ class _ComboPopupSearchController(QObject):
         self._hidden_rows: set = set()
         self._orig_show_popup = None
         self._orig_hide_popup = None
-        self._popup_index_on_open: Optional[int] = None
-        self._popup_commit: bool = False
 
     def clear_filter_state(self) -> None:
         self._hidden_rows = set()
@@ -428,7 +406,8 @@ class _ComboPopupSearchController(QObject):
         self.install_overlay()
 
     def _hook_hide_popup(self) -> None:
-        self._close_popup(self._orig_hide_popup)
+        self.teardown_overlay()
+        self._orig_hide_popup()
 
     def install_overlay(self) -> None:
         view = self._combo.view()
@@ -468,39 +447,8 @@ class _ComboPopupSearchController(QObject):
         edit.raise_()
         edit.setFocus(Qt.FocusReason.PopupFocusReason)
 
-        self._popup_index_on_open = self._combo.currentIndex()
-        self._popup_commit = False
-        if not getattr(view, '_gw_combo_commit_hooked', False):
-            # `pressed` fires before QComboBox's clicked→hidePopup, so we
-            # can mark a real item click before restore-on-close runs.
-            view.pressed.connect(self._mark_popup_commit)
-            view.activated.connect(self._mark_popup_commit)
-            view._gw_combo_commit_hooked = True
-
         self._search_active = True
         self._apply_search_filter("")
-
-    def _mark_popup_commit(self, *_args) -> None:
-        self._popup_commit = True
-
-    def _close_popup(self, orig_hide) -> None:
-        """Hide without applying a highlight that came from the search header.
-
-        QComboBox commits ``view.currentIndex()`` on close. Mouse/Up in the
-        filter box can move that highlight to row 1; restore the index from
-        open unless the user clicked a row or pressed Enter.
-        """
-        commit = self._popup_commit
-        restore = self._popup_index_on_open
-        self.teardown_overlay()
-        orig_hide()
-        if commit or restore is None:
-            return
-        try:
-            if self._combo.currentIndex() != restore:
-                self._combo.setCurrentIndex(restore)
-        except RuntimeError:
-            pass
 
     def teardown_overlay(self) -> None:
         self._search_active = False
@@ -568,20 +516,51 @@ class _ComboPopupSearchController(QObject):
                 widgets.append(widget)
         return widgets
 
+    def _popup_anchor(self, width: int, height: int):
+        rect = self._combo.rect()
+        if getattr(self._combo, 'popup_opens_upward', False):
+            pos = self._combo.mapToGlobal(rect.topLeft())
+            return pos.x(), pos.y() - height, width, height
+        pos = self._combo.mapToGlobal(rect.bottomLeft())
+        return pos.x(), pos.y(), width, height
+
     def _set_popup_height(self, width: int, height: int) -> None:
+        view = self._combo.view()
+        popup = view.window() if view is not None else None
+        geo = self._popup_anchor(width, height)
         for widget in self._popup_widgets():
             if not widget.isVisible():
                 continue
-            widget.setMaximumHeight(_QWIDGETSIZE_MAX)
-            widget.setMinimumHeight(0)
-            widget.resize(width, height)
-            widget.setMinimumHeight(height)
-            widget.setMaximumHeight(height)
+            try:
+                widget.setMaximumHeight(_QWIDGETSIZE_MAX)
+                widget.setMinimumHeight(0)
+                if popup is not None and widget is popup:
+                    widget.setGeometry(*geo)
+                else:
+                    widget.resize(width, height)
+                widget.setMinimumHeight(height)
+                widget.setMaximumHeight(height)
+            except RuntimeError:
+                continue
 
     def _clear_popup_height(self) -> None:
         for widget in self._popup_widgets():
             widget.setMinimumHeight(0)
             widget.setMaximumHeight(_QWIDGETSIZE_MAX)
+
+    def _pin_popup(self, width: int, height: int) -> None:
+        if not self._search_active:
+            return
+        view = self._combo.view()
+        if view is None:
+            return
+        popup = view.window()
+        if popup is None or not popup.isVisible():
+            return
+        try:
+            popup.setGeometry(*self._popup_anchor(width, height))
+        except RuntimeError:
+            pass
 
     def _apply_search_filter(self, text: str) -> None:
         if not self._search_active:
@@ -631,8 +610,8 @@ class _ComboPopupSearchController(QObject):
             view.setCurrentIndex(new_idx)
 
         self._update_search_status(match_count, visible_count, needle, total)
-        display_rows = 0 if match_count <= 0 else min(match_count, self._combo.maxVisibleItems())
-        QTimer.singleShot(0, partial(self._layout_popup, display_rows, 0))
+        shown = 0 if match_count <= 0 else min(match_count, self._combo.maxVisibleItems())
+        QTimer.singleShot(0, partial(self._layout_popup, shown, 0))
 
     def _visible_row_span(self, display_rows: int):
         first = last = None
@@ -670,6 +649,19 @@ class _ComboPopupSearchController(QObject):
             return span
         return expected
 
+    def _sync_popup_scrollbar(self, view, display_rows: int) -> None:
+        try:
+            unhidden = max(0, self._row_count() - len(self._hidden_rows))
+            if unhidden > display_rows:
+                view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            else:
+                view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            bar = view.verticalScrollBar()
+            if bar is not None:
+                bar.setValue(0)
+        except RuntimeError:
+            pass
+
     def _layout_popup(self, display_rows: int, attempt: int = 0) -> None:
         if not self._search_active:
             return
@@ -695,24 +687,11 @@ class _ComboPopupSearchController(QObject):
         width = self._combo.width() or (container.width() if container is not None else 0)
         height = header_h + list_h + _POPUP_FRAME_PAD
         self._set_popup_height(width, height)
-
-        try:
-            unhidden = max(0, self._row_count() - len(self._hidden_rows))
-            if unhidden > display_rows:
-                view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-            else:
-                view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            bar = view.verticalScrollBar()
-            if bar is not None:
-                bar.setValue(0)
-        except RuntimeError:
-            pass
-
-        if getattr(self._combo, 'popup_opens_upward', False):
-            popup = view.window()
-            if popup is not None and popup.isVisible():
-                pos = self._combo.mapToGlobal(self._combo.rect().topLeft())
-                popup.move(pos.x(), pos.y() - height)
+        self._sync_popup_scrollbar(view, display_rows)
+        self._pin_popup(width, height)
+        # Qt's combo container repositions itself after our resize; pin again
+        # once that has run so shrinking does not yank the popup off the combo.
+        QTimer.singleShot(0, partial(self._pin_popup, width, height))
 
     def _update_search_status(
         self, match_count: int, visible_count: int, needle: str, total: int
@@ -737,23 +716,10 @@ class _ComboPopupSearchController(QObject):
         self._search_edit.setToolTip(tip)
         self._search_edit.setPlaceholderText(tip)
 
-    def _first_visible_row(self) -> int:
-        for i in range(self._row_count()):
-            if i not in self._hidden_rows:
-                return i
-        return -1
-
     def _forward_navigation(self, event: QKeyEvent) -> None:
         view = self._combo.view()
         if view is None:
             return
-        # Search already has focus. Up on the first row must not move the
-        # list — Qt maps that through the header and lands on row 1.
-        if event.key() == Qt.Key.Key_Up:
-            current = view.currentIndex().row() if view.currentIndex().isValid() else -1
-            first = self._first_visible_row()
-            if first >= 0 and (current < 0 or current <= first):
-                return
         QApplication.sendEvent(view, event)
 
     def _activate_highlighted(self) -> None:
@@ -763,7 +729,6 @@ class _ComboPopupSearchController(QObject):
             return
         idx = view.currentIndex()
         if idx.isValid() and not view.isRowHidden(idx.row()):
-            self._popup_commit = True
             self._combo.setCurrentIndex(idx.row())
         self._combo.hidePopup()
 
@@ -1045,7 +1010,8 @@ class GwAsyncComboBox(QComboBox):
         self._popup_search.install_overlay()
 
     def hidePopup(self):  # noqa: N802 - Qt API
-        self._popup_search._close_popup(lambda: QComboBox.hidePopup(self))
+        self._popup_search.teardown_overlay()
+        super().hidePopup()
     # endregion
 
     # region Internals
