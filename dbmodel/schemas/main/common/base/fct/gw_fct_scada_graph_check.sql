@@ -227,11 +227,9 @@ BEGIN
 	JOIN cat_node cn2 ON n2.nodecat_id = cn2.id
 	WHERE t.object_2 = n2.node_id;
 
-	-- TODO update group_id
-
-	-- update order_id
+	-- update group_id and order_id
 	v_query_text := '
-		SELECT row_number() OVER () AS id, object_1 AS source, object_2 AS target, 1::float AS cost, -1::float as reverse_cost
+		SELECT row_number() OVER () AS id, object_1 AS source, object_2 AS target, 1::float AS cost
 		FROM temp_om_scada_graph
 		WHERE the_geom IS NOT NULL';
 
@@ -247,11 +245,23 @@ BEGIN
 		AND g2.object_2 = g.object_1
 	);
 
+	/*
+	-- group_id
+	UPDATE temp_om_scada_graph g
+	SET group_id = t.group_id
+	FROM (
+		SELECT component as group_id, node as node_id
+		FROM pgr_connectedcomponents(v_query_text)
+	) t
+	WHERE g.object_1 = t.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
+	*/
+	
+	-- order_id
 	UPDATE temp_om_scada_graph g
 	SET order_id = t.order_id
 	FROM (
-		SELECT pred as node_id, max(agg_cost) AS order_id FROM 
-		pgr_drivingDistance(v_query_text, v_pgr_root_vids, v_pgr_distance, directed := true)
+		SELECT pred as node_id, max(agg_cost) AS order_id
+		FROM pgr_drivingDistance(v_query_text, v_pgr_root_vids, v_pgr_distance, directed := true)
 		WHERE edge <> -1
 		GROUP BY pred
 	) t
