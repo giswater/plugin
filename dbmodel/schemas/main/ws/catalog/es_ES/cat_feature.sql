@@ -38,7 +38,7 @@ INSERT INTO cat_material (id, descript) VALUES
 ('CONCRETE', 'Hormigón'),
 ('BRICK+IRON', 'Ladrillo y hierro'),
 ('PE-HD', 'PE alta densidad'),
-('PE-LD', 'PE baja densidad'),
+('PE-LD', 'PE baja densidad')
 ON CONFLICT (id) DO UPDATE SET descript = EXCLUDED.descript;
 
 INSERT INTO cat_feature (id, feature_class, feature_type, active, parent_layer, child_layer) VALUES
