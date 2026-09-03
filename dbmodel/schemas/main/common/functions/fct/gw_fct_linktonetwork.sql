@@ -794,8 +794,13 @@ BEGIN
 					-- getting values for dma and fluidtype automatic values
 					v_dma_value = v_arc.dma_id;
 					v_fluidtype_value = v_connect.fluid_type;
-					-- set on INSERT: AFTER INSERT UPDATE of expl_visibility is a no-op under RLS on link
-					v_expl_vis := COALESCE(v_connect.expl_visibility, v_arc.expl_visibility, v_link.expl_visibility);
+					-- base table: ve_connec/ve_gully may not populate expl_visibility on the record
+					IF v_feature_type = 'CONNEC' THEN
+						SELECT expl_visibility INTO v_expl_vis FROM connec WHERE connec_id = v_connect_id;
+					ELSIF v_feature_type = 'GULLY' THEN
+						SELECT expl_visibility INTO v_expl_vis FROM gully WHERE gully_id = v_connect_id;
+					END IF;
+					v_expl_vis := COALESCE(v_expl_vis, v_arc.expl_visibility, v_link.expl_visibility);
 
 					IF v_link.link_id IS NULL THEN
 
