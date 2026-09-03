@@ -13143,7 +13143,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>grb_time_steps</source>
-			<translation>Date &amp;amp;&amp;amp; time steps</translation>
+			<translation>Date &amp;amp; time steps</translation>
 		</message>
 		<message>
 			<source>tooltip_grb_time_steps</source>
