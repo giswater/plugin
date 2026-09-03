@@ -530,16 +530,9 @@ class GwVisit(QObject):
         index = self._tab_index('tab_relations')
         self.tabs.setTabEnabled(index, True)
 
-        # set geometry_type
-        feature_type_index = self.cmb_feature_type.findText(self.locked_feature_type.upper())
-        if feature_type_index < 0:
+        # set geometry_type by combo id, not translated label
+        if not self._apply_combo_feature_type(self.locked_feature_type):
             return
-
-        # set default combo box value = trigger model and selection of related features
-        if self.cmb_feature_type.currentIndex() != feature_type_index:
-            self.cmb_feature_type.setCurrentIndex(feature_type_index)
-        else:
-            self.cmb_feature_type.currentIndexChanged.emit(feature_type_index)
 
         if self.locked_feature_id:
             self._ensure_locked_feature_relation()
@@ -698,39 +691,54 @@ class GwVisit(QObject):
         # E) load all related Relations in the relative table
         self._set_feature_type_by_visit_id()
 
+    def _combo_feature_type_id(self, index=None):
+        """ Return feature_type combo id, not the translated label (e.g. ES 'TODO' for 'ALL'). """
+        if index is None:
+            index = self.cmb_feature_type.currentIndex()
+        if index < 0:
+            return ''
+        elem = self.cmb_feature_type.itemData(index)
+        if not elem:
+            return ''
+        if isinstance(elem, (list, tuple)):
+            return str(elem[0]).lower()
+        return str(elem).lower()
+
+    def _apply_combo_feature_type(self, feature_type):
+        """ Set feature_type combo by id. Emit change if the index is already selected. """
+        wanted = str(feature_type).lower() if feature_type else ''
+        if not wanted:
+            return False
+        for index in range(self.cmb_feature_type.count()):
+            if self._combo_feature_type_id(index) != wanted:
+                continue
+            if self.cmb_feature_type.currentIndex() != index:
+                self.cmb_feature_type.setCurrentIndex(index)
+            else:
+                self.cmb_feature_type.currentIndexChanged.emit(index)
+            return True
+        return False
+
     def _set_feature_type_by_visit_id(self):
-        """ Set the feature_type in Relation tab basing on visit_id.
-        The steps to follow are:
-        1) check geometry type looking what table contain records related with visit_id
-        2) set gemetry type. """
+        """ Set the feature_type combo from om_visit_x_* rows. No relations → leave ALL. """
 
         selected_feature_type = None
-        feature_type_index = None
         for index in range(self.cmb_feature_type.count()):
-            # feture_type combobox is filled before the visit_id is changed
-            # it will contain all the geometry type allows basing on project type
-            feature_type = self.cmb_feature_type.itemText(index).lower()
-            if feature_type != '' and feature_type != 'all':
-                table_name = f'om_visit_x_{feature_type}'
-                sql = f"SELECT id FROM {table_name} WHERE visit_id = '{self.current_visit.id}'"
-                rows = tools_db.get_rows(sql, log_info=False)
-                if not rows or not rows[0]:
-                    continue
+            feature_type = self._combo_feature_type_id(index)
+            if feature_type not in ('arc', 'node', 'connec', 'link', 'gully'):
+                continue
+            table_name = f'om_visit_x_{feature_type}'
+            sql = f"SELECT id FROM {table_name} WHERE visit_id = '{self.current_visit.id}'"
+            rows = tools_db.get_rows(sql, log_info=False)
+            if not rows or not rows[0]:
+                continue
+            selected_feature_type = feature_type
+            break
 
-                selected_feature_type = feature_type
-                feature_type_index = index
-                break
-
-        # if no related records found do nothing
         if not selected_feature_type:
             return
 
-        # set default combo box value = trigger model and selection
-        # of related features
-        if self.cmb_feature_type.currentIndex() != feature_type_index:
-            self.cmb_feature_type.setCurrentIndex(feature_type_index)
-        else:
-            self.cmb_feature_type.currentIndexChanged.emit(feature_type_index)
+        self._apply_combo_feature_type(selected_feature_type)
 
     def _manage_leave_visit_tab(self):
         """ Manage all the action when leaving the tab_visit
@@ -759,10 +767,11 @@ class GwVisit(QObject):
         if delete_old_relations:
             for index in range(self.cmb_feature_type.count()):
                 # Remove all old relations related with current visit_id and @feature_type
-                feature_type = self.cmb_feature_type.itemText(index).lower()
+                feature_type = self._combo_feature_type_id(index)
                 self._delete_relations_feature_type(feature_type)
 
-        feature_type = tools_qt.get_text(self.dlg_add_visit, self.cmb_feature_type).lower()
+        feature_type = self._combo_feature_type_id()
+        self.feature_type = feature_type
         # Save new relations listed in every table of feature_type
         if feature_type == 'all':
             self._update_relations_feature_type("arc")
@@ -772,10 +781,11 @@ class GwVisit(QObject):
             if tools_gw.get_project_type() == 'ud':
                 self._update_relations_feature_type("gully")
         else:
-            self._update_relations_feature_type(self.feature_type)
+            self._update_relations_feature_type(feature_type)
 
-        widget_name = f"tbl_visit_x_{self.feature_type}"
-        tools_gw.enable_feature_type(dialog, widget_name, ids=self.rel_ids)
+        if feature_type not in ('', 'all'):
+            widget_name = f"tbl_visit_x_{feature_type}"
+            tools_gw.enable_feature_type(dialog, widget_name, ids=self.rel_ids)
 
     def _delete_relations_feature_type(self, feature_type):
         """ Remove all old relations related with current visit_id and @feature_type """
@@ -899,8 +909,12 @@ class GwVisit(QObject):
         row = tools_db.get_row(sql)
         if row:
             self.feature_type_parameter = row[0]
+            # Do not overwrite an explicit combo selection (e.g. NODE) with the
+            # parameter's type (often ALL) — that prevented relations from saving.
             if self.it_is_new_visit:
-                self.feature_type = self.feature_type_parameter.lower()
+                combo_type = self._combo_feature_type_id()
+                if combo_type in ('', 'all'):
+                    self.feature_type = self.feature_type_parameter.lower()
             self._manage_tabs_enabled(True)
 
     def _connect_signal_tab_feature_signal(self, connect=True, excluded_layers=[]):
@@ -1014,7 +1028,7 @@ class GwVisit(QObject):
         # 2) check if there are features related to the current visit
         # 3) if so, select them => would appear in the table associated to the model
         if feature_type is None:
-            feature_type = self.cmb_feature_type.currentText().lower()
+            feature_type = self._combo_feature_type_id()
 
         self.feature_type = feature_type
         if feature_type == '':
