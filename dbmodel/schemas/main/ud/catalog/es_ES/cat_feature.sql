@@ -35,15 +35,15 @@ ALTER TABLE cat_feature_gully DROP COLUMN IF EXISTS _type;
 ALTER TABLE cat_feature DISABLE TRIGGER gw_trg_cat_feature_after;
 
 INSERT INTO cat_material (id, descript) VALUES 
-('FE', 'Iron'),
-('FD', 'Fundición dúctil'),
-('FG', 'Fundición gris'),
-('PE', 'Polietileno'),
+('N/I', 'Sin información'),
+('Concrete', 'Hormigón'),
+('Brick', 'Ladrillo'),
+('PEAD', 'PEAD'),
+('PEC', 'PEC'),
 ('PVC', 'PVC'),
-('FC', 'Fibrocemento'),
-('DESC', 'Desconocido'),
-('HOR', 'Hormigón'),
-('ACER', 'Acero')
+('Virtual', 'Virtual'),
+('FD', 'FD'),
+('Iron', 'Hierro')
 ON CONFLICT (id) DO UPDATE SET descript = EXCLUDED.descript;
 
 INSERT INTO cat_arc_shape (id, epa) VALUES
