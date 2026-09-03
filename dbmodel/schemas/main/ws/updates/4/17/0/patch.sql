@@ -2069,3 +2069,9 @@ FROM feature_data d
         FROM sel_expl
         WHERE sel_expl.expl_id = d.expl_id
     );
+
+UPDATE config_report
+SET filterparam = REPLACE(REPLACE(filterparam::text,
+    '"columnname":"crm_startdate"', '"columnname":"startdate"'),
+    '"columnname":"crm_enddate"', '"columnname":"enddate"')::json
+WHERE id IN (103, 104);
