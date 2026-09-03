@@ -31,15 +31,14 @@ ALTER TABLE cat_feature_connec DROP COLUMN IF EXISTS _type;
 ALTER TABLE cat_feature DISABLE TRIGGER gw_trg_cat_feature_after;
 
 INSERT INTO cat_material (id, descript) VALUES 
-('FE', 'Iron'),
-('FD', 'Ductile iron'),
-('FG', 'Gray cast iron'),
-('PE', 'Polyethylene'),
+('N/I', 'No information'),
+('FD', 'FD'),
 ('PVC', 'PVC'),
-('FC', 'Fiberglass'),
-('DESC', 'Unknown'),
-('HOR', 'Concrete'),
-('ACER', 'Steel')
+('FC', 'Fiberconcrete'),
+('CONCRETE', 'Concrete'),
+('BRICK+IRON', 'Brick and iron'),
+('PE-HD', 'PE high density'),
+('PE-LD', 'PE low density'),
 ON CONFLICT (id) DO UPDATE SET descript = EXCLUDED.descript;
 
 INSERT INTO cat_feature (id, feature_class, feature_type, active, parent_layer, child_layer) VALUES
