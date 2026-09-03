@@ -80,7 +80,7 @@
              <item>
               <widget class="QGroupBox" name="grb_time_steps">
                <property name="title">
-                <string>Date &amp;&amp; time steps</string>
+                <string>Date &amp; time steps</string>
                </property>
                <layout class="QGridLayout" name="gridLayout_19">
                 <item row="0" column="1">
