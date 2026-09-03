@@ -135,6 +135,7 @@ v_state_type integer;
 v_man_table text;
 
 v_min_arcdnom float;
+v_expl_vis smallint[];
 
 v_extrafilters json;
 v_extrafilters_arc text := '';
@@ -793,6 +794,8 @@ BEGIN
 					-- getting values for dma and fluidtype automatic values
 					v_dma_value = v_arc.dma_id;
 					v_fluidtype_value = v_connect.fluid_type;
+					-- set on INSERT: AFTER INSERT UPDATE of expl_visibility is a no-op under RLS on link
+					v_expl_vis := COALESCE(v_connect.expl_visibility, v_arc.expl_visibility, v_link.expl_visibility);
 
 					IF v_link.link_id IS NULL THEN
 
@@ -820,17 +823,17 @@ BEGIN
 					
 						IF v_projecttype = 'WS' THEN
 							INSERT INTO link (link_id, the_geom, feature_id, feature_type, exit_type, exit_id, state, expl_id, sector_id, dma_id, omzone_id,
-							presszone_id, dqa_id, minsector_id, fluid_type, muni_id, linkcat_id, state_type)
+							presszone_id, dqa_id, minsector_id, fluid_type, muni_id, linkcat_id, state_type, expl_visibility)
 							VALUES (v_link.link_id, v_link.the_geom, v_connect_id, v_feature_type, v_link.exit_type, v_link.exit_id,
 							CASE WHEN v_isoperative_psector THEN 2 ELSE v_connect.state END, v_arc.expl_id, v_arc.sector_id, v_dma_value, v_arc.omzone_id, v_arc.presszone_id, v_arc.dqa_id, v_arc.minsector_id, v_fluidtype_value, v_connect.muni_id,
-							v_linkcat_id, v_state_type);
+							v_linkcat_id, v_state_type, v_expl_vis);
 
 							EXECUTE 'INSERT INTO man_'||v_man_table||' values ('||v_link.link_id||')';
 
 						ELSIF v_projecttype = 'UD' THEN
-							INSERT INTO link (link_id, the_geom, feature_id, feature_type, exit_type, exit_id, state, expl_id, sector_id, omzone_id, fluid_type, muni_id, linkcat_id, link_type, state_type)
+							INSERT INTO link (link_id, the_geom, feature_id, feature_type, exit_type, exit_id, state, expl_id, sector_id, omzone_id, fluid_type, muni_id, linkcat_id, link_type, state_type, expl_visibility)
 							VALUES (v_link.link_id, v_link.the_geom, v_connect_id, v_feature_type, v_link.exit_type, v_link.exit_id,
-							CASE WHEN v_isoperative_psector THEN 2 ELSE v_connect.state END, v_arc.expl_id, v_arc.sector_id, v_arc.omzone_id, v_fluidtype_value::INTEGER, v_connect.muni_id, v_linkcat_id, v_link_type, v_state_type);
+							CASE WHEN v_isoperative_psector THEN 2 ELSE v_connect.state END, v_arc.expl_id, v_arc.sector_id, v_arc.omzone_id, v_fluidtype_value::INTEGER, v_connect.muni_id, v_linkcat_id, v_link_type, v_state_type, v_expl_vis);
 
 							EXECUTE 'INSERT INTO man_'||v_man_table||' values ('||v_link.link_id||')';
 
@@ -838,18 +841,22 @@ BEGIN
 					ELSE
 						IF v_linkcat_id IS NULL THEN
 							IF v_projecttype = 'WS' THEN
-								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value
+								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value,
+								expl_visibility = COALESCE(v_expl_vis, expl_visibility)
 								WHERE link_id = v_link.link_id;
 							ELSE
-								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value::INTEGER
+								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value::INTEGER,
+								expl_visibility = COALESCE(v_expl_vis, expl_visibility)
 								WHERE link_id = v_link.link_id;
 							END IF;
 						ELSE
 							IF v_projecttype = 'WS' THEN
-								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value, linkcat_id = v_linkcat_id
+								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value, linkcat_id = v_linkcat_id,
+								expl_visibility = COALESCE(v_expl_vis, expl_visibility)
 								WHERE link_id = v_link.link_id;
 							ELSE
-								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value::INTEGER, linkcat_id = v_linkcat_id
+								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value::INTEGER, linkcat_id = v_linkcat_id,
+								expl_visibility = COALESCE(v_expl_vis, expl_visibility)
 								WHERE link_id = v_link.link_id;
 							END IF;
 						END IF;

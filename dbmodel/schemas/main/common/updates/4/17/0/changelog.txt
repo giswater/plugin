@@ -1,3 +1,4 @@
+- Persist `expl_visibility` on links created or reconnected by `gw_fct_linktonetwork` (inherit from connec/gully/arc on INSERT; needed under RLS).
 - Persist `linkcat_id` on `ve_link` UPDATE (`gw_trg_edit_link`).
 - Fix `gw_fct_linkexitgenerator` to filter links by sector_id > 0 when is called from `gw_fct_pg2epa_fill_data` function.
 - Improve selector_sector to use sector_id >= 0, now users can select also the 0 sector.
