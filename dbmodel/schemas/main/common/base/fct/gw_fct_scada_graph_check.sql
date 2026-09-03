@@ -255,7 +255,7 @@ BEGIN
 	) t
 	WHERE g.object_1 = t.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
 	*/
-	
+
 	-- order_id
 	UPDATE temp_om_scada_graph g
 	SET order_id = t.order_id
@@ -392,6 +392,7 @@ BEGIN
 			expl_add = t.expl_add,
 			objecttype_1 = t.objecttype_1,
 			objecttype_2 = t.objecttype_2,
+			-- group_id = t.group_id,
 			order_id = t.order_id
 		FROM temp_om_scada_graph t
 		WHERE t.the_geom IS NOT NULL
@@ -403,6 +404,7 @@ BEGIN
             objecttype_1 = COALESCE(t.objecttype_1, g.objecttype_1),
             objecttype_2 = COALESCE(t.objecttype_2, g.objecttype_2),
             attrib = NULL,
+			-- group_id = NULL,
             order_id = NULL,
             expl_add = (
 				SELECT string_agg(DISTINCT v.expl_id::text, ',')
