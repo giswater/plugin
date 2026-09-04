@@ -35,16 +35,16 @@ ALTER TABLE cat_feature_gully DROP COLUMN IF EXISTS _type;
 
 ALTER TABLE cat_feature DISABLE TRIGGER gw_trg_cat_feature_after;
 
-INSERT INTO cat_material (id, descript) VALUES 
-('N/I', 'No information'),
-('Concrete', 'Concrete'),
-('Brick', 'Brick'),
-('PEAD', 'PEAD'),
-('PEC', 'PEC'),
-('PVC', 'PVC'),
-('Virtual', 'Virtual'),
+INSERT INTO cat_material (id, descript) VALUES
+('FE', 'Iron'),
 ('FD', 'FD'),
-('Iron', 'Iron')
+('FG', 'Fundición gris'),
+('PE', 'Polietileno'),
+('PVC', 'PVC'),
+('FC', 'Fiberconcrete'),
+('DESC', 'Desconocido'),
+('HOR', 'Concrete'),
+('ACER', 'Acero')
 ON CONFLICT (id) DO UPDATE SET descript = EXCLUDED.descript;
 
 INSERT INTO cat_arc_shape (id, epa) VALUES
@@ -173,7 +173,7 @@ INSERT INTO cat_link (id, link_type) VALUES
 ON CONFLICT (id) DO UPDATE SET link_type = EXCLUDED.link_type;
 
 INSERT INTO cat_gully (id, gully_type, matcat_id) VALUES
-('GU100X30', 'GULLY', 'Iron'),
+('GU100X30', 'GULLY', 'FE'),
 ('GRATE50', 'GRATE', 'FD')
 ON CONFLICT (id) DO UPDATE SET gully_type = EXCLUDED.gully_type, matcat_id = EXCLUDED.matcat_id;
 

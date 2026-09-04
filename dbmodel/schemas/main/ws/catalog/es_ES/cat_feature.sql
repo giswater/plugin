@@ -30,15 +30,16 @@ ALTER TABLE cat_feature_connec DROP COLUMN IF EXISTS _type;
 
 ALTER TABLE cat_feature DISABLE TRIGGER gw_trg_cat_feature_after;
 
-INSERT INTO cat_material (id, descript) VALUES 
-('N/I', 'Sin información'),
-('FD', 'FD'),
+INSERT INTO cat_material (id, descript) VALUES
+('FE', 'Hierro'),
+('FD', 'Fundición dúctil'),
+('FG', 'Fundición gris'),
+('PE', 'Polietileno'),
 ('PVC', 'PVC'),
 ('FC', 'Fibrocemento'),
-('CONCRETE', 'Hormigón'),
-('BRICK+IRON', 'Ladrillo y hierro'),
-('PE-HD', 'PE alta densidad'),
-('PE-LD', 'PE baja densidad')
+('DESC', 'Desconocido'),
+('HOR', 'Hormigón'),
+('ACER', 'Acero')
 ON CONFLICT (id) DO UPDATE SET descript = EXCLUDED.descript;
 
 INSERT INTO cat_feature (id, feature_class, feature_type, active, parent_layer, child_layer) VALUES
@@ -156,9 +157,9 @@ ON CONFLICT (id) DO UPDATE SET node_type = EXCLUDED.node_type;
 INSERT INTO cat_arc (id, arc_type, matcat_id, dnom) VALUES
 ('PVC110', 'TRAMO', 'PVC', 110),
 ('PVC160', 'TRAMO', 'PVC', 160),
-('PE63', 'TRAMO', 'PE-HD', 63),
-('PE110', 'TRAMO', 'PE-HD', 110),
-('PE160', 'TRAMO', 'PE-HD', 160),
+('PE63', 'TRAMO', 'PE', 63),
+('PE110', 'TRAMO', 'PE', 110),
+('PE160', 'TRAMO', 'PE', 160),
 ('FD150', 'TRAMO', 'FD', 150),
 ('FD200', 'TRAMO', 'FD', 200),
 ('TRAMOV', 'TRAMOV', NULL, 0)
@@ -177,9 +178,9 @@ INSERT INTO cat_connec (id, connec_type) VALUES
 ON CONFLICT (id) DO UPDATE SET connec_type = EXCLUDED.connec_type;
 
 INSERT INTO cat_link (id, link_type, matcat_id, dnom) VALUES
-('PE25', 'RAMAL', 'PE-HD', 25),
-('PE32', 'RAMAL', 'PE-HD', 32),
-('PE50', 'RAMAL', 'PE-HD', 50),
+('PE25', 'RAMAL', 'PE', 25),
+('PE32', 'RAMAL', 'PE', 32),
+('PE50', 'RAMAL', 'PE', 50),
 ('RAMALV', 'RAMALV', NULL, 0)
 ON CONFLICT (id) DO UPDATE SET link_type = EXCLUDED.link_type, matcat_id = EXCLUDED.matcat_id, dnom = EXCLUDED.dnom;
 
