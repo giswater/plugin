@@ -13,7 +13,7 @@ AS $function$
 /*
 
 Documentation:
-Takes object_1 and object_2 and connects them with pgr_dijkstra (operative arcs).
+Takes node_1 and node_2 and connects them with pgr_dijkstra (operative arcs).
 Writes the_geom, attrib.arcs and is_scadamap on the path.
 
 TROUBLESHOOTING: If it raises "No network path", there is no continuity between the two nodes. 
@@ -25,26 +25,10 @@ DECLARE
 -- Init params
 v_srid INTEGER;
 v_project_type TEXT;
-v_node_1 TEXT;
-v_node_2 TEXT;
-v_sql_1 TEXT;
 
 -- Vars
-v_arc_geom public.geometry(LINESTRING, SRID_VALUE);
-v_sql TEXT;
-v_arcs TEXT;
-v_column_name TEXT;
-v_man_table TEXT;
-v_table TEXT;
-rec record;
-v_exists bool;
-
 
 -- Return
-v_return JSON;
-
--- 
-
 
 BEGIN
 
@@ -60,11 +44,11 @@ BEGIN
 
 			IF EXISTS (
 				SELECT 1 FROM om_scada_graph g
-				WHERE g.object_1 = NEW.object_1
-				  AND g.object_2 = NEW.object_2
-				  AND (TG_OP = 'INSERT' OR g.edge_id IS DISTINCT FROM NEW.edge_id)
+				WHERE g.node_1 = NEW.node_1
+				  AND g.node_2 = NEW.node_2
+				  AND TG_OP = 'INSERT'
 			) THEN
-				RAISE EXCEPTION 'Scada graph edge already exists for object_1=% and object_2=%', NEW.object_1, NEW.object_2
+				RAISE EXCEPTION 'Scada graph edge already exists for node_1=% and node_2=%', NEW.node_1, NEW.node_2
 					USING ERRCODE = 'unique_violation';
 			END IF;
 
@@ -99,8 +83,8 @@ BEGIN
 						AND a.node_1 IS NOT NULL AND a.node_2 IS NOT NULL
 						AND NOT EXISTS (SELECT 1 FROM closed_valve cv WHERE cv.node_id = a.node_1 OR cv.node_id = a.node_2)
 					$pgr$,
-					NEW.object_1,
-					NEW.object_2,
+					NEW.node_1,
+					NEW.node_2,
 					directed := false
 				) d;
 			ELSIF v_project_type = 'UD' THEN
@@ -122,35 +106,15 @@ BEGIN
 						JOIN value_state_type s ON a.state_type = s.id 
 						WHERE a.state = 1 AND s.is_operative AND a.node_1 IS NOT NULL AND a.node_2 IS NOT NULL
 					$pgr$,
-					NEW.object_1,
-					NEW.object_2,
+					NEW.node_1,
+					NEW.node_2,
 					directed := true
 				) d;
 			END IF;
 
 			IF NOT EXISTS (SELECT 1 FROM temp_graph) THEN
-				RAISE EXCEPTION 'No network path between object_1=% and object_2=%', NEW.object_1, NEW.object_2;
+				RAISE EXCEPTION 'No network path between node_1=% and node_2=%', NEW.node_1, NEW.node_2;
 			END IF;
-
-			SELECT ST_Multi(ST_LineMerge(ST_Collect(b.the_geom)))
-			FROM temp_graph a
-			JOIN arc b ON a.arc_id = b.arc_id::int
-			INTO NEW.the_geom;
-
-			SELECT json_build_object('arcs', json_agg(arc_id))
-			FROM temp_graph
-			WHERE arc_id <> -1
-			INTO NEW.attrib;
-
-			UPDATE arc SET is_scadamap = TRUE
-			WHERE arc_id::int IN (SELECT arc_id FROM temp_graph);
-
-			UPDATE node SET is_scadamap = TRUE
-			WHERE node_id::int IN (
-				SELECT node_id FROM temp_graph
-			);
-
-			DROP TABLE IF EXISTS temp_graph;
 
 			RETURN NEW;
 		END IF;
@@ -159,152 +123,67 @@ BEGIN
 	
 		IF TG_OP IN ('INSERT', 'UPDATE') THEN
 
-		-- TODO: rename temp table (e.g. temp_om_scada_graph_enrich); name collides with view v_om_scada_graph (4.17.0).
-		DROP TABLE IF EXISTS v_om_scada_graph;
-		CREATE TEMP TABLE v_om_scada_graph AS
-		WITH mec AS (
-			SELECT a_1.edge_id,
-				a_1.order_id,
-				a_1.attrib,
-				a_1.expl_add,
-				a_1.object_name_1,
-				a_1.object_name_2,
-				a_1.object_1,
-				b_1.nodecat_id AS nc_1,
-				b_1.dma_id AS dma_id_1,
-				b_1.expl_id AS expl_1,
-				a_1.object_2,
-				c_1.nodecat_id AS nc_2,
-				c_1.dma_id AS dma_id_2,
-				c_1.expl_id AS expl_2
-			FROM  om_scada_graph a_1
-				LEFT JOIN node b_1 ON a_1.object_1 = b_1.node_id::integer
-				LEFT JOIN node c_1 ON a_1.object_2 = c_1.node_id::integer
-			WHERE a_1.edge_id = NEW.edge_id
-		)
-		SELECT a.edge_id,
-			a.order_id,
-			a.attrib,
-			a.expl_add,
-			a.object_1,
-			b.node_type AS object_type_1,
-			a.expl_1,
-			a.dma_id_1,
-			e.name AS dma_name_1,
-			a.object_name_1,
-			a.object_2,
-			c.node_type AS object_type_2,
-			a.expl_2,
-			a.dma_id_2,
-			f.name AS dma_name_2,
-			a.object_name_2
-		FROM mec a
-			LEFT JOIN cat_node b ON a.nc_1::text = b.id::text
-			LEFT JOIN cat_node c ON a.nc_2::text = c.id::text
-			LEFT JOIN dma e ON a.dma_id_1 = e.dma_id
-			LEFT JOIN dma f ON a.dma_id_2 = f.dma_id;
-	
-			-- attrs that can be taken from table node.
-			UPDATE  om_scada_graph t SET 
-			objecttype_1 = a.object_type_1,
-			objecttype_2 = a.object_type_2,
-			dma_id_1 = a.dma_id_1,
-			dma_name_1 = a.dma_name_1,
-			dma_id_2 = a.dma_id_2,
-			dma_name_2 = a.dma_name_2,
-			expl_1 = a.expl_1,
-			expl_2 = a.expl_2,
-			active = TRUE 
+			-- UPDATE om_scada_graph with the_geom, attrib, expl_id, node_type_1, node_type_2, group_id, order_id
+			UPDATE om_scada_graph g
+			SET the_geom = agg.the_geom, attrib = agg.attrib
 			FROM (
-				SELECT edge_id, 
-				dma_id_1, dma_name_1, object_type_1, expl_1,
-				dma_id_2, dma_name_2, object_type_2, expl_2 FROM v_om_scada_graph 
-				WHERE edge_id = NEW.edge_id
-			)a WHERE t.edge_id = a.edge_id;
+				SELECT g.node_1, g.node_2,
+					ST_Multi(ST_LineMerge(ST_Collect(a.the_geom))) AS the_geom,
+					json_build_object('arcs', json_agg(a.arc_id)) AS attrib
+				FROM temp_graph t
+				JOIN arc a ON t.arc_id = a.arc_id
+			) agg
+			WHERE t.node_1 = NEW.node_1 AND t.node_2 = NEW.node_2;
+
+			UPDATE om_scada_graph g
+			SET expl_id = agg.expl_id
+			FROM (
+				SELECT g.node_1, g.node_2, array_agg(DISTINCT n.expl_id) AS expl_id
+				FROM temp_graph t
+				JOIN node n ON t.node_id = n.node_id
+			) agg
+			WHERE t.node_1 = NEW.node_1 AND t.node_2 = NEW.node_2;
+	
+			UPDATE om_scada_graph g
+			SET node_type_1 = cn1.node_type
+			FROM node n1
+			JOIN cat_node cn1 ON n1.nodecat_id = cn1.id
+			WHERE n1.node_id = NEW.node_id
+			AND g.node_1 = NEW.node_id;
+
+			UPDATE om_scada_graph g
+			SET node_type_2 = cn2.node_type
+			FROM node n2
+			JOIN cat_node cn2 ON n2.nodecat_id = cn2.id
+			WHERE n2.node_id = NEW.node_id
+			AND g.node_2 = NEW.node_id;
 			
-			-- group_id and order_id only for this row (parent hop + 1, or 1 if object_1 is a root)
+			-- group_id and order_id only for this row (parent hop + 1, or 1 if node_1 is a root)
 	 		UPDATE om_scada_graph g
-			SET --group_id = COALESCE(t.group_id, NEW.object_1),
+			SET group_id = COALESCE(t.group_id, NEW.node_1),
 				order_id = COALESCE(t.order_id, 0) + 1
 			FROM (SELECT 1 AS flag) s
 			LEFT JOIN (
 				SELECT
-					--group_id, 
+					group_id, 
 					order_id
 				FROM om_scada_graph
-				WHERE object_2 = NEW.object_1
+				WHERE node_2 = NEW.node_1
 				ORDER BY order_id DESC
 				LIMIT 1
 			) t ON true
-			WHERE g.object_1 = NEW.object_1 AND g.object_2 = NEW.object_2;
-		
-			v_sql = '
-			SELECT v.object_id_col, v.object_id_val, v.object_type_col, v.object_type_val, v.object_name_col,
-				concat(''man_node_'', lower(v.object_type_val)) AS man_addf_table, 
-				concat(''man_'', lower(b.feature_class)) AS man_table
-				FROM om_scada_graph g
-				CROSS JOIN LATERAL (
-				    VALUES 
-				        (''object_1'', g.object_1, ''objecttype_1'', g.objecttype_1,''object_name_1''),
-				        (''object_2'', g.object_2, ''objecttype_2'', g.objecttype_2, ''object_name_2'')
-				) AS v(object_id_col, object_id_val, object_type_col, object_type_val, object_name_col)
-				LEFT JOIN cat_feature b ON v.object_type_val = b.id
-			WHERE g.edge_id = '|| NEW.edge_id;
+			WHERE g.node_1 = NEW.node_1 AND g.node_2 = NEW.node_2;
 
-		
-			FOR rec IN EXECUTE 'SELECT*FROM ('||v_sql||')' -- build COLUMN names AND VALUES IN a single query
-			LOOP 
-				-- find column "name" in addfields
-				EXECUTE FORMAT('SELECT %L, column_name 
-				FROM information_schema.COLUMNS 
-				WHERE table_schema = ''SCHEMA_NAME'' 
-				AND table_name = %L
-				AND column_name = ''name''',
-				rec.man_addf_table,
-				rec.man_addf_table
-				) INTO v_table, v_column_name;
+			-- i_scadamap = TRUE for arcs and nodes in the path
+			UPDATE arc SET is_scadamap = TRUE
+			WHERE arc_id IN (SELECT arc_id FROM temp_graph);
 
-				IF v_column_name IS NOT NULL THEN -- UPDATE ONLY IF COLUMN "name" EXISTS (=avoid objects that don't have name)
-			
-					EXECUTE FORMAT('UPDATE om_scada_graph SET %s = (
-						SELECT %s FROM %s WHERE node_id = %s
-					) WHERE edge_id = %s',
-					rec.object_name_col,
-					v_column_name,
-					v_table,
-					quote_literal(rec.object_id_val),
-					NEW.edge_id);
-							
-				ELSE -- find COLUMN "name" IN man_table (man_pump, man_valve, ...)
-						
-					EXECUTE FORMAT('SELECT %L, column_name 
-					FROM information_schema.COLUMNS 
-					WHERE table_schema = ''SCHEMA_NAME'' 
-					AND table_name = %L
-					AND column_name = ''name''',
-					rec.man_table,
-					rec.man_table
-					) INTO v_table, v_column_name;
-				
-					IF v_column_name IS NOT NULL THEN
-					
-						EXECUTE FORMAT('UPDATE om_scada_graph SET %s = (
-							SELECT %s FROM %s WHERE node_id = %s
-						) WHERE edge_id = %s',
-						rec.object_name_col,
-						v_column_name,
-						v_table,
-						quote_literal(rec.object_id_val),
-						NEW.edge_id);
-						-- UPDATE om_scada_graph SET object_name_1 = (SELECT name FROM man_tank WHERE node_id = '29801') WHERE edge_id = 9999
-				
-					END IF;
-					
-				END IF;
-		
-			END LOOP;		
-		
-			DROP TABLE IF EXISTS v_om_scada_graph ;
+			UPDATE node SET is_scadamap = TRUE
+			WHERE node_id IN (
+				SELECT node_id FROM temp_graph
+			);
+
+			DROP TABLE IF EXISTS temp_graph;
 		
 			RETURN NEW;
 	

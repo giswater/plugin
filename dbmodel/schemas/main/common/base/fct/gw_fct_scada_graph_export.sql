@@ -33,8 +33,8 @@ v_json_result_nodes json;
 v_json_result_links json;
 v_json_result_return json;
 v_expl_id integer;
-v_object_1 integer;
-v_object_2 integer;
+v_node_1 integer;
+v_node_2 integer;
 v_result JSON;
 v_Result_info JSON;
 v_error_context text;
@@ -48,13 +48,13 @@ BEGIN
 		(p_data -> 'data' -> 'parameters' ->> 'explId')::integer,
 		(p_data -> 'data' ->> 'explId')::integer
 	);
-	v_object_1 := COALESCE((p_data -> 'data' -> 'parameters' ->> 'object_1')::integer, (p_data -> 'data' ->> 'object_1')::integer);
-	v_object_2 := COALESCE((p_data -> 'data' -> 'parameters' ->> 'object_2')::integer, (p_data -> 'data' ->> 'object_2')::integer);
+	v_node_1 := COALESCE((p_data -> 'data' -> 'parameters' ->> 'object_1')::integer, (p_data -> 'data' ->> 'object_1')::integer);
+	v_node_2 := COALESCE((p_data -> 'data' -> 'parameters' ->> 'object_2')::integer, (p_data -> 'data' ->> 'object_2')::integer);
 
-	IF v_expl_id IS NULL AND v_object_1 IS NOT NULL AND v_object_2 IS NOT NULL THEN
+	IF v_expl_id IS NULL AND v_node_1 IS NOT NULL AND v_node_2 IS NOT NULL THEN
 		SELECT COALESCE(expl_1, expl_2) INTO v_expl_id
 		FROM om_scada_graph
-		WHERE object_1 = v_object_1 AND object_2 = v_object_2
+		WHERE node_1 = v_node_1 AND node_2 = v_node_2
 		ORDER BY edge_id DESC LIMIT 1;
 	END IF;
 
@@ -82,13 +82,13 @@ BEGIN
 		json_build_object(
 		'edgeId', edge_id,
 		'orderId', order_id,
-		'fromNode', object_1,
+		'fromNode', node_1,
 		'nodeType1', objecttype_1,
 		'nodeName1', object_name_1,
 		'explId1', expl_1,
 		'dma_id_1', dma_id_1,
 		'dma_name_1', dma_name_1,
-		'toNode', object_2,
+		'toNode', node_2,
 		'nodeType2', objecttype_2,
 		'nodeName2', object_name_2,
 		'explId2', expl_2,		

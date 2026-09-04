@@ -28,8 +28,8 @@ The function:
 - fixes the inconsistencies making sure that the attributes of om_scada_graph are synced according to attributes of table "node"
 
 The features checked are:
-- object_1 and object_2 must not be orphan nodes
-- object_1 and object_2 must be operative
+- node_1 and node_2 must not be orphan nodes
+- node_1 and node_2 must be operative
 
 */
 
@@ -98,7 +98,7 @@ BEGIN
 	-- Initialize process
 	-- =======================
 	v_query_text := $q$
-		SELECT row_number() OVER () AS id, object_1 AS source, object_2 AS target, 1 AS cost
+		SELECT row_number() OVER () AS id, node_1 AS source, node_2 AS target, 1 AS cost
 		FROM om_scada_graph
 	$q$;
 
@@ -114,19 +114,19 @@ BEGIN
 			OR EXISTS (
 				SELECT 1
 				FROM om_scada_graph g
-				LEFT JOIN node n1 ON g.object_1 = n1.node_id
-				LEFT JOIN node n2 ON g.object_2 = n2.node_id
+				LEFT JOIN node n1 ON g.node_1 = n1.node_id
+				LEFT JOIN node n2 ON g.node_2 = n2.node_id
 				WHERE (
-					(string_to_array(g.expl_add, ',')::int[] && $1 AND g.object_1 = c.node) 
-					OR (n1.expl_id = ANY ($1) AND g.object_1 = c.node)
-					OR (n2.expl_id = ANY ($1) AND g.object_2 = c.node)
+					(g.expl_id && $1 AND g.node_1 = c.node) 
+					OR (n1.expl_id = ANY ($1) AND g.node_1 = c.node)
+					OR (n2.expl_id = ANY ($1) AND g.node_2 = c.node)
 				)
 			)
 		)
-		INSERT INTO temp_om_scada_graph (object_1, object_2, active)
-		SELECT g.object_1, g.object_2, g.active
+		INSERT INTO temp_om_scada_graph (node_1, node_2, active)
+		SELECT g.node_1, g.node_2, g.active
 		FROM om_scada_graph g
-		JOIN connectedcomponents c1 ON c1.node = g.object_1
+		JOIN connectedcomponents c1 ON c1.node = g.node_1
 		WHERE EXISTS (
 			SELECT 1
 			FROM components cc
@@ -136,12 +136,12 @@ BEGIN
 	USING v_expl_id_array;
 
 	v_query_combinations := '
-		SELECT object_1 AS source, object_2 AS target FROM temp_om_scada_graph WHERE active = TRUE
+		SELECT node_1 AS source, node_2 AS target FROM temp_om_scada_graph WHERE active = TRUE
 	';
 
 	IF v_project_type = 'WS' THEN
 		CREATE TEMP TABLE temp_graph AS
-		SELECT d.start_vid as object_1, d.end_vid as object_2, d.edge AS arc_id, d.node AS node_id
+		SELECT d.start_vid as node_1, d.end_vid as node_2, d.edge AS arc_id, d.node AS node_id
 		FROM pgr_dijkstra(
 			$pgr$WITH
 				closed_valve AS (
@@ -173,7 +173,7 @@ BEGIN
 		) d;
 	ELSIF v_project_type = 'UD' THEN
 		CREATE TEMP TABLE temp_graph AS
-		SELECT d.start_vid as object_1, d.end_vid as object_2, d.edge AS arc_id, d.node AS node_id
+		SELECT d.start_vid as node_1, d.end_vid as node_2, d.edge AS arc_id, d.node AS node_id
 		FROM pgr_dijkstra(
 			$pgr$SELECT
 					a.arc_id::int AS id,
@@ -195,62 +195,70 @@ BEGIN
 		) d;
 	END IF;
 
-	CREATE INDEX IF NOT EXISTS temp_graph_object_1_object_2_idx ON temp_graph USING btree (object_1, object_2);
+	CREATE INDEX IF NOT EXISTS temp_graph_node_1_node_2_idx ON temp_graph USING btree (node_1, node_2);
 	CREATE INDEX IF NOT EXISTS temp_graph_arc_id_idx ON temp_graph USING btree (arc_id);
 	CREATE INDEX IF NOT EXISTS temp_graph_node_id_idx ON temp_graph USING btree (node_id);
 
 	UPDATE temp_om_scada_graph t
 	SET the_geom = agg.the_geom,
-		attrib = agg.attrib,
-		expl_add = agg.expl_add
+		attrib = agg.attrib
 	FROM (
-		SELECT g.object_1, g.object_2,
+		SELECT g.node_1, g.node_2,
 			ST_Multi(ST_LineMerge(ST_Collect(a.the_geom))) AS the_geom,
-			json_build_object('arcs', json_agg(a.arc_id)) AS attrib,
-			string_agg(DISTINCT a.expl_id::text, ',') AS expl_add
+			json_build_object('arcs', json_agg(a.arc_id)) AS attrib
 		FROM temp_om_scada_graph g
-		JOIN temp_graph t ON g.object_1 = t.object_1 AND g.object_2 = t.object_2
+		JOIN temp_graph t ON g.node_1 = t.node_1 AND g.node_2 = t.node_2
 		JOIN arc a ON t.arc_id = a.arc_id
-		GROUP BY g.object_1, g.object_2
+		GROUP BY g.node_1, g.node_2
 	) agg
-	WHERE t.object_1 = agg.object_1 AND t.object_2 = agg.object_2;
+	WHERE t.node_1 = agg.node_1 AND t.node_2 = agg.node_2;
 
 	UPDATE temp_om_scada_graph t
-	SET objecttype_1 = cn1.node_type
+	SET expl_id = agg.expl_id
+	FROM (
+		SELECT g.node_1, g.node_2, array_agg(DISTINCT n.expl_id) AS expl_id
+		FROM temp_om_scada_graph g
+		JOIN temp_graph t ON g.node_1 = t.node_1 AND g.node_2 = t.node_2
+		JOIN node n ON t.node_id = n.node_id
+		GROUP BY g.node_1, g.node_2
+	) agg
+	WHERE t.node_1 = agg.node_1 AND t.node_2 = agg.node_2;
+
+	UPDATE temp_om_scada_graph t
+	SET node_type_1 = cn1.node_type
 	FROM node n1
 	JOIN cat_node cn1 ON n1.nodecat_id = cn1.id
-	WHERE t.object_1 = n1.node_id;
+	WHERE t.node_1 = n1.node_id;
 
 	UPDATE temp_om_scada_graph t
-	SET objecttype_2 = cn2.node_type
+	SET node_type_2 = cn2.node_type
 	FROM node n2
 	JOIN cat_node cn2 ON n2.nodecat_id = cn2.id
-	WHERE t.object_2 = n2.node_id;
+	WHERE t.node_2 = n2.node_id;
 
 	-- update group_id and order_id
 	v_query_text := '
-		SELECT row_number() OVER () AS id, object_1 AS source, object_2 AS target, 1::float AS cost
+		SELECT row_number() OVER () AS id, node_1 AS source, node_2 AS target, 1::float AS cost
 		FROM temp_om_scada_graph
 		WHERE the_geom IS NOT NULL';
 
 	v_pgr_distance := (SELECT count(*)::int FROM temp_om_scada_graph);
 
-	SELECT COALESCE(array_agg(DISTINCT g.object_1), '{}')::int[]
+	SELECT COALESCE(array_agg(DISTINCT g.node_1), '{}')::int[]
 	INTO v_pgr_root_vids
 	FROM temp_om_scada_graph g
 	WHERE  g.the_geom IS NOT NULL
 	AND NOT EXISTS (
 		SELECT 1 FROM temp_om_scada_graph g2
 		WHERE  g2.the_geom IS NOT NULL
-		AND g2.object_2 = g.object_1
+		AND g2.node_2 = g.node_1
 	);
 
-	/*
 	-- group_id: for each connected component, assign the minimum root node id (from v_pgr_root_vids)
 	WITH
 		connectedcomponents AS (
 			SELECT component, node AS node_id
-			FROM pgr_connectedcomponents('SELECT row_number() OVER () AS id, object_1 AS source, object_2 AS target, 1::float AS cost
+			FROM pgr_connectedcomponents('SELECT row_number() OVER () AS id, node_1 AS source, node_2 AS target, 1::float AS cost
 			FROM temp_om_scada_graph
 			WHERE the_geom IS NOT NULL')
 		),
@@ -264,8 +272,7 @@ BEGIN
 	SET group_id = g.group_id
 	FROM connectedcomponents c
 	JOIN group_ids g ON c.component = g.component
-	WHERE t.object_1 = c.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
-	*/
+	WHERE t.node_1 = c.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
 
 	-- order_id
 	UPDATE temp_om_scada_graph g
@@ -276,7 +283,7 @@ BEGIN
 		WHERE edge <> -1
 		GROUP BY pred
 	) t
-	WHERE g.object_1 = t.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
+	WHERE g.node_1 = t.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
 
 	-- ERRORS
 	--==========================
@@ -284,64 +291,64 @@ BEGIN
 	SET error_message =
 		CASE
 
-		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.object_1 = n.node_id)
-			AND NOT EXISTS (SELECT 1 FROM node n WHERE t.object_2 = n.node_id)
-		THEN '1. object_1 and object_2 are missing'
+		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.node_1 = n.node_id)
+			AND NOT EXISTS (SELECT 1 FROM node n WHERE t.node_2 = n.node_id)
+		THEN '1. node_1 and node_2 are missing'
 
-		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.object_1 = n.node_id)
-		THEN '1. object_1 is missing'
+		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.node_1 = n.node_id)
+		THEN '1. node_1 is missing'
 
-		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.object_2 = n.node_id)
-		THEN '1. object_2 is missing'
+		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.node_2 = n.node_id)
+		THEN '1. node_2 is missing'
 
 		WHEN EXISTS (
 			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
-			WHERE t.object_1 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
+			WHERE t.node_1 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
 		) AND EXISTS (
 			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
-			WHERE t.object_2 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
+			WHERE t.node_2 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
 		)
-		THEN '2. object_1 and object_2 are obsolete'
+		THEN '2. node_1 and node_2 are obsolete'
 
 		WHEN EXISTS (
 			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
-			WHERE t.object_1 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
+			WHERE t.node_1 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
 		)
-		THEN '2. object_1 is obsolete'
+		THEN '2. node_1 is obsolete'
 
 		WHEN EXISTS (
 			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
-			WHERE t.object_2 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
+			WHERE t.node_2 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
 		)
-		THEN '2. object_2 is obsolete'
+		THEN '2. node_2 is obsolete'
 
 		WHEN NOT EXISTS (
 			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
 			WHERE a.state = 1 AND sa.is_operative = TRUE
-			AND (a.node_1 = t.object_1 OR a.node_2 = t.object_1)
+			AND (a.node_1 = t.node_1 OR a.node_2 = t.node_1)
 		) AND NOT EXISTS (
 			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
 			WHERE a.state = 1 AND sa.is_operative = TRUE
-			AND (a.node_1 = t.object_2 OR a.node_2 = t.object_2)
+			AND (a.node_1 = t.node_2 OR a.node_2 = t.node_2)
 		)
-		THEN '3. object_1 and object_2 are orphan'
+		THEN '3. node_1 and node_2 are orphan'
 
 		WHEN NOT EXISTS (
 			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
 			WHERE a.state = 1 AND sa.is_operative = TRUE
-			AND (a.node_1 = t.object_1 OR a.node_2 = t.object_1)
+			AND (a.node_1 = t.node_1 OR a.node_2 = t.node_1)
 		)
-		THEN '3. object_1 is orphan'
+		THEN '3. node_1 is orphan'
 
 		WHEN NOT EXISTS (
 			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
 			WHERE a.state = 1 AND sa.is_operative = TRUE
-			AND (a.node_1 = t.object_2 OR a.node_2 = t.object_2)
+			AND (a.node_1 = t.node_2 OR a.node_2 = t.node_2)
 		)
-		THEN '3. object_2 is orphan'
+		THEN '3. node_2 is orphan'
 
 		WHEN t.the_geom IS NULL
-		THEN '4. object_1 and object_2 without a valid connection'
+		THEN '4. node_1 and node_2 without a valid connection'
 	END
 	WHERE t.active = TRUE;
 
@@ -400,33 +407,33 @@ BEGIN
 		UPDATE om_scada_graph g
 		SET the_geom = t.the_geom,
 			attrib = t.attrib,
-			expl_add = t.expl_add,
-			objecttype_1 = t.objecttype_1,
-			objecttype_2 = t.objecttype_2,
-			-- group_id = t.group_id,
+			expl_id = t.expl_id,
+			node_type_1 = t.node_type_1,
+			node_type_2 = t.node_type_2,
+			group_id = t.group_id,
 			order_id = t.order_id
 		FROM temp_om_scada_graph t
 		WHERE t.the_geom IS NOT NULL
-		AND g.object_1 = t.object_1 AND g.object_2 = t.object_2;
+		AND g.node_1 = t.node_1 AND g.node_2 = t.node_2;
 
 		-- update om_scada_graph for invalid connections
 		UPDATE om_scada_graph g
-        SET 
-            objecttype_1 = COALESCE(t.objecttype_1, g.objecttype_1),
-            objecttype_2 = COALESCE(t.objecttype_2, g.objecttype_2),
-            attrib = NULL,
-			-- group_id = NULL,
-            order_id = NULL,
-            expl_add = (
-				SELECT string_agg(DISTINCT v.expl_id::text, ',')
+		SET 
+			node_type_1 = COALESCE(t.node_type_1, g.node_type_1),
+			node_type_2 = COALESCE(t.node_type_2, g.node_type_2),
+			attrib = NULL,
+			group_id = NULL,
+			order_id = NULL,
+			expl_id = COALESCE((
+				SELECT array_agg(DISTINCT v.expl_id)
 				FROM (VALUES (n1.expl_id), (n2.expl_id)) AS v(expl_id)
 				WHERE v.expl_id IS NOT NULL
-			)
-        FROM temp_om_scada_graph t
-        LEFT JOIN node n1 ON t.object_1 = n1.node_id
-        LEFT JOIN node n2 ON t.object_2 = n2.node_id
-        WHERE t.the_geom IS NULL
-        AND g.object_1 = t.object_1 AND g.object_2 = t.object_2; 
+			), g.expl_id)
+		FROM temp_om_scada_graph t
+		LEFT JOIN node n1 ON t.node_1 = n1.node_id
+		LEFT JOIN node n2 ON t.node_2 = n2.node_id
+		WHERE t.the_geom IS NULL
+		AND g.node_1 = t.node_1 AND g.node_2 = t.node_2;
 
 	END IF;
 
@@ -447,7 +454,7 @@ BEGIN
 		'properties', to_jsonb(r) - 'the_geom'
 		) AS feature
 		FROM (
-		SELECT g.object_1, g.objecttype_1, g.object_2, g.objecttype_2, g.order_id, g.expl_add, g.the_geom
+		SELECT g.node_1, g.node_type_1, g.node_2, g.node_type_2, g.order_id, g.expl_id, g.the_geom
 		FROM temp_om_scada_graph g
 		WHERE g.the_geom IS NOT NULL
 		) r
@@ -485,9 +492,9 @@ BEGIN
 		'properties', to_jsonb(r) - 'the_geom'
 		) AS feature
 		FROM (
-			SELECT t.object_1, coalesce(t.objecttype_1, g.objecttype_1) AS objecttype_1, t.object_2, coalesce(t.objecttype_2, g.objecttype_2) AS objecttype_2, t.error_message, g.the_geom
+			SELECT t.node_1, coalesce(t.node_type_1, g.node_type_1) AS node_type_1, t.node_2, coalesce(t.node_type_2, g.node_type_2) AS node_type_2, t.error_message, g.the_geom
 			FROM temp_om_scada_graph t
-			JOIN om_scada_graph g ON g.object_1 = t.object_1 AND g.object_2 = t.object_2
+			JOIN om_scada_graph g ON g.node_1 = t.node_1 AND g.node_2 = t.node_2
 			WHERE t.error_message IS NOT NULL
 		) r
 	) f;
