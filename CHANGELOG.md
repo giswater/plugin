@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Show human-readable tooltips for Network Utilities and File Transfer toolbar buttons.
 - Clear `selector_inp_dscenario` when creating a sample (same as `selector_psector`); fix `gw_fct_setinitproject` to delete from `selector_inp_dscenario`.
 - Resolve `v_man_table` from `cat_feature` on `gw_trg_edit_link` child views so inserts into `ve_link_link` / `ve_link_condlink` write `man_pipelink` / `man_conduitlink`.
 - Fix `gw_fct_linkexitgenerator` to filter links by sector_id > 0 when is called from `gw_fct_pg2epa_fill_data` function.
