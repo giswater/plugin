@@ -1478,7 +1478,7 @@ CREATE TABLE om_scada_graph (
     node_type_2 text NULL,
     expl_id int4[] NULL,
     attrib text NULL,
-    active bool NULL,
+    active bool NULL DEFAULT true,
     the_geom public.geometry(multilinestring, SRID_VALUE) NULL,
     CONSTRAINT om_scada_graph_pkey PRIMARY KEY (node_1, node_2)
 );
