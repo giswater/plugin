@@ -9,3 +9,4 @@
 - Recreate `v_ui_rpt_cat_result` including `isvalidated`.
 - Drop denormalized node fields from `arc`; compute node attrs in `ve_arc` via JOIN; remove `gw_trg_arc_node_values`, retarget `gw_trg_autoupdate_arc_topology`, drop legacy `v_arc`/`vu_arc` views.
 - Use typeahead for Gully Id on Gully to network dialog (same as Connec Id).
+- Fix overlapping widgets on UD element info forms: unique layoutorder for brand/model/rotation/top_elev on ve_element, and move lonely expl_id from lyt_data_2 into lyt_data_1.

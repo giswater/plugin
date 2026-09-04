@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update mapzone `code` via `gw_fct_generate_code` when `gw_fct_graphanalytics_mapzones_v1` writes geometry directly to the table.
 - Feature form `muni_id` uses ValueRelation on `ve_municipality` instead of a frozen ValueMap.
 - `gw_fct_setfeaturereplace` restores `edit_connec_proximity` / `edit_gully_proximity` / `edit_arc_searchnodes` from the original column so a NULL `value` does not rewrite the param.
+- Overlapping labels on UD element forms (TAPA/COVER): `ve_element` CFF had duplicate `layoutorder` for brand/rotation and model/top_elev, and `expl_id` alone in `lyt_data_2`.
 
 ## [4.16.1] - 2026-07-31
 

@@ -2736,3 +2736,81 @@ WHERE EXISTS (
     FROM sel_expl
     WHERE sel_expl.expl_id = connec.expl_id
 );
+
+-- Unstick overlapping element-form widgets: brand_id/rotation and model_id/top_elev
+-- shared layoutorder on ve_element and locale clones (ve_element_tapa, ve_element_cover, ...).
+UPDATE config_form_fields c
+SET layoutorder = (
+    SELECT MAX(x.layoutorder) + 1
+    FROM config_form_fields x
+    WHERE x.formname = c.formname
+      AND x.formtype = c.formtype
+      AND x.tabname = c.tabname
+      AND x.layoutname = c.layoutname
+      AND x.layoutorder IS NOT NULL
+)
+WHERE c.formtype = 'form_feature'
+  AND c.tabname = 'tab_data'
+  AND c.layoutname = 'lyt_data_1'
+  AND c.columnname = 'rotation'
+  AND c.formname LIKE 've_element%'
+  AND EXISTS (
+    SELECT 1 FROM config_form_fields o
+    WHERE o.formname = c.formname
+      AND o.formtype = c.formtype
+      AND o.tabname = c.tabname
+      AND o.layoutname = c.layoutname
+      AND o.layoutorder = c.layoutorder
+      AND o.columnname <> c.columnname
+  );
+
+UPDATE config_form_fields c
+SET layoutorder = (
+    SELECT MAX(x.layoutorder) + 1
+    FROM config_form_fields x
+    WHERE x.formname = c.formname
+      AND x.formtype = c.formtype
+      AND x.tabname = c.tabname
+      AND x.layoutname = c.layoutname
+      AND x.layoutorder IS NOT NULL
+)
+WHERE c.formtype = 'form_feature'
+  AND c.tabname = 'tab_data'
+  AND c.layoutname = 'lyt_data_1'
+  AND c.columnname = 'top_elev'
+  AND c.formname LIKE 've_element%'
+  AND EXISTS (
+    SELECT 1 FROM config_form_fields o
+    WHERE o.formname = c.formname
+      AND o.formtype = c.formtype
+      AND o.tabname = c.tabname
+      AND o.layoutname = c.layoutname
+      AND o.layoutorder = c.layoutorder
+      AND o.columnname <> c.columnname
+  );
+
+-- expl_id was the only widget in lyt_data_2, so it rendered on top of Código.
+UPDATE config_form_fields c
+SET layoutname = 'lyt_data_1',
+    layoutorder = (
+        SELECT COALESCE(MAX(x.layoutorder), 0) + 1
+        FROM config_form_fields x
+        WHERE x.formname = c.formname
+          AND x.formtype = c.formtype
+          AND x.tabname = c.tabname
+          AND x.layoutname = 'lyt_data_1'
+          AND x.layoutorder IS NOT NULL
+    )
+WHERE c.formtype = 'form_feature'
+  AND c.tabname = 'tab_data'
+  AND c.columnname = 'expl_id'
+  AND c.layoutname = 'lyt_data_2'
+  AND c.formname LIKE 've_element%'
+  AND NOT EXISTS (
+    SELECT 1 FROM config_form_fields o
+    WHERE o.formname = c.formname
+      AND o.formtype = c.formtype
+      AND o.tabname = c.tabname
+      AND o.layoutname = 'lyt_data_2'
+      AND o.columnname <> 'expl_id'
+  );
