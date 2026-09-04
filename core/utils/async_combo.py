@@ -9,7 +9,17 @@ import sys
 from functools import partial
 from typing import Callable, List, Optional, Sequence, Tuple
 
-from qgis.PyQt.QtCore import QAbstractListModel, QEvent, QModelIndex, QObject, QSize, Qt, QTimer
+from qgis.PyQt.QtCore import (
+    QAbstractListModel,
+    QEvent,
+    QModelIndex,
+    QObject,
+    QPoint,
+    QRect,
+    QSize,
+    Qt,
+    QTimer,
+)
 from qgis.PyQt.QtGui import QColor, QKeyEvent
 from qgis.PyQt.QtWidgets import (
     QApplication,
@@ -128,17 +138,9 @@ _ITEM_H_PAD = 8
 _ITEM_V_PAD = 3
 _QWIDGETSIZE_MAX = 16777215
 
-try:
-    _STATE_SELECTED = QStyle.StateFlag.State_Selected
-    _STATE_MOUSEOVER = QStyle.StateFlag.State_MouseOver
-except AttributeError:
-    _STATE_SELECTED = QStyle.State_Selected
-    _STATE_MOUSEOVER = QStyle.State_MouseOver
-
-try:
-    _ENSURE_VISIBLE = QListView.ScrollHint.EnsureVisible
-except AttributeError:
-    _ENSURE_VISIBLE = QListView.EnsureVisible
+_STATE_SELECTED = QStyle.StateFlag.State_Selected
+_STATE_MOUSEOVER = QStyle.StateFlag.State_MouseOver
+_ENSURE_VISIBLE = QListView.ScrollHint.EnsureVisible
 
 
 def _is_macos() -> bool:
@@ -309,16 +311,21 @@ class _ComboItemDelegate(QStyledItemDelegate):
     def sizeHint(self, option, index):  # noqa: N802 - Qt API
         metrics = option.fontMetrics
         text = '' if index.data() is None else str(index.data())
-        try:
-            text_w = metrics.horizontalAdvance(text)
-        except AttributeError:
-            text_w = metrics.width(text)
+        text_w = metrics.horizontalAdvance(text)
         height = max(20, metrics.height() + 2 * _ITEM_V_PAD)
         return QSize(text_w + 2 * _ITEM_H_PAD, height)
 
     def paint(self, painter, option, index):  # noqa: N802 - Qt API
         opt = QStyleOptionViewItem(option)
         self.initStyleOption(opt, index)
+        icon = opt.icon
+        try:
+            has_icon = icon is not None and not icon.isNull()
+        except Exception:
+            has_icon = False
+        if has_icon:
+            super().paint(painter, option, index)
+            return
         text = '' if index.data() is None else str(index.data())
         selected = bool(opt.state & _STATE_SELECTED)
         hovered = bool(opt.state & _STATE_MOUSEOVER)
@@ -449,15 +456,9 @@ class _ComboPopupView(QListView):
                 label = str(text)
                 rect = self.visualRect(index)
                 metrics = self.fontMetrics()
-                try:
-                    text_w = metrics.horizontalAdvance(label)
-                except AttributeError:
-                    text_w = metrics.width(label)
+                text_w = metrics.horizontalAdvance(label)
                 if text_w > max(0, rect.width() - 8):
-                    if hasattr(event, "globalPosition"):
-                        pos = event.globalPosition().toPoint()
-                    else:
-                        pos = event.globalPos()
+                    pos = self.viewport().mapToGlobal(event.pos())
                     QToolTip.showText(pos, label, self.viewport())
                 else:
                     QToolTip.hideText()
@@ -504,10 +505,6 @@ class _ComboPopupSearchController(QObject):
 
     def _hook_show_popup(self) -> None:
         self._restore_hidden_rows()
-        try:
-            self._combo.setMaxVisibleItems(MAX_POPUP_VISIBLE_HEIGHT_ITEMS)
-        except Exception:
-            pass
         self._orig_show_popup()
         self.install_overlay()
 
@@ -550,7 +547,8 @@ class _ComboPopupSearchController(QObject):
             self._search_edit = bar.edit
         else:
             try:
-                self._search_bar.setParent(container)
+                if self._search_bar.parent() is not container:
+                    self._search_bar.setParent(container)
             except RuntimeError:
                 self._search_bar = None
                 self._search_edit = None
@@ -622,6 +620,9 @@ class _ComboPopupSearchController(QObject):
                 continue
             if child is view or child is self._search_bar:
                 continue
+            # Only Qt's private scroller strips — never other popup chrome.
+            if 'Scroller' not in type(child).__name__:
+                continue
             found.append(child)
         return found
 
@@ -646,10 +647,6 @@ class _ComboPopupSearchController(QObject):
     def teardown_overlay(self) -> None:
         self._search_active = False
         self._restore_hidden_rows()
-        try:
-            self._combo.setMaxVisibleItems(MAX_POPUP_VISIBLE_HEIGHT_ITEMS)
-        except Exception:
-            pass
         self._clear_popup_height()
         view = self._combo.view()
         if isinstance(view, _ComboPopupView):
@@ -716,21 +713,104 @@ class _ComboPopupSearchController(QObject):
                 widgets.append(widget)
         return widgets
 
-    def _popup_anchor(self, width: int, height: int):
+    def _screen_available_geometry(self):
+        app = QApplication.instance()
+        if app is None:
+            return None
+        try:
+            pos = self._combo.mapToGlobal(self._combo.rect().center())
+        except RuntimeError:
+            return None
+        screen = None
+        screen_at = getattr(app, 'screenAt', None)
+        if callable(screen_at):
+            screen = screen_at(pos)
+        if screen is None:
+            try:
+                window = self._combo.window()
+                handle = window.windowHandle() if window is not None else None
+                screen = handle.screen() if handle is not None else None
+            except RuntimeError:
+                screen = None
+        if screen is None:
+            screen = app.primaryScreen()
+        try:
+            return None if screen is None else screen.availableGeometry()
+        except RuntimeError:
+            return None
+
+    def _popup_clip_rect(self):
+        """Stay inside the combo's window and the screen work area.
+
+        Pinning always-below used to clip the list at the bottom of Info
+        forms. Intersect both rects so a field at the bottom of a dialog
+        flips up even when there is canvas below the form.
+        """
+        screen = self._screen_available_geometry()
+        try:
+            window = self._combo.window()
+        except RuntimeError:
+            window = None
+        form = None
+        if window is not None:
+            try:
+                form = QRect(window.mapToGlobal(QPoint(0, 0)), window.size())
+            except RuntimeError:
+                form = None
+        if form is None:
+            return screen
+        if screen is None:
+            return form
+        clipped = form.intersected(screen)
+        return clipped if clipped.isValid() else form
+
+    def _popup_free_space(self, clip):
         rect = self._combo.rect()
+        below = self._combo.mapToGlobal(rect.bottomLeft()).y()
+        above = self._combo.mapToGlobal(rect.topLeft()).y()
+        space_below = max(0, clip.bottom() - below)
+        space_above = max(0, above - clip.top())
+        return space_below, space_above
+
+    def _popup_opens_upward(self, height: int) -> bool:
         if getattr(self._combo, 'popup_opens_upward', False):
+            return True
+        clip = self._popup_clip_rect()
+        if clip is None:
+            return False
+        space_below, space_above = self._popup_free_space(clip)
+        if height <= space_below:
+            return False
+        return space_above >= space_below
+
+    def _fit_popup_height(self, height: int, upward: bool) -> int:
+        clip = self._popup_clip_rect()
+        if clip is None:
+            return height
+        space_below, space_above = self._popup_free_space(clip)
+        room = space_above if upward else space_below
+        room = max(0, room - 2)
+        if room <= 0:
+            return height
+        return min(height, room)
+
+    def _popup_anchor(self, width: int, height: int, upward: Optional[bool] = None):
+        rect = self._combo.rect()
+        if upward is None:
+            upward = self._popup_opens_upward(height)
+        if upward:
             pos = self._combo.mapToGlobal(rect.topLeft())
             return pos.x(), pos.y() - height, width, height
         pos = self._combo.mapToGlobal(rect.bottomLeft())
         return pos.x(), pos.y(), width, height
 
-    def _set_popup_height(self, width: int, height: int) -> None:
+    def _set_popup_height(self, width: int, height: int, upward: Optional[bool] = None) -> None:
         view = self._combo.view()
         if view is None:
             return
         popup = view.window()
         container = self._popup_container()
-        geo = self._popup_anchor(width, height)
+        geo = self._popup_anchor(width, height, upward)
 
         # Only the framed popup window. The list view keeps its own height
         # (N rows); the search bar is a sibling in the container layout.
@@ -754,7 +834,7 @@ class _ComboPopupSearchController(QObject):
             widget.setMinimumHeight(0)
             widget.setMaximumHeight(_QWIDGETSIZE_MAX)
 
-    def _pin_popup(self, width: int, height: int) -> None:
+    def _pin_popup(self, width: int, height: int, upward: Optional[bool] = None) -> None:
         if not self._search_active:
             return
         view = self._combo.view()
@@ -764,7 +844,7 @@ class _ComboPopupSearchController(QObject):
         if popup is None or not popup.isVisible():
             return
         try:
-            popup.setGeometry(*self._popup_anchor(width, height))
+            popup.setGeometry(*self._popup_anchor(width, height, upward))
         except RuntimeError:
             pass
 
@@ -908,11 +988,6 @@ class _ComboPopupSearchController(QObject):
             list_h = self._popup_list_height(view, display_rows)
             shown_cap = max(1, display_rows)
 
-        try:
-            self._combo.setMaxVisibleItems(shown_cap)
-        except Exception:
-            pass
-
         if list_h <= 0 and attempt < _POPUP_LAYOUT_MAX_ATTEMPTS:
             QTimer.singleShot(
                 _POPUP_LAYOUT_RETRY_MS,
@@ -931,10 +1006,27 @@ class _ComboPopupSearchController(QObject):
         container = self._popup_container()
         width = self._combo.width() or (container.width() if container is not None else 0)
         height = self._search_bar_height() + list_h + self._popup_frame_pad(container)
-        self._set_popup_height(width, height)
+        upward = self._popup_opens_upward(height)
+        fitted = self._fit_popup_height(height, upward)
+        if fitted < height:
+            search_h = self._search_bar_height()
+            frame = self._popup_frame_pad(container)
+            list_h = max(12, fitted - search_h - frame)
+            try:
+                view.setMinimumHeight(0)
+                view.setMaximumHeight(_QWIDGETSIZE_MAX)
+                view.setMinimumHeight(list_h)
+                view.setMaximumHeight(list_h)
+            except RuntimeError:
+                return
+            height = fitted
+            row_h = self._popup_row_height(view)
+            if row_h > 0:
+                shown_cap = max(1, min(shown_cap, list_h // row_h))
+        self._set_popup_height(width, height, upward)
         self._sync_popup_scrollbar(view, shown_cap if display_rows else 0)
-        self._pin_popup(width, height)
-        QTimer.singleShot(0, partial(self._pin_popup, width, height))
+        self._pin_popup(width, height, upward)
+        QTimer.singleShot(0, partial(self._pin_popup, width, height, upward))
 
     def _update_search_status(
         self, match_count: int, visible_count: int, needle: str, total: int
@@ -982,20 +1074,13 @@ class _ComboPopupSearchController(QObject):
 
     def eventFilter(self, obj, event):  # noqa: N802 - Qt API
         etype = event.type()
-        show_to_parent = getattr(QEvent.Type, 'ShowToParent', None)
-        if etype == QEvent.Type.Show or (show_to_parent is not None and etype == show_to_parent):
-            if obj is not self._search_edit and obj is not self._search_bar:
+        if etype in (QEvent.Type.Show, QEvent.Type.ShowToParent):
+            if 'Scroller' in type(obj).__name__:
                 try:
-                    parent = obj.parent()
+                    obj.hide()
                 except RuntimeError:
-                    parent = None
-                if parent is not None and parent is self._popup_container():
-                    if obj is not self._combo.view():
-                        try:
-                            obj.hide()
-                        except RuntimeError:
-                            pass
-                        return True
+                    pass
+                return True
         if self.process_event(obj, event):
             return True
         return super().eventFilter(obj, event)
@@ -1020,9 +1105,10 @@ class GwAsyncComboBox(QComboBox):
           `tools_qt.get_combo_value`/`set_combo_value`) keeps seeing the full
           list, regardless of the filter.
         - After open/filter, the popup is resized to the painted row span
-          (not Qt's default `maxVisibleItems` height). Set
-          ``popup_opens_upward = True`` on status-bar combos that open above
-          the widget.
+          (not Qt's default `maxVisibleItems` height). The popup flips above
+          the field when there is not enough room below (Info form at the
+          bottom of the window). Force that with
+          ``popup_opens_upward = True`` on status-bar combos.
 
     Lifecycle
         1. Widget is constructed and immediately shows a single placeholder
@@ -1270,10 +1356,6 @@ class GwAsyncComboBox(QComboBox):
     # region Popup with type-to-filter
     def showPopup(self):  # noqa: N802 - Qt API
         self._popup_search._restore_hidden_rows()
-        try:
-            self.setMaxVisibleItems(MAX_POPUP_VISIBLE_HEIGHT_ITEMS)
-        except Exception:
-            pass
         super().showPopup()
         self._popup_search.install_overlay()
 
@@ -1348,7 +1430,6 @@ def attach_combo_popup_search(combo: QComboBox) -> None:
         label_at=combo.itemText,
         row_count=combo.count,
     )
-    _style_closed_combo(combo)
     controller.attach_to_plain_combo()
     combo._gw_popup_search = controller
     combo.setProperty('_gw_popup_search', True)
