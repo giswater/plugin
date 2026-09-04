@@ -1155,6 +1155,10 @@ Are you sure you want to delete these records?</translation>
 			<translation>Change epa_type</translation>
 		</message>
 		<message>
+			<source>Change feature type</source>
+			<translation>Change feature type</translation>
+		</message>
+		<message>
 			<source>Changes applied to &quot;{0}&quot; successfully.</source>
 			<translation>Changes applied to &quot;{0}&quot; successfully.</translation>
 		</message>
@@ -2713,6 +2717,10 @@ This operation cannot be undone.
 		<message>
 			<source>Files defined in environment variables &apos;{0}&apos; and &apos;{1}&apos; not found.</source>
 			<translation>Files defined in environment variables &apos;{0}&apos; and &apos;{1}&apos; not found.</translation>
+		</message>
+		<message>
+			<source>File Transfer</source>
+			<translation>File Transfer</translation>
 		</message>
 		<message>
 			<source>File type</source>
