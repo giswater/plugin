@@ -47,6 +47,10 @@ SELECT col_type_is('om_scada_graph', 'the_geom', 'geometry(multilinestring, SRID
 SELECT has_index('om_scada_graph', 'om_scada_graph_node_1_idx', ARRAY['node_1'], 'Index on node_1');
 SELECT has_index('om_scada_graph', 'om_scada_graph_node_2_idx', ARRAY['node_2'], 'Index on node_2');
 
+-- Check triggers
+SELECT has_trigger('om_scada_graph', 'gw_trg_scada_graph_builder_before', 'Trigger gw_trg_scada_graph_builder_before exists');
+SELECT has_trigger('om_scada_graph', 'gw_trg_scada_graph_builder_after', 'Trigger gw_trg_scada_graph_builder_after exists');
+
 SELECT * FROM finish();
 
 ROLLBACK;

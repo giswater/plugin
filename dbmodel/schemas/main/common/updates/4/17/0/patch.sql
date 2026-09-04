@@ -1507,6 +1507,17 @@ SELECT
     the_geom
 FROM _om_scada_graph_;
 
+DROP TRIGGER IF EXISTS gw_trg_scada_graph_builder_before ON _om_scada_graph_;
+DROP TRIGGER IF EXISTS gw_trg_scada_graph_builder_after ON _om_scada_graph_;
+
+CREATE TRIGGER gw_trg_scada_graph_builder_before
+BEFORE INSERT OR UPDATE OF node_1, node_2 ON om_scada_graph
+FOR EACH ROW EXECUTE FUNCTION gw_trg_scada_graph_builder();
+
+CREATE TRIGGER gw_trg_scada_graph_builder_after
+AFTER INSERT OR UPDATE OF node_1, node_2 ON om_scada_graph
+FOR EACH ROW EXECUTE FUNCTION gw_trg_scada_graph_builder();
+
 CREATE OR REPLACE VIEW v_om_scada_graph AS
 SELECT
     osg.group_id,
