@@ -127,36 +127,36 @@ BEGIN
 			UPDATE om_scada_graph g
 			SET the_geom = agg.the_geom, attrib = agg.attrib
 			FROM (
-				SELECT g.node_1, g.node_2,
+				SELECT
 					ST_Multi(ST_LineMerge(ST_Collect(a.the_geom))) AS the_geom,
 					json_build_object('arcs', json_agg(a.arc_id)) AS attrib
 				FROM temp_graph t
 				JOIN arc a ON t.arc_id = a.arc_id
 			) agg
-			WHERE t.node_1 = NEW.node_1 AND t.node_2 = NEW.node_2;
+			WHERE g.node_1 = NEW.node_1 AND g.node_2 = NEW.node_2;
 
 			UPDATE om_scada_graph g
 			SET expl_id = agg.expl_id
 			FROM (
-				SELECT g.node_1, g.node_2, array_agg(DISTINCT n.expl_id) AS expl_id
+				SELECT array_agg(DISTINCT n.expl_id) AS expl_id
 				FROM temp_graph t
 				JOIN node n ON t.node_id = n.node_id
 			) agg
-			WHERE t.node_1 = NEW.node_1 AND t.node_2 = NEW.node_2;
+			WHERE g.node_1 = NEW.node_1 AND g.node_2 = NEW.node_2;
 	
 			UPDATE om_scada_graph g
 			SET node_type_1 = cn1.node_type
 			FROM node n1
 			JOIN cat_node cn1 ON n1.nodecat_id = cn1.id
-			WHERE n1.node_id = NEW.node_id
-			AND g.node_1 = NEW.node_id;
+			WHERE n1.node_id = NEW.node_1
+			AND g.node_1 = NEW.node_1;
 
 			UPDATE om_scada_graph g
 			SET node_type_2 = cn2.node_type
 			FROM node n2
 			JOIN cat_node cn2 ON n2.nodecat_id = cn2.id
-			WHERE n2.node_id = NEW.node_id
-			AND g.node_2 = NEW.node_id;
+			WHERE n2.node_id = NEW.node_2
+			AND g.node_2 = NEW.node_2;
 			
 			-- group_id and order_id only for this row (parent hop + 1, or 1 if node_1 is a root)
 	 		UPDATE om_scada_graph g
