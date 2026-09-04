@@ -159,6 +159,7 @@ BEGIN
 	
 		IF TG_OP IN ('INSERT', 'UPDATE') THEN
 
+		-- TODO: rename temp table (e.g. temp_om_scada_graph_enrich); name collides with view v_om_scada_graph (4.17.0).
 		DROP TABLE IF EXISTS v_om_scada_graph;
 		CREATE TEMP TABLE v_om_scada_graph AS
 		WITH mec AS (

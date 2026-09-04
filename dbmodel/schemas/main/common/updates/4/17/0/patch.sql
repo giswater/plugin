@@ -1464,3 +1464,71 @@ $$;
 
 CREATE OR REPLACE VIEW v_hydrometer AS
 SELECT * FROM ext_hydrometer;
+
+
+ALTER TABLE om_scada_graph RENAME TO _om_scada_graph_;
+
+CREATE TABLE om_scada_graph (
+    node_1 int4 NOT NULL,
+    node_2 int4 NOT NULL,
+    group_id int4 NULL,
+    order_id int4 NULL,
+    node_type_1 text NULL,
+    node_type_2 text NULL,
+    expl_id int4[] NULL,
+    attrib text NULL,
+    active bool NULL,
+    the_geom public.geometry(multilinestring, SRID_VALUE) NULL,
+    CONSTRAINT om_scada_graph_pkey PRIMARY KEY (node_1, node_2)
+);
+
+CREATE INDEX om_scada_graph_node_1_idx ON om_scada_graph USING btree (node_1);
+CREATE INDEX om_scada_graph_node_2_idx ON om_scada_graph USING btree (node_2);
+
+INSERT INTO om_scada_graph (node_1, node_2, group_id, order_id, node_type_1, node_type_2, expl_id, attrib, active, the_geom)
+SELECT
+    object_1,
+    object_2,
+    NULL,
+    order_id,
+    objecttype_1,
+    objecttype_2,
+    (
+        SELECT array_agg(DISTINCT x ORDER BY x)
+        FROM unnest(
+            ARRAY[expl_1, expl_2]
+            || COALESCE(string_to_array(NULLIF(expl_add, ''), ',')::int4[], '{}'::int4[])
+        ) AS x
+        WHERE x IS NOT NULL
+    ) AS expl_id,
+    attrib,
+    active,
+    the_geom
+FROM _om_scada_graph_;
+
+CREATE OR REPLACE VIEW v_om_scada_graph AS
+SELECT
+    osg.group_id,
+    osg.order_id,
+    osg.node_1,
+    osg.node_type_1,
+    n1.sys_code AS sys_code_1,
+    n1.expl_id AS expl_id_1,
+    n1.dma_id AS dma_id_1,
+    d1.name AS dma_name_1,
+    osg.node_2,
+    osg.node_type_2,
+    n2.sys_code AS sys_code_2,
+    n2.expl_id AS expl_id_2,
+    n2.dma_id AS dma_id_2,
+    d2.name AS dma_name_2,
+    osg.expl_id,
+    osg.attrib,
+    osg.active,
+    osg.the_geom
+FROM om_scada_graph osg
+LEFT JOIN node n1 ON n1.node_id = osg.node_1
+LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
+LEFT JOIN node n2 ON n2.node_id = osg.node_2
+LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id;
+
