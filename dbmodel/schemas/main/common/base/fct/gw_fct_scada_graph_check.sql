@@ -199,6 +199,7 @@ BEGIN
 	CREATE INDEX IF NOT EXISTS temp_graph_arc_id_idx ON temp_graph USING btree (arc_id);
 	CREATE INDEX IF NOT EXISTS temp_graph_node_id_idx ON temp_graph USING btree (node_id);
 
+	-- Update temp_om_scada_graph with the_geom and attrib
 	UPDATE temp_om_scada_graph t
 	SET the_geom = agg.the_geom,
 		attrib = agg.attrib
@@ -213,6 +214,7 @@ BEGIN
 	) agg
 	WHERE t.node_1 = agg.node_1 AND t.node_2 = agg.node_2;
 
+	-- Update temp_om_scada_graph with expl_id when node_1 and noe_2 are in temp_graph
 	UPDATE temp_om_scada_graph t
 	SET expl_id = agg.expl_id
 	FROM (
@@ -224,6 +226,20 @@ BEGIN
 	) agg
 	WHERE t.node_1 = agg.node_1 AND t.node_2 = agg.node_2;
 
+	-- expl_id when node_1 and node_2 are not in temp_graph (the_geom is null)
+	UPDATE temp_om_scada_graph t
+	SET expl_id = (
+			SELECT array_agg(DISTINCT v.expl_id)
+			FROM (VALUES (n1.expl_id), (n2.expl_id)) AS v(expl_id)
+			WHERE v.expl_id IS NOT NULL
+		)
+	FROM temp_om_scada_graph g
+	LEFT JOIN node n1 ON g.node_1 = n1.node_id
+	LEFT JOIN node n2 ON g.node_2 = n2.node_id
+	WHERE g.the_geom IS NULL
+	AND t.node_1 = g.node_1 AND t.node_2 = g.node_2;
+
+	-- Update temp_om_scada_graph with node_type_1 and node_type_2
 	UPDATE temp_om_scada_graph t
 	SET node_type_1 = cn1.node_type
 	FROM node n1
@@ -272,18 +288,20 @@ BEGIN
 	SET group_id = g.group_id
 	FROM connectedcomponents c
 	JOIN group_ids g ON c.component = g.component
-	WHERE t.node_1 = c.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
+	WHERE t.node_1 = c.node_id
+	AND t.the_geom IS NOT NULL; -- assures to update all the edges, because drivingdistance returns nodes, not edges
 
 	-- order_id
-	UPDATE temp_om_scada_graph g
+	UPDATE temp_om_scada_graph t
 	SET order_id = t.order_id
 	FROM (
 		SELECT pred as node_id, max(agg_cost) AS order_id
 		FROM pgr_drivingDistance(v_query_text, v_pgr_root_vids, v_pgr_distance, directed := true)
 		WHERE edge <> -1
 		GROUP BY pred
-	) t
-	WHERE g.node_1 = t.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
+	) g
+	WHERE t.node_1 = g.node_id
+	AND t.the_geom IS NOT NULL; -- assures to update all the edges, because drivingdistance returns nodes, not edges
 
 	-- ERRORS
 	--==========================
@@ -403,37 +421,18 @@ BEGIN
 		WHERE EXISTS (SELECT 1 FROM temp_graph g WHERE g.node_id = n.node_id)
 		AND n.is_scadamap = FALSE;
 
-		-- update om_scada_graph for valid connections
+		-- update om_scada_graph
+		-- expl_id, node_type_1 and node_type_2 keep their previous value if the new calculation doesn't provide one
 		UPDATE om_scada_graph g
 		SET the_geom = t.the_geom,
 			attrib = t.attrib,
-			expl_id = t.expl_id,
-			node_type_1 = t.node_type_1,
-			node_type_2 = t.node_type_2,
+			expl_id = COALESCE(t.expl_id, g.expl_id),
+			node_type_1 = COALESCE(t.node_type_1, g.node_type_1),
+			node_type_2 = COALESCE(t.node_type_2, g.node_type_2),
 			group_id = t.group_id,
 			order_id = t.order_id
 		FROM temp_om_scada_graph t
-		WHERE t.the_geom IS NOT NULL
-		AND g.node_1 = t.node_1 AND g.node_2 = t.node_2;
-
-		-- update om_scada_graph for invalid connections
-		UPDATE om_scada_graph g
-		SET 
-			node_type_1 = COALESCE(t.node_type_1, g.node_type_1),
-			node_type_2 = COALESCE(t.node_type_2, g.node_type_2),
-			attrib = NULL,
-			group_id = NULL,
-			order_id = NULL,
-			expl_id = COALESCE((
-				SELECT array_agg(DISTINCT v.expl_id)
-				FROM (VALUES (n1.expl_id), (n2.expl_id)) AS v(expl_id)
-				WHERE v.expl_id IS NOT NULL
-			), g.expl_id)
-		FROM temp_om_scada_graph t
-		LEFT JOIN node n1 ON t.node_1 = n1.node_id
-		LEFT JOIN node n2 ON t.node_2 = n2.node_id
-		WHERE t.the_geom IS NULL
-		AND g.node_1 = t.node_1 AND g.node_2 = t.node_2;
+		WHERE g.node_1 = t.node_1 AND g.node_2 = t.node_2;
 
 	END IF;
 
