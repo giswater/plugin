@@ -61,7 +61,7 @@ BEGIN
 	select e.name INTO v_explname FROM dma JOIN exploitation e USING (expl_id) WHERE dma_id = v_dmaid;
 
 	EXECUTE 'SELECT string_agg(quote_literal(period), '','') FROM 
-	(select distinct period, crm_startdate from v_om_waterbalance where dma = '||quote_literal(v_dmaname)||' order by crm_startdate desc limit 4)a'
+	(select distinct period, start_date from v_om_waterbalance where dma = '||quote_literal(v_dmaname)||' order by start_date desc limit 4)a'
 	INTO v_period_list;
 
 	EXECUTE  'WITH balance AS (SELECT jsonb_build_object('||quote_literal(v_dmaname)||', json_agg(jsonb_build_object(period, jsonb_build_object(start_date::date, dma_rw_eff::numeric(12,3))))) as chart_dma
