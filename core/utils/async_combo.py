@@ -9,18 +9,24 @@ import sys
 from functools import partial
 from typing import Callable, List, Optional, Sequence, Tuple
 
-from qgis.PyQt.QtCore import QAbstractListModel, QEvent, QModelIndex, QObject, Qt, QTimer
-from qgis.PyQt.QtGui import QKeyEvent
+from qgis.PyQt.QtCore import QAbstractListModel, QEvent, QModelIndex, QObject, QSize, Qt, QTimer
+from qgis.PyQt.QtGui import QColor, QKeyEvent
 from qgis.PyQt.QtWidgets import (
     QApplication,
+    QBoxLayout,
     QComboBox,
     QFrame,
+    QHBoxLayout,
     QLineEdit,
     QListView,
     QProxyStyle,
+    QSizePolicy,
     QStyle,
     QStyleFactory,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QToolTip,
+    QWidget,
 )
 from qgis.core import QgsApplication
 
@@ -118,7 +124,21 @@ _POPUP_LAYOUT_MAX_ATTEMPTS = 3
 _POPUP_FRAME_PAD = 4
 _SEARCH_H_PAD = 6
 _SEARCH_V_PAD = 4
+_ITEM_H_PAD = 8
+_ITEM_V_PAD = 3
 _QWIDGETSIZE_MAX = 16777215
+
+try:
+    _STATE_SELECTED = QStyle.StateFlag.State_Selected
+    _STATE_MOUSEOVER = QStyle.StateFlag.State_MouseOver
+except AttributeError:
+    _STATE_SELECTED = QStyle.State_Selected
+    _STATE_MOUSEOVER = QStyle.State_MouseOver
+
+try:
+    _ENSURE_VISIBLE = QListView.ScrollHint.EnsureVisible
+except AttributeError:
+    _ENSURE_VISIBLE = QListView.EnsureVisible
 
 
 def _is_macos() -> bool:
@@ -177,9 +197,9 @@ QLineEdit {{
 
 
 def _popup_view_qss() -> str:
-    # Do not set item margin / min-height: Windows Vista style treats those
-    # as stretching the *selected* row to the viewport, which then makes
-    # `_popup_list_height` (visualRect) keep a 15-row popup.
+    # View chrome only. Item padding/selection is painted by
+    # `_ComboItemDelegate` — QSS `::item { padding }` is not part of
+    # `sizeHintForRow` on Windows Vista style, which clips the last row.
     return """
 QListView {
     background-color: palette(base);
@@ -187,16 +207,6 @@ QListView {
     border: none;
     outline: 0;
     padding: 0px;
-}
-QListView::item {
-    padding: 2px 8px;
-}
-QListView::item:selected {
-    background-color: palette(highlight);
-    color: palette(highlighted-text);
-}
-QListView::item:hover:!selected {
-    background-color: palette(alternate-base);
 }
 """
 
@@ -287,6 +297,94 @@ def _build_non_native_combo_style() -> Optional[QProxyStyle]:
     return _NonNativeComboPopupStyle(base)
 
 
+class _ComboItemDelegate(QStyledItemDelegate):
+    """Popup row painter with padding baked into ``sizeHint``.
+
+    Windows Vista style applies QSS ``QListView::item { padding }`` at paint
+    time but not in ``sizeHintForRow``, so content-height < painted height:
+    the last row clips and the scrollbar max stops short. QSS
+    ``margin`` / ``min-height`` also stretch the selected row to the viewport.
+    """
+
+    def sizeHint(self, option, index):  # noqa: N802 - Qt API
+        metrics = option.fontMetrics
+        text = '' if index.data() is None else str(index.data())
+        try:
+            text_w = metrics.horizontalAdvance(text)
+        except AttributeError:
+            text_w = metrics.width(text)
+        height = max(20, metrics.height() + 2 * _ITEM_V_PAD)
+        return QSize(text_w + 2 * _ITEM_H_PAD, height)
+
+    def paint(self, painter, option, index):  # noqa: N802 - Qt API
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        text = '' if index.data() is None else str(index.data())
+        selected = bool(opt.state & _STATE_SELECTED)
+        hovered = bool(opt.state & _STATE_MOUSEOVER)
+
+        painter.save()
+        painter.setFont(opt.font)
+        if selected:
+            painter.fillRect(opt.rect, opt.palette.highlight())
+            painter.setPen(opt.palette.highlightedText().color())
+        else:
+            painter.fillRect(opt.rect, opt.palette.base())
+            if hovered:
+                hover = QColor(opt.palette.highlight().color())
+                hover.setAlpha(38)
+                painter.fillRect(opt.rect, hover)
+            painter.setPen(opt.palette.text().color())
+        text_rect = opt.rect.adjusted(_ITEM_H_PAD, 0, -_ITEM_H_PAD, 0)
+        elided = opt.fontMetrics.elidedText(
+            text, Qt.TextElideMode.ElideRight, max(0, text_rect.width())
+        )
+        painter.drawText(
+            text_rect,
+            int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+            elided,
+        )
+        painter.restore()
+
+
+def _popup_search_bar_qss() -> str:
+    return """
+QFrame#gw_combo_search_bar {
+    background-color: palette(base);
+    border: none;
+    border-bottom: 1px solid palette(mid);
+}
+"""
+
+
+class _ComboSearchBar(QFrame):
+    """Filter field that sits above the popup list (sibling of the view).
+
+    Must not be parented into the ``QListView``: viewport-margin overlays
+    steal height from the last row and the scrollbar max stops short.
+    """
+
+    def __init__(self, combo: QComboBox, parent=None):
+        super().__init__(parent)
+        self.setObjectName("gw_combo_search_bar")
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setStyleSheet(_popup_search_bar_qss())
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(_SEARCH_H_PAD, _SEARCH_V_PAD, _SEARCH_H_PAD, _SEARCH_V_PAD)
+        layout.setSpacing(0)
+        self.edit = QLineEdit(self)
+        self.edit.setObjectName(f"{combo.objectName() or 'gw_combo'}_search")
+        self.edit.setPlaceholderText(combo.tr("Type to filter..."))
+        self.edit.setClearButtonEnabled(True)
+        self.edit.setFrame(False)
+        self.edit.setStyleSheet(_popup_search_qss())
+        layout.addWidget(self.edit)
+        # Must not expand: QVBoxLayout would grow this into a huge empty
+        # band between the filter and the first row.
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.setFixedHeight(self.sizeHint().height())
+
+
 class _ComboPopupView(QListView):
     """`QListView` subclass that reserves a top viewport margin so a search
     `QLineEdit` can sit above the items without overlapping them.
@@ -309,6 +407,7 @@ class _ComboPopupView(QListView):
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setStyleSheet(_popup_view_qss())
+        self.setItemDelegate(_ComboItemDelegate(self))
         self._top_margin = 0
         self._top_widget: Optional[QLineEdit] = None
 
@@ -385,7 +484,9 @@ class _ComboPopupSearchController(QObject):
         self._row_count = row_count
         self._index_at = index_at or (lambda i: combo.model().index(i, 0))
         self._search_edit: Optional[QLineEdit] = None
+        self._search_bar: Optional[_ComboSearchBar] = None
         self._search_active: bool = False
+        self._qt_list_height: int = 0
         self._hidden_rows: set = set()
         self._orig_show_popup = None
         self._orig_hide_popup = None
@@ -402,6 +503,11 @@ class _ComboPopupSearchController(QObject):
         self._combo.hidePopup = self._hook_hide_popup  # noqa: N802 - Qt API
 
     def _hook_show_popup(self) -> None:
+        self._restore_hidden_rows()
+        try:
+            self._combo.setMaxVisibleItems(MAX_POPUP_VISIBLE_HEIGHT_ITEMS)
+        except Exception:
+            pass
         self._orig_show_popup()
         self.install_overlay()
 
@@ -409,62 +515,156 @@ class _ComboPopupSearchController(QObject):
         self.teardown_overlay()
         self._orig_hide_popup()
 
+    def _restore_hidden_rows(self) -> None:
+        """Unhide every row so the next showPopup sizes a full list."""
+        view = self._combo.view()
+        total = self._row_count()
+        if view is not None and total > 0:
+            view.setUpdatesEnabled(False)
+            try:
+                for i in range(total):
+                    try:
+                        if view.isRowHidden(i):
+                            view.setRowHidden(i, False)
+                    except RuntimeError:
+                        break
+            finally:
+                view.setUpdatesEnabled(True)
+        self._hidden_rows = set()
+
     def install_overlay(self) -> None:
         view = self._combo.view()
         container = self._popup_container()
         if view is None or container is None:
             return
 
-        if self._search_edit is None:
-            edit = QLineEdit(view)
-            edit.setObjectName(f"{self._combo.objectName() or 'gw_combo'}_search")
-            edit.setPlaceholderText(self._combo.tr("Type to filter..."))
-            edit.setClearButtonEnabled(True)
-            edit.setFrame(False)
-            edit.setStyleSheet(_popup_search_qss())
-            edit.textChanged.connect(self._apply_search_filter)
-            edit.installEventFilter(self)
-            self._search_edit = edit
-        else:
-            self._search_edit.setParent(view)
-
         if isinstance(view, _ComboPopupView):
-            view.set_top_widget(self._search_edit)
+            view.set_top_margin(0)
+            view.set_top_widget(None)
 
+        if self._search_bar is None:
+            bar = _ComboSearchBar(self._combo, container)
+            bar.edit.textChanged.connect(self._apply_search_filter)
+            bar.edit.installEventFilter(self)
+            self._search_bar = bar
+            self._search_edit = bar.edit
+        else:
+            try:
+                self._search_bar.setParent(container)
+            except RuntimeError:
+                self._search_bar = None
+                self._search_edit = None
+                return
+
+        bar = self._search_bar
         edit = self._search_edit
-        edit_h = edit.sizeHint().height()
-        header_h = edit_h + 2 * _SEARCH_V_PAD
         edit.blockSignals(True)
         edit.clear()
         edit.blockSignals(False)
 
-        if isinstance(view, _ComboPopupView):
-            view.set_top_margin(header_h)
+        extra = bar.sizeHint().height()
+        bar.setFixedHeight(extra)
+        # Snapshot Qt's full-list height only when nothing is filtered.
+        # Reopening after a filter used to capture the 2-row height and
+        # then treat that as "full size" forever.
+        if not self._hidden_rows and view.height() > 0:
+            if view.height() >= self._qt_list_height:
+                self._qt_list_height = view.height()
 
-        width = max(0, view.width() - 2 * _SEARCH_H_PAD)
-        edit.setGeometry(_SEARCH_H_PAD, _SEARCH_V_PAD, width, edit_h)
-        edit.show()
+        self._insert_search_bar(container, bar, view)
+        self._suppress_popup_scrollers(container, view)
+        bar.show()
         edit.raise_()
         edit.setFocus(Qt.FocusReason.PopupFocusReason)
 
         self._search_active = True
         self._apply_search_filter("")
+        QTimer.singleShot(0, self._suppress_popup_scrollers)
+
+    def _insert_search_bar(self, container, bar, view) -> None:
+        """Put the search bar above the list inside the combo popup layout."""
+        layout = container.layout()
+        if isinstance(layout, QBoxLayout):
+            current = layout.indexOf(bar)
+            if current >= 0:
+                return
+            insert_at = 0
+            for i in range(layout.count()):
+                item = layout.itemAt(i)
+                if item is not None and item.widget() is view:
+                    insert_at = i
+                    break
+            # Sit immediately above the list, never above a hidden scroller
+            # slot (that reads as a huge blank gap under the filter).
+            layout.insertWidget(insert_at, bar)
+            layout.setStretch(insert_at, 0)
+            view_at = layout.indexOf(view)
+            if view_at >= 0:
+                layout.setStretch(view_at, 0)
+            return
+        # No box layout (unusual): park it at the top of the container.
+        bar.setParent(container)
+        bar.move(0, 0)
+        bar.resize(container.width(), bar.sizeHint().height())
+        bar.raise_()
+
+    def _popup_scroller_widgets(self, container=None, view=None):
+        """Qt's hidden combo arrow strips (``QComboBoxPrivateScroller``)."""
+        view = view if view is not None else self._combo.view()
+        container = container if container is not None else self._popup_container()
+        found = []
+        if container is None:
+            return found
+        for child in container.children():
+            if not isinstance(child, QWidget):
+                continue
+            if child.parent() is not container:
+                continue
+            if child is view or child is self._search_bar:
+                continue
+            found.append(child)
+        return found
+
+    def _suppress_popup_scrollers(self, container=None, view=None) -> None:
+        """Hide the native up/down scroller rows and keep them from coming back.
+
+        ``QComboBoxPrivateContainer::updateScrollers`` shows those arrow bars
+        whenever the list can scroll. They steal height from the last row and
+        look like a broken extra item.
+        """
+        for scroller in self._popup_scroller_widgets(container, view):
+            try:
+                scroller.hide()
+                scroller.setMaximumHeight(0)
+                scroller.setSizePolicy(
+                    QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored
+                )
+                scroller.installEventFilter(self)
+            except RuntimeError:
+                continue
 
     def teardown_overlay(self) -> None:
         self._search_active = False
+        self._restore_hidden_rows()
+        try:
+            self._combo.setMaxVisibleItems(MAX_POPUP_VISIBLE_HEIGHT_ITEMS)
+        except Exception:
+            pass
         self._clear_popup_height()
         view = self._combo.view()
         if isinstance(view, _ComboPopupView):
             view.set_top_margin(0)
             view.set_top_widget(None)
-        if self._search_edit is None:
+        if self._search_bar is None:
             return
         try:
-            self._search_edit.blockSignals(True)
-            self._search_edit.clear()
-            self._search_edit.blockSignals(False)
-            self._search_edit.hide()
+            if self._search_edit is not None:
+                self._search_edit.blockSignals(True)
+                self._search_edit.clear()
+                self._search_edit.blockSignals(False)
+            self._search_bar.hide()
         except RuntimeError:
+            self._search_bar = None
             self._search_edit = None
 
     def process_event(self, obj, event) -> bool:
@@ -526,10 +726,16 @@ class _ComboPopupSearchController(QObject):
 
     def _set_popup_height(self, width: int, height: int) -> None:
         view = self._combo.view()
-        popup = view.window() if view is not None else None
+        if view is None:
+            return
+        popup = view.window()
+        container = self._popup_container()
         geo = self._popup_anchor(width, height)
-        for widget in self._popup_widgets():
-            if not widget.isVisible():
+
+        # Only the framed popup window. The list view keeps its own height
+        # (N rows); the search bar is a sibling in the container layout.
+        for widget in (popup, container):
+            if widget is None or not widget.isVisible():
                 continue
             try:
                 widget.setMaximumHeight(_QWIDGETSIZE_MAX)
@@ -589,13 +795,25 @@ class _ComboPopupSearchController(QObject):
 
         view.setUpdatesEnabled(False)
         try:
-            for i in self._hidden_rows - new_hidden:
-                view.setRowHidden(i, False)
-            for i in new_hidden - self._hidden_rows:
-                view.setRowHidden(i, True)
+            if not needle:
+                for i in range(total):
+                    view.setRowHidden(i, False)
+                new_hidden = set()
+            else:
+                for i in self._hidden_rows - new_hidden:
+                    view.setRowHidden(i, False)
+                for i in new_hidden - self._hidden_rows:
+                    view.setRowHidden(i, True)
         finally:
             view.setUpdatesEnabled(True)
         self._hidden_rows = new_hidden
+        try:
+            if hasattr(view, 'scheduleDelayedItemsLayout'):
+                view.scheduleDelayedItemsLayout()
+            view.updateGeometries()
+            view.viewport().update()
+        except (RuntimeError, AttributeError):
+            pass
 
         if first_visible >= 0:
             current = self._combo.currentIndex()
@@ -610,44 +828,35 @@ class _ComboPopupSearchController(QObject):
             view.setCurrentIndex(new_idx)
 
         self._update_search_status(match_count, visible_count, needle, total)
-        shown = 0 if match_count <= 0 else min(match_count, self._combo.maxVisibleItems())
+        shown = 0 if match_count <= 0 else min(match_count, MAX_POPUP_VISIBLE_HEIGHT_ITEMS)
         QTimer.singleShot(0, partial(self._layout_popup, shown, 0))
 
-    def _visible_row_span(self, display_rows: int):
-        first = last = None
-        shown = 0
-        for i in range(self._row_count()):
-            if i in self._hidden_rows:
-                continue
-            if first is None:
-                first = i
-            last = i
-            shown += 1
-            if shown >= display_rows:
-                break
-        return first, last
-
     def _popup_row_height(self, view) -> int:
-        # Keep this tight. `sizeHintForRow` / selected `visualRect` can report
-        # ~2x the painted row while Qt's first popup is still 15 items tall;
-        # using that leaves a blank band under the last row.
-        return max(16, view.fontMetrics().height() + 4)
+        cap = max(1, MAX_POPUP_VISIBLE_HEIGHT_ITEMS)
+        if self._qt_list_height >= cap * 12:
+            return max(12, self._qt_list_height // cap)
+        try:
+            model = view.model()
+            if model is not None and model.rowCount() > 0:
+                hint = view.sizeHintForRow(0)
+                if 12 <= hint <= 48:
+                    return hint
+        except (RuntimeError, AttributeError):
+            pass
+        return max(20, view.fontMetrics().height() + 2 * _ITEM_V_PAD)
 
     def _popup_list_height(self, view, display_rows: int) -> int:
         if display_rows <= 0:
             return max(12, view.fontMetrics().height() // 2)
-        expected = self._popup_row_height(view) * display_rows
-        first, last = self._visible_row_span(display_rows)
-        if first is None or last is None:
-            return expected
-        top = view.visualRect(self._index_at(first)).top()
-        bottom = view.visualRect(self._index_at(last)).bottom()
-        span = bottom - top + 1
-        # Painted span is authoritative only when it is smaller than the
-        # estimate. A larger span is the leftover 15-row viewport.
-        if 0 < span <= expected:
-            return span
-        return expected
+        return self._popup_row_height(view) * display_rows
+
+    def _popup_frame_pad(self, container) -> int:
+        if container is None:
+            return _POPUP_FRAME_PAD
+        try:
+            return max(_POPUP_FRAME_PAD, int(container.frameWidth()) * 2)
+        except RuntimeError:
+            return _POPUP_FRAME_PAD
 
     def _sync_popup_scrollbar(self, view, display_rows: int) -> None:
         try:
@@ -656,11 +865,27 @@ class _ComboPopupSearchController(QObject):
                 view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             else:
                 view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            bar = view.verticalScrollBar()
-            if bar is not None:
-                bar.setValue(0)
+            current = view.currentIndex()
+            if current.isValid() and not view.isRowHidden(current.row()):
+                view.scrollTo(current, _ENSURE_VISIBLE)
+            else:
+                bar = view.verticalScrollBar()
+                if bar is not None:
+                    bar.setValue(0)
+            self._suppress_popup_scrollers()
         except RuntimeError:
             pass
+
+    def _search_bar_height(self) -> int:
+        bar = self._search_bar
+        if bar is None:
+            return 0
+        try:
+            if not bar.isVisible():
+                return 0
+            return max(bar.sizeHint().height(), bar.height())
+        except RuntimeError:
+            return 0
 
     def _layout_popup(self, display_rows: int, attempt: int = 0) -> None:
         if not self._search_active:
@@ -669,7 +894,25 @@ class _ComboPopupSearchController(QObject):
         if view is None:
             return
 
-        list_h = self._popup_list_height(view, display_rows)
+        unhidden = max(0, self._row_count() - len(self._hidden_rows))
+        cap = MAX_POPUP_VISIBLE_HEIGHT_ITEMS
+        full_list_h = self._qt_list_height or self._popup_list_height(view, cap)
+
+        if display_rows <= 0:
+            list_h = max(12, view.fontMetrics().height() // 2)
+            shown_cap = 1
+        elif unhidden > cap or display_rows >= cap:
+            list_h = full_list_h
+            shown_cap = cap
+        else:
+            list_h = self._popup_list_height(view, display_rows)
+            shown_cap = max(1, display_rows)
+
+        try:
+            self._combo.setMaxVisibleItems(shown_cap)
+        except Exception:
+            pass
+
         if list_h <= 0 and attempt < _POPUP_LAYOUT_MAX_ATTEMPTS:
             QTimer.singleShot(
                 _POPUP_LAYOUT_RETRY_MS,
@@ -677,20 +920,20 @@ class _ComboPopupSearchController(QObject):
             )
             return
 
-        if isinstance(view, _ComboPopupView):
-            header_h = view.top_margin()
-        elif self._search_edit is not None:
-            header_h = self._search_edit.sizeHint().height() + 2 * _SEARCH_V_PAD
-        else:
-            header_h = 0
+        try:
+            view.setMinimumHeight(0)
+            view.setMaximumHeight(_QWIDGETSIZE_MAX)
+            view.setMinimumHeight(list_h)
+            view.setMaximumHeight(list_h)
+        except RuntimeError:
+            return
+
         container = self._popup_container()
         width = self._combo.width() or (container.width() if container is not None else 0)
-        height = header_h + list_h + _POPUP_FRAME_PAD
+        height = self._search_bar_height() + list_h + self._popup_frame_pad(container)
         self._set_popup_height(width, height)
-        self._sync_popup_scrollbar(view, display_rows)
+        self._sync_popup_scrollbar(view, shown_cap if display_rows else 0)
         self._pin_popup(width, height)
-        # Qt's combo container repositions itself after our resize; pin again
-        # once that has run so shrinking does not yank the popup off the combo.
         QTimer.singleShot(0, partial(self._pin_popup, width, height))
 
     def _update_search_status(
@@ -713,8 +956,13 @@ class _ComboPopupSearchController(QObject):
             )
         else:
             tip = self._combo.tr("Type to filter...")
-        self._search_edit.setToolTip(tip)
         self._search_edit.setPlaceholderText(tip)
+        # Don't put the placeholder on the tooltip — it pops up over list
+        # rows while typing/clearing (looks like a stuck filter).
+        if needle:
+            self._search_edit.setToolTip(tip)
+        else:
+            self._search_edit.setToolTip('')
 
     def _forward_navigation(self, event: QKeyEvent) -> None:
         view = self._combo.view()
@@ -733,6 +981,21 @@ class _ComboPopupSearchController(QObject):
         self._combo.hidePopup()
 
     def eventFilter(self, obj, event):  # noqa: N802 - Qt API
+        etype = event.type()
+        show_to_parent = getattr(QEvent.Type, 'ShowToParent', None)
+        if etype == QEvent.Type.Show or (show_to_parent is not None and etype == show_to_parent):
+            if obj is not self._search_edit and obj is not self._search_bar:
+                try:
+                    parent = obj.parent()
+                except RuntimeError:
+                    parent = None
+                if parent is not None and parent is self._popup_container():
+                    if obj is not self._combo.view():
+                        try:
+                            obj.hide()
+                        except RuntimeError:
+                            pass
+                        return True
         if self.process_event(obj, event):
             return True
         return super().eventFilter(obj, event)
@@ -1006,6 +1269,11 @@ class GwAsyncComboBox(QComboBox):
 
     # region Popup with type-to-filter
     def showPopup(self):  # noqa: N802 - Qt API
+        self._popup_search._restore_hidden_rows()
+        try:
+            self.setMaxVisibleItems(MAX_POPUP_VISIBLE_HEIGHT_ITEMS)
+        except Exception:
+            pass
         super().showPopup()
         self._popup_search.install_overlay()
 
@@ -1080,6 +1348,7 @@ def attach_combo_popup_search(combo: QComboBox) -> None:
         label_at=combo.itemText,
         row_count=combo.count,
     )
+    _style_closed_combo(combo)
     controller.attach_to_plain_combo()
     combo._gw_popup_search = controller
     combo.setProperty('_gw_popup_search', True)
