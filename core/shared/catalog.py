@@ -165,29 +165,38 @@ class GwCatalog:
 
         widget = tools_gw.create_combo_box()
         widget.setObjectName(field['columnname'])
+        widget.setProperty('columnname', field['columnname'])
         widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._fill_combo(widget, field)
-        tools_qt.set_combo_value(widget, field.get('selectedId'), 0)
 
         return widget
 
     def _fill_combo(self, widget, field):
-        """Fill combo via shared async-aware ``fill_combo`` / ``fill_combo_values``."""
-        rows = []
-        combo_ids = field.get('comboIds')
-        combo_names = field.get('comboNames')
-        if None not in (combo_ids, combo_names):
-            for i in range(len(combo_ids)):
-                if combo_ids[i] is not None and combo_names[i] is not None:
-                    rows.append([combo_ids[i], combo_names[i]])
+        """Fill combo via shared async-aware ``fill_combo`` / ``fill_combo_values``.
+
+        Filter combos (matcat/pnom/dnom) no longer ship ``comboIds`` from
+        ``gw_fct_getformfields``; they load from ``queryText``. The id combo
+        still gets an explicit (possibly empty) list from ``gw_fct_getcatalog``.
+        """
+        if widget is None or not isinstance(field, dict):
+            return
+
+        payload = dict(field)
         add_empty = widget.objectName() != 'id'
-        tools_qt.fill_combo_values(
-            widget,
-            rows,
-            add_empty=add_empty,
-            sort_combo=True,
-            sort_by=1,
-        )
+        if add_empty:
+            payload['isNullValue'] = True
+
+        dialog = getattr(self, 'dlg_catalog', None)
+        combo_ids = field.get('comboIds')
+        if isinstance(combo_ids, list) and combo_ids:
+            tools_gw.fill_combo(widget, payload, dialog=dialog)
+            return
+        if 'comboIds' in field:
+            # Explicit empty result (no catalog matches). Do not fall back to queryText.
+            tools_qt.fill_combo_values(widget, None, add_empty=add_empty)
+            return
+
+        tools_gw.fill_combo(widget, payload, dialog=dialog)
 
     def _fill_geomcat_id(self, previous_dialog, widget_name):
         """ Fill the widget of the previous dialogue """
