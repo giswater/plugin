@@ -221,15 +221,21 @@ BEGIN
 				WHERE edge_id = NEW.edge_id
 			)a WHERE t.edge_id = a.edge_id;
 			
-			-- order_id only for this row (parent hop + 1, or 1 if object_1 is a root)
-	 		UPDATE om_scada_graph t SET order_id = COALESCE((
-				SELECT MAX(g.order_id) + 1
-				FROM om_scada_graph g
-				WHERE g.object_2 = NEW.object_1
-				  AND g.edge_id IS DISTINCT FROM NEW.edge_id
-				  AND g.order_id IS NOT NULL
-			), 1)
-			WHERE t.edge_id = NEW.edge_id;
+			-- group_id and order_id only for this row (parent hop + 1, or 1 if object_1 is a root)
+	 		UPDATE om_scada_graph g
+			SET --group_id = COALESCE(t.group_id, NEW.object_1),
+				order_id = COALESCE(t.order_id, 0) + 1
+			FROM (SELECT 1 AS flag) s
+			LEFT JOIN (
+				SELECT
+					--group_id, 
+					order_id
+				FROM om_scada_graph
+				WHERE object_2 = NEW.object_1
+				ORDER BY order_id DESC
+				LIMIT 1
+			) t ON true
+			WHERE g.object_1 = NEW.object_1 AND g.object_2 = NEW.object_2;
 		
 			v_sql = '
 			SELECT v.object_id_col, v.object_id_val, v.object_type_col, v.object_type_val, v.object_name_col,
