@@ -29,8 +29,7 @@ SELECT columns_are(
 
 -- Check primary key
 SELECT has_pk('om_scada_graph', 'Table om_scada_graph should have a primary key');
-SELECT col_is_pk('om_scada_graph', 'node_1', 'Column node_1 should be part of primary key');
-SELECT col_is_pk('om_scada_graph', 'node_2', 'Column node_2 should be part of primary key');
+SELECT col_is_pk('om_scada_graph', ARRAY['node_1', 'node_2'], 'Primary key should be on node_1, node_2');
 
 -- Check column types
 SELECT col_type_is('om_scada_graph', 'node_1', 'int4', 'Column node_1 should be int4');
