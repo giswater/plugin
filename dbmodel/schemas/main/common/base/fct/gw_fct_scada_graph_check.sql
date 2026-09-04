@@ -246,14 +246,25 @@ BEGIN
 	);
 
 	/*
-	-- group_id
-	UPDATE temp_om_scada_graph g
-	SET group_id = t.group_id
-	FROM (
-		SELECT component as group_id, node as node_id
-		FROM pgr_connectedcomponents(v_query_text)
-	) t
-	WHERE g.object_1 = t.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
+	-- group_id: for each connected component, assign the minimum root node id (from v_pgr_root_vids)
+	WITH
+		connectedcomponents AS (
+			SELECT component, node AS node_id
+			FROM pgr_connectedcomponents('SELECT row_number() OVER () AS id, object_1 AS source, object_2 AS target, 1::float AS cost
+			FROM temp_om_scada_graph
+			WHERE the_geom IS NOT NULL')
+		),
+		group_ids AS (
+			SELECT c.component, min(c.node_id) AS group_id
+			FROM connectedcomponents c
+			WHERE c.node_id = ANY (v_pgr_root_vids)
+			GROUP BY c.component
+		)
+	UPDATE temp_om_scada_graph t
+	SET group_id = g.group_id
+	FROM connectedcomponents c
+	JOIN group_ids g ON c.component = g.component
+	WHERE t.object_1 = c.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
 	*/
 
 	-- order_id
