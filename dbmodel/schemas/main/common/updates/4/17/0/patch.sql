@@ -1467,6 +1467,7 @@ SELECT * FROM ext_hydrometer;
 
 
 ALTER TABLE om_scada_graph RENAME TO _om_scada_graph_;
+ALTER TABLE _om_scada_graph_ RENAME CONSTRAINT om_scada_graph_pkey TO _om_scada_graph_pkey;
 
 CREATE TABLE om_scada_graph (
     node_1 int4 NOT NULL,
