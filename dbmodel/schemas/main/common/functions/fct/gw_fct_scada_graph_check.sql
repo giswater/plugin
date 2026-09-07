@@ -62,6 +62,7 @@ v_result_info JSON;
 v_result_line_valid JSON;
 v_result_line_invalid JSON;
 v_result_line JSON;
+v_visible_layer TEXT;
 
 BEGIN
 
@@ -440,26 +441,32 @@ BEGIN
 	--==================================
 
 	-- get results - line_valid
-	SELECT jsonb_build_object(
-		'type', 'FeatureCollection',
-		'layerName', 'line_valid',
-		'features', COALESCE(jsonb_agg(f.feature), '[]'::jsonb)
-	)
-	INTO v_result
-	FROM (
-		SELECT jsonb_build_object(
-		'type',       'Feature',
-		'geometry',   ST_AsGeoJSON(ST_Transform(r.the_geom, 4326))::jsonb,
-		'properties', to_jsonb(r) - 'the_geom'
-		) AS feature
-		FROM (
-		SELECT g.node_1, g.node_type_1, g.node_2, g.node_type_2, g.order_id, g.expl_id, g.the_geom
-		FROM temp_om_scada_graph g
-		WHERE g.the_geom IS NOT NULL
-		) r
-	) f;
+	IF v_commit_changes IS TRUE THEN
+		v_visible_layer := '"v_om_scada_graph"';
+	ELSE
+		v_visible_layer := NULL;
 
-	v_result_line_valid := v_result;
+		SELECT jsonb_build_object(
+			'type', 'FeatureCollection',
+			'layerName', 'line_valid',
+			'features', COALESCE(jsonb_agg(f.feature), '[]'::jsonb)
+		)
+		INTO v_result
+		FROM (
+			SELECT jsonb_build_object(
+			'type',       'Feature',
+			'geometry',   ST_AsGeoJSON(ST_Transform(r.the_geom, 4326))::jsonb,
+			'properties', to_jsonb(r) - 'the_geom'
+			) AS feature
+			FROM (
+			SELECT g.node_1, g.node_type_1, g.node_2, g.node_type_2, g.expl_id, g.group_id, g.order_id, g.the_geom
+			FROM temp_om_scada_graph g
+			WHERE g.the_geom IS NOT NULL
+			) r
+		) f;
+
+		v_result_line_valid := v_result;
+	END IF;
 
 	-- get errors info and results - line_invalid
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (1, null, 4, concat('CHECK DATA QUALITY - OM_SCADA_GRAPH'));
@@ -491,10 +498,9 @@ BEGIN
 		'properties', to_jsonb(r) - 'the_geom'
 		) AS feature
 		FROM (
-			SELECT t.node_1, coalesce(t.node_type_1, g.node_type_1) AS node_type_1, t.node_2, coalesce(t.node_type_2, g.node_type_2) AS node_type_2, t.error_message, g.the_geom
-			FROM temp_om_scada_graph t
-			JOIN om_scada_graph g ON g.node_1 = t.node_1 AND g.node_2 = t.node_2
-			WHERE t.error_message IS NOT NULL
+			SELECT g.node_1, g.node_type_1, g.node_2, g.node_type_2, g.expl_id, g.error_message, g.the_geom
+			FROM temp_om_scada_graph g
+			WHERE g.error_message IS NOT NULL
 		) r
 	) f;
 
@@ -525,7 +531,7 @@ BEGIN
 				"line":'||v_result_line||'
 			}
 		}
-	}')::json, 3548, null, null, null);
+	}')::json, 3548, null, ('{"visible": [' || v_visible_layer || ']}')::json, null);
 
 	-- Exception handling
 	EXCEPTION WHEN OTHERS THEN
