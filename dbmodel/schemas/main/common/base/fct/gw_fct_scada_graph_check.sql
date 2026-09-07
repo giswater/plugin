@@ -459,9 +459,32 @@ BEGIN
 			'properties', to_jsonb(r) - 'the_geom'
 			) AS feature
 			FROM (
-			SELECT g.node_1, g.node_type_1, g.node_2, g.node_type_2, g.expl_id, g.group_id, g.order_id, g.the_geom
+			SELECT
+				g.group_id,
+				g.order_id,
+				g.node_1,
+				g.node_type_1,
+				n1.sys_code AS sys_code_1,
+				n1.expl_id AS expl_id_1,
+				n1.dma_id AS dma_id_1,
+				d1.name AS dma_name_1,
+				g.node_2,
+				g.node_type_2,
+				n2.sys_code AS sys_code_2,
+				n2.expl_id AS expl_id_2,
+				n2.dma_id AS dma_id_2,
+				d2.name AS dma_name_2,
+				g.expl_id,
+				g.attrib,
+				g.active,
+				g.the_geom
 			FROM temp_om_scada_graph g
+			LEFT JOIN ws_github.node n1 ON n1.node_id = g.node_1
+			LEFT JOIN ws_github.dma d1 ON d1.dma_id = n1.dma_id
+			LEFT JOIN ws_github.node n2 ON n2.node_id = g.node_2
+			LEFT JOIN ws_github.dma d2 ON d2.dma_id = n2.dma_id
 			WHERE g.the_geom IS NOT NULL
+			ORDER BY g.group_id, g.order_id
 			) r
 		) f;
 
@@ -498,8 +521,29 @@ BEGIN
 		'properties', to_jsonb(r) - 'the_geom'
 		) AS feature
 		FROM (
-			SELECT g.node_1, g.node_type_1, g.node_2, g.node_type_2, g.expl_id, g.error_message, g.the_geom
+			SELECT
+				g.node_1,
+				g.node_type_1,
+				n1.sys_code AS sys_code_1,
+				n1.expl_id AS expl_id_1,
+				n1.dma_id AS dma_id_1,
+				d1.name AS dma_name_1,
+				g.node_2,
+				g.node_type_2,
+				n2.sys_code AS sys_code_2,
+				n2.expl_id AS expl_id_2,
+				n2.dma_id AS dma_id_2,
+				d2.name AS dma_name_2,
+				g.expl_id,
+				g.attrib,
+				g.active,
+				g.error_message,
+				g.the_geom
 			FROM temp_om_scada_graph g
+			LEFT JOIN ws_github.node n1 ON n1.node_id = g.node_1
+			LEFT JOIN ws_github.dma d1 ON d1.dma_id = n1.dma_id
+			LEFT JOIN ws_github.node n2 ON n2.node_id = g.node_2
+			LEFT JOIN ws_github.dma d2 ON d2.dma_id = n2.dma_id
 			WHERE g.error_message IS NOT NULL
 		) r
 	) f;
