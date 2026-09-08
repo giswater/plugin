@@ -26,7 +26,7 @@ Documentation:
 The function:
 - checks inconsistencies making sure that the attributes of om_scada_graph are synced according to attributes of table "node". It returns a temp table in the map to see the inconsistencies.
 - fixes the inconsistencies making sure that the attributes of om_scada_graph are synced according to attributes of table "node"
-- when commitChanges is true, writes om_scada_graph_json via gw_fct_scada_graph_export (one snapshot per resolved expl_id)
+- when commitChanges is true, writes om_scada_graph_json via gw_fct_scada_graph_export from temp_om_scada_graph (same rows as line_valid)
 
 The features checked are:
 - node_1 and node_2 must not be orphan nodes
@@ -65,7 +65,6 @@ v_result_line_invalid JSON;
 v_result_line JSON;
 v_visible_layer TEXT;
 v_export_result JSON;
-v_expl integer;
 
 BEGIN
 
@@ -452,20 +451,10 @@ BEGIN
 		FROM temp_om_scada_graph t
 		WHERE g.node_1 = t.node_1 AND g.node_2 = t.node_2;
 
-		-- Snapshot JSON after commit (not from graph_build)
-		IF cardinality(v_expl_id_array) > 0 THEN
-			FOREACH v_expl IN ARRAY v_expl_id_array LOOP
-				v_export_result := gw_fct_scada_graph_export(
-					jsonb_set(
-						COALESCE(p_data::jsonb, '{}'::jsonb),
-						'{data,parameters,explId}',
-						to_jsonb(v_expl)
-					)::json
-				);
-				IF v_export_result ->> 'status' IS DISTINCT FROM 'Accepted' THEN
-					RETURN v_export_result;
-				END IF;
-			END LOOP;
+		-- Snapshot JSON from temp (scoped by check; export does not re-filter expl)
+		v_export_result := gw_fct_scada_graph_export(p_data);
+		IF v_export_result ->> 'status' IS DISTINCT FROM 'Accepted' THEN
+			RETURN v_export_result;
 		END IF;
 
 	END IF;
