@@ -48,6 +48,8 @@ SELECT col_type_is('v_om_scada_graph', 'attrib', 'text', 'Column attrib should b
 SELECT col_type_is('v_om_scada_graph', 'active', 'bool', 'Column active should be bool');
 SELECT col_type_is('v_om_scada_graph', 'the_geom', 'geometry(multilinestring, SRID_VALUE)', 'Column the_geom should be geometry(multilinestring, SRID_VALUE)');
 
+SELECT has_trigger('v_om_scada_graph', 'gw_trg_v_om_scada_graph_delete', 'Trigger gw_trg_v_om_scada_graph_delete exists');
+
 SELECT * FROM finish();
 
 ROLLBACK;

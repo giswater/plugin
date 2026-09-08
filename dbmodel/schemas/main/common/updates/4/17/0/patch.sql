@@ -1509,13 +1509,15 @@ FROM _om_scada_graph_;
 
 DROP TRIGGER IF EXISTS gw_trg_scada_graph_builder_before ON _om_scada_graph_;
 DROP TRIGGER IF EXISTS gw_trg_scada_graph_builder_after ON _om_scada_graph_;
+DROP TRIGGER IF EXISTS gw_trg_scada_graph_builder_before ON om_scada_graph;
+DROP TRIGGER IF EXISTS gw_trg_scada_graph_builder_after ON om_scada_graph;
 
 CREATE TRIGGER gw_trg_scada_graph_builder_before
-BEFORE INSERT OR UPDATE OF node_1, node_2 ON om_scada_graph
+BEFORE INSERT OR DELETE OR UPDATE OF node_1, node_2 ON om_scada_graph
 FOR EACH ROW EXECUTE FUNCTION gw_trg_scada_graph_builder();
 
 CREATE TRIGGER gw_trg_scada_graph_builder_after
-AFTER INSERT OR UPDATE OF node_1, node_2 ON om_scada_graph
+AFTER INSERT OR DELETE OR UPDATE OF node_1, node_2 ON om_scada_graph
 FOR EACH ROW EXECUTE FUNCTION gw_trg_scada_graph_builder();
 
 CREATE OR REPLACE VIEW v_om_scada_graph AS
@@ -1543,6 +1545,16 @@ LEFT JOIN node n1 ON n1.node_id = osg.node_1
 LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
 LEFT JOIN node n2 ON n2.node_id = osg.node_2
 LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id;
+
+DROP TRIGGER IF EXISTS gw_trg_v_om_scada_graph_delete ON v_om_scada_graph;
+CREATE TRIGGER gw_trg_v_om_scada_graph_delete
+INSTEAD OF DELETE ON v_om_scada_graph
+FOR EACH ROW EXECUTE FUNCTION gw_trg_scada_graph_builder();
+
+ALTER TABLE arc ALTER COLUMN is_scadamap SET DEFAULT false;
+ALTER TABLE node ALTER COLUMN is_scadamap SET DEFAULT false;
+UPDATE arc SET is_scadamap = false WHERE is_scadamap IS NULL;
+UPDATE node SET is_scadamap = false WHERE is_scadamap IS NULL;
 
 UPDATE sys_message
 	SET error_message='Inserting values on ext_hydrometer_period table -> Done'

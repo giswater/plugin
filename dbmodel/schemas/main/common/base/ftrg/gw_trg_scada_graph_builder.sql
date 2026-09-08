@@ -16,7 +16,11 @@ Documentation:
 Takes node_1 and node_2 and connects them with pgr_dijkstra (operative arcs).
 Writes the_geom, attrib.arcs and is_scadamap on the path.
 
-TROUBLESHOOTING: If it raises "No network path", there is no continuity between the two nodes. 
+INSTEAD OF DELETE on v_om_scada_graph deletes the om_scada_graph row.
+AFTER DELETE on om_scada_graph sets is_scadamap = FALSE on arcs/nodes no longer
+used by any remaining graph.
+
+TROUBLESHOOTING: If it raises "No network path", there is no continuity between the two nodes.
 
  */
 
@@ -29,18 +33,30 @@ v_project_type TEXT;
 -- Vars
 v_message TEXT;
 
--- Return
-
 BEGIN
 
     --	Set search path to local schema
     SET search_path = SCHEMA_NAME, public;
 
+    -- QGIS deletes on the view (JOINs → not auto-updatable)
+    IF TG_TABLE_NAME = 'v_om_scada_graph' THEN
+        IF TG_OP = 'DELETE' THEN
+            DELETE FROM om_scada_graph
+            WHERE node_1 = OLD.node_1 AND node_2 = OLD.node_2;
+            RETURN OLD;
+        END IF;
+        RETURN NULL;
+    END IF;
+
     -- Init params
     SELECT upper(project_type), epsg INTO v_project_type, v_srid FROM sys_version ORDER BY id DESC LIMIT 1;
 
 	IF TG_WHEN = 'BEFORE' THEN
-	
+
+	    IF TG_OP = 'DELETE' THEN
+			RETURN OLD;
+	    END IF;
+
 	    IF TG_OP IN ('INSERT', 'UPDATE') THEN
 
 			IF EXISTS (
@@ -103,14 +119,14 @@ BEGIN
 							a.node_1::int AS source,
 							a.node_2::int AS target,
 							COALESCE(a.custom_length, st_length(a.the_geom)) / COALESCE(
-								COALESCE(NULLIF(ca.geom1, 0), NULLIF(ca.geom2, 0)) 
+								COALESCE(NULLIF(ca.geom1, 0), NULLIF(ca.geom2, 0))
 								* COALESCE(NULLIF(ca.geom2, 0), NULLIF(ca.geom1, 0)),
 								1
 							) AS cost, -- geom1*geom2 (geom1,geom2>0) or geom1*geom1(geom2=0) or geom2*geom2(geom1=0) or 1 (geom1=geom2=0)
 							-1.0 AS reverse_cost
 						FROM arc a
 						JOIN cat_arc ca ON ca.id = a.arccat_id
-						JOIN value_state_type s ON a.state_type = s.id 
+						JOIN value_state_type s ON a.state_type = s.id
 						WHERE a.state = 1 AND s.is_operative AND a.node_1 IS NOT NULL AND a.node_2 IS NOT NULL
 					$pgr$,
 					NEW.node_1,
@@ -131,9 +147,9 @@ BEGIN
 
 			RETURN NEW;
 		END IF;
-	
+
 	ELSIF TG_WHEN = 'AFTER' THEN
-	
+
 		IF TG_OP IN ('INSERT', 'UPDATE') THEN
 
 			-- UPDATE om_scada_graph with the_geom, attrib, expl_id, node_type_1, node_type_2, group_id, order_id
@@ -156,7 +172,7 @@ BEGIN
 				JOIN node n ON t.node_id = n.node_id
 			) agg
 			WHERE g.node_1 = NEW.node_1 AND g.node_2 = NEW.node_2;
-	
+
 			UPDATE om_scada_graph g
 			SET node_type_1 = cn1.node_type
 			FROM node n1
@@ -170,7 +186,7 @@ BEGIN
 			JOIN cat_node cn2 ON n2.nodecat_id = cn2.id
 			WHERE n2.node_id = NEW.node_2
 			AND g.node_2 = NEW.node_2;
-			
+
 			-- group_id and order_id only for this row (parent hop + 1, or 1 if node_1 is a root)
 	 		UPDATE om_scada_graph g
 			SET group_id = COALESCE(t.group_id, NEW.node_1),
@@ -178,7 +194,7 @@ BEGIN
 			FROM (SELECT 1 AS flag) s
 			LEFT JOIN (
 				SELECT
-					group_id, 
+					group_id,
 					order_id
 				FROM om_scada_graph
 				WHERE node_2 = NEW.node_1
@@ -187,7 +203,7 @@ BEGIN
 			) t ON true
 			WHERE g.node_1 = NEW.node_1 AND g.node_2 = NEW.node_2;
 
-			-- i_scadamap = TRUE for arcs and nodes in the path
+			-- is_scadamap = TRUE for arcs and nodes in the path
 			UPDATE arc SET is_scadamap = TRUE
 			WHERE arc_id IN (SELECT arc_id FROM temp_graph);
 
@@ -197,28 +213,54 @@ BEGIN
 			);
 
 			DROP TABLE IF EXISTS temp_graph;
-		
+
 			RETURN NEW;
-	
+
 		ELSIF TG_OP = 'DELETE' THEN
-		
-			RETURN NULL;
-		
-		
+
+			-- AFTER: row already gone, remaining om_scada_graph is the keep-set
+			DROP TABLE IF EXISTS temp_deleted_scada_arc;
+			DROP TABLE IF EXISTS temp_remaining_scada_arc;
+
+			CREATE TEMP TABLE temp_deleted_scada_arc AS
+			SELECT DISTINCT json_array_elements_text(OLD.attrib::json -> 'arcs')::int AS arc_id
+			WHERE OLD.attrib IS JSON;
+
+			CREATE TEMP TABLE temp_remaining_scada_arc AS
+			SELECT DISTINCT json_array_elements_text(g.attrib::json -> 'arcs')::int AS arc_id
+			FROM om_scada_graph g
+			WHERE g.attrib IS JSON;
+
+			UPDATE arc a
+			SET is_scadamap = FALSE
+			WHERE a.is_scadamap IS DISTINCT FROM FALSE
+			AND EXISTS (SELECT 1 FROM temp_deleted_scada_arc a1 WHERE a1.arc_id = a.arc_id)
+			AND NOT EXISTS (SELECT 1 FROM temp_remaining_scada_arc a2 WHERE a2.arc_id = a.arc_id);
+
+			UPDATE node n
+			SET is_scadamap = FALSE
+			WHERE n.is_scadamap IS DISTINCT FROM FALSE
+			AND EXISTS (
+				SELECT 1 FROM temp_deleted_scada_arc a1
+				JOIN arc a ON a1.arc_id = a.arc_id
+				WHERE a.node_1 = n.node_id OR a.node_2 = n.node_id
+			)
+			AND NOT EXISTS (
+				SELECT 1 FROM temp_remaining_scada_arc a2
+				JOIN arc a ON a2.arc_id = a.arc_id
+				WHERE a.node_1 = n.node_id OR a.node_2 = n.node_id
+			);
+
+			DROP TABLE IF EXISTS temp_deleted_scada_arc;
+			DROP TABLE IF EXISTS temp_remaining_scada_arc;
+
+			RETURN OLD;
+
 		END IF;
 
-
-		
 	END IF;
 
-    IF TG_OP = 'DELETE' THEN
-    
-    	RETURN OLD;
-
-
-    END IF;
-
-
+	RETURN NULL;
 
 END;
 $function$
