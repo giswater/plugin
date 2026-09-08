@@ -88,13 +88,15 @@ BEGIN
 	
 		execute  '
 		INSERT INTO inp_subcatchment (subc_id, outlet_id, sector_id, muni_id, hydrology_id, descript, the_geom)
-		WITH mec AS (
+		WITH mec AS MATERIALIZED (
 			SELECT (st_dump(st_voronoipolygons(ST_Collect(the_geom)))).geom AS the_geom
 			FROM node WHERE epa_type = ''JUNCTION'' AND state = 1
 		)
 		SELECT concat(''S'', b.node_id), b.node_id, b.sector_id, b.muni_id, '||v_hyd||', ''flag_create_subcatchments'', st_intersection(a.the_geom, m.the_geom) FROM mec a 
 		JOIN node b ON st_intersects(a.the_geom, b.the_geom)
 		JOIN '||v_clip_table||' m USING ('||lower(v_clip)||'_id)
+		JOIN vf_node vf ON b.node_id = vf.node_id
+		WHERE b.epa_type = ''JUNCTION''
 		ON CONFLICT DO NOTHING';
 
 		
@@ -109,7 +111,7 @@ BEGIN
 	execute  '
 	UPDATE inp_subcatchment t
 	SET slope = z.slope FROM (
-		WITH ext_raster_slope AS (
+		WITH ext_raster_slope AS MATERIALIZED (
 			SELECT ST_Clip(r.rast, g.the_geom, NULL::double precision, true) as rast
 			FROM (
 				SELECT ST_Slope(rast, 1, ''32BF'', ''PERCENT'') AS rast FROM v_raster_dem
