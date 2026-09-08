@@ -2839,7 +2839,7 @@ AS SELECT p.pol_id,
     p.featurecat_id,
     p.state,
     p.sys_type,
-    c.state_type
+    e.state_type
    FROM polygon p
      JOIN element e ON p.feature_id = e.element_id
   WHERE (EXISTS ( SELECT 1
