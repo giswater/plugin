@@ -2084,7 +2084,7 @@ AS SELECT p.pol_id,
     p.state,
     p.sys_type,
     p.the_geom,
-    p.trace_featuregeom
+    p.trace_featuregeom,
     c.state_type
    FROM polygon p
      JOIN connec c ON p.feature_id = c.connec_id
