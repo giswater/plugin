@@ -70,12 +70,13 @@ NULL, NULL, NULL, NULL, NULL, NULL, 1, 1, NULL, 'https://www.giswater.org', '0',
 '255,255,204', '254,217,166', NULL, 'Asphalt', NULL, NULL, NULL, NULL, true, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL,
 '2020-08-13 09:15:52.000', 'postgres', '2025-01-21 17:20:21.000', 'postgres', 'SRID=25831;LINESTRING (419190.45461029344 4576779.998060674, 419189.1684562919 4576779.026603929)'::public.geometry, 'PIPE');
 
+-- Must be network-connected: BEFORE trigger runs pgr_dijkstra and rejects phantom IDs.
 INSERT INTO om_scada_graph (node_1, node_2, expl_id, attrib)
-VALUES (-999, -998, ARRAY[1, 1], '{"keep":"first"}');
+VALUES (-902, -901, ARRAY[1], '{"keep":"first"}');
 
 SELECT throws_matching(
-    $$INSERT INTO om_scada_graph (node_1, node_2) VALUES (-999, -998)$$,
-    'duplicate key',
+    $$INSERT INTO om_scada_graph (node_1, node_2) VALUES (-902, -901)$$,
+    'already exists',
     'Check if om_scada_graph rejects duplicate node_1/node_2'
 );
 
