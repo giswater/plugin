@@ -87,7 +87,7 @@ BEGIN
 	);
 
 	INSERT INTO om_scada_graph_json (expl_id, om_scada_graph_json, insert_tstamp, update_tstamp)
-	SELECT DISTINCT e.expl_id, v_json_result_return, now(), now()
+	SELECT e.expl_id, v_json_result_return, now(), now()
 	FROM (
 		SELECT unnest(g.expl_id) AS expl_id
 		FROM temp_om_scada_graph g
