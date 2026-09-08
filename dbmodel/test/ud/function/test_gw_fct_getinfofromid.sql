@@ -11,8 +11,8 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 16 test
-SELECT plan(16);
+-- Plan for 18 test
+SELECT plan(18);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -208,6 +208,35 @@ SELECT ok(
           AND a->>'actionName' = 'actionSetToArc'
     ),
     'GENELEM info from ve_element parent does not include actionSetToArc'
+);
+
+-- ELEMENT INSERT: ownercat_id from exploitation.owner_vdefault (same as node/arc/connec)
+UPDATE exploitation SET owner_vdefault = 'owner1' WHERE expl_id = 1;
+INSERT INTO config_param_user (parameter, value, cur_user)
+VALUES ('edit_exploitation_vdefault', '1', current_user)
+ON CONFLICT (parameter, cur_user) DO UPDATE SET value = '1';
+
+SELECT is(
+    (SELECT f->>'selectedId'
+     FROM json_array_elements((
+         gw_fct_getinfofromid($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{},
+         "feature":{"tableName":"ve_element_ecover"}, "data":{"filterFields":{}, "pageInfo":{}}}$$)::json
+     )->'body'->'data'->'fields') f
+     WHERE f->>'columnname' = 'ownercat_id'),
+    'owner1',
+    've_element_ecover INSERT ownercat_id defaults from exploitation.owner_vdefault'
+);
+
+INSERT INTO ve_element_ecover (elementcat_id, expl_id, code, the_geom)
+SELECT 'COVER70', 1, 'OWNERCAT_VDEFAULT_TEST', n.the_geom
+FROM node n
+WHERE n.expl_id = 1 AND n.the_geom IS NOT NULL
+LIMIT 1;
+
+SELECT is(
+    (SELECT e.ownercat_id FROM element e WHERE e.code = 'OWNERCAT_VDEFAULT_TEST'),
+    'owner1',
+    've_element_ecover trigger fills ownercat_id from exploitation.owner_vdefault'
 );
 
 -- Finish the test

@@ -682,6 +682,12 @@ BEGIN
 			v_muni_id := (SELECT muni_id FROM v_municipality WHERE ST_DWithin(v_reduced_geometry, v_municipality.the_geom,0.001) AND active IS TRUE LIMIT 1);
 		END IF;
 
+		-- User exploitation vdefault is NODE-only above. ELEMENT (GENELEM has no geom yet)
+		-- and other types still need it so ownercat_id can resolve owner_vdefault.
+		IF v_expl_id IS NULL THEN
+			SELECT value INTO v_expl_id FROM config_param_user WHERE parameter = 'edit_exploitation_vdefault' and cur_user = current_user;
+		END IF;
+
 		IF v_expl_id IS NULL THEN
 			SELECT count(*) into count_aux FROM exploitation WHERE ST_DWithin(v_reduced_geometry, exploitation.the_geom,0.001) AND active IS TRUE ;
 			IF count_aux = 1 THEN

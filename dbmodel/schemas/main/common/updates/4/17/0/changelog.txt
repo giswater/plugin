@@ -37,3 +37,4 @@
 - Move `gw_fct_scada_graph_export` from `gw_fct_scada_graph_build` to `gw_fct_scada_graph_check`.
 - Always write scada graph check summary lines to the toolbox Info Log (not only error rows).
 - Wrap leftover toolbox `selectedId` values in `gw_fct_getprocess` so negative combo ids (e.g. -901) do not crash JSON path `dvQueryText`.
+- Default element `ownercat_id` from `exploitation.owner_vdefault` on insert (form + trigger), same as node/arc/connec.
