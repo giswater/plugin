@@ -21,7 +21,7 @@ SELECT SCHEMA_NAME.gw_fct_scada_graph_export($${"client":{"device":4, "infoType"
 
 
 - Documentation:
-It takes the row of table "om_scada_graph" according to the expl_id (v_expl_id) and it creates a JSON which is inserted into table "om_scada_graph_json".
+It takes rows of view "v_om_scada_graph" according to expl_id (int4[] containment) and inserts the JSON into "om_scada_graph_json".
 
  */
 
@@ -29,14 +29,13 @@ It takes the row of table "om_scada_graph" according to the expl_id (v_expl_id) 
 DECLARE
 v_schema_date date;
 v_json_result_header json;
-v_json_result_nodes json;
 v_json_result_links json;
 v_json_result_return json;
 v_expl_id integer;
 v_node_1 integer;
 v_node_2 integer;
 v_result JSON;
-v_Result_info JSON;
+v_result_info JSON;
 v_error_context text;
 BEGIN
 
@@ -48,18 +47,31 @@ BEGIN
 		(p_data -> 'data' -> 'parameters' ->> 'explId')::integer,
 		(p_data -> 'data' ->> 'explId')::integer
 	);
-	v_node_1 := COALESCE((p_data -> 'data' -> 'parameters' ->> 'object_1')::integer, (p_data -> 'data' ->> 'object_1')::integer);
-	v_node_2 := COALESCE((p_data -> 'data' -> 'parameters' ->> 'object_2')::integer, (p_data -> 'data' ->> 'object_2')::integer);
+	v_node_1 := COALESCE(
+		(p_data -> 'data' -> 'parameters' ->> 'node_1')::integer,
+		(p_data -> 'data' -> 'parameters' ->> 'object_1')::integer,
+		(p_data -> 'data' ->> 'node_1')::integer,
+		(p_data -> 'data' ->> 'object_1')::integer
+	);
+	v_node_2 := COALESCE(
+		(p_data -> 'data' -> 'parameters' ->> 'node_2')::integer,
+		(p_data -> 'data' -> 'parameters' ->> 'object_2')::integer,
+		(p_data -> 'data' ->> 'node_2')::integer,
+		(p_data -> 'data' ->> 'object_2')::integer
+	);
 
 	IF v_expl_id IS NULL AND v_node_1 IS NOT NULL AND v_node_2 IS NOT NULL THEN
-		SELECT COALESCE(expl_1, expl_2) INTO v_expl_id
-		FROM om_scada_graph
+		SELECT COALESCE(expl_id[1], expl_id_1, expl_id_2) INTO v_expl_id
+		FROM v_om_scada_graph
 		WHERE node_1 = v_node_1 AND node_2 = v_node_2
-		ORDER BY edge_id DESC LIMIT 1;
+		LIMIT 1;
 	END IF;
 
 	IF v_expl_id IS NULL THEN
-		SELECT COALESCE(expl_1, expl_2) INTO v_expl_id FROM om_scada_graph ORDER BY edge_id DESC LIMIT 1;
+		SELECT COALESCE(expl_id[1], expl_id_1, expl_id_2) INTO v_expl_id
+		FROM v_om_scada_graph
+		WHERE expl_id IS NOT NULL OR expl_id_1 IS NOT NULL OR expl_id_2 IS NOT NULL
+		LIMIT 1;
 	END IF;
 
 	IF v_expl_id IS NULL THEN
@@ -75,52 +87,52 @@ BEGIN
 		'schemaDate', v_schema_date
 	) INTO v_json_result_header;
 
-	
-	-- Build key "links" (table om_scada_graph)
-  SELECT 
+
+	-- Build key "links" (view v_om_scada_graph)
+	SELECT
 	json_agg(
 		json_build_object(
-		'edgeId', edge_id,
+		'groupId', group_id,
 		'orderId', order_id,
 		'fromNode', node_1,
-		'nodeType1', objecttype_1,
-		'nodeName1', object_name_1,
-		'explId1', expl_1,
+		'nodeType1', node_type_1,
+		'nodeName1', sys_code_1,
+		'explId1', expl_id_1,
 		'dma_id_1', dma_id_1,
 		'dma_name_1', dma_name_1,
 		'toNode', node_2,
-		'nodeType2', objecttype_2,
-		'nodeName2', object_name_2,
-		'explId2', expl_2,		
+		'nodeType2', node_type_2,
+		'nodeName2', sys_code_2,
+		'explId2', expl_id_2,
 		'dma_id_2', dma_id_2,
 		'dma_name_2', dma_name_2,
-		'sist_com_1', sist_com_1,
-		'sist_com_2', sist_com_2,
 		'attributes', attrib::JSON,
-		'explAdd',expl_add
+		'explId', expl_id
 	)
 	) INTO v_json_result_links
-	FROM om_scada_graph a
-	WHERE (expl_1 = v_expl_id OR expl_2 = v_expl_id) OR v_expl_id::text IN (expl_add);
-	
+	FROM v_om_scada_graph a
+	WHERE v_expl_id = ANY (a.expl_id)
+		OR a.expl_id_1 = v_expl_id
+		OR a.expl_id_2 = v_expl_id;
+
 
 	v_json_result_return = json_build_object(
-		'networkInfo', v_json_result_header, 
+		'networkInfo', v_json_result_header,
 		'links', v_json_result_links
 	);
 
 
 	INSERT INTO om_scada_graph_json (expl_id, om_scada_graph_json, insert_tstamp, update_tstamp)
 	SELECT v_expl_id, v_json_result_return::json, now(), now()
-	ON CONFLICT (expl_id) DO UPDATE 
+	ON CONFLICT (expl_id) DO UPDATE
 	SET om_scada_graph_json= excluded.om_scada_graph_json,
 	update_tstamp = now();
 
 
 	-- info
-	SELECT array_to_json(array_agg(row_to_json(row))) INTO v_result 
+	SELECT array_to_json(array_agg(row_to_json(row))) INTO v_result
 	FROM (SELECT 1, concat('Network Graph generated for expl_id ', v_expl_id) as message) row;
-	v_result := COALESCE(v_result, '{}'); 
+	v_result := COALESCE(v_result, '{}');
 	v_result_info = concat ('{"geometryType":"", "values":',v_result, '}');
 
 	RETURN gw_fct_json_create_return(('{"status":"Accepted", "message":{"level":1, "text":"Network JSON graph successfully created"}, "version":""'||

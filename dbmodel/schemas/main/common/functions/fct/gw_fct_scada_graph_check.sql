@@ -26,6 +26,7 @@ Documentation:
 The function:
 - checks inconsistencies making sure that the attributes of om_scada_graph are synced according to attributes of table "node". It returns a temp table in the map to see the inconsistencies.
 - fixes the inconsistencies making sure that the attributes of om_scada_graph are synced according to attributes of table "node"
+- when commitChanges is true, writes om_scada_graph_json via gw_fct_scada_graph_export (one snapshot per resolved expl_id)
 
 The features checked are:
 - node_1 and node_2 must not be orphan nodes
@@ -63,6 +64,8 @@ v_result_line_valid JSON;
 v_result_line_invalid JSON;
 v_result_line JSON;
 v_visible_layer TEXT;
+v_export_result JSON;
+v_expl integer;
 
 BEGIN
 
@@ -72,8 +75,14 @@ BEGIN
 	-- Input data and init params
 	SELECT giswater, upper(project_type), epsg INTO v_version, v_project_type, v_srid FROM sys_version ORDER BY id DESC LIMIT 1;
 
-	v_expl_id := p_data ->'data'->'parameters'->>'explId';
-	v_commit_changes := p_data->'data'->'parameters'->>'commitChanges';
+	v_expl_id := COALESCE(
+		p_data -> 'data' -> 'parameters' ->> 'explId',
+		p_data -> 'data' -> 'parameters' ->> 'exploitation'
+	);
+	v_commit_changes := COALESCE(
+		(p_data -> 'data' -> 'parameters' ->> 'commitChanges')::boolean,
+		false
+	);
 
 	DROP TABLE IF EXISTS temp_om_scada_graph;
 	DROP TABLE IF EXISTS temp_graph;
@@ -89,11 +98,17 @@ BEGIN
 
 	-- if v_expl_id_array is null, return error
 	IF v_expl_id_array IS NULL THEN
-		RETURN NULL::json;
-		-- TODO FERRAN: create a function and an error message to be returned
-		/*EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
-				"data":{"message":"4478", "function":"3424","parameters":null}}$$);';
-		*/
+		SELECT COALESCE(
+			(SELECT error_message FROM v_sys_message WHERE id = 4478 LIMIT 1),
+			'There are no exploitations in your exploitation selection'
+		)
+		INTO v_message;
+		RETURN gw_fct_json_create_return(json_build_object(
+			'status', 'Failed',
+			'message', json_build_object('level', 2, 'text', v_message),
+			'version', v_version,
+			'body', json_build_object('form', '{}'::json, 'data', '{}'::json)
+		)::json, 3548, null, null, null);
 	END IF;
 
 	-- Initialize process
@@ -380,6 +395,7 @@ BEGIN
 		WITH old_arc AS (
 			SELECT DISTINCT json_array_elements_text(g.attrib::json -> 'arcs')::int AS arc_id
 			FROM om_scada_graph g
+			JOIN temp_om_scada_graph t ON t.node_1 = g.node_1 AND t.node_2 = g.node_2
 		),
 		new_arc AS (
 			SELECT DISTINCT arc_id FROM temp_graph
@@ -393,6 +409,7 @@ BEGIN
 		WITH old_arc AS (
 			SELECT DISTINCT json_array_elements_text(g.attrib::json -> 'arcs')::int AS arc_id
 			FROM om_scada_graph g
+			JOIN temp_om_scada_graph t ON t.node_1 = g.node_1 AND t.node_2 = g.node_2
 		),
 		new_arc AS (
 			SELECT DISTINCT arc_id FROM temp_graph
@@ -434,6 +451,22 @@ BEGIN
 			order_id = t.order_id
 		FROM temp_om_scada_graph t
 		WHERE g.node_1 = t.node_1 AND g.node_2 = t.node_2;
+
+		-- Snapshot JSON after commit (not from graph_build)
+		IF cardinality(v_expl_id_array) > 0 THEN
+			FOREACH v_expl IN ARRAY v_expl_id_array LOOP
+				v_export_result := gw_fct_scada_graph_export(
+					jsonb_set(
+						COALESCE(p_data::jsonb, '{}'::jsonb),
+						'{data,parameters,explId}',
+						to_jsonb(v_expl)
+					)::json
+				);
+				IF v_export_result ->> 'status' IS DISTINCT FROM 'Accepted' THEN
+					RETURN v_export_result;
+				END IF;
+			END LOOP;
+		END IF;
 
 	END IF;
 
@@ -479,11 +512,11 @@ BEGIN
 				g.active,
 				g.the_geom
 			FROM temp_om_scada_graph g
-			LEFT JOIN ws_github.node n1 ON n1.node_id = g.node_1
-			LEFT JOIN ws_github.dma d1 ON d1.dma_id = n1.dma_id
-			LEFT JOIN ws_github.node n2 ON n2.node_id = g.node_2
-			LEFT JOIN ws_github.dma d2 ON d2.dma_id = n2.dma_id
-			WHERE g.error_message IS NULL
+			LEFT JOIN node n1 ON n1.node_id = g.node_1
+			LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
+			LEFT JOIN node n2 ON n2.node_id = g.node_2
+			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
+			WHERE g.the_geom IS NOT NULL
 			ORDER BY g.group_id, g.order_id
 			) r
 		) f;
@@ -494,19 +527,38 @@ BEGIN
 	-- get errors info and results - line_invalid
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (1, null, 4, concat('CHECK DATA QUALITY - OM_SCADA_GRAPH'));
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (1, null, 4, '-------------------------------------');
+	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+	SELECT 1, null, 1, concat('Edges analysed: ', count(*)) FROM temp_om_scada_graph;
+	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+	SELECT 1, null, 1, concat('Valid geometry: ', count(*))
+	FROM temp_om_scada_graph
+	WHERE the_geom IS NOT NULL AND error_message IS NULL;
+	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+	SELECT 1, null, 1, concat('Inconsistencies: ', count(*))
+	FROM temp_om_scada_graph
+	WHERE error_message IS NOT NULL;
 
-	INSERT INTO temp_audit_check_data (error_message)
-	SELECT concat(count(*),' ', t.error_message) 
+	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+	SELECT 1, null, 2, concat(count(*),' ', t.error_message)
 	FROM temp_om_scada_graph t
 	WHERE t.error_message IS NOT NULL
 	GROUP BY t.error_message
 	ORDER BY t.error_message;
 
-	SELECT array_to_json(array_agg(row_to_json(row))) INTO v_result 
-	FROM (SELECT id, error_message as message FROM temp_audit_check_data) row;
+	IF NOT EXISTS (SELECT 1 FROM temp_om_scada_graph WHERE error_message IS NOT NULL) THEN
+		INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+		VALUES (1, null, 1, 'No inconsistencies found.');
+	END IF;
 
-	v_result := COALESCE(v_result, '{}'); 
-	v_result_info = concat ('{"geometryType":"", "values":',v_result, '}');
+	SELECT json_agg(row_to_json(row) ORDER BY row.id) INTO v_result
+	FROM (
+		SELECT ROW_NUMBER() OVER (ORDER BY criticity DESC NULLS LAST, id) AS id,
+			error_message AS message
+		FROM temp_audit_check_data
+	) row;
+
+	v_result := COALESCE(v_result, '[]'::json);
+	v_result_info = concat('{"geometryType":"", "values":', v_result, '}');
 
 	SELECT jsonb_build_object(
 		'type', 'FeatureCollection',
@@ -522,6 +574,8 @@ BEGIN
 		) AS feature
 		FROM (
 			SELECT
+				g.group_id,
+				g.order_id,
 				g.node_1,
 				g.node_type_1,
 				n1.sys_code AS sys_code_1,
@@ -540,15 +594,26 @@ BEGIN
 				g.error_message,
 				g.the_geom
 			FROM temp_om_scada_graph g
-			LEFT JOIN ws_github.node n1 ON n1.node_id = g.node_1
-			LEFT JOIN ws_github.dma d1 ON d1.dma_id = n1.dma_id
-			LEFT JOIN ws_github.node n2 ON n2.node_id = g.node_2
-			LEFT JOIN ws_github.dma d2 ON d2.dma_id = n2.dma_id
+			LEFT JOIN node n1 ON n1.node_id = g.node_1
+			LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
+			LEFT JOIN node n2 ON n2.node_id = g.node_2
+			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
 			WHERE g.error_message IS NOT NULL
 		) r
 	) f;
 
 	v_result_line_invalid := v_result;
+
+	v_result_line_valid := COALESCE(v_result_line_valid, jsonb_build_object(
+		'type', 'FeatureCollection',
+		'layerName', 'line_valid',
+		'features', '[]'::jsonb
+	)::json);
+	v_result_line_invalid := COALESCE(v_result_line_invalid, jsonb_build_object(
+		'type', 'FeatureCollection',
+		'layerName', 'line_invalid',
+		'features', '[]'::jsonb
+	)::json);
 
 	v_result_line := jsonb_build_array(
 		v_result_line_invalid,

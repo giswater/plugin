@@ -321,6 +321,7 @@ UPDATE config_typevalue AS t SET idval = v.idval FROM (
     ('3', 'sys_table_context', '["EPA", "COMPARE"]'),
     ('30', 'sys_table_context', '["OM", "VISIT"]'),
     ('33', 'sys_table_context', '["MASTERPLAN", "REPOSITION VALUE"]'),
+    ('34', 'sys_table_context', '["MASTERPLAN", "SCADA"]'),
     ('4', 'sys_table_context', '["EPA", "DSCENARIO"]'),
     ('5', 'sys_table_context', '["EPA", "FLOWREG"]'),
     ('6', 'sys_table_context', '["EPA", "HYDRAULICS"]'),

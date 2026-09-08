@@ -1555,3 +1555,180 @@ You must select a period already created or manually select the date of the inte
 2) DMA graph need to be executed.  
 >End Date proposal for %v_percent_hydro%% of hydrometers which consum is out of the period: %v_proposed_enddate%'
 	WHERE id=4688;
+
+INSERT INTO config_typevalue (typevalue, id, idval, addparam)
+VALUES ('sys_table_context', '34', '["MASTERPLAN", "SCADA"]', '{"orderBy":34}'::json)
+ON CONFLICT (typevalue, id) DO NOTHING;
+
+INSERT INTO sys_table (id, descript, sys_role, context, orderby, alias, "source", addparam)
+VALUES (
+	'v_om_scada_graph',
+	'Scada graph edges (view on om_scada_graph)',
+	'role_om',
+	'34',
+	1,
+	'Scada graph',
+	'core',
+	'{"pkey": "node_1,node_2"}'::json
+)
+ON CONFLICT (id) DO UPDATE SET
+	descript = EXCLUDED.descript,
+	sys_role = EXCLUDED.sys_role,
+	context = EXCLUDED.context,
+	orderby = EXCLUDED.orderby,
+	alias = EXCLUDED.alias,
+	addparam = EXCLUDED.addparam;
+
+-- GwBasic: orange overlay so scada graph stays distinct from inventory blue (not QGIS selection yellow)
+INSERT INTO sys_style (layername, styleconfig_id, styletype, stylevalue, active) VALUES (
+	'v_om_scada_graph',
+	101,
+	'qml',
+	'<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+<qgis version="3.34.7-Prizren" styleCategories="Symbology">
+  <renderer-v2 type="singleSymbol" symbollevels="0" enableorderby="0" forceraster="0" referencescale="-1">
+    <symbols>
+      <symbol type="line" name="0" alpha="1" clip_to_extent="1" force_rhr="0" is_animated="0" frame_rate="10">
+        <data_defined_properties>
+          <Option type="Map">
+            <Option type="QString" name="name" value=""/>
+            <Option name="properties"/>
+            <Option type="QString" name="type" value="collection"/>
+          </Option>
+        </data_defined_properties>
+        <layer pass="0" locked="0" enabled="1" class="SimpleLine" id="{a7c3e1d0-4b12-4f8e-9c21-6d8f0a1b2c3d}">
+          <Option type="Map">
+            <Option type="QString" name="align_dash_pattern" value="0"/>
+            <Option type="QString" name="capstyle" value="round"/>
+            <Option type="QString" name="customdash" value="5;2"/>
+            <Option type="QString" name="customdash_map_unit_scale" value="3x:0,0,0,0,0,0"/>
+            <Option type="QString" name="customdash_unit" value="MM"/>
+            <Option type="QString" name="dash_pattern_offset" value="0"/>
+            <Option type="QString" name="dash_pattern_offset_map_unit_scale" value="3x:0,0,0,0,0,0"/>
+            <Option type="QString" name="dash_pattern_offset_unit" value="MM"/>
+            <Option type="QString" name="draw_inside_polygon" value="0"/>
+            <Option type="QString" name="joinstyle" value="round"/>
+            <Option type="QString" name="line_color" value="232,119,34,255"/>
+            <Option type="QString" name="line_style" value="solid"/>
+            <Option type="QString" name="line_width" value="0.6"/>
+            <Option type="QString" name="line_width_unit" value="MM"/>
+            <Option type="QString" name="offset" value="0"/>
+            <Option type="QString" name="offset_map_unit_scale" value="3x:0,0,0,0,0,0"/>
+            <Option type="QString" name="offset_unit" value="MM"/>
+            <Option type="QString" name="ring_filter" value="0"/>
+            <Option type="QString" name="trim_distance_end" value="0"/>
+            <Option type="QString" name="trim_distance_end_map_unit_scale" value="3x:0,0,0,0,0,0"/>
+            <Option type="QString" name="trim_distance_end_unit" value="MM"/>
+            <Option type="QString" name="trim_distance_start" value="0"/>
+            <Option type="QString" name="trim_distance_start_map_unit_scale" value="3x:0,0,0,0,0,0"/>
+            <Option type="QString" name="trim_distance_start_unit" value="MM"/>
+            <Option type="QString" name="tweak_dash_pattern_on_corners" value="0"/>
+            <Option type="QString" name="use_custom_dash" value="0"/>
+            <Option type="QString" name="width_map_unit_scale" value="3x:0,0,0,0,0,0"/>
+          </Option>
+          <data_defined_properties>
+            <Option type="Map">
+              <Option type="QString" name="name" value=""/>
+              <Option name="properties"/>
+              <Option type="QString" name="type" value="collection"/>
+            </Option>
+          </data_defined_properties>
+        </layer>
+      </symbol>
+    </symbols>
+    <rotation/>
+    <sizescale/>
+  </renderer-v2>
+</qgis>',
+	true
+)
+ON CONFLICT (layername, styleconfig_id) DO UPDATE SET
+	styletype = EXCLUDED.styletype,
+	stylevalue = EXCLUDED.stylevalue,
+	active = EXCLUDED.active;
+
+INSERT INTO sys_style (layername, styleconfig_id, styletype, stylevalue, active)
+SELECT 'line_valid', styleconfig_id, styletype, stylevalue, active
+FROM sys_style
+WHERE layername = 'v_om_scada_graph' AND styleconfig_id = 101
+ON CONFLICT (layername, styleconfig_id) DO UPDATE SET
+	styletype = EXCLUDED.styletype,
+	stylevalue = EXCLUDED.stylevalue,
+	active = EXCLUDED.active;
+
+INSERT INTO sys_style (layername, styleconfig_id, styletype, stylevalue, active)
+SELECT 'line_invalid', styleconfig_id, styletype,
+	replace(stylevalue, '232,119,34,255', '255,30,42,255'),
+	active
+FROM sys_style
+WHERE layername = 'v_om_scada_graph' AND styleconfig_id = 101
+ON CONFLICT (layername, styleconfig_id) DO UPDATE SET
+	styletype = EXCLUDED.styletype,
+	stylevalue = EXCLUDED.stylevalue,
+	active = EXCLUDED.active;
+
+INSERT INTO config_function (id, function_name, "style", layermanager, actions)
+VALUES (
+	3548,
+	'gw_fct_scada_graph_check',
+	'{
+		"style": {
+			"line_valid": {"style": "qml", "id": "101"},
+			"line_invalid": {"style": "qml", "id": "101"},
+			"line": {"style": "qml", "id": "101"}
+		}
+	}'::json,
+	NULL,
+	NULL
+)
+ON CONFLICT (id) DO UPDATE SET
+	function_name = EXCLUDED.function_name,
+	"style" = EXCLUDED.style;
+
+UPDATE sys_function
+SET descript = 'Creates a scada graph edge (insert + trigger fill). JSON export is done by gw_fct_scada_graph_check on commit.'
+WHERE id = 3560;
+
+UPDATE sys_function
+SET sys_role = 'role_plan',
+	descript = 'Checks or fixes om_scada_graph against the network; on commit also writes om_scada_graph_json (toolbox: Scada graph analysis).'
+WHERE id = 3548;
+
+INSERT INTO config_toolbox (id, alias, functionparams, inputparams, observ, active, device)
+VALUES (
+	3548,
+	'Scada graph analysis',
+	'{"featureType":[]}'::json,
+	'[
+		{
+			"widgetname": "explId",
+			"label": "Exploitation:",
+			"widgettype": "combo",
+			"datatype": "text",
+			"tooltip": "Choose exploitation to work with",
+			"layoutname": "grl_option_parameters",
+			"layoutorder": 1,
+			"dvQueryText": "SELECT id, idval FROM ( SELECT -901 AS id, ''User selected expl'' AS idval, ''a'' AS sort_order UNION SELECT -902 AS id, ''All exploitations'' AS idval, ''b'' AS sort_order UNION SELECT expl_id AS id, name AS idval, ''c'' AS sort_order FROM exploitation WHERE active IS NOT FALSE ) a ORDER BY sort_order ASC, idval ASC",
+			"selectedId": "-901"
+		},
+		{
+			"widgetname": "commitChanges",
+			"label": "Commit changes:",
+			"widgettype": "check",
+			"datatype": "boolean",
+			"tooltip": "If true, updates om_scada_graph. If false, only reports inconsistencies.",
+			"layoutname": "grl_option_parameters",
+			"layoutorder": 2,
+			"value": false
+		}
+	]'::json,
+	NULL,
+	true,
+	'{4}'
+)
+ON CONFLICT (id) DO UPDATE SET
+	alias = EXCLUDED.alias,
+	functionparams = EXCLUDED.functionparams,
+	inputparams = EXCLUDED.inputparams,
+	active = EXCLUDED.active,
+	device = EXCLUDED.device;

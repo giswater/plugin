@@ -32,3 +32,8 @@
 - Point `config_report.filterparam.columnname` at SQL columns (not display aliases) so report filters stay stable when query aliases are translated.
 - Give quoted aliases to all columns in report 101 (`connec_id`, `code`, `customer_code`) so they can be translated.
 - Stamp `updated_at`/`updated_by` on every UPDATE of tables that have those columns (`gw_trg_set_updated`).
+- Add `v_om_scada_graph` to Load Giswater layers under MASTERPLAN / SCADA.
+- Add toolbox process `Scada graph analysis` (`gw_fct_scada_graph_check`, Master / role_plan).
+- Move `gw_fct_scada_graph_export` from `gw_fct_scada_graph_build` to `gw_fct_scada_graph_check`.
+- Always write scada graph check summary lines to the toolbox Info Log (not only error rows).
+- Wrap leftover toolbox `selectedId` values in `gw_fct_getprocess` so negative combo ids (e.g. -901) do not crash JSON path `dvQueryText`.

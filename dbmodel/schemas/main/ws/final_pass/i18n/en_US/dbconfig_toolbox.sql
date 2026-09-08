@@ -57,6 +57,7 @@ UPDATE config_toolbox AS t SET alias = v.alias, observ = v.observ FROM (
     (3308, 'Create full Network dscenario', NULL),
     (3322, 'Set cost for removed material on psectors', NULL),
     (3426, 'Integrate campaign into production', NULL),
-    (3482, 'Macromapzones analysis', NULL)
+    (3482, 'Macromapzones analysis', NULL),
+    (3548, 'Scada graph analysis', NULL)
 ) AS v(id, alias, observ)
 WHERE t.id = v.id;

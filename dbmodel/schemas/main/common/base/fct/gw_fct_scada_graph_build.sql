@@ -17,26 +17,21 @@ AS $function$
 Example:
 
 SELECT SCHEMA_NAME.gw_fct_scada_graph_build($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831},
-"form":{}, "feature":{}, "data":{"parameters":{"node_1":1109, "object_2":1075}}}$$);
+"form":{}, "feature":{}, "data":{"parameters":{"node_1":1109, "node_2":1075}}}$$);
 
 Documentation:
 
-Orchestrates the scada graph Accept pipeline:
-1. Reject duplicate (node_1, object_2)
-2. INSERT om_scada_graph (node_1, object_2) -> gw_trg_scada_graph_builder fills THIS row only
-3. gw_fct_scada_graph_export (writes om_scada_graph_json; payload is NOT returned to the client)
+Accept pipeline:
+1. Reject duplicate (node_1, node_2)
+2. INSERT om_scada_graph (node_1, node_2) -> gw_trg_scada_graph_builder fills THIS row only
 
-Skip gw_fct_scada_graph_check here: the trigger already writes geom/attrib/names for the new row.
-Check/fix remains available as a standalone maintenance call.
+JSON export lives in gw_fct_scada_graph_check (commitChanges=true), not here.
 */
 
 DECLARE
 v_node_1 integer;
 v_node_2 integer;
-v_search_dist_routing integer;
 v_version text;
-v_export_data json;
-v_export_result json;
 v_error_context text;
 
 BEGIN
@@ -45,22 +40,27 @@ BEGIN
 
 	SELECT giswater INTO v_version FROM sys_version ORDER BY id DESC LIMIT 1;
 
-	v_node_1 := COALESCE((p_data -> 'data' -> 'parameters' ->> 'object_1')::integer, (p_data -> 'data' ->> 'object_1')::integer);
-	v_node_2 := COALESCE((p_data -> 'data' -> 'parameters' ->> 'object_2')::integer, (p_data -> 'data' ->> 'object_2')::integer);
-	v_search_dist_routing := COALESCE(
-		(p_data -> 'data' -> 'parameters' ->> 'searchDistRouting')::integer,
-		(p_data -> 'data' ->> 'searchDistRouting')::integer,
-		999
+	v_node_1 := COALESCE(
+		(p_data -> 'data' -> 'parameters' ->> 'node_1')::integer,
+		(p_data -> 'data' -> 'parameters' ->> 'object_1')::integer,
+		(p_data -> 'data' ->> 'node_1')::integer,
+		(p_data -> 'data' ->> 'object_1')::integer
+	);
+	v_node_2 := COALESCE(
+		(p_data -> 'data' -> 'parameters' ->> 'node_2')::integer,
+		(p_data -> 'data' -> 'parameters' ->> 'object_2')::integer,
+		(p_data -> 'data' ->> 'node_2')::integer,
+		(p_data -> 'data' ->> 'object_2')::integer
 	);
 
 	IF v_node_1 IS NULL OR v_node_2 IS NULL THEN
 		RETURN gw_fct_json_create_return(('{"status":"Failed", "message":{"level":2, "text":"node_1 and node_2 are required"},
-			"version":"'||v_version||'","body":{"form":{},"data":{}}}')::json, 3547, null, null, null);
+			"version":"'||v_version||'","body":{"form":{},"data":{}}}')::json, 3560, null, null, null);
 	END IF;
 
 	IF v_node_1 = v_node_2 THEN
 		RETURN gw_fct_json_create_return(('{"status":"Failed", "message":{"level":2, "text":"node_1 and node_2 must be different"},
-			"version":"'||v_version||'","body":{"form":{},"data":{}}}')::json, 3547, null, null, null);
+			"version":"'||v_version||'","body":{"form":{},"data":{}}}')::json, 3560, null, null, null);
 	END IF;
 
 	IF EXISTS (
@@ -68,29 +68,12 @@ BEGIN
 		WHERE node_1 = v_node_1 AND node_2 = v_node_2
 	) THEN
 		RETURN gw_fct_json_create_return(('{"status":"Failed", "message":{"level":2, "text":"Scada graph edge already exists"},
-			"version":"'||v_version||'","body":{"form":{},"data":{}}}')::json, 3547, null, null, null);
+			"version":"'||v_version||'","body":{"form":{},"data":{}}}')::json, 3560, null, null, null);
 	END IF;
 
 	INSERT INTO om_scada_graph (node_1, node_2)
 	VALUES (v_node_1, v_node_2);
 
-	v_export_data := jsonb_set(
-		COALESCE(p_data::jsonb, '{}'::jsonb),
-		'{data,parameters}',
-		COALESCE(p_data -> 'data' -> 'parameters', '{}'::json)::jsonb
-			|| jsonb_build_object(
-				'node_1', v_node_1,
-				'node_2', v_node_2,
-				'searchDistRouting', v_search_dist_routing
-			)
-	)::json;
-
-	v_export_result := gw_fct_scada_graph_export(v_export_data);
-	IF v_export_result ->> 'status' IS DISTINCT FROM 'Accepted' THEN
-		RETURN v_export_result;
-	END IF;
-
-	-- Do not return export/check bodies: QGIS only needs edgeId. Full JSON stays in om_scada_graph_json.
 	RETURN gw_fct_json_create_return(json_build_object(
 		'status', 'Accepted',
 		'message', json_build_object('level', 1, 'text', 'Scada graph edge created successfully'),
@@ -102,7 +85,7 @@ BEGIN
 				'node_2', v_node_2
 			)
 		)
-	)::json, 3547, null, null, null);
+	)::json, 3560, null, null, null);
 
 EXCEPTION WHEN OTHERS THEN
 	GET STACKED DIAGNOSTICS v_error_context = pg_exception_context;
