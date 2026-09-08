@@ -517,7 +517,6 @@ BEGIN
 			LEFT JOIN node n2 ON n2.node_id = g.node_2
 			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
 			WHERE g.error_message IS NULL -- the layer contains active = TRUE AND the_geom IS NOT NULL AND also active = FALSE
-			) r
 			ORDER BY g.group_id, g.order_id
 			) r
 		) f;
