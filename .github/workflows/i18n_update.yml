@@ -64,7 +64,7 @@ jobs:
 
       - name: Build Docker images
         working-directory: dbmodel
-        run: docker compose -f docker-compose.test.yml build --quiet postgres runner
+        run: docker compose -f docker-compose.test.yml build postgres runner
 
       - name: Start Postgres
         working-directory: dbmodel
@@ -138,7 +138,7 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x test/*.sh ../scripts/gw_*.sh ../scripts/gw_bootstrap_network.sh ../scripts/verify_dbmodel_ci_checks.sh 2>/dev/null || chmod +x test/*.sh
-          docker compose -f docker-compose.test.yml build --quiet postgres runner
+          docker compose -f docker-compose.test.yml build postgres runner
           docker compose -f docker-compose.test.yml up -d postgres --wait
           docker compose -f docker-compose.test.yml run --rm -T \
             -e WS=ws_trans \

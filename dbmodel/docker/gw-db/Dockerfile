@@ -5,7 +5,9 @@ FROM postgis/postgis:${PG_MAJOR}-${POSTGIS_VERSION}
 
 ARG GW_DUMP=gw_ws.dump
 ARG GW_GLOBALS=gw_ws.globals.sql
-RUN apt-get update \
+# Check-Valid-Until=false: bullseye-security InRelease can lag Valid-Until and break apt
+# update in CI (exit 100) even when packages are fine.
+RUN apt-get -o Acquire::Check-Valid-Until=false update \
     && apt-get install -y --no-install-recommends \
        postgresql-${PG_MAJOR}-pgrouting \
        postgresql-${PG_MAJOR}-pgtap \

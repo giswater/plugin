@@ -48,7 +48,7 @@ jobs:
       - working-directory: dbmodel
         run: |
           chmod +x test/*.sh ../scripts/*.sh
-          docker compose -f docker-compose.test.yml build --quiet postgres runner
+          docker compose -f docker-compose.test.yml build postgres runner
           docker compose -f docker-compose.test.yml up -d postgres --wait
           docker compose -f docker-compose.test.yml run --rm -T runner \
             bash /workspace/dbmodel/test/e2e_inner.sh pgtap_addon utils
@@ -65,7 +65,7 @@ jobs:
       - working-directory: dbmodel
         run: |
           chmod +x test/*.sh ../scripts/*.sh
-          docker compose -f docker-compose.test.yml build --quiet postgres runner
+          docker compose -f docker-compose.test.yml build postgres runner
           docker compose -f docker-compose.test.yml up -d postgres --wait
           docker compose -f docker-compose.test.yml run --rm -T runner \
             bash /workspace/dbmodel/test/e2e_inner.sh pgtap_addon cibs
@@ -83,7 +83,7 @@ jobs:
       - working-directory: dbmodel
         run: |
           chmod +x test/*.sh ../scripts/*.sh
-          docker compose -f docker-compose.test.yml build --quiet postgres runner
+          docker compose -f docker-compose.test.yml build postgres runner
           docker compose -f docker-compose.test.yml up -d postgres --wait
           GW_PARENT_PROFILE="${PARENT_PROFILE}" docker compose -f docker-compose.test.yml run --rm -T runner \
             bash /workspace/dbmodel/test/e2e_inner.sh pgtap_network network_ws
@@ -101,7 +101,7 @@ jobs:
       - working-directory: dbmodel
         run: |
           chmod +x test/*.sh ../scripts/*.sh
-          docker compose -f docker-compose.test.yml build --quiet postgres runner
+          docker compose -f docker-compose.test.yml build postgres runner
           docker compose -f docker-compose.test.yml up -d postgres --wait
           GW_PARENT_PROFILE="${PARENT_PROFILE}" docker compose -f docker-compose.test.yml run --rm -T runner \
             bash /workspace/dbmodel/test/e2e_inner.sh pgtap_network network_ud
