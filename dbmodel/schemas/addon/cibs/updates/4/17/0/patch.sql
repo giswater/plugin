@@ -7,8 +7,8 @@ or (at your option) any later version.
 
 SET search_path = cibs, public, pg_catalog;
 
-ALTER TABLE cibs.hydrometer ADD brand_id varchar(50) NULL;
-ALTER TABLE cibs.hydrometer ADD model_id varchar(50) NULL;
+ALTER TABLE cibs.hydrometer ADD COLUMN IF NOT EXISTS brand_id varchar(50) NULL;
+ALTER TABLE cibs.hydrometer ADD COLUMN IF NOT EXISTS model_id varchar(50) NULL;
 
 CREATE OR REPLACE VIEW v_hydrometer AS
 SELECT * FROM cibs.hydrometer;
