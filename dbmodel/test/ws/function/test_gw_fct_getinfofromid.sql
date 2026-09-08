@@ -11,8 +11,8 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 24 test
-SELECT plan(24);
+-- Plan for 25 test
+SELECT plan(25);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -274,16 +274,21 @@ SELECT is(
     've_element_ecover INSERT ownercat_id defaults from exploitation.owner_vdefault'
 );
 
-INSERT INTO ve_element_ecover (elementcat_id, expl_id, code, the_geom)
-SELECT 'COVER40X40', 1, 'OWNERCAT_VDEFAULT_TEST', n.the_geom
-FROM node n
-WHERE n.expl_id = 1 AND n.the_geom IS NOT NULL
-LIMIT 1;
+SELECT lives_ok(
+    $ins$
+    INSERT INTO ve_element (elementcat_id, expl_id, code, state, state_type, the_geom)
+    SELECT 'COVER40X40', 1, 'OWNERCAT_VDEFAULT_TEST', 1, 2, ST_Translate(n.the_geom, 2.0, 2.0)
+    FROM node n
+    WHERE n.expl_id = 1 AND n.the_geom IS NOT NULL
+    LIMIT 1
+    $ins$,
+    've_element INSERT with owner_vdefault does not throw'
+);
 
 SELECT is(
     (SELECT e.ownercat_id FROM element e WHERE e.code = 'OWNERCAT_VDEFAULT_TEST'),
     'owner1',
-    've_element_ecover trigger fills ownercat_id from exploitation.owner_vdefault'
+    've_element trigger fills ownercat_id from exploitation.owner_vdefault'
 );
 
 -- Finish the test
