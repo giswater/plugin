@@ -33,9 +33,6 @@ DECLARE
     array_index integer DEFAULT 0;
     field_value character varying;
     v_querystring text;
-    v_debug_vars json;
-    v_debug json;
-    v_msgerr json;
     v_querytext text;
     v_mincutrec record;
     v_result_info json;
@@ -186,10 +183,7 @@ BEGIN
                         --find dvquerytext for combo
                         v_querystring = concat('SELECT dv_querytext FROM config_form_fields WHERE 
                         columnname::text = (',quote_literal(v_fields_array[array_index]),'::json->>''columnname'')::text
-                        and formname = ',quote_literal(p_table_id),';');
-                        v_debug_vars := json_build_object('v_fields_array[array_index]', v_fields_array[array_index], 'p_table_id', p_table_id);
-                        v_debug := json_build_object('querystring', v_querystring, 'vars', v_debug_vars, 'funcname', 'gw_fct_getfeatureupsert', 'flag', 100);
-                        SELECT gw_fct_debugsql(v_debug) INTO v_msgerr;
+                        and formname = ''mincut'';');
                         EXECUTE v_querystring INTO v_querytext;
 
                         v_querytext = replace(lower(v_querytext),'active is true','1=1');
@@ -197,9 +191,6 @@ BEGIN
                         --select values for missing id
                         v_querystring = concat('SELECT id, idval FROM (',v_querytext,')a
                         WHERE id::text = ',quote_literal(field_value),'');
-                        v_debug_vars := json_build_object('v_querytext', v_querytext, 'field_value', field_value);
-                        v_debug := json_build_object('querystring', v_querystring, 'vars', v_debug_vars, 'funcname', 'gw_fct_getfeatureupsert', 'flag', 110);
-                        SELECT gw_fct_debugsql(v_debug) INTO v_msgerr;
                         EXECUTE v_querystring INTO v_selected_id,v_selected_idval;
 
                         v_current_id =json_extract_path_text(v_fields_array[array_index],'comboIds');
