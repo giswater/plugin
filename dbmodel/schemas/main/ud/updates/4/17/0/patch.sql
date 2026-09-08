@@ -2814,3 +2814,78 @@ WHERE c.formtype = 'form_feature'
       AND o.layoutname = 'lyt_data_2'
       AND o.columnname <> 'expl_id'
   );
+
+
+CREATE OR REPLACE VIEW ve_pol_connec
+AS SELECT p.pol_id,
+    p.feature_id,
+    p.featurecat_id,
+    p.state,
+    p.sys_type,
+    p.the_geom,
+    p.trace_featuregeom,
+    c.state_type
+   FROM polygon p
+     JOIN connec c ON p.feature_id::text = c.connec_id::text
+     JOIN selector_expl se ON se.cur_user = CURRENT_USER AND se.expl_id = c.expl_id OR se.cur_user = CURRENT_USER AND (se.expl_id = ANY (c.expl_visibility))
+     JOIN selector_sector ss ON ss.cur_user = CURRENT_USER AND ss.sector_id = c.sector_id
+     JOIN selector_municipality sm ON sm.cur_user = CURRENT_USER AND sm.muni_id = c.muni_id;
+
+CREATE OR REPLACE VIEW ve_pol_element
+AS SELECT p.pol_id,
+    e.element_id,
+    p.the_geom,
+    p.trace_featuregeom,
+    p.featurecat_id,
+    p.state,
+    p.sys_type,
+    c.state_type
+   FROM polygon p
+     JOIN element e ON p.feature_id = e.element_id
+  WHERE (EXISTS ( SELECT 1
+           FROM selector_state ss
+          WHERE ss.state_id = e.state AND ss.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_state ss
+          WHERE ss.state_id = p.state AND ss.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_sector ssec
+          WHERE ssec.sector_id = e.sector_id AND ssec.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_municipality sm
+          WHERE sm.muni_id = e.muni_id AND sm.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_expl se
+          WHERE (se.expl_id = ANY (array_append(e.expl_visibility::integer[], e.expl_id))) AND se.cur_user = CURRENT_USER));
+
+CREATE OR REPLACE VIEW ve_pol_gully
+AS SELECT p.pol_id,
+    p.feature_id,
+    p.featurecat_id,
+    p.state,
+    p.sys_type,
+    p.the_geom,
+    g.fluid_type,
+    p.trace_featuregeom,
+    g.state_type
+   FROM polygon p
+     JOIN gully g ON p.feature_id = g.gully_id
+     JOIN selector_expl se ON se.cur_user = CURRENT_USER AND se.expl_id = g.expl_id OR se.cur_user = CURRENT_USER AND (se.expl_id = ANY (g.expl_visibility))
+     JOIN selector_sector ss ON ss.cur_user = CURRENT_USER AND ss.sector_id = g.sector_id
+     JOIN selector_municipality sm ON sm.cur_user = CURRENT_USER AND sm.muni_id = g.muni_id;
+
+CREATE OR REPLACE VIEW ve_pol_node
+AS SELECT p.pol_id,
+    p.feature_id,
+    p.featurecat_id,
+    p.state,
+    p.sys_type,
+    p.the_geom,
+    p.trace_featuregeom,
+    n.state_type
+   FROM polygon p
+     JOIN node n ON p.feature_id::text = n.node_id::text
+     JOIN selector_expl se ON se.cur_user = CURRENT_USER AND se.expl_id = n.expl_id OR se.cur_user = CURRENT_USER AND (se.expl_id = ANY (n.expl_visibility))
+     JOIN selector_sector ss ON ss.cur_user = CURRENT_USER AND ss.sector_id = n.sector_id
+     JOIN selector_municipality sm ON sm.cur_user = CURRENT_USER AND sm.muni_id = n.muni_id;
+
+DROP VIEW IF EXISTS ve_pol_chamber;
+DROP VIEW IF EXISTS ve_pol_netgully;
+DROP VIEW IF EXISTS ve_pol_storage;
+DROP VIEW IF EXISTS ve_pol_wwtp;

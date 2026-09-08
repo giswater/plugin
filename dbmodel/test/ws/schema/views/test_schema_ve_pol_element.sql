@@ -22,7 +22,7 @@ SELECT columns_are(
     've_pol_element',
     ARRAY[
         'pol_id', 'element_id', 'the_geom', 'trace_featuregeom', 'featurecat_id', 'state',
-        'sys_type'
+        'sys_type', 'state_type'
     ],
     'View ve_pol_element should have the correct columns'
 );
@@ -35,6 +35,7 @@ SELECT col_type_is('ve_pol_element', 'trace_featuregeom', 'bool', 'Column trace_
 SELECT col_type_is('ve_pol_element', 'featurecat_id', 'varchar(50)', 'Column featurecat_id should be varchar(50)');
 SELECT col_type_is('ve_pol_element', 'state', 'int2', 'Column state should be int2');
 SELECT col_type_is('ve_pol_element', 'sys_type', 'varchar(30)', 'Column sys_type should be varchar(30)');
+SELECT col_type_is('ve_pol_element', 'state_type', 'int2', 'Column state_type should be int2');
 
 SELECT * FROM finish();
 

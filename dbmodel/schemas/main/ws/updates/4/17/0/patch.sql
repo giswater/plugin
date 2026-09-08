@@ -2075,3 +2075,77 @@ SET filterparam = REPLACE(REPLACE(filterparam::text,
     '"columnname":"crm_startdate"', '"columnname":"startdate"'),
     '"columnname":"crm_enddate"', '"columnname":"enddate"')::json
 WHERE id IN (103, 104);
+
+
+CREATE OR REPLACE VIEW ve_pol_connec
+AS SELECT p.pol_id,
+    p.feature_id,
+    p.featurecat_id,
+    p.state,
+    p.sys_type,
+    p.the_geom,
+    p.trace_featuregeom
+    c.state_type
+   FROM polygon p
+     JOIN connec c ON p.feature_id = c.connec_id
+  WHERE (EXISTS ( SELECT 1
+           FROM selector_state ss
+          WHERE ss.state_id = c.state AND ss.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_state ss
+          WHERE ss.state_id = p.state AND ss.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_sector ssec
+          WHERE ssec.sector_id = c.sector_id AND ssec.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_municipality sm
+          WHERE sm.muni_id = c.muni_id AND sm.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_expl se
+          WHERE (se.expl_id = ANY (array_append(c.expl_visibility::integer[], c.expl_id))) AND se.cur_user = CURRENT_USER));
+
+CREATE OR REPLACE VIEW ve_pol_element
+AS SELECT p.pol_id,
+    e.element_id,
+    p.the_geom,
+    p.trace_featuregeom,
+    p.featurecat_id,
+    p.state,
+    p.sys_type,
+    e.state_type
+   FROM polygon p
+     JOIN element e ON p.feature_id = e.element_id
+  WHERE (EXISTS ( SELECT 1
+           FROM selector_state ss
+          WHERE ss.state_id = e.state AND ss.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_state ss
+          WHERE ss.state_id = p.state AND ss.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_sector ssec
+          WHERE ssec.sector_id = e.sector_id AND ssec.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_municipality sm
+          WHERE sm.muni_id = e.muni_id AND sm.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_expl se
+          WHERE (se.expl_id = ANY (array_append(e.expl_visibility::integer[], e.expl_id))) AND se.cur_user = CURRENT_USER));
+
+CREATE OR REPLACE VIEW ve_pol_node
+AS SELECT p.pol_id,
+    p.feature_id,
+    p.featurecat_id,
+    p.state,
+    p.sys_type,
+    p.the_geom,
+    p.trace_featuregeom,
+    n.state_type
+   FROM polygon p
+     JOIN node n ON p.feature_id = n.node_id
+  WHERE (EXISTS ( SELECT 1
+           FROM selector_state ss
+          WHERE ss.state_id = n.state AND ss.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_state ss
+          WHERE ss.state_id = p.state AND ss.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_sector ssec
+          WHERE ssec.sector_id = n.sector_id AND ssec.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_municipality sm
+          WHERE sm.muni_id = n.muni_id AND sm.cur_user = CURRENT_USER)) AND (EXISTS ( SELECT 1
+           FROM selector_expl se
+          WHERE (se.expl_id = ANY (array_append(n.expl_visibility, n.expl_id))) AND se.cur_user = CURRENT_USER));
+
+DROP VIEW IF EXISTS ve_pol_fountain;
+DROP VIEW IF EXISTS ve_pol_register;
+DROP VIEW IF EXISTS ve_pol_tank;
