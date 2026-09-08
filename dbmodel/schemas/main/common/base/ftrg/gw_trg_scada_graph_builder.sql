@@ -27,6 +27,7 @@ v_srid INTEGER;
 v_project_type TEXT;
 
 -- Vars
+v_message TEXT;
 
 -- Return
 
@@ -48,7 +49,13 @@ BEGIN
 				  AND g.node_2 = NEW.node_2
 				  AND TG_OP = 'INSERT'
 			) THEN
-				RAISE EXCEPTION 'Scada graph edge already exists for node_1=% and node_2=%', NEW.node_1, NEW.node_2
+				SELECT COALESCE(
+					(SELECT replace(replace(error_message, '%node_1%', NEW.node_1::text), '%node_2%', NEW.node_2::text)
+					 FROM v_sys_message WHERE id = 4746 LIMIT 1),
+					format('Scada graph edge already exists for node_1=%s and node_2=%s', NEW.node_1, NEW.node_2)
+				)
+				INTO v_message;
+				RAISE EXCEPTION '%', v_message
 					USING ERRCODE = 'unique_violation';
 			END IF;
 
@@ -113,7 +120,13 @@ BEGIN
 			END IF;
 
 			IF NOT EXISTS (SELECT 1 FROM temp_graph) THEN
-				RAISE EXCEPTION 'No network path between node_1=% and node_2=%', NEW.node_1, NEW.node_2;
+				SELECT COALESCE(
+					(SELECT replace(replace(error_message, '%node_1%', NEW.node_1::text), '%node_2%', NEW.node_2::text)
+					 FROM v_sys_message WHERE id = 4748 LIMIT 1),
+					format('No network path between node_1=%s and node_2=%s', NEW.node_1, NEW.node_2)
+				)
+				INTO v_message;
+				RAISE EXCEPTION '%', v_message;
 			END IF;
 
 			RETURN NEW;

@@ -1737,3 +1737,33 @@ ON CONFLICT (id) DO UPDATE SET
 INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
 VALUES (4694, 'Selected Hydrology dscenario does not exist or is not active: %hydrology_id%.',
 'Please select a valid hydrology dscenario in epa settings', 2, true, 'ud', 'core', 'UI');
+
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
+VALUES
+(4696, 'CHECK DATA QUALITY - OM_SCADA_GRAPH', NULL, 0, true, 'utils', 'core', 'UI'),
+(4700, 'Edges analysed: %v_count%', NULL, 0, true, 'utils', 'core', 'UI'),
+(4702, 'Valid geometry: %v_count%', NULL, 0, true, 'utils', 'core', 'UI'),
+(4704, 'Inconsistencies: %v_count%', NULL, 0, true, 'utils', 'core', 'UI'),
+(4706, 'No inconsistencies found.', NULL, 0, true, 'utils', 'core', 'UI'),
+(4708, 'JSON saved to table om_scada_graph_json', NULL, 0, true, 'utils', 'core', 'UI'),
+(4710, 'Data quality analysis done successfully', NULL, 0, true, 'utils', 'core', 'UI'),
+(4712, '1. node_1 and node_2 are missing', NULL, 1, true, 'utils', 'core', 'UI'),
+(4714, '1. node_1 is missing', NULL, 1, true, 'utils', 'core', 'UI'),
+(4716, '1. node_2 is missing', NULL, 1, true, 'utils', 'core', 'UI'),
+(4718, '2. node_1 and node_2 are obsolete', NULL, 1, true, 'utils', 'core', 'UI'),
+(4720, '2. node_1 is obsolete', NULL, 1, true, 'utils', 'core', 'UI'),
+(4722, '2. node_2 is obsolete', NULL, 1, true, 'utils', 'core', 'UI'),
+(4724, '3. node_1 and node_2 are orphan', NULL, 1, true, 'utils', 'core', 'UI'),
+(4726, '3. node_1 is orphan', NULL, 1, true, 'utils', 'core', 'UI'),
+(4728, '3. node_2 is orphan', NULL, 1, true, 'utils', 'core', 'UI'),
+(4730, '4. node_1 and node_2 without a valid connection', NULL, 1, true, 'utils', 'core', 'UI'),
+(4732, 'temp_om_scada_graph not found; call gw_fct_scada_graph_export from gw_fct_scada_graph_check', NULL, 2, true, 'utils', 'core', 'UI'),
+(4734, 'Network Graph generated from scada graph check', NULL, 0, true, 'utils', 'core', 'UI'),
+(4736, 'Network JSON graph successfully created', NULL, 0, true, 'utils', 'core', 'UI'),
+(4738, 'node_1 and node_2 are required', NULL, 2, true, 'utils', 'core', 'UI'),
+(4740, 'node_1 and node_2 must be different', NULL, 2, true, 'utils', 'core', 'UI'),
+(4742, 'Scada graph edge already exists', NULL, 2, true, 'utils', 'core', 'UI'),
+(4744, 'Scada graph edge created successfully', NULL, 0, true, 'utils', 'core', 'UI'),
+(4746, 'Scada graph edge already exists for node_1=%node_1% and node_2=%node_2%', NULL, 2, true, 'utils', 'core', 'UI'),
+(4748, 'No network path between node_1=%node_1% and node_2=%node_2%', NULL, 2, true, 'utils', 'core', 'UI')
+ON CONFLICT (id) DO NOTHING;

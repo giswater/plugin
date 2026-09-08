@@ -65,11 +65,58 @@ v_result_line_invalid JSON;
 v_result_line JSON;
 v_visible_layer TEXT;
 v_export_result JSON;
+v_msg_header TEXT;
+v_msg_edges TEXT;
+v_msg_valid TEXT;
+v_msg_inconsist TEXT;
+v_msg_no_inconsist TEXT;
+v_msg_json_saved TEXT;
+v_msg_done TEXT;
+v_msg_err_missing_both TEXT;
+v_msg_err_missing_1 TEXT;
+v_msg_err_missing_2 TEXT;
+v_msg_err_obsolete_both TEXT;
+v_msg_err_obsolete_1 TEXT;
+v_msg_err_obsolete_2 TEXT;
+v_msg_err_orphan_both TEXT;
+v_msg_err_orphan_1 TEXT;
+v_msg_err_orphan_2 TEXT;
+v_msg_err_nopath TEXT;
+v_msg_separator TEXT;
 
 BEGIN
 
 	-- Set search path to local schema
 	SET search_path = "SCHEMA_NAME", public;
+
+	SELECT
+		COALESCE(max(error_message) FILTER (WHERE id = 4696), 'CHECK DATA QUALITY - OM_SCADA_GRAPH'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4700), 'Edges analysed: %v_count%'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4702), 'Valid geometry: %v_count%'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4704), 'Inconsistencies: %v_count%'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4706), 'No inconsistencies found.'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4708), 'JSON saved to table om_scada_graph_json'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4710), 'Data quality analysis done successfully'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4712), '1. node_1 and node_2 are missing'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4714), '1. node_1 is missing'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4716), '1. node_2 is missing'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4718), '2. node_1 and node_2 are obsolete'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4720), '2. node_1 is obsolete'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4722), '2. node_2 is obsolete'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4724), '3. node_1 and node_2 are orphan'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4726), '3. node_1 is orphan'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4728), '3. node_2 is orphan'),
+		COALESCE(max(error_message) FILTER (WHERE id = 4730), '4. node_1 and node_2 without a valid connection')
+	INTO
+		v_msg_header, v_msg_edges, v_msg_valid, v_msg_inconsist, v_msg_no_inconsist,
+		v_msg_json_saved, v_msg_done, v_msg_err_missing_both, v_msg_err_missing_1, v_msg_err_missing_2,
+		v_msg_err_obsolete_both, v_msg_err_obsolete_1, v_msg_err_obsolete_2, v_msg_err_orphan_both,
+		v_msg_err_orphan_1, v_msg_err_orphan_2, v_msg_err_nopath
+	FROM v_sys_message
+	WHERE id IN (4696, 4700, 4702, 4704, 4706, 4708, 4710, 4712, 4714, 4716, 4718, 4720, 4722, 4724, 4726, 4728, 4730);
+
+	SELECT COALESCE((SELECT idval FROM v_sys_label WHERE id = 2030 LIMIT 1), '-------------------------------------')
+	INTO v_msg_separator;
 
 	-- Input data and init params
 	SELECT giswater, upper(project_type), epsg INTO v_version, v_project_type, v_srid FROM sys_version ORDER BY id DESC LIMIT 1;
@@ -326,13 +373,13 @@ BEGIN
 
 		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.node_1 = n.node_id)
 			AND NOT EXISTS (SELECT 1 FROM node n WHERE t.node_2 = n.node_id)
-		THEN '1. node_1 and node_2 are missing'
+		THEN v_msg_err_missing_both
 
 		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.node_1 = n.node_id)
-		THEN '1. node_1 is missing'
+		THEN v_msg_err_missing_1
 
 		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.node_2 = n.node_id)
-		THEN '1. node_2 is missing'
+		THEN v_msg_err_missing_2
 
 		WHEN EXISTS (
 			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
@@ -341,19 +388,19 @@ BEGIN
 			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
 			WHERE t.node_2 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
 		)
-		THEN '2. node_1 and node_2 are obsolete'
+		THEN v_msg_err_obsolete_both
 
 		WHEN EXISTS (
 			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
 			WHERE t.node_1 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
 		)
-		THEN '2. node_1 is obsolete'
+		THEN v_msg_err_obsolete_1
 
 		WHEN EXISTS (
 			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
 			WHERE t.node_2 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
 		)
-		THEN '2. node_2 is obsolete'
+		THEN v_msg_err_obsolete_2
 
 		WHEN NOT EXISTS (
 			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
@@ -364,24 +411,24 @@ BEGIN
 			WHERE a.state = 1 AND sa.is_operative = TRUE
 			AND (a.node_1 = t.node_2 OR a.node_2 = t.node_2)
 		)
-		THEN '3. node_1 and node_2 are orphan'
+		THEN v_msg_err_orphan_both
 
 		WHEN NOT EXISTS (
 			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
 			WHERE a.state = 1 AND sa.is_operative = TRUE
 			AND (a.node_1 = t.node_1 OR a.node_2 = t.node_1)
 		)
-		THEN '3. node_1 is orphan'
+		THEN v_msg_err_orphan_1
 
 		WHEN NOT EXISTS (
 			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
 			WHERE a.state = 1 AND sa.is_operative = TRUE
 			AND (a.node_1 = t.node_2 OR a.node_2 = t.node_2)
 		)
-		THEN '3. node_2 is orphan'
+		THEN v_msg_err_orphan_2
 
 		WHEN t.the_geom IS NULL
-		THEN '4. node_1 and node_2 without a valid connection'
+		THEN v_msg_err_nopath
 	END
 	WHERE t.active = TRUE;
 
@@ -514,16 +561,16 @@ BEGIN
 	END IF;
 
 	-- get errors info and results - line_invalid
-	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (1, null, 4, concat('CHECK DATA QUALITY - OM_SCADA_GRAPH'));
-	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (1, null, 4, '-------------------------------------');
+	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (1, null, 4, v_msg_header);
+	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (1, null, 4, v_msg_separator);
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
-	SELECT 1, null, 1, concat('Edges analysed: ', count(*)) FROM temp_om_scada_graph;
+	SELECT 1, null, 1, replace(v_msg_edges, '%v_count%', count(*)::text) FROM temp_om_scada_graph;
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
-	SELECT 1, null, 1, concat('Valid geometry: ', count(*))
+	SELECT 1, null, 1, replace(v_msg_valid, '%v_count%', count(*)::text)
 	FROM temp_om_scada_graph
 	WHERE the_geom IS NOT NULL AND error_message IS NULL;
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
-	SELECT 1, null, 1, concat('Inconsistencies: ', count(*))
+	SELECT 1, null, 1, replace(v_msg_inconsist, '%v_count%', count(*)::text)
 	FROM temp_om_scada_graph
 	WHERE error_message IS NOT NULL;
 
@@ -536,7 +583,12 @@ BEGIN
 
 	IF NOT EXISTS (SELECT 1 FROM temp_om_scada_graph WHERE error_message IS NOT NULL) THEN
 		INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
-		VALUES (1, null, 1, 'No inconsistencies found.');
+		VALUES (1, null, 1, v_msg_no_inconsist);
+	END IF;
+
+	IF v_commit_changes IS TRUE THEN
+		INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+		VALUES (1, null, 1, v_msg_json_saved);
 	END IF;
 
 	SELECT json_agg(row_to_json(row) ORDER BY row.id) INTO v_result
@@ -615,21 +667,18 @@ BEGIN
 	DROP TABLE IF EXISTS temp_graph;
 
 	-- Return
-	RETURN gw_fct_json_create_return(('{
-		"status":"Accepted",
-		"message":{
-			"level":1,
-			"text":"Data quality analysis done succesfully"
-		}, 
-		"version":"'||v_version||'",
-		"body":{
-			"form":{},
-			"data":{
-				"info":'||v_result_info||',
-				"line":'||v_result_line||'
-			}
-		}
-	}')::json, 3548, null, ('{"visible": [' || v_visible_layer || ']}')::json, null);
+	RETURN gw_fct_json_create_return(json_build_object(
+		'status', 'Accepted',
+		'message', json_build_object('level', 1, 'text', v_msg_done),
+		'version', v_version,
+		'body', json_build_object(
+			'form', '{}'::json,
+			'data', json_build_object(
+				'info', v_result_info::json,
+				'line', v_result_line
+			)
+		)
+	)::json, 3548, null, ('{"visible": [' || COALESCE(v_visible_layer, '') || ']}')::json, null);
 
 	-- Exception handling
 	EXCEPTION WHEN OTHERS THEN

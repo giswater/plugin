@@ -33,6 +33,7 @@ v_node_1 integer;
 v_node_2 integer;
 v_version text;
 v_error_context text;
+v_message text;
 
 BEGIN
 
@@ -54,29 +55,62 @@ BEGIN
 	);
 
 	IF v_node_1 IS NULL OR v_node_2 IS NULL THEN
-		RETURN gw_fct_json_create_return(('{"status":"Failed", "message":{"level":2, "text":"node_1 and node_2 are required"},
-			"version":"'||v_version||'","body":{"form":{},"data":{}}}')::json, 3560, null, null, null);
+		SELECT COALESCE(
+			(SELECT error_message FROM v_sys_message WHERE id = 4738 LIMIT 1),
+			'node_1 and node_2 are required'
+		)
+		INTO v_message;
+		RETURN gw_fct_json_create_return(json_build_object(
+			'status', 'Failed',
+			'message', json_build_object('level', 2, 'text', v_message),
+			'version', v_version,
+			'body', json_build_object('form', '{}'::json, 'data', '{}'::json)
+		)::json, 3560, null, null, null);
 	END IF;
 
 	IF v_node_1 = v_node_2 THEN
-		RETURN gw_fct_json_create_return(('{"status":"Failed", "message":{"level":2, "text":"node_1 and node_2 must be different"},
-			"version":"'||v_version||'","body":{"form":{},"data":{}}}')::json, 3560, null, null, null);
+		SELECT COALESCE(
+			(SELECT error_message FROM v_sys_message WHERE id = 4740 LIMIT 1),
+			'node_1 and node_2 must be different'
+		)
+		INTO v_message;
+		RETURN gw_fct_json_create_return(json_build_object(
+			'status', 'Failed',
+			'message', json_build_object('level', 2, 'text', v_message),
+			'version', v_version,
+			'body', json_build_object('form', '{}'::json, 'data', '{}'::json)
+		)::json, 3560, null, null, null);
 	END IF;
 
 	IF EXISTS (
 		SELECT 1 FROM om_scada_graph
 		WHERE node_1 = v_node_1 AND node_2 = v_node_2
 	) THEN
-		RETURN gw_fct_json_create_return(('{"status":"Failed", "message":{"level":2, "text":"Scada graph edge already exists"},
-			"version":"'||v_version||'","body":{"form":{},"data":{}}}')::json, 3560, null, null, null);
+		SELECT COALESCE(
+			(SELECT error_message FROM v_sys_message WHERE id = 4742 LIMIT 1),
+			'Scada graph edge already exists'
+		)
+		INTO v_message;
+		RETURN gw_fct_json_create_return(json_build_object(
+			'status', 'Failed',
+			'message', json_build_object('level', 2, 'text', v_message),
+			'version', v_version,
+			'body', json_build_object('form', '{}'::json, 'data', '{}'::json)
+		)::json, 3560, null, null, null);
 	END IF;
 
 	INSERT INTO om_scada_graph (node_1, node_2)
 	VALUES (v_node_1, v_node_2);
 
+	SELECT COALESCE(
+		(SELECT error_message FROM v_sys_message WHERE id = 4744 LIMIT 1),
+		'Scada graph edge created successfully'
+	)
+	INTO v_message;
+
 	RETURN gw_fct_json_create_return(json_build_object(
 		'status', 'Accepted',
-		'message', json_build_object('level', 1, 'text', 'Scada graph edge created successfully'),
+		'message', json_build_object('level', 1, 'text', v_message),
 		'version', v_version,
 		'body', json_build_object(
 			'form', '{}'::json,

@@ -29,13 +29,23 @@ v_json_result_return json;
 v_result JSON;
 v_result_info JSON;
 v_error_context text;
+v_message text;
 BEGIN
 
 	SET search_path = "SCHEMA_NAME", public;
 
 	IF to_regclass('pg_temp.temp_om_scada_graph') IS NULL THEN
-		RETURN gw_fct_json_create_return(('{"status":"Failed", "message":{"level":2, "text":"temp_om_scada_graph not found; call gw_fct_scada_graph_export from gw_fct_scada_graph_check"}, "version":""'||
-			',"body":{"form":{},"data":{}}}')::json, 3546, null, null, null);
+		SELECT COALESCE(
+			(SELECT error_message FROM v_sys_message WHERE id = 4732 LIMIT 1),
+			'temp_om_scada_graph not found; call gw_fct_scada_graph_export from gw_fct_scada_graph_check'
+		)
+		INTO v_message;
+		RETURN gw_fct_json_create_return(json_build_object(
+			'status', 'Failed',
+			'message', json_build_object('level', 2, 'text', v_message),
+			'version', '',
+			'body', json_build_object('form', '{}'::json, 'data', '{}'::json)
+		)::json, 3546, null, null, null);
 	END IF;
 
 	SELECT "date" INTO v_schema_date FROM sys_version ORDER BY giswater DESC LIMIT 1;
@@ -108,15 +118,32 @@ BEGIN
 	SET om_scada_graph_json = excluded.om_scada_graph_json,
 		update_tstamp = now();
 
+	SELECT COALESCE(
+		(SELECT error_message FROM v_sys_message WHERE id = 4734 LIMIT 1),
+		'Network Graph generated from scada graph check'
+	)
+	INTO v_message;
+
 	SELECT array_to_json(array_agg(row_to_json(row))) INTO v_result
-	FROM (SELECT 1, 'Network Graph generated from scada graph check' as message) row;
+	FROM (SELECT 1, v_message as message) row;
 	v_result := COALESCE(v_result, '{}');
 	v_result_info = concat ('{"geometryType":"", "values":',v_result, '}');
 
-	RETURN gw_fct_json_create_return(('{"status":"Accepted", "message":{"level":1, "text":"Network JSON graph successfully created"}, "version":""'||
-				',"body":{"form":{}'||
-				',"data":{  "info":'||v_result_info||'}}'||
-			'}')::json, 3546, null, null, null);
+	SELECT COALESCE(
+		(SELECT error_message FROM v_sys_message WHERE id = 4736 LIMIT 1),
+		'Network JSON graph successfully created'
+	)
+	INTO v_message;
+
+	RETURN gw_fct_json_create_return(json_build_object(
+		'status', 'Accepted',
+		'message', json_build_object('level', 1, 'text', v_message),
+		'version', '',
+		'body', json_build_object(
+			'form', '{}'::json,
+			'data', json_build_object('info', v_result_info::json)
+		)
+	)::json, 3546, null, null, null);
 
 EXCEPTION WHEN OTHERS THEN
 	GET STACKED DIAGNOSTICS v_error_context = pg_exception_context;
