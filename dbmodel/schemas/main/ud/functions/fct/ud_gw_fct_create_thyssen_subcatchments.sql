@@ -95,8 +95,8 @@ BEGIN
 		SELECT concat(''S'', b.node_id), b.node_id, b.sector_id, b.muni_id, '||v_hyd||', ''flag_create_subcatchments'', st_intersection(a.the_geom, m.the_geom) FROM mec a 
 		JOIN node b ON st_intersects(a.the_geom, b.the_geom)
 		JOIN '||v_clip_table||' m USING ('||lower(v_clip)||'_id)
-		JOIN vf_node vf ON b.node_id = vf.node_id
 		WHERE b.epa_type = ''JUNCTION''
+		AND state = 1
 		ON CONFLICT DO NOTHING';
 
 		
