@@ -736,13 +736,13 @@ class GwImportSwmm:
                 combo.insertSeparator(combo.count())
                 title = "Recommended catalogs:"
                 combo.addItem(tools_qt.tr(title))
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(element_catalog)
             if len(db_catalog) > len(element_catalog):
                 combo.insertSeparator(combo.count())
                 title = "Other catalogs:"
                 combo.addItem(tools_qt.tr(title))
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(cat for cat in db_catalog if cat not in element_catalog)
             combo.setCurrentText(old_value)
 
@@ -760,13 +760,13 @@ class GwImportSwmm:
                     combo.insertSeparator(combo.count())
                     title = "Recommended catalogs:"
                     combo.addItem(tools_qt.tr(title))
-                    combo.model().item(combo.count() - 1).setEnabled(False)
+                    tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                     combo.addItems(pipe_catalog)
                 if len(self.catalogs.db_arcs) > len(pipe_catalog):
                     combo.insertSeparator(combo.count())
                     title = "Other catalogs:"
                     combo.addItem(tools_qt.tr(title))
-                    combo.model().item(combo.count() - 1).setEnabled(False)
+                    tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                     combo.addItems(
                         cat for cat in self.catalogs.db_arcs if cat not in pipe_catalog
                     )
@@ -787,13 +787,13 @@ class GwImportSwmm:
                 combo.insertSeparator(combo.count())
                 title = "Recommended materials:"
                 combo.addItem(tools_qt.tr(title))   
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(material_catalog)
             if len(self.catalogs.db_materials) > len(material_catalog):
                 combo.insertSeparator(combo.count())
                 title = "Other materials:"
                 combo.addItem(tools_qt.tr(title))
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(
                     mat
                     for mat in self.catalogs.db_materials
@@ -833,13 +833,13 @@ class GwImportSwmm:
                 combo.insertSeparator(combo.count())
                 title = "Recommended feature ids:"
                 combo.addItem(tools_qt.tr(title))
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(feat_catalog)
             if len(system_catalog) > len(feat_catalog):
                 combo.insertSeparator(combo.count())
                 title = "Other feature ids:"
                 combo.addItem(tools_qt.tr(title))
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(
                     feat for feat in system_catalog if feat not in feat_catalog
                 )

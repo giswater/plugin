@@ -20,7 +20,7 @@ from qgis.PyQt.QtCore import (
     Qt,
     QTimer,
 )
-from qgis.PyQt.QtGui import QColor, QKeyEvent
+from qgis.PyQt.QtGui import QColor, QKeyEvent, QPalette
 from qgis.PyQt.QtWidgets import (
     QApplication,
     QBoxLayout,
@@ -46,6 +46,11 @@ from ..threads.combo_loader import GwComboLoaderTask, get_combo_rows_cached
 # Pair of (id, idval) strings stored per row. Tuples are cheap and immutable.
 _ComboRow = Tuple[str, str]
 
+# QStandardItemModel stores flags at UserRole-1. tools_qt.set_combo_item_*
+# writes that role via setData; honor it so async combos can disable headers.
+_FLAGS_ROLE = int(Qt.ItemDataRole.UserRole) - 1
+_DEFAULT_FLAGS = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+
 
 class _ComboListModel(QAbstractListModel):
     """Lightweight list model backed by a Python list of `(id, idval)` tuples.
@@ -61,11 +66,15 @@ class _ComboListModel(QAbstractListModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._rows: List[_ComboRow] = []
+        self._flags: List[Optional[int]] = []
+        self._separators = set()
 
     # region Model API used internally
     def set_rows(self, rows: Sequence[_ComboRow]) -> None:
         self.beginResetModel()
         self._rows = list(rows)
+        self._flags = [None] * len(self._rows)
+        self._separators = set()
         self.endResetModel()
 
     def get_rows(self) -> List[_ComboRow]:
@@ -91,12 +100,40 @@ class _ComboListModel(QAbstractListModel):
             # Keep `[id, idval]` as a list so existing code that does
             # `combo.itemData(i)[0]` (tools_qt.get_combo_value) keeps working.
             return [item[0], item[1]]
+        if int(role) == int(Qt.ItemDataRole.AccessibleDescriptionRole):
+            return "separator" if row in self._separators else None
         return None
+
+    def setData(self, index: QModelIndex, value, role: int = Qt.ItemDataRole.EditRole) -> bool:  # noqa: N802
+        if not index.isValid():
+            return False
+        row = index.row()
+        if row < 0 or row >= len(self._rows):
+            return False
+        if int(role) == _FLAGS_ROLE:
+            self._flags[row] = None if value is None else int(value)
+            self.dataChanged.emit(index, index)
+            return True
+        if int(role) == int(Qt.ItemDataRole.AccessibleDescriptionRole):
+            if value == "separator":
+                self._separators.add(row)
+                self._flags[row] = 0
+            else:
+                self._separators.discard(row)
+            self.dataChanged.emit(index, index)
+            return True
+        return False
 
     def flags(self, index: QModelIndex):
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
-        return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+        row = index.row()
+        if 0 <= row < len(self._flags) and self._flags[row] is not None:
+            stored = self._flags[row]
+            if stored == 0:
+                return Qt.ItemFlag.NoItemFlags
+            return Qt.ItemFlag(stored)
+        return _DEFAULT_FLAGS
 
     def removeRows(self, row: int, count: int, parent: QModelIndex = QModelIndex()) -> bool:  # noqa: N802 - Qt API
         if parent.isValid() or row < 0 or count <= 0:
@@ -105,13 +142,28 @@ class _ComboListModel(QAbstractListModel):
             return False
         self.beginRemoveRows(parent, row, row + count - 1)
         del self._rows[row:row + count]
+        del self._flags[row:row + count]
+        new_seps = set()
+        for sep in self._separators:
+            if sep < row:
+                new_seps.add(sep)
+            elif sep >= row + count:
+                new_seps.add(sep - count)
+        self._separators = new_seps
         self.endRemoveRows()
         return True
 
     def append_row(self, row: _ComboRow) -> None:
+        self.append_rows((row,))
+
+    def append_rows(self, rows: Sequence[_ComboRow]) -> None:
+        if not rows:
+            return
         position = len(self._rows)
-        self.beginInsertRows(QModelIndex(), position, position)
-        self._rows.append(row)
+        last = position + len(rows) - 1
+        self.beginInsertRows(QModelIndex(), position, last)
+        self._rows.extend(rows)
+        self._flags.extend([None] * len(rows))
         self.endInsertRows()
     # endregion
 
@@ -140,6 +192,7 @@ _QWIDGETSIZE_MAX = 16777215
 
 _STATE_SELECTED = QStyle.StateFlag.State_Selected
 _STATE_MOUSEOVER = QStyle.StateFlag.State_MouseOver
+_STATE_ENABLED = QStyle.StateFlag.State_Enabled
 _ENSURE_VISIBLE = QListView.ScrollHint.EnsureVisible
 
 
@@ -318,6 +371,17 @@ class _ComboItemDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):  # noqa: N802 - Qt API
         opt = QStyleOptionViewItem(option)
         self.initStyleOption(opt, index)
+        if index.data(Qt.ItemDataRole.AccessibleDescriptionRole) == "separator":
+            painter.save()
+            painter.fillRect(opt.rect, opt.palette.base())
+            y = opt.rect.center().y()
+            painter.setPen(opt.palette.mid().color())
+            painter.drawLine(
+                opt.rect.left() + _ITEM_H_PAD, y,
+                opt.rect.right() - _ITEM_H_PAD, y,
+            )
+            painter.restore()
+            return
         icon = opt.icon
         try:
             has_icon = icon is not None and not icon.isNull()
@@ -327,16 +391,21 @@ class _ComboItemDelegate(QStyledItemDelegate):
             super().paint(painter, option, index)
             return
         text = '' if index.data() is None else str(index.data())
-        selected = bool(opt.state & _STATE_SELECTED)
-        hovered = bool(opt.state & _STATE_MOUSEOVER)
+        enabled = bool(opt.state & _STATE_ENABLED)
+        selected = enabled and bool(opt.state & _STATE_SELECTED)
+        hovered = enabled and bool(opt.state & _STATE_MOUSEOVER)
 
         painter.save()
         painter.setFont(opt.font)
+        painter.fillRect(opt.rect, opt.palette.base())
         if selected:
             painter.fillRect(opt.rect, opt.palette.highlight())
             painter.setPen(opt.palette.highlightedText().color())
+        elif not enabled:
+            painter.setPen(opt.palette.color(
+                QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text
+            ))
         else:
-            painter.fillRect(opt.rect, opt.palette.base())
             if hovered:
                 hover = QColor(opt.palette.highlight().color())
                 hover.setAlpha(38)
@@ -1200,11 +1269,29 @@ class GwAsyncComboBox(QComboBox):
         row_id, row_idval = self._row_from_user_data(text, user_data)
         self._list_model.append_row((row_id, row_idval))
 
+    def addItems(self, texts):  # noqa: N802 - Qt API
+        # C++ addItems() talks to the model via insertRows/setData, which this
+        # read-mostly model does not implement. Route through append_rows.
+        if not texts:
+            return
+        rows = [self._row_from_user_data(text, None) for text in texts]
+        self._list_model.append_rows(rows)
+
     def insertItem(self, *_args, **_kwargs):  # noqa: N802 - Qt API
         # Treat as append; we don't support arbitrary insertion points.
         text, user_data = self._extract_text_and_data(_args[1:], _kwargs)
         row_id, row_idval = self._row_from_user_data(text, user_data)
         self._list_model.append_row((row_id, row_idval))
+
+    def insertSeparator(self, _index):  # noqa: N802 - Qt API
+        # C++ insertSeparator() qobject_casts to QStandardItemModel. Append a
+        # disabled empty row and mark it so the delegate paints a hairline.
+        self._list_model.append_row(('', ''))
+        model_index = self._list_model.index(self._list_model.rowCount() - 1, 0)
+        self._list_model.setData(model_index, 0, _FLAGS_ROLE)
+        self._list_model.setData(
+            model_index, "separator", Qt.ItemDataRole.AccessibleDescriptionRole
+        )
 
     def clear(self):
         self._list_model.set_rows([])
