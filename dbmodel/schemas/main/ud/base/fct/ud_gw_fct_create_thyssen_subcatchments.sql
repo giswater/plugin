@@ -22,7 +22,8 @@ DECLARE
   v_fid integer := 640;
   v_sql text;
   v_fprocessname TEXT;
- v_clip_table TEXT;
+  v_clip_table TEXT;
+  v_error_context text;
 BEGIN
 
 	-- Set search path to local schema
@@ -31,6 +32,10 @@ BEGIN
 	-- get input variables
 	SELECT giswater, epsg INTO v_version, v_srid FROM sys_version ORDER BY id DESC LIMIT 1;
 	SELECT "value" INTO v_hyd FROM config_param_user WHERE "parameter" = 'inp_options_hydrology_current';
+
+	IF v_hyd IS NULL OR v_hyd NOT IN (SELECT hydrology_id FROM cat_hydrology WHERE active IS TRUE) THEN
+		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4694", "function":"3360", "fid":"'||v_fid||'","criticity":"3", "parameters":{"hydrology_id":"'||v_hyd||'"}}}$$)';-- CRITICAL ERRORS
+	END IF;
 
 	v_clip := (p_data->'data'->'parameters'->>'clipLayer')::text;
 	v_delete_previous := (p_data->'data'->'parameters'->>'deletePrevious')::boolean;
@@ -43,9 +48,9 @@ BEGIN
 	EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"fid":"'||v_fid||'", "project_type":"UD", "action":"CREATE", "group":"LOG"}}}$$)';
 
     INSERT INTO t_audit_check_data (fid, cur_user, criticity, error_message) VALUES (v_fid, current_user, 4, v_fprocessname);
-	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4338", "function":"3142", "fid":"'||v_fid||'","criticity":"3", "tempTable":"t_", "cur_user":"current_user", "is_process":true, "is_header":true, "label_id":"1004"}}$$)';-- CRITICAL ERRORS
-	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4338", "function":"3142", "fid":"'||v_fid||'","criticity":"2", "tempTable":"t_", "cur_user":"current_user", "is_process":true, "is_header":true, "label_id":"3002"}}$$)';-- WARNINGS
-	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4338", "function":"3142", "fid":"'||v_fid||'","criticity":"1", "tempTable":"t_", "cur_user":"current_user", "is_process":true, "is_header":true, "label_id":"3001"}}$$)';-- INFO
+	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4338", "function":"3360", "fid":"'||v_fid||'","criticity":"3", "tempTable":"t_", "cur_user":"current_user", "is_process":true, "is_header":true, "label_id":"1004"}}$$)';-- CRITICAL ERRORS
+	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4338", "function":"3360", "fid":"'||v_fid||'","criticity":"2", "tempTable":"t_", "cur_user":"current_user", "is_process":true, "is_header":true, "label_id":"3002"}}$$)';-- WARNINGS
+	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4338", "function":"3360", "fid":"'||v_fid||'","criticity":"1", "tempTable":"t_", "cur_user":"current_user", "is_process":true, "is_header":true, "label_id":"3001"}}$$)';-- INFO
 	INSERT INTO t_audit_check_data (fid, cur_user, criticity, error_message) VALUES (v_fid, current_user, 4, '-------------------------------');
 	INSERT INTO t_audit_check_data (fid, cur_user, criticity, error_message) VALUES (v_fid, current_user, 4, ''); 
 
@@ -180,6 +185,10 @@ BEGIN
 		'{"status":"Accepted","message":{"level":1,"text":"Analysis done successfully"},"version":"'
 		|| v_version || '","body":{"form":{},"data":{"info":' || v_result_info || '}}}'
 	)::json, 3360, NULL, NULL, NULL);
+
+	EXCEPTION WHEN OTHERS THEN
+	GET STACKED DIAGNOSTICS v_error_context = PG_EXCEPTION_CONTEXT;
+	RETURN gw_fct_exception_others('Failed', SQLERRM, SQLSTATE, SQLERRM, v_error_context);
 
 END;
 $function$

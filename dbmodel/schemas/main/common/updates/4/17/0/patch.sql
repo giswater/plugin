@@ -1732,3 +1732,8 @@ ON CONFLICT (id) DO UPDATE SET
 	inputparams = EXCLUDED.inputparams,
 	active = EXCLUDED.active,
 	device = EXCLUDED.device;
+
+
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
+VALUES (4694, 'Selected Hydrology dscenario does not exist or is not active: %hydrology_id%.',
+'Please select a valid hydrology dscenario in epa settings', 2, true, 'ud', 'core', 'UI');
