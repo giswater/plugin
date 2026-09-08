@@ -308,7 +308,7 @@ BEGIN
 
 	-- order_id
 	UPDATE temp_om_scada_graph t
-	SET order_id = t.order_id
+	SET order_id = g.order_id
 	FROM (
 		SELECT pred as node_id, max(agg_cost) AS order_id
 		FROM pgr_drivingDistance(v_query_text, v_pgr_root_vids, v_pgr_distance, directed := true)
