@@ -11,8 +11,8 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 20 test
-SELECT plan(20);
+-- Plan for 22 test
+SELECT plan(22);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -202,6 +202,43 @@ SELECT is(
      WHERE f->>'columnname' = 'sector_id'),
     'false',
     've_sector INSERT sector_id is not editable'
+);
+
+-- GENELEM identified from parent ve_element must get Set Geom, not Set To Arc
+SELECT ok(
+    EXISTS (
+        SELECT 1
+        FROM json_array_elements((
+            gw_fct_getinfofromid(format(
+                $json${"client":{"device":4,"lang":"es_ES","infoType":1,"epsg":25831},"form":{},"feature":{"tableName":"ve_element","id":"%s"},"data":{}}$json$,
+                (SELECT e.element_id FROM ve_element e
+                 JOIN cat_feature cf ON cf.id = e.element_type
+                 WHERE cf.feature_class = 'GENELEM' LIMIT 1)
+            ))::json
+        )->'body'->'form'->'visibleTabs') t
+        CROSS JOIN LATERAL json_array_elements(COALESCE(t->'tabactions', '[]'::json)) a
+        WHERE t->>'tabName' = 'tab_data'
+          AND a->>'actionName' = 'actionSetGeom'
+    ),
+    'GENELEM info from ve_element parent includes actionSetGeom'
+);
+
+SELECT ok(
+    NOT EXISTS (
+        SELECT 1
+        FROM json_array_elements((
+            gw_fct_getinfofromid(format(
+                $json${"client":{"device":4,"lang":"es_ES","infoType":1,"epsg":25831},"form":{},"feature":{"tableName":"ve_element","id":"%s"},"data":{}}$json$,
+                (SELECT e.element_id FROM ve_element e
+                 JOIN cat_feature cf ON cf.id = e.element_type
+                 WHERE cf.feature_class = 'GENELEM' LIMIT 1)
+            ))::json
+        )->'body'->'form'->'visibleTabs') t
+        CROSS JOIN LATERAL json_array_elements(COALESCE(t->'tabactions', '[]'::json)) a
+        WHERE t->>'tabName' = 'tab_data'
+          AND a->>'actionName' = 'actionSetToArc'
+    ),
+    'GENELEM info from ve_element parent does not include actionSetToArc'
 );
 
 -- Finish the test

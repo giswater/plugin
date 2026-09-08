@@ -379,6 +379,9 @@ class GwInfo(QObject):
                 msg_params = (widget_name,)
                 tools_qgis.show_message(msg, dialog=dialog, msg_params=msg_params)
                 return
+        action.setCheckable(True)
+        action.setChecked(True)
+
         # Block the signals of de dialog so that the key ESC does not close it
         dialog.blockSignals(True)
 
@@ -603,9 +606,11 @@ class GwInfo(QObject):
         dlg_cf, fid = self._manage_actions_signals(complet_result, list_points, new_feature, tab_type, result)
 
         self._show_actions(self.dlg_cf, 'tab_data')
-        if self.new_feature_id is not None and self.feature_type not in ('element'):
+        if self.new_feature_id is not None:
             self._enable_action(self.dlg_cf, "actionCentered", False)
-            self._enable_action(self.dlg_cf, "actionSetToArc", False)
+            # FRELEM keeps Set To Arc (visible from tabactions); GENELEM must not get it
+            if not (self.action_set_to_arc and self.action_set_to_arc.isVisible()):
+                self._enable_action(self.dlg_cf, "actionSetToArc", False)
 
         btn_cancel = self.dlg_cf.findChild(QPushButton, 'btn_cancel')
         btn_accept = self.dlg_cf.findChild(QPushButton, 'btn_accept')
@@ -716,6 +721,8 @@ class GwInfo(QObject):
         self.action_workcat = self.dlg_cf.findChild(QAction, "actionWorkcat")
         self.action_mapzone = self.dlg_cf.findChild(QAction, "actionMapZone")
         self.action_set_to_arc = self.dlg_cf.findChild(QAction, "actionSetToArc")
+        if self.action_set_to_arc:
+            self.action_set_to_arc.setCheckable(True)
         self.action_get_arc_id = self.dlg_cf.findChild(QAction, "actionGetArcId")
         self.action_get_parent_id = self.dlg_cf.findChild(QAction, "actionGetParentId")
         self.action_centered = self.dlg_cf.findChild(QAction, "actionCentered")
@@ -1628,7 +1635,8 @@ class GwInfo(QObject):
         # Therefore whenever the cursor enters a widget, it will ask if we want to save changes
         if not action_edit.isChecked() or from_apply:
             self._get_last_value(dialog, generic)
-            if str(self.my_json) == '{}' and str(self.my_json_epa) == '{}':
+            geom_pending = self.point_xy.get('x') is not None
+            if str(self.my_json) == '{}' and str(self.my_json_epa) == '{}' and not geom_pending:
                 tools_qt.set_action_checked(action_edit, False)
                 tools_gw.enable_widgets(dialog, self.complet_result['body']['data'], False)
                 if self.epa_complet_result:
@@ -1690,7 +1698,8 @@ class GwInfo(QObject):
 
     def _stop_editing(self, dialog, action_edit, layer, fid, my_json, new_feature=None):
 
-        if (my_json == '' or str(my_json) == '{}') and (self.my_json_epa == '' or str(self.my_json_epa) == '{}'):
+        if ((my_json == '' or str(my_json) == '{}') and (self.my_json_epa == '' or str(self.my_json_epa) == '{}')
+                and self.point_xy.get('x') is None):
             QgsProject.instance().blockSignals(True)
             tools_qt.set_action_checked(action_edit, False)
             tools_gw.enable_widgets(dialog, self.complet_result['body']['data'], False)
@@ -1831,6 +1840,8 @@ class GwInfo(QObject):
         newfeature_id = complet_result['body']['feature']['id']
         list_mandatory = []
         skip_mandatory = bool(_json) and set(_json.keys()) == {'epa_type'}
+        if self.point_xy.get('x') is not None and (not _json or str(_json) == '{}'):
+            skip_mandatory = True
         # Manage autoupdate and mandatory widgets
         fields_reload = self._manage_autoupdate_and_mandatory_widgets(dialog, complet_result, p_widget, list_mandatory)
 
@@ -1860,7 +1871,10 @@ class GwInfo(QObject):
                 self.new_feature_id = None
                 self._enable_action(dialog, "actionCentered", True)
                 self._enable_action(dialog, "actionAudit", True)
-                self._enable_action(dialog, "actionSetToArc", True)
+                if self.action_set_to_arc and self.action_set_to_arc.isVisible():
+                    self._enable_action(dialog, "actionSetToArc", True)
+                if self.action_set_geom and self.action_set_geom.isVisible():
+                    self._enable_action(dialog, "actionSetGeom", True)
                 global is_inserting  # noqa: F824
                 is_inserting = False
 
@@ -1924,10 +1938,6 @@ class GwInfo(QObject):
                     self.epa_type = str(new_epa_type_value)
                     self._reload_epa_tab(dialog)
 
-                # Update geometry field (if user have selected a point)
-                if self.point_xy['x'] is not None:
-                    self._update_geom(p_table_id, id_name, newfeature_id)
-
                 if thread:
                     # If param is true show question and create thread
                     msg = "You closed a valve, this will modify the current mapzones and it may take a little bit of time."
@@ -1964,6 +1974,10 @@ class GwInfo(QObject):
             self._reset_my_json_epa()
             if not json_result or "Failed" in json_result['status']:
                 return False
+
+        # Update geometry even when no other fields changed (Set Geom on GENELEM)
+        if self.point_xy.get('x') is not None:
+            self._update_geom(p_table_id, id_name, newfeature_id)
 
         # Force a map refresh
         tools_qgis.refresh_map_canvas()  # First refresh all the layers
@@ -3299,15 +3313,39 @@ class GwInfo(QObject):
         """ Capture point XY from the canvas """
         self.snapper_manager.add_point(self.vertex_marker)
         self.point_xy = self.snapper_manager.point_xy
+        if self.point_xy.get('x') is None or not self.complet_result:
+            return
+        self.complet_result['body']['feature']['geometry'] = {
+            'x': self.point_xy['x'],
+            'y': self.point_xy['y'],
+            'st_astext': f"POINT({self.point_xy['x']} {self.point_xy['y']})"
+        }
+        tools_gw.reset_rubberband(self.rubber_band)
+        tools_gw.draw_by_json(self.complet_result, self.rubber_band)
 
     def _update_geom(self, table_id, id_name, newfeature_id):
         """ Update geometry field """
 
         srid = lib_vars.data_epsg
-        sql = (f"UPDATE {table_id}"
-               f" SET the_geom = ST_SetSRID(ST_MakePoint({self.point_xy['x']},{self.point_xy['y']}), {srid})"
-               f" WHERE {id_name} = {newfeature_id}")
+        sql = (
+            f"UPDATE {table_id}"
+            f" SET the_geom = ST_SetSRID(ST_MakePoint({self.point_xy['x']},{self.point_xy['y']}), {srid})"
+            f" WHERE {id_name}::text = '{newfeature_id}'"
+        )
         tools_db.execute_sql(sql)
+        if self.layer:
+            self.layer.dataProvider().reloadData()
+            self.layer.triggerRepaint()
+        if self.complet_result and self.complet_result.get('body', {}).get('feature') is not None:
+            self.complet_result['body']['feature']['geometry'] = {
+                'x': self.point_xy['x'],
+                'y': self.point_xy['y'],
+                'st_astext': f"POINT({self.point_xy['x']} {self.point_xy['y']})"
+            }
+            tools_gw.reset_rubberband(self.rubber_band)
+            tools_gw.draw_by_json(self.complet_result, self.rubber_band)
+        tools_qgis.force_refresh_map_canvas()
+        self.point_xy = {"x": None, "y": None}
 
     # endregion
 # region Static functions used by the widgets in the custom form
@@ -3714,6 +3752,8 @@ def add_row_epa(tbl, view, tablename, pkey, dlg, dlg_title, force_action, **kwar
 
     # Setup "Set to Arc" action
     action_set_to_arc = info.add_dlg.findChild(QAction, "actionSetToArc")
+    if action_set_to_arc:
+        action_set_to_arc.setCheckable(True)
     tools_gw.add_icon(action_set_to_arc, "157")
 
     action_set_to_arc.triggered.connect(
