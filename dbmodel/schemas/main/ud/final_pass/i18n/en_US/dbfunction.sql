@@ -351,8 +351,8 @@ UPDATE sys_function AS t SET descript = v.descript FROM (
     (3542, 'Generate autofill code for features or mapzones using configurable SQL templates'),
     (3544, 'Builds a scada graph using node_1 and node_2 as input values.'),
     (3546, 'Exports the scada graph created into a JSON by using graph builder.'),
-    (3548, 'Checks or fixes om_scada_graph against the network; on commit also writes om_scada_graph_json (toolbox: Scada graph analysis).'),
-    (3560, 'Creates a scada graph edge (insert + trigger fill). JSON export is done by gw_fct_scada_graph_check on commit.'),
+    (3548, 'Checks the consistency of de attributes of the scada graph'),
+    (3560, 'Creates a scada graph edge: insert, check/fix and export JSON.'),
     (3566, 'Build SQL AND clauses from filterFields json for list and feature queries'),
     (3568, 'Resolve config_form_list query_text and metadata for a listname'),
     (3570, 'Build SQL canvas extend filter for a geometry expression')

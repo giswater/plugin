@@ -62,7 +62,6 @@ UPDATE config_toolbox AS t SET alias = v.alias, observ = v.observ FROM (
     (3426, 'Integrate campaign into production', NULL),
     (3482, 'Macromapzones analysis', NULL),
     (3492, 'Omunit analysis', NULL),
-    (3522, 'Treatment type analysis', NULL),
-    (3548, 'Scada graph analysis', NULL)
+    (3522, 'Treatment type analysis', NULL)
 ) AS v(id, alias, observ)
 WHERE t.id = v.id;
