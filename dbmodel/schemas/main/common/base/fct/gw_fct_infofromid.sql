@@ -433,6 +433,24 @@ BEGIN
 	v_featuretype := LOWER(v_featuretype);
 	v_featuretype := COALESCE(v_featuretype, '');
 
+	-- Parent layers (ve_element, ve_node, ...) match many cat_feature rows. LIMIT 1 above is
+	-- non-deterministic, so GENELEM info was getting FRELEM tabactions (actionSetToArc) and vice versa.
+	-- Re-resolve class/child from the actual feature before building visibleTabs.
+	IF v_id IS NOT NULL AND v_featuretype IN ('node', 'arc', 'connec', 'gully', 'element', 'link') THEN
+		v_querystring = concat(
+			'SELECT lower(cf.feature_class), lower(cf.child_layer) ',
+			'FROM cat_feature cf ',
+			'WHERE cf.id = (SELECT ', v_featuretype, '_type FROM ',
+			quote_ident(COALESCE(v_table_parent, v_tablename)),
+			' WHERE ', v_featuretype, '_id::text = ', quote_literal(v_id), ' LIMIT 1)'
+		);
+		BEGIN
+			EXECUTE v_querystring INTO v_featureclass, v_table_child;
+		EXCEPTION WHEN OTHERS THEN
+			NULL;
+		END;
+	END IF;
+
 	-- Get vdefault values
 	-- Create List
 	list_values = ARRAY['from_date_vdefault','to_date_vdefault','parameter_vdefault','om_param_type_vdefault','edit_doc_type_vdefault'];

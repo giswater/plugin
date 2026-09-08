@@ -11,8 +11,8 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 20 test
-SELECT plan(20);
+-- Plan for 22 test
+SELECT plan(22);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -202,6 +202,59 @@ SELECT is(
      WHERE f->>'columnname' = 'sector_id'),
     'false',
     've_sector INSERT sector_id is not editable'
+);
+
+-- GENELEM identified from parent ve_element must get Set Geom, not Set To Arc
+CREATE TEMP TABLE _genelem_info ON COMMIT DROP AS
+SELECT gw_fct_getinfofromid(json_build_object(
+    'client', json_build_object('device', 4, 'lang', 'es_ES', 'infoType', 1, 'epsg', 25831),
+    'form', json_build_object(),
+    'feature', json_build_object('tableName', 've_element', 'id', s.gid),
+    'data', json_build_object()
+))::json AS j
+FROM (
+    SELECT e.element_id::text AS gid
+    FROM element e
+    JOIN cat_element ce ON ce.id::text = e.elementcat_id::text
+    JOIN cat_feature cf ON cf.id::text = ce.element_type::text
+    WHERE upper(cf.feature_class) = 'GENELEM'
+    LIMIT 1
+) s;
+
+SELECT ok(
+    EXISTS (SELECT 1 FROM _genelem_info)
+    AND EXISTS (
+        SELECT 1
+        FROM _genelem_info,
+             json_array_elements(
+                 CASE WHEN json_typeof(j->'body'->'form'->'visibleTabs') = 'array'
+                      THEN j->'body'->'form'->'visibleTabs' ELSE '[]'::json END
+             ) t
+        LEFT JOIN LATERAL json_array_elements(
+            CASE WHEN json_typeof(t->'tabactions') = 'array' THEN t->'tabactions' ELSE '[]'::json END
+        ) a ON true
+        WHERE t->>'tabName' = 'tab_data'
+          AND a->>'actionName' = 'actionSetGeom'
+    ),
+    'GENELEM info from ve_element parent includes actionSetGeom'
+);
+
+SELECT ok(
+    EXISTS (SELECT 1 FROM _genelem_info)
+    AND NOT EXISTS (
+        SELECT 1
+        FROM _genelem_info,
+             json_array_elements(
+                 CASE WHEN json_typeof(j->'body'->'form'->'visibleTabs') = 'array'
+                      THEN j->'body'->'form'->'visibleTabs' ELSE '[]'::json END
+             ) t
+        LEFT JOIN LATERAL json_array_elements(
+            CASE WHEN json_typeof(t->'tabactions') = 'array' THEN t->'tabactions' ELSE '[]'::json END
+        ) a ON true
+        WHERE t->>'tabName' = 'tab_data'
+          AND a->>'actionName' = 'actionSetToArc'
+    ),
+    'GENELEM info from ve_element parent does not include actionSetToArc'
 );
 
 -- Finish the test
