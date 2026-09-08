@@ -1544,3 +1544,14 @@ LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
 LEFT JOIN node n2 ON n2.node_id = osg.node_2
 LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id;
 
+UPDATE sys_message
+	SET error_message='Inserting values on ext_hydrometer_period table -> Done'
+	WHERE id=3928;
+
+UPDATE sys_message
+	SET error_message='Function to calculate water balance according stardards of IWA. 
+You must select a period already created or manually select the date of the interval. One at a time. Before that:  
+1) tables ext_cat_period, ext_hydrometer_period, ext_rtc_scada_x_data need to be filled. 
+2) DMA graph need to be executed.  
+>End Date proposal for %v_percent_hydro%% of hydrometers which consum is out of the period: %v_proposed_enddate%'
+	WHERE id=4688;
