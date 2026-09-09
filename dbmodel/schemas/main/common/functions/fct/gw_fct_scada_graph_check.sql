@@ -26,7 +26,8 @@ Documentation:
 The function:
 - checks inconsistencies making sure that the attributes of om_scada_graph are synced according to attributes of table "node". It returns a temp table in the map to see the inconsistencies.
 - fixes the inconsistencies making sure that the attributes of om_scada_graph are synced according to attributes of table "node"
-- when commitChanges is true, writes om_scada_graph_json via gw_fct_scada_graph_export from temp_om_scada_graph (same rows as line_valid)
+- when commitChanges is true, writes om_scada_graph_json via gw_fct_scada_graph_export
+  (one JSON row per distinct group_id / synoptic, from temp_om_scada_graph)
 
 The features checked are:
 - node_1 and node_2 must not be orphan nodes
@@ -555,7 +556,7 @@ BEGIN
 		FROM temp_om_scada_graph t
 		WHERE g.node_1 = t.node_1 AND g.node_2 = t.node_2;
 
-		-- Snapshot JSON from temp (scoped by check; export does not re-filter expl)
+		-- Snapshot JSON from temp: one om_scada_graph_json row per group_id (export does not re-filter expl)
 		v_export_result := gw_fct_scada_graph_export(p_data);
 		IF v_export_result ->> 'status' IS DISTINCT FROM 'Accepted' THEN
 			RETURN v_export_result;

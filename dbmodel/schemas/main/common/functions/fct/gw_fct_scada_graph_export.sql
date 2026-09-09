@@ -16,17 +16,16 @@ AS $function$
 /*
 
 Called from gw_fct_scada_graph_check on commitChanges=true (same session).
-Reads temp_om_scada_graph with the line_valid query. Exploitation scoping is
-already done in check; do not filter by explId here.
+One om_scada_graph_json row per distinct group_id (one synoptic).
+Reads temp_om_scada_graph / temp_om_scada_vertice; exploitation scoping is
+already done in check. Do not re-filter by explId here.
+Does not delete JSON rows of groups that are still in om_scada_graph
+(other exploitations). Drops only group_ids gone from both the table and temp.
 
  */
 
 DECLARE
 v_schema_date date;
-v_json_result_header json;
-v_json_result_links json;
-v_json_result_vertices json;
-v_json_result_return json;
 v_result JSON;
 v_result_info JSON;
 v_error_context text;
@@ -49,102 +48,136 @@ BEGIN
 		)::json, 3546, null, null, null);
 	END IF;
 
-	SELECT "date" INTO v_schema_date FROM sys_version ORDER BY giswater DESC LIMIT 1;
-
-	SELECT json_build_object(
-		'name', concat('Network graph'),
-		'entity', '',
-		'generatedDate', now(),
-		'schemaDate', v_schema_date
-	) INTO v_json_result_header;
-
-	SELECT json_agg(s.link ORDER BY s.group_id, s.order_id)
-	INTO v_json_result_links
-	FROM (
-		SELECT
-			g.group_id,
-			g.order_id,
-			json_build_object(
-				'groupId', g.group_id,
-				'orderId', g.order_id,
-				'fromNode', g.node_1,
-				'nodeType1', g.node_type_1,
-				'nodeName1', n1.sys_code,
-				'explId1', n1.expl_id,
-				'dma_id_1', n1.dma_id,
-				'dma_name_1', d1.name,
-				'toNode', g.node_2,
-				'nodeType2', g.node_type_2,
-				'nodeName2', n2.sys_code,
-				'explId2', n2.expl_id,
-				'dma_id_2', n2.dma_id,
-				'dma_name_2', d2.name,
-				'attributes', CASE WHEN g.attrib IS JSON THEN g.attrib::json ELSE NULL END,
-				'explId', g.expl_id
-			) AS link
-		FROM temp_om_scada_graph g
-		LEFT JOIN node n1 ON n1.node_id = g.node_1
-		LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
-		LEFT JOIN node n2 ON n2.node_id = g.node_2
-		LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
-		WHERE g.the_geom IS NOT NULL
-	) s;
-
-	v_json_result_links := COALESCE(v_json_result_links, '[]'::json);
-
-	SELECT json_agg(s.vertex ORDER BY s.group_id, s.line_id, s.column_id)
-	INTO v_json_result_vertices
-	FROM (
-		SELECT
-			g.group_id,
-			g.line_id,
-			g.column_id,
-			json_build_object(
-				'groupId', g.group_id,
-				'lineId', g.line_id,
-				'columnId', g.column_id,
-				'Node', g.node_id,
-				'nodeType', cn.node_type,
-				'nodeName', n.sys_code,
-				'explId', n.expl_id,
-				'dmaId', n.dma_id,
-				'dmaName', d.name
-			) AS vertex
-		FROM temp_om_scada_vertice g
-		LEFT JOIN node n ON n.node_id = g.node_id
-		LEFT JOIN cat_node cn ON n.nodecat_id = cn.id
-		LEFT JOIN dma d ON d.dma_id = n.dma_id
-	) s;
-
-	v_json_result_vertices := COALESCE(v_json_result_vertices, '[]'::json);
-
-	v_json_result_return = json_build_object(
-		'networkInfo', v_json_result_header,
-		'vertices', v_json_result_vertices,
-		'links', v_json_result_links
+	CREATE TEMP TABLE IF NOT EXISTS temp_om_scada_vertice (
+		node_id integer,
+		group_id integer,
+		line_id integer,
+		column_id integer,
+		column_aux integer
 	);
 
-	INSERT INTO om_scada_graph_json (expl_id, om_scada_graph_json, insert_tstamp, update_tstamp)
-	SELECT e.expl_id, v_json_result_return, now(), now()
-	FROM (
-		SELECT unnest(g.expl_id) AS expl_id
-		FROM temp_om_scada_graph g
-		WHERE g.the_geom IS NOT NULL
-		UNION
-		SELECT n1.expl_id
-		FROM temp_om_scada_graph g
-		LEFT JOIN node n1 ON n1.node_id = g.node_1
-		WHERE g.the_geom IS NOT NULL
-		UNION
-		SELECT n2.expl_id
-		FROM temp_om_scada_graph g
-		LEFT JOIN node n2 ON n2.node_id = g.node_2
-		WHERE g.the_geom IS NOT NULL
-	) e
-	WHERE e.expl_id IS NOT NULL
-	ON CONFLICT (expl_id) DO UPDATE
-	SET om_scada_graph_json = excluded.om_scada_graph_json,
+	SELECT "date" INTO v_schema_date FROM sys_version ORDER BY giswater DESC LIMIT 1;
+
+	WITH groups AS (
+		SELECT
+			g.group_id,
+			COALESCE((
+				SELECT ARRAY(
+					SELECT DISTINCT e
+					FROM temp_om_scada_graph t
+					LEFT JOIN node n1 ON n1.node_id = t.node_1
+					LEFT JOIN node n2 ON n2.node_id = t.node_2
+					CROSS JOIN LATERAL unnest(
+						COALESCE(t.expl_id, '{}'::int4[])
+						|| ARRAY_REMOVE(ARRAY[n1.expl_id, n2.expl_id], NULL)
+					) AS e
+					WHERE t.group_id = g.group_id
+						AND t.the_geom IS NOT NULL
+						AND e IS NOT NULL
+					ORDER BY e
+				)
+			), '{}'::int4[]) AS expl_id
+		FROM (
+			SELECT DISTINCT group_id
+			FROM temp_om_scada_graph
+			WHERE group_id IS NOT NULL
+				AND the_geom IS NOT NULL
+		) g
+	),
+	links AS (
+		SELECT s.group_id, json_agg(s.link ORDER BY s.order_id, s.node_1, s.node_2) AS links
+		FROM (
+			SELECT
+				g.group_id,
+				g.order_id,
+				g.node_1,
+				g.node_2,
+				json_build_object(
+					'groupId', g.group_id,
+					'fromNode', g.node_1,
+					'nodeType1', g.node_type_1,
+					'nodeName1', n1.sys_code,
+					'explId1', n1.expl_id,
+					'dma_id_1', n1.dma_id,
+					'dma_name_1', d1.name,
+					'toNode', g.node_2,
+					'nodeType2', g.node_type_2,
+					'nodeName2', n2.sys_code,
+					'explId2', n2.expl_id,
+					'dma_id_2', n2.dma_id,
+					'dma_name_2', d2.name,
+					'attributes', CASE WHEN g.attrib IS JSON THEN g.attrib::json ELSE NULL END,
+					'explId', g.expl_id
+				) AS link
+			FROM temp_om_scada_graph g
+			LEFT JOIN node n1 ON n1.node_id = g.node_1
+			LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
+			LEFT JOIN node n2 ON n2.node_id = g.node_2
+			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
+			WHERE g.the_geom IS NOT NULL
+				AND g.group_id IS NOT NULL
+		) s
+		GROUP BY s.group_id
+	),
+	vertices AS (
+		SELECT s.group_id, json_agg(s.vertex ORDER BY s.line_id, s.column_id) AS vertices
+		FROM (
+			SELECT
+				g.group_id,
+				g.line_id,
+				g.column_id,
+				json_build_object(
+					'groupId', g.group_id,
+					'lineId', g.line_id,
+					'columnId', g.column_id,
+					'orderId', g.line_id,
+					'Node', g.node_id,
+					'nodeType', cn.node_type,
+					'nodeName', n.sys_code,
+					'explId', n.expl_id,
+					'dmaId', n.dma_id,
+					'dmaName', d.name
+				) AS vertex
+			FROM temp_om_scada_vertice g
+			LEFT JOIN node n ON n.node_id = g.node_id
+			LEFT JOIN cat_node cn ON n.nodecat_id = cn.id
+			LEFT JOIN dma d ON d.dma_id = n.dma_id
+			WHERE g.group_id IS NOT NULL
+		) s
+		GROUP BY s.group_id
+	)
+	INSERT INTO om_scada_graph_json (group_id, expl_id, om_scada_graph_json, insert_tstamp, update_tstamp)
+	SELECT
+		g.group_id,
+		g.expl_id,
+		json_build_object(
+			'networkInfo', json_build_object(
+				'name', concat('Network graph'),
+				'entity', '',
+				'generatedDate', now(),
+				'schemaDate', v_schema_date,
+				'groupId', g.group_id
+			),
+			'vertices', COALESCE(v.vertices, '[]'::json),
+			'links', COALESCE(l.links, '[]'::json)
+		),
+		now(),
+		now()
+	FROM groups g
+	LEFT JOIN links l ON l.group_id = g.group_id
+	LEFT JOIN vertices v ON v.group_id = g.group_id
+	ON CONFLICT (group_id) DO UPDATE
+	SET expl_id = excluded.expl_id,
+		om_scada_graph_json = excluded.om_scada_graph_json,
 		update_tstamp = now();
+
+	DELETE FROM om_scada_graph_json j
+	WHERE NOT EXISTS (
+		SELECT 1 FROM om_scada_graph g WHERE g.group_id = j.group_id
+	)
+	AND NOT EXISTS (
+		SELECT 1 FROM temp_om_scada_graph t WHERE t.group_id = j.group_id
+	);
 
 	SELECT COALESCE(
 		(SELECT error_message FROM v_sys_message WHERE id = 4734 LIMIT 1),

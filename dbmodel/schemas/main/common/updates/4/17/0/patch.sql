@@ -1779,3 +1779,29 @@ VALUES
 (4746, 'Scada graph edge already exists for node_1=%node_1% and node_2=%node_2%', NULL, 2, true, 'utils', 'core', 'UI'),
 (4748, 'No network path between node_1=%node_1% and node_2=%node_2%', NULL, 2, true, 'utils', 'core', 'UI')
 ON CONFLICT (id) DO NOTHING;
+
+-- om_scada_graph_json: one row per synoptic (group_id); expl_id is the union of exploitations.
+-- Existing JSON (PK expl_id, one blob for the whole graph) cannot be split: truncate and regenerate.
+TRUNCATE TABLE om_scada_graph_json;
+
+ALTER TABLE om_scada_graph_json DROP CONSTRAINT IF EXISTS om_scada_graph_json_pkey;
+
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"ADD","table":"om_scada_graph_json","column":"group_id","dataType":"integer"}}$$);
+
+DO $scada_json$
+BEGIN
+	IF EXISTS (
+		SELECT 1
+		FROM information_schema.columns
+		WHERE table_schema = current_schema()
+			AND table_name = 'om_scada_graph_json'
+			AND column_name = 'expl_id'
+			AND udt_name = 'int4'
+	) THEN
+		PERFORM gw_fct_admin_manage_fields($${"data":{"action":"CHANGETYPE","table":"om_scada_graph_json","column":"expl_id","dataType":"int4[]"}}$$);
+	END IF;
+END
+$scada_json$;
+
+ALTER TABLE om_scada_graph_json ALTER COLUMN group_id SET NOT NULL;
+ALTER TABLE om_scada_graph_json ADD CONSTRAINT om_scada_graph_json_pkey PRIMARY KEY (group_id);
