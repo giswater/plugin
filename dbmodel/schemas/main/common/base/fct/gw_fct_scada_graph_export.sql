@@ -25,6 +25,7 @@ DECLARE
 v_schema_date date;
 v_json_result_header json;
 v_json_result_links json;
+v_json_result_vertices json;
 v_json_result_return json;
 v_result JSON;
 v_result_info JSON;
@@ -91,8 +92,35 @@ BEGIN
 
 	v_json_result_links := COALESCE(v_json_result_links, '[]'::json);
 
+	SELECT json_agg(s.vertex ORDER BY s.group_id, s.line_id, s.column_id)
+	INTO v_json_result_vertices
+	FROM (
+		SELECT
+			g.group_id,
+			g.line_id,
+			g.column_id,
+			json_build_object(
+				'groupId', g.group_id,
+				'lineId', g.line_id,
+				'columnId', g.column_id,
+				'Node', g.node_id,
+				'nodeType', cn.node_type,
+				'nodeName', n.sys_code,
+				'explId', n.expl_id,
+				'dmaId', n.dma_id,
+				'dmaName', d.name
+			) AS vertex
+		FROM temp_node_graph g
+		LEFT JOIN node n ON n.node_id = g.node_id
+		LEFT JOIN cat_node cn ON n.nodecat_id = cn.id
+		LEFT JOIN dma d ON d.dma_id = n.dma_id
+	) s;
+
+	v_json_result_vertices := COALESCE(v_json_result_vertices, '[]'::json);
+
 	v_json_result_return = json_build_object(
 		'networkInfo', v_json_result_header,
+		'vertices', v_json_result_vertices,
 		'links', v_json_result_links
 	);
 

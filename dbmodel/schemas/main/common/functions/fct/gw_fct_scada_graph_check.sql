@@ -133,11 +133,22 @@ BEGIN
 	DROP TABLE IF EXISTS temp_om_scada_graph;
 	DROP TABLE IF EXISTS temp_graph;
 	DROP TABLE IF EXISTS temp_audit_check_data;
+	DROP TABLE IF EXISTS temp_node_graph;
 
 	CREATE TEMP TABLE IF NOT EXISTS temp_om_scada_graph (LIKE SCHEMA_NAME.om_scada_graph INCLUDING ALL);
 	ALTER TABLE temp_om_scada_graph ADD COLUMN error_message TEXT;
 
 	CREATE TEMP TABLE IF NOT EXISTS temp_audit_check_data (LIKE SCHEMA_NAME.audit_check_data INCLUDING ALL);
+
+	CREATE TEMP TABLE IF NOT EXISTS temp_node_graph (
+		node_id integer,
+		group_id integer,
+		line_id integer,
+		column_id integer,
+		column_aux integer
+	);
+
+	CREATE INDEX ON temp_node_graph (node_id);
 
 	-- Get exploitation ID array
 	v_expl_id_array := gw_fct_get_expl_id_array(v_expl_id);
@@ -314,31 +325,34 @@ BEGIN
 	JOIN cat_node cn2 ON n2.nodecat_id = cn2.id
 	WHERE t.node_2 = n2.node_id;
 
-	-- update group_id and order_id
-	v_query_text := '
-		SELECT row_number() OVER () AS id, node_1 AS source, node_2 AS target, 1::float AS cost
-		FROM temp_om_scada_graph
-		WHERE the_geom IS NOT NULL';
-
+	-- update group_id, line_id, column_id and order_id
 	v_pgr_distance := (SELECT count(*)::int FROM temp_om_scada_graph);
 
+	v_query_text := '
+		SELECT
+			row_number() OVER () AS id,
+			g.node_1 AS source,
+			g.node_2 AS target,
+			1::float AS cost
+		FROM temp_om_scada_graph g
+		WHERE g.the_geom IS NOT NULL
+	';
+
 	SELECT COALESCE(array_agg(DISTINCT g.node_1), '{}')::int[]
-	INTO v_pgr_root_vids
-	FROM temp_om_scada_graph g
-	WHERE  g.the_geom IS NOT NULL
-	AND NOT EXISTS (
-		SELECT 1 FROM temp_om_scada_graph g2
-		WHERE  g2.the_geom IS NOT NULL
-		AND g2.node_2 = g.node_1
-	);
+    INTO v_pgr_root_vids
+    FROM temp_om_scada_graph g
+    WHERE  g.the_geom IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1 FROM temp_om_scada_graph g2
+        WHERE  g2.the_geom IS NOT NULL
+        AND g2.node_2 = g.node_1
+    );
 
 	-- group_id: for each connected component, assign the minimum root node id (from v_pgr_root_vids)
 	WITH
 		connectedcomponents AS (
 			SELECT component, node AS node_id
-			FROM pgr_connectedcomponents('SELECT row_number() OVER () AS id, node_1 AS source, node_2 AS target, 1::float AS cost
-			FROM temp_om_scada_graph
-			WHERE the_geom IS NOT NULL')
+			FROM pgr_connectedcomponents(v_query_text)
 		),
 		group_ids AS (
 			SELECT c.component, min(c.node_id) AS group_id
@@ -346,24 +360,67 @@ BEGIN
 			WHERE c.node_id = ANY (v_pgr_root_vids)
 			GROUP BY c.component
 		)
-	UPDATE temp_om_scada_graph t
-	SET group_id = g.group_id
+	INSERT INTO temp_node_graph (node_id, group_id)
+	SELECT c.node_id, g.group_id
 	FROM connectedcomponents c
-	JOIN group_ids g ON c.component = g.component
-	WHERE t.node_1 = c.node_id
-	AND t.the_geom IS NOT NULL; -- assures to update all the edges, because drivingdistance returns nodes, not edges
+	JOIN group_ids g ON c.component = g.component;
+
+	UPDATE temp_om_scada_graph g
+	SET group_id = n.group_id
+	FROM temp_node_graph n
+	WHERE g.the_geom IS NOT NULL
+	AND n.node_id = g.node_1;
 
 	-- order_id
-	UPDATE temp_om_scada_graph t
-	SET order_id = g.order_id
+	UPDATE temp_node_graph n
+	SET line_id = g.line_id
 	FROM (
-		SELECT pred as node_id, max(agg_cost) AS order_id
+		SELECT node as node_id, max(agg_cost+1) AS line_id
 		FROM pgr_drivingDistance(v_query_text, v_pgr_root_vids, v_pgr_distance, directed := true)
-		WHERE edge <> -1
-		GROUP BY pred
+		GROUP BY node
 	) g
-	WHERE t.node_1 = g.node_id
-	AND t.the_geom IS NOT NULL; -- assures to update all the edges, because drivingdistance returns nodes, not edges
+	WHERE n.node_id = g.node_id;
+
+	UPDATE temp_om_scada_graph g
+	SET order_id = n.line_id
+	FROM temp_node_graph n
+	WHERE g.the_geom IS NOT NULL
+	AND g.node_1 = n.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
+
+	-- for column_id will be taken into account the order of x and y coordinates of the v_pgr_root_vids nodes, so that the column_id is assigned from left to right
+	SELECT COALESCE(array_agg(t.node_id ORDER BY t.x, t.y), '{}')::int[]
+	INTO v_pgr_root_vids
+	FROM (
+		SELECT DISTINCT g.node_1 AS node_id, st_x(n.the_geom) AS x, st_y(n.the_geom) AS y
+		FROM temp_om_scada_graph g
+		JOIN node n ON n.node_id = g.node_1
+		WHERE g.the_geom IS NOT NULL
+		AND NOT EXISTS (
+			SELECT 1 FROM temp_om_scada_graph g2
+			WHERE g2.the_geom IS NOT NULL
+			AND g2.node_2 = g.node_1
+		)
+	) t;
+
+	-- save an intermediate value for column_aux
+	UPDATE temp_node_graph n
+	SET column_aux = g.column_aux
+	FROM (
+		SELECT node as node_id, min(seq) AS column_aux
+		FROM pgr_depthFirstSearch(v_query_text, v_pgr_root_vids, directed := true)
+		GROUP BY node
+	) g
+	WHERE n.node_id = g.node_id;
+
+	-- save column_id as the row_number() of column_aux, partitioned by group_id and line_id, ordered by column_aux
+	UPDATE temp_node_graph n
+	SET column_id = g.column_id
+	FROM (
+		SELECT node_id,
+			row_number() OVER (PARTITION BY group_id, line_id ORDER BY column_aux) AS column_id
+		FROM temp_node_graph
+	) g
+	WHERE n.node_id = g.node_id;
 
 	-- ERRORS
 	--==========================
@@ -660,11 +717,6 @@ BEGIN
 		v_result_line_invalid,
 		v_result_line_valid
 	)::json;
-
-	--drop temporal tables
-	DROP TABLE IF EXISTS temp_om_scada_graph;
-	DROP TABLE IF EXISTS temp_audit_check_data;
-	DROP TABLE IF EXISTS temp_graph;
 
 	-- Return
 	RETURN gw_fct_json_create_return(json_build_object(
