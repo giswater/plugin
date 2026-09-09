@@ -3443,12 +3443,20 @@ uri={1}</translation>
 			<translation>Language files</translation>
 		</message>
 		<message>
+			<source>Language files and multilang translations updated ({0}).</source>
+			<translation>Language files and multilang translations updated ({0}).</translation>
+		</message>
+		<message>
 			<source>Language files deleted and locale deactivated ({0}).</source>
 			<translation>Language files deleted and locale deactivated ({0}).</translation>
 		</message>
 		<message>
 			<source>Language files downloaded and locale activated ({0}).</source>
 			<translation>Language files downloaded and locale activated ({0}).</translation>
+		</message>
+		<message>
+			<source>Language files updated ({0}), but multilang translations failed: {1}</source>
+			<translation>Language files updated ({0}), but multilang translations failed: {1}</translation>
 		</message>
 		<message>
 			<source>Language files updated and locale activated ({0}).</source>
@@ -3789,6 +3797,10 @@ uri={1}</translation>
 		<message>
 			<source>Name</source>
 			<translation>Name</translation>
+		</message>
+		<message>
+			<source>Network Utilities</source>
+			<translation>Network Utilities</translation>
 		</message>
 		<message>
 			<source>New {0}</source>
@@ -4709,10 +4721,6 @@ Statistics file created on:
 			<translation>Raingages couldn&apos;t be inserted!</translation>
 		</message>
 		<message>
-			<source>Raports</source>
-			<translation>Raports</translation>
-		</message>
-		<message>
 			<source>Reading file</source>
 			<translation>Reading file</translation>
 		</message>
@@ -4805,6 +4813,10 @@ Statistics file created on:
 			<translation>REPORT</translation>
 		</message>
 		<message>
+			<source>Reports</source>
+			<translation>Reports</translation>
+		</message>
+		<message>
 			<source>Reports generated successfully</source>
 			<translation>Reports generated successfully</translation>
 		</message>
@@ -4819,6 +4831,10 @@ Statistics file created on:
 		<message>
 			<source>Reset position form done successfully.</source>
 			<translation>Reset position form done successfully.</translation>
+		</message>
+		<message>
+			<source>resolve_combo_valuemap: failed to load values for &apos;{0}&apos;: {1}</source>
+			<translation>resolve_combo_valuemap: failed to load values for &apos;{0}&apos;: {1}</translation>
 		</message>
 		<message>
 			<source>Response from {0} is not a ZIP archive</source>
@@ -4897,6 +4913,10 @@ Do you want to apply the required values and continue?</translation>
 		<message>
 			<source>Scada graph saved in DB but om_graph layer could not be loaded.</source>
 			<translation>Scada graph saved in DB but om_graph layer could not be loaded.</translation>
+		</message>
+		<message>
+			<source>Scada graph saved in DB but v_om_scada_graph layer could not be loaded.</source>
+			<translation>Scada graph saved in DB but v_om_scada_graph layer could not be loaded.</translation>
 		</message>
 		<message>
 			<source>Scale must be a number.</source>
@@ -5720,6 +5740,10 @@ On the other hand you must know that traceability table will storage precedent i
 		<message>
 			<source>There is no data in table anl_arc for fid=493 and current user.</source>
 			<translation>There is no data in table anl_arc for fid=493 and current user.</translation>
+		</message>
+		<message>
+			<source>There is no layer related to {0}.</source>
+			<translation>There is no layer related to {0}.</translation>
 		</message>
 		<message>
 			<source>There is no project selected or it is not valid. Please check the first tab...</source>

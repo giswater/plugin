@@ -378,6 +378,8 @@ UPDATE sys_table AS t SET alias = v.alias, descript = v.descript FROM (
     ('v_om_mincut_planned_valve', NULL, 'Catalog of mincut results'),
     ('v_om_mincut_polygon', NULL, 'View with aggregated information of the results of mincut analysis (polygon)'),
     ('v_om_mincut_valve', 'Mincut result valve', 'View with aggregated information of the results of mincut analysis (valve)'),
+    ('v_om_scada_graph', 'Scada graph', 'Scada graph edges (view on om_scada_graph)'),
+    ('v_om_typevalue', NULL, 'OM typevalue catalog (allows multilingual and integration with network schemas)'),
     ('v_om_waterbalance', NULL, 'View to show water balance values according IWA standards by period and DMA'),
     ('v_om_waterbalance_report', NULL, 'View to show the general water balance report by period and DMA'),
     ('v_plan_arc', 'Arc reposition value', 'View only with the most important information about the cost of the arc'),

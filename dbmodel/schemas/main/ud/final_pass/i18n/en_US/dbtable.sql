@@ -407,6 +407,7 @@ UPDATE sys_table AS t SET alias = v.alias, descript = v.descript FROM (
     ('v_hydrometer', NULL, 'Hydrometer base view.'),
     ('v_hydrometer_period', NULL, 'Hydrometer period data base view.'),
     ('v_municipality', NULL, 'View of town cities and villages'),
+    ('v_om_scada_graph', 'Scada graph', 'Scada graph edges (view on om_scada_graph)'),
     ('v_om_visit', NULL, 'Shows all the executed visits."'),
     ('v_plan_arc', 'Arc reposition value', 'View only with the most important information about the cost of the arc'),
     ('v_plan_aux_arc_pavement', NULL, 'Layer to relate pavements against arc'),
