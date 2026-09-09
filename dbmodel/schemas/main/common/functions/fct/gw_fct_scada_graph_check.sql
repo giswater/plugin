@@ -144,7 +144,7 @@ BEGIN
 	CREATE TEMP TABLE IF NOT EXISTS temp_om_scada_vertice (
 		node_id integer,
 		group_id integer,
-		line_id integer,
+		row_id integer,
 		column_id integer,
 		column_aux integer
 	);
@@ -326,7 +326,7 @@ BEGIN
 	JOIN cat_node cn2 ON n2.nodecat_id = cn2.id
 	WHERE t.node_2 = n2.node_id;
 
-	-- update group_id, line_id, column_id and order_id
+	-- update group_id, row_id, column_id and order_id
 	v_pgr_distance := (SELECT count(*)::int FROM temp_om_scada_graph);
 
 	v_query_text := '
@@ -374,16 +374,16 @@ BEGIN
 
 	-- order_id
 	UPDATE temp_om_scada_vertice n
-	SET line_id = g.line_id
+	SET row_id = g.row_id
 	FROM (
-		SELECT node as node_id, max(agg_cost+1) AS line_id
+		SELECT node as node_id, max(agg_cost+1) AS row_id
 		FROM pgr_drivingDistance(v_query_text, v_pgr_root_vids, v_pgr_distance, directed := true)
 		GROUP BY node
 	) g
 	WHERE n.node_id = g.node_id;
 
 	UPDATE temp_om_scada_graph g
-	SET order_id = n.line_id
+	SET order_id = n.row_id
 	FROM temp_om_scada_vertice n
 	WHERE g.the_geom IS NOT NULL
 	AND g.node_1 = n.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
@@ -413,12 +413,12 @@ BEGIN
 	) g
 	WHERE n.node_id = g.node_id;
 
-	-- save column_id as the row_number() of column_aux, partitioned by group_id and line_id, ordered by column_aux
+	-- save column_id as the row_number() of column_aux, partitioned by group_id and row_id, ordered by column_aux
 	UPDATE temp_om_scada_vertice n
 	SET column_id = g.column_id
 	FROM (
 		SELECT node_id,
-			row_number() OVER (PARTITION BY group_id, line_id ORDER BY column_aux) AS column_id
+			row_number() OVER (PARTITION BY group_id, row_id ORDER BY column_aux) AS column_id
 		FROM temp_om_scada_vertice
 	) g
 	WHERE n.node_id = g.node_id;

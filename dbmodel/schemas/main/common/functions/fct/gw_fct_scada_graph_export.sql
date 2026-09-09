@@ -51,7 +51,7 @@ BEGIN
 	CREATE TEMP TABLE IF NOT EXISTS temp_om_scada_vertice (
 		node_id integer,
 		group_id integer,
-		line_id integer,
+		row_id integer,
 		column_id integer,
 		column_aux integer
 	);
@@ -65,12 +65,7 @@ BEGIN
 				SELECT ARRAY(
 					SELECT DISTINCT e
 					FROM temp_om_scada_graph t
-					LEFT JOIN node n1 ON n1.node_id = t.node_1
-					LEFT JOIN node n2 ON n2.node_id = t.node_2
-					CROSS JOIN LATERAL unnest(
-						COALESCE(t.expl_id, '{}'::int4[])
-						|| ARRAY_REMOVE(ARRAY[n1.expl_id, n2.expl_id], NULL)
-					) AS e
+					CROSS JOIN LATERAL unnest(t.expl_id) AS e
 					WHERE t.group_id = g.group_id
 						AND t.the_geom IS NOT NULL
 						AND e IS NOT NULL
@@ -120,17 +115,16 @@ BEGIN
 		GROUP BY s.group_id
 	),
 	vertices AS (
-		SELECT s.group_id, json_agg(s.vertex ORDER BY s.line_id, s.column_id) AS vertices
+		SELECT s.group_id, json_agg(s.vertex ORDER BY s.row_id, s.column_id) AS vertices
 		FROM (
 			SELECT
 				g.group_id,
-				g.line_id,
+				g.row_id,
 				g.column_id,
 				json_build_object(
 					'groupId', g.group_id,
-					'lineId', g.line_id,
+					'rowId', g.row_id,
 					'columnId', g.column_id,
-					'orderId', g.line_id,
 					'Node', g.node_id,
 					'nodeType', cn.node_type,
 					'nodeName', n.sys_code,
@@ -164,8 +158,8 @@ BEGIN
 		now(),
 		now()
 	FROM groups g
-	LEFT JOIN links l ON l.group_id = g.group_id
-	LEFT JOIN vertices v ON v.group_id = g.group_id
+	JOIN links l ON l.group_id = g.group_id
+	JOIN vertices v ON v.group_id = g.group_id
 	ON CONFLICT (group_id) DO UPDATE
 	SET expl_id = excluded.expl_id,
 		om_scada_graph_json = excluded.om_scada_graph_json,
@@ -174,9 +168,6 @@ BEGIN
 	DELETE FROM om_scada_graph_json j
 	WHERE NOT EXISTS (
 		SELECT 1 FROM om_scada_graph g WHERE g.group_id = j.group_id
-	)
-	AND NOT EXISTS (
-		SELECT 1 FROM temp_om_scada_graph t WHERE t.group_id = j.group_id
 	);
 
 	SELECT COALESCE(
