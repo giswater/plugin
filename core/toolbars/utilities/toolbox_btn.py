@@ -39,7 +39,7 @@ class GwToolBoxButton(GwAction):
         self.function_list = []
         self.rbt_checked = {}
         self.TRV_PROCESSES = tools_qt.tr('trv_processes', 'toolbox', default="Processes")
-        self.TRV_REPORTS = tools_qt.tr('trv_reports', 'toolbox', default="Raports")
+        self.TRV_REPORTS = tools_qt.tr('trv_reports', 'toolbox', default="Reports")
 
         self.ignore_widgets = ['qt_spinbox_lineedit', 'qt_calendar_yearedit']
         self.temp_layers_added = []
