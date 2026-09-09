@@ -31,15 +31,14 @@ ALTER TABLE cat_feature_connec DROP COLUMN IF EXISTS _type;
 ALTER TABLE cat_feature DISABLE TRIGGER gw_trg_cat_feature_after;
 
 INSERT INTO cat_material (id, descript) VALUES
-('FE', 'Iron'),
-('FD', 'FD'),
-('FG', 'Fundición gris'),
-('PE', 'Polietileno'),
+('DI', 'Ductile iron'),
+('GCI', 'Grey cast iron'),
+('PE', 'Polietilen'),
 ('PVC', 'PVC'),
-('FC', 'Fiberconcrete'),
-('DESC', 'Desconocido'),
-('HOR', 'Concrete'),
-('ACER', 'Acero')
+('AC', 'Asbestos cement'),
+('UNK', 'Unknown'),
+('CON', 'Concrete'),
+('STEEL', 'Steel')
 ON CONFLICT (id) DO UPDATE SET descript = EXCLUDED.descript;
 
 INSERT INTO cat_feature (id, feature_class, feature_type, active, parent_layer, child_layer) VALUES
@@ -159,8 +158,8 @@ INSERT INTO cat_arc (id, arc_type, matcat_id, dnom) VALUES
 ('PE63', 'PIPE', 'PE', 63),
 ('PE110', 'PIPE', 'PE', 110),
 ('PE160', 'PIPE', 'PE', 160),
-('FD150', 'PIPE', 'FD', 150),
-('FD200', 'PIPE', 'FD', 200),
+('FD150', 'PIPE', 'DI', 150),
+('FD200', 'PIPE', 'DI', 200),
 ('VARC', 'VARC', NULL, 0)
 ON CONFLICT (id) DO UPDATE SET arc_type = EXCLUDED.arc_type, matcat_id = EXCLUDED.matcat_id, dnom = EXCLUDED.dnom;
 

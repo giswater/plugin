@@ -31,7 +31,6 @@ ALTER TABLE cat_feature_connec DROP COLUMN IF EXISTS _type;
 ALTER TABLE cat_feature DISABLE TRIGGER gw_trg_cat_feature_after;
 
 INSERT INTO cat_material (id, descript) VALUES
-('FE', 'Hierro'),
 ('FD', 'Fundición dúctil'),
 ('FG', 'Fundición gris'),
 ('PE', 'Polietileno'),
