@@ -110,7 +110,7 @@ BEGIN
 				'dmaId', n.dma_id,
 				'dmaName', d.name
 			) AS vertex
-		FROM temp_node_graph g
+		FROM temp_om_scada_vertice g
 		LEFT JOIN node n ON n.node_id = g.node_id
 		LEFT JOIN cat_node cn ON n.nodecat_id = cn.id
 		LEFT JOIN dma d ON d.dma_id = n.dma_id

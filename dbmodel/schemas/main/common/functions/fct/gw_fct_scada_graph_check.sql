@@ -133,14 +133,14 @@ BEGIN
 	DROP TABLE IF EXISTS temp_om_scada_graph;
 	DROP TABLE IF EXISTS temp_graph;
 	DROP TABLE IF EXISTS temp_audit_check_data;
-	DROP TABLE IF EXISTS temp_node_graph;
+	DROP TABLE IF EXISTS temp_om_scada_vertice;
 
 	CREATE TEMP TABLE IF NOT EXISTS temp_om_scada_graph (LIKE SCHEMA_NAME.om_scada_graph INCLUDING ALL);
 	ALTER TABLE temp_om_scada_graph ADD COLUMN error_message TEXT;
 
 	CREATE TEMP TABLE IF NOT EXISTS temp_audit_check_data (LIKE SCHEMA_NAME.audit_check_data INCLUDING ALL);
 
-	CREATE TEMP TABLE IF NOT EXISTS temp_node_graph (
+	CREATE TEMP TABLE IF NOT EXISTS temp_om_scada_vertice (
 		node_id integer,
 		group_id integer,
 		line_id integer,
@@ -148,7 +148,7 @@ BEGIN
 		column_aux integer
 	);
 
-	CREATE INDEX ON temp_node_graph (node_id);
+	CREATE INDEX ON temp_om_scada_vertice (node_id);
 
 	-- Get exploitation ID array
 	v_expl_id_array := gw_fct_get_expl_id_array(v_expl_id);
@@ -360,19 +360,19 @@ BEGIN
 			WHERE c.node_id = ANY (v_pgr_root_vids)
 			GROUP BY c.component
 		)
-	INSERT INTO temp_node_graph (node_id, group_id)
+	INSERT INTO temp_om_scada_vertice (node_id, group_id)
 	SELECT c.node_id, g.group_id
 	FROM connectedcomponents c
 	JOIN group_ids g ON c.component = g.component;
 
 	UPDATE temp_om_scada_graph g
 	SET group_id = n.group_id
-	FROM temp_node_graph n
+	FROM temp_om_scada_vertice n
 	WHERE g.the_geom IS NOT NULL
 	AND n.node_id = g.node_1;
 
 	-- order_id
-	UPDATE temp_node_graph n
+	UPDATE temp_om_scada_vertice n
 	SET line_id = g.line_id
 	FROM (
 		SELECT node as node_id, max(agg_cost+1) AS line_id
@@ -383,7 +383,7 @@ BEGIN
 
 	UPDATE temp_om_scada_graph g
 	SET order_id = n.line_id
-	FROM temp_node_graph n
+	FROM temp_om_scada_vertice n
 	WHERE g.the_geom IS NOT NULL
 	AND g.node_1 = n.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
 
@@ -403,7 +403,7 @@ BEGIN
 	) t;
 
 	-- save an intermediate value for column_aux
-	UPDATE temp_node_graph n
+	UPDATE temp_om_scada_vertice n
 	SET column_aux = g.column_aux
 	FROM (
 		SELECT node as node_id, min(seq) AS column_aux
@@ -413,12 +413,12 @@ BEGIN
 	WHERE n.node_id = g.node_id;
 
 	-- save column_id as the row_number() of column_aux, partitioned by group_id and line_id, ordered by column_aux
-	UPDATE temp_node_graph n
+	UPDATE temp_om_scada_vertice n
 	SET column_id = g.column_id
 	FROM (
 		SELECT node_id,
 			row_number() OVER (PARTITION BY group_id, line_id ORDER BY column_aux) AS column_id
-		FROM temp_node_graph
+		FROM temp_om_scada_vertice
 	) g
 	WHERE n.node_id = g.node_id;
 
