@@ -98,9 +98,9 @@ BEGIN
 					'explId', g.expl_id
 				) AS link
 			FROM temp_om_scada_graph g
-			LEFT JOIN node n1 ON n1.node_id = g.node_1
+			JOIN node n1 ON n1.node_id = g.node_1
 			LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
-			LEFT JOIN node n2 ON n2.node_id = g.node_2
+			JOIN node n2 ON n2.node_id = g.node_2
 			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
 			WHERE g.the_geom IS NOT NULL
 				AND g.group_id IS NOT NULL
@@ -126,10 +126,11 @@ BEGIN
 					'dmaName', d.name
 				) AS vertex
 			FROM temp_om_scada_vertice g
-			LEFT JOIN node n ON n.node_id = g.node_id
+			JOIN node n ON n.node_id = g.node_id
 			LEFT JOIN cat_node cn ON n.nodecat_id = cn.id
 			LEFT JOIN dma d ON d.dma_id = n.dma_id
 			WHERE g.group_id IS NOT NULL
+			AND g.is_real = TRUE
 		) s
 		GROUP BY s.group_id
 	)

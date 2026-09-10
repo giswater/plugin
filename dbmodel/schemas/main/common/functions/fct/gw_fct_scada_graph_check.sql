@@ -147,6 +147,8 @@ BEGIN
 
 	CREATE TEMP TABLE IF NOT EXISTS temp_om_scada_graph (LIKE SCHEMA_NAME.om_scada_graph INCLUDING ALL);
 	ALTER TABLE temp_om_scada_graph ADD COLUMN error_message TEXT;
+	ALTER TABLE temp_om_scada_graph ADD COLUMN is_real boolean DEFAULT true;
+	ALTER TABLE temp_om_scada_graph ADD COLUMN is_multilevel boolean DEFAULT false;
 
 	CREATE TEMP TABLE IF NOT EXISTS temp_audit_check_data (LIKE SCHEMA_NAME.audit_check_data INCLUDING ALL);
 
@@ -155,7 +157,8 @@ BEGIN
 		group_id integer,
 		level_id integer,
 		position_id integer,
-		position_aux float
+		position_aux double precision,
+		is_real boolean DEFAULT true
 	);
 
 	CREATE INDEX ON temp_om_scada_vertice (node_id);
@@ -397,6 +400,85 @@ BEGIN
 	WHERE g.the_geom IS NOT NULL
 	AND g.node_1 = n.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
 
+	-- add not-real nodes and not_real arcs - used for complet Sugiyama method
+	UPDATE temp_om_scada_graph g
+	SET is_multilevel = TRUE
+	FROM temp_om_scada_vertice v1, temp_om_scada_vertice v2
+	WHERE v1.node_id = g.node_1
+	AND v2.node_id = g.node_2
+	AND g.the_geom IS NOT NULL
+	AND v2.level_id > v1.level_id + 1;
+
+	WITH
+		edges_to_split AS (
+			SELECT
+				g.node_1,
+				g.node_2,
+				v1.level_id AS level_1,
+				v2.level_id AS level_2
+			FROM temp_om_scada_graph g
+			JOIN temp_om_scada_vertice v1 ON v1.node_id = g.node_1
+			JOIN temp_om_scada_vertice v2 ON v2.node_id = g.node_2
+			WHERE g.is_multilevel = TRUE
+		),
+		vertices_levels AS (
+			SELECT
+				e.node_1,
+				e.node_2,
+				e.level_1,
+				e.level_2, 
+				gs AS level_id
+			FROM edges_to_split e
+			CROSS JOIN LATERAL generate_series(
+				e.level_1,
+				e.level_2
+			) gs
+		),
+		vertices AS (
+			SELECT
+				v.*,
+				CASE WHEN v.level_id = v.level_1 THEN v.node_1
+				WHEN v.level_id = v.level_2 THEN v.node_2
+				ELSE 
+					(SELECT max(node_id) FROM temp_om_scada_vertice)
+					+ row_number() OVER () 
+				END AS vertice_id 
+			FROM vertices_levels v
+		),
+		new_edges AS (
+			SELECT v.level_id, v.vertice_id AS vertice_1, lead(v.vertice_id) OVER (PARTITION BY v.node_1, v.node_2 ORDER BY v.level_id) AS vertice_2, v.node_1, v.node_2
+			FROM vertices v 
+		)
+	INSERT INTO temp_om_scada_graph (node_1, node_2, group_id, level_id, node_type_1, node_type_2, expl_id, attrib, active, the_geom, is_real, is_multilevel)
+	SELECT
+		e.vertice_1,
+		e.vertice_2,
+		g.group_id,
+		e.level_id,
+		CASE WHEN e.vertice_1 = e.node_1 THEN g.node_type_1
+		WHEN e.vertice_1 = e.node_2 THEN g.node_type_2
+		ELSE 'VIRTUAL VERTICE'
+		END AS node_type_1,
+		CASE WHEN e.vertice_2 = e.node_1 THEN g.node_type_1
+		WHEN e.vertice_2 = e.node_2 THEN g.node_type_2
+		ELSE 'VIRTUAL VERTICE'
+		END AS node_type_2,
+		g.expl_id,
+		g.attrib,
+		g.active,
+		g.the_geom,
+		FALSE AS is_real,
+		FALSE AS is_multilevel	
+	FROM new_edges e
+	JOIN temp_om_scada_graph g ON e.node_1 = g.node_1 AND e.node_2 = g.node_2
+	WHERE e.vertice_2 IS NOT NULL;
+
+	INSERT INTO temp_om_scada_vertice (node_id, group_id, level_id, is_real)
+	SELECT g.node_1, g.group_id, g.level_id, FALSE AS is_real
+	FROM temp_om_scada_graph g
+	WHERE g.is_real = FALSE
+	AND NOT EXISTS (SELECT 1 FROM temp_om_scada_vertice t WHERE t.node_id = g.node_1);
+
 	-- position_id 
 	-- order root nodes by their coordinates x and y coordinates so their position_id is assigned from left to right
 	SELECT COALESCE(array_agg(t.node_id ORDER BY t.x, t.y), '{}')::int[]
@@ -412,6 +494,17 @@ BEGIN
 			AND g2.node_2 = g.node_1
 		)
 	) t;
+
+	v_query_text := '
+		SELECT
+			row_number() OVER () AS id,
+			g.node_1 AS source,
+			g.node_2 AS target,
+			1::float AS cost
+		FROM temp_om_scada_graph g
+		WHERE g.the_geom IS NOT NULL
+		AND g.is_multilevel = FALSE
+	';
 
 	-- 1. initial raw value for position_aux from DFS traversal order (pgr_depthFirstSearch)
 	UPDATE temp_om_scada_vertice n
@@ -479,7 +572,7 @@ BEGIN
 			SELECT v.node_id,
 				row_number() OVER (PARTITION BY v.group_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_aux
 			FROM temp_om_scada_vertice v
-			JOIN node n ON n.node_id = v.node_id
+			LEFT JOIN node n ON n.node_id = v.node_id
 		) g
 		WHERE t.node_id = g.node_id
 		AND t.position_aux IS DISTINCT FROM g.position_aux;
@@ -498,7 +591,7 @@ BEGIN
 		SELECT v.node_id,
 			row_number() OVER (PARTITION BY v.group_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_id
 		FROM temp_om_scada_vertice v
-		JOIN node n ON n.node_id = v.node_id
+		LEFT JOIN node n ON n.node_id = v.node_id
 	) g
 	WHERE t.node_id = g.node_id;
 
