@@ -28,11 +28,19 @@ import json
 import sys
 import urllib.parse
 from pathlib import Path
+from typing import Any
 
 from i18n_api_client import TranslationsApiClient, resolve_setting
 
 DEFAULT_TS_NAME = "giswater"
+DEFAULT_STATS_PATH = "/api/stats"
 ZIP_MAGIC = b"PK"
+
+# Regional code in locale ≠ ISO2 flag PNG used by About (icons/flags).
+FLAG_OVERRIDES = {
+    "de_GE": "DE",
+    "ja_JA": "JP",
+}
 
 
 def fetch_languages_dict(api: TranslationsApiClient) -> dict[str, str]:
@@ -50,8 +58,89 @@ def fetch_languages_dict(api: TranslationsApiClient) -> dict[str, str]:
     return languages
 
 
+def fetch_stats_by_lang(api: TranslationsApiClient, path: str = DEFAULT_STATS_PATH) -> dict[str, dict[str, Any]]:
+    payload = api.get_json(path)
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Unexpected stats payload from {path}: expected object")
+
+    by_lang = payload.get("byLang")
+    if not isinstance(by_lang, dict):
+        raise RuntimeError(f"Unexpected stats payload from {path}: missing byLang object")
+
+    result: dict[str, dict[str, Any]] = {}
+    for locale, row in by_lang.items():
+        key = normalize_lang(str(locale))
+        if not key or not isinstance(row, dict):
+            continue
+        result[key] = row
+    return result
+
+
 def normalize_lang(lang: str) -> str:
     return lang.strip().lower().replace("-", "_")
+
+
+def display_locale(lang: str) -> str:
+    """Normalize API locale (es_es) to About catalog form (es_ES)."""
+    key = normalize_lang(lang)
+    parts = key.split("_", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        return key
+    return f"{parts[0]}_{parts[1].upper()}"
+
+
+def flag_for_locale(locale: str) -> str:
+    if locale in FLAG_OVERRIDES:
+        return FLAG_OVERRIDES[locale]
+    parts = locale.split("_", 1)
+    if len(parts) == 2 and parts[1]:
+        return parts[1].upper()
+    return locale.upper()[:2]
+
+
+def percent_from_stats_row(row: dict[str, Any] | None) -> int | None:
+    if row is None:
+        return None
+    value = row.get("percent")
+    if value is None or value == "":
+        return None
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return None
+
+
+def build_translations_catalog(
+    languages: dict[str, str],
+    by_lang: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Merge /api/languages + /api/stats into About's translations.json shape."""
+    locales = set(languages) | set(by_lang) | {"en_us"}
+    catalog: list[dict[str, Any]] = []
+    for key in sorted(locales):
+        locale = display_locale(key)
+        if key == "en_us":
+            percent: int | None = 100
+        else:
+            percent = percent_from_stats_row(by_lang.get(key))
+        catalog.append(
+            {
+                "locale": locale,
+                "flag": flag_for_locale(locale),
+                "name": languages.get(key) or locale,
+                "percent": percent,
+            }
+        )
+    return catalog
+
+
+def write_translations_json(path: Path, catalog: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print(f"Wrote {path} ({len(catalog)} language(s))")
 
 
 def zip_filename(lang: str) -> str:
@@ -115,6 +204,16 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional path to write languages.json from /api/languages",
     )
+    parser.add_argument(
+        "--translations-json-out",
+        default=None,
+        help="Optional path to write About catalog translations.json from /api/stats",
+    )
+    parser.add_argument(
+        "--stats-path",
+        default=None,
+        help=f"Stats API path (default: {DEFAULT_STATS_PATH})",
+    )
     return parser.parse_args()
 
 
@@ -126,6 +225,10 @@ def main() -> int:
     password = (resolve_setting(args.password, "TRANSLATIONS_API_PASSWORD", "") or "").strip()
     ts_name = resolve_setting(args.ts_name, "TS_NAME", DEFAULT_TS_NAME) or DEFAULT_TS_NAME
     languages_raw = resolve_setting(args.languages, "LANG_CODE", None)
+    stats_path = (
+        resolve_setting(args.stats_path, "TRANSLATIONS_STATS_PATH", DEFAULT_STATS_PATH)
+        or DEFAULT_STATS_PATH
+    )
     output_dir = Path(args.output_dir)
 
     if not base_url:
@@ -139,7 +242,12 @@ def main() -> int:
         with TranslationsApiClient(base_url, user, password) as api:
             languages = parse_languages(languages_raw)
             languages_dict: dict[str, str] | None = None
-            if languages is None or args.languages_json_out:
+            need_languages = (
+                languages is None
+                or args.languages_json_out
+                or args.translations_json_out
+            )
+            if need_languages:
                 print("Fetching language list from API...")
                 languages_dict = fetch_languages_dict(api)
 
@@ -151,6 +259,12 @@ def main() -> int:
                     encoding="utf-8",
                 )
                 print(f"Wrote {languages_json_path} ({len(languages_dict)} language(s))")
+
+            if args.translations_json_out:
+                print(f"Fetching translation stats from {stats_path}...")
+                by_lang = fetch_stats_by_lang(api, stats_path)
+                catalog = build_translations_catalog(languages_dict or {}, by_lang)
+                write_translations_json(Path(args.translations_json_out), catalog)
 
             if languages is None:
                 languages = sorted(languages_dict.keys())
