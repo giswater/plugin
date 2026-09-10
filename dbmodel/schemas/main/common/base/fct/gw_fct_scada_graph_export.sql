@@ -48,14 +48,6 @@ BEGIN
 		)::json, 3546, null, null, null);
 	END IF;
 
-	CREATE TEMP TABLE IF NOT EXISTS temp_om_scada_vertice (
-		node_id integer,
-		group_id integer,
-		row_id integer,
-		column_id integer,
-		column_aux integer
-	);
-
 	SELECT "date" INTO v_schema_date FROM sys_version ORDER BY giswater DESC LIMIT 1;
 
 	WITH scada_groups AS (
@@ -89,7 +81,7 @@ BEGIN
 				g.node_2,
 				json_build_object(
 					'groupId', g.group_id,
-					'rowId', g.order_id,
+					'levelId', g.order_id,
 					'fromNode', g.node_1,
 					'nodeType1', g.node_type_1,
 					'nodeName1', n1.sys_code,
@@ -116,16 +108,16 @@ BEGIN
 		GROUP BY s.group_id
 	),
 	vertices AS (
-		SELECT s.group_id, json_agg(s.vertex ORDER BY s.row_id, s.column_id) AS vertices
+		SELECT s.group_id, json_agg(s.vertex ORDER BY s.level_id, s.position_id) AS vertices
 		FROM (
 			SELECT
 				g.group_id,
-				g.row_id,
-				g.column_id,
+				g.level_id,
+				g.position_id,
 				json_build_object(
 					'groupId', g.group_id,
-					'rowId', g.row_id,
-					'columnId', g.column_id,
+					'levelId', g.level_id,
+					'positionId', g.position_id,
 					'Node', g.node_id,
 					'nodeType', cn.node_type,
 					'nodeName', n.sys_code,
