@@ -92,11 +92,6 @@ QListWidget::item:hover {
      </item>
      <item>
       <property name="text">
-       <string notr="true">Contributors</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
        <string notr="true">Members</string>
       </property>
      </item>
@@ -366,73 +361,6 @@ QScrollArea &gt; QWidget &gt; QWidget { background-color: palette(base); }</stri
             <property name="openLinks">
              <bool>false</bool>
             </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-        <widget class="QWidget" name="page_contributors">
-         <layout class="QVBoxLayout" name="verticalLayout_contributors">
-          <property name="leftMargin">
-           <number>0</number>
-          </property>
-          <property name="topMargin">
-           <number>0</number>
-          </property>
-          <property name="rightMargin">
-           <number>0</number>
-          </property>
-          <property name="bottomMargin">
-           <number>0</number>
-          </property>
-          <item>
-           <widget class="QLabel" name="lbl_contributors">
-            <property name="text">
-             <string>Giswater is built by:</string>
-            </property>
-            <property name="wordWrap">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QScrollArea" name="scr_contributors">
-            <property name="frameShape">
-             <enum>QFrame::StyledPanel</enum>
-            </property>
-            <property name="frameShadow">
-             <enum>QFrame::Sunken</enum>
-            </property>
-            <property name="styleSheet">
-             <string notr="true">QScrollArea { background-color: palette(base); }
-QScrollArea &gt; QWidget &gt; QWidget { background-color: palette(base); }</string>
-            </property>
-            <property name="widgetResizable">
-             <bool>true</bool>
-            </property>
-            <widget class="QWidget" name="wdg_contributors">
-             <property name="geometry">
-              <rect>
-               <x>0</x>
-               <y>0</y>
-               <width>560</width>
-               <height>400</height>
-              </rect>
-             </property>
-             <layout class="QGridLayout" name="lyt_contributors">
-              <property name="leftMargin">
-               <number>8</number>
-              </property>
-              <property name="topMargin">
-               <number>8</number>
-              </property>
-              <property name="rightMargin">
-               <number>8</number>
-              </property>
-              <property name="bottomMargin">
-               <number>8</number>
-              </property>
-             </layout>
-            </widget>
            </widget>
           </item>
          </layout>

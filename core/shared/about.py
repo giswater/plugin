@@ -44,7 +44,7 @@ _PYTHON_PACKAGES = (
 
 
 class GwAbout(QObject):
-    """About dialog: diagnostics, contributors and license."""
+    """About dialog: diagnostics, members and license."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -73,7 +73,6 @@ class GwAbout(QObject):
         self._translate_sidebar(dlg)
         self._fill_info(dlg)
         self._fill_whatsnew(dlg)
-        self._fill_names(dlg.lyt_contributors, self._metadata_names("author"), 3)
         self._fill_names(dlg.lyt_members, self._metadata_names("member"), 3)
         self._fill_translations(dlg)
         self._fill_names(dlg.lyt_acknowledgments, self._readme_list("Acknowledgments"), 2)
@@ -109,16 +108,14 @@ class GwAbout(QObject):
         dlg.lst_menu.item(0).setText(tools_qt.tr(title))
         title = "What's New"
         dlg.lst_menu.item(1).setText(tools_qt.tr(title))
-        title = "Contributors"
-        dlg.lst_menu.item(2).setText(tools_qt.tr(title))
         title = "Members"
-        dlg.lst_menu.item(3).setText(tools_qt.tr(title))
+        dlg.lst_menu.item(2).setText(tools_qt.tr(title))
         title = "Translations"
-        dlg.lst_menu.item(4).setText(tools_qt.tr(title))
+        dlg.lst_menu.item(3).setText(tools_qt.tr(title))
         title = "Acknowledgments"
-        dlg.lst_menu.item(5).setText(tools_qt.tr(title))
+        dlg.lst_menu.item(4).setText(tools_qt.tr(title))
         title = "License"
-        dlg.lst_menu.item(6).setText(tools_qt.tr(title))
+        dlg.lst_menu.item(5).setText(tools_qt.tr(title))
 
     def _copy_text(self):
         """Copy the diagnostics to the clipboard, to paste into a bug report."""
