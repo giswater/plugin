@@ -242,11 +242,11 @@ class GwAbout(QObject):
         if value is None or value == "":
             return self._info_label("—")
         try:
-            percent = int(round(float(value)))
+            percent = round(float(value), 2)
         except (TypeError, ValueError):
             return self._info_label("—")
         msg = "{0}%"
-        label = self._info_label(tools_qt.tr(msg, list_params=(percent,)))
+        label = self._info_label(tools_qt.tr(msg, list_params=("{0:.2f}".format(percent),)))
         label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         if percent >= 99:

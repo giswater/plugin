@@ -98,14 +98,14 @@ def flag_for_locale(locale: str) -> str:
     return locale.upper()[:2]
 
 
-def percent_from_stats_row(row: dict[str, Any] | None) -> int | None:
+def percent_from_stats_row(row: dict[str, Any] | None) -> float | None:
     if row is None:
         return None
     value = row.get("percent")
     if value is None or value == "":
         return None
     try:
-        return int(round(float(value)))
+        return round(float(value), 2)
     except (TypeError, ValueError):
         return None
 
@@ -120,7 +120,7 @@ def build_translations_catalog(
     for key in sorted(locales):
         locale = display_locale(key)
         if key == "en_us":
-            percent: int | None = 100
+            percent: float | None = 100.0
         else:
             percent = percent_from_stats_row(by_lang.get(key))
         catalog.append(
