@@ -9306,7 +9306,9 @@ def _manage_tableview(**kwargs):
     class_self = kwargs['class']
     module = tools_backend_calls
     widget = add_tableview(complet_result, field, dialog, module, class_self)
+    # Column names from keys of the first row (also clears the model).
     widget = add_tableview_header(widget, field.get('value'))
+    # Cell values from every row.
     widget = fill_tableview_rows(widget, field.get('value'))
     tools_qt.set_tableview_config(widget)
     return widget
