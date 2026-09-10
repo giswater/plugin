@@ -1780,31 +1780,39 @@ VALUES
 (4748, 'No network path between node_1=%node_1% and node_2=%node_2%', NULL, 2, true, 'utils', 'core', 'UI')
 ON CONFLICT (id) DO NOTHING;
 
--- om_scada_graph_json: one row per synoptic (group_id); expl_id is the union of exploitations.
--- Existing JSON (PK expl_id, one blob for the whole graph) cannot be split: truncate and regenerate.
-TRUNCATE TABLE om_scada_graph_json;
+-- om_scada_graph_json: one row per synoptic (group_id first); expl_id is the union of exploitations.
+-- Existing JSON (PK expl_id, one blob for the whole graph) cannot be split: drop-in recreate, regenerate with commit.
+ALTER TABLE om_scada_graph_json RENAME TO _om_scada_graph_json_;
+ALTER TABLE _om_scada_graph_json_ RENAME CONSTRAINT om_scada_graph_json_pkey TO _om_scada_graph_json_pkey;
 
-ALTER TABLE om_scada_graph_json DROP CONSTRAINT IF EXISTS om_scada_graph_json_pkey;
+CREATE TABLE om_scada_graph_json (
+	group_id int4 NOT NULL,
+	expl_id int4[] NULL,
+	om_scada_graph_json json,
+	insert_tstamp timestamp DEFAULT now(),
+	update_tstamp timestamp DEFAULT NULL,
+	CONSTRAINT om_scada_graph_json_pkey PRIMARY KEY (group_id)
+);
 
-SELECT gw_fct_admin_manage_fields($${"data":{"action":"ADD","table":"om_scada_graph_json","column":"group_id","dataType":"integer"}}$$);
-
-DO $scada_json$
+DO $scada_json_acl$
+DECLARE
+	r record;
 BEGIN
-	IF EXISTS (
-		SELECT 1
-		FROM information_schema.columns
+	FOR r IN
+		SELECT DISTINCT grantee, privilege_type
+		FROM information_schema.role_table_grants
 		WHERE table_schema = current_schema()
-			AND table_name = 'om_scada_graph_json'
-			AND column_name = 'expl_id'
-			AND udt_name = 'int4'
-	) THEN
-		PERFORM gw_fct_admin_manage_fields($${"data":{"action":"CHANGETYPE","table":"om_scada_graph_json","column":"expl_id","dataType":"int4[]"}}$$);
-	END IF;
+			AND table_name = '_om_scada_graph_json_'
+			AND grantee <> 'PUBLIC'
+	LOOP
+		EXECUTE format(
+			'GRANT %s ON TABLE om_scada_graph_json TO %I',
+			r.privilege_type,
+			r.grantee
+		);
+	END LOOP;
 END
-$scada_json$;
-
-ALTER TABLE om_scada_graph_json ALTER COLUMN group_id SET NOT NULL;
-ALTER TABLE om_scada_graph_json ADD CONSTRAINT om_scada_graph_json_pkey PRIMARY KEY (group_id);
+$scada_json_acl$;
 
 -- om_scada_graph.order_id → level_id (same meaning as vertex level_id / JSON levelId)
 DROP TRIGGER IF EXISTS gw_trg_v_om_scada_graph_delete ON v_om_scada_graph;

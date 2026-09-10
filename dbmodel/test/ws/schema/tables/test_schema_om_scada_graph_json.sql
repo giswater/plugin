@@ -21,9 +21,18 @@ SELECT has_table('om_scada_graph_json'::name, 'Table om_scada_graph_json should 
 SELECT columns_are(
     'om_scada_graph_json',
     ARRAY[
-        'expl_id', 'om_scada_graph_json', 'insert_tstamp', 'update_tstamp', 'group_id'
+        'group_id', 'expl_id', 'om_scada_graph_json', 'insert_tstamp', 'update_tstamp'
     ],
     'Table om_scada_graph_json should have the correct columns'
+);
+
+SELECT is(
+    (SELECT array_agg(attname::text ORDER BY attnum)
+     FROM pg_attribute
+     WHERE attrelid = 'om_scada_graph_json'::regclass
+       AND attnum > 0 AND NOT attisdropped),
+    ARRAY['group_id', 'expl_id', 'om_scada_graph_json', 'insert_tstamp', 'update_tstamp']::text[],
+    'PK group_id should be the first column'
 );
 
 -- Check primary key
