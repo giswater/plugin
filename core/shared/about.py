@@ -14,7 +14,7 @@ from importlib.metadata import PackageNotFoundError, version as pkg_version
 
 from qgis.PyQt.QtCore import QObject, QSysInfo, Qt, QUrl
 from qgis.PyQt.QtGui import QDesktopServices, QFont, QPixmap
-from qgis.PyQt.QtWidgets import QApplication, QLabel, QSizePolicy
+from qgis.PyQt.QtWidgets import QApplication, QLabel, QProgressBar, QSizePolicy
 from qgis.PyQt.sip import isdeleted
 from qgis.core import Qgis
 
@@ -44,7 +44,7 @@ _PYTHON_PACKAGES = (
 
 
 class GwAbout(QObject):
-    """About dialog: diagnostics, members and license."""
+    """About dialog: diagnostics, contributors and license."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -108,7 +108,7 @@ class GwAbout(QObject):
         dlg.lst_menu.item(0).setText(tools_qt.tr(title))
         title = "What's New"
         dlg.lst_menu.item(1).setText(tools_qt.tr(title))
-        title = "Members"
+        title = "Contributors"
         dlg.lst_menu.item(2).setText(tools_qt.tr(title))
         title = "Translations"
         dlg.lst_menu.item(3).setText(tools_qt.tr(title))
@@ -195,7 +195,8 @@ class GwAbout(QObject):
         for row, entry in enumerate(rows, start=1):
             lyt.addWidget(self._flag_label(entry.get("flag") or ""), row, 0)
             lyt.addWidget(self._info_label(entry.get("name") or entry.get("locale") or ""), row, 1)
-            lyt.addWidget(self._percent_label(entry.get("percent")), row, 2)
+            lyt.addWidget(self._percent_label(entry.get("percent")), row, 2,
+                          Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         lyt.setRowStretch(len(rows) + 1, 1)
 
     def _translation_catalog(self):
@@ -219,18 +220,19 @@ class GwAbout(QObject):
             return -1
 
     def _flag_label(self, code):
-        """ISO2 PNG from icons/flags, else a regional-indicator emoji."""
+        """Flag PNG from icons/flags/{code}.png, else a 2-letter emoji."""
 
         label = QLabel()
         label.setFixedWidth(28)
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         code = (code or "").strip()
-        iso = code.upper() if len(code) == 2 and code.isalpha() else ""
-        png = os.path.join(lib_vars.plugin_dir, "icons", "flags", "{0}.png".format(iso.lower())) if iso else ""
+        key = code.lower()
+        png = os.path.join(lib_vars.plugin_dir, "icons", "flags", "{0}.png".format(key)) if key else ""
         if png and os.path.exists(png):
             pixmap = QPixmap(png)
             label.setPixmap(pixmap.scaledToHeight(16, Qt.TransformationMode.SmoothTransformation))
             return label
+        iso = code.upper() if len(code) == 2 and code.isalpha() else ""
         if iso:
             label.setFont(QFont("Segoe UI Emoji", 12))
             label.setText("".join(chr(0x1F1E6 + ord(char) - 65) for char in iso))
@@ -239,27 +241,34 @@ class GwAbout(QObject):
         return label
 
     def _percent_label(self, value):
+        """QGIS-style bar: green finished, red remainder."""
+
         if value is None or value == "":
             return self._info_label("—")
         try:
-            percent = round(float(value), 2)
+            percent = max(0.0, min(100.0, round(float(value), 2)))
         except (TypeError, ValueError):
             return self._info_label("—")
+        bar = QProgressBar()
+        bar.setRange(0, 100)
+        bar.setValue(int(round(percent)))
         msg = "{0}%"
-        label = self._info_label(tools_qt.tr(msg, list_params=("{0:.2f}".format(percent),)))
-        label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
-        if percent >= 99:
-            color = "#3c8c40"
-        elif percent >= 80:
-            color = "#6b8e23"
-        else:
-            color = "#888888"
-        label.setStyleSheet(
-            "background-color: {0}; color: #ffffff; border-radius: 3px; "
-            "padding: 1px 8px; font-weight: bold;".format(color)
+        bar.setFormat(tools_qt.tr(msg, list_params=("{0:.2f}".format(percent),)))
+        bar.setTextVisible(True)
+        bar.setFixedSize(80, 18)
+        bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        bar.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        bar.setStyleSheet(
+            "QProgressBar {"
+            " border: none; border-radius: 3px;"
+            " background-color: #c0392b; color: #ffffff;"
+            " font-weight: bold; text-align: center;"
+            "}"
+            "QProgressBar::chunk {"
+            " background-color: #3c8c40; border-radius: 3px;"
+            "}"
         )
-        return label
+        return bar
 
     def _fill_whatsnew(self, dlg):
         """One release per combo entry, notes of the selected one below.

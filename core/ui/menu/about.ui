@@ -92,7 +92,7 @@ QListWidget::item:hover {
      </item>
      <item>
       <property name="text">
-       <string notr="true">Members</string>
+       <string notr="true">Contributors</string>
       </property>
      </item>
      <item>
