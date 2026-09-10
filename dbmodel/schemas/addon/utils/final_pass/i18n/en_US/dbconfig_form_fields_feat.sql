@@ -46,7 +46,7 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip, placeho
 ('fluid_type', '%_arc%', 'form_feature', 'tab_data', 'Fluid type:', 'Fluid_type', NULL),
 ('function_type', '%_arc%', 'form_feature', 'tab_data', 'Function type:', 'Function_type - Type of function to choose from the user-customized dropdown in the man_type_function table', NULL),
 ('gis_length', '%_arc%', 'form_feature', 'tab_data', 'Gis length:', 'Gis_length', NULL),
-('initoverflowpath', '%_arc%', 'form_feature', 'tab_data', 'Init overflow path:', 'Este campo es de suma importancia puesto que identifica aquellos tramos de red que son inicio de de flujo de caudales en tiempo de lluvia. Esta propiedad les convierte en ser frontera entre las DWFzones y la Drainzones', NULL),
+('initoverflowpath', '%_arc%', 'form_feature', 'tab_data', 'Start Derived Flows:', 'Este campo es de suma importancia puesto que identifica aquellos tramos de red que son inicio de de flujo de caudales en tiempo de lluvia. Esta propiedad les convierte en ser frontera entre las DWFzones y la Drainzones', NULL),
 ('inlet_offset', '%_arc%', 'form_feature', 'tab_data', 'Inlet offset:', 'Inlet_offset', NULL),
 ('inventory', '%_arc%', 'form_feature', 'tab_data', 'Inventory:', 'Inventory', NULL),
 ('inverted_slope', '%_arc%', 'form_feature', 'tab_data', 'Inverted slope:', 'Inverted_slope', NULL),
