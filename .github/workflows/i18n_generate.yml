@@ -114,6 +114,7 @@ jobs:
             --user "$TRANSLATIONS_API_USER" \
             --password "$TRANSLATIONS_API_PASSWORD" \
             --languages-json-out ../artifacts/languages.json \
+            --translations-json-out config/translations.json \
             --output-dir ../artifacts/i18n
 
       - name: Checkout translations repository
@@ -314,11 +315,11 @@ jobs:
           git add -A
 
           if git diff --staged --quiet; then
-            echo "No en_US changes to commit."
+            echo "No en_US or translation stats changes to commit."
             exit 0
           fi
 
-          git commit -m "chore(i18n): update bundled en_US files"
+          git commit -m "chore(i18n): update bundled en_US and translation stats"
           for attempt in 1 2 3 4 5; do
             git fetch origin "${BRANCH}"
             if ! git rebase "origin/${BRANCH}"; then
