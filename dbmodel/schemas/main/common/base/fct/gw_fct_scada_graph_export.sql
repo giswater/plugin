@@ -72,16 +72,16 @@ BEGIN
 		) g
 	),
 	links AS (
-		SELECT s.group_id, json_agg(s.link ORDER BY s.order_id, s.node_1, s.node_2) AS links
+		SELECT s.group_id, json_agg(s.link ORDER BY s.level_id, s.node_1, s.node_2) AS links
 		FROM (
 			SELECT
 				g.group_id,
-				g.order_id,
+				g.level_id,
 				g.node_1,
 				g.node_2,
 				json_build_object(
 					'groupId', g.group_id,
-					'levelId', g.order_id,
+					'levelId', g.level_id,
 					'fromNode', g.node_1,
 					'nodeType1', g.node_type_1,
 					'nodeName1', n1.sys_code,

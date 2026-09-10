@@ -32,7 +32,7 @@ CREATE TEMP TABLE temp_om_scada_vertice (
     position_aux float
 );
 
-INSERT INTO temp_om_scada_graph (node_1, node_2, group_id, order_id, expl_id, active, the_geom)
+INSERT INTO temp_om_scada_graph (node_1, node_2, group_id, level_id, expl_id, active, the_geom)
 VALUES
     (
         -901, -902, 10, 1, ARRAY[1], true,
@@ -53,7 +53,7 @@ VALUES
 -- Export deletes JSON rows whose group_id is gone from om_scada_graph.
 -- Skip builder (dijkstra + NULL layout) so phantom node ids keep group_id.
 ALTER TABLE om_scada_graph DISABLE TRIGGER USER;
-INSERT INTO om_scada_graph (node_1, node_2, group_id, order_id, expl_id, active)
+INSERT INTO om_scada_graph (node_1, node_2, group_id, level_id, expl_id, active)
 VALUES
     (-901, -902, 10, 1, ARRAY[1], true),
     (-903, -904, 20, 1, ARRAY[2], true);

@@ -21,7 +21,7 @@ SELECT has_table('om_scada_graph'::name, 'Table om_scada_graph should exist');
 SELECT columns_are(
     'om_scada_graph',
     ARRAY[
-        'node_1', 'node_2', 'group_id', 'order_id', 'node_type_1', 'node_type_2',
+        'node_1', 'node_2', 'group_id', 'level_id', 'node_type_1', 'node_type_2',
         'expl_id', 'attrib', 'active', 'the_geom'
     ],
     'Table om_scada_graph should have the correct columns'
@@ -35,7 +35,7 @@ SELECT col_is_pk('om_scada_graph', ARRAY['node_1', 'node_2'], 'Primary key shoul
 SELECT col_type_is('om_scada_graph', 'node_1', 'int4', 'Column node_1 should be int4');
 SELECT col_type_is('om_scada_graph', 'node_2', 'int4', 'Column node_2 should be int4');
 SELECT col_type_is('om_scada_graph', 'group_id', 'int4', 'Column group_id should be int4');
-SELECT col_type_is('om_scada_graph', 'order_id', 'int4', 'Column order_id should be int4');
+SELECT col_type_is('om_scada_graph', 'level_id', 'int4', 'Column level_id should be int4');
 SELECT col_type_is('om_scada_graph', 'node_type_1', 'text', 'Column node_type_1 should be text');
 SELECT col_type_is('om_scada_graph', 'node_type_2', 'text', 'Column node_type_2 should be text');
 SELECT col_type_is('om_scada_graph', 'expl_id', 'int4[]', 'Column expl_id should be int4[]');

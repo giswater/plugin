@@ -21,7 +21,7 @@ SELECT has_view('v_om_scada_graph'::name, 'View v_om_scada_graph should exist');
 SELECT columns_are(
     'v_om_scada_graph',
     ARRAY[
-        'group_id', 'order_id', 'node_1', 'node_type_1', 'sys_code_1', 'expl_id_1',
+        'group_id', 'level_id', 'node_1', 'node_type_1', 'sys_code_1', 'expl_id_1',
         'dma_id_1', 'dma_name_1', 'node_2', 'node_type_2', 'sys_code_2', 'expl_id_2',
         'dma_id_2', 'dma_name_2', 'expl_id', 'attrib', 'active', 'the_geom'
     ],
@@ -30,7 +30,7 @@ SELECT columns_are(
 
 -- Check column types
 SELECT col_type_is('v_om_scada_graph', 'group_id', 'int4', 'Column group_id should be int4');
-SELECT col_type_is('v_om_scada_graph', 'order_id', 'int4', 'Column order_id should be int4');
+SELECT col_type_is('v_om_scada_graph', 'level_id', 'int4', 'Column level_id should be int4');
 SELECT col_type_is('v_om_scada_graph', 'node_1', 'int4', 'Column node_1 should be int4');
 SELECT col_type_is('v_om_scada_graph', 'node_type_1', 'text', 'Column node_type_1 should be text');
 SELECT col_type_is('v_om_scada_graph', 'sys_code_1', 'text', 'Column sys_code_1 should be text');
