@@ -89,6 +89,7 @@ BEGIN
 				g.node_2,
 				json_build_object(
 					'groupId', g.group_id,
+					'rowId', g.order_id,
 					'fromNode', g.node_1,
 					'nodeType1', g.node_type_1,
 					'nodeName1', n1.sys_code,
