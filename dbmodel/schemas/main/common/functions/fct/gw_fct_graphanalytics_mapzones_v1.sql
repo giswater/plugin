@@ -2416,7 +2416,7 @@ BEGIN
 				EXECUTE format($sql$
 				INSERT INTO %I (%I, code, name, expl_id, muni_id, the_geom, addparam, graphconfig, created_at , created_by)
 				SELECT t.mapzone_ids[1],
-					COALESCE(gw_fct_generate_code('mapzone', %L, json_strip_nulls(json_build_object(%I, t.mapzone_ids[1], 'the_geom', ST_AsGeoJSON(t.the_geom)::json))), t.mapzone_ids[1]::text),
+					COALESCE(gw_fct_generate_code('mapzone', %L, json_strip_nulls(json_build_object(%L, t.mapzone_ids[1], 'the_geom', ST_AsGeoJSON(t.the_geom)::json))), t.mapzone_ids[1]::text),
 					t.name, t.expl_id, t.muni_id, t.the_geom, t.addparam, t.graphconfig, t.created_at , t.created_by
 				FROM temp_pgr_mapzone t
 				WHERE t.mapzone_id <> 0
@@ -2429,7 +2429,7 @@ BEGIN
 					SET
 						code = COALESCE(
 							NULLIF(btrim(m.code), ''),
-							gw_fct_generate_code('mapzone', %L, json_strip_nulls(json_build_object(%I, t.mapzone_id, 'the_geom', ST_AsGeoJSON(t.the_geom)::json))),
+							gw_fct_generate_code('mapzone', %L, json_strip_nulls(json_build_object(%L, t.mapzone_id, 'the_geom', ST_AsGeoJSON(t.the_geom)::json))),
 							t.mapzone_id::text
 						),
 						expl_id = t.expl_id,
