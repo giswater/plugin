@@ -16,6 +16,7 @@ from qgis.PyQt.QtWidgets import QMenu, QPushButton, QTreeWidget, QTreeWidgetItem
 from qgis.core import QgsApplication
 
 from .admin.i18n.language_packages_dialog import GwI18NManageLanguagesDialog
+from .shared.about import GwAbout
 from .ui.ui_manager import GwLoadMenuUi
 from .utils import tools_gw
 from .. import global_vars
@@ -30,6 +31,7 @@ class GwMenuLoad(QObject):
 
         super().__init__()
         self.iface = global_vars.iface
+        self.about = GwAbout(self)
 
     def read_menu(self, project_loaded):
         """  """
@@ -100,6 +102,14 @@ class GwMenuLoad(QObject):
         icon_path = f"{icon_folder}{os.sep}dialogs{os.sep}105.png"
         folder_icon = QIcon(icon_path)
         action_manage_file.setIcon(folder_icon)
+        # endregion
+
+        # region About
+        title = "About"
+        action_about = self.main_menu.addAction(tools_qt.tr(title))
+        icon_path = f"{icon_folder}{os.sep}dialogs{os.sep}136.png"
+        action_about.setIcon(QIcon(icon_path))
+        action_about.triggered.connect(self.about.open)
         # endregion
 
         # region Open user folder

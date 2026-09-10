@@ -1,0 +1,718 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>dlg_about</class>
+ <widget class="QDialog" name="dlg_about">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>720</width>
+    <height>500</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>640</width>
+    <height>420</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>About Giswater</string>
+  </property>
+  <layout class="QHBoxLayout" name="horizontalLayout">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item>
+    <widget class="QListWidget" name="lst_menu">
+     <property name="minimumSize">
+      <size>
+       <width>160</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>180</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum>
+     </property>
+     <property name="horizontalScrollBarPolicy">
+      <enum>Qt::ScrollBarAlwaysOff</enum>
+     </property>
+     <property name="editTriggers">
+      <set>QAbstractItemView::NoEditTriggers</set>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QListWidget {
+	background-color: #1e4e8c;
+	color: #ffffff;
+	border: none;
+	outline: none;
+	padding-top: 8px;
+}
+QListWidget::item {
+	padding: 8px 14px;
+}
+QListWidget::item:selected {
+	background-color: #163a69;
+	color: #ffffff;
+}
+QListWidget::item:hover {
+	background-color: #2a63ad;
+}</string>
+     </property>
+     <property name="currentRow">
+      <number>0</number>
+     </property>
+     <item>
+      <property name="text">
+       <string notr="true">About</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string notr="true">What's New</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string notr="true">Contributors</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string notr="true">Members</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string notr="true">Translations</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string notr="true">Acknowledgments</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string notr="true">License</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="wgt_content">
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <layout class="QHBoxLayout" name="lyt_header">
+        <item>
+         <spacer name="horizontalSpacer_header_left">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QLabel" name="lbl_icon">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>64</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>64</height>
+           </size>
+          </property>
+          <property name="scaledContents">
+           <bool>false</bool>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_header">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="verticalSpacer_header">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Fixed</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>24</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QStackedWidget" name="stk_about">
+        <property name="currentIndex">
+         <number>0</number>
+        </property>
+        <widget class="QWidget" name="page_diagnostics">
+         <layout class="QVBoxLayout" name="verticalLayout_diagnostics">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="QScrollArea" name="scr_info">
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Sunken</enum>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QScrollArea { background-color: palette(base); }
+QScrollArea &gt; QWidget &gt; QWidget { background-color: palette(base); }</string>
+            </property>
+            <property name="widgetResizable">
+             <bool>true</bool>
+            </property>
+            <widget class="QWidget" name="wdg_info">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>560</width>
+               <height>400</height>
+              </rect>
+             </property>
+             <layout class="QGridLayout" name="lyt_info">
+              <property name="leftMargin">
+               <number>8</number>
+              </property>
+              <property name="topMargin">
+               <number>8</number>
+              </property>
+              <property name="rightMargin">
+               <number>8</number>
+              </property>
+              <property name="bottomMargin">
+               <number>8</number>
+              </property>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_copy">
+            <property name="text">
+             <string>Copy to clipboard</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_version">
+            <property name="text">
+             <string/>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_homepage">
+            <property name="text">
+             <string>&lt;a href=&quot;https://www.giswater.org&quot;&gt;www.giswater.org&lt;/a&gt;</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+            <property name="openExternalLinks">
+             <bool>true</bool>
+            </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextBrowserInteraction</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="page_whatsnew">
+         <layout class="QVBoxLayout" name="verticalLayout_whatsnew">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <layout class="QHBoxLayout" name="lyt_whatsnew_header">
+            <item>
+             <widget class="QLabel" name="lbl_version_release">
+              <property name="text">
+               <string>Version</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="cmb_version">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maxVisibleItems">
+               <number>20</number>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">QComboBox { combobox-popup: 0; }</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_release">
+              <property name="text">
+               <string>View on GitHub</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QTextBrowser" name="txt_whatsnew">
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Sunken</enum>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">background-color: palette(base);</string>
+            </property>
+            <property name="openLinks">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="page_contributors">
+         <layout class="QVBoxLayout" name="verticalLayout_contributors">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="lbl_contributors">
+            <property name="text">
+             <string>Giswater is built by:</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QScrollArea" name="scr_contributors">
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Sunken</enum>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QScrollArea { background-color: palette(base); }
+QScrollArea &gt; QWidget &gt; QWidget { background-color: palette(base); }</string>
+            </property>
+            <property name="widgetResizable">
+             <bool>true</bool>
+            </property>
+            <widget class="QWidget" name="wdg_contributors">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>560</width>
+               <height>400</height>
+              </rect>
+             </property>
+             <layout class="QGridLayout" name="lyt_contributors">
+              <property name="leftMargin">
+               <number>8</number>
+              </property>
+              <property name="topMargin">
+               <number>8</number>
+              </property>
+              <property name="rightMargin">
+               <number>8</number>
+              </property>
+              <property name="bottomMargin">
+               <number>8</number>
+              </property>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="page_members">
+         <layout class="QVBoxLayout" name="verticalLayout_members">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="lbl_members">
+            <property name="text">
+             <string>Everyone who has committed to Giswater:</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QScrollArea" name="scr_members">
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Sunken</enum>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QScrollArea { background-color: palette(base); }
+QScrollArea &gt; QWidget &gt; QWidget { background-color: palette(base); }</string>
+            </property>
+            <property name="widgetResizable">
+             <bool>true</bool>
+            </property>
+            <widget class="QWidget" name="wdg_members">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>560</width>
+               <height>400</height>
+              </rect>
+             </property>
+             <layout class="QGridLayout" name="lyt_members">
+              <property name="leftMargin">
+               <number>8</number>
+              </property>
+              <property name="topMargin">
+               <number>8</number>
+              </property>
+              <property name="rightMargin">
+               <number>8</number>
+              </property>
+              <property name="bottomMargin">
+               <number>8</number>
+              </property>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="page_translations">
+         <layout class="QVBoxLayout" name="verticalLayout_translations">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="lbl_translations">
+            <property name="text">
+             <string>Available translations:</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QScrollArea" name="scr_translations">
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Sunken</enum>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QScrollArea { background-color: palette(base); }
+QScrollArea &gt; QWidget &gt; QWidget { background-color: palette(base); }</string>
+            </property>
+            <property name="widgetResizable">
+             <bool>true</bool>
+            </property>
+            <widget class="QWidget" name="wdg_translations">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>560</width>
+               <height>400</height>
+              </rect>
+             </property>
+             <layout class="QGridLayout" name="lyt_translations">
+              <property name="leftMargin">
+               <number>8</number>
+              </property>
+              <property name="topMargin">
+               <number>8</number>
+              </property>
+              <property name="rightMargin">
+               <number>8</number>
+              </property>
+              <property name="bottomMargin">
+               <number>8</number>
+              </property>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_translations_link">
+            <property name="text">
+             <string>&lt;a href=&quot;https://github.com/giswater/translations&quot;&gt;github.com/giswater/translations&lt;/a&gt;</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+            <property name="openExternalLinks">
+             <bool>true</bool>
+            </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextBrowserInteraction</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="page_acknowledgments">
+         <layout class="QVBoxLayout" name="verticalLayout_acknowledgments">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="lbl_acknowledgments">
+            <property name="text">
+             <string>Special thanks to our founding contributors:</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QScrollArea" name="scr_acknowledgments">
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Sunken</enum>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QScrollArea { background-color: palette(base); }
+QScrollArea &gt; QWidget &gt; QWidget { background-color: palette(base); }</string>
+            </property>
+            <property name="widgetResizable">
+             <bool>true</bool>
+            </property>
+            <widget class="QWidget" name="wdg_acknowledgments">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>560</width>
+               <height>400</height>
+              </rect>
+             </property>
+             <layout class="QGridLayout" name="lyt_acknowledgments">
+              <property name="leftMargin">
+               <number>8</number>
+              </property>
+              <property name="topMargin">
+               <number>8</number>
+              </property>
+              <property name="rightMargin">
+               <number>8</number>
+              </property>
+              <property name="bottomMargin">
+               <number>8</number>
+              </property>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="page_license">
+         <layout class="QVBoxLayout" name="verticalLayout_license">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="QTextEdit" name="txt_license">
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Sunken</enum>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">background-color: palette(base);</string>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </item>
+      <item>
+       <layout class="QGridLayout" name="lyt_buttons">
+        <item row="0" column="0">
+         <spacer name="horizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="0" column="1">
+         <widget class="QPushButton" name="btn_close">
+          <property name="text">
+           <string>Close</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>lst_menu</sender>
+   <signal>currentRowChanged(int)</signal>
+   <receiver>stk_about</receiver>
+   <slot>setCurrentIndex(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>80</x>
+     <y>240</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>400</x>
+     <y>240</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

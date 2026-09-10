@@ -1,0 +1,86 @@
+[
+  {
+    "locale": "bg_BG",
+    "flag": "BG",
+    "name": "Búlgaro (Bulgaria)",
+    "percent": null
+  },
+  {
+    "locale": "ca_ES",
+    "flag": "ES",
+    "name": "Català (Espanya)",
+    "percent": null
+  },
+  {
+    "locale": "de_GE",
+    "flag": "DE",
+    "name": "German (Germany)",
+    "percent": null
+  },
+  {
+    "locale": "en_US",
+    "flag": "US",
+    "name": "English (USA)",
+    "percent": 100
+  },
+  {
+    "locale": "es_CR",
+    "flag": "CR",
+    "name": "Español (Costa Rica)",
+    "percent": null
+  },
+  {
+    "locale": "es_ES",
+    "flag": "ES",
+    "name": "Español (España)",
+    "percent": 100
+  },
+  {
+    "locale": "fr_FR",
+    "flag": "FR",
+    "name": "François (France)",
+    "percent": null
+  },
+  {
+    "locale": "ja_JA",
+    "flag": "JP",
+    "name": "Japanese (Japan)",
+    "percent": null
+  },
+  {
+    "locale": "pl_PL",
+    "flag": "PL",
+    "name": "Polish (Poland)",
+    "percent": null
+  },
+  {
+    "locale": "pt_BR",
+    "flag": "BR",
+    "name": "Portuguese (Brasil)",
+    "percent": null
+  },
+  {
+    "locale": "pt_PT",
+    "flag": "PT",
+    "name": "Portugese (Portugal)",
+    "percent": null
+  },
+  {
+    "locale": "ro_RO",
+    "flag": "RO",
+    "name": "Romanian (Romania)",
+    "percent": null
+  },
+  {
+    "locale": "ru_RU",
+    "flag": "RU",
+    "name": "Russian (Russia)",
+    "percent": null
+  },
+  {
+    "locale": "uk_UA",
+    "flag": "UA",
+    "name": "Ukrainian (Ukraine)",
+    "percent": null
+  }
+]

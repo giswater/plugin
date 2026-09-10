@@ -1055,6 +1055,15 @@ FORM_CLASS = _get_ui_class(f'{UINAME}.ui', f'{CONTEXT}')
 class GwLoadMenuUi(GwDialog, FORM_CLASS):
     CONTEXT = CONTEXT
     UINAME = UINAME
+
+
+UINAME = "about"
+FORM_CLASS = _get_ui_class(f'{UINAME}.ui', f'{CONTEXT}')
+
+
+class GwAboutUi(GwDialog, FORM_CLASS):
+    CONTEXT = CONTEXT
+    UINAME = UINAME
 # endregion
 
 
