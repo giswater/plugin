@@ -27,9 +27,9 @@ CREATE TEMP TABLE temp_om_scada_graph (LIKE om_scada_graph INCLUDING ALL);
 CREATE TEMP TABLE temp_om_scada_vertice (
     node_id integer,
     group_id integer,
-    row_id integer,
-    column_id integer,
-    column_aux integer
+    level_id integer,
+    position_id integer,
+    position_aux float
 );
 
 INSERT INTO temp_om_scada_graph (node_1, node_2, group_id, order_id, expl_id, active, the_geom)
@@ -43,7 +43,7 @@ VALUES
         ST_Multi(ST_GeomFromText('LINESTRING(2 2, 3 3)', SRID_VALUE))
     );
 
-INSERT INTO temp_om_scada_vertice (node_id, group_id, row_id, column_id, column_aux)
+INSERT INTO temp_om_scada_vertice (node_id, group_id, level_id, position_id, position_aux)
 VALUES
     (-901, 10, 1, 1, 1),
     (-902, 10, 1, 2, 2),
@@ -51,6 +51,7 @@ VALUES
     (-904, 20, 1, 2, 2);
 
 -- Export deletes JSON rows whose group_id is gone from om_scada_graph.
+-- Skip builder (dijkstra + NULL layout) so phantom node ids keep group_id.
 ALTER TABLE om_scada_graph DISABLE TRIGGER USER;
 INSERT INTO om_scada_graph (node_1, node_2, group_id, order_id, expl_id, active)
 VALUES
@@ -105,9 +106,9 @@ SELECT is(
 );
 
 SELECT is(
-    (SELECT om_scada_graph_json->'vertices'->0->>'rowId' FROM om_scada_graph_json WHERE group_id = 10),
+    (SELECT om_scada_graph_json->'vertices'->0->>'levelId' FROM om_scada_graph_json WHERE group_id = 10),
     '1',
-    'vertex JSON includes rowId'
+    'vertex JSON includes levelId'
 );
 
 SELECT * FROM finish();
