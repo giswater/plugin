@@ -27,7 +27,7 @@ CREATE TEMP TABLE temp_om_scada_graph (LIKE om_scada_graph INCLUDING ALL);
 CREATE TEMP TABLE temp_om_scada_vertice (
     node_id integer,
     group_id integer,
-    line_id integer,
+    row_id integer,
     column_id integer,
     column_aux integer
 );
@@ -43,23 +43,32 @@ VALUES
         ST_Multi(ST_GeomFromText('LINESTRING(2 2, 3 3)', SRID_VALUE))
     );
 
-INSERT INTO temp_om_scada_vertice (node_id, group_id, line_id, column_id, column_aux)
+INSERT INTO temp_om_scada_vertice (node_id, group_id, row_id, column_id, column_aux)
 VALUES
     (-901, 10, 1, 1, 1),
     (-902, 10, 1, 2, 2),
     (-903, 20, 1, 1, 1),
     (-904, 20, 1, 2, 2);
 
+-- Export deletes JSON rows whose group_id is gone from om_scada_graph.
+ALTER TABLE om_scada_graph DISABLE TRIGGER USER;
+INSERT INTO om_scada_graph (node_1, node_2, group_id, order_id, expl_id, active)
+VALUES
+    (-901, -902, 10, 1, ARRAY[1], true),
+    (-903, -904, 20, 1, ARRAY[2], true);
+ALTER TABLE om_scada_graph ENABLE TRIGGER USER;
+
 TRUNCATE om_scada_graph_json;
 INSERT INTO om_scada_graph_json (group_id, expl_id, om_scada_graph_json)
 VALUES (-999, ARRAY[1], '{}'::json);
 
 SELECT is(
-    (gw_fct_scada_graph_export($${"client":{"device":4, "lang":"en_US", "infoType":1, "epsg":SRID_VALUE},
-    "form":{}, "feature":{}, "data":{}}$$)::JSON)->>'status',
+    j->>'status',
     'Accepted',
-    'gw_fct_scada_graph_export with temp graph returns Accepted'
-);
+    coalesce(j->'message'->>'text', 'gw_fct_scada_graph_export with temp graph returns Accepted')
+)
+FROM (SELECT gw_fct_scada_graph_export($${"client":{"device":4, "lang":"en_US", "infoType":1, "epsg":SRID_VALUE},
+    "form":{}, "feature":{}, "data":{}}$$)::JSON AS j) s;
 
 SELECT is(
     (SELECT count(*)::int FROM om_scada_graph_json),
@@ -70,7 +79,7 @@ SELECT is(
 SELECT is(
     (SELECT count(*)::int FROM om_scada_graph_json WHERE group_id = -999),
     0,
-    'export drops JSON rows whose group_id is gone from table and temp'
+    'export drops JSON rows whose group_id is gone from om_scada_graph'
 );
 
 SELECT ok(
@@ -96,9 +105,9 @@ SELECT is(
 );
 
 SELECT is(
-    (SELECT om_scada_graph_json->'vertices'->0->>'orderId' FROM om_scada_graph_json WHERE group_id = 10),
+    (SELECT om_scada_graph_json->'vertices'->0->>'rowId' FROM om_scada_graph_json WHERE group_id = 10),
     '1',
-    'vertex JSON includes orderId (same as lineId)'
+    'vertex JSON includes rowId'
 );
 
 SELECT * FROM finish();

@@ -20,7 +20,7 @@ One om_scada_graph_json row per distinct group_id (one synoptic).
 Reads temp_om_scada_graph / temp_om_scada_vertice; exploitation scoping is
 already done in check. Do not re-filter by explId here.
 Does not delete JSON rows of groups that are still in om_scada_graph
-(other exploitations). Drops only group_ids gone from both the table and temp.
+(other exploitations). Drops only group_ids gone from om_scada_graph.
 
  */
 
@@ -58,7 +58,7 @@ BEGIN
 
 	SELECT "date" INTO v_schema_date FROM sys_version ORDER BY giswater DESC LIMIT 1;
 
-	WITH groups AS (
+	WITH scada_groups AS (
 		SELECT
 			g.group_id,
 			COALESCE((
@@ -157,7 +157,7 @@ BEGIN
 		),
 		now(),
 		now()
-	FROM groups g
+	FROM scada_groups g
 	JOIN links l ON l.group_id = g.group_id
 	JOIN vertices v ON v.group_id = g.group_id
 	ON CONFLICT (group_id) DO UPDATE
