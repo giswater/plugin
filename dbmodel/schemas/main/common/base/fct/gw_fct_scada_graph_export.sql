@@ -59,6 +59,7 @@ BEGIN
 					FROM temp_om_scada_graph t
 					CROSS JOIN LATERAL unnest(t.expl_id) AS e
 					WHERE t.group_id = g.group_id
+						AND t.is_real = TRUE
 						AND t.the_geom IS NOT NULL
 						AND e IS NOT NULL
 					ORDER BY e
@@ -67,7 +68,8 @@ BEGIN
 		FROM (
 			SELECT DISTINCT group_id
 			FROM temp_om_scada_graph
-			WHERE group_id IS NOT NULL
+			WHERE is_real = TRUE
+				AND group_id IS NOT NULL
 				AND the_geom IS NOT NULL
 		) g
 	),
@@ -102,7 +104,8 @@ BEGIN
 			LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
 			JOIN node n2 ON n2.node_id = g.node_2
 			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
-			WHERE g.the_geom IS NOT NULL
+			WHERE g.is_real = TRUE
+				AND g.the_geom IS NOT NULL
 				AND g.group_id IS NOT NULL
 		) s
 		GROUP BY s.group_id
