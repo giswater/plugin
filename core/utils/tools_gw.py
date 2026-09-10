@@ -15,7 +15,6 @@ import re
 import shutil
 import sys
 import sqlite3
-import webbrowser
 import xml.etree.ElementTree as ET
 
 from typing import Literal, Dict, Optional, Union, Any, List, Tuple
@@ -27,9 +26,9 @@ from functools import partial
 from datetime import datetime
 
 from qgis.PyQt.QtCore import Qt, QStringListModel, QVariant, QDate, QRegularExpression, \
-    QItemSelectionModel, QTimer, QSettings
+    QItemSelectionModel, QTimer, QSettings, QUrl
 from qgis.PyQt.QtGui import QCursor, QPixmap, QColor, QStandardItemModel, QIcon, QStandardItem, \
-    QIntValidator, QDoubleValidator, QRegularExpressionValidator, QPalette, QFont
+    QIntValidator, QDoubleValidator, QRegularExpressionValidator, QPalette, QFont, QDesktopServices
 from qgis.PyQt.QtSql import QSqlTableModel
 from qgis.PyQt.QtWidgets import QSpacerItem, QSizePolicy, QLineEdit, QLabel, QComboBox, QGridLayout, QTabWidget, \
     QCompleter, QPushButton, QTableView, QFrame, QCheckBox, QDoubleSpinBox, QSpinBox, QDateEdit, QTextEdit, \
@@ -606,11 +605,30 @@ def add_btn_help(dlg):
     btn_help.clicked.connect(partial(open_help_link, context, uiname, dlg))
 
 
+def _open_external_url(url):
+    """Open a URL via Qt instead of Python webbrowser/subprocess.
+
+    webbrowser.open() leaves a live Popen; on Python 3.12+ its __del__ emits
+    ResourceWarning, and QGIS logging that from a destructor can abort the process.
+    """
+    if not url:
+        return False
+    try:
+        return QDesktopServices.openUrl(QUrl(str(url)))
+    except Exception as e:
+        msg = "Could not open URL: {0}"
+        msg_params = (e,)
+        tools_log.log_warning(msg, msg_params=msg_params)
+        return False
+
+
 def open_help_link(context, uiname, dlg=None):
     """ Opens the help link for the given dialog, or a default link if not found. """
 
-    # Base URL for the documentation
-    domain = get_config_value('help_domain', table='config_param_system')
+    # Skip the DB lookup when no schema is loaded (admin / create project).
+    domain = None
+    if lib_vars.schema_name:
+        domain = get_config_value('help_domain', table='config_param_system')
     if domain is None:
         domain = "https://docs.giswater.org"
     else:
@@ -621,21 +639,24 @@ def open_help_link(context, uiname, dlg=None):
     # Always use 'latest' to avoid errors when plugin version is diferent than docs
     base_url = f"{domain}/latest/{language}/docs/giswater/for-users"
 
-    uiname = uiname.replace("_", "-").replace(" ", "-").lower() + ".html"  # sanitize uiname
+    if uiname:
+        uiname = uiname.replace("_", "-").replace(" ", "-").lower() + ".html"
 
     tabname = 'tab_none'
-    tab_widgets = dlg.findChildren(QTabWidget)
-    if tab_widgets:
-        tab_widget = tab_widgets[0]
-        index_tab = tab_widget.currentIndex()
-        tabname = tab_widget.widget(index_tab).objectName()
+    if dlg is not None:
+        tab_widgets = dlg.findChildren(QTabWidget)
+        if tab_widgets:
+            tab_widget = tab_widgets[0]
+            index_tab = tab_widget.currentIndex()
+            tab = tab_widget.widget(index_tab)
+            if tab is not None and tab.objectName():
+                tabname = tab.objectName()
 
     # Construct the path dynamically
     if uiname:
         if uiname == 'info-feature.html':
             feature = dlg.windowTitle().split(' ')[0]
             sql = f"SELECT feature_type FROM {lib_vars.schema_name}.cat_feature WHERE id = '{feature}'"
-            print(sql)
             feature_type = tools_db.get_rows(sql)[0]['feature_type']
             if tabname.lower() == 'tab_data':
                 file_path = f"{base_url}/dialogs/info_feature/{global_vars.project_type.lower()}/{feature_type.lower()}/{feature.lower()}/tab_data.html"
@@ -651,8 +672,7 @@ def open_help_link(context, uiname, dlg=None):
         # Fallback to the general manual link if context and uiname are missing
         file_path = f"{base_url}/index.html"
 
-    print(file_path)
-    tools_os.open_file(file_path)
+    _open_external_url(file_path)
 
 
 def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, title_params=None, hide_config_widgets=False, plugin_dir=lib_vars.plugin_dir, plugin_name=lib_vars.plugin_name, skip_db_check=False):
@@ -7566,15 +7586,15 @@ def open_dlg_help():
     parser = configparser.ConfigParser(comment_prefixes=";", allow_no_value=True, strict=False)
     path = f"{lib_vars.plugin_dir}{os.sep}config{os.sep}giswater.config"
     if not os.path.exists(path):
-        webbrowser.open_new_tab('https://giswater.gitbook.io/giswater-manual')
+        _open_external_url('https://giswater.gitbook.io/giswater-manual')
         return True
 
     try:
         parser.read(path)
         web_tag = parser.get('web_tag', lib_vars.session_vars['last_focus'])
-        webbrowser.open_new_tab(f'https://giswater.gitbook.io/giswater-manual/{web_tag}')
+        _open_external_url(f'https://giswater.gitbook.io/giswater-manual/{web_tag}')
     except Exception:
-        webbrowser.open_new_tab('https://giswater.gitbook.io/giswater-manual')
+        _open_external_url('https://giswater.gitbook.io/giswater-manual')
     finally:
         return True
 

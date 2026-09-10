@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Open Help from Create project (and other dialogs) via Qt instead of `webbrowser`/`subprocess`, which crashed QGIS on Python 3.12+ (ResourceWarning from `Popen.__del__`). Skip `config_param_system` lookup when no schema is loaded.
 - Open catalog from Replace feature without crashing when combo fields have no `comboIds` (async `queryText` path).
 - Show human-readable tooltips for Network Utilities and File Transfer toolbar buttons.
 - Clear `selector_inp_dscenario` when creating a sample (same as `selector_psector`); fix `gw_fct_setinitproject` to delete from `selector_inp_dscenario`.
