@@ -488,9 +488,11 @@ BEGIN
 		FROM temp_om_scada_graph g
 		JOIN node n ON n.node_id = g.node_1
 		WHERE g.the_geom IS NOT NULL
+		AND g.is_multilevel = FALSE
 		AND NOT EXISTS (
 			SELECT 1 FROM temp_om_scada_graph g2
 			WHERE g2.the_geom IS NOT NULL
+			AND g.is_multilevel = FALSE
 			AND g2.node_2 = g.node_1
 		)
 	) t;
@@ -660,7 +662,8 @@ BEGIN
 		WHEN t.the_geom IS NULL
 		THEN v_msg_err_nopath
 	END
-	WHERE t.active = TRUE;
+	WHERE t.active = TRUE
+	AND t.is_real = TRUE;
 
 	-- Update om_scada_graph if v_commit_changes is TRUE
 	--================================================
@@ -672,6 +675,7 @@ BEGIN
 			SELECT DISTINCT json_array_elements_text(g.attrib::json -> 'arcs')::int AS arc_id
 			FROM om_scada_graph g
 			JOIN temp_om_scada_graph t ON t.node_1 = g.node_1 AND t.node_2 = g.node_2
+			WHERE t.is_real = TRUE
 		),
 		new_arc AS (
 			SELECT DISTINCT arc_id FROM temp_graph
@@ -686,6 +690,7 @@ BEGIN
 			SELECT DISTINCT json_array_elements_text(g.attrib::json -> 'arcs')::int AS arc_id
 			FROM om_scada_graph g
 			JOIN temp_om_scada_graph t ON t.node_1 = g.node_1 AND t.node_2 = g.node_2
+			AND t.is_real = TRUE
 		),
 		new_arc AS (
 			SELECT DISTINCT arc_id FROM temp_graph
@@ -726,7 +731,8 @@ BEGIN
 			group_id = t.group_id,
 			level_id = t.level_id
 		FROM temp_om_scada_graph t
-		WHERE g.node_1 = t.node_1 AND g.node_2 = t.node_2;
+		WHERE g.node_1 = t.node_1 AND g.node_2 = t.node_2
+		AND t.is_real = TRUE;
 
 		-- Snapshot JSON from temp: one om_scada_graph_json row per group_id (export does not re-filter expl)
 		v_export_result := gw_fct_scada_graph_export(p_data);
@@ -783,6 +789,7 @@ BEGIN
 			LEFT JOIN node n2 ON n2.node_id = g.node_2
 			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
 			WHERE g.error_message IS NULL -- the layer contains active = TRUE AND the_geom IS NOT NULL AND also active = FALSE
+			AND g.is_real = TRUE
 			ORDER BY g.group_id, g.level_id
 			) r
 		) f;
@@ -794,24 +801,24 @@ BEGIN
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (1, null, 4, v_msg_header);
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (1, null, 4, v_msg_separator);
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
-	SELECT 1, null, 1, replace(v_msg_edges, '%v_count%', count(*)::text) FROM temp_om_scada_graph;
+	SELECT 1, null, 1, replace(v_msg_edges, '%v_count%', count(*)::text) FROM temp_om_scada_graph WHERE is_real = TRUE;
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
 	SELECT 1, null, 1, replace(v_msg_valid, '%v_count%', count(*)::text)
 	FROM temp_om_scada_graph
-	WHERE the_geom IS NOT NULL AND error_message IS NULL;
+	WHERE is_real = TRUE AND the_geom IS NOT NULL AND error_message IS NULL;
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
 	SELECT 1, null, 1, replace(v_msg_inconsist, '%v_count%', count(*)::text)
 	FROM temp_om_scada_graph
-	WHERE error_message IS NOT NULL;
+	WHERE is_real = TRUE AND error_message IS NOT NULL;
 
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
 	SELECT 1, null, 2, concat(count(*),' ', t.error_message)
 	FROM temp_om_scada_graph t
-	WHERE t.error_message IS NOT NULL
+	WHERE t.is_real = TRUE AND t.error_message IS NOT NULL
 	GROUP BY t.error_message
 	ORDER BY t.error_message;
 
-	IF NOT EXISTS (SELECT 1 FROM temp_om_scada_graph WHERE error_message IS NOT NULL) THEN
+	IF NOT EXISTS (SELECT 1 FROM temp_om_scada_graph WHERE is_real = TRUE AND error_message IS NOT NULL) THEN
 		INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
 		VALUES (1, null, 1, v_msg_no_inconsist);
 	END IF;
@@ -869,7 +876,8 @@ BEGIN
 			LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
 			LEFT JOIN node n2 ON n2.node_id = g.node_2
 			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
-			WHERE g.error_message IS NOT NULL
+			WHERE g.is_real = TRUE
+			AND g.error_message IS NOT NULL
 		) r
 	) f;
 
