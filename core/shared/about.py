@@ -27,6 +27,8 @@ _RELEASES_URL = "https://github.com/giswater/plugin/releases"
 _TAG_URL = "https://github.com/giswater/plugin/releases/tag/v{0}"
 _PLUGIN_COMMIT_URL = "https://github.com/giswater/plugin/commit/{0}"
 _LIBS_COMMIT_URL = "https://github.com/giswater/libs/commit/{0}"
+_HOME_URL = "https://www.giswater.org"
+_ISSUES_URL = "https://github.com/giswater/plugin/issues"
 
 # PyPI names shown on the About page. Add a package here to show its version.
 _PYTHON_PACKAGES = (
@@ -68,14 +70,6 @@ class GwAbout(QObject):
                 64, Qt.TransformationMode.SmoothTransformation
             ))
 
-        plugin_version, _ = tools_qgis.get_plugin_version()
-        if plugin_version:
-            msg = "Giswater {0}"
-            dlg.lbl_version.setText(tools_qt.tr(msg, list_params=(plugin_version,)))
-        else:
-            msg = "Giswater"
-            dlg.lbl_version.setText(tools_qt.tr(msg))
-
         self._translate_sidebar(dlg)
         self._fill_info(dlg)
         self._fill_whatsnew(dlg)
@@ -86,6 +80,8 @@ class GwAbout(QObject):
         dlg.txt_license.setPlainText(self._license_text())
 
         dlg.btn_copy.clicked.connect(self._copy_text)
+        dlg.btn_homepage.clicked.connect(partial(QDesktopServices.openUrl, QUrl(_HOME_URL)))
+        dlg.btn_issue.clicked.connect(partial(QDesktopServices.openUrl, QUrl(_ISSUES_URL)))
         dlg.cmb_version.currentIndexChanged.connect(partial(self._show_release, dlg))
         dlg.btn_release.clicked.connect(partial(self._open_release, dlg))
         dlg.txt_whatsnew.anchorClicked.connect(QDesktopServices.openUrl)
@@ -212,7 +208,18 @@ class GwAbout(QObject):
             return []
         if not isinstance(data, list):
             return []
-        return [entry for entry in data if isinstance(entry, dict)]
+        rows = [entry for entry in data if isinstance(entry, dict)]
+        rows.sort(key=lambda entry: (-self._percent_rank(entry), (entry.get("name") or "").lower()))
+        return rows
+
+    def _percent_rank(self, entry):
+        value = entry.get("percent")
+        if value is None or value == "":
+            return -1
+        try:
+            return int(round(float(value)))
+        except (TypeError, ValueError):
+            return -1
 
     def _flag_label(self, code):
         """ISO2 PNG from icons/flags, else a regional-indicator emoji."""

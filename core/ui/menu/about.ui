@@ -256,19 +256,22 @@ QScrollArea &gt; QWidget &gt; QWidget { background-color: palette(base); }</stri
            </widget>
           </item>
           <item>
-           <widget class="QLabel" name="lbl_version">
+           <widget class="QLabel" name="lbl_license">
             <property name="text">
-             <string/>
+             <string>Giswater is licensed under the GNU General Public License</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignCenter</set>
             </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
            </widget>
           </item>
           <item>
-           <widget class="QLabel" name="lbl_homepage">
+           <widget class="QLabel" name="lbl_license_url">
             <property name="text">
-             <string>&lt;a href=&quot;https://www.giswater.org&quot;&gt;www.giswater.org&lt;/a&gt;</string>
+             <string>&lt;a href=&quot;https://www.gnu.org/licenses/&quot;&gt;https://www.gnu.org/licenses/&lt;/a&gt;</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignCenter</set>
@@ -280,6 +283,24 @@ QScrollArea &gt; QWidget &gt; QWidget { background-color: palette(base); }</stri
              <set>Qt::TextBrowserInteraction</set>
             </property>
            </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="lyt_about_links">
+            <item>
+             <widget class="QPushButton" name="btn_homepage">
+              <property name="text">
+               <string>Giswater Home Page</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_issue">
+              <property name="text">
+               <string>Report an issue</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
          </layout>
         </widget>
