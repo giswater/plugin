@@ -68,9 +68,7 @@ BEGIN
 		FROM (
 			SELECT DISTINCT group_id
 			FROM temp_om_scada_graph
-			WHERE is_real = TRUE
-				AND group_id IS NOT NULL
-				AND the_geom IS NOT NULL
+			WHERE the_geom IS NOT NULL
 		) g
 	),
 	links AS (
@@ -100,13 +98,12 @@ BEGIN
 					'explId', g.expl_id
 				) AS link
 			FROM temp_om_scada_graph g
-			JOIN node n1 ON n1.node_id = g.node_1
+			LEFT JOIN node n1 ON n1.node_id = g.node_1
 			LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
-			JOIN node n2 ON n2.node_id = g.node_2
+			LEFT JOIN node n2 ON n2.node_id = g.node_2
 			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
-			WHERE g.is_real = TRUE
+			WHERE g.is_multilevel = FALSE
 				AND g.the_geom IS NOT NULL
-				AND g.group_id IS NOT NULL
 		) s
 		GROUP BY s.group_id
 	),
@@ -122,18 +119,15 @@ BEGIN
 					'levelId', g.level_id,
 					'positionId', g.position_id,
 					'Node', g.node_id,
-					'nodeType', cn.node_type,
+					'nodeType', g.node_type,
 					'nodeName', n.sys_code,
 					'explId', n.expl_id,
 					'dmaId', n.dma_id,
 					'dmaName', d.name
 				) AS vertex
 			FROM temp_om_scada_vertice g
-			JOIN node n ON n.node_id = g.node_id
-			LEFT JOIN cat_node cn ON n.nodecat_id = cn.id
+			LEFT JOIN node n ON n.node_id = g.node_id
 			LEFT JOIN dma d ON d.dma_id = n.dma_id
-			WHERE g.group_id IS NOT NULL
-			AND g.is_real = TRUE
 		) s
 		GROUP BY s.group_id
 	)
