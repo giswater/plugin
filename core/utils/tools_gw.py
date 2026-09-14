@@ -35,12 +35,13 @@ from qgis.PyQt.QtWidgets import QSpacerItem, QSizePolicy, QLineEdit, QLabel, QCo
     QToolButton, QWidget, QApplication, QMenu, QAction, QDialog, QListWidget, QListWidgetItem, \
     QVBoxLayout, QHeaderView, QTableWidget, QAbstractItemView, \
     QAbstractScrollArea, QGroupBox
+from qgis.PyQt.QtXml import QDomDocument
 from qgis.core import Qgis, QgsProject, QgsPointXY, QgsVectorLayer, QgsField, QgsFeature, QgsSymbol, \
     QgsFeatureRequest, QgsSimpleFillSymbolLayer, QgsRendererCategory, QgsCategorizedSymbolRenderer, \
     QgsCoordinateTransform, QgsCoordinateReferenceSystem, QgsVectorFileWriter, QgsCoordinateTransformContext, \
     QgsFieldConstraints, QgsEditorWidgetSetup, QgsRasterLayer, QgsGeometry, QgsExpression, QgsRectangle, \
     QgsEditFormConfig, QgsSymbolLayer, QgsProperty, QgsSimpleLineSymbolLayer, QgsSimpleMarkerSymbolLayer, QgsStyle, \
-    QgsDataSourceUri
+    QgsDataSourceUri, QgsPrintLayout, QgsReadWriteContext
 from qgis.gui import QgsDateTimeEdit, QgsRubberBand, QgsExpressionSelectionDialog
 
 from ..models.cat_feature import GwCatFeature
@@ -5528,6 +5529,99 @@ def get_config_value(parameter='', columns='value', table='config_param_user', s
     sql += ";"
     row = tools_db.get_row(sql, log_info=log_info)
     return row
+
+
+def get_composers_folderpath():
+    """Return user-configured QGIS composers folder from config_param_user, or None."""
+    row = get_config_value('qgis_composers_folderpath')
+    if row and row[0] and str(row[0]).strip():
+        return str(row[0]).strip()
+    return None
+
+
+def list_qpt_templates(folderpath=None):
+    """Return `.qpt` filenames in the composers folder.
+
+    Returns None if the folder is not configured or cannot be read.
+    """
+    if folderpath is None:
+        folderpath = get_composers_folderpath()
+    if not folderpath:
+        return None
+    try:
+        return [f for f in os.listdir(folderpath) if f.lower().endswith('.qpt')]
+    except (FileNotFoundError, NotADirectoryError, OSError):
+        return None
+
+
+def load_layout_from_qpt(template_name, folderpath=None):
+    """Load a `.qpt` into the project layout manager if it is not already there.
+
+    :param template_name: Layout name, with or without `.qpt`
+    :return: QgsPrintLayout or None
+    """
+    if not template_name:
+        return None
+    if template_name.lower().endswith('.qpt'):
+        layout_name = template_name[:-4]
+        filename = template_name
+    else:
+        layout_name = template_name
+        filename = f"{template_name}.qpt"
+
+    project = QgsProject.instance()
+    layout_manager = project.layoutManager()
+    existing = layout_manager.layoutByName(layout_name)
+    if existing is not None:
+        return existing
+
+    if folderpath is None:
+        folderpath = get_composers_folderpath()
+    if not folderpath:
+        return None
+
+    template_path = os.path.join(folderpath, filename)
+    if not os.path.exists(template_path):
+        return None
+
+    with open(template_path, 'rt') as template_file:
+        template_content = template_file.read()
+
+    document = QDomDocument()
+    document.setContent(template_content)
+    layout = QgsPrintLayout(project)
+    layout.loadFromTemplate(document, QgsReadWriteContext())
+    layout.setName(layout_name)
+    layout_manager.addLayout(layout)
+
+    layout = layout_manager.layoutByName(layout_name)
+    if layout is None:
+        layouts = layout_manager.layouts()
+        if layouts:
+            layout = layouts[-1]
+            if layout.name() != layout_name:
+                layout.setName(layout_name)
+        else:
+            msg = "Failed to create layout from template"
+            tools_log.log_warning(msg)
+            return None
+    return layout
+
+
+def load_qpt_templates_into_project(folderpath=None):
+    """Load all `.qpt` templates from the composers folder into the project.
+
+    Skips templates whose name is already in the layout manager.
+    Returns the list of `.qpt` filenames, or None if the folder is unreadable.
+    """
+    if folderpath is None:
+        folderpath = get_composers_folderpath()
+    files = list_qpt_templates(folderpath)
+    if not files:
+        return files
+    for filename in files:
+        load_layout_from_qpt(filename, folderpath=folderpath)
+    return files
 
 
 def parse_currency(value_str, currency_config=None):

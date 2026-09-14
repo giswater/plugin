@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Fast print and Multi psector print load `.qpt` templates from `qgis_composers_folderpath`, same as mincut composer.
 - Add `observ` column to `inp_dscenario_%` tables.
 - Add `custom_code_autofill` column to `cat_feature` and `config_mapzones` tables.
 - Materialize graph inundation into `anl_graphinundation` / `v_anl_graphinundation` for QGIS temporal playback.

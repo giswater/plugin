@@ -17,9 +17,7 @@ from functools import partial
 from qgis.PyQt.QtCore import Qt, QDate, QStringListModel, QTime, QDateTime, QTimer
 from qgis.PyQt.QtWidgets import QAbstractItemView, QAction, QCompleter, QLineEdit, \
     QTableView, QTabWidget, QTextEdit, QLabel
-from qgis.PyQt.QtXml import QDomDocument
-from qgis.core import QgsApplication, QgsFeatureRequest, QgsPrintLayout, QgsProject, QgsReadWriteContext, \
-    QgsVectorLayer, Qgis, QgsPointXY
+from qgis.core import QgsApplication, QgsFeatureRequest, QgsVectorLayer, Qgis, QgsPointXY
 from qgis.gui import QgsMapToolEmitPoint
 
 from .mincut_tools import GwMincutTools
@@ -2692,14 +2690,9 @@ class GwMincut:
         """ Open Composer """
 
         # Check if path exist
-        template_folder = ""
-        row = tools_gw.get_config_value('qgis_composers_folderpath')
-        if row:
-            template_folder = row[0]
-
-        try:
-            template_files = os.listdir(template_folder)
-        except FileNotFoundError:
+        template_folder = tools_gw.get_composers_folderpath() or ""
+        template_files = tools_gw.list_qpt_templates(template_folder)
+        if template_files is None:
             msg = "Your composer's path is bad configured. Please, modify it and try again."
             tools_qgis.show_message(msg, Qgis.MessageLevel.Warning)
             return
@@ -2709,7 +2702,7 @@ class GwMincut:
         tools_gw.load_settings(self.dlg_comp)
 
         # Fill ComboBox cbx_template with templates *.qpt
-        self.files_qpt = [i for i in template_files if i.endswith('.qpt')]
+        self.files_qpt = template_files
         self.dlg_comp.cbx_template.clear()
         self.dlg_comp.cbx_template.addItem('')
         for template in self.files_qpt:
@@ -2737,55 +2730,18 @@ class GwMincut:
             tools_qgis.show_warning(message, dialog=self.dlg_comp)
             return
 
-        # Check if template file exists
-        template_path = ""
-        row = tools_gw.get_config_value('qgis_composers_folderpath')
-        if row:
-            template_path = row[0] + f'{os.sep}{self.template}.qpt'
-
-        if not os.path.exists(template_path):
-            message = "File not found"
-            tools_qgis.show_warning(message, parameter=template_path, dialog=self.dlg_comp)
+        # Load .qpt from qgis_composers_folderpath if it is not already in the project
+        template_folder = tools_gw.get_composers_folderpath() or ""
+        template_path = os.path.join(template_folder, f"{self.template}.qpt")
+        comp_view = tools_gw.load_layout_from_qpt(self.template, folderpath=template_folder)
+        if comp_view is None:
+            if not os.path.exists(template_path):
+                message = "File not found"
+                tools_qgis.show_warning(message, parameter=template_path, dialog=self.dlg_comp)
+            else:
+                msg = "Failed to create layout from template"
+                tools_qgis.show_warning(msg, dialog=self.dlg_comp)
             return
-
-        # Check if composer exist
-        composers = tools_qgis.get_composers_list()
-        index = tools_qgis.get_composer_index(str(self.template))
-
-        # Composer not found
-        if index == len(composers):
-
-            # Create new composer with template selected in combobox(self.template)
-            template_file = open(template_path, 'rt')
-            template_content = template_file.read()
-            template_file.close()
-            document = QDomDocument()
-            document.setContent(template_content)
-            project = QgsProject.instance()
-            comp_view = QgsPrintLayout(project)
-            comp_view.loadFromTemplate(document, QgsReadWriteContext())
-            # Set name AFTER loading template (template may have its own name)
-            comp_view.setName(str(self.template))
-            layout_manager = project.layoutManager()
-            layout_manager.addLayout(comp_view)
-
-            # Get layout from manager to ensure correct ownership
-            comp_view = layout_manager.layoutByName(str(self.template))
-            if comp_view is None:
-                # Fallback: try to get the last added layout
-                layouts = layout_manager.layouts()
-                if layouts:
-                    comp_view = layouts[-1]
-                    # Update name if it's different
-                    if comp_view.name() != str(self.template):
-                        comp_view.setName(str(self.template))
-                else:
-                    msg = "Failed to create layout from template"
-                    tools_qgis.show_warning(msg, dialog=self.dlg_comp)
-                    return
-
-        else:
-            comp_view = composers[index]
 
         # Manage mincut layout
         self._manage_mincut_layout(comp_view)
