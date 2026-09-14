@@ -11,8 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 5 test
-SELECT plan(5);
+SELECT plan(6);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -68,6 +67,14 @@ SELECT is (
     "ignore": [], "forceClosed": [1010]}}}}$$)::JSON)->>'status',
     'Accepted',
     'Check if gw_fct_config_mapzones with action "REMOVE" and 4th parameter is "forceClosed" returns status "Accepted"'
+);
+
+SELECT is (
+    ((gw_fct_config_mapzones($${"client":{"device":4, "lang":"NULL", "infoType":1, "epsg":25831}, "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{},
+    "parameters": {"action": "REMOVE", "configZone": "sector", "mapzoneId": "1", "forceClosed": ["1010"], "config": {"use": [{"toArc": [2207], "nodeParent": "1097"}],
+    "ignore": [], "forceClosed": [1010]}}}}$$)::json)->'body'->'data'->'preview'->'forceClosed',
+    '[]'::json,
+    'REMOVE forceClosed drops id 1010 from preview.forceClosed'
 );
 
 -- Finish the test

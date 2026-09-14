@@ -167,20 +167,36 @@ BEGIN
         END IF;
 
         IF v_forceclosed IS NOT NULL THEN
-            SELECT string_agg(quote_literal(a.elem)::text, ', ') INTO v_forceclosed FROM (SELECT json_array_elements_text(v_forceclosed::json) AS elem) a;
-            EXECUTE 'SELECT json_agg(a.data::integer) FROM (SELECT json_array_elements_text(json_extract_path('''||v_config||'''::json,''forceClosed'')) as data)a WHERE a.data NOT IN ('||v_forceclosed||')' INTO v_use_forceclosed;
+            SELECT COALESCE(jsonb_agg(to_jsonb(elem::bigint)), '[]'::jsonb)
+            INTO v_use_forceclosed
+            FROM jsonb_array_elements_text(COALESCE(v_config::jsonb -> 'forceClosed', '[]'::jsonb)) AS x(elem)
+            WHERE x.elem NOT IN (SELECT jsonb_array_elements_text(v_forceclosed::jsonb));
 
-            IF v_use_forceclosed IS NULL THEN
-                v_use_forceclosed = '[]';
-            END IF;
+            v_use_value = COALESCE(json_extract_path(v_config::json, 'use'), '[]'::json);
+            v_ignore_value = COALESCE(json_extract_path(v_config::json, 'ignore'), '[]'::json);
+            v_forceClosed_value = COALESCE(v_use_forceclosed, '[]'::json);
 
-            v_use_value = json_extract_path_text(v_config::json, 'use');
-            v_ignore_value = json_extract_path_text(v_config::json, 'ignore');
-            v_forceClosed_value = v_use_forceclosed;
+            v_preview = json_build_object(
+                'use', v_use_value,
+                'ignore', v_ignore_value,
+                'forceClosed', v_forceClosed_value
+            );
+        END IF;
 
-            v_preview = gw_fct_json_object_set_key('{}'::json, 'use', v_use_value::json);
-            v_preview = gw_fct_json_object_set_key(v_preview, 'ignore', v_ignore_value::json);
-            v_preview = gw_fct_json_object_set_key(v_preview, 'forceClosed', v_forceClosed_value::json);
+        IF v_ignore IS NOT NULL THEN
+            SELECT COALESCE(jsonb_agg(to_jsonb(elem::bigint)), '[]'::jsonb)
+            INTO v_ignore_value
+            FROM jsonb_array_elements_text(COALESCE(v_config::jsonb -> 'ignore', '[]'::jsonb)) AS x(elem)
+            WHERE x.elem NOT IN (SELECT jsonb_array_elements_text(v_ignore::jsonb));
+
+            v_use_value = COALESCE(json_extract_path(COALESCE(v_preview, v_config::json), 'use'), '[]'::json);
+            v_forceClosed_value = COALESCE(json_extract_path(COALESCE(v_preview, v_config::json), 'forceClosed'), '[]'::json);
+
+            v_preview = json_build_object(
+                'use', v_use_value,
+                'ignore', COALESCE(v_ignore_value, '[]'::json),
+                'forceClosed', v_forceClosed_value
+            );
         END IF;
 
     ELSIF v_action = 'UPDATE' THEN
