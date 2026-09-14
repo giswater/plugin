@@ -47,6 +47,13 @@ The features checked are:
 - node_1 and node_2 must exist in table "node"
 - node_1 and node_2 must have a valid connection
 
+Add synopticGeometry to attrib for vertex coordinates
+In addition to "arcs", attrib now includes "synopticGeometry": an
+array of coordinates representing the line's vertices, where y is
+the level_id and x is the position_id within that level. For
+multi-level links, the number of vertices is greater than 2, one
+per intermediate level.
+
 */
 
 DECLARE
