@@ -12,7 +12,7 @@ from functools import partial
 from qgis.PyQt.sip import isdeleted
 from qgis.PyQt.QtCore import QObject, Qt
 from qgis.PyQt.QtGui import QIcon, QKeySequence
-from qgis.PyQt.QtWidgets import QMenu, QPushButton, QTreeWidget, QTreeWidgetItem, QHeaderView
+from qgis.PyQt.QtWidgets import QAction, QMenu, QPushButton, QTreeWidget, QTreeWidgetItem, QHeaderView
 from qgis.core import QgsApplication
 
 from .admin.i18n.language_packages_dialog import GwI18NManageLanguagesDialog
@@ -107,6 +107,8 @@ class GwMenuLoad(QObject):
         # region About
         title = "About"
         action_about = self.main_menu.addAction(tools_qt.tr(title))
+        # macOS: TextHeuristicRole steals "About" into the QGIS app menu.
+        action_about.setMenuRole(QAction.MenuRole.NoRole)
         icon_path = f"{icon_folder}{os.sep}dialogs{os.sep}136.png"
         action_about.setIcon(QIcon(icon_path))
         action_about.triggered.connect(self.about.open)
