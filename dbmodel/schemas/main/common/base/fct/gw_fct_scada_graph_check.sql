@@ -445,7 +445,7 @@ BEGIN
 			FROM edges_to_split e
 			CROSS JOIN LATERAL generate_series(
 				e.level_1+1,
-				e.level_2-1x
+				e.level_2-1
 			) gs
 		),
 		vertices AS (
