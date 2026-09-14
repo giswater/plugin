@@ -24,31 +24,39 @@ SELECT is(
 );
 
 CREATE TEMP TABLE temp_om_scada_graph (LIKE om_scada_graph INCLUDING ALL);
+ALTER TABLE temp_om_scada_graph ADD COLUMN error_message TEXT;
+ALTER TABLE temp_om_scada_graph ADD COLUMN is_real boolean DEFAULT true;
+ALTER TABLE temp_om_scada_graph ADD COLUMN is_multilevel boolean DEFAULT false;
+
 CREATE TEMP TABLE temp_om_scada_vertice (
     node_id integer,
+    node_type text,
     group_id integer,
     level_id integer,
     position_id integer,
-    position_aux float
+    position_aux double precision,
+    is_real boolean DEFAULT true
 );
 
-INSERT INTO temp_om_scada_graph (node_1, node_2, group_id, level_id, expl_id, active, the_geom)
+INSERT INTO temp_om_scada_graph (node_1, node_2, group_id, level_id, expl_id, active, the_geom, is_real, is_multilevel)
 VALUES
     (
         -901, -902, 10, 1, ARRAY[1], true,
-        ST_Multi(ST_GeomFromText('LINESTRING(0 0, 1 1)', SRID_VALUE))
+        ST_Multi(ST_GeomFromText('LINESTRING(0 0, 1 1)', SRID_VALUE)),
+        true, false
     ),
     (
         -903, -904, 20, 1, ARRAY[2], true,
-        ST_Multi(ST_GeomFromText('LINESTRING(2 2, 3 3)', SRID_VALUE))
+        ST_Multi(ST_GeomFromText('LINESTRING(2 2, 3 3)', SRID_VALUE)),
+        true, false
     );
 
-INSERT INTO temp_om_scada_vertice (node_id, group_id, level_id, position_id, position_aux)
+INSERT INTO temp_om_scada_vertice (node_id, node_type, group_id, level_id, position_id, position_aux, is_real)
 VALUES
-    (-901, 10, 1, 1, 1),
-    (-902, 10, 1, 2, 2),
-    (-903, 20, 1, 1, 1),
-    (-904, 20, 1, 2, 2);
+    (-901, NULL, 10, 1, 1, 1, true),
+    (-902, NULL, 10, 1, 2, 2, true),
+    (-903, NULL, 20, 1, 1, 1, true),
+    (-904, NULL, 20, 1, 2, 2, true);
 
 -- Export deletes JSON rows whose group_id is gone from om_scada_graph.
 -- Skip builder (dijkstra + NULL layout) so phantom node ids keep group_id.
