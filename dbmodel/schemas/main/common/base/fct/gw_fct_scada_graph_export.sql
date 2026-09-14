@@ -17,8 +17,8 @@ AS $function$
 
 Called from gw_fct_scada_graph_check on commitChanges=true (same session).
 One om_scada_graph_json row per distinct group_id (one synoptic).
-Reads temp_om_scada_graph / temp_om_scada_vertice; exploitation scoping is
-already done in check. Do not re-filter by explId here.
+Reads temp_om_scada_graph;
+Exploitation scoping is already done in check. Do not re-filter by explId here.
 Does not delete JSON rows of groups that are still in om_scada_graph
 (other exploitations). Drops only group_ids gone from om_scada_graph.
 
@@ -60,7 +60,6 @@ BEGIN
 					CROSS JOIN LATERAL unnest(t.expl_id) AS e
 					WHERE t.group_id = g.group_id
 						AND t.is_real = TRUE
-						AND t.the_geom IS NOT NULL
 						AND e IS NOT NULL
 					ORDER BY e
 				)
@@ -68,20 +67,18 @@ BEGIN
 		FROM (
 			SELECT DISTINCT group_id
 			FROM temp_om_scada_graph
-			WHERE the_geom IS NOT NULL
+			WHERE group_id IS NOT NULL
 		) g
 	),
 	links AS (
-		SELECT s.group_id, json_agg(s.link ORDER BY s.level_id, s.node_1, s.node_2) AS links
+		SELECT s.group_id, json_agg(s.link ORDER BY s.level_id, s.position_id) AS links
 		FROM (
 			SELECT
 				g.group_id,
-				g.level_id,
-				g.node_1,
-				g.node_2,
+				v.level_id,
+				v.position_id,
 				json_build_object(
 					'groupId', g.group_id,
-					'levelId', g.level_id,
 					'fromNode', g.node_1,
 					'nodeType1', g.node_type_1,
 					'nodeName1', n1.sys_code,
@@ -98,36 +95,13 @@ BEGIN
 					'explId', g.expl_id
 				) AS link
 			FROM temp_om_scada_graph g
+			JOIN temp_om_scada_vertice v ON g.node_1 = v.node_id
 			LEFT JOIN node n1 ON n1.node_id = g.node_1
 			LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
 			LEFT JOIN node n2 ON n2.node_id = g.node_2
 			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
-			WHERE g.is_multilevel = FALSE
-				AND g.the_geom IS NOT NULL
-		) s
-		GROUP BY s.group_id
-	),
-	vertices AS (
-		SELECT s.group_id, json_agg(s.vertex ORDER BY s.level_id, s.position_id) AS vertices
-		FROM (
-			SELECT
-				g.group_id,
-				g.level_id,
-				g.position_id,
-				json_build_object(
-					'groupId', g.group_id,
-					'levelId', g.level_id,
-					'positionId', g.position_id,
-					'Node', g.node_id,
-					'nodeType', g.node_type,
-					'nodeName', n.sys_code,
-					'explId', n.expl_id,
-					'dmaId', n.dma_id,
-					'dmaName', d.name
-				) AS vertex
-			FROM temp_om_scada_vertice g
-			LEFT JOIN node n ON n.node_id = g.node_id
-			LEFT JOIN dma d ON d.dma_id = n.dma_id
+			WHERE g.group_id IS NOT NULL
+				AND g.is_real = TRUE
 		) s
 		GROUP BY s.group_id
 	)
@@ -143,14 +117,12 @@ BEGIN
 				'schemaDate', v_schema_date,
 				'groupId', g.group_id
 			),
-			'vertices', COALESCE(v.vertices, '[]'::json),
 			'links', COALESCE(l.links, '[]'::json)
 		),
 		now(),
 		now()
 	FROM scada_groups g
 	JOIN links l ON l.group_id = g.group_id
-	JOIN vertices v ON v.group_id = g.group_id
 	ON CONFLICT (group_id) DO UPDATE
 	SET expl_id = excluded.expl_id,
 		om_scada_graph_json = excluded.om_scada_graph_json,
