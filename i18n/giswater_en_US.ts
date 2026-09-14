@@ -6294,6 +6294,28 @@ How does it work?
 1- Select the header of the mapzone using the nodeParent selection tool.
 2- Select the direction of the water using the toArc selection tool. Multiple selection is allowed.
 3- Press ADD to visualize your configuration on the Preview. If there are more headers, repeat the process and they will be added to the Preview.
+4- If you want to configure an arc that will always be closed for this mapzone, select it using the forceClosed tool and ADD.
+To remove some wrong configuration, you have to select the affected nodeParent and click REMOVE. This node and its related toArc will be deleted from the Preview.
+
+Click OK to end set your Preview as the value on graphconfig field.</source>
+			<translation>Using this form you can configure graphconfig field for the selected mapzone.
+
+How does it work?
+1- Select the header of the mapzone using the nodeParent selection tool.
+2- Select the direction of the water using the toArc selection tool. Multiple selection is allowed.
+3- Press ADD to visualize your configuration on the Preview. If there are more headers, repeat the process and they will be added to the Preview.
+4- If you want to configure an arc that will always be closed for this mapzone, select it using the forceClosed tool and ADD.
+To remove some wrong configuration, you have to select the affected nodeParent and click REMOVE. This node and its related toArc will be deleted from the Preview.
+
+Click OK to end set your Preview as the value on graphconfig field.</translation>
+		</message>
+		<message>
+			<source>Using this form you can configure graphconfig field for the selected mapzone.
+
+How does it work?
+1- Select the header of the mapzone using the nodeParent selection tool.
+2- Select the direction of the water using the toArc selection tool. Multiple selection is allowed.
+3- Press ADD to visualize your configuration on the Preview. If there are more headers, repeat the process and they will be added to the Preview.
 4- If you want to configure a node that will always be closed for this mapzone, select it using the forceClosed tool and ADD.
 To remove some wrong configuration, you have to select the affected nodeParent and click REMOVE. This node and its related toArc will be deleted from the Preview.
 
