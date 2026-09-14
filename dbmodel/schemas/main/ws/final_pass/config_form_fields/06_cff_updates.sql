@@ -468,3 +468,5 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,widgetcontrols,hidden)
 	VALUES ('cat_arc','form_feature','tab_none','code','string','text','Code:','Code',false,false,true,false,'{"setMultiline":false}'::json,false)
   ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+DELETE FROM config_form_fields WHERE formname='ve_epa_pipe' AND formtype='form_feature' AND columnname='builtdate' AND tabname='tab_epa';
