@@ -146,13 +146,7 @@ class GwGo2EpaButton(GwAction):
             partial(self._sector_selection))
 
         # Execute EPA: Windows always; Linux when hydraulic_engine is available (WS/UD).
-        try:
-            from importlib.util import find_spec
-            has_hydraulic_engine = find_spec("hydraulic_engine") is not None
-        except ImportError:
-            has_hydraulic_engine = False
-
-        if sys.platform != "win32" and not has_hydraulic_engine:
+        if sys.platform != "win32" and not self._has_hydraulic_engine():
             tools_qt.set_checked(self.dlg_go2epa, self.dlg_go2epa.chk_exec, False)
             self.dlg_go2epa.chk_exec.setEnabled(False)
             self.dlg_go2epa.chk_exec.setText('Execute EPA software (Runs only on Windows)')
@@ -165,6 +159,26 @@ class GwGo2EpaButton(GwAction):
             self.dlg_go2epa.btn_close.clicked.connect(partial(tools_gw.close_docker, option_name='position'))
         else:
             tools_gw.open_dialog(self.dlg_go2epa, dlg_name='go2epa')
+
+    @staticmethod
+    def _has_hydraulic_engine():
+        """Return True if hydraulic_engine is on sys.path (no package import)."""
+        try:
+            from importlib.util import find_spec
+            return find_spec("hydraulic_engine") is not None
+        except ImportError:
+            return False
+
+    def _hide_hydraulic_engine_only_options(self, dialog):
+        """Hide EPA options that only apply when hydraulic_engine is installed."""
+        if self._has_hydraulic_engine():
+            return
+        widget = dialog.findChild(QWidget, "inp_report_onlymaxmin_values")
+        label = dialog.findChild(QLabel, "lblinp_report_onlymaxmin_values")
+        if widget is not None:
+            widget.setVisible(False)
+        if label is not None:
+            label.setVisible(False)
 
     def _set_signals(self):
 
@@ -560,6 +574,7 @@ class GwGo2EpaButton(GwAction):
 
             tools_gw.build_dialog_options(
                 dialog, json_result['body']['form']['formTabs'], 0, self.epa_options_list)
+            self._hide_hydraulic_engine_only_options(dialog)
             grbox_list = dialog.findChildren(QGroupBox)
             for grbox in grbox_list:
                 widget_list = grbox.findChildren(QWidget)
@@ -590,6 +605,7 @@ class GwGo2EpaButton(GwAction):
 
         tools_gw.build_dialog_options(
             self.dlg_go2epa_options, json_result['body']['form']['formTabs'], 0, self.epa_options_list)
+        self._hide_hydraulic_engine_only_options(self.dlg_go2epa_options)
         grbox_list = self.dlg_go2epa_options.findChildren(QGroupBox)
         for grbox in grbox_list:
             widget_list = grbox.findChildren(QWidget)

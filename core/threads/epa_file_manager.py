@@ -101,37 +101,43 @@ class GwEpaFileManager(GwTask):
             tools_log.log_info(msg, msg_params=msg_params)
             status = self._export_inp()
 
-        # Prefer hydraulic_engine for WS (EPANET) and UD (SWMM); fall back to classic EPA
-        if status:
-            if self.go2epa_execute_epa or self.go2epa_import_result:
-                has_hydraulic_engine = self._init_hydraulic_engine()
-                runner = None
-
-            if self.go2epa_execute_epa:
-                if has_hydraulic_engine:
+        # Prefer hydraulic_engine for WS (EPANET) and UD (SWMM) when Execute EPA runs;
+        # fall back to classic EPA
+        runner = None
+        if status and self.go2epa_execute_epa:
+            if self._has_hydraulic_engine():
+                try:
                     msg_params = ("_execute_epa_with_hydraulic_engine",)
                     tools_log.log_info(msg, msg_params=msg_params)
                     runner = self._execute_epa_with_hydraulic_engine()
                     if runner is None:
                         status = False
-                else:
+                except ImportError:
+                    he_msg = "Hydraulic engine not imported. Using default EPA software."
+                    tools_log.log_info(he_msg)
                     msg_params = ("_execute_epa",)
                     tools_log.log_info(msg, msg_params=msg_params)
                     status = self._execute_epa()
+            else:
+                he_msg = "Hydraulic engine not imported. Using default EPA software."
+                tools_log.log_info(he_msg)
+                msg_params = ("_execute_epa",)
+                tools_log.log_info(msg, msg_params=msg_params)
+                status = self._execute_epa()
 
-            if self.go2epa_import_result:
-                message = "Task '{0}' execute function '{1}'"
-                msg_params = ('Go2Epa', 'def _import_rpt')
-                tools_log.log_info(message, msg_params=msg_params)
-                if has_hydraulic_engine and runner is not None:
-                    msg_params = ("_import_rpt_with_hydraulic_engine",)
-                    tools_log.log_info(msg, msg_params=msg_params)
-                    status = self._import_rpt_with_hydraulic_engine(runner)
-                else:
-                    msg_params = ("_import_rpt",)
-                    tools_log.log_info(msg, msg_params=msg_params)
-                    self.function_name = 'gw_fct_rpt2pg_main'
-                    status = self._import_rpt()
+        if status and self.go2epa_import_result:
+            message = "Task '{0}' execute function '{1}'"
+            msg_params = ('Go2Epa', 'def _import_rpt')
+            tools_log.log_info(message, msg_params=msg_params)
+            if runner is not None:
+                msg_params = ("_import_rpt_with_hydraulic_engine",)
+                tools_log.log_info(msg, msg_params=msg_params)
+                status = self._import_rpt_with_hydraulic_engine(runner)
+            else:
+                msg_params = ("_import_rpt",)
+                tools_log.log_info(msg, msg_params=msg_params)
+                self.function_name = 'gw_fct_rpt2pg_main'
+                status = self._import_rpt()
 
         return status
 
@@ -447,7 +453,7 @@ class GwEpaFileManager(GwTask):
         msg = "Execute EPA software"
         tools_log.log_info(msg)
         msg = "Execute EPA software......"
-        self.step_completed.emit({"message": {"level": 1, "text": tools_qt.tr(msg)}}, "")
+        self.step_completed.emit({"message": {"level": 1, "text": tools_qt.tr(msg)}}, "\n")
 
         msg = "INP file not found"
         if self.file_inp is not None:
@@ -483,23 +489,13 @@ class GwEpaFileManager(GwTask):
 
         return True
 
-    def _init_hydraulic_engine(self) -> bool:
-        """Try to import hydraulic_engine. Returns True if the package is available."""
+    @staticmethod
+    def _has_hydraulic_engine() -> bool:
+        """Return True if hydraulic_engine is on sys.path (no package import)."""
         try:
             from importlib.util import find_spec
-            from hydraulic_engine.utils import tools_log as he_tools_log
-            has_hydraulic_engine = find_spec("hydraulic_engine") is not None
-            if has_hydraulic_engine:
-                he_tools_log.set_logger("hydraulic_engine", min_log_level=10)
-                msg = "Hydraulic engine imported successfully"
-                tools_log.log_info(msg)
-            else:
-                msg = "Hydraulic engine not imported. Using default EPA software."
-                tools_log.log_info(msg)
-            return has_hydraulic_engine
+            return find_spec("hydraulic_engine") is not None
         except ImportError:
-            msg = "Hydraulic engine not imported. Using default EPA software."
-            tools_log.log_info(msg)
             return False
 
     def _on_epa_progress(self, progress: int, message: str):
@@ -540,13 +536,18 @@ class GwEpaFileManager(GwTask):
         """Execute EPA (EPANET/SWMM) using hydraulic_engine."""
 
         import hydraulic_engine as he
+        from hydraulic_engine.utils import tools_log as he_tools_log
+
+        he_tools_log.set_logger("hydraulic_engine", min_log_level=10)
+        msg = "Hydraulic engine imported successfully"
+        tools_log.log_info(msg)
 
         if self.isCanceled():
             return None
 
         tools_log.log_info("Execute EPA software (hydraulic_engine)")
         msg = "Execute EPA software......\n\n"
-        self.step_completed.emit({"message": {"level": 1, "text": tools_qt.tr(msg)}}, "")
+        self.step_completed.emit({"message": {"level": 1, "text": tools_qt.tr(msg)}}, "\n")
 
         if self.file_rpt == "null":
             message = "You have to set this parameter"
@@ -578,25 +579,39 @@ class GwEpaFileManager(GwTask):
                 os.chdir(run_cwd)
 
             results = runner.run(step_callback=self._on_epa_step)
-            if self.isCanceled() or (
-                results is not None
-                and results.status == he.utils.enums.RunStatus.CANCELLED
-            ):
-                return None
+
+            # RPT/output outcomes (still returned, not raised)
             if results is None:
-                msg = "Error executing EPA software"
-                self.error_msg = msg
+                self.error_msg = "Error executing EPA software"
                 return None
             if results.status == he.utils.enums.RunStatus.ERROR:
                 detail = "; ".join(results.errors) if results.errors else "unknown error"
                 msg = "Error executing EPA software: {0}"
-                msg_params = (detail,)
-                self.error_msg = tools_qt.tr(msg, list_params=msg_params)
+                self.error_msg = tools_qt.tr(msg, list_params=(detail,))
                 return None
+            # WARNING/SUCCESS continue
+
+        except he.SimulationCancelled:
+            # User cancelled via QgsTask / step_callback
+            return None
+
+        except he.SimulationError as e:
+            detail = str(e)
+            if e.result and e.result.errors:
+                detail = "; ".join(e.result.errors) or detail
+            msg = "Error executing EPA software: {0}"
+            self.error_msg = tools_qt.tr(msg, list_params=(detail,))
+            return None
+
+        except he.HydraulicEngineError as e:
+            # FileLoadError, ValidationError, etc.
+            msg = "Error executing EPA software: {0}"
+            self.error_msg = tools_qt.tr(msg, list_params=(e,))
+            return None
+
         except Exception as e:
             msg = "Error executing EPA software: {0}"
-            msg_params = (e,)
-            self.error_msg = tools_qt.tr(msg, list_params=msg_params)
+            self.error_msg = tools_qt.tr(msg, list_params=(e,))
             return None
         finally:
             os.chdir(prev_cwd)
@@ -768,6 +783,18 @@ class GwEpaFileManager(GwTask):
             self.common_msg += tools_qt.tr(msg)
             self._set_progress(self.IMPORT_START, self.IMPORT_END)
             return True
+        except he.ModelNotLoadedError as e:
+            msg = "Error importing simulation results: {0}"
+            self.error_msg = tools_qt.tr(msg, list_params=(e,))
+            return False
+        except he.DatabaseError as e:
+            msg = "Database error importing simulation results: {0}"
+            self.error_msg = tools_qt.tr(msg, list_params=(e,))
+            return False
+        except he.ExportError as e:
+            msg = "Error importing simulation results into database: {0}"
+            self.error_msg = tools_qt.tr(msg, list_params=(e,))
+            return False
         except Exception as e:
             self.error_msg = str(e)
             return False

@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generate `resources/gis/locales.sqlite` from `locales.sql` when missing instead of tracking the sqlite file.
 - Keep `link.userdefined_geom` when provided on `ve_link` edit; set it to TRUE only on INSERT or when geometry changes.
 - Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
+- Document optional manual install of `hydraulic_engine==0.9.0` for Go2Epa in README (kept out of `requirements.txt` / QPIP because of NumPy/SciPy conflicts with QGIS’s Python); include SciPy alignment steps and macOS codesign.
 - Document macOS QPIP native-library codesign workaround for Go2Epa / `hydraulic_engine` in README.
 - Refactor Go2Epa hydraulic_engine integration to share execute/import flow for WS and UD.
 - Require `hydraulic_engine>=0.7.0` and align Go2Epa runners with its EPANET/SWMM export API.
@@ -35,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Open Help from Create project (and other dialogs) via Qt instead of `webbrowser`/`subprocess`, which crashed QGIS on Python 3.12+ (ResourceWarning from `Popen.__del__`). Skip `config_param_system` lookup when no schema is loaded.
+- Hide Go2Epa option `inp_report_onlymaxmin_values` when `hydraulic_engine` is not installed (`find_spec` only; no package import).
+- Defer `hydraulic_engine` import until Execute EPA actually uses it (export-only / import-only no longer load wntr on first run).
 - Open catalog from Replace feature without crashing when combo fields have no `comboIds` (async `queryText` path).
 - Show human-readable tooltips for Network Utilities and File Transfer toolbar buttons.
 - Clear `selector_inp_dscenario` when creating a sample (same as `selector_psector`); fix `gw_fct_setinitproject` to delete from `selector_inp_dscenario`.
