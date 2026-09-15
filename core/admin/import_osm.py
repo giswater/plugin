@@ -7,163 +7,107 @@ or (at your option) any later version.
 
 # -*- coding: utf-8 -*-
 import sys
-import json
+from datetime import timedelta
 from functools import partial
+from time import time
+
+from qgis.core import QgsApplication
+from qgis.PyQt.QtCore import Qt, QTimer, pyqtSignal
+from qgis.PyQt.QtWidgets import QApplication, QCheckBox, QLabel, QTabWidget, QTextEdit, QVBoxLayout
+from qgis.PyQt.sip import isdeleted
+
+from ..threads.task import GwTask
 from ..ui.ui_manager import GwAdminImportOsmUi
 from ..utils import tools_gw
 from ...libs import lib_vars, tools_db, tools_os, tools_qgis, tools_qt
-from qgis.PyQt.QtWidgets import QCheckBox, QVBoxLayout, QTabWidget
-from qgis.PyQt.QtCore import Qt
 
 
-class GwImportOsm:
+class GwImportOsmTask(GwTask):
+    """Download OSM streets and insert them into om_streetaxis (worker thread)."""
 
-    def __init__(self):
-        self.plugin_dir = lib_vars.plugin_dir
-        self.schema_name = lib_vars.schema_name
-        self.projetc_type = None
+    log_line = pyqtSignal(str)
 
-    def init_dialog(self, schema_name):
-        """ Constructor """
-
+    def __init__(self, description, schema_name, muni_ids, logs_list):
+        super().__init__(description)
         self.schema_name = schema_name
+        self.muni_ids = muni_ids
+        self.logs_list = list(logs_list) if logs_list else []
+        self.success = 0
+        self.errors = 0
+        self.exception = None
 
-        # Check project type
-        sql = f"SELECT project_type FROM {self.schema_name}.sys_version"
-        self.projetc_type = tools_db.get_row(sql)
-        if self.projetc_type[0] != 'WS':
-            msg = "Import OSM Streetaxis its only for WS projects"
-            tools_qgis.show_warning(msg)
-            return
-
-        if sys.version_info < (3, 10):
-            msg = "Import OSM Streetaxis is only available on Python 3.10 or higher. " \
-                  "Please update your QGIS's Python version."
-            tools_qgis.show_warning(msg, dialog=self.dlg_import_osm)
-            tools_qt.set_widget_enabled(self.dlg_import_osm.btn_accept, False)
-
-        # Initialize the UI
-        self.dlg_import_osm = GwAdminImportOsmUi(self)
-        tools_gw.load_settings(self.dlg_import_osm)
-
-        self.dlg_import_osm.setWindowTitle(f'Import OSM Streetaxis - {self.schema_name}')
-
-        # Disable the "Log" tab initially
-        tools_gw.disable_tab_log(self.dlg_import_osm)
-
-        self.load_municipalities()
-
-        self.dlg_import_osm.btn_accept.clicked.connect(partial(self.run))
-        self.dlg_import_osm.btn_close.clicked.connect(partial(self.close_dialog))
-
-        tools_gw.open_dialog(self.dlg_import_osm, dlg_name='admin_import_osm')
-
-    def load_municipalities(self):
-        """ Get municipalities and add a checkbox widget for each of them """
-        sql = (f"""
-            SELECT muni_id, name
-            FROM {self.schema_name}.v_municipality;
-        """)
-        chk_municipalities = tools_db.get_rows(sql)
-        layout = self.dlg_import_osm.mainTab.findChild(QVBoxLayout, "lyt_data_1")
-
-        for chk_muni in chk_municipalities:
-            widget = QCheckBox()
-            widget.setObjectName(f'chk_{chk_muni[0]}')
-            widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-            widget.setText(chk_muni[1])
-            layout.addWidget(widget)
+    def _log(self, message):
+        self.logs_list.append(message)
+        self.log_line.emit(message)
 
     def run(self):
-        """ Start import process """
-
+        super().run()
         try:
-            shapely_wkt = tools_os.get_dep("shapely.wkt")
-            shapely_ops = tools_os.get_dep("shapely.ops")
-            pyproj = tools_os.get_dep("pyproj")
-            pd = tools_os.get_dep("pandas")
-            np = tools_os.get_dep("numpy")
-            ox = tools_os.get_dep("osmnx")
-            loads = shapely_wkt.loads
-            transform = shapely_ops.transform
-            Transformer = pyproj.Transformer
+            return self._import()
+        except Exception as e:
+            self.exception = e
+            self._log(f"ERROR: {e}")
+            return False
+
+    def _import(self):
+        shapely_wkt = tools_os.get_dep("shapely.wkt")
+        shapely_ops = tools_os.get_dep("shapely.ops")
+        pyproj = tools_os.get_dep("pyproj")
+        pd = tools_os.get_dep("pandas")
+        np = tools_os.get_dep("numpy")
+        ox = tools_os.get_dep("osmnx")
+        loads = shapely_wkt.loads
+        transform = shapely_ops.transform
+        transformer_cls = pyproj.Transformer
+        if "surface" not in ox.settings.useful_tags_way:
             ox.settings.useful_tags_way = ox.settings.useful_tags_way + ["surface"]
-        except ImportError as e:
-            tools_qgis.show_critical(
-                f"Python package required for OSM import is not installed: {e.name}. "
-                "Please install it using pip or the 'qpip' QGIS plugin."
-            )
-            return
 
-        # Enable the "Log" tab after pressing execute and disable execute button
-        qtabwidget = self.dlg_import_osm.findChild(QTabWidget, 'mainTab')
-        if qtabwidget:
-            tools_qt.enable_tab_by_tab_name(qtabwidget, "tab_log", True)  # Enable Log tab
+        table_name = "om_streetaxis"
+        ids_sql = ", ".join(str(int(muni_id)) for muni_id in self.muni_ids)
+        sql = (
+            f"SELECT m.muni_id, ST_AsText(m.the_geom) "
+            f"FROM {self.schema_name}.v_municipality m "
+            f"WHERE m.muni_id IN ({ids_sql});"
+        )
+        municipalities = tools_db.get_rows(sql, is_thread=True, aux_conn=self.aux_conn)
+        if not municipalities:
+            self._log("No municipalities found")
+            return False
 
-        logs = '{"info":{"values":['
-        self.logs_list = list()
+        all_edges = self._download_edges(
+            municipalities, pd, np, ox, loads, transform, transformer_cls)
+        if all_edges is None:
+            return False
 
-        # Get selected municipalities
-        checked_municipalities = self.get_checked_municipalities()
+        if len(all_edges) > 0:
+            self._log(f"Total municipalities processed: {len(all_edges['muni_id'].unique())}")
 
-        if not checked_municipalities:
-            msg = "No municipalities selected"
-            tools_qgis.show_warning(msg, dialog=self.dlg_import_osm)
-            self.logs_list.append('{"id":4,"message":"No municipalities selected"}')
-            return
+        return self._insert_edges(all_edges, table_name)
 
-        TABLE_NAME = "om_streetaxis"
-
-        cur = tools_db.dao.get_cursor()
-
-        # Fetch `muni_id` and geometry
-        cur.execute(f"""
-            SELECT m.muni_id, ST_AsText(m.the_geom)
-            FROM {self.schema_name}.v_municipality m            
-            WHERE m.muni_id in {checked_municipalities};
-        """)
-        municipalities = cur.fetchall()
-
-        # Initialize a DataFrame to store all road edges
+    def _download_edges(self, municipalities, pd, np, ox, loads, transform, transformer_cls):
         all_edges = pd.DataFrame()
-
-        # Process each municipality
-        for muni_id, boundary_geom_wkt in municipalities:
+        total_munis = len(municipalities)
+        self.setProgress(5)
+        for idx, (muni_id, boundary_geom_wkt) in enumerate(municipalities):
+            if self.isCanceled():
+                return None
             if not boundary_geom_wkt or muni_id == 0:
-                msg = "Skipping muni_id {0}: Invalid geometry"
-                msg_params = (muni_id,)
-                tools_qgis.show_warning(msg, dialog=self.dlg_import_osm, msg_params=msg_params)
-                self.logs_list.append('{"id":5,"message":"Skipping muni_id ' + str(muni_id) + ': Invalid geometry"}')
+                self._log(f"Skipping muni_id {muni_id}: Invalid geometry")
                 continue
 
             try:
-                # Convert WKT to geometry
                 boundary_geom = loads(boundary_geom_wkt)
-
-                # Transform boundary geometry to EPSG:4326
-                transformer = Transformer.from_crs("EPSG:25831", "EPSG:4326", always_xy=True)
+                transformer = transformer_cls.from_crs("EPSG:25831", "EPSG:4326", always_xy=True)
                 boundary_geom = transform(transformer.transform, boundary_geom)
 
-                # Ensure the geometry is valid
                 if not boundary_geom.is_valid:
-                    msg = "Skipping muni_id {0}: Invalid geometry"
-                    msg_params = (muni_id,)
-                    tools_qgis.show_warning(msg, dialog=self.dlg_import_osm, msg_params=msg_params)
-                    self.logs_list.append('{"id":6,"message":"Skipping muni_id ' + str(muni_id) + ': Invalid geometry"}')
+                    self._log(f"Skipping muni_id {muni_id}: Invalid geometry")
                     continue
-                
-                msg = "Processing muni_id {0}"
-                msg_params = (muni_id,)
-                tools_qgis.show_info(msg, msg_params=msg_params)
-                self.logs_list.append('{"id":7,"message":"Processing muni_id ' + str(muni_id) + '"}')
 
-                # Download road network for this municipality
+                self._log(f"Processing muni_id {muni_id}")
                 graph = ox.graph_from_polygon(boundary_geom, custom_filter=None)
-
-                # Convert the graph to a GeoDataFrame
                 edges = ox.graph_to_gdfs(graph, nodes=False)
 
-                # Add necessary columns
                 edges['muni_id'] = muni_id
                 edges['code'] = edges['osmid'].apply(lambda x: x[0] if isinstance(x, list) else x)
                 edges['name'] = edges['name'].fillna('Unnamed Road')
@@ -178,77 +122,62 @@ class GwImportOsm:
                         int(x) if pd.notna(x) and str(x).isdigit() else 1))
                 edges['oneway'] = edges['oneway'].fillna(False).astype(bool)
 
-                # Convert NaN into None
                 if 'access' not in edges:
                     edges['access'] = None
                 else:
                     edges['access'] = edges['access'].replace(np.nan, None)
 
-                # Set pedestrian attribute
                 edges['pedestrian'] = edges['highway'].apply(lambda h: h in ['footway', 'path', 'pedestrian'])
-
-                # Handle road type and surface attributes
                 edges['road_type'] = edges['highway']
                 edges['surface'] = edges['surface'].fillna('unknown') if 'surface' in edges.columns else 'unknown'
 
-                # Transform geometries to EPSG:25831
-                transformer = Transformer.from_crs("EPSG:4326", "EPSG:25831", always_xy=True)
+                transformer = transformer_cls.from_crs("EPSG:4326", "EPSG:25831", always_xy=True)
                 edges['the_geom'] = edges['geometry'].apply(lambda geom: transform(transformer.transform, geom).wkt)
-
-                # Select required columns
                 edges = edges[['code', 'name', 'the_geom', 'maxspeed', 'lanes', 'oneway',
-                            'pedestrian', 'road_type', 'surface', 'muni_id', 'access']]
-
-                # Append to the global DataFrame
+                               'pedestrian', 'road_type', 'surface', 'muni_id', 'access']]
                 all_edges = pd.concat([all_edges, edges], ignore_index=True)
-
             except Exception as e:
-                msg = "Error processing muni_id {0}: {1}"
-                msg_params = (muni_id, e,)
-                tools_qgis.show_warning(msg, msg_params=msg_params, dialog=self.dlg_import_osm)
-                self.logs_list.append('{"id":8,"message":"ERROR: Processing muni_id ' + str(muni_id) + ': ' + e + '"}')
+                self._log(f"ERROR: Processing muni_id {muni_id}: {e}")
                 continue
 
-        # Debug: Show summary
-        if len(all_edges) > 0:
-            msg = "Total municipalities processed: {0}"
-            msg_params = (len(all_edges['muni_id'].unique()),)
-            tools_qgis.show_info(msg, msg_params=msg_params)
-            self.logs_list.append('{"id":9,"message":"Total municipalities processed: ' + str(len(all_edges['muni_id'].unique())) + '"}')
+            progress = 5 + int(((idx + 1) / float(total_munis)) * 65)
+            self.setProgress(min(progress, 70))
 
-        # Insert data into the database
-        errors = 0
-        success = 0
+        return all_edges
 
-        for _, row in all_edges.iterrows():
+    def _insert_edges(self, all_edges, table_name):
+        cur = tools_db.dao.get_cursor(self.aux_conn)
+        total_rows = len(all_edges)
+        for row_idx, row in all_edges.iterrows():
+            if self.isCanceled():
+                tools_db.dao.rollback(self.aux_conn)
+                return False
             try:
                 cur.execute(f"""
-                    INSERT INTO {self.schema_name}.{TABLE_NAME} (code, name, the_geom, maxspeed, lanes, oneway, pedestrian, road_type, surface, muni_id, access_info, expl_id)
+                    INSERT INTO {self.schema_name}.{table_name}
+                    (code, name, the_geom, maxspeed, lanes, oneway, pedestrian,
+                     road_type, surface, muni_id, access_info, expl_id)
                     VALUES (%s, %s, ST_GeomFromText(%s, 25831), %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (row['code'], row['name'], row['the_geom'], row['maxspeed'], row['lanes'], row['oneway'], row['pedestrian'],
-                    row['road_type'], row['surface'], row['muni_id'], row['access'], 0))
-
-                tools_db.dao.commit()
-                success += 1
-
+                """, (row['code'], row['name'], row['the_geom'], row['maxspeed'], row['lanes'], row['oneway'],
+                      row['pedestrian'], row['road_type'], row['surface'], row['muni_id'], row['access'], 0))
+                tools_db.dao.commit(self.aux_conn)
+                self.success += 1
             except Exception as e:
-                tools_db.dao.rollback()
-                msg = "Error inserting row: {0}"
-                msg_params = (str(e),)
-                tools_qgis.show_warning(msg, self.dlg_import_osm, msg_params=msg_params)
-                msg = "Failing data: {0}"
-                msg_params = (row.to_dict(),)
-                tools_qgis.show_warning(msg, self.dlg_import_osm, msg_params=msg_params)
-                self.logs_list.append('{"id":10,"message":"ERROR: Inserting row: ' + e + '"}')
-                self.logs_list.append('{"id":11,"message":"ERROR: Failing data: ' + row.to_dict() + '"}')
-                errors += 1
+                tools_db.dao.rollback(self.aux_conn)
+                self._log(f"ERROR: Inserting row: {e}")
+                self._log(f"ERROR: Failing data: {row.to_dict()}")
+                self.errors += 1
+
+            if total_rows:
+                progress = 70 + int(((row_idx + 1) / float(total_rows)) * 25)
+                self.setProgress(min(progress, 95))
 
         try:
             cur.execute(f"""
-                UPDATE {self.schema_name}.{TABLE_NAME} as osms
+                UPDATE {self.schema_name}.{table_name} as osms
                 SET expl_id = COALESCE(
-                    (SELECT 
-                        CASE 
+                    (SELECT
+                        CASE
                             WHEN COUNT(*) > 1 THEN NULL
                             ELSE (SELECT exp.expl_id
                                 FROM {self.schema_name}.exploitation as exp
@@ -257,28 +186,248 @@ class GwImportOsm:
                         END
                     ), 0)
             """)
-
-            tools_db.dao.commit()
-            success += 1
+            tools_db.dao.commit(self.aux_conn)
+            self.success += 1
         except Exception as e:
-            tools_db.dao.rollback()
-            msg = "Error updating expl_id: {0}"
-            msg_params = (str(e),)
-            tools_qgis.show_warning(msg, self.dlg_import_osm, msg_params=msg_params)
-            self.logs_list.append('{"id":12,"message":"ERROR: Updating expl_id: ' + e + '}"')
-            errors += 1
+            tools_db.dao.rollback(self.aux_conn)
+            self._log(f"ERROR: Updating expl_id: {e}")
+            self.errors += 1
 
-        # Show summary
-        msg = "Data insertion completed: {0} successful, {1} errors."
-        msg_params = (success, errors,)
-        tools_qgis.show_info(msg, msg_params=msg_params)
-        # tools_qt.show_details(f"Data insertion completed: {success} successful, {errors} errors.")
-        self.logs_list.append('{"id":13,"message":"Data insertion completed: ' + str(success) + ' successful, ' + str(errors) + ' errors."}')
+        self._log(f"Data insertion completed: {self.success} successful, {self.errors} errors.")
+        self.setProgress(100)
+        return True
 
-        for msg in self.logs_list:
-            logs += msg + ', '
-        logs = logs[:-2] + ']}}'
-        tools_gw.fill_tab_log(self.dlg_import_osm, json.loads(logs), reset_text=True)
+
+class GwImportOsm:
+
+    def __init__(self):
+        self.plugin_dir = lib_vars.plugin_dir
+        self.schema_name = lib_vars.schema_name
+        self.projetc_type = None
+        self.import_task = None
+        self.logs_list = list()
+        self._task_finished = False
+        self.timer = None
+        self.t0 = None
+
+    def init_dialog(self, schema_name):
+        """ Constructor """
+
+        self.schema_name = schema_name
+
+        # Check project type
+        sql = f"SELECT project_type FROM {self.schema_name}.sys_version"
+        self.projetc_type = tools_db.get_row(sql)
+        if self.projetc_type[0] != 'WS':
+            msg = "Import OSM Streetaxis its only for WS projects"
+            tools_qgis.show_warning(msg)
+            return
+
+        # Initialize the UI
+        self.dlg_import_osm = GwAdminImportOsmUi(self)
+        tools_gw.load_settings(self.dlg_import_osm)
+
+        title = "Import OSM Streetaxis - {0}"
+        title_params = (self.schema_name,)
+        self.dlg_import_osm.setWindowTitle(tools_qt.tr(title, list_params=title_params))
+
+        if sys.version_info < (3, 10):
+            msg = "Import OSM Streetaxis is only available on Python 3.10 or higher. " \
+                  "Please update your QGIS's Python version."
+            tools_qgis.show_warning(msg, dialog=self.dlg_import_osm)
+            tools_qt.set_widget_enabled(self.dlg_import_osm.btn_accept, False)
+
+        self._setup_progress_bar()
+        tools_gw.disable_tab_log(self.dlg_import_osm)
+
+        self.load_municipalities()
+
+        self.dlg_import_osm.btn_accept.clicked.connect(partial(self.run))
+        self.dlg_import_osm.btn_close.clicked.connect(partial(self.close_dialog))
+
+        tools_gw.open_dialog(self.dlg_import_osm, dlg_name='admin_import_osm')
+
+    def _setup_progress_bar(self):
+        progress_bar = self.dlg_import_osm.progressBar
+        progress_bar.setVisible(False)
+        progress_bar.setRange(0, 0)
+        progress_bar.setTextVisible(False)
+        progress_bar.setStyleSheet(
+            "QProgressBar {border: 0px solid #000000; border-radius: 5px; background-color: #E0E0E0;}"
+            "QProgressBar::chunk {background-color:#0bd82c; width: 10 px; margin: 0.5px;}"
+        )
+        lbl_time = self.dlg_import_osm.findChild(QLabel, 'lbl_time')
+        if lbl_time:
+            lbl_time.setVisible(False)
+            lbl_time.setText("")
+
+    def _set_busy(self, busy):
+        if isdeleted(self.dlg_import_osm):
+            return
+        self.dlg_import_osm.progressBar.setVisible(busy)
+        lbl_time = self.dlg_import_osm.findChild(QLabel, 'lbl_time')
+        tools_qt.set_widget_enabled(self.dlg_import_osm, 'btn_accept', not busy)
+        if busy:
+            self.dlg_import_osm.progressBar.setRange(0, 0)
+            self.dlg_import_osm.setCursor(Qt.CursorShape.WaitCursor)
+            if lbl_time:
+                lbl_time.setVisible(True)
+            self._start_timer()
+        else:
+            self.dlg_import_osm.unsetCursor()
+            self._stop_timer()
+        QApplication.processEvents()
+
+    def _start_timer(self):
+        self.t0 = time()
+        if self.timer is None:
+            self.timer = QTimer()
+            self.timer.timeout.connect(partial(self._calculate_elapsed_time, self.dlg_import_osm))
+        self._calculate_elapsed_time(self.dlg_import_osm)
+        self.timer.start(1000)
+
+    def _stop_timer(self):
+        if self.timer is None:
+            return
+        self.timer.stop()
+        if not isdeleted(self.dlg_import_osm):
+            self._calculate_elapsed_time(self.dlg_import_osm)
+
+    def _calculate_elapsed_time(self, dialog):
+        if self.t0 is None:
+            return
+        tf = time()
+        td = tf - self.t0
+        msg = "Exec. time: {0}"
+        msg_params = (timedelta(seconds=round(td)),)
+        self._update_time_elapsed(tools_qt.tr(msg, list_params=msg_params), dialog)
+
+    def _update_time_elapsed(self, text, dialog):
+        if isdeleted(dialog):
+            if self.timer is not None:
+                self.timer.stop()
+            return
+        lbl_time = dialog.findChild(QLabel, 'lbl_time')
+        if lbl_time is None:
+            return
+        lbl_time.setText(text)
+
+    def load_municipalities(self):
+        """ Get municipalities and add a checkbox widget for each of them """
+        sql = (f"""
+            SELECT muni_id, name
+            FROM {self.schema_name}.v_municipality;
+        """)
+        chk_municipalities = tools_db.get_rows(sql)
+        layout = self.dlg_import_osm.mainTab.findChild(QVBoxLayout, "lyt_data_1")
+
+        if not chk_municipalities:
+            return
+
+        for chk_muni in chk_municipalities:
+            widget = QCheckBox()
+            widget.setObjectName(f'chk_{chk_muni[0]}')
+            widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+            widget.setText(chk_muni[1])
+            layout.addWidget(widget)
+
+    def run(self):
+        """ Start import process """
+
+        if self.import_task is not None:
+            try:
+                if self.import_task.isActive():
+                    msg = "OSM import is already running"
+                    tools_qgis.show_warning(msg, dialog=self.dlg_import_osm)
+                    return
+            except RuntimeError:
+                pass
+
+        try:
+            tools_os.get_dep("shapely.wkt")
+            tools_os.get_dep("shapely.ops")
+            tools_os.get_dep("pyproj")
+            tools_os.get_dep("pandas")
+            tools_os.get_dep("numpy")
+            tools_os.get_dep("osmnx")
+        except ImportError as e:
+            msg = (
+                "Python package required for OSM import is not installed: {0}. "
+                "Please install it using pip or the 'qpip' QGIS plugin."
+            )
+            msg_params = (getattr(e, "name", str(e)),)
+            tools_qgis.show_critical(msg, msg_params=msg_params)
+            return
+
+        self.logs_list = list()
+        checked_municipalities = self.get_checked_municipalities()
+
+        if not checked_municipalities:
+            msg = "No municipalities selected"
+            tools_qgis.show_warning(msg, dialog=self.dlg_import_osm)
+            self.logs_list.append("No municipalities selected")
+            return
+
+        qtabwidget = self.dlg_import_osm.findChild(QTabWidget, 'mainTab')
+        if qtabwidget:
+            tools_qt.enable_tab_by_tab_name(qtabwidget, "tab_log", True)
+            qtabwidget.setCurrentIndex(qtabwidget.count() - 1)
+
+        self._set_busy(True)
+        self._task_finished = False
+        msg = "Downloading OSM streetaxis. This can take a while..."
+        tools_qgis.show_info(msg, dialog=self.dlg_import_osm)
+        self.logs_list.append(msg)
+        self._append_log_line(tools_qt.tr(msg))
+
+        title = "Import OSM Streetaxis"
+        self.import_task = GwImportOsmTask(
+            tools_qt.tr(title), self.schema_name, checked_municipalities, self.logs_list)
+        self.import_task.log_line.connect(self._append_log_line)
+        self.import_task.taskCompleted.connect(partial(self._on_task_finished, True))
+        self.import_task.taskTerminated.connect(partial(self._on_task_finished, False))
+        QgsApplication.taskManager().addTask(self.import_task)
+        QgsApplication.taskManager().triggerTask(self.import_task)
+
+    def _append_log_line(self, message):
+        if isdeleted(self.dlg_import_osm):
+            return
+        widget = self.dlg_import_osm.findChild(QTextEdit, 'tab_log_txt_infolog')
+        if widget is None:
+            return
+        widget.append(str(message))
+
+    def _on_task_finished(self, completed):
+        if self._task_finished or isdeleted(self.dlg_import_osm):
+            return
+        self._task_finished = True
+
+        self._set_busy(False)
+
+        task = self.import_task
+        if task is None:
+            return
+
+        if task.exception is not None:
+            msg = "Error processing OSM import: {0}"
+            msg_params = (str(task.exception),)
+            tools_qgis.show_warning(msg, dialog=self.dlg_import_osm, msg_params=msg_params)
+
+        if task.isCanceled():
+            msg = "OSM import was cancelled"
+            tools_qgis.show_warning(msg, dialog=self.dlg_import_osm)
+            return
+
+        values = []
+        for idx, message in enumerate(task.logs_list, 1):
+            values.append({"id": idx, "message": message})
+        tools_gw.fill_tab_log(
+            self.dlg_import_osm, {"info": {"values": values}}, reset_text=True, close=completed)
+
+        if completed:
+            msg = "Data insertion completed: {0} successful, {1} errors."
+            msg_params = (task.success, task.errors,)
+            tools_qgis.show_info(msg, msg_params=msg_params, dialog=self.dlg_import_osm)
 
     def get_checked_municipalities(self):
         """ Get selected municipalities and checks if there are already imported """
@@ -289,7 +438,8 @@ class GwImportOsm:
         # Get selected municipalities
         for muni in all_munis:
             if muni.isChecked():
-                selected_munis.append(int(muni.objectName()[-1:]))
+                muni_id = muni.objectName().replace('chk_', '')
+                selected_munis.append(int(muni_id))
 
         # Check if selected municipalities are already on om_streetaxis
         sql = f"""
@@ -303,8 +453,11 @@ class GwImportOsm:
                 # Check if imported_muni is selected
                 if imported_muni[0] in selected_munis:
                     # Ask if user wants to overwrite the municipaly imports
-                    msg = ("Municipality with id[{0}] is already imported on om_streetaxis.\n\rDo you want to overwrite it?"
-                            "\n\r(This decision will not cancel the other selections, the process will keep running)")
+                    msg = (
+                        "Municipality with id[{0}] is already imported on om_streetaxis.\n\r"
+                        "Do you want to overwrite it?"
+                        "\n\r(This decision will not cancel the other selections, the process will keep running)"
+                    )
                     msg_params = (imported_muni[0],)
                     result = tools_qt.show_question(msg, "Info", force_action=True, msg_params=msg_params)
                     if not result:
@@ -313,31 +466,32 @@ class GwImportOsm:
                         msg = "Municipality with ID: {0} deleted from selection"
                         msg_params = (imported_muni[0],)
                         tools_qgis.show_info(msg, msg_params=msg_params)
-                        self.logs_list.append('{"id":1,"message":"Municipality with ID: ' + str(imported_muni[0]) + ' deleted from selection"}')
+                        self.logs_list.append(
+                            "Municipality with ID: {0} deleted from selection".format(imported_muni[0]))
                     else:
                         # Delete municipality imports
-                        status = tools_db.execute_sql(f"DELETE FROM {self.schema_name}.om_streetaxis WHERE muni_id = {imported_muni[0]};", commit=False)
+                        status = tools_db.execute_sql(
+                            f"DELETE FROM {self.schema_name}.om_streetaxis WHERE muni_id = {imported_muni[0]};",
+                            commit=False)
                         if status:
                             tools_db.dao.commit()
                         else:
                             tools_db.dao.rollback()
                             return None
 
-        # Return selected_municipalities as id list
-        #        Example: (0,1,2)
-        checked_municipalities = "("
-
-        for muni in selected_munis:
-            checked_municipalities += str(muni) + ", "
-
-        checked_municipalities = checked_municipalities[:-2] + ")"
-
-        if len(checked_municipalities) < 3:
+        if not selected_munis:
             return None
 
-        return checked_municipalities
+        return selected_munis
 
     def close_dialog(self):
         """ Close dialog """
+        if self.timer is not None:
+            self.timer.stop()
+        if self.import_task is not None:
+            try:
+                if self.import_task.isActive():
+                    self.import_task.cancel()
+            except RuntimeError:
+                pass
         tools_gw.close_dialog(self.dlg_import_osm, delete_dlg=True)
-

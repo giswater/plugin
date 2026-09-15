@@ -2275,8 +2275,12 @@ class GwAdminButton:
     def _import_osm(self):
         """ Initialize import osm streetaxis functionality """
 
-        dlg_import_osm = GwImportOsm()
-        dlg_import_osm.init_dialog(self._get_schema_name())
+        tools_qgis.set_cursor_wait()
+        try:
+            dlg_import_osm = GwImportOsm()
+            dlg_import_osm.init_dialog(self._get_schema_name())
+        finally:
+            tools_qgis.restore_cursor()
 
     def _info_show_database(self, connection_status=True, username=None, show_dialog=False,
                             connection_name=None, try_set_connection=False):
