@@ -145,6 +145,7 @@ class GwImportEpanet:
 
         self._manage_widgets_visibility()
 
+        tools_gw.disable_tab_log(self.dlg_config)
         tools_gw.open_dialog(self.dlg_config, dlg_name="inp_config_import")
         unescape_dialog_labels(self.dlg_config)
 
@@ -300,6 +301,8 @@ class GwImportEpanet:
 
             save_config(self, workcat=workcat, exploitation=exploitation, sector=sector, municipality=municipality, dscenario=dscenario, catalogs=catalogs)
 
+            tools_gw.set_tabs_enabled(self.dlg_config, hide_btn_accept=True, change_btn_cancel=False)
+
             # Set background task 'Import INP'
             msg = "Import INP (TESTING MODE)"
             self.import_inp_task = GwImportInpTask(
@@ -411,6 +414,8 @@ class GwImportEpanet:
 
         # Save options to the configuration file
         save_config(self, workcat=workcat, exploitation=exploitation, sector=sector, municipality=municipality, dscenario=dscenario, catalogs=catalogs, psector=psector)
+
+        tools_gw.set_tabs_enabled(self.dlg_config, hide_btn_accept=True, change_btn_cancel=False)
 
         # Manage psector
         if psector:

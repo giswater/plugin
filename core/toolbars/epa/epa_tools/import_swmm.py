@@ -166,6 +166,7 @@ class GwImportSwmm:
 
         self._manage_widgets_visibility()
 
+        tools_gw.disable_tab_log(self.dlg_config)
         tools_gw.open_dialog(self.dlg_config, dlg_name="inp_config_import")
         unescape_dialog_labels(self.dlg_config)
 
@@ -359,6 +360,7 @@ class GwImportSwmm:
 
             # Show tab log
             self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
+            tools_gw.set_tabs_enabled(self.dlg_config, hide_btn_accept=True, change_btn_cancel=False)
 
             # Set background task 'Import INP'
             msg = "Import INP (TESTING MODE)"
@@ -477,6 +479,7 @@ class GwImportSwmm:
 
         # Show tab log
         self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
+        tools_gw.set_tabs_enabled(self.dlg_config, hide_btn_accept=True, change_btn_cancel=False)
 
         # Set state and state_type
         if psector:
