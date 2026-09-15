@@ -57,8 +57,8 @@ SELECT is (
 SELECT is (
     ((gw_fct_config_mapzones($${"client":{"device":4, "lang":"NULL", "infoType":1, "epsg":25831}, "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{},
     "parameters": {"action": "ADD", "configZone": "drainzone", "mapzoneId": "-1", "forceClosed": ["82"], "config": {"use": [{"nodeParent": "82"}], "ignore": [],
-    "forceClosed": []}}}}$$)::json)->'body'->'data'->'preview'->'forceClosed'),
-    '["82"]'::json,
+    "forceClosed": []}}}}$$)::json)->'body'->'data'->'preview'->'forceClosed')::text,
+    '["82"]',
     'ADD forceClosed puts id 82 into preview.forceClosed'
 );
 
@@ -81,8 +81,8 @@ SELECT is (
 SELECT is (
     ((gw_fct_config_mapzones($${"client":{"device":4, "lang":"NULL", "infoType":1, "epsg":25831}, "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{},
     "parameters": {"action": "REMOVE", "configZone": "drainzone", "mapzoneId": "-1", "forceClosed": ["82"],
-    "config": {"use": [{"nodeParent": "82"}], "ignore": [], "forceClosed": [82]}}}}$$)::json)->'body'->'data'->'preview'->'forceClosed'),
-    '[]'::json,
+    "config": {"use": [{"nodeParent": "82"}], "ignore": [], "forceClosed": [82]}}}}$$)::json)->'body'->'data'->'preview'->'forceClosed')::text,
+    '[]',
     'REMOVE forceClosed drops id 82 from preview.forceClosed'
 );
 
