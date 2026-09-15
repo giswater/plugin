@@ -226,7 +226,6 @@ UPDATE sys_param_user AS t SET label = v.label, descript = v.descript FROM (
     ('om_visit_extcode_vdefault', 'Visit external code:', 'Default value of external code of a visit'),
     ('om_visit_parameter_vdefault', 'Visit parameter:', 'Default value of parameter of an event'),
     ('om_visit_paramvalue_vdefault', 'Visit parameter value:', 'Default value of parameter'),
-    ('om_visit_direct_insert', 'Visit direct insert:', 'If true, a visit can be saved without opening the extra event form'),
     ('om_visit_startdate_vdefault', 'Visit start date:', 'Default value of visit start date'),
     ('om_visit_status_vdefault', 'Visit status:', 'Default value of visit status'),
     ('plan_psector_auto_insert_connec', 'Automatic connec/gully insertion:', 'Automatic insertion of connected connecs/gullies when inserting an arc'),
