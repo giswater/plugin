@@ -8086,7 +8086,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>lbl_reload_fct_ftrg</source>
-			<translation>Reload functions &amp;amp; function triggers</translation>
+			<translation>Reload functions &amp; function triggers</translation>
 		</message>
 		<message>
 			<source>tooltip_lbl_reload_fct_ftrg</source>
@@ -11782,7 +11782,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>tooltip_rdb_nodes_config</source>
-			<translation>Retrieve node data from the &amp;quot;nodes&amp;quot; property within the configuration file.</translation>
+			<translation>Retrieve node data from the &quot;nodes&quot; property within the configuration file.</translation>
 		</message>
 		<message>
 			<source>rdb_nodes_database</source>
@@ -13531,7 +13531,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>tooltip_actionCopyPaste</source>
-			<translation>Copy&amp;amp;Paste</translation>
+			<translation>Copy&amp;Paste</translation>
 		</message>
 		<message>
 			<source>actionEdit</source>
@@ -14180,7 +14180,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>lbl_arcs</source>
-			<translation>Select the appropriate arccat_id for each arc combination from the options below. If you choose &amp;quot;Create new&amp;quot;, enter the new name in the &amp;quot;New catalog name&amp;quot; column.</translation>
+			<translation>Select the appropriate arccat_id for each arc combination from the options below. If you choose Create new, enter the new name in the New catalog name column.</translation>
 		</message>
 		<message>
 			<source>tooltip_lbl_arcs</source>
@@ -14196,7 +14196,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>lbl_feature</source>
-			<translation>Select the appropriate feature_id for each EPA type from the options below. If needed, you can add a new feature type in the Giswater catalog and click the &amp;quot;Reload Options&amp;quot; button below.</translation>
+			<translation>Select the appropriate feature_id for each EPA type from the options below. If needed, you can add a new feature type in the Giswater catalog and click the Reload options button below.</translation>
 		</message>
 		<message>
 			<source>tooltip_lbl_feature</source>
@@ -14204,7 +14204,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>lbl_flwreg</source>
-			<translation>Select the appropriate catalog id for each flow regulator from the options below. If you choose &amp;quot;Create new&amp;quot;, enter the new name in the &amp;quot;New catalog name&amp;quot; column.</translation>
+			<translation>Select the appropriate catalog id for each flow regulator from the options below. If you choose Create new, enter the new name in the New catalog name column.</translation>
 		</message>
 		<message>
 			<source>tooltip_lbl_flwreg</source>
@@ -14212,7 +14212,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>lbl_material</source>
-			<translation>Select the appropriate material for each roughness from the options below. If needed, you can add a new material in the Giswater catalog and click the &amp;quot;Reload Options&amp;quot; button below.</translation>
+			<translation>Select the appropriate material for each roughness from the options below. If needed, you can add a new material in the Giswater catalog and click the Reload options button below.</translation>
 		</message>
 		<message>
 			<source>tooltip_lbl_material</source>
@@ -14220,7 +14220,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>lbl_nodes</source>
-			<translation>Select the appropriate nodecat_id for each EPA type from the options below. If you choose &amp;quot;Create new&amp;quot;, enter the new name in the &amp;quot;New catalog name&amp;quot; column.</translation>
+			<translation>Select the appropriate nodecat_id for each EPA type from the options below. If you choose Create new, enter the new name in the New catalog name column.</translation>
 		</message>
 		<message>
 			<source>tooltip_lbl_nodes</source>
@@ -18997,7 +18997,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>btn_user_select</source>
-			<translation>&amp;gt;&amp;gt;</translation>
+			<translation>&gt;&gt;</translation>
 		</message>
 		<message>
 			<source>tooltip_btn_user_select</source>
@@ -19005,7 +19005,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>btn_user_unselect</source>
-			<translation>&amp;lt;&amp;lt;</translation>
+			<translation>&lt;&lt;</translation>
 		</message>
 		<message>
 			<source>tooltip_btn_user_unselect</source>
@@ -19013,7 +19013,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>btn_vehicle_select</source>
-			<translation>&amp;gt;&amp;gt;</translation>
+			<translation>&gt;&gt;</translation>
 		</message>
 		<message>
 			<source>tooltip_btn_vehicle_select</source>
@@ -19021,7 +19021,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>btn_vehicle_unselect</source>
-			<translation>&amp;lt;&amp;lt;</translation>
+			<translation>&lt;&lt;</translation>
 		</message>
 		<message>
 			<source>tooltip_btn_vehicle_unselect</source>
@@ -19029,7 +19029,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>btn_visitclass_select</source>
-			<translation>&amp;gt;&amp;gt;</translation>
+			<translation>&gt;&gt;</translation>
 		</message>
 		<message>
 			<source>tooltip_btn_visitclass_select</source>
@@ -19037,7 +19037,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>btn_visitclass_unselect</source>
-			<translation>&amp;lt;&amp;lt;</translation>
+			<translation>&lt;&lt;</translation>
 		</message>
 		<message>
 			<source>tooltip_btn_visitclass_unselect</source>
