@@ -231,7 +231,6 @@ class GwImportEpanet:
             "gpv": self.catalog_source["gpv"] == "db_nodes",
         }
 
-        self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
         if TESTING_MODE:
             # Show warning message
             msg = "You are about to import the INP file in TESTING MODE. This will delete all the data in the database related to the network you are importing. Are you sure you want to proceed?"
@@ -301,6 +300,7 @@ class GwImportEpanet:
 
             save_config(self, workcat=workcat, exploitation=exploitation, sector=sector, municipality=municipality, dscenario=dscenario, catalogs=catalogs)
 
+            self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
             tools_gw.set_tabs_enabled(self.dlg_config, hide_btn_accept=True, change_btn_cancel=False)
 
             # Set background task 'Import INP'
@@ -415,6 +415,7 @@ class GwImportEpanet:
         # Save options to the configuration file
         save_config(self, workcat=workcat, exploitation=exploitation, sector=sector, municipality=municipality, dscenario=dscenario, catalogs=catalogs, psector=psector)
 
+        self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
         tools_gw.set_tabs_enabled(self.dlg_config, hide_btn_accept=True, change_btn_cancel=False)
 
         # Manage psector

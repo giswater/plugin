@@ -1921,12 +1921,12 @@ class GwImportInpTask(GwTask):
         # TODO: get rid of dma_id
         arc_sql = """ 
             INSERT INTO arc (
-                the_geom, code, node_1, node_2, arc_type, arccat_id, epa_type, expl_id, sector_id, muni_id, state, state_type, workcat_id, dma_id
+                the_geom, code, node_1, node_2, arc_type, arccat_id, matcat_id, epa_type, expl_id, sector_id, muni_id, state, state_type, workcat_id, dma_id
             ) VALUES %s
             RETURNING arc_id, code
         """
         arc_template = (
-            "(ST_GeomFromText(%s, %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            "(ST_GeomFromText(%s, %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
         )
 
         man_sql = f"""
@@ -1966,6 +1966,7 @@ class GwImportInpTask(GwTask):
                 arccat_id = self.catalogs["conduits"][(xs.shape, xs.height, xs.curve_name, xs.parameter_3, xs.parameter_4)]
             else:
                 arccat_id = self.catalogs["conduits"][(xs.shape, xs.height, xs.parameter_2, xs.parameter_3, xs.parameter_4)]
+            matcat_id = self._mapped_material(c.roughness)
             epa_type = "CONDUIT"
             expl_id = self.exploitation
             sector_id = self.sector
@@ -1983,6 +1984,7 @@ class GwImportInpTask(GwTask):
                     node_2,
                     feature_class,
                     arccat_id,
+                    matcat_id,
                     epa_type,
                     expl_id,
                     sector_id,
