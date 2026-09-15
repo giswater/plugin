@@ -72,7 +72,7 @@ SELECT is (
 SELECT is (
     ((gw_fct_config_mapzones($${"client":{"device":4, "lang":"NULL", "infoType":1, "epsg":25831}, "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{},
     "parameters": {"action": "REMOVE", "configZone": "sector", "mapzoneId": "1", "forceClosed": ["1010"], "config": {"use": [{"toArc": [2207], "nodeParent": "1097"}],
-    "ignore": [], "forceClosed": [1010]}}}}$$)::json)->'body'->'data'->'preview'->'forceClosed',
+    "ignore": [], "forceClosed": [1010]}}}}$$)::json)->'body'->'data'->'preview'->'forceClosed'),
     '[]'::json,
     'REMOVE forceClosed drops id 1010 from preview.forceClosed'
 );

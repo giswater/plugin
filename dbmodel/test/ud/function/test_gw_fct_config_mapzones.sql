@@ -55,12 +55,10 @@ SELECT is (
 );
 
 SELECT is (
-    (SELECT jsonb_agg(elem::bigint) FROM jsonb_array_elements_text(
-        (gw_fct_config_mapzones($${"client":{"device":4, "lang":"NULL", "infoType":1, "epsg":25831}, "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{},
-        "parameters": {"action": "ADD", "configZone": "drainzone", "mapzoneId": "-1", "forceClosed": ["82"], "config": {"use": [{"nodeParent": "82"}], "ignore": [],
-        "forceClosed": []}}}}$$)::jsonb)#>'{body,data,preview,forceClosed}'
-    ) AS elem),
-    '[82]'::jsonb,
+    ((gw_fct_config_mapzones($${"client":{"device":4, "lang":"NULL", "infoType":1, "epsg":25831}, "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{},
+    "parameters": {"action": "ADD", "configZone": "drainzone", "mapzoneId": "-1", "forceClosed": ["82"], "config": {"use": [{"nodeParent": "82"}], "ignore": [],
+    "forceClosed": []}}}}$$)::json)->'body'->'data'->'preview'->'forceClosed'),
+    '["82"]'::json,
     'ADD forceClosed puts id 82 into preview.forceClosed'
 );
 
@@ -83,7 +81,7 @@ SELECT is (
 SELECT is (
     ((gw_fct_config_mapzones($${"client":{"device":4, "lang":"NULL", "infoType":1, "epsg":25831}, "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{},
     "parameters": {"action": "REMOVE", "configZone": "drainzone", "mapzoneId": "-1", "forceClosed": ["82"],
-    "config": {"use": [{"nodeParent": "82"}], "ignore": [], "forceClosed": [82]}}}}$$)::json)->'body'->'data'->'preview'->'forceClosed',
+    "config": {"use": [{"nodeParent": "82"}], "ignore": [], "forceClosed": [82]}}}}$$)::json)->'body'->'data'->'preview'->'forceClosed'),
     '[]'::json,
     'REMOVE forceClosed drops id 82 from preview.forceClosed'
 );
