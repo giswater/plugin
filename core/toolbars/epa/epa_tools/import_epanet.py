@@ -27,7 +27,7 @@ from ....ui.dialog import GwDialog
 from ....ui.ui_manager import GwInpConfigImportUi, GwInpParsingUi
 from ....threads.import_inp.import_epanet_task import GwImportInpTask
 from ....utils import tools_gw
-from ....utils.import_inp import create_load_menu, save_config, save_config_to_file, fill_txt_info
+from ....utils.import_inp import create_load_menu, save_config, save_config_to_file, fill_txt_info, unescape_dialog_labels
 
 CREATE_NEW = "Create new"
 SPATIAL_INTERSECT = "Get from spatial intersect"
@@ -145,7 +145,9 @@ class GwImportEpanet:
 
         self._manage_widgets_visibility()
 
+        tools_gw.disable_tab_log(self.dlg_config)
         tools_gw.open_dialog(self.dlg_config, dlg_name="inp_config_import")
+        unescape_dialog_labels(self.dlg_config)
 
     def _manage_psector(self):
         """ Manage the psector checkbox and the workcat and exploitation combo """
@@ -229,7 +231,6 @@ class GwImportEpanet:
             "gpv": self.catalog_source["gpv"] == "db_nodes",
         }
 
-        self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
         if TESTING_MODE:
             # Show warning message
             msg = "You are about to import the INP file in TESTING MODE. This will delete all the data in the database related to the network you are importing. Are you sure you want to proceed?"
@@ -298,6 +299,9 @@ class GwImportEpanet:
                         'valves': 'INP-VALVE'}
 
             save_config(self, workcat=workcat, exploitation=exploitation, sector=sector, municipality=municipality, dscenario=dscenario, catalogs=catalogs)
+
+            self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
+            tools_gw.set_tabs_enabled(self.dlg_config, hide_btn_accept=True, change_btn_cancel=False)
 
             # Set background task 'Import INP'
             msg = "Import INP (TESTING MODE)"
@@ -410,6 +414,9 @@ class GwImportEpanet:
 
         # Save options to the configuration file
         save_config(self, workcat=workcat, exploitation=exploitation, sector=sector, municipality=municipality, dscenario=dscenario, catalogs=catalogs, psector=psector)
+
+        self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
+        tools_gw.set_tabs_enabled(self.dlg_config, hide_btn_accept=True, change_btn_cancel=False)
 
         # Manage psector
         if psector:

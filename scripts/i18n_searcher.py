@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import html
 import json
 import logging
 import os
@@ -1081,7 +1082,7 @@ def _scan_ui_dialogs(
             match = _TAG_TEXT_RE.search(content)
             if not match:
                 continue
-            message_text = match.group(1).strip()
+            message_text = html.unescape(match.group(1).strip())
             if message_text in _PYDIALOG_IGNORE_TEXTS:
                 continue
             if _named_object_is_action(raw_lines, widget_context[num_line]) and (
