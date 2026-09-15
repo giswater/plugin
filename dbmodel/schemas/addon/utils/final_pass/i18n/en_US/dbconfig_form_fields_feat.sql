@@ -21,7 +21,7 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip, placeho
 ('brand_id', '%_arc%', 'form_feature', 'tab_data', 'Brand:', 'Brand_id', NULL),
 ('builtdate', '%_arc%', 'form_feature', 'tab_data', 'Builtdate:', 'Builtdate', NULL),
 ('cat_geom1', '%_arc%', 'form_feature', 'tab_data', 'Cat geom1:', 'Cat_geom1', NULL),
-('cat_geom2', '%_arc%', 'form_feature', 'tab_data', 'Horizontal inside measurement:', 'Horizontal inside measurement', NULL),
+('cat_geom2', '%_arc%', 'form_feature', 'tab_data', 'Internal horizontal measurement:', 'Internal horizontal measurement', NULL),
 ('cat_shape', '%_arc%', 'form_feature', 'tab_data', 'Section:', 'Cat_shape - Shape of the element. It cannot be filled in. The one with the matcat_id field of the corresponding catalog is used', NULL),
 ('category_type', '%_arc%', 'form_feature', 'tab_data', 'Category type:', 'Category_type', NULL),
 ('code', '%_arc%', 'form_feature', 'tab_data', 'Code:', 'Code - Code previously used by the company. This will be used in many Giswater tools. If left empty, it will be filled with the element''s id', NULL),

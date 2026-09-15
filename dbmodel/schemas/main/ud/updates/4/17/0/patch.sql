@@ -404,6 +404,11 @@ UPDATE config_form_fields
 	SET "label"='Lab code'
 	WHERE formtype='form_feature' AND tabname='tab_data' AND columnname='lab_code' AND "label"='lab_code';
 
+UPDATE config_form_fields
+	SET "label"='Internal horizontal measurement:', tooltip='Internal horizontal measurement'
+	WHERE columnname='cat_geom2' AND formtype='form_feature' AND tabname='tab_data'
+	AND "label"='Horizontal inside measurement:';
+
 
 
 SELECT gw_fct_admin_manage_view_dependencies($${"data":{"action":"SAVE-DROP", "rootViews":["ve_connec"], "batchId":4}}$$);
