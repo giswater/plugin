@@ -309,6 +309,7 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip, placeho
     ('critcity', 'config_visit_parameter', 'form_feature', 'tab_none', 'Critcity:', 'Critcity', NULL),
     ('data_type', 'config_visit_parameter', 'form_feature', 'tab_none', 'Data type:', 'Data type', NULL),
     ('descript', 'config_visit_parameter', 'form_feature', 'tab_none', 'Descript:', 'Descript', NULL),
+    ('direct_insert', 'config_visit_parameter', 'form_feature', 'tab_none', 'Direct insert:', 'If true, a visit can be saved without opening the extra event form', NULL),
     ('feature_type', 'config_visit_parameter', 'form_feature', 'tab_none', 'Feature type:', 'Feature type', NULL),
     ('form_type', 'config_visit_parameter', 'form_feature', 'tab_none', 'Form type:', 'Form type', NULL),
     ('id', 'config_visit_parameter', 'form_feature', 'tab_none', 'Id:', 'Id', NULL),
