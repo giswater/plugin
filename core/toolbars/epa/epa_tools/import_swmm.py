@@ -801,48 +801,53 @@ class GwImportSwmm:
                 )
             combo.setCurrentText(old_value)
 
-        # Fill features
-        feature_types = {
-            "junctions": ("NODE", ("MANHOLE",)),
-            "outfalls": ("NODE", ("MANHOLE",)),
-            "dividers": ("NODE", ("MANHOLE",)),
-            "storage": ("NODE", ("STORAGE",)),
-            "conduits": ("ARC", ("CONDUIT",)),
-            "pumps": (("ARC"), ("ELEMENT", "FRELEM")),
-            "orifices": (("ARC"), ("ELEMENT", "FRELEM")),
-            "weirs": (("ARC"), ("ELEMENT", "FRELEM")),
-            "outlets": (("ARC"), ("ELEMENT", "FRELEM")),
+        # Recommended: feature_class for generic EPA types (JUNCTION/CONDUIT are catch-alls
+        # on cat_feature_*.epa_default). Specific types also match epa_default.
+        # geom, feature_class, epa_default
+        feature_recommend = {
+            "junctions": (("NODE",), ("JUNCTION", "MANHOLE"), ()),
+            "outfalls": (("NODE",), ("OUTFALL",), ("OUTFALL",)),
+            "dividers": (("NODE",), ("DIVIDER",), ("DIVIDER",)),
+            "storage": (("NODE",), ("STORAGE",), ("STORAGE",)),
+            "conduits": (("ARC",), ("CONDUIT",), ()),
+            "pumps": (("ARC", "ELEMENT"), (), ("FRPUMP",)),
+            "orifices": (("ARC", "ELEMENT"), (), ("FRORIFICE",)),
+            "weirs": (("ARC", "ELEMENT"), (), ("FRWEIR",)),
+            "outlets": (("ARC", "ELEMENT"), (), ("FROUTLET",)),
         }
         for element_type, (combo,) in self.tbl_elements["features"].items():
-            system_catalog = [
-                feat_id
-                for feat_id, (feature_class, _) in self.catalogs.db_features.items()
-                if feature_class in feature_types[element_type][0]
-            ]
+            geom_types, rec_classes, rec_epa = feature_recommend[element_type]
+
+            def _is_recommended(feat_class, epa_default):
+                return feat_class in rec_classes or (epa_default in rec_epa if rec_epa else False)
+
             feat_catalog = [
                 feat_id
-                for feat_id, (_, feat_type) in self.catalogs.db_features.items()
-                if feat_type in feature_types[element_type][1]
+                for feat_id, (_feat_type, feat_class, epa_default) in self.catalogs.db_features.items()
+                if _is_recommended(feat_class, epa_default)
+            ]
+            system_catalog = [
+                feat_id
+                for feat_id, (feat_type, feat_class, epa_default) in self.catalogs.db_features.items()
+                if feat_type in geom_types and not _is_recommended(feat_class, epa_default)
             ]
 
             combo.blockSignals(True)
             old_value: str = combo.currentText()
             combo.clear()
             combo.addItem("")
-            if len(feat_catalog) > 0:
+            if feat_catalog:
                 combo.insertSeparator(combo.count())
                 title = "Recommended feature ids:"
                 combo.addItem(tools_qt.tr(title))
                 tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(feat_catalog)
-            if len(system_catalog) > len(feat_catalog):
+            if system_catalog:
                 combo.insertSeparator(combo.count())
                 title = "Other feature ids:"
                 combo.addItem(tools_qt.tr(title))
                 tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
-                combo.addItems(
-                    feat for feat in system_catalog if feat not in feat_catalog
-                )
+                combo.addItems(system_catalog)
             combo.setCurrentText(old_value)
             combo.blockSignals(False)
 

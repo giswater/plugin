@@ -36,7 +36,9 @@ class GwParseInpTask(GwTask):
 
             self.log.append("Analyzing catalogs...")
 
-            self.catalogs: Catalogs = Catalogs.from_network_model(self.network, self.log)
+            self.catalogs: Catalogs = Catalogs.from_network_model(
+                self.network, self.log, aux_conn=self.aux_conn, is_thread=True
+            )
 
             return True
         except Exception as e:
@@ -54,7 +56,7 @@ class Catalogs:
     """
 
     db_arcs: dict[str, tuple[str, Optional[float], Optional[float | str], Optional[float], Optional[float]]]
-    db_features: dict[str, tuple[str, str]]
+    db_features: dict[str, tuple[str, str, Optional[str]]]
     db_materials: dict[str, float]
     db_nodes: dict[str, str]
     db_flwreg: Optional[dict[str, str]]
@@ -71,7 +73,7 @@ class Catalogs:
     roughness_catalog: Optional[list[float]]
 
     @classmethod
-    def from_network_model(cls, wn, log: Optional[list[str]] = None):
+    def from_network_model(cls, wn, log: Optional[list[str]] = None, aux_conn=None, is_thread=False):
         section_labels = tools_os.get_dep("swmm_api.input_file.section_labels")
         sections = tools_os.get_dep("swmm_api.input_file.sections")
         JUNCTIONS = section_labels.JUNCTIONS
@@ -90,10 +92,14 @@ class Catalogs:
 
         def tofloat(x):
             return 0.0 if x is None else float(x)
+
+        def _get_rows(sql):
+            return tools_db.get_rows(sql, is_thread=is_thread, aux_conn=aux_conn)
+
         # Get node catalog from DB
         if log:
             log.append("Getting node catalog from DB...")
-        rows = tools_db.get_rows("""
+        rows = _get_rows("""
                 SELECT n.id, f.epa_default
                 FROM cat_node AS n
                 JOIN cat_feature_node AS f ON (n.node_type = f.id)
@@ -108,7 +114,7 @@ class Catalogs:
         # Get arc catalog from DB
         if log:
             log.append("Getting arc catalog from DB...")
-        rows = tools_db.get_rows("""
+        rows = _get_rows("""
                 SELECT id, shape, geom1, CASE WHEN shape = 'CUSTOM' THEN curve_id::text ELSE geom2::text END AS geom2, geom3, geom4
                 FROM cat_arc
             """)
@@ -123,7 +129,7 @@ class Catalogs:
         # Get flwreg catalog from DB
         if log:
             log.append("Getting flwreg catalog from DB...")
-        rows = tools_db.get_rows("""
+        rows = _get_rows("""
                 SELECT ce.id, ce.element_type
                 FROM cat_element ce
                 JOIN cat_feature cf ON (ce.element_type = cf.id)
@@ -139,7 +145,7 @@ class Catalogs:
         # Get roughness catalog
         if log:
             log.append("Getting roughness catalog from DB...")
-        rows = tools_db.get_rows("""
+        rows = _get_rows("""
                 SELECT id, n
                 FROM cat_material
             """)
@@ -153,14 +159,20 @@ class Catalogs:
         # Get feature catalog
         if log:
             log.append("Getting feature catalog from DB...")
-        rows = tools_db.get_rows("""
-                SELECT id, feature_class, feature_type
-                FROM cat_feature
+        rows = _get_rows("""
+                SELECT cf.id, cf.feature_class, cf.feature_type,
+                       COALESCE(cfn.epa_default, cfa.epa_default, cfe.epa_default) AS epa_default
+                FROM cat_feature cf
+                LEFT JOIN cat_feature_node cfn ON cfn.id = cf.id
+                LEFT JOIN cat_feature_arc cfa ON cfa.id = cf.id
+                LEFT JOIN cat_feature_element cfe ON cfe.id = cf.id
+                WHERE COALESCE(cf.active, TRUE) IS TRUE
             """)
-        db_feat_cat: dict[str, tuple[str, str]] = {}
+        db_feat_cat: dict[str, tuple[str, str, Optional[str]]] = {}
         if rows:
             unsorted_dict = {
-                _id: (feat_type, feature_class) for _id, feature_class, feat_type in rows
+                _id: (feature_type, feature_class, epa_default)
+                for _id, feature_class, feature_type, epa_default in rows
             }
             db_feat_cat = dict(sorted(unsorted_dict.items()))
 
