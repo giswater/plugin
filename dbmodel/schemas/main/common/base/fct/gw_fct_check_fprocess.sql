@@ -6,8 +6,6 @@ $BODY$
 /*
 select gw_fct_check_fprocess($${"data":{"parameters":{"functionFid": '||v_fid||', "checkFid":"103", "prefixTable": "'||v_edit||'"}}}$$)';
 
-select gw_fct_check_fprocess($${"data":{"parameters":{"functionFid": '||v_fid||', "checkFid":"103", "prefixTable": "'||v_edit||'",
-"graphClass":"DMA"}}}$$)';
 */
 
 --FUNCTION CODE: 3394
@@ -22,7 +20,6 @@ DECLARE
 	v_exceptable_id text;
 	v_exceptable_catalog text;
 	v_querytext text;
-	v_graphClass text;
 
 	--
 	v_process_name text;
@@ -38,7 +35,6 @@ BEGIN
 	v_function_fid := (((p_data ->>'data')::json->>'parameters')::json->>'functionFid')::integer;
 	v_check_fid := (((p_data ->> 'data')::json->>'parameters')::json->> 'checkFid')::integer;
 	v_process := (((p_data ->> 'data')::json->>'parameters')::json->> 'process');
-	v_graphClass := (((p_data ->> 'data')::json->>'parameters')::json->> 'graphClass');
 
 	-- get fprocess data
 	SELECT
@@ -67,10 +63,6 @@ BEGIN
 		v_exceptable_id = concat(replace (v_process_except_table, 'anl_', ''), '_id');
 		v_exceptable_catalog = concat(replace (v_process_except_table, 'anl_', ''), 'cat_id');
 	END IF;
-	v_process_query_text = COALESCE(replace(v_process_query_text, 'v_graphClass', COALESCE(v_graphClass, '')), v_process_query_text);
-	v_process_info_msg = COALESCE(replace(v_process_info_msg, 'v_graphClass', COALESCE(v_graphClass, '')), v_process_info_msg);
-	v_process_except_msg = COALESCE(replace(v_process_except_msg, 'v_graphClass', COALESCE(v_graphClass, '')), v_process_except_msg);
-
 
 	-- manage query count
 	IF v_process_query_text ILIKE '%string_agg%' AND v_process_fid <> 317 THEN

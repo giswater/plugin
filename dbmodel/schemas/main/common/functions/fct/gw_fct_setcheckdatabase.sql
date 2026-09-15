@@ -41,9 +41,6 @@ v_result_info JSON;
 v_result_point JSON;
 v_result_line JSON;
 v_result_polygon JSON;
-v_rec_mapzone record;
-v_rec_check record;
-v_mapzones TEXT;
 
 BEGIN
 
@@ -61,97 +58,100 @@ BEGIN
 	v_plancheck :=  ((p_data ->> 'data')::json->>'parameters')::json->> 'tab_data_plan_check';
 	v_admincheck :=  ((p_data ->> 'data')::json->>'parameters')::json->> 'tab_data_admin_check';
 
-	-- get system parameters in case input parameter is null
-/*
-	IF v_verified_exceptions IS NULL THEN SELECT value::json->>'verifiedExceptions' INTO v_verified_exceptions
-	   FROM config_param_system WHERE parameter = 'admin_checkproject'; END IF;
-	IF v_omcheck IS NULL THEN SELECT value::json->>'omCheck' INTO v_omcheck FROM config_param_system WHERE parameter = 'admin_checkproject'; END IF;
-	IF v_graphcheck IS NULL THEN SELECT value::json->>'graphCheck' INTO v_graphcheck FROM config_param_system WHERE parameter = 'admin_checkproject'; END IF;
-	IF v_epacheck IS NULL THEN SELECT value::json->>'epaCheck' INTO v_epacheck FROM config_param_system WHERE parameter = 'admin_checkproject'; END IF;
-	IF v_plancheck IS NULL THEN SELECT value::json->>'planCheck' INTO v_plancheck FROM config_param_system WHERE parameter = 'admin_checkproject'; END IF;
-	IF v_admincheck IS NULL THEN SELECT value::json->>'adminCheck' INTO v_admincheck FROM config_param_system WHERE parameter = 'admin_checkproject'; END IF;
-
-*/
-	-- create temp tables
-	EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"fid":'||v_fid||', "project_type":"'||v_project_type||'", "action":"CREATE", "group":"EPA"}}}$$)';
+	-- create temp tables (OMCHECK first so t_arc/t_node exist for EPA copy)
 	EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"fid":'||v_fid||', "project_type":"'||v_project_type||'", "action":"CREATE", "group":"LOG"}}}$$)';
 	EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"fid":'||v_fid||', "project_type":"'||v_project_type||'", "action":"CREATE", "group":"ANL"}}}$$)';
-	EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"fid":'||v_fid||', "project_type":"'||v_project_type||'", "action":"CREATE", "group":"OMCHECK"}}}$$)';
+	EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"fid":'||v_fid||', "project_type":"'||v_project_type||'", "action":"CREATE", "group":"OMCHECK", "verifiedExceptions":'||COALESCE(v_verified_exceptions::text, 'false')||'}}}$$)';
 	EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"fid":'||v_fid||', "project_type":"'||v_project_type||'", "action":"CREATE", "group":"MAPZONES", "subGroup":"ALL"}}}$$)';
+	EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"fid":'||v_fid||', "project_type":"'||v_project_type||'", "action":"CREATE", "group":"EPA"}}}$$)';
+
+	-- EPA checks read temp_t_* / pgr; CREATE EPA leaves them empty (fill_data only runs in go2epa)
+	IF v_epacheck IS TRUE THEN
+
+		IF lower(v_project_type) = 'ws' THEN
+
+			INSERT INTO temp_t_arc (arc_id, node_1, node_2, arc_type, arccat_id, epa_type, sector_id, state, state_type,
+				annotation, the_geom, expl_id, length, dma_id, presszone_id, dqa_id, minsector_id, omzone_id, builtdate)
+			SELECT arc_id, node_1, node_2, arc_type, arccat_id, epa_type, sector_id, state, state_type,
+				annotation, the_geom, expl_id, COALESCE(custom_length, st_length2d(the_geom)), dma_id, presszone_id, dqa_id,
+				minsector_id, omzone_id, builtdate
+			FROM t_arc;
+
+			INSERT INTO temp_t_node (node_id, top_elev, elev, node_type, nodecat_id, epa_type, sector_id, state, state_type,
+				annotation, the_geom, expl_id, dma_id, presszone_id, dqa_id, minsector_id, omzone_id, builtdate)
+			SELECT node_id, top_elev, top_elev - depth, node_type, nodecat_id, epa_type, sector_id, state, state_type,
+				annotation, the_geom, expl_id, dma_id, presszone_id, dqa_id, minsector_id, omzone_id, builtdate
+			FROM t_node;
+
+			INSERT INTO temp_t_pgr_go2epa_arc (arc_id, node_1, node_2, arc_type, arccat_id, epa_type, sector_id, state, state_type,
+				annotation, the_geom, expl_id, length, dma_id, presszone_id, dqa_id, minsector_id, omzone_id, builtdate)
+			SELECT arc_id, node_1, node_2, arc_type, arccat_id, epa_type, sector_id, state, state_type,
+				annotation, the_geom, expl_id, length, dma_id, presszone_id, dqa_id, minsector_id, omzone_id, builtdate
+			FROM temp_t_arc;
+
+			INSERT INTO temp_t_pgr_go2epa_node (node_id, top_elev, elev, node_type, nodecat_id, epa_type, sector_id, state, state_type,
+				annotation, the_geom, expl_id, dma_id, presszone_id, dqa_id, minsector_id, omzone_id, builtdate)
+			SELECT node_id, top_elev, elev, node_type, nodecat_id, epa_type, sector_id, state, state_type,
+				annotation, the_geom, expl_id, dma_id, presszone_id, dqa_id, minsector_id, omzone_id, builtdate
+			FROM temp_t_node;
+
+		ELSIF lower(v_project_type) = 'ud' THEN
+
+			INSERT INTO temp_t_arc (arc_id, node_1, node_2, elevmax1, elevmax2, arc_type, arccat_id, epa_type, sector_id, state,
+				state_type, annotation, omzone_id, length, expl_id, the_geom)
+			SELECT arc_id, node_1, node_2,
+				COALESCE(custom_elev1, elev1), COALESCE(custom_elev2, elev2),
+				arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation, omzone_id,
+				COALESCE(custom_length, st_length2d(the_geom)), expl_id, the_geom
+			FROM t_arc;
+
+			INSERT INTO temp_t_node (node_id, top_elev, ymax, elev, node_type, nodecat_id, epa_type, sector_id, state, state_type,
+				annotation, omzone_id, expl_id, the_geom)
+			SELECT node_id, COALESCE(custom_top_elev, top_elev), ymax, COALESCE(custom_elev, elev), node_type, nodecat_id, epa_type,
+				sector_id, state, state_type, annotation, omzone_id, expl_id, the_geom
+			FROM t_node;
+
+			INSERT INTO temp_t_gully (gully_id, gully_type, arc_id, sector_id, state, state_type, top_elev, width, length, the_geom)
+			SELECT gully_id, gully_type, arc_id, sector_id, state, state_type, top_elev, width, length, the_geom
+			FROM t_gully;
+
+			INSERT INTO temp_t_pgr_go2epa_arc (arc_id, node_1, node_2, elevmax1, elevmax2, arc_type, arccat_id, epa_type, sector_id,
+				state, state_type, annotation, omzone_id, length, expl_id, the_geom)
+			SELECT arc_id, node_1, node_2, elevmax1, elevmax2, arc_type, arccat_id, epa_type, sector_id,
+				state, state_type, annotation, omzone_id, length, expl_id, the_geom
+			FROM temp_t_arc;
+
+		END IF;
+
+	END IF;
 
 	-- create log tables
 	EXECUTE 'SELECT gw_fct_create_logtables($${"data":{"parameters":{"fid":604}}}$$::json)';
 
-
-	CREATE TEMP TABLE t_temp_values AS
-	SELECT 'v_omcheck', 'om_check' AS check_data, v_omcheck AS val UNION
-	SELECT 'v_graphcheck', 'graph_check' AS check_data, v_graphcheck AS val UNION
-	SELECT 'v_epacheck', 'pg2epa_check' as check_data, v_epacheck AS val UNION
-	SELECT 'v_plancheck', 'plan_check' as check_data, v_plancheck AS val UNION
-	SELECT 'v_admincheck', 'admin_check' AS check_data, v_admincheck AS val;
-
-
-	-- build query for generic cases
-	FOR v_rec_check IN SELECT check_data FROM t_temp_values WHERE val IS TRUE
+	FOR v_rec IN
+		SELECT DISTINCT f.fid
+		FROM sys_fprocess f
+		JOIN (
+			SELECT 'om_check' AS check_data, v_omcheck AS val UNION ALL
+			SELECT 'graph_check', v_graphcheck UNION ALL
+			SELECT 'pg2epa_check_data', v_epacheck UNION ALL
+			SELECT 'plan_check', v_plancheck UNION ALL
+			SELECT 'admin_check', v_admincheck
+		) t ON t.val IS TRUE AND f.function_name ILIKE '%' || t.check_data || '%'
+		WHERE f.project_type IN (lower(v_project_type), 'utils')
+			AND f.addparam IS NULL
+			AND f.query_text IS NOT NULL
+			AND f.active
+		ORDER BY f.fid
 	LOOP
-
-		v_querytext = '
-			SELECT * FROM sys_fprocess 
-			WHERE project_type IN (LOWER('||quote_literal(v_project_type)||'), ''utils'') 
-			AND query_text NOT ILIKE ''%v_graphClass%''
-			AND (addparam IS NULL 
-			AND query_text IS NOT NULL 
-			AND function_name ILIKE ''%'||v_rec_check.check_data||'%'')
-			AND active
-			ORDER BY fid ASC';
-
-		FOR v_rec IN EXECUTE v_querytext
-		LOOP
-
-			EXECUTE 'SELECT gw_fct_check_fprocess($${"client":{"device":4, "infoType":1, "lang":"ES"}, 
-		    "form":{},"feature":{},"data":{"parameters":{"functionFid": '||v_fid||', "checkFid":"'||v_rec.fid||'"}}}$$)';
-
-		END LOOP;
-
+		EXECUTE 'SELECT gw_fct_check_fprocess($${"client":{"device":4, "infoType":1, "lang":"ES"},
+		"form":{},"feature":{},"data":{"parameters":{"functionFid": '||v_fid||', "checkFid":"'||v_rec.fid||'"}}}$$)';
 	END LOOP;
 
-	-- build query for (mapzones)
-	IF v_graphcheck THEN
-
-		v_querytext = '
-		SELECT * FROM sys_fprocess 
-		WHERE project_type IN (LOWER('||quote_literal(v_project_type)||'), ''utils'') 
-		AND (addparam IS NULL 
-		AND query_text ILIKE ''%v_graphClass%'')
-		AND active
-		ORDER BY fid ASC
-		';
-
-		IF lower(v_project_type) = 'ws' THEN
-			v_mapzones = 'SELECT unnest(ARRAY[''sector'', ''dma'', ''dqa'', ''presszone'']) AS mec';
-
-		ELSIF lower(v_project_type) = 'ud' THEN
-			v_mapzones = 'SELECT unnest(ARRAY[''sector'', ''drainzone'']) AS mec';
-
-		END IF;
-
-
-		FOR v_rec IN EXECUTE v_querytext
-		LOOP
-
-			FOR v_rec_mapzone IN EXECUTE v_mapzones
-			LOOP
-
-				EXECUTE 'SELECT gw_fct_check_fprocess($${"client":{"device":4, "infoType":1, "lang":"ES"}, 
-		    	"form":{},"feature":{},"data":{"parameters":{"functionFid": '||v_fid||', "checkFid":"'||v_rec.fid||'", "graphClass":"'||v_rec_mapzone.mec||'"}}}$$)';
-
-			END LOOP;
-
-		END LOOP;
-
-	END IF;
-
 	EXECUTE 'SELECT gw_fct_user_check_data($${"data":{"parameters":{"fid":'||v_fid||', "isEmbebed":true, "isAudit":true, "checkType": "Project"}}}$$)';
+
+	-- materialize tables
+	PERFORM gw_fct_create_logreturn($${"data":{"parameters":{"type":"fillExcepTables"}}}$$::json);
 
 	-- create json return to send client
 	EXECUTE 'SELECT gw_fct_create_logreturn($${"data":{"parameters":{"type":"info"}}}$$::json)' INTO v_result_info;
@@ -161,20 +161,6 @@ BEGIN
 
 	-- drop temp tables
 	EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"fid":'||v_fid||', "project_type":"'||v_project_type||'", "action":"DROP", "group":"ANL"}}}$$)';
-
-	-- Drop possible duplicated values (if temp table exists)
-	IF to_regclass('pg_temp.t_audit_check_data') IS NOT NULL THEN
-  	
-		DELETE FROM t_audit_check_data WHERE id IN (
-			WITH mec AS (
-				SELECT id, ROW_NUMBER() OVER(PARTITION BY error_message ORDER BY error_message) AS rowid
-				FROM t_audit_check_data WHERE cur_user = current_user
-			) SELECT id FROM mec WHERE rowid = 2
-		);
-
-	END IF;
-
-	DROP TABLE IF EXISTS t_temp_values;
 
 	-- Return
 	RETURN gw_fct_json_create_return(('{"status":"Accepted", "message":{"level":1, "text":"Data quality analysis done succesfully"}, "version":"'||v_version||'"'||
@@ -187,10 +173,9 @@ BEGIN
 	    '}}')::json, 2670, null, null, null);
 
 	--  Exception handling
-	--EXCEPTION WHEN OTHERS THEN
-	--GET STACKED DIAGNOSTICS v_error_context = pg_exception_context;
-	--RETURN json_build_object('status', 'Failed', 'NOSQLERR', SQLERRM, 'message', json_build_object('level', right(SQLSTATE, 1), 'text', SQLERRM), 'SQLSTATE',
-	--SQLSTATE, 'SQLCONTEXT', v_error_context)::json;
+	EXCEPTION WHEN OTHERS THEN
+	GET STACKED DIAGNOSTICS v_error_context = PG_EXCEPTION_CONTEXT;
+	RETURN gw_fct_exception_others('Failed', SQLERRM, SQLSTATE, SQLERRM, v_error_context);
 
 END;
 

@@ -1860,3 +1860,29 @@ SET tooltip = 'Delete element relation',
 WHERE formtype = 'form_feature'
 	AND columnname = 'delete_element'
 	AND tabname = 'tab_elements';
+
+DELETE FROM sys_fprocess WHERE fid IN (367, 534); -- deprecated dynamic checks for mapzones
+
+-- sector
+INSERT INTO sys_fprocess (fid, fprocess_name, project_type, parameters, "source", isaudit, fprocess_type, addparam, except_level, except_msg, except_table, except_table_msg, query_text, info_msg, function_name, active) 
+VALUES(714, 'Check if defined toArc is operative for sector', 'ws', NULL, 'core', true, 'Check graph-data', NULL, 2, 
+'arcs that are configured as toArc for sector but is not operative on arc table.', NULL, NULL, 
+'SELECT b.arc_id, b.sector_id as zone_id FROM ( SELECT sector_id, json_array_elements_text(((json_array_elements_text((graphconfig::json->>''use'')::json))::json->>''toArc'')::json)::integer as arc_id FROM t_sector)b 
+WHERE arc_id not in (select arc_id FROM arc WHERE state=1)', 'All arcs defined as toArc on sector exists on DB.', '[gw_fct_graphanalytics_check_data, gw_fct_admin_check_data]', true);
+INSERT INTO sys_fprocess (fid, fprocess_name, project_type, parameters, "source", isaudit, fprocess_type, addparam, except_level, except_msg, except_table, except_table_msg, query_text, info_msg, function_name, active) 
+VALUES(716, 'Check if defined nodeParent is operative for sector', 'ws', NULL, 'core', NULL, 'Check graph-data', NULL, 2, 'nodes that are configured as nodeParent for sector but is not operative on node table.', NULL, NULL, 
+'SELECT b.node_id, b.sector_id as zone_id FROM (
+SELECT sector_id, graphconfig::json->''use''->0->>''nodeParent''::integer as node_id FROM t_sector)b 
+WHERE node_id::text not in (select node_id FROM node WHERE state=1)', 'All nodes defined as nodeParent on sector exists on DB.', '[gw_fct_graphanalytics_check_data]', NULL);
+
+-- dma
+INSERT INTO sys_fprocess (fid, fprocess_name, project_type, parameters, "source", isaudit, fprocess_type, addparam, except_level, except_msg, except_table, except_table_msg, query_text, info_msg, function_name, active) 
+VALUES(718, 'Check if defined toArc is operative for dma', 'ws', NULL, 'core', true, 'Check graph-data', NULL, 2, 
+'arcs that are configured as toArc for dma but is not operative on arc table.', NULL, NULL, 
+'SELECT b.arc_id, b.dma_id as zone_id FROM ( SELECT dma_id, json_array_elements_text(((json_array_elements_text((graphconfig::json->>''use'')::json))::json->>''toArc'')::json)::integer as arc_id FROM t_dma)b 
+WHERE arc_id not in (select arc_id FROM arc WHERE state=1)', 'All arcs defined as toArc on dma exists on DB.', '[gw_fct_graphanalytics_check_data, gw_fct_admin_check_data]', true);
+INSERT INTO sys_fprocess (fid, fprocess_name, project_type, parameters, "source", isaudit, fprocess_type, addparam, except_level, except_msg, except_table, except_table_msg, query_text, info_msg, function_name, active) 
+VALUES(720, 'Check if defined nodeParent is operative for dma', 'ws', NULL, 'core', NULL, 'Check graph-data', NULL, 2, 'nodes that are configured as nodeParent for dma but is not operative on node table.', NULL, NULL, 
+'SELECT b.node_id, b.dma_id as zone_id FROM (
+SELECT dma_id, graphconfig::json->''use''->0->>''nodeParent''::integer as node_id FROM t_dma)b 
+WHERE node_id::text not in (select node_id FROM node WHERE state=1)', 'All nodes defined as nodeParent on dma exists on DB.', '[gw_fct_graphanalytics_check_data]', NULL);

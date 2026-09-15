@@ -2149,3 +2149,28 @@ AS SELECT p.pol_id,
 DROP VIEW IF EXISTS ve_pol_fountain;
 DROP VIEW IF EXISTS ve_pol_register;
 DROP VIEW IF EXISTS ve_pol_tank;
+
+-- presszone
+INSERT INTO sys_fprocess (fid, fprocess_name, project_type, parameters, "source", isaudit, fprocess_type, addparam, except_level, except_msg, except_table, except_table_msg, query_text, info_msg, function_name, active) 
+VALUES(722, 'Check if defined toArc is operative for presszone', 'ws', NULL, 'core', true, 'Check graph-data', NULL, 2, 
+'arcs that are configured as toArc for presszone but is not operative on arc table.', NULL, NULL, 
+'SELECT b.arc_id, b.presszone_id as zone_id FROM ( SELECT presszone_id, json_array_elements_text(((json_array_elements_text((graphconfig::json->>''use'')::json))::json->>''toArc'')::json)::integer as arc_id FROM t_presszone)b 
+WHERE arc_id not in (select arc_id FROM arc WHERE state=1)', 'All arcs defined as toArc on presszone exists on DB.', '[gw_fct_graphanalytics_check_data, gw_fct_admin_check_data]', true);
+INSERT INTO sys_fprocess (fid, fprocess_name, project_type, parameters, "source", isaudit, fprocess_type, addparam, except_level, except_msg, except_table, except_table_msg, query_text, info_msg, function_name, active) 
+VALUES(724, 'Check if defined nodeParent is operative for presszone', 'ws', NULL, 'core', NULL, 'Check graph-data', NULL, 2, 'nodes that are configured as nodeParent for presszone but is not operative on node table.', NULL, NULL, 
+'SELECT b.node_id, b.presszone_id as zone_id FROM (
+SELECT presszone_id, graphconfig::json->''use''->0->>''nodeParent''::integer as node_id FROM t_presszone)b 
+WHERE node_id::text not in (select node_id FROM node WHERE state=1)', 'All nodes defined as nodeParent on presszone exists on DB.', '[gw_fct_graphanalytics_check_data]', NULL);
+
+
+-- dqa
+INSERT INTO sys_fprocess (fid, fprocess_name, project_type, parameters, "source", isaudit, fprocess_type, addparam, except_level, except_msg, except_table, except_table_msg, query_text, info_msg, function_name, active) 
+VALUES(726, 'Check if defined toArc is operative for dqa', 'ws', NULL, 'core', true, 'Check graph-data', NULL, 2, 
+'arcs that are configured as toArc for dqa but is not operative on arc table.', NULL, NULL, 
+'SELECT b.arc_id, b.dqa_id as zone_id FROM ( SELECT dqa_id, json_array_elements_text(((json_array_elements_text((graphconfig::json->>''use'')::json))::json->>''toArc'')::json)::integer as arc_id FROM t_dqa)b 
+WHERE arc_id not in (select arc_id FROM arc WHERE state=1)', 'All arcs defined as toArc on dqa exists on DB.', '[gw_fct_graphanalytics_check_data, gw_fct_admin_check_data]', true);
+INSERT INTO sys_fprocess (fid, fprocess_name, project_type, parameters, "source", isaudit, fprocess_type, addparam, except_level, except_msg, except_table, except_table_msg, query_text, info_msg, function_name, active) 
+VALUES(728, 'Check if defined nodeParent is operative for dqa', 'ws', NULL, 'core', NULL, 'Check graph-data', NULL, 2, 'nodes that are configured as nodeParent for dqa but is not operative on node table.', NULL, NULL, 
+'SELECT b.node_id, b.dqa_id as zone_id FROM (
+SELECT dqa_id, graphconfig::json->''use''->0->>''nodeParent''::integer as node_id FROM t_dqa)b 
+WHERE node_id::text not in (select node_id FROM node WHERE state=1)', 'All nodes defined as nodeParent on dqa exists on DB.', '[gw_fct_graphanalytics_check_data]', NULL);
