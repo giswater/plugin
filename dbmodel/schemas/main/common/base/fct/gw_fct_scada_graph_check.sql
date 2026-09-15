@@ -493,7 +493,7 @@ BEGIN
 				lead(vl.node_id) OVER (PARTITION BY vl.orig_node_1, vl.orig_node_2 ORDER BY vl.level_id) AS vertice_2
 			FROM vertices_levels vl
 		) 
-	INSERT INTO temp_om_scada_graph (node_1, node_2, orig_node_1, orig_node_2, group_id, is_real, is_multilevel)
+	INSERT INTO temp_om_scada_graph (node_1, node_2, orig_node_1, orig_node_2, group_id, node_type_1, node_type_2, is_real, is_multilevel)
 	SELECT
 		e.vertice_1,
 		e.vertice_2,
@@ -637,10 +637,14 @@ BEGIN
 		all_nodes AS (
 			SELECT t.orig_node_1, t.orig_node_2, t.node_1 AS node_id
 			FROM temp_om_scada_graph t
+			WHERE t.group_id IS NOT NULL
+			AND t.is_multilevel = FALSE
 			UNION
 			SELECT t.orig_node_1, t.orig_node_2, t.orig_node_2 AS node_id
 			FROM temp_om_scada_graph t
-			WHERE t.node_2 = t.orig_node_2
+			WHERE t.group_id IS NOT NULL
+			AND t.is_multilevel = FALSE
+			AND t.node_2 = t.orig_node_2
 		),
 		synoptic AS (
 			SELECT
@@ -663,8 +667,8 @@ BEGIN
 		'arcs', (g.attrib::jsonb -> 'arcs')
 	)
 	FROM synoptic s
-	WHERE g.orig_node_1 = s.orig_node_1
-	AND g.orig_node_2 = s.orig_node_2;
+	WHERE g.node_1 = s.orig_node_1
+	AND g.node_2 = s.orig_node_2;
 
 	-- ERRORS
 	--==========================
