@@ -345,7 +345,6 @@ UPDATE sys_fprocess AS t SET except_msg = v.except_msg, info_msg = v.info_msg, f
     (457, 'gullies with null values on width/custom_width columns.', 'No gullies found with null values on width.', 'Check gullies with null values on (custom)width'),
     (458, 'gullies with null values on length/custom_length columns.', 'No gullies found with null values on length.', 'Check gullies with null values on (custom)length'),
     (459, NULL, NULL, 'Duplicate dscenario'),
-    (461, 'nodes with redundancy on ymax, top_elev & elev values.', 'There are no nodes with redundancy on ymax, top_elev & elev values.', 'Check redundant values on y-top_elev-elev'),
     (465, 'rows on plan_price table. Revise the data and remove unnecessary rows.', 'The number of rows on plan price is acceptable.', 'Check number of rows in a plan_price table'),
     (467, 'pumpss with more than two arcs .Take a look on temporal table to details.', 'EPA pumps checked. No pumps with more than two arcs detected.', 'Planified EPANET pumps with more than two acs'),
     (468, NULL, NULL, 'Graph analysis for hydrants - hydrant proposal'),

@@ -573,6 +573,10 @@
 			<translation>{0}</translation>
 		</message>
 		<message>
+			<source>{0}%</source>
+			<translation>{0}%</translation>
+		</message>
+		<message>
 			<source>{0} --&gt; {1}</source>
 			<translation>{0} --&gt; {1}</translation>
 		</message>
@@ -745,8 +749,20 @@
 			<translation>{0} workorder(s) deleted.</translation>
 		</message>
 		<message>
+			<source>About</source>
+			<translation>About</translation>
+		</message>
+		<message>
+			<source>About Giswater</source>
+			<translation>About Giswater</translation>
+		</message>
+		<message>
 			<source>Accept</source>
 			<translation>Accept</translation>
+		</message>
+		<message>
+			<source>Acknowledgments</source>
+			<translation>Acknowledgments</translation>
 		</message>
 		<message>
 			<source>Action has no function!!</source>
@@ -1437,8 +1453,16 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 			<translation>Context</translation>
 		</message>
 		<message>
+			<source>Contributors</source>
+			<translation>Contributors</translation>
+		</message>
+		<message>
 			<source>Converting to flwreg...</source>
 			<translation>Converting to flwreg...</translation>
+		</message>
+		<message>
+			<source>Copied to clipboard</source>
+			<translation>Copied to clipboard</translation>
 		</message>
 		<message>
 			<source>Copy project - {0}</source>
@@ -1507,6 +1531,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 		<message>
 			<source>Could not open database connection for multilang task.</source>
 			<translation>Could not open database connection for multilang task.</translation>
+		</message>
+		<message>
+			<source>Could not open URL: {0}</source>
+			<translation>Could not open URL: {0}</translation>
 		</message>
 		<message>
 			<source>Could not reach the translations server. Showing downloaded languages only.</source>
@@ -1753,6 +1781,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 			<translation>Database Error</translation>
 		</message>
 		<message>
+			<source>Database error importing simulation results: {0}</source>
+			<translation>Database error importing simulation results: {0}</translation>
+		</message>
+		<message>
 			<source>Database execution failed</source>
 			<translation>Database execution failed</translation>
 		</message>
@@ -1947,6 +1979,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 		<message>
 			<source>Downloading language files for ({0})...</source>
 			<translation>Downloading language files for ({0})...</translation>
+		</message>
+		<message>
+			<source>Downloading OSM streetaxis. This can take a while...</source>
+			<translation>Downloading OSM streetaxis. This can take a while...</translation>
 		</message>
 		<message>
 			<source>Download language files?</source>
@@ -2179,10 +2215,6 @@ This operation cannot be undone.
 			<translation>Error executing {0} - {1}</translation>
 		</message>
 		<message>
-			<source>Error executing EPA software</source>
-			<translation>Error executing EPA software</translation>
-		</message>
-		<message>
 			<source>Error executing EPA software: {0}</source>
 			<translation>Error executing EPA software: {0}</translation>
 		</message>
@@ -2239,8 +2271,16 @@ This operation cannot be undone.
 			<translation>Error importing IBERGIS project</translation>
 		</message>
 		<message>
+			<source>Error importing simulation results: {0}</source>
+			<translation>Error importing simulation results: {0}</translation>
+		</message>
+		<message>
 			<source>Error importing simulation results into database</source>
 			<translation>Error importing simulation results into database</translation>
+		</message>
+		<message>
+			<source>Error importing simulation results into database: {0}</source>
+			<translation>Error importing simulation results into database: {0}</translation>
 		</message>
 		<message>
 			<source>Error in _manage_selection_changed: {0}</source>
@@ -2249,10 +2289,6 @@ This operation cannot be undone.
 		<message>
 			<source>Error in remove function: {0}</source>
 			<translation>Error in remove function: {0}</translation>
-		</message>
-		<message>
-			<source>Error inserting row: {0}</source>
-			<translation>Error inserting row: {0}</translation>
 		</message>
 		<message>
 			<source>ERROR: JUNCTION &apos;{0}&apos; has no coordinates in [COORDINATES] section.</source>
@@ -2283,8 +2319,8 @@ This operation cannot be undone.
 			<translation>Error parsing file: {0}</translation>
 		</message>
 		<message>
-			<source>Error processing muni_id {0}: {1}</source>
-			<translation>Error processing muni_id {0}: {1}</translation>
+			<source>Error processing OSM import: {0}</source>
+			<translation>Error processing OSM import: {0}</translation>
 		</message>
 		<message>
 			<source>ERROR: RAINGAGE &apos;{0}&apos; has no coordinates in [SYMBOLS] section.</source>
@@ -2337,10 +2373,6 @@ This operation cannot be undone.
 		<message>
 			<source>Error updating element in table, you need to review data</source>
 			<translation>Error updating element in table, you need to review data</translation>
-		</message>
-		<message>
-			<source>Error updating expl_id: {0}</source>
-			<translation>Error updating expl_id: {0}</translation>
 		</message>
 		<message>
 			<source>Error updating table</source>
@@ -2605,6 +2637,10 @@ This operation cannot be undone.
 			<translation>Failed to update category</translation>
 		</message>
 		<message>
+			<source>Failed to update mapzone config.</source>
+			<translation>Failed to update mapzone config.</translation>
+		</message>
+		<message>
 			<source>Failed to update styles</source>
 			<translation>Failed to update styles</translation>
 		</message>
@@ -2613,10 +2649,6 @@ This operation cannot be undone.
 {0}</source>
 			<translation>Failed to write export file:
 {0}</translation>
-		</message>
-		<message>
-			<source>Failing data: {0}</source>
-			<translation>Failing data: {0}</translation>
 		</message>
 		<message>
 			<source>Feature added successfully!</source>
@@ -2741,6 +2773,10 @@ This operation cannot be undone.
 		<message>
 			<source>Filter by ext_code</source>
 			<translation>Filter by ext_code</translation>
+		</message>
+		<message>
+			<source>Finished %</source>
+			<translation>Finished %</translation>
 		</message>
 		<message>
 			<source>Finished!</source>
@@ -2915,8 +2951,20 @@ This operation cannot be undone.
 			<translation>Giswater ({0})</translation>
 		</message>
 		<message>
+			<source>Giswater code revision</source>
+			<translation>Giswater code revision</translation>
+		</message>
+		<message>
+			<source>Giswater (libs) code revision</source>
+			<translation>Giswater (libs) code revision</translation>
+		</message>
+		<message>
 			<source>Giswater plugin cannot be loaded</source>
 			<translation>Giswater plugin cannot be loaded</translation>
+		</message>
+		<message>
+			<source>Giswater version</source>
+			<translation>Giswater version</translation>
 		</message>
 		<message>
 			<source>GitHub Issues</source>
@@ -2993,10 +3041,6 @@ This operation cannot be undone.
 		<message>
 			<source>Hydraulic engine imported successfully</source>
 			<translation>Hydraulic engine imported successfully</translation>
-		</message>
-		<message>
-			<source>Hydraulic engine not imported. Using default EPA software.</source>
-			<translation>Hydraulic engine not imported. Using default EPA software.</translation>
 		</message>
 		<message>
 			<source>Hydrology scenario manager</source>
@@ -3177,6 +3221,14 @@ This operation cannot be undone.
 		<message>
 			<source>Import INP (TESTING MODE)</source>
 			<translation>Import INP (TESTING MODE)</translation>
+		</message>
+		<message>
+			<source>Import OSM Streetaxis</source>
+			<translation>Import OSM Streetaxis</translation>
+		</message>
+		<message>
+			<source>Import OSM Streetaxis - {0}</source>
+			<translation>Import OSM Streetaxis - {0}</translation>
 		</message>
 		<message>
 			<source>Import OSM Streetaxis is only available on Python 3.10 or higher. Please update your QGIS&apos;s Python version.</source>
@@ -3511,6 +3563,14 @@ uri={1}</translation>
 			<translation>layoutorder not found.</translation>
 		</message>
 		<message>
+			<source>Libraries</source>
+			<translation>Libraries</translation>
+		</message>
+		<message>
+			<source>License</source>
+			<translation>License</translation>
+		</message>
+		<message>
 			<source>LIDS</source>
 			<translation>LIDS</translation>
 		</message>
@@ -3795,6 +3855,10 @@ uri={1}</translation>
 (This decision will not cancel the other selections, the process will keep running)</translation>
 		</message>
 		<message>
+			<source>N/A</source>
+			<translation>N/A</translation>
+		</message>
+		<message>
 			<source>Name</source>
 			<translation>Name</translation>
 		</message>
@@ -4027,6 +4091,10 @@ uri={1}</translation>
 			<translation>Not found: {0}</translation>
 		</message>
 		<message>
+			<source>Not installed</source>
+			<translation>Not installed</translation>
+		</message>
+		<message>
 			<source>No URI builder for provider: {0}</source>
 			<translation>No URI builder for provider: {0}</translation>
 		</message>
@@ -4123,6 +4191,18 @@ uri={1}</translation>
 			<translation>Orifices couldn&apos;t be inserted!</translation>
 		</message>
 		<message>
+			<source>OSM import is already running</source>
+			<translation>OSM import is already running</translation>
+		</message>
+		<message>
+			<source>OSM import was cancelled</source>
+			<translation>OSM import was cancelled</translation>
+		</message>
+		<message>
+			<source>OS version</source>
+			<translation>OS version</translation>
+		</message>
+		<message>
 			<source>Other catalogs:</source>
 			<translation>Other catalogs:</translation>
 		</message>
@@ -4217,6 +4297,10 @@ uri={1}</translation>
 		<message>
 			<source>Parsing error fixed</source>
 			<translation>Parsing error fixed</translation>
+		</message>
+		<message>
+			<source>pgRouting version</source>
+			<translation>pgRouting version</translation>
 		</message>
 		<message>
 			<source>PgRouting version</source>
@@ -4493,6 +4577,10 @@ Do you want to proceed?</translation>
 			<translation>PostGis version</translation>
 		</message>
 		<message>
+			<source>PostGIS version</source>
+			<translation>PostGIS version</translation>
+		</message>
+		<message>
 			<source>PostgreSQL PID: {0}</source>
 			<translation>PostgreSQL PID: {0}</translation>
 		</message>
@@ -4579,10 +4667,6 @@ Statistics file created on:
 		<message>
 			<source>Processing folder</source>
 			<translation>Processing folder</translation>
-		</message>
-		<message>
-			<source>Processing muni_id {0}</source>
-			<translation>Processing muni_id {0}</translation>
 		</message>
 		<message>
 			<source>Profile</source>
@@ -4673,6 +4757,14 @@ Statistics file created on:
 			<translation>Python package &apos;matplotlib&apos; is not installed. Please install it using pip or the &apos;qpip&apos; QGIS plugin.</translation>
 		</message>
 		<message>
+			<source>Python package required for OSM import is not installed: {0}. Please install it using pip or the &apos;qpip&apos; QGIS plugin.</source>
+			<translation>Python package required for OSM import is not installed: {0}. Please install it using pip or the &apos;qpip&apos; QGIS plugin.</translation>
+		</message>
+		<message>
+			<source>Python packages</source>
+			<translation>Python packages</translation>
+		</message>
+		<message>
 			<source>Python package &apos;swmm-api&apos; is not installed. Please install it using pip or the &apos;qpip&apos; QGIS plugin.</source>
 			<translation>Python package &apos;swmm-api&apos; is not installed. Please install it using pip or the &apos;qpip&apos; QGIS plugin.</translation>
 		</message>
@@ -4693,12 +4785,20 @@ Statistics file created on:
 			<translation>Python translation successful</translation>
 		</message>
 		<message>
+			<source>Python version</source>
+			<translation>Python version</translation>
+		</message>
+		<message>
 			<source>QGIS project has more than one {0} layer coming from different schemas. If you are looking to manage two schemas, it is mandatory to define which is the master and which isn&apos;t. To do this, you need to configure the QGIS project setting this project&apos;s variables: {1} and {2}.</source>
 			<translation>QGIS project has more than one {0} layer coming from different schemas. If you are looking to manage two schemas, it is mandatory to define which is the master and which isn&apos;t. To do this, you need to configure the QGIS project setting this project&apos;s variables: {1} and {2}.</translation>
 		</message>
 		<message>
 			<source>QGIS project seems to be a Giswater project, but layer(s) {0} are missing</source>
 			<translation>QGIS project seems to be a Giswater project, but layer(s) {0} are missing</translation>
+		</message>
+		<message>
+			<source>QGIS version</source>
+			<translation>QGIS version</translation>
 		</message>
 		<message>
 			<source>QgsLayerTree not found for project.</source>
@@ -4911,10 +5011,6 @@ Do you want to apply the required values and continue?</translation>
 			<translation>Scada graph edge created</translation>
 		</message>
 		<message>
-			<source>Scada graph saved in DB but om_graph layer could not be loaded.</source>
-			<translation>Scada graph saved in DB but om_graph layer could not be loaded.</translation>
-		</message>
-		<message>
 			<source>Scada graph saved in DB but v_om_scada_graph layer could not be loaded.</source>
 			<translation>Scada graph saved in DB but v_om_scada_graph layer could not be loaded.</translation>
 		</message>
@@ -4969,6 +5065,10 @@ Do you want to apply the required values and continue?</translation>
 		<message>
 			<source>Schema vacuum executed</source>
 			<translation>Schema vacuum executed</translation>
+		</message>
+		<message>
+			<source>Schema version</source>
+			<translation>Schema version</translation>
 		</message>
 		<message>
 			<source>Seeding {0} ({1}/{2})</source>
@@ -5235,10 +5335,6 @@ Do you want to copy its values to the current node?
 		<message>
 			<source>Skipping map highlighting for very large dataset ({0} features)</source>
 			<translation>Skipping map highlighting for very large dataset ({0} features)</translation>
-		</message>
-		<message>
-			<source>Skipping muni_id {0}: Invalid geometry</source>
-			<translation>Skipping muni_id {0}: Invalid geometry</translation>
 		</message>
 		<message>
 			<source>Snapped feature is not in a valid layer</source>
@@ -5636,6 +5732,10 @@ Do you want to continue?</translation>
 		<message>
 			<source>The node is obsolete, this tool doesn&apos;t work with obsolete nodes.</source>
 			<translation>The node is obsolete, this tool doesn&apos;t work with obsolete nodes.</translation>
+		</message>
+		<message>
+			<source>The notes of this release are published on GitHub.</source>
+			<translation>The notes of this release are published on GitHub.</translation>
 		</message>
 		<message>
 			<source>The number of pages in your composition does not match the number of psectors. ({0} != {1})</source>
@@ -6064,10 +6164,6 @@ Do you want to proceed?</translation>
 			<translation>Total</translation>
 		</message>
 		<message>
-			<source>Total municipalities processed: {0}</source>
-			<translation>Total municipalities processed: {0}</translation>
-		</message>
-		<message>
 			<source>Total replacement cost (€):</source>
 			<translation>Total replacement cost (€):</translation>
 		</message>
@@ -6078,6 +6174,10 @@ Do you want to proceed?</translation>
 		<message>
 			<source>translation failed in table</source>
 			<translation>translation failed in table</translation>
+		</message>
+		<message>
+			<source>Translations</source>
+			<translation>Translations</translation>
 		</message>
 		<message>
 			<source>translation successful</source>
@@ -6434,6 +6534,10 @@ Are you sure you want to delete these records?</translation>
 			<translation>Weirs couldn&apos;t be inserted!</translation>
 		</message>
 		<message>
+			<source>What&apos;s New</source>
+			<translation>What&apos;s New</translation>
+		</message>
+		<message>
 			<source>widget {0} has associated function {1}, but {2} not exist</source>
 			<translation>widget {0} has associated function {1}, but {2} not exist</translation>
 		</message>
@@ -6769,6 +6873,117 @@ or they were created by another user:</translation>
 		</message>
 	</context>
 <!-- UI TRANSLATION -->
+	<context>
+		<name>about</name>
+		<message>
+			<source>title</source>
+			<translation>About Giswater</translation>
+		</message>
+		<message>
+			<source>btn_close</source>
+			<translation>Close</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_close</source>
+			<translation>btn_close</translation>
+		</message>
+		<message>
+			<source>btn_copy</source>
+			<translation>Copy to clipboard</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_copy</source>
+			<translation>btn_copy</translation>
+		</message>
+		<message>
+			<source>btn_homepage</source>
+			<translation>Giswater Home Page</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_homepage</source>
+			<translation>btn_homepage</translation>
+		</message>
+		<message>
+			<source>btn_issue</source>
+			<translation>Report an issue</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_issue</source>
+			<translation>btn_issue</translation>
+		</message>
+		<message>
+			<source>btn_release</source>
+			<translation>View on GitHub</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_release</source>
+			<translation>btn_release</translation>
+		</message>
+		<message>
+			<source>dlg_about</source>
+			<translation>About Giswater</translation>
+		</message>
+		<message>
+			<source>tooltip_dlg_about</source>
+			<translation>dlg_about</translation>
+		</message>
+		<message>
+			<source>lbl_acknowledgments</source>
+			<translation>Special thanks to our founding contributors:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_acknowledgments</source>
+			<translation>lbl_acknowledgments</translation>
+		</message>
+		<message>
+			<source>lbl_license</source>
+			<translation>Giswater is licensed under the GNU General Public License</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_license</source>
+			<translation>lbl_license</translation>
+		</message>
+		<message>
+			<source>lbl_license_url</source>
+			<translation>&lt;a href=&quot;https://www.gnu.org/licenses/&quot;&gt;https://www.gnu.org/licenses/&lt;/a&gt;</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_license_url</source>
+			<translation>lbl_license_url</translation>
+		</message>
+		<message>
+			<source>lbl_members</source>
+			<translation>Everyone who has committed to Giswater:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_members</source>
+			<translation>lbl_members</translation>
+		</message>
+		<message>
+			<source>lbl_translations</source>
+			<translation>Available translations:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_translations</source>
+			<translation>lbl_translations</translation>
+		</message>
+		<message>
+			<source>lbl_translations_link</source>
+			<translation>&lt;a href=&quot;https://github.com/giswater/translations&quot;&gt;github.com/giswater/translations&lt;/a&gt;</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_translations_link</source>
+			<translation>lbl_translations_link</translation>
+		</message>
+		<message>
+			<source>lbl_version_release</source>
+			<translation>Version</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_version_release</source>
+			<translation>lbl_version_release</translation>
+		</message>
+	</context>
 	<context>
 		<name>add_campaign_inventory</name>
 		<message>
@@ -19227,14 +19442,6 @@ or they were created by another user:</translation>
 		<message>
 			<source>tooltip_grb_selection_type</source>
 			<translation>grb_selection_type</translation>
-		</message>
-		<message>
-			<source>groupBox</source>
-			<translation>Info:</translation>
-		</message>
-		<message>
-			<source>tooltip_groupBox</source>
-			<translation>groupBox</translation>
 		</message>
 		<message>
 			<source>progressBar</source>

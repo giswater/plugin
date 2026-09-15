@@ -4812,7 +4812,6 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip, placeho
     ('vel_avg', 've_epa_link', 'form_feature', 'tab_epa', 'Vel avg:', 'Vel avg', NULL),
     ('vel_max', 've_epa_link', 'form_feature', 'tab_epa', 'Vel max:', 'Vel max', NULL),
     ('vel_min', 've_epa_link', 'form_feature', 'tab_epa', 'Vel min:', 'Vel min', NULL),
-    ('builtdate', 've_epa_pipe', 'form_feature', 'tab_epa', 'Builtdate:', 'Builtdate', 'Builtdate'),
     ('bulk_coeff', 've_epa_pipe', 'form_feature', 'tab_epa', 'Bulk coefficient:', 'Bulk coefficient', NULL),
     ('cat_roughness', 've_epa_pipe', 'form_feature', 'tab_epa', 'Cat roughness:', 'Cat roughness', 'Cat roughness'),
     ('custom_dint', 've_epa_pipe', 'form_feature', 'tab_epa', 'Custom dint:', 'Custom dint', NULL),

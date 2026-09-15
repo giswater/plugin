@@ -284,7 +284,6 @@ UPDATE sys_function AS t SET descript = v.descript FROM (
     (3362, 'Create temporal tables for check process.'),
     (3364, 'Check database exceptions.'),
     (3366, 'Create log return for check functions.'),
-    (3368, 'Create temporal tables for check process.'),
     (3370, 'Create return for all fucntions.'),
     (3372, 'Trigger to insert the flowregulators.'),
     (3374, 'Upsert assets in gis'),
