@@ -345,6 +345,10 @@ UPDATE config_param_system
 	SET "label"='Cibs schema:'
 	WHERE "parameter"='admin_cibs_schema' AND "label"='cibs schema:';
 
+UPDATE config_param_system
+	SET "label"='Disable topocontrol errors:'
+	WHERE "parameter"='edit_topocontrol_disable_error' AND "label"='Topocontrol disable error:';
+
 UPDATE sys_fprocess SET fprocess_name='Check subcatchment(s) with null values on mandatory column rg_id.', except_msg='subcatchment(s) with null values on mandatory column rg_id.'
 WHERE fid=704 AND fprocess_name='Check subcatchment(s) with null values on mandatory column rg_id column.';
 

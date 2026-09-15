@@ -107,7 +107,7 @@ UPDATE config_param_system AS t SET label = v.label, descript = v.descript FROM 
     ('edit_slope_direction', 'Force arc direction using slope direction:', 'If true, the direction of the arc is fixed by the slope (UD)'),
     ('edit_state_topocontrol', 'State topocontrol:', 'To enable or disable state topology rules for arcs'),
     ('edit_sys_code_autofill', 'Auto sys_code:', 'Auto-fill sys_code on insert per feature type: uuid (random UUID), code (copy from code), none (disabled). Legacy true/false values are still supported.'),
-    ('edit_topocontrol_disable_error', 'Topocontrol disable error:', 'If TRUE, topocontrol function is used but the elements which violates topology also can get inside the network. As a result log message of errors it is inserted on audit_log_data table (fprocesscat_id=3). Be careful, this function can lead to errors'),
+    ('edit_topocontrol_disable_error', 'Disable topocontrol errors:', 'If TRUE, topocontrol function is used but the elements which violates topology also can get inside the network. As a result log message of errors it is inserted on audit_log_data table (fprocesscat_id=3). Be careful, this function can lead to errors'),
     ('edit_uncertain_sysvdefault', 'Uncertain system value default:', 'System default value for uncertain'),
     ('edit_vnode_update_tolerance', 'Vnode update tolerance:', 'Buffer which vnode use to search an arc to connect with on update vnode'),
     ('epa_automatic_inp2man_values', 'EPA auto update inventory tables:', 'Before insert - update of any feature, automatic update of columns on man tables from columns on inp table'),
