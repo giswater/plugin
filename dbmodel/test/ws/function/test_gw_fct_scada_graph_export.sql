@@ -11,7 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(9);
+SELECT plan(10);
 
 DROP TABLE IF EXISTS temp_om_scada_graph;
 DROP TABLE IF EXISTS temp_om_scada_vertice;
@@ -30,7 +30,6 @@ ALTER TABLE temp_om_scada_graph ADD COLUMN is_multilevel boolean DEFAULT false;
 
 CREATE TEMP TABLE temp_om_scada_vertice (
     node_id integer,
-    node_type text,
     group_id integer,
     level_id integer,
     position_id integer,
@@ -51,12 +50,12 @@ VALUES
         true, false
     );
 
-INSERT INTO temp_om_scada_vertice (node_id, node_type, group_id, level_id, position_id, position_aux, is_real)
+INSERT INTO temp_om_scada_vertice (node_id, group_id, level_id, position_id, position_aux, is_real)
 VALUES
-    (-901, NULL, 10, 1, 1, 1, true),
-    (-902, NULL, 10, 1, 2, 2, true),
-    (-903, NULL, 20, 1, 1, 1, true),
-    (-904, NULL, 20, 1, 2, 2, true);
+    (-901, 10, 1, 1, 1, true),
+    (-902, 10, 1, 2, 2, true),
+    (-903, 20, 1, 1, 1, true),
+    (-904, 20, 1, 2, 2, true);
 
 -- Export deletes JSON rows whose group_id is gone from om_scada_graph.
 -- Skip builder (dijkstra + NULL layout) so phantom node ids keep group_id.
@@ -114,9 +113,14 @@ SELECT is(
 );
 
 SELECT is(
-    (SELECT om_scada_graph_json->'vertices'->0->>'levelId' FROM om_scada_graph_json WHERE group_id = 10),
-    '1',
-    'vertex JSON includes levelId'
+    (SELECT om_scada_graph_json->'links'->0->>'fromNode' FROM om_scada_graph_json WHERE group_id = 10),
+    '-901',
+    'link JSON includes fromNode'
+);
+
+SELECT ok(
+    (SELECT (om_scada_graph_json->'vertices') IS NULL FROM om_scada_graph_json WHERE group_id = 10),
+    'JSON has no vertices array'
 );
 
 SELECT * FROM finish();
