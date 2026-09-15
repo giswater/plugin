@@ -17,8 +17,6 @@ from typing import Optional
 
 from psycopg2.extras import execute_values
 
-from html import unescape
-
 from qgis.PyQt.QtWidgets import QLabel, QMenu, QComboBox
 
 from ...libs import tools_log, tools_qgis, tools_qt, lib_vars, tools_db

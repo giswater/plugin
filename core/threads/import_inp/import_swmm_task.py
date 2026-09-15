@@ -535,25 +535,51 @@ class GwImportInpTask(GwTask):
             )
             nodecat_db.append(self.catalogs[node_type])
 
+    def _mapped_material(self, roughness):
+        """Return the cat_material id mapped to this INP roughness, if any."""
+        materials = self.catalogs.get("materials") or {}
+        if roughness in materials:
+            return materials[roughness] or None
+        try:
+            r = float(roughness)
+        except (TypeError, ValueError):
+            return None
+        for k, v in materials.items():
+            try:
+                if float(k) == r:
+                    return v or None
+            except (TypeError, ValueError):
+                continue
+        return None
+
+    def _matcat_for_xsection(self, shape, geom1, geom2, geom3, geom4):
+        """Unique mapped material for conduits with this xsection, else None."""
+        from swmm_api.input_file.section_labels import CONDUITS, XSECTIONS
+
+        if CONDUITS not in self.network or XSECTIONS not in self.network:
+            return None
+
+        mats = set()
+        xsection_key = (shape, geom1, geom2, geom3, geom4)
+        for c_name, c in self.network[CONDUITS].items():
+            xs = self.network[XSECTIONS].get(c_name)
+            if xs is None:
+                continue
+            if xs.shape == "CUSTOM":
+                key = (xs.shape, xs.height, xs.curve_name, xs.parameter_3, xs.parameter_4)
+            else:
+                key = (xs.shape, xs.height, xs.parameter_2, xs.parameter_3, xs.parameter_4)
+            if key != xsection_key:
+                continue
+            mat = self._mapped_material(c.roughness)
+            if mat:
+                mats.add(mat)
+        if len(mats) == 1:
+            return next(iter(mats))
+        return None
+
     def _create_new_varc_catalogs(self) -> None:
         varc_catalogs: list[str] = ["pumps", "orifices", "weirs", "outlets"]
-
-        # cat_mat_arc has an INSERT rule.
-        # So it's not possible to use ON CONFLICT.
-        # So, we perform a conditional INSERT here.
-        execute_sql(
-            """
-            INSERT INTO cat_material (id, descript, feature_type, n)
-            SELECT 'Unknown', 'Unknown', '{NODE,ARC,CONNEC,ELEMENT,GULLY}', 0.013
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM cat_material
-                WHERE id = 'Unknown'
-            );
-            """,
-            commit=self.force_commit,
-            is_thread=True,
-        )
 
         for varc_type in varc_catalogs:
             if varc_type not in self.catalogs:
@@ -601,19 +627,20 @@ class GwImportInpTask(GwTask):
                     continue
 
                 arctype_id = self.catalogs["features"]["conduits"]
+                matcat_id = self._matcat_for_xsection(shape, geom1, geom2, geom3, geom4)
 
                 sql = """
-                    INSERT INTO cat_arc (id, arc_type, shape, geom1, geom2, geom3, geom4)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s);
+                    INSERT INTO cat_arc (id, arc_type, shape, geom1, geom2, geom3, geom4, matcat_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
                 """
-                params = (catalog, arctype_id, shape, geom1, geom2, geom3, geom4)
+                params = (catalog, arctype_id, shape, geom1, geom2, geom3, geom4, matcat_id)
 
                 if shape == 'CUSTOM':
                     sql = """
-                        INSERT INTO cat_arc (id, arc_type, shape, geom1, curve_id)
-                        VALUES (%s, %s, %s, %s, %s);
+                        INSERT INTO cat_arc (id, arc_type, shape, geom1, curve_id, matcat_id)
+                        VALUES (%s, %s, %s, %s, %s, %s);
                     """
-                    params = (catalog, arctype_id, shape, geom1, geom2)
+                    params = (catalog, arctype_id, shape, geom1, geom2, matcat_id)
 
                 execute_sql(
                     sql, params, commit=self.force_commit, is_thread=True
@@ -1976,7 +2003,7 @@ class GwImportInpTask(GwTask):
                 "q0": c.flow_initial,
                 "qmax": nan_to_none(c.flow_max),
                 "seepage": None,
-                "custom_n": None,
+                "custom_n": nan_to_none(c.roughness),
             }
             if c_name in self.network[LOSSES]:
                 loss = self.network[LOSSES][c_name]
