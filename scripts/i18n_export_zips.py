@@ -38,6 +38,7 @@ ZIP_MAGIC = b"PK"
 
 # Regional code in locale ≠ ISO2 flag PNG used by About (icons/flags).
 FLAG_OVERRIDES = {
+    "ca_ES": "CAT",
     "de_GE": "DE",
     "ja_JA": "JP",
 }
