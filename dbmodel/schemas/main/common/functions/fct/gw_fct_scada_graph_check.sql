@@ -640,7 +640,7 @@ BEGIN
 			WHERE t.group_id IS NOT NULL
 			AND t.is_multilevel = FALSE
 			UNION
-			SELECT t.orig_node_1, t.orig_node_2, t.orig_node_2 AS node_id
+			SELECT t.orig_node_1, t.orig_node_2, t.node_2 AS node_id
 			FROM temp_om_scada_graph t
 			WHERE t.group_id IS NOT NULL
 			AND t.is_multilevel = FALSE
@@ -838,7 +838,6 @@ BEGIN
 			FROM (
 			SELECT
 				g.group_id,
-				g.level_id,
 				g.node_1,
 				g.node_type_1,
 				n1.sys_code AS sys_code_1,
@@ -925,7 +924,6 @@ BEGIN
 		FROM (
 			SELECT
 				g.group_id,
-				g.level_id,
 				g.node_1,
 				g.node_type_1,
 				n1.sys_code AS sys_code_1,
