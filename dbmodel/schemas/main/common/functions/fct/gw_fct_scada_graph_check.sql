@@ -163,9 +163,8 @@ BEGIN
 	ALTER TABLE temp_om_scada_graph ADD COLUMN error_message TEXT;
 	ALTER TABLE temp_om_scada_graph ADD COLUMN is_real boolean DEFAULT true;
 	ALTER TABLE temp_om_scada_graph ADD COLUMN is_multilevel boolean DEFAULT false;
-	ALTER TABLE temp_om_scada_graph ADD COLUMN orig_node_1 int4;
-	ALTER TABLE temp_om_scada_graph ADD COLUMN orig_node_2 int4;
-	ALTER TABLE temp_om_scada_graph ADD COLUMN IF NOT EXISTS level_id integer;
+	ALTER TABLE temp_om_scada_graph ADD COLUMN orig_node_1 integer;
+	ALTER TABLE temp_om_scada_graph ADD COLUMN orig_node_2 integer;
 
 	CREATE INDEX ON temp_om_scada_graph (orig_node_1, orig_node_2);
 	CREATE INDEX ON temp_om_scada_graph (orig_node_1);
@@ -179,10 +178,13 @@ BEGIN
 		level_id integer,
 		position_id integer,
 		position_aux double precision,
-		is_real boolean DEFAULT true
+		is_real boolean DEFAULT true,
+		orig_node_1 integer,
+		orig_node_2 integer
 	);
 
 	CREATE INDEX ON temp_om_scada_vertice (node_id);
+	CREATE INDEX ON temp_om_scada_vertice (orig_node_1, orig_node_2);
 
 	-- Get exploitation ID array
 	v_expl_id_array := gw_fct_get_expl_id_array(v_expl_id);
@@ -415,12 +417,6 @@ BEGIN
 	) g
 	WHERE n.node_id = g.node_id;
 
-	UPDATE temp_om_scada_graph g
-	SET level_id = v.level_id
-	FROM temp_om_scada_vertice v
-	WHERE g.the_geom IS NOT NULL
-	AND g.node_1 = v.node_id; -- assures to update all the edges, because drivingdistance returns nodes, not edges
-
 	-- add not-real nodes and not_real arcs for multi-level links - used for complet Sugiyama method
 	UPDATE temp_om_scada_graph g
 	SET is_multilevel = TRUE
@@ -437,9 +433,7 @@ BEGIN
 				g.node_2,
 				g.group_id,
 				v1.level_id AS level_1,
-				v2.level_id AS level_2,
-				g.node_type_1,
-				g.node_type_2
+				v2.level_id AS level_2
 			FROM temp_om_scada_graph g
 			JOIN temp_om_scada_vertice v1 ON v1.node_id = g.node_1
 			JOIN temp_om_scada_vertice v2 ON v2.node_id = g.node_2
@@ -451,70 +445,74 @@ BEGIN
 				e.node_2,
 				e.group_id,
 				e.level_1,
-				e.level_2,
-				e.node_type_1,
-				e.node_type_2, 
+				e.level_2, 
 				gs AS level_id
 			FROM edges_to_split e
 			CROSS JOIN LATERAL generate_series(
 				e.level_1+1,
 				e.level_2-1
 			) gs
-		),
-		vertices AS (
+		)
+	INSERT INTO temp_om_scada_vertice (node_id, group_id, level_id, is_real, orig_node_1, orig_node_2)
+	SELECT -(row_number() OVER ()) AS node_id, group_id, level_id, FALSE AS is_real, node_1, node_2
+	FROM vertices_levels;
+
+	WITH
+		vertices_levels AS (
 			SELECT
-				v.node_1,
-				v.node_2,
-				v.group_id,
-				v.node_type_1,
-				v.node_type_2,
-				-(row_number() OVER ()) AS vertice_id,
-				v.level_id
-			FROM vertices_levels v
+				g.node_1 AS node_id,
+				v.level_id,
+				g.node_1 AS orig_node_1,
+				g.node_2 AS orig_node_2
+			FROM temp_om_scada_graph g
+			JOIN temp_om_scada_vertice v ON v.node_id = g.node_1
+			WHERE g.is_multilevel = TRUE
 			UNION
-			SELECT node_1, node_2, group_id, node_type_1, node_type_2, node_1 AS vertice_id, level_1 AS level_id
-			FROM edges_to_split
+			SELECT
+				g.node_2 AS node_id,
+				v.level_id,
+				g.node_1 AS orig_node_1,
+				g.node_2 AS orig_node_2
+			FROM temp_om_scada_graph g
+			JOIN temp_om_scada_vertice v ON v.node_id = g.node_2
+			WHERE g.is_multilevel = TRUE
 			UNION
-			SELECT node_1, node_2, group_id, node_type_1, node_type_2, node_2 AS vertice_id, level_2 AS level_id
-			FROM edges_to_split
+			SELECT
+				v.node_id,
+				v.level_id,
+				v.orig_node_1,
+				v.orig_node_2
+			FROM temp_om_scada_vertice v
+			WHERE v.is_real = FALSE
 		),
 		new_edges AS (
 			SELECT
-				v.group_id,
-				v.level_id,
-				v.vertice_id AS vertice_1,
-				lead(v.vertice_id) OVER (PARTITION BY v.node_1, v.node_2 ORDER BY v.level_id) AS vertice_2,
-				v.node_1,
-				v.node_2,
-				v.node_type_1,
-				v.node_type_2
-			FROM vertices v 
-		)
-	INSERT INTO temp_om_scada_graph (node_1, node_2, orig_node_1, orig_node_2, group_id, level_id, node_type_1, node_type_2, is_real, is_multilevel)
+				vl.orig_node_1,
+				vl.orig_node_2,
+				vl.node_id AS vertice_1,
+				lead(vl.node_id) OVER (PARTITION BY vl.orig_node_1, vl.orig_node_2 ORDER BY vl.level_id) AS vertice_2
+			FROM vertices_levels vl
+		) 
+	INSERT INTO temp_om_scada_graph (node_1, node_2, orig_node_1, orig_node_2, group_id, is_real, is_multilevel)
 	SELECT
-		e.vertice_1 AS node_1,
-		e.vertice_2 AS node_2,
-		e.node_1 AS orig_node_1,
-		e.node_2 AS orig_node_2,
-		e.group_id,
-		e.level_id,
-		CASE WHEN e.vertice_1 = e.node_1 THEN e.node_type_1
-		WHEN e.vertice_1 = e.node_2 THEN e.node_type_2
-		ELSE 'VIRTUAL VERTICE'
+		e.vertice_1,
+		e.vertice_2,
+		e.orig_node_1,
+		e.orig_node_2,
+		g.group_id,
+		CASE WHEN e.vertice_1 = e.orig_node_1 THEN g.node_type_1
+			WHEN e.vertice_1 = e.orig_node_2 THEN g.node_type_2
+			ELSE 'VIRTUAL VERTICE'
 		END AS node_type_1,
-		CASE WHEN e.vertice_2 = e.node_1 THEN e.node_type_1
-		WHEN e.vertice_2 = e.node_2 THEN e.node_type_2
-		ELSE 'VIRTUAL VERTICE'
+		CASE WHEN e.vertice_2 = e.orig_node_1 THEN g.node_type_1
+			WHEN e.vertice_2 = e.orig_node_2 THEN g.node_type_2
+			ELSE 'VIRTUAL VERTICE'
 		END AS node_type_2,
 		FALSE AS is_real,
-		FALSE AS is_multilevel	
+		FALSE AS is_multilevel
 	FROM new_edges e
+	JOIN temp_om_scada_graph g ON g.node_1 = e.orig_node_1 AND g.node_2 = e.orig_node_2
 	WHERE e.vertice_2 IS NOT NULL;
-
-	INSERT INTO temp_om_scada_vertice (node_id, group_id, level_id, is_real)
-	SELECT g.node_1, g.group_id, g.level_id, FALSE AS is_real
-	FROM temp_om_scada_graph g
-	WHERE g.node_1 < 0;
 
 	-- position_id 
 	-- order root nodes by their coordinates x and y coordinates so their position_id is assigned from left to right
