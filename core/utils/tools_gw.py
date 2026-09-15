@@ -9497,7 +9497,8 @@ def _show_context_menu(self, qtableview):
                         parents.append(par.objectName())
                         par = par.parentWidget()
                     if qtableview.objectName() in parents:
-                        action = QAction(btn.property('widgetcontrols').get('onContextMenu'), qtableview)
+                        title = btn.property('widgetcontrols').get('onContextMenu')
+                        action = QAction(tools_qt.tr(title), qtableview)
                         action.triggered.connect(partial(_force_button_click, qtableview.window(), QPushButton, btn.objectName()))
                         menu.addAction(action)
 

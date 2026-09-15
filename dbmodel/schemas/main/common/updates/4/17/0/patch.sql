@@ -1848,3 +1848,15 @@ LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id;
 CREATE TRIGGER gw_trg_v_om_scada_graph_delete
 INSTEAD OF DELETE ON v_om_scada_graph
 FOR EACH ROW EXECUTE FUNCTION gw_trg_scada_graph_builder();
+
+-- Unlink element from feature (does not delete the element catalog row)
+UPDATE config_form_fields
+SET tooltip = 'Remove element',
+	widgetcontrols = jsonb_set(
+		COALESCE(widgetcontrols::jsonb, '{}'::jsonb),
+		'{onContextMenu}',
+		'"Remove element"'::jsonb
+	)::json
+WHERE formtype = 'form_feature'
+	AND columnname = 'delete_element'
+	AND tabname = 'tab_elements';
