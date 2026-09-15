@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add editable `userdefined_geom` checkbox to link info forms.
 - Add filters to EPA result manager (status, network type, exploitation, exec date from).
 - Add validated flag (`isvalidated`) to EPA results with toggle and filter in EPA result.
+- Add `direct_insert` to `config_visit_parameter`. When true, Accept on a new visit inserts a default event and skips the extra event form.
+- Add Config O&M checkbox `om_visit_direct_insert` (Visit direct insert) next to Visit parameter.
 
 ### Changed
 

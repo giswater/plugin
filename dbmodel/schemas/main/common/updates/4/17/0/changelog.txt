@@ -40,3 +40,6 @@
 - Wrap leftover toolbox `selectedId` values in `gw_fct_getprocess` so negative combo ids (e.g. -901) do not crash JSON path `dvQueryText`.
 - Default element `ownercat_id` from `exploitation.owner_vdefault` on insert (form + trigger), same as node/arc/connec.
 - Rename tab_elements context menu / tooltip from "Delete element" to "Delete element relation".
+- Replace deprecated mapzone fids 367/534 with explicit toArc/nodeParent checks for sector (714, 716) and dma (718, 720).
+- Add `direct_insert` to `config_visit_parameter` so a visit can be saved without opening the extra event form.
+- Add user config `om_visit_direct_insert` (O&M / Visit direct insert) to enable the same shortcut from Config.

@@ -22,7 +22,8 @@ SELECT columns_are(
     'config_visit_parameter',
     ARRAY[
         'id', 'code', 'parameter_type', 'feature_type', 'data_type', 'criticity',
-        'descript', 'form_type', 'vdefault', 'ismultifeature', 'short_descript', 'active'
+        'descript', 'form_type', 'vdefault', 'ismultifeature', 'short_descript', 'active',
+        'direct_insert'
     ],
     'Table config_visit_parameter should have the correct columns'
 );
@@ -40,6 +41,7 @@ SELECT col_type_is('config_visit_parameter', 'vdefault', 'text', 'Column vdefaul
 SELECT col_type_is('config_visit_parameter', 'ismultifeature', 'bool', 'Column ismultifeature should be bool');
 SELECT col_type_is('config_visit_parameter', 'short_descript', 'varchar(30)', 'Column short_descript should be varchar(30)');
 SELECT col_type_is('config_visit_parameter', 'active', 'bool', 'Column active should be bool');
+SELECT col_type_is('config_visit_parameter', 'direct_insert', 'bool', 'Column direct_insert should be bool');
 
 -- Finish
 SELECT * FROM finish();

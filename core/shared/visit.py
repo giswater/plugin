@@ -230,6 +230,7 @@ class GwVisit(QObject):
 
         # Ensure parameter_id is populated after visit/feature type are resolved
         self._set_parameter_id_combo(self.dlg_add_visit)
+        self._manage_events_changed()
 
         if self.it_is_new_visit is False:
             # Disable widgets when the visit is not new
@@ -575,6 +576,9 @@ class GwVisit(QObject):
         if self.current_tab_index == self._tab_index('tab_visit'):
             self._manage_leave_visit_tab()
 
+        if self.it_is_new_visit:
+            self._auto_insert_direct_event_if_needed()
+
         expl_value = tools_qt.get_combo_value(self.dlg_add_visit, self.exploitation)
         if expl_value not in (None, 'None', ''):
             tools_gw.set_config_parser('btn_add_visit', 'expl_id', expl_value)
@@ -764,6 +768,10 @@ class GwVisit(QObject):
     def _update_relations(self, dialog, delete_old_relations=True):
         """ Save current selected features in every table of feature_type """
 
+        # Accept from Visit tab never left the tab, so the visit row is not in DB yet
+        if self.it_is_new_visit:
+            self._manage_leave_visit_tab()
+
         if delete_old_relations:
             for index in range(self.cmb_feature_type.count()):
                 # Remove all old relations related with current visit_id and @feature_type
@@ -894,11 +902,13 @@ class GwVisit(QObject):
 
         if self.event_parameter_id:
             tools_qt.set_combo_value(self.dlg_add_visit.parameter_id, self.event_parameter_id, 0)
+            self._manage_events_changed()
             return
 
         parameter_id = tools_gw.get_config_value('om_visit_parameter_vdefault')
         if parameter_id:
             tools_qt.set_combo_value(self.dlg_add_visit.parameter_id, parameter_id[0], 0)
+        self._manage_events_changed()
 
     def _get_feature_type_of_parameter(self):
         """ Get feature type of selected parameter """
@@ -916,6 +926,7 @@ class GwVisit(QObject):
                 if combo_type in ('', 'all'):
                     self.feature_type = self.feature_type_parameter.lower()
             self._manage_tabs_enabled(True)
+        self._manage_events_changed()
 
     def _connect_signal_tab_feature_signal(self, connect=True, excluded_layers=[]):
 
@@ -1394,6 +1405,7 @@ class GwVisit(QObject):
         # save new event
         event.upsert()
         self._save_files_added(event.visit_id, event.id)
+        self._remember_visit_parameter(parameter_id)
 
         # update Table
         self.tbl_event.model().select()
@@ -1520,8 +1532,134 @@ class GwVisit(QObject):
         """ Action when at a Event model is changed.
         A) if some record is available => enable OK button of VisitDialog """
 
-        state = (self.tbl_event.model().rowCount() > 0)
-        self.dlg_add_visit.btn_accept.setEnabled(state)
+        model = self.tbl_event.model()
+        has_events = model is not None and model.rowCount() > 0
+        self.dlg_add_visit.btn_accept.setEnabled(has_events or self._can_direct_insert())
+
+    def _quote_sql_text(self, value):
+        """ Escape a value for interpolation into a SQL string literal. """
+
+        return str(value).replace("'", "''")
+
+    def _parameter_is_active(self, parameter_id):
+        """ True if the parameter exists and is active. """
+
+        if parameter_id in (None, '', -1, '-1', 'None'):
+            return False
+        sql = (f"SELECT 1 FROM v_config_visit_parameter "
+               f"WHERE id = '{self._quote_sql_text(parameter_id)}' "
+               f"AND COALESCE(active, TRUE) IS TRUE")
+        return tools_db.get_row(sql, log_info=False) is not None
+
+    def _parameter_allows_direct_insert(self, parameter_id):
+        """ True if the parameter is active and flagged for direct visit insert. """
+
+        if not self._parameter_is_active(parameter_id):
+            return False
+        sql = (f"SELECT 1 FROM v_config_visit_parameter "
+               f"WHERE id = '{self._quote_sql_text(parameter_id)}' "
+               f"AND COALESCE(direct_insert, FALSE) IS TRUE")
+        return tools_db.get_row(sql, log_info=False) is not None
+
+    def _user_wants_direct_insert(self):
+        """ User Config O&M checkbox om_visit_direct_insert. """
+
+        row = tools_gw.get_config_value('om_visit_direct_insert', log_info=False)
+        if not row:
+            return False
+        return tools_os.set_boolean(row[0], False) is True
+
+    def _can_use_parameter_for_direct_insert(self, parameter_id):
+        """ Catalog flag, or user Config Direct insert + an active parameter. """
+
+        if self._parameter_allows_direct_insert(parameter_id):
+            return True
+        return self._user_wants_direct_insert() and self._parameter_is_active(parameter_id)
+
+    def _can_direct_insert(self):
+        """ New visit can be accepted without opening the extra event form. """
+
+        return bool(self.it_is_new_visit and self._resolve_direct_insert_parameter())
+
+    def _resolve_direct_insert_parameter(self):
+        """ Parameter used for a silent event insert: combo, last used, then first match. """
+
+        parameter_id = tools_qt.get_combo_value(self.dlg_add_visit, self.dlg_add_visit.parameter_id, 0)
+        if self._can_use_parameter_for_direct_insert(parameter_id):
+            return parameter_id
+
+        last_used = tools_gw.get_config_value('om_visit_parameter_vdefault', log_info=False)
+        if last_used and self._can_use_parameter_for_direct_insert(last_used[0]):
+            return last_used[0]
+
+        feature_type = self.feature_type or self._combo_feature_type_id()
+        sql = ("SELECT id FROM v_config_visit_parameter "
+               "WHERE COALESCE(direct_insert, FALSE) IS TRUE "
+               "AND COALESCE(active, TRUE) IS TRUE ")
+        if feature_type and str(feature_type).lower() not in ('', 'all'):
+            sql += (f"AND UPPER(feature_type) IN ('{self._quote_sql_text(str(feature_type).upper())}', 'ALL') ")
+        sql += "ORDER BY id LIMIT 1"
+        row = tools_db.get_row(sql, log_info=False)
+        if row:
+            return row[0]
+        return None
+
+    def _event_value_for_parameter(self, parameter_id):
+        """ Default event value: parameter.vdefault, else user vdefault. """
+
+        sql = (f"SELECT vdefault FROM v_config_visit_parameter "
+               f"WHERE id = '{self._quote_sql_text(parameter_id)}'")
+        row = tools_db.get_row(sql)
+        if row and row[0] not in (None, '', 'defaultvalue'):
+            return row[0]
+        val = tools_gw.get_config_value('om_visit_paramvalue_vdefault', log_info=False)
+        if val:
+            return val[0]
+        return None
+
+    def _remember_visit_parameter(self, parameter_id):
+        """ Persist last used event parameter for this user. """
+
+        if parameter_id in (None, '', -1, '-1', 'None'):
+            return
+        value = self._quote_sql_text(parameter_id)
+        row = tools_gw.get_config_value('om_visit_parameter_vdefault', log_info=False)
+        if row:
+            sql = (f"UPDATE config_param_user SET value = '{value}' "
+                   f"WHERE parameter = 'om_visit_parameter_vdefault' AND cur_user = current_user")
+        else:
+            sql = (f"INSERT INTO config_param_user (parameter, value, cur_user) "
+                   f"VALUES ('om_visit_parameter_vdefault', '{value}', current_user)")
+        tools_db.execute_sql(sql)
+
+    def _insert_event_without_form(self, parameter_id):
+        """ Insert a minimal om_visit_event without opening the extra event form. """
+
+        event = GwOmVisitEvent()
+        event.id = event.max_pk() + 1
+        event.parameter_id = parameter_id
+        event.visit_id = int(self.visit_id.text())
+        event.value = self._event_value_for_parameter(parameter_id)
+        event.upsert()
+        self._remember_visit_parameter(parameter_id)
+        if self.tbl_event.model() is not None:
+            self.tbl_event.model().select()
+        self._manage_events_changed()
+
+    def _auto_insert_direct_event_if_needed(self):
+        """ On Accept of a new visit with no events, insert a direct_insert parameter event. """
+
+        visit_id = tools_qt.get_text(self.dlg_add_visit, self.visit_id)
+        if visit_id in (None, 'null', ''):
+            return
+        row = tools_db.get_row(
+            f"SELECT 1 FROM om_visit_event WHERE visit_id = '{self._quote_sql_text(visit_id)}' LIMIT 1")
+        if row:
+            return
+        parameter_id = self._resolve_direct_insert_parameter()
+        if not parameter_id:
+            return
+        self._insert_event_without_form(parameter_id)
 
     def _event_update(self):
         """ Update selected event. """

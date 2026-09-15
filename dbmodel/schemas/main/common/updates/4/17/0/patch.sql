@@ -1886,3 +1886,46 @@ VALUES(720, 'Check if defined nodeParent is operative for dma', 'ws', NULL, 'cor
 'SELECT b.node_id, b.dma_id as zone_id FROM (
 SELECT dma_id, graphconfig::json->''use''->0->>''nodeParent''::integer as node_id FROM t_dma)b 
 WHERE node_id::text not in (select node_id FROM node WHERE state=1)', 'All nodes defined as nodeParent on dma exists on DB.', '[gw_fct_graphanalytics_check_data]', NULL);
+
+-- Direct visit insert: skip extra event form when the chosen parameter has direct_insert
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"ADD","table":"config_visit_parameter",
+  "column":"direct_insert", "dataType":"boolean", "defaultValue":"false"}}$$);
+
+COMMENT ON COLUMN config_visit_parameter.direct_insert IS
+  'If true, a visit can be saved without opening the extra event form; a default event is inserted automatically.';
+
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, "datatype", widgettype, "label", tooltip,
+	ismandatory, iseditable, hidden)
+VALUES ('config_visit_parameter', 'form_feature', 'tab_none', 'direct_insert', 'boolean', 'check',
+	'Direct insert:', 'If true, a visit can be saved without opening the extra event form',
+	false, true, false)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+DO $BODY$
+DECLARE
+	v_schema text := current_schema();
+BEGIN
+	IF to_regnamespace('multilang') IS NOT NULL
+	   AND to_regprocedure('multilang.gw_fct_admin_manage_multilang_views(boolean, text)') IS NOT NULL
+	THEN
+		PERFORM multilang.gw_fct_admin_manage_multilang_views(true, v_schema);
+	ELSE
+		DROP VIEW IF EXISTS v_config_visit_parameter;
+		CREATE VIEW v_config_visit_parameter AS SELECT * FROM config_visit_parameter;
+		GRANT SELECT ON TABLE v_config_visit_parameter TO role_basic;
+	END IF;
+END
+$BODY$;
+
+INSERT INTO sys_param_user (
+    id, formname, descript, sys_role, "label", isenabled, layoutorder,
+    project_type, isparent, isautoupdate, "datatype", widgettype, ismandatory,
+    vdefault, layoutname, iseditable, "source"
+)
+VALUES (
+    'om_visit_direct_insert', 'config',
+    'If true, a visit can be saved without opening the extra event form; a default event is inserted using Visit parameter',
+    'role_om', 'Visit direct insert:', true, 13, 'utils', false, false, 'boolean', 'check', false,
+    'FALSE', 'lyt_om', true, 'core'
+)
+ON CONFLICT (id) DO NOTHING;
