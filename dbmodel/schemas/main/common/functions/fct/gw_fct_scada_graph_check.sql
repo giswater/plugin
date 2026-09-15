@@ -799,8 +799,7 @@ BEGIN
 			expl_id = COALESCE(t.expl_id, g.expl_id),
 			node_type_1 = COALESCE(t.node_type_1, g.node_type_1),
 			node_type_2 = COALESCE(t.node_type_2, g.node_type_2),
-			group_id = t.group_id,
-			level_id = NULL
+			group_id = t.group_id
 		FROM temp_om_scada_graph t
 		WHERE g.node_1 = t.node_1 AND g.node_2 = t.node_2
 		AND t.is_real = TRUE;
