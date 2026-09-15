@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactor Go2Epa hydraulic_engine integration to share execute/import flow for WS and UD.
 - Require `hydraulic_engine>=0.7.0` and align Go2Epa runners with its EPANET/SWMM export API.
 - Remove unused `DEPRECATED` EPA result status; migrate any remaining rows to `ARCHIVED`.
-- Rename feature-form Elements tab context menu from "Delete element" to "Remove element" (unlinks the relation, does not delete the element).
+- Rename feature-form Elements tab context menu from "Delete element" to "Delete element relation".
 
 ### Fixed
 

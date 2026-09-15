@@ -1851,11 +1851,11 @@ FOR EACH ROW EXECUTE FUNCTION gw_trg_scada_graph_builder();
 
 -- Unlink element from feature (does not delete the element catalog row)
 UPDATE config_form_fields
-SET tooltip = 'Remove element',
+SET tooltip = 'Delete element relation',
 	widgetcontrols = jsonb_set(
 		COALESCE(widgetcontrols::jsonb, '{}'::jsonb),
 		'{onContextMenu}',
-		'"Remove element"'::jsonb
+		'"Delete element relation"'::jsonb
 	)::json
 WHERE formtype = 'form_feature'
 	AND columnname = 'delete_element'
