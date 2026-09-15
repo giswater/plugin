@@ -27,7 +27,7 @@ from ....ui.dialog import GwDialog
 from ....ui.ui_manager import GwInpConfigImportUi, GwInpParsingUi
 from ....threads.import_inp.import_epanet_task import GwImportInpTask
 from ....utils import tools_gw
-from ....utils.import_inp import create_load_menu, save_config, save_config_to_file, fill_txt_info
+from ....utils.import_inp import create_load_menu, save_config, save_config_to_file, fill_txt_info, unescape_dialog_labels
 
 CREATE_NEW = "Create new"
 SPATIAL_INTERSECT = "Get from spatial intersect"
@@ -146,6 +146,7 @@ class GwImportEpanet:
         self._manage_widgets_visibility()
 
         tools_gw.open_dialog(self.dlg_config, dlg_name="inp_config_import")
+        unescape_dialog_labels(self.dlg_config)
 
     def _manage_psector(self):
         """ Manage the psector checkbox and the workcat and exploitation combo """

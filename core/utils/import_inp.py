@@ -4,20 +4,22 @@ The program is free software: you can redistribute it and/or modify it under the
 General Public License as published by the Free Software Foundation, either version 3 of the License,
 or (at your option) any later version.
 """
+import ast
 import json
 import os
-import ast
-
 from enum import Enum
 from functools import partial
-from pathlib import Path
-from typing import Optional
+from html import unescape
 from itertools import islice
 from math import isnan
+from pathlib import Path
+from typing import Optional
 
 from psycopg2.extras import execute_values
 
-from qgis.PyQt.QtWidgets import QMenu, QComboBox
+from html import unescape
+
+from qgis.PyQt.QtWidgets import QLabel, QMenu, QComboBox
 
 from ...libs import tools_log, tools_qgis, tools_qt, lib_vars, tools_db
 from ... import global_vars
@@ -179,6 +181,14 @@ def toolsdb_execute_values(
         raise lib_vars.session_vars["last_error"]
 
     return result
+
+
+def unescape_dialog_labels(dialog) -> None:
+    """Decode XML entities left in generated translations (e.g. &quot;)."""
+    for lbl in dialog.findChildren(QLabel):
+        text = lbl.text()
+        if "&" in text:
+            lbl.setText(unescape(text))
 
 
 def create_load_menu(self_cls):

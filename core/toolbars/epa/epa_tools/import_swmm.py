@@ -28,11 +28,16 @@ from ....ui.dialog import GwDialog
 from ....ui.ui_manager import GwInpConfigImportUi, GwInpParsingUi
 if sys.version_info >= (3, 10):
     from ....threads.import_inp.import_swmm_task import GwImportInpTask
-    from ....utils.import_inp import GwInpConfig, create_load_menu, load_config, save_config, save_config_to_file, fill_txt_info
+    from ....utils.import_inp import (
+        GwInpConfig, create_load_menu, load_config, save_config, save_config_to_file,
+        fill_txt_info, unescape_dialog_labels,
+    )
     from ....threads.import_inp import parse_swmm_task
 else:
     GwImportInpTask = None
-    GwInpConfig, create_load_menu, load_config, save_config, save_config_to_file, fill_txt_info = None, None, None, None, None, None
+    GwInpConfig, create_load_menu, load_config, save_config, save_config_to_file, fill_txt_info, unescape_dialog_labels = (
+        None, None, None, None, None, None, None
+    )
     parse_swmm_task = None
 from ....utils import tools_gw
 
@@ -162,6 +167,7 @@ class GwImportSwmm:
         self._manage_widgets_visibility()
 
         tools_gw.open_dialog(self.dlg_config, dlg_name="inp_config_import")
+        unescape_dialog_labels(self.dlg_config)
 
     def _manage_psector(self):
         """ Manage the psector checkbox and the workcat and exploitation combo """
