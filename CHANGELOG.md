@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Show `gw_fct_setfields` errors only on the info form, not also on the QGIS message bar.
 - Open Help from Create project (and other dialogs) via Qt instead of `webbrowser`/`subprocess`, which crashed QGIS on Python 3.12+ (ResourceWarning from `Popen.__del__`). Skip `config_param_system` lookup when no schema is loaded.
 - Hide Go2Epa option `inp_report_onlymaxmin_values` when `hydraulic_engine` is not installed (`find_spec` only; no package import).
 - Defer `hydraulic_engine` import until Execute EPA actually uses it (export-only / import-only no longer load wntr on first run).

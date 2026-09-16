@@ -1934,6 +1934,12 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
+VALUES (4750, 'It is not possible to have two operative links leaving from the same %feature_type% with id %feature_id%. Existing operative link: %link_id%',
+'Set the existing operative link to planned or obsolete, or edit that link instead of creating a new one.',
+2, true, 'utils', 'core', 'UI')
+ON CONFLICT (id) DO NOTHING;
+
 UPDATE config_toolbox
 	SET inputparams='[
   {

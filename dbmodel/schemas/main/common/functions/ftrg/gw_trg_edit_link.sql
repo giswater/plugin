@@ -697,6 +697,23 @@ BEGIN
 		END IF;
 	END IF;
 
+	-- only one operative link per origin feature (link_feature_id_state1_unique)
+	IF TG_OP IN ('INSERT', 'UPDATE') AND COALESCE(NEW.state, 1) = 1 AND NEW.feature_id IS NOT NULL THEN
+		SELECT link_id INTO v_linkexists
+		FROM link
+		WHERE feature_id = NEW.feature_id
+		  AND feature_type = NEW.feature_type
+		  AND state = 1
+		  AND link_id IS DISTINCT FROM NEW.link_id
+		LIMIT 1;
+
+		IF v_linkexists IS NOT NULL THEN
+			EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+			"data":{"message":"4750", "function":"1116","parameters":{"feature_type":"'||NEW.feature_type||
+			'", "feature_id":"'||NEW.feature_id||'", "link_id":"'||v_linkexists||'"}}}$$);';
+		END IF;
+	END IF;
+
 	-- upsert process
 	IF TG_OP ='INSERT' THEN
 
