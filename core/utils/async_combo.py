@@ -1408,16 +1408,18 @@ class GwAsyncComboBox(QComboBox):
         """Toggle whether an empty placeholder row is prepended to the data."""
         self._is_null_value = bool(is_null)
 
-    def set_pending_selection(self, value, index: int = 0) -> None:
+    def set_pending_selection(self, value, index: int = 0, apply_if_loaded: bool = True) -> None:
         """Defer selection until the items finish loading.
 
         Called by `tools_qt.set_combo_value` (via duck typing) when the combo
         hasn't been populated yet. The value is reapplied in `apply_rows`.
+        Pass ``apply_if_loaded=False`` when the caller is about to replace
+        the rows (otherwise a hit on the *old* list clears pending and the
+        reload falls back to index 0).
         """
         self._pending_selected_id = None if value in (None, '') else str(value)
         self._pending_select_index = int(index) if index is not None else 0
-        if self.property('rows_loaded'):
-            # If rows are already there, apply immediately.
+        if apply_if_loaded and self.property('rows_loaded'):
             self._apply_pending_selection()
 
     def has_loaded_rows(self) -> bool:
@@ -1477,6 +1479,11 @@ class GwAsyncComboBox(QComboBox):
         it to the custom model in a single `set_rows` call. The model emits
         a single `modelReset`, so the QComboBox refreshes once.
         """
+        # Drop in-flight QgsTask results so a stale load cannot overwrite this.
+        self._token += 1
+        self._task = None
+        self._loading = False
+
         items: List[_ComboRow] = []
         if self._is_null_value:
             items.append(('', ''))

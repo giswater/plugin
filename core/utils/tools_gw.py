@@ -7845,11 +7845,12 @@ def _change_plan_mode_buttons(enable, psector_id, update_cmb_psector_id=False, c
 
 
 def fill_cmb_psector_id(cmb_psector_id, psector_id=None):
-    """Fill cmb_psector_id asynchronously.
+    """Fill the status-bar psector combo from the main DB connection.
 
-    Always hits the DB: this combo's source (`v_ui_plan_psector`) changes
-    when the user creates/deletes/duplicates a psector, and the async combo
-    cache would otherwise keep serving the pre-create list.
+    This list is tiny and is mutated in-session (manager create / toggle /
+    duplicate / delete). An async+cached load races those writes: pending
+    selection hits the old rows, gets cleared, and apply_rows falls back to
+    index 0.
     """
     if cmb_psector_id is None:
         return
@@ -7866,12 +7867,10 @@ def fill_cmb_psector_id(cmb_psector_id, psector_id=None):
         if current not in (None, '', -1, 'None'):
             psector_id = current
 
-    # Reload first so rows_loaded is False; then stash the selection. If we
-    # set_pending_selection while the old list is still loaded, a hit on the
-    # previous rows clears pending and apply_rows falls back to index 0.
-    cmb_psector_id.start_loading(sql, use_cache=False)
+    rows = tools_db.get_rows(sql, log_info=False) or []
     if psector_id is not None:
-        cmb_psector_id.set_pending_selection(psector_id, 0)
+        cmb_psector_id.set_pending_selection(psector_id, 0, apply_if_loaded=False)
+    cmb_psector_id.apply_rows(rows)
 
     connect_signal(
         cmb_psector_id.currentIndexChanged,

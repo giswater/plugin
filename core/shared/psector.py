@@ -1319,10 +1319,33 @@ class GwPsector:
         self.update = True
         self.dlg_plan_psector.tabwidget.setTabEnabled(1, True)
 
-        if getattr(self, 'dlg_psector_mng', None) is not None:
-            self.set_label_current_psector(self.dlg_psector_mng, scenario_type="psector", from_open_dialog=True)
-
         tools_gw.set_psector_mode_enabled(enable=True, psector_id=new_psector_id, do_call_fct=False, force_change=True)
+        self._refresh_psector_manager()
+
+    def _refresh_psector_manager(self):
+        """Reload manager table + current-psector label if the manager is open.
+
+        Combo fill is already done by ``set_psector_mode_enabled``; this must
+        not call ``set_label_current_psector`` (that would refill the combo).
+        """
+        dlg = getattr(self, 'dlg_psector_mng', None)
+        if dlg is None or isdeleted(dlg):
+            return
+        try:
+            name = tools_qt.get_text(self.dlg_plan_psector, 'tab_general_name')
+            if name not in (None, 'null', ''):
+                tools_qt.set_widget_text(dlg, 'lbl_vdefault_psector', name)
+            if self.psector_with_current is None and lib_vars.plugin_dir:
+                self.icon_folder = f"{lib_vars.plugin_dir}{os.sep}icons{os.sep}dialogs{os.sep}"
+                self.psector_with_current = QPixmap(f"{self.icon_folder}140.png")
+                self.psector_without_current = QPixmap(f"{self.icon_folder}138.png")
+            if self.psector_with_current is not None:
+                dlg.lbl_status_current.setPixmap(self.psector_with_current)
+            self._filter_table(
+                dlg, self.qtbl_psm, dlg.txt_name, dlg.chk_active, dlg.chk_archived, 'v_ui_plan_psector'
+            )
+        except RuntimeError:
+            pass
 
     def check_topology_psector(self, psector_id=None, psector_name=None, from_toggle=False):
 
