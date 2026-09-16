@@ -34,6 +34,7 @@ from qgis.PyQt.QtWidgets import (
     QStyle,
     QStyleFactory,
     QStyledItemDelegate,
+    QStyleOptionComboBox,
     QStyleOptionViewItem,
     QToolTip,
     QWidget,
@@ -179,6 +180,11 @@ MAX_POPUP_VISIBLE_ROWS = 200
 # The popup scrolls past this; anything within the visible-rows cap can still
 # be reached by scrolling, anything past it by typing in the search box.
 MAX_POPUP_VISIBLE_HEIGHT_ITEMS = 15
+
+# Closed-combo width is based on this many 'X' glyphs, not the longest item.
+# AdjustToContents makes catalog values (and long translations) freeze the
+# parent layout — info form two-column tab, Spanish lyt_bot_1, etc.
+_MIN_CONTENTS_LENGTH = 8
 
 # Popup layout: Qt may not have painted rows on the first pass.
 _POPUP_LAYOUT_RETRY_MS = 10
@@ -1074,6 +1080,7 @@ class _ComboPopupSearchController(QObject):
 
         container = self._popup_container()
         width = self._combo.width() or (container.width() if container is not None else 0)
+        width = max(width, self._popup_content_width(view))
         height = self._search_bar_height() + list_h + self._popup_frame_pad(container)
         upward = self._popup_opens_upward(height)
         fitted = self._fit_popup_height(height, upward)
@@ -1096,6 +1103,32 @@ class _ComboPopupSearchController(QObject):
         self._sync_popup_scrollbar(view, shown_cap if display_rows else 0)
         self._pin_popup(width, height, upward)
         QTimer.singleShot(0, partial(self._pin_popup, width, height, upward))
+
+    def _popup_content_width(self, view) -> int:
+        """Widest visible row, so the popup can outgrow a shrunken combo."""
+        fm = view.fontMetrics()
+        max_w = 0
+        shown = 0
+        hidden = self._hidden_rows
+        for i in range(self._row_count()):
+            if i in hidden:
+                continue
+            max_w = max(max_w, fm.horizontalAdvance(self._label_at(i)))
+            shown += 1
+            if shown >= MAX_POPUP_VISIBLE_ROWS:
+                break
+        extra = 2 * _ITEM_H_PAD
+        try:
+            bar = view.verticalScrollBar()
+            if bar is not None:
+                extra += bar.sizeHint().width()
+        except RuntimeError:
+            extra += 16
+        width = max_w + extra
+        screen = QApplication.primaryScreen()
+        if screen is not None:
+            width = min(width, max(120, screen.availableGeometry().width() // 2))
+        return width
 
     def _update_search_status(
         self, match_count: int, visible_count: int, needle: str, total: int
@@ -1226,6 +1259,13 @@ class GwAsyncComboBox(QComboBox):
         # subsequent `style()` lookup (e.g. `QMenuPrivate::init`).
         _style_closed_combo(self)
         self.setMaxVisibleItems(MAX_POPUP_VISIBLE_HEIGHT_ITEMS)
+        # Do not let the longest item dictate the closed combo's width.
+        # Popup still shows full text (elides + tooltip); the layout can shrink.
+        self.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.setMinimumContentsLength(_MIN_CONTENTS_LENGTH)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         # Use a custom QAbstractListModel; this is the whole point of the
         # widget — populating 15k+ rows must be a constant-cost operation.
@@ -1257,6 +1297,38 @@ class GwAsyncComboBox(QComboBox):
         if self.hasFocus():
             return QComboBox.wheelEvent(self, event)
         return None
+    # endregion
+
+    # region Closed-combo size (ignore item text)
+    def sizeHint(self):  # noqa: N802 - Qt API
+        return self._closed_size_hint()
+
+    def minimumSizeHint(self):  # noqa: N802 - Qt API
+        return self._closed_size_hint()
+
+    def _closed_size_hint(self) -> QSize:
+        """Width from ``minimumContentsLength``, never from item text.
+
+        QComboBox default ``AdjustToContentsOnFirstShow`` uses the longest
+        item as the closed-combo minimum. Long catalog values then freeze
+        the parent layout (info form two-column tab, Spanish ``lyt_bot_1``).
+        Some styles still scan the model even after ``sizeAdjustPolicy`` is
+        changed, so this is computed locally.
+        """
+        fm = self.fontMetrics()
+        chars = max(1, self.minimumContentsLength())
+        contents = QSize(chars * fm.horizontalAdvance('X'), fm.height())
+        opt = QStyleOptionComboBox()
+        self.initStyleOption(opt)
+        # Some styles size from currentText; pin it to the contents-length
+        # dummy so a long selected value cannot freeze the layout either.
+        opt.currentText = 'X' * chars
+        hint = self.style().sizeFromContents(
+            QStyle.ContentsType.CT_ComboBox, opt, contents, self
+        )
+        if hint is None or not hint.isValid():
+            return QSize(contents.width() + 24, max(contents.height() + 8, 24))
+        return hint
     # endregion
 
     # region Write API overrides
