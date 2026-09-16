@@ -102,25 +102,7 @@ class Giswater(QObject):
             msg_params = ("self.iface.actionPan().trigger()",)
             tools_log.log_info(msg, parameter=str(e), msg_params=msg_params)
 
-        message = "Exception in unload when disconnecting {0} signal"
-        try:
-            # Disconnect QgsProject.instance().crsChanged signal
-            tools_gw.disconnect_signal('load_project', 'project_read_crsChanged_set_epsg')
-        except Exception as e:
-            msg_params = ("QgsProject.instance().crsChanged",)
-            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
-
-        try:
-            tools_gw.disconnect_signal('load_project', 'manage_attribute_table_focusChanged')
-        except Exception as e:
-            msg_params = ("focusChanged",)
-            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
-
-        try:
-            tools_gw.disconnect_signal('mapzone_paste')
-        except Exception as e:
-            msg_params = ("mapzone_paste",)
-            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
+        self._disconnect_unload_signals()
 
         try:
             # Remove 'Main Info button'
@@ -362,6 +344,29 @@ class Giswater(QObject):
             tools_gw.disconnect_signal('main', 'actionSaveProject_save_toolbars_position')
         except TypeError:
             pass
+
+    def _disconnect_unload_signals(self):
+        """Disconnect remaining load_project signals during unload."""
+
+        message = "Exception in unload when disconnecting {0} signal"
+        try:
+            # Disconnect QgsProject.instance().crsChanged signal
+            tools_gw.disconnect_signal('load_project', 'project_read_crsChanged_set_epsg')
+        except Exception as e:
+            msg_params = ("QgsProject.instance().crsChanged",)
+            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
+
+        try:
+            tools_gw.disconnect_signal('load_project', 'manage_attribute_table_focusChanged')
+        except Exception as e:
+            msg_params = ("focusChanged",)
+            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
+
+        try:
+            tools_gw.disconnect_signal('mapzone_paste')
+        except Exception as e:
+            msg_params = ("mapzone_paste",)
+            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
 
     def _set_info_button(self):
         """ Set Giswater information button (always visible)

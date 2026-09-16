@@ -1003,15 +1003,19 @@ class GwInfo(QObject):
     def action_open_link(self):
         """ Manage def open_file from action 'Open Link' """
 
-        try:
-            widget_list = self.dlg_cf.findChildren(tools_qt.GwHyperLinkLabel)
-            for widget in widget_list:
-                path = widget.text()
-                status, message = tools_os.open_file(path)
-                if status is False and message is not None:
-                    tools_qgis.show_warning(message, parameter=path, dialog=self.dlg_cf)
-        except Exception:
-            pass
+        widget_list = self.dlg_cf.findChildren((tools_qt.GwHyperLinkLabel, GwHyperLinkLineEdit))
+        if not widget_list:
+            msg = "Link widget not found. Check config_form_fields."
+            tools_qgis.show_warning(msg, dialog=self.dlg_cf)
+            return
+
+        for widget in widget_list:
+            path = widget.text()
+            if not path or path in ('null',):
+                continue
+            status, message = tools_os.open_file(path)
+            if status is False and message is not None:
+                tools_qgis.show_warning(message, parameter=path, dialog=self.dlg_cf)
 
     def _get_feature_type(self, complet_result):
         """ Get feature type as feature_type (node, arc, connec, gully) """
@@ -2568,6 +2572,11 @@ class GwInfo(QObject):
                             if 'actionTooltip' in act:
                                 action.setToolTip(tools_qt.tr(act['actionTooltip']))
                             action.setVisible(True)
+
+        fields = None
+        if getattr(self, 'complet_result', None):
+            fields = self.complet_result.get('body', {}).get('data', {}).get('fields')
+        tools_gw.hide_action_link_if_field_hidden(dialog, fields)
 
         if enable_actions:
             self._enable_actions(dialog, self.action_edit.isChecked())

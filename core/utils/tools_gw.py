@@ -2759,6 +2759,19 @@ def manage_feature_cat():
     return feature_cat
 
 
+def hide_action_link_if_field_hidden(dialog, fields):
+    """Hide actionLink when the feature's link widget is hidden in config_form_fields."""
+    if not fields:
+        return
+    for field in fields:
+        if field.get('columnname') == 'link' or field.get('linkedobject') == 'action_link':
+            if field.get('hidden'):
+                action = dialog.findChild(QAction, 'actionLink')
+                if action:
+                    action.setVisible(False)
+            return
+
+
 def build_dialog_info(dialog, result, my_json=None, layout_positions=None, tab_name=None, enable_actions=True, is_inserting=False):
     """
     Builds the dialog and configures fields and actions dynamically based on the provided result.
@@ -2894,6 +2907,8 @@ def build_dialog_info(dialog, result, my_json=None, layout_positions=None, tab_n
                         action.setVisible(True)
                         if 'actionTooltip' in act:
                             action.setToolTip(tools_qt.tr(act['actionTooltip']))
+
+    hide_action_link_if_field_hidden(dialog, fields.get('fields'))
 
     # Enable/Disable actions based on global and static rules
     static_actions = ('actionEdit', 'actionCentered', 'actionLink', 'actionHelp',
