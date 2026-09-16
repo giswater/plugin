@@ -6,6 +6,7 @@ or (at your option) any later version.
 """
 # -*- coding: utf-8 -*-
 from functools import partial
+import json
 import tempfile
 
 from ....ui.ui_manager import GwStyleManagerUi, GwStyleUi, GwUpdateStyleGroupUi
@@ -133,44 +134,65 @@ class GwStyleManager:
         tools_gw.load_settings(dialog_create)
 
         self._load_sys_roles(dialog_create)
+        self._prefill_style_group_id(dialog_create)
+        dialog_create.active.setChecked(True)
 
         dialog_create.btn_add.clicked.connect(partial(self._handle_add_feature, dialog_create))
         dialog_create.btn_cancel.clicked.connect(partial(tools_gw.close_dialog, dialog_create))
-        dialog_create.feature_id.textChanged.connect(partial(self._check_style_exists, dialog_create))
         dialog_create.idval.textChanged.connect(partial(self._check_style_exists, dialog_create))
 
         tools_gw.open_dialog(dialog_create, dlg_name='create_style_group')
+
+    def _prefill_style_group_id(self, dialog_create):
+        """Show next config_style.id from the sequence; field is display-only."""
+        schema = (self.schema_name or '').replace('"', '') or None
+        next_id = tools_gw.get_sequence_next_preview('config_style_id_seq', schema)
+        dialog_create.feature_id.setText(str(next_id))
+        dialog_create.feature_id.setReadOnly(True)
 
     def _handle_add_feature(self, dialog_create):
         """Handles the logic when the add button is clicked."""
 
         # Gather data from the dialog fields
-        feature_id = dialog_create.feature_id.text()
         idval = dialog_create.idval.text()
         descript = dialog_create.descript.text()
         sys_role = dialog_create.sys_role.currentText()
+        addparam = dialog_create.addparam.text().strip()
+        is_templayer = dialog_create.is_templayer.isChecked()
+        active = dialog_create.active.isChecked()
 
-        # Validate that the mandatory fields are not empty
-        if not feature_id or not idval:
-            msg = "Feature ID and Idval cannot be empty."
+        if not idval:
+            msg = "Category name cannot be empty."
             tools_qgis.show_warning(msg, dialog=self.style_mng_dlg)
             return
 
+        if addparam:
+            try:
+                json.loads(addparam)
+            except ValueError:
+                msg = "Addparam must be valid JSON."
+                tools_qgis.show_warning(msg, dialog=self.style_mng_dlg)
+                return
+
         # Start building the SQL query
-        sql = "INSERT INTO config_style (id, idval"
+        sql = "INSERT INTO config_style (idval"
+        values = f"'{idval}'"
 
-        # Initialize the values part with the mandatory fields
-        values = f"'{feature_id}', '{idval}'"
-
-        # Add optional fields if they are not empty
         if descript:
             sql += ", descript"
             values += f", '{descript}'"
         if sys_role:
             sql += ", sys_role"
             values += f", '{sys_role}'"
+        if addparam:
+            sql += ", addparam"
+            values += ", '%s'::json" % addparam.replace("'", "''")
+        sql += ", is_templayer, active"
+        values += ", %s, %s" % (
+            'true' if is_templayer else 'false',
+            'true' if active else 'false',
+        )
 
-        # Close the fields section of the SQL query
         sql += f") VALUES ({values}) RETURNING id;"
 
         try:
@@ -226,33 +248,13 @@ class GwStyleManager:
         self._filter_styles()
 
     def _check_style_exists(self, dialog_create):
-        feature_id_text = dialog_create.feature_id.text().strip()
         idval_text = dialog_create.idval.text().strip()
         color = "border: 1px solid red"
         has_error = False
 
-        dialog_create.feature_id.setStyleSheet("")
-        dialog_create.feature_id.setToolTip("")
         dialog_create.idval.setStyleSheet("")
         dialog_create.idval.setToolTip("")
 
-        # Validates Feature ID if it's not empty
-        if feature_id_text:
-            try:
-                feature_id = int(feature_id_text)
-                sql_id = f"SELECT id FROM config_style WHERE id = '{feature_id}'"
-                row_id = tools_db.get_row(sql_id, log_info=False)
-
-                if row_id:
-                    dialog_create.feature_id.setStyleSheet(color)
-                    dialog_create.feature_id.setToolTip("Feature ID already exists")
-                    has_error = True
-            except ValueError:
-                dialog_create.feature_id.setStyleSheet(color)
-                dialog_create.feature_id.setToolTip("Feature ID must be an integer")
-                has_error = True
-
-        # Validates Idval if it's not empty
         if idval_text:
             sql_idval = f"SELECT idval FROM config_style WHERE idval = '{idval_text}'"
             row_idval = tools_db.get_row(sql_idval, log_info=False)
@@ -261,9 +263,6 @@ class GwStyleManager:
                 dialog_create.idval.setStyleSheet(color)
                 dialog_create.idval.setToolTip("Category already exists")
                 has_error = True
-            else:
-                dialog_create.idval.setStyleSheet("")
-                dialog_create.idval.setToolTip("")
 
         dialog_create.btn_add.setEnabled(not has_error)
 

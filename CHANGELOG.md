@@ -76,6 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Feature form `muni_id` uses ValueRelation on `ve_municipality` instead of a frozen ValueMap.
 - `gw_fct_setfeaturereplace` restores `edit_connec_proximity` / `edit_gully_proximity` / `edit_arc_searchnodes` from the original column so a NULL `value` does not rewrite the param.
 - Overlapping labels on UD element forms (TAPA/COVER): `ve_element` CFF had duplicate `layoutorder` for brand/rotation and model/top_elev, and `expl_id` alone in `lyt_data_2`.
+- Add `addparam`, `is_templayer` and `active` to the Add category dialog (`config_style`).
+- Show next `config_style.id` from `config_style_id_seq` as a read-only preview; INSERT lets the column default assign it. Active defaults to true.
 
 ## [4.16.1] - 2026-07-31
 
