@@ -4906,13 +4906,14 @@ def exec_pg_function(function_name, parameters=None, commit=True, schema_name=No
 
 
 def execute_procedure(function_name, parameters=None, schema_name=None, commit=True, log_sql=True, rubber_band=None,
-        aux_conn=None, is_thread=False, check_function=True):
+        aux_conn=None, is_thread=False, check_function=True, show_exception=True):
     """ Manage execution database function
     :param function_name: Name of function to call (text)
     :param parameters: Parameters for function (json) or (query parameters)
     :param commit: Commit sql (bool)
     :param log_sql: Show query in qgis log (bool)
     :param aux_conn: Auxiliar connection to database used by threads (psycopg2.connection)
+    :param show_exception: Show Failed status on the QGIS message bar (bool)
     :return: Response of the function executed (json)
     """
 
@@ -4970,7 +4971,13 @@ def execute_procedure(function_name, parameters=None, schema_name=None, commit=T
 
     # If failed, manage exception
     if json_result.get('status') == 'Failed':
-        manage_json_exception(json_result, sql, is_thread=is_thread)
+        if show_exception:
+            manage_json_exception(json_result, sql, is_thread=is_thread)
+        else:
+            failed_msg = json_result.get('message')
+            if isinstance(failed_msg, dict):
+                failed_msg = failed_msg.get('text')
+            tools_log.log_warning(failed_msg)
         return json_result
 
     try:

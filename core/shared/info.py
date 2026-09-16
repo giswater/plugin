@@ -1906,7 +1906,7 @@ class GwInfo(QObject):
                 epa_type_changed = True
                 new_epa_type_value = _json.get('epa_type')
 
-            json_result = tools_gw.execute_procedure('gw_fct_setfields', body)
+            json_result = tools_gw.execute_procedure('gw_fct_setfields', body, show_exception=False)
             if not json_result:
                 return False
 
