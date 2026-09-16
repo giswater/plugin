@@ -1975,3 +1975,23 @@ UPDATE config_toolbox
   }
 ]'::json
 	WHERE id=2760;
+
+-- config_style.id sequence (nextval starts at MAX(id)+1)
+CREATE SEQUENCE IF NOT EXISTS config_style_id_seq
+  INCREMENT BY 1
+  MINVALUE 1
+  MAXVALUE 2147483647
+  START 1
+  CACHE 1
+  NO CYCLE;
+
+ALTER TABLE config_style ALTER COLUMN id SET DEFAULT nextval('config_style_id_seq'::regclass);
+ALTER SEQUENCE config_style_id_seq OWNED BY config_style.id;
+
+SELECT setval(
+  'config_style_id_seq',
+  COALESCE((SELECT max(id) FROM config_style), 1),
+  true
+);
+
+GRANT USAGE, SELECT, UPDATE ON SEQUENCE config_style_id_seq TO role_basic;

@@ -36,6 +36,10 @@ SELECT col_type_is('config_style', 'addparam', 'json', 'Column addparam should b
 SELECT col_type_is('config_style', 'is_templayer', 'bool', 'Column is_templayer should be bool');
 SELECT col_type_is('config_style', 'active', 'bool', 'Column active should be bool');
 
+-- Check sequence
+SELECT has_sequence('config_style_id_seq'::name, 'Sequence config_style_id_seq should exist');
+SELECT col_has_default('config_style', 'id', 'Column id should have default value');
+
 -- Finish
 SELECT * FROM finish();
 
