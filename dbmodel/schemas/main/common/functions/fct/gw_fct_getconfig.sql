@@ -103,10 +103,10 @@ BEGIN
 		-- Get all parameters from audit_cat param_user
 		v_querystring = concat('SELECT (array_agg(row_to_json(a))) FROM (
 
-			SELECT label, widgetname, value , datatype, widgettype, layoutorder, layoutname,iseditable, row_number()over(ORDER BY layoutname, layoutorder) AS orderby, isparent, sys_role, project_type, widgetcontrols::json,
+			SELECT label, widgetname, value , datatype, widgettype, ismandatory, layoutorder, layoutname,iseditable, row_number()over(ORDER BY layoutname, layoutorder) AS orderby, isparent, sys_role, project_type, widgetcontrols::json,
 			checked, placeholder, tooltip, dv_parent_id, dv_querytext, dv_querytext_filterc, dv_orderby_id, dv_isnullvalue FROM (
 			
-				SELECT label, sys_param_user.id as widgetname, value , datatype, widgettype, layoutorder, layoutname,
+				SELECT label, sys_param_user.id as widgetname, value , datatype, widgettype, ismandatory, layoutorder, layoutname,
 					(CASE WHEN iseditable IS NULL OR iseditable IS TRUE THEN True ELSE False END) AS iseditable,
 					isparent, sys_role, project_type, widgetcontrols::text,
 					(CASE WHEN value IS NOT NULL AND value != ''false'' THEN True ELSE False END) AS checked, placeholder, descript AS tooltip, 
@@ -120,7 +120,7 @@ BEGIN
 					AND (sys_param_user.id <> ''multilang_language'' OR to_regclass(''multilang.cat_language'') IS NOT NULL)
 					AND sys_param_user.id NOT LIKE ''feat_%''
 					UNION
-				SELECT label, sys_param_user.id as widgetname, value , datatype, widgettype, layoutorder, layoutname,
+				SELECT label, sys_param_user.id as widgetname, value , datatype, widgettype, ismandatory, layoutorder, layoutname,
 					(CASE WHEN iseditable IS NULL OR iseditable IS TRUE THEN True ELSE False END) AS iseditable,
 					isparent, sys_role, project_type, widgetcontrols::text,
 					(CASE WHEN value IS NOT NULL AND value != ''false'' THEN True ELSE False END) AS checked, placeholder, sys_param_user.descript AS tooltip, 

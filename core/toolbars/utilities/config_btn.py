@@ -104,13 +104,26 @@ class GwConfigButton(GwAction):
 
         self._hide_void_tab(self.json_result['body']['form']['formTabs'][0], 'tab_addfields', 'lyt_addfields')
 
+        self._current_tab_index = self.tab_main.currentIndex()
         self.tab_main.currentChanged.connect(partial(self._tab_activation))
 
-    def _tab_activation(self):
+    def _tab_activation(self, index_tab=None):
         """ Call functions depend on tab selection """
 
-        # Get index of selected tab
-        index_tab = self.tab_main.currentIndex()
+        if index_tab is None:
+            index_tab = self.tab_main.currentIndex()
+
+        previous_index = self._current_tab_index
+        if index_tab != previous_index:
+            previous_tab = self.tab_main.widget(previous_index)
+            if not self._validate_mandatory_parameters(previous_tab):
+                self.tab_main.blockSignals(True)
+                self.tab_main.setCurrentIndex(previous_index)
+                self.tab_main.blockSignals(False)
+                self._show_missing_mandatory_warning()
+                return
+            self._current_tab_index = index_tab
+
         grbox_list = self.tab_main.widget(index_tab).findChildren(QGroupBox)
         layoutname_list = []
         layout_list = self.tab_main.widget(index_tab).findChildren(QGridLayout)
@@ -194,6 +207,10 @@ class GwConfigButton(GwAction):
 
     def _update_values(self):
 
+        if not self._validate_mandatory_parameters():
+            self._show_missing_mandatory_warning()
+            return False
+
         my_json = json.dumps(self.list_update)
         extras = f'"fields":{my_json}'
         body = tools_gw.create_body(form='"formName":"config"', extras=extras)
@@ -212,6 +229,35 @@ class GwConfigButton(GwAction):
         tools_qgis.show_info(msg)
         # Close dialog
         tools_gw.close_dialog(self.dlg_config)
+
+    def _show_missing_mandatory_warning(self):
+        msg = "Some mandatory values are missing. Please check the widgets marked in red."
+        tools_qgis.show_warning(msg, dialog=self.dlg_config)
+
+    def _validate_mandatory_parameters(self, tab_widget=None):
+        """Reject unchecked mandatory overrides; boolean checkboxes represent a value and are exempt."""
+
+        is_valid = True
+        user_tabs = self.json_result.get('body', {}).get('form', {}).get('formTabs', [])
+        if not user_tabs:
+            return is_valid
+
+        for field in user_tabs[0].get('fields', []):
+            if field.get('ismandatory') is not True or field.get('widgettype') in ('check', 'checkbox'):
+                continue
+
+            chk = self.dlg_config.findChild(QCheckBox, f"chk_{field['widgetname']}")
+            if chk is None:
+                continue
+            if tab_widget is not None and not tab_widget.isAncestorOf(chk):
+                continue
+
+            chk.setStyleSheet(None)
+            if not chk.isChecked():
+                chk.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
+                is_valid = False
+
+        return is_valid
 
     def _get_multilang_language(self):
         """Return current multilang_language preference for the user, or None."""
@@ -274,6 +320,9 @@ class GwConfigButton(GwAction):
                             self.chk.setChecked(True)
                         elif field['checked'] in ('false', 'False', 'FALSE', False):
                             self.chk.setChecked(False)
+                        if field.get('ismandatory') is True and field['widgettype'] not in ('check', 'checkbox'):
+                            self.chk.setChecked(True)
+                            self.chk.setEnabled(False)
                         self.chk.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
                     if field['widgettype'] in ('text', 'linetext', 'typeahead'):
