@@ -1423,8 +1423,13 @@ class GwAsyncComboBox(QComboBox):
     def has_loaded_rows(self) -> bool:
         return bool(self.property('rows_loaded'))
 
-    def start_loading(self, query: str) -> None:
-        """Begin (or restart) loading the combo's items in the background."""
+    def start_loading(self, query: str, use_cache: bool = True) -> None:
+        """Begin (or restart) loading the combo's items in the background.
+
+        ``use_cache=False`` forces a DB round-trip. Needed when the source
+        table can change in-session (status-bar psector combo after create).
+        Fresh rows are still written into the cache.
+        """
         if not query:
             # Child combo waiting for a parent value, or an intentional no-op.
             # Keep the placeholder; do not mark rows as loaded with an empty model
@@ -1438,12 +1443,13 @@ class GwAsyncComboBox(QComboBox):
         self._token += 1
         token = self._token
 
-        cached_rows = get_combo_rows_cached(query)
-        if cached_rows is not None:
-            self._loading = False
-            self._task = None
-            self.apply_rows(cached_rows)
-            return
+        if use_cache:
+            cached_rows = get_combo_rows_cached(query)
+            if cached_rows is not None:
+                self._loading = False
+                self._task = None
+                self.apply_rows(cached_rows)
+                return
 
         self._loading = True
         self.setProperty('rows_loaded', False)
@@ -1458,7 +1464,7 @@ class GwAsyncComboBox(QComboBox):
             self._task = None
 
         description = f"GwAsyncComboBox load {self.objectName() or '(no name)'}"
-        task = GwComboLoaderTask(description, query, token)
+        task = GwComboLoaderTask(description, query, token, use_cache=use_cache)
         task.rows_loaded.connect(self._on_rows_loaded)
         self._task = task
         QgsApplication.taskManager().addTask(task)

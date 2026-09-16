@@ -7838,7 +7838,15 @@ def _change_plan_mode_buttons(enable, psector_id, update_cmb_psector_id=False, c
 
 
 def fill_cmb_psector_id(cmb_psector_id, psector_id=None):
-    """Fill cmb_psector_id asynchronously."""
+    """Fill cmb_psector_id asynchronously.
+
+    Always hits the DB: this combo's source (`v_ui_plan_psector`) changes
+    when the user creates/deletes/duplicates a psector, and the async combo
+    cache would otherwise keep serving the pre-create list.
+    """
+    if cmb_psector_id is None:
+        return
+
     sql = (
         "SELECT psector_id AS id, name AS idval "
         "FROM v_ui_plan_psector WHERE archived = false ORDER BY id ASC"
@@ -7846,10 +7854,17 @@ def fill_cmb_psector_id(cmb_psector_id, psector_id=None):
 
     disconnect_signal("psignals", "fill_cmb_psector_id_currentIndexChanged_manage_psector_change")
 
-    if psector_id is not None:
-        tools_qt.set_combo_value(cmb_psector_id, psector_id, 0, add_new=False)
+    if psector_id is None:
+        current = tools_qt.get_combo_value(None, cmb_psector_id)
+        if current not in (None, '', -1, 'None'):
+            psector_id = current
 
-    cmb_psector_id.start_loading(sql)
+    # Reload first so rows_loaded is False; then stash the selection. If we
+    # set_pending_selection while the old list is still loaded, a hit on the
+    # previous rows clears pending and apply_rows falls back to index 0.
+    cmb_psector_id.start_loading(sql, use_cache=False)
+    if psector_id is not None:
+        cmb_psector_id.set_pending_selection(psector_id, 0)
 
     connect_signal(
         cmb_psector_id.currentIndexChanged,

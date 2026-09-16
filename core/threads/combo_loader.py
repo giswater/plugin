@@ -85,11 +85,12 @@ def _invalidate_thread_aux_conn() -> None:
         pass
 
 
-def _execute_combo_query(query: str):
+def _execute_combo_query(query: str, use_cache: bool = True):
     """Run ``query`` and return ``(rows, error)``."""
-    cached = get_combo_rows_cached(query)
-    if cached is not None:
-        return cached, ""
+    if use_cache:
+        cached = get_combo_rows_cached(query)
+        if cached is not None:
+            return cached, ""
 
     conn, err = _borrow_thread_aux_conn()
     if conn is None:
@@ -128,11 +129,12 @@ class GwComboLoaderTask(QgsTask, QObject):
     # token, rows (list of psycopg2 DictRow / tuples), error (str, '' on success)
     rows_loaded = pyqtSignal(int, list, str)
 
-    def __init__(self, description: str, query: str, token: int):
+    def __init__(self, description: str, query: str, token: int, use_cache: bool = True):
         QObject.__init__(self)
         QgsTask.__init__(self, description, QgsTask.Flag.CanCancel)
         self._query = query
         self._token = token
+        self._use_cache = use_cache
         self._rows = []
         self._error = ""
 
@@ -144,7 +146,7 @@ class GwComboLoaderTask(QgsTask, QObject):
         if self.isCanceled():
             return False
 
-        self._rows, self._error = _execute_combo_query(self._query)
+        self._rows, self._error = _execute_combo_query(self._query, self._use_cache)
         return not self._error
 
     def finished(self, result: bool) -> None:
