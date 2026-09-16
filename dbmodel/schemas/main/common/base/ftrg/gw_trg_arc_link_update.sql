@@ -13,8 +13,12 @@ CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_trg_arc_link_update()
 $BODY$
 
 /*
-This function redraws links when arc geometry is updated
-It works over ve_link, wich means that is mandatory to activate psectors in order to do not disconnect planned links
+This function redraws links when arc geometry is updated.
+
+Topology is taken from link.exit_id (not connec.arc_id): planned links store the
+arc on the link / plan_psector_x_* row, while connec.arc_id stays on the operative arc.
+
+It is mandatory to activate psectors in order to not disconnect planned links.
 */
 
 DECLARE
@@ -53,24 +57,27 @@ BEGIN
 			"data":{"message":"3180", "function":"2542","parameters":{"debugmsg":"'||v_debugmsg||'"}}}$$);';
 		END IF;
 
-		-- Redraw endpoint of link
-		FOR v_link IN SELECT link.* FROM connec JOIN link ON link.feature_id=connec_id
-		WHERE exit_type='ARC' AND arc_id=NEW.arc_id
-		LOOP
-			SELECT St_closestpoint(a.the_geom, St_endpoint(v_link.the_geom)) INTO v_closest_point FROM arc a WHERE arc_id = NEW.arc_id AND a.state > 0;
-			EXECUTE 'UPDATE link SET the_geom = ST_SetPoint($1, ST_NumPoints($1) - 1, $2) WHERE link_id = ' || quote_literal(v_link."link_id")
-			USING v_link.the_geom, v_closest_point;
-		END LOOP;
-
 		IF v_projecttype = 'UD' THEN
-			FOR v_link IN SELECT link.* FROM gully JOIN link ON link.feature_id=gully_id
-			WHERE exit_type='ARC' AND arc_id=NEW.arc_id
-			LOOP
-				SELECT St_closestpoint(a.the_geom, St_endpoint(v_link.the_geom)) INTO v_closest_point FROM arc a WHERE arc_id = NEW.arc_id AND a.state > 0;
-				EXECUTE 'UPDATE link SET the_geom = ST_SetPoint($1, ST_NumPoints($1) - 1, $2) WHERE link_id = ' || quote_literal(v_link."link_id")
-				USING v_link.the_geom, v_closest_point;
-			END LOOP;
+			IF (SELECT count (*) FROM plan_psector_x_gully JOIN plan_psector USING (psector_id)
+			WHERE arc_id = NEW.arc_id AND state = 1 AND status IN (1,2) AND psector_id NOT IN (SELECT psector_id FROM selector_psector WHERE cur_user=current_user)) > 0 THEN
+
+				SELECT concat('Psector: ',string_agg(distinct name::text, ', ')) into v_debugmsg FROM plan_psector_x_gully JOIN plan_psector USING (psector_id)
+				WHERE arc_id = NEW.arc_id AND state = 1 AND status IN (1,2) AND psector_id NOT IN (SELECT psector_id FROM selector_psector WHERE cur_user=current_user);
+
+				EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+				"data":{"message":"3180", "function":"2542","parameters":{"debugmsg":"'||v_debugmsg||'"}}}$$);';
+			END IF;
 		END IF;
+
+		-- Redraw endpoint of every link that exits onto this arc (operative and planned)
+		FOR v_link IN
+			SELECT * FROM link
+			WHERE exit_type = 'ARC' AND exit_id = NEW.arc_id
+		LOOP
+			v_closest_point := ST_ClosestPoint(NEW.the_geom, ST_EndPoint(v_link.the_geom));
+			UPDATE link SET the_geom = ST_SetPoint(v_link.the_geom, ST_NumPoints(v_link.the_geom) - 1, v_closest_point)
+			WHERE link_id = v_link.link_id;
+		END LOOP;
     END IF;
 
     RETURN NEW;
