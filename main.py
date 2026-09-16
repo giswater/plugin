@@ -117,6 +117,12 @@ class Giswater(QObject):
             tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
 
         try:
+            tools_gw.disconnect_signal('mapzone_paste')
+        except Exception as e:
+            msg_params = ("mapzone_paste",)
+            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
+
+        try:
             # Remove 'Main Info button'
             self._unset_info_button()
         except Exception as e:

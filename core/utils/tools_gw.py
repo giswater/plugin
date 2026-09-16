@@ -2170,6 +2170,88 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
             layer.setFieldAlias(field_index, normalize_label(field.name(), add_colon=False))
 
 
+_MAPZONE_ARRAY_FK_FIELDS = ('expl_id', 'muni_id', 'sector_id')
+
+
+def _field_is_int_array(field):
+    type_name = (field.typeName() or '').lower().replace(' ', '')
+    if '[]' in type_name or type_name.startswith('_int') or type_name in ('_int4', 'int4[]', 'integer[]'):
+        return True
+    return field.type() in (QVariant.List, QVariant.StringList)
+
+
+def _coerce_scalar_to_int_list(value):
+    """Wrap a pasted scalar PK into int[] so QGIS does not INSERT integer into integer[]."""
+    if value is None or value == '':
+        return None
+    if isinstance(value, (list, tuple)):
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return [int(value)]
+    if isinstance(value, str):
+        text = value.strip()
+        if text.isdigit() or (text.startswith('-') and text[1:].isdigit()):
+            return [int(text)]
+    return None
+
+
+def _on_mapzone_feature_added(layer, feature_id):
+    """Paste from exploitation (expl_id int) into a mapzone (expl_id int4[]): wrap and show form."""
+    if layer is None or isdeleted(layer):
+        return
+    feature = tools_qt.get_feature_by_id(layer, feature_id)
+    if not feature:
+        return
+    changed = False
+    for name in _MAPZONE_ARRAY_FK_FIELDS:
+        idx = layer.fields().indexFromName(name)
+        if idx < 0 or not _field_is_int_array(layer.fields().field(idx)):
+            continue
+        coerced = _coerce_scalar_to_int_list(feature.attribute(idx))
+        if coerced is None:
+            continue
+        feature.setAttribute(idx, coerced)
+        changed = True
+    if not changed:
+        return
+    layer.updateFeature(feature)
+    iface = global_vars.iface
+    if iface is None:
+        return
+    if not iface.openFeatureForm(layer, feature):
+        layer.deleteFeature(feature.id())
+
+
+def hook_mapzone_array_fk_paste():
+    """Hook mapzone layers so paste from scalar expl_id/muni_id does not fail commit."""
+    disconnect_signal('mapzone_paste')
+    schema = str(lib_vars.schema_name or '').replace('"', '').lower()
+    if not schema:
+        return
+    for layer in tools_qgis.get_project_layers():
+        layer_schema = tools_qgis.get_layer_schema(layer)
+        if not layer_schema:
+            layer_schema = (tools_qgis.get_layer_source(layer).get('schema') or '')
+        if str(layer_schema).replace('"', '').lower() != schema:
+            continue
+        has_array_fk = False
+        for name in _MAPZONE_ARRAY_FK_FIELDS:
+            idx = layer.fields().indexFromName(name)
+            if idx >= 0 and _field_is_int_array(layer.fields().field(idx)):
+                has_array_fk = True
+                break
+        if not has_array_fk:
+            continue
+        connect_signal(
+            layer.featureAdded,
+            partial(_on_mapzone_feature_added, layer),
+            'mapzone_paste',
+            'featureAdded_{0}'.format(layer.id()),
+        )
+
+
 def load_missing_layers(filter, group="GW Layers", sub_group=None):
     """ Adds any missing Mincut layers to TOC """
 

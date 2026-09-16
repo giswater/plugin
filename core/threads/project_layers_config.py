@@ -83,6 +83,8 @@ class GwProjectLayersConfig(GwTask):
             for layer, field_index, field, value_relation, layer_name in self.vr_pending:
                 tools_gw._apply_value_relation(layer, field_index, field, value_relation, layer_name, thread=None)
 
+        tools_gw.hook_mapzone_array_fk_paste()
+
         # Select the layer called 've_node'
         layer = tools_qgis.get_layer_by_tablename('ve_node')
         if layer:
