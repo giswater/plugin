@@ -740,6 +740,8 @@ BEGIN
 				END IF;
 			END IF;
 
+
+
 			INSERT INTO link (link_id, code, feature_type, feature_id, expl_id, exit_id, exit_type, userdefined_geom, state, the_geom, sector_id,
 			fluid_type, omzone_id, dqa_id, presszone_id, minsector_id, linkcat_id, workcat_id, workcat_id_end, builtdate, enddate,
 			uncertain, muni_id, verified, datasource, top_elev1, depth1, top_elev2, depth2, location_type, custom_length, annotation,
@@ -753,6 +755,23 @@ BEGIN
 			IF NEW.linkcat_id IS NULL THEN
 				v_linkcat_id = (SELECT value FROM config_param_user WHERE parameter = 'edit_linkcat_vdefault' AND "cur_user"="current_user"() LIMIT 1);
 				NEW.linkcat_id = v_linkcat_id;
+			END IF;
+
+			-- Link type
+			IF NEW.link_type IS NULL THEN
+				-- get it from relation on cat_link
+				IF NEW.link_type IS NULL THEN
+					NEW.link_type:= (SELECT c.id FROM cat_feature_link c JOIN cat_link s ON c.id = s.link_type WHERE s.id=NEW.linkcat_id);
+				END IF;
+
+				-- get it from vdefault
+				IF NEW.link_type IS NULL AND v_man_table='parent' THEN
+					NEW.link_type := (SELECT "value" FROM config_param_user WHERE "parameter"='edit_linktype_vdefault' AND "cur_user"="current_user"() LIMIT 1);
+				END IF;
+
+				IF NEW.link_type IS NULL AND v_man_table != 'parent' THEN
+					NEW.link_type := (SELECT id FROM cat_feature_link c JOIN cat_feature cf ON cf.id = c.id JOIN sys_feature_class s ON cf.feature_class = s.id WHERE man_table=v_man_table LIMIT 1);
+				END IF;
 			END IF;
 
 			IF NEW.top_elev1 IS NULL THEN
@@ -963,11 +982,11 @@ BEGIN
 		userdefined_geom = v_userdefined_geom, linkcat_id = NEW.linkcat_id
 		WHERE link_id=NEW.link_id;
 
-		IF v_man_table IN ('VLINK', 'man_vlink') THEN
+		IF v_man_table = 'man_vlink' THEN
 			UPDATE man_vlink SET link_id = NEW.link_id WHERE link_id = OLD.link_id;
-		ELSIF v_man_table IN ('CONDUITLINK', 'man_conduitlink') THEN
+		ELSIF v_man_table = 'man_conduitlink' THEN
 			UPDATE man_conduitlink SET link_id = NEW.link_id WHERE link_id = OLD.link_id;
-		ELSIF v_man_table IN ('PIPELINK', 'man_pipelink') THEN
+		ELSIF v_man_table = 'man_pipelink' THEN
 			UPDATE man_pipelink SET link_id = NEW.link_id WHERE link_id = OLD.link_id;
 		ELSIF v_man_table='parent' THEN
 			v_man_table := (SELECT man_table FROM cat_feature_link c JOIN cat_feature cf ON cf.id = c.id JOIN sys_feature_class s ON cf.feature_class = s.id WHERE c.id = NEW.link_type);
