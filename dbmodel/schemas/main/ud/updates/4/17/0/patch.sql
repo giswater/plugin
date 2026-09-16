@@ -2906,3 +2906,39 @@ VALUES(732, 'Check if defined nodeParent is operative for dwfzone', 'ws', NULL, 
 'SELECT b.node_id, b.dwfzone_id as zone_id FROM (
 SELECT dwfzone_id, graphconfig::json->''use''->0->>''nodeParent''::integer as node_id FROM t_dwfzone)b 
 WHERE node_id::text not in (select node_id FROM node WHERE state=1)', 'All nodes defined as nodeParent on dwfzone exists on DB.', '[gw_fct_graphanalytics_check_data]', NULL);
+
+UPDATE config_toolbox
+	SET inputparams='[
+  {
+    "comboIds": [
+      "allValues",
+      "nullValues"
+    ],
+    "comboNames": [
+      "ALL VALUES",
+      "NULL ELEVATION VALUES"
+    ],
+    "datatype": "text",
+    "label": "Values to update:",
+    "layoutname": "grl_option_parameters",
+    "layoutorder": 1,
+    "selectedId": null,
+    "value": null,
+    "widgetname": "updateValues",
+    "widgettype": "combo"
+  },
+  {
+    "label": "Update field: ",
+    "value": null,
+    "datatype": "text",
+    "dvparentid": "node_type",
+    "layoutname": "grl_option_parameters",
+    "parentname": "cmb_feature_type",
+    "widgetname": "updateField",
+    "widgettype": "combo",
+    "dvQueryText": "SELECT column_name AS id, column_name AS idval FROM (VALUES (''custom_top_elev''),(''top_elev''),(''elevation'')) AS t(column_name)",
+    "filterquery": "WITH candidates AS (SELECT * FROM (VALUES (''custom_top_elev''),(''top_elev''),(''elevation'')) AS t(column_name)) SELECT c.column_name as id, c.column_name as idval FROM candidates c JOIN information_schema.columns isc ON isc.table_schema = current_schema() AND isc.table_name = lower(''{parent_value}'') AND isc.column_name = c.column_name",
+    "layoutorder": 8
+  }
+]'::json
+	WHERE id=2760;

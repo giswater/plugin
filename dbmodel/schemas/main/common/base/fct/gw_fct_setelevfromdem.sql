@@ -66,6 +66,7 @@ BEGIN
 	v_worklayer := ((p_data ->>'feature')::json->>'tableName')::text;
 	v_feature_type := lower(((p_data ->>'feature')::json->>'featureType'))::text;
 	v_updatevalues :=  ((p_data ->>'data')::json->>'parameters')::json->>'updateValues'::text;
+	v_update_field :=  ((p_data ->>'data')::json->>'parameters')::json->>'updateField'::text;
 
 	select string_agg(quote_literal(a),',') into v_array from json_array_elements_text(v_id) a;
 
@@ -82,7 +83,10 @@ BEGIN
 	ELSIF (SELECT json_extract_path_text(value::json,'activated')::boolean FROM config_param_system WHERE parameter='admin_raster_dem') IS TRUE THEN
 
 		--select update field
-		SELECT json_extract_path_text(value::json,'updateField') INTO v_update_field FROM config_param_system WHERE parameter='admin_raster_dem';
+
+		IF v_update_field IS NULL THEN
+			SELECT json_extract_path_text(value::json,'updateField') INTO v_update_field FROM config_param_system WHERE parameter='admin_raster_dem';
+		END IF;
 
 		IF v_update_field NOT IN ('elevation', 'custom_top_elev', 'top_elev') THEN
 			EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
@@ -108,7 +112,7 @@ BEGIN
 				IF v_project_type = 'WS' and v_feature_type='vnode' THEN
 					v_query = 'SELECT '||v_feature_type||'_id as feature_id, elev as elevation, the_geom, state, expl_id FROM '||v_worklayer||' WHERE elev IS NULL';
 				ELSE
-					v_query = 'SELECT '||v_feature_type||'_id as feature_id, top_elev as elevation, the_geom, state, expl_id FROM '||v_worklayer||' WHERE top_elev IS NULL';
+					v_query = 'SELECT '||v_feature_type||'_id as feature_id, top_elev as elevation, the_geom, state, expl_id FROM '||v_worklayer||' WHERE '||v_update_field||' IS NULL';
 
 				END IF;
 
