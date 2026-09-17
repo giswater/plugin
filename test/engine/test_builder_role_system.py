@@ -87,14 +87,12 @@ def test_load_base_runs_as_installer_init_sql_sets_role(tmp_path: Path):
     joined = "\n".join(conn.sql)
     init_pos = joined.index("-- init")
     reload_pos = joined.index("-- reload fn")
-    assert joined.count("SET ROLE role_system") == 1
-    # init.sql opens with RESET; load_base ends with another RESET after init's SET ROLE.
-    assert joined.count("RESET ROLE") == 2
-    # load_base runs as installer then role_system via init.sql; reload_fct_ftrg runs as installer.
-    assert init_pos < joined.index("SET ROLE role_system") < reload_pos
-    # updates/load_sample need superuser (DISABLE TRIGGER ALL in legacy patches)
-    assert "-- update patch" in joined
     update_pos = joined.index("-- update patch")
-    reset_pos = joined.rindex("RESET ROLE", 0, update_pos)
-    assert update_pos > reset_pos
-    assert "SET ROLE role_system" not in joined[update_pos:]
+    sample_pos = joined.index("-- sample")
+    # init.sql SET ROLE; builder RESET after load_base; later phases stay installer.
+    assert joined.count("SET ROLE role_system") == 1
+    assert init_pos < joined.index("SET ROLE role_system") < reload_pos
+    reset_after_base = joined.index("RESET ROLE", joined.index("SET ROLE role_system"))
+    assert reset_after_base < update_pos
+    assert "SET ROLE role_system" not in joined[reset_after_base:sample_pos]
+    assert joined.rstrip().endswith("RESET ROLE;")

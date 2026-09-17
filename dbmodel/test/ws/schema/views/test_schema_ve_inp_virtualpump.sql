@@ -24,7 +24,7 @@ SELECT columns_are(
         'arc_id', 'node_1', 'node_2', 'arccat_id', 'sector_id', 'state',
         'state_type', 'annotation', 'expl_id', 'dma_id', 'power', 'curve_id',
         'speed', 'pattern_id', 'status', 'effic_curve_id', 'energy_price', 'energy_pattern_id',
-        'pump_type', 'the_geom'
+        'pump_type', 'the_geom', 'p_state'
     ],
     'View ve_inp_virtualpump should have the correct columns'
 );
@@ -50,6 +50,7 @@ SELECT col_type_is('ve_inp_virtualpump', 'energy_price', 'float8', 'Column energ
 SELECT col_type_is('ve_inp_virtualpump', 'energy_pattern_id', 'varchar(18)', 'Column energy_pattern_id should be varchar(18)');
 SELECT col_type_is('ve_inp_virtualpump', 'pump_type', 'varchar(16)', 'Column pump_type should be varchar(16)');
 SELECT col_type_is('ve_inp_virtualpump', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_virtualpump', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

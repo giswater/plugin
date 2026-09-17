@@ -55,8 +55,11 @@ jobs:
           python3 -m pip install -e .
           python3 -m pip install pytest
 
+      # test/engine is a package under the QGIS plugin repo. Collecting it
+      # imports repo-root __init__.py. That file must not require qgis
+      # (0.4.1 never reached PyPI: ModuleNotFoundError: qgis).
       - name: Run CLI tests
-        run: python3 -m pytest test/cli/ test/engine/ -q
+        run: python3 -m pytest test/cli/ test/engine/ -q --import-mode=importlib
 
       - name: Install build tools
         run: python3 -m pip install --upgrade build

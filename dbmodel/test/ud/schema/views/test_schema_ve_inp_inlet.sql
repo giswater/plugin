@@ -25,7 +25,7 @@ SELECT columns_are(
         'sys_elev', 'nodecat_id', 'sector_id', 'macrosector_id', 'state', 'state_type',
         'annotation', 'expl_id', 'the_geom', 'depth', 'y0', 'ysur',
         'apond', 'inlet_type', 'outlet_type', 'gully_method', 'custom_top_elev', 'custom_depth',
-        'inlet_length', 'inlet_width', 'cd1', 'cd2', 'efficiency'
+        'inlet_length', 'inlet_width', 'cd1', 'cd2', 'efficiency', 'p_state'
     ],
     'View ve_inp_inlet should have the correct columns'
 );
@@ -60,6 +60,7 @@ SELECT col_type_is('ve_inp_inlet', 'inlet_width', 'float8', 'Column inlet_width 
 SELECT col_type_is('ve_inp_inlet', 'cd1', 'float8', 'Column cd1 should be float8');
 SELECT col_type_is('ve_inp_inlet', 'cd2', 'float8', 'Column cd2 should be float8');
 SELECT col_type_is('ve_inp_inlet', 'efficiency', 'float8', 'Column efficiency should be float8');
+SELECT col_type_is('ve_inp_inlet', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

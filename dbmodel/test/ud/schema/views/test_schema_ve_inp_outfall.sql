@@ -24,7 +24,7 @@ SELECT columns_are(
         'node_id', 'top_elev', 'custom_top_elev', 'ymax', 'elev', 'custom_elev',
         'sys_elev', 'nodecat_id', 'sector_id', 'macrosector_id', 'state', 'state_type',
         'annotation', 'expl_id', 'outfall_type', 'stage', 'curve_id', 'timser_id',
-        'gate', 'route_to', 'the_geom'
+        'gate', 'route_to', 'the_geom', 'p_state'
     ],
     'View ve_inp_outfall should have the correct columns'
 );
@@ -51,6 +51,7 @@ SELECT col_type_is('ve_inp_outfall', 'timser_id', 'varchar(16)', 'Column timser_
 SELECT col_type_is('ve_inp_outfall', 'gate', 'varchar(3)', 'Column gate should be varchar(3)');
 SELECT col_type_is('ve_inp_outfall', 'route_to', 'varchar(16)', 'Column route_to should be varchar(16)');
 SELECT col_type_is('ve_inp_outfall', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_outfall', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

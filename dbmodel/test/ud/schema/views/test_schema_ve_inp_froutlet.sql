@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_froutlet',
     ARRAY[
         'element_id', 'node_id', 'to_arc', 'flwreg_length', 'outlet_type', 'offsetval',
-        'curve_id', 'cd1', 'cd2', 'flap', 'the_geom'
+        'curve_id', 'cd1', 'cd2', 'flap', 'the_geom', 'p_state'
     ],
     'View ve_inp_froutlet should have the correct columns'
 );
@@ -39,6 +39,7 @@ SELECT col_type_is('ve_inp_froutlet', 'cd1', 'numeric(12,4)', 'Column cd1 should
 SELECT col_type_is('ve_inp_froutlet', 'cd2', 'numeric(12,4)', 'Column cd2 should be numeric(12,4)');
 SELECT col_type_is('ve_inp_froutlet', 'flap', 'varchar(3)', 'Column flap should be varchar(3)');
 SELECT col_type_is('ve_inp_froutlet', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_froutlet', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

@@ -38,9 +38,6 @@ BEGIN
 		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'DMA', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
-		IF NEW.code IS NULL THEN
-			NEW.code := NEW.dma_id::text;
-		END IF;
 
 		-- active
 		IF NEW.active IS NULL THEN

@@ -23,6 +23,7 @@ DECLARE
     -- configuration
     v_project_type TEXT;
     v_version TEXT;
+    v_minlength float;
 
     -- parameters
     v_fct_name TEXT;
@@ -34,6 +35,9 @@ DECLARE
     v_return_message TEXT;
     v_mapzone_field text;
     v_query_text_exploitation TEXT;
+    v_query_text_epa TEXT;
+    v_query_text_epa_connec TEXT;
+    v_query_text_minlength TEXT;
 
     -- CHECKS
     v_arc_list TEXT;
@@ -51,6 +55,10 @@ BEGIN
     v_fct_type = (SELECT (p_data::json->>'data')::json->>'fct_type');
     v_action = (SELECT (p_data::json->>'data')::json->>'action');
     v_use_psector = (SELECT (p_data::json->>'data')::json->>'use_psector');
+
+    IF v_project_type = 'WS' THEN
+        v_minlength := (SELECT value FROM config_param_system WHERE parameter = 'epa_arc_minlength');
+    END IF;
 
     IF v_action = 'CREATE' THEN
         -- Create temporary tables
@@ -311,6 +319,23 @@ BEGIN
             v_query_text_exploitation := 'AND array_append(t.expl_visibility, t.expl_id) && (SELECT array_agg(expl_id) FROM vf_exploitation)';
         END IF;
 
+        IF v_fct_name = 'SECTOR' THEN
+            v_query_text_epa := 'AND t.epa_type <> ''UNDEFINED''';
+            
+            IF v_project_type = 'WS' THEN
+                v_query_text_epa_connec := 'AND t.epa_type <> ''UNDEFINED''';
+            ELSE
+                v_query_text_epa_connec := 'AND FALSE';
+            END IF;
+
+            IF v_project_type = 'WS' THEN
+                v_query_text_minlength := 'AND st_length(t.the_geom) >= ' || v_minlength;
+            ELSE
+                v_query_text_minlength := '';
+            END IF;
+
+        END IF;
+
         -- Create temporary views
         IF v_use_psector = 'true' THEN
             -- with psectors
@@ -343,10 +368,12 @@ BEGIN
                 WHERE COALESCE(pp.state, t.state) = 1
                 AND vst.is_operative = TRUE
                 %s
+                %s
+                %s
                 AND e.active = TRUE
                 AND t.node_1 IS NOT NULL
                 AND t.node_2 IS NOT NULL;
-            $sql$, v_mapzone_field, v_query_text_exploitation);
+            $sql$, v_mapzone_field, v_query_text_exploitation, v_query_text_epa, v_query_text_minlength);
 
             EXECUTE format($sql$
                 CREATE OR REPLACE TEMPORARY VIEW v_temp_node AS
@@ -409,8 +436,9 @@ BEGIN
                 WHERE COALESCE(pp.state, t.state) = 1
                 AND vst.is_operative = TRUE
                 %s
+                %s
                 AND e.active = TRUE;
-            $sql$, v_mapzone_field, v_query_text_exploitation);
+            $sql$, v_mapzone_field, v_query_text_exploitation, v_query_text_epa_connec);
 
             -- in psector mode elements does not change.
             EXECUTE format($sql$
@@ -499,8 +527,9 @@ BEGIN
                     WHERE COALESCE(pp.state, t.state) = 1
                     AND vst.is_operative = TRUE
                     %s
+                    %s
                     AND e.active = TRUE;
-                $sql$, v_mapzone_field, v_query_text_exploitation);
+                $sql$, v_mapzone_field, v_query_text_exploitation, v_query_text_epa);
 
             EXECUTE format($sql$
                 CREATE OR REPLACE TEMPORARY VIEW v_temp_link_gully AS
@@ -564,10 +593,12 @@ BEGIN
                 WHERE t.state = 1
                 AND vst.is_operative = TRUE
                 %s
+                %s
+                %s
                 AND e.active = TRUE
                 AND t.node_1 IS NOT NULL
                 AND t.node_2 IS NOT NULL;
-            $sql$, v_mapzone_field, v_query_text_exploitation);
+            $sql$, v_mapzone_field, v_query_text_exploitation, v_query_text_epa, v_query_text_minlength);
 
             EXECUTE format($sql$
                 CREATE OR REPLACE TEMPORARY VIEW v_temp_node AS
@@ -606,8 +637,9 @@ BEGIN
                 WHERE t.state = 1
                 AND vst.is_operative = TRUE
                 %s
+                %s
                 AND e.active = TRUE;
-            $sql$, v_mapzone_field, v_query_text_exploitation);
+            $sql$, v_mapzone_field, v_query_text_exploitation, v_query_text_epa_connec);
 
             EXECUTE format($sql$
                 CREATE OR REPLACE TEMPORARY VIEW v_temp_element AS
@@ -664,8 +696,9 @@ BEGIN
                     WHERE t.state = 1
                     AND vst.is_operative = TRUE
                     %s
+                    %s
                     AND e.active = TRUE;
-                $sql$, v_mapzone_field, v_query_text_exploitation);
+                $sql$, v_mapzone_field, v_query_text_exploitation, v_query_text_epa);
 
                 EXECUTE format($sql$
                     CREATE OR REPLACE TEMPORARY VIEW v_temp_link_gully AS

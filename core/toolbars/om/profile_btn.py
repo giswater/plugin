@@ -394,7 +394,11 @@ class GwProfileButton(GwAction):
             else:
                 if self.element_id == str(self.initNode) or self.element_id == str(self.endNode) \
                         or self.element_id in [str(x) for x in self.add_points_list]:
-                    msg = "Node already selected" if snapped_node else "Arc already selected"
+                    msg = ""
+                    if snapped_node:
+                        msg = "Node already selected"
+                    else:
+                        msg = "Arc already selected"
                     param = element_id
                     tools_qgis.show_warning(msg, parameter=param)
                     if not self.add_points:
@@ -422,7 +426,8 @@ class GwProfileButton(GwAction):
                         # Stay in add_points mode so the user can keep adding mid-features
                     else:
                         self.endNode = element_id
-                        tools_qgis.show_info("Node 2 selected", parameter=self.element_id)
+                        msg = "Node 2 selected"
+                        tools_qgis.show_info(msg, parameter=self.element_id)
                         # Defer DB + UI so messageBar paints (Qt handles paint after this event returns)
                         QTimer.singleShot(50, self._on_node2_selected_continue)
 

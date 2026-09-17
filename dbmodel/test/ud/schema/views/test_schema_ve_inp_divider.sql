@@ -24,7 +24,7 @@ SELECT columns_are(
         'node_id', 'top_elev', 'custom_top_elev', 'ymax', 'elev', 'custom_elev',
         'sys_elev', 'nodecat_id', 'sector_id', 'macrosector_id', 'state', 'state_type',
         'annotation', 'expl_id', 'divider_type', 'arc_id', 'curve_id', 'qmin',
-        'ht', 'cd', 'y0', 'ysur', 'apond', 'the_geom'
+        'ht', 'cd', 'y0', 'ysur', 'apond', 'the_geom', 'p_state'
     ],
     'View ve_inp_divider should have the correct columns'
 );
@@ -54,6 +54,7 @@ SELECT col_type_is('ve_inp_divider', 'y0', 'numeric(12,4)', 'Column y0 should be
 SELECT col_type_is('ve_inp_divider', 'ysur', 'numeric(12,4)', 'Column ysur should be numeric(12,4)');
 SELECT col_type_is('ve_inp_divider', 'apond', 'numeric(12,4)', 'Column apond should be numeric(12,4)');
 SELECT col_type_is('ve_inp_divider', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_divider', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

@@ -401,7 +401,6 @@ BEGIN
 					SELECT count(*) INTO v_count FROM link WHERE feature_id = v_feature_id_value AND state=2;
 
 					IF v_count > 0 THEN
-						RAISE EXCEPTION 'a';
 						EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
                 		"data":{"message":"4328", "function":"3068", "parameters":{}, "fid":"'||v_fid||'", "criticity":"1", "is_process":true}}$$)' INTO v_audit_result;
 					else

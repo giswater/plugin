@@ -11,21 +11,21 @@ UPDATE config_visit_parameter AS t SET descript = v.descript FROM (
     ('clean_connec', 'Clean of connec'),
     ('clean_gully', 'Clean of gully'),
     ('clean_link', 'Clean of link'),
+    ('clean_node', 'Clean of node'),
     ('defect_arc', 'Defects of arc'),
     ('defect_connec', 'Defects of connec'),
     ('defect_gully', 'Defects of gully'),
     ('defect_link', 'Defects of link'),
-    ('sediments_arc', 'Sediments in arc'),
-    ('sediments_connec', 'Sediments in connec'),
-    ('sediments_gully', 'Sediments in gully'),
-    ('sediments_link', 'Sediments in link'),
-    ('smells_gully', 'Smells of gully'),
-    ('clean_node', 'Clean of node'),
     ('defect_node', 'Defects of node'),
     ('incident_comment', 'incident_comment'),
     ('incident_type', 'incident type'),
     ('insp_observ', 'Inspection observations'),
     ('photo', 'Photography'),
-    ('sediments_node', 'Sediments in node')
+    ('sediments_arc', 'Sediments in arc'),
+    ('sediments_connec', 'Sediments in connec'),
+    ('sediments_gully', 'Sediments in gully'),
+    ('sediments_link', 'Sediments in link'),
+    ('sediments_node', 'Sediments in node'),
+    ('smells_gully', 'Smells of gully')
 ) AS v(id, descript)
 WHERE t.id = v.id;

@@ -40,7 +40,8 @@ SELECT columns_are(
         'inventory', 'publish', 'is_operative', 'inp_type', 'sector_style', 'omzone_style',
         'drainzone_style', 'dwfzone_style', 'lock_level', 'expl_visibility', 'created_at', 'created_by',
         'updated_at', 'updated_by', 'the_geom', 'p_state', 'uuid', 'treatment_type',
-        'xyz_date', 'has_treatment', 'grate_param_1', 'grate_param_2', 'dataquality', 'dataquality_obs'
+        'xyz_date', 'has_treatment', 'grate_param_1', 'grate_param_2', 'dataquality', 'dataquality_obs',
+        'p_arc_id', 'p_pjoint_id', 'p_pjoint_type'
     ],
     'View ve_gully_pgully should have the correct columns'
 );
@@ -167,6 +168,9 @@ SELECT col_type_is('ve_gully_pgully', 'grate_param_2', 'bool', 'Column grate_par
 
 SELECT col_type_is('ve_gully_pgully', 'dataquality', 'int4', 'Column dataquality should be int4');
 SELECT col_type_is('ve_gully_pgully', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
+SELECT col_type_is('ve_gully_pgully', 'p_arc_id', 'int4', 'Column p_arc_id should be int4');
+SELECT col_type_is('ve_gully_pgully', 'p_pjoint_id', 'int4', 'Column p_pjoint_id should be int4');
+SELECT col_type_is('ve_gully_pgully', 'p_pjoint_type', 'varchar(16)', 'Column p_pjoint_type should be varchar(16)');
 
 SELECT * FROM finish();
 

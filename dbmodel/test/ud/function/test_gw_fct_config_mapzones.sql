@@ -11,8 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 5 test
-SELECT plan(5);
+SELECT plan(7);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -56,6 +55,14 @@ SELECT is (
 );
 
 SELECT is (
+    ((gw_fct_config_mapzones($${"client":{"device":4, "lang":"NULL", "infoType":1, "epsg":25831}, "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{},
+    "parameters": {"action": "ADD", "configZone": "drainzone", "mapzoneId": "-1", "forceClosed": ["82"], "config": {"use": [{"nodeParent": "82"}], "ignore": [],
+    "forceClosed": []}}}}$$)::json)->'body'->'data'->'preview'->'forceClosed')::text,
+    '["82"]',
+    'ADD forceClosed puts id 82 into preview.forceClosed'
+);
+
+SELECT is (
     (gw_fct_config_mapzones($${"client":{"device":4, "lang":"NULL", "infoType":1, "epsg":25831}, "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{},
     "parameters": {"action": "REMOVE", "configZone": "drainzone", "mapzoneId": "-1", "nodeParent": "82", "config": {"use": [{"nodeParent": "82"}], "ignore": [],
     "forceClosed": []}}}}$$)::JSON)->>'status',
@@ -69,6 +76,14 @@ SELECT is (
     "config": {"use": [{"nodeParent": "82"}], "ignore": [], "forceClosed": [82]}}}}$$)::JSON)->>'status',
     'Accepted',
     'Check if gw_fct_config_mapzones with action "REMOVE" and 4th parameter is "forceClosed" returns status "Accepted"'
+);
+
+SELECT is (
+    ((gw_fct_config_mapzones($${"client":{"device":4, "lang":"NULL", "infoType":1, "epsg":25831}, "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{},
+    "parameters": {"action": "REMOVE", "configZone": "drainzone", "mapzoneId": "-1", "forceClosed": ["82"],
+    "config": {"use": [{"nodeParent": "82"}], "ignore": [], "forceClosed": [82]}}}}$$)::json)->'body'->'data'->'preview'->'forceClosed')::text,
+    '[]',
+    'REMOVE forceClosed drops id 82 from preview.forceClosed'
 );
 
 -- Finish the test

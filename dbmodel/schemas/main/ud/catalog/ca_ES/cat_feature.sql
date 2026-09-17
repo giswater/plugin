@@ -35,23 +35,23 @@ ALTER TABLE cat_feature_gully DROP COLUMN IF EXISTS _type;
 
 ALTER TABLE cat_feature DISABLE TRIGGER gw_trg_cat_feature_after;
 
-INSERT INTO cat_material (id, descript) VALUES 
-('FE', 'Iron'),
-('FD', 'Fundición dúctil'),
-('FG', 'Fundición gris'),
-('PE', 'Polietileno'),
+INSERT INTO cat_material (id, descript) VALUES
+('FD', 'Fundició ductil'),
+('FG', 'Fundició gris'),
+('PE', 'Polietilè'),
 ('PVC', 'PVC'),
-('FC', 'Fibrocemento'),
-('DESC', 'Desconocido'),
-('HOR', 'Hormigón'),
-('ACER', 'Acero')
+('FC', 'Fibrociment'),
+('DESC', 'Desconegut'),
+('FOR', 'Formigó'),
+('ACER', 'Acer')
 ON CONFLICT (id) DO UPDATE SET descript = EXCLUDED.descript;
 
 INSERT INTO cat_arc_shape (id, epa) VALUES
 ('CALAIX', 'RECT_CLOSED'),
 ('FORÇADA', 'FORCE_MAIN'),
 ('CIRCULAR', 'CIRCULAR'),
-('VIRTUAL', 'VIRTUAL')
+('VIRTUAL', 'VIRTUAL'),
+('PERSONALITZAT', 'CUSTOM')
 ON CONFLICT (id) DO UPDATE SET epa = EXCLUDED.epa;
 
 INSERT INTO cat_feature (id, feature_class, feature_type, active, parent_layer, child_layer) VALUES
@@ -141,13 +141,13 @@ ON CONFLICT (id) DO UPDATE SET node_type = EXCLUDED.node_type;
 
 INSERT INTO cat_arc (id, arc_type, shape, geom1, geom2) VALUES
 ('CC315', 'TRAM', 'CIRCULAR', 0.315, NULL),
-('CC40', 'TRAM', 'CIRCULAR', 0.4, NULL),
-('CC50', 'TRAM', 'CIRCULAR', 0.5, NULL),
-('CC60', 'TRAM', 'CIRCULAR', 0.6, NULL),
-('CC70', 'TRAM', 'CIRCULAR', 0.7, NULL),
-('CC80', 'TRAM', 'CIRCULAR', 0.8, NULL),
-('CC100', 'TRAM', 'CIRCULAR', 1, NULL),
-('CC120', 'TRAM', 'CIRCULAR', 1.2, NULL),
+('CC400', 'TRAM', 'CIRCULAR', 0.4, NULL),
+('CC500', 'TRAM', 'CIRCULAR', 0.5, NULL),
+('CC600', 'TRAM', 'CIRCULAR', 0.6, NULL),
+('CC700', 'TRAM', 'CIRCULAR', 0.7, NULL),
+('CC800', 'TRAM', 'CIRCULAR', 0.8, NULL),
+('CC1000', 'TRAM', 'CIRCULAR', 1, NULL),
+('CC1200', 'TRAM', 'CIRCULAR', 1.2, NULL),
 ('RC150X200', 'TRAM', 'CALAIX', 1.5, 2),
 ('RC200X200', 'TRAM', 'CALAIX', 2, 2),
 ('IMPULSION200', 'IMPULSIO', 'FORÇADA', NULL, NULL),
@@ -172,7 +172,7 @@ INSERT INTO cat_link (id, link_type) VALUES
 ON CONFLICT (id) DO UPDATE SET link_type = EXCLUDED.link_type;
 
 INSERT INTO cat_gully (id, gully_type, matcat_id) VALUES
-('EM100X30', 'EMBORNAL', 'FE'),
+('EM100X30', 'EMBORNAL', 'FD'),
 ('REIXA50', 'REIXA', 'FD')
 ON CONFLICT (id) DO UPDATE SET gully_type = EXCLUDED.gully_type, matcat_id = EXCLUDED.matcat_id;
 

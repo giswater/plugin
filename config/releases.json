@@ -1,0 +1,554 @@
+[
+ {
+  "tag": "v4.9.2",
+  "date": "2026-05-28",
+  "url": "https://github.com/giswater/plugin/releases/tag/v4.9.2",
+  "notes": "### Fixed\n\n- `gw_trg_edit_psector` trigger to set obsolete features where psector_x_* state is 0 before setting on service features.\n- `gw_fct_graphanalytics_mapzones_v1` check if there are any nodes/arcs in the graphconfig that are not in the operative network (only for connected networks).\n\n**Full Changelog**: https://github.com/Giswater/giswater_qgis_plugin/compare/v4.9.1...v4.9.2\n\n### 📃 Check the official documentation here: [⛓️‍💥 Giswater Documentation ](https://docs.giswater.org/latest/en/docs/index.html)"
+ },
+ {
+  "tag": "mv3.6.023",
+  "date": "2025-07-08",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.023",
+  "notes": "#### EPA\n- Calculate avg_press grouped in exploitation only when a INP becomes corporate\n- Add status \"RUN FAILED\" for INP results"
+ },
+ {
+  "tag": "mv3.6.022",
+  "date": "2025-07-02",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.022",
+  "notes": "#### ADMIN/SYSTEM\n- Bug fix on toolbox"
+ },
+ {
+  "tag": "mv3.6.021",
+  "date": "2025-06-04",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.021",
+  "notes": "#### INTENTORY\n- Add id column to doc_x_* views\n- Bug fix on setselectors for multi network projects\n- Bug fix on query to update ext_municipality\n\n#### OM\n- Bug fix on selector mincut config values and always order by desc\n- Add variable to choose if mincuts could be only deleted by its creator or by all users\n\n#### EPA\n- Bug fix on import_inp_timeseries\n\n#### MASTER\n- Bug fix on trg_edit_psector when execute without set operative\n\n#### ADMIN/SYSTEM\n- Bug fix on getsearch for empty combo values\n- Sanitize config_toolbox to avoid errors when setting default values"
+ },
+ {
+  "tag": "mv3.6.020",
+  "date": "2025-05-05",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.020",
+  "notes": "#### INTENTORY\n- Bug fix on manage multiple addfields when insert feature\n- Minor bug fix for non-superusers on go2epa"
+ },
+ {
+  "tag": "mv3.6.019",
+  "date": "2025-04-16",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.019",
+  "notes": "#### INTENTORY\n- Set not null and default value for muni_id on parent layers\n- Set not null value for macromapzones and set to 0 if null"
+ },
+ {
+  "tag": "mv3.6.015",
+  "date": "2025-04-08",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.015",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.015)\n\n#### INVENTORY\n- Change layer of QGIS template from ext_municipality to v_ext_municipality, which is filtered by user selector.\n\n#### EPA\n- Manage non numeric values in curves editor.\n- Replace scenario_id for dwf csv file.\n- Bug fix in Non visual objects manager: sometimes the table don't have rows.\n\n#### ADMIN/SYSTEM\n- Show warning message if scipy/numpy packages are not available."
+ },
+ {
+  "tag": "mv3.6.018",
+  "date": "2025-03-31",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.018",
+  "notes": "#### INTENTORY\n- Add dqa_style on v_edit_* tables\n\n#### OM\n- Improve waterbalance function and create scenario from CRM\n- Bug fix on calculation of label position coords"
+ },
+ {
+  "tag": "mv3.6.017",
+  "date": "2025-03-04",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.017",
+  "notes": "#### OM\n- Enable inserting a node at the vertex of an arc to correct its topology.\n- New columns streetname & streename2 for arc, node, connec, gully to materialise values and increase the performance for big projects.\n- New columns road_type, surface, maxspeed, lanes, oneway, pedestrian, access_info to enhance the capabilities of om_streetaxis table.\n- Bug fix"
+ },
+ {
+  "tag": "mv3.6.016",
+  "date": "2024-12-16",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.016",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.016)\n\n#### INVENTORY\n- Enhance performance for v_edit_node\n- Enable see expl_id2 objects when only expl_id is selected by managing sector_id\n- Add columns `brand_id`, `model_id` and `serial_number` for node and arc UD\n- Delete column `serial_number` on man_element UD\n- Change columns `brand` and `model` for `brand_id` and `model_id` on cat_arc, cat_node and cat_grate UD\n- Change name on config_param_system variable from edit_link_check_arcdnom to edit_link_link2network. Add maxDistance as a value and use it on linktonetwork\n- Enable the automatic calculation of label coordinates, label rotation and label quadrant according to a user defined distance from the geometry and the rotation of the feature when inserting or updating a node\n\n#### EPA\n- Update timser_id combo of raingage showing only active timeseries with Rainfall type"
+ },
+ {
+  "tag": "mv3.6.014",
+  "date": "2024-10-07",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.014",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.014)\n\n#### INVENTORY\n- Fix zoom & highlight to workcat features\n- Fix double-click on hydrometer table in info\n- Disable \"Run\" button on toolbox if no input layers found\n\n#### EPA\n- Fix \"Shape to PNG\" button in Non-Visual Objects\n- Bug fix on 'Set junctions as outlet' toolbox function\n\n#### SYSTEM\n- Bug fix on the use of specific sequence for feature codes"
+ },
+ {
+  "tag": "mv3.6.013",
+  "date": "2024-10-07",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.013",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.013)\n\n#### INVENTORY\n- Configure 'Change feature type' form in config_form_fields and add 4 new widgets: Fluid, Location, Category & Function.\n\n#### OM\n- Add 'ignore' to mapzone config.\n\n#### SYSTEM\n- Add project variable 'gwCurrentStyle'"
+ },
+ {
+  "tag": "mv3.6.012",
+  "date": "2024-09-05",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.012",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.012)\n\n#### INVENTORY\n- New style manager & style change button\n- New strategy for dynamic filter by joined use of sector-expl-muni\n- Add the option to set geometry to a document (it can automatically get coordinates from the document's metadata)\n- Add `name` field for documents\n- Add workcat, psector & visit tabs in document dialog\n- Create workcat manager\n- Remove duplicated vertex generated because of the fusion. Use st_removerepeatedpoints function for the new geom\n- Add new fields on inventory tables for UD node, connec, gully: `placement_type`, `access_type`\n- Add new field on inventory tables for WS and UD node, arc, connec, gully: `label_quadrant`\n- Add new fields on inventory tables for WS node, arc, connec: `brand`, `model`, `serial_number`\n- New field for UD arc: `visitability`\n- New field for UD connec: `n_hydrometer`\n- New mapzone columns for different tables:\n  - UD\n\t- raingage (`muni_id`)\n  - UTILS\n\t- samplepoint (`muni_id`, `sector_id`)\n\t- element (`muni_id`, `sector_id`)\n\t- link (`muni_id`, `sector_id`)\n\t- dimensions (`muni_id`, `sector_id`)\n  - WS\n\t- pond & pool (`muni_id`)\n\n#### OM\n- New mapzone for WS: `macrominsector` with new colums for arc, node, connec, link\n- New mapzone for UD: `minsector` and `macrominsector` with new colums for arc, node, connec\n- New tables for UD: `minsector` and `macrominsector`\n- New columns for WS mapzones: `dma_type`, `dqa_type`\n- New columns for UD mapzones: `drainzone_type`, `dma_type`, `sector_type`\n- New column for UD dma and sector: `graphconfig`\n- New column for UD cat_feature_node: `graph_delimiter`\n- Improve mincut dialog by ordering the toolbar actions\n\n#### EPA\n- New button \"Show INP data\" in go2epa manager\n- New behaviour for inlets as a junctions when they are on the end of a sector without continuity with the next one\n- Change \"Set archive\" button to \"Toggle archive\" (go2epa manager)\n- Show the dates when an EPA result has been corporate\n\n#### MASTERPLAN\n- New function gw_fct_setpsectorcostremovedpipes\n- Remove prices manager\n\n#### ADMIN/SYSTEM\n- Change all columns `code` from varchar(30) to text\n- Allow tab ordering in GwInfo (via config_form_tabs)"
+ },
+ {
+  "tag": "mv3.6.011",
+  "date": "2024-07-08",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.011",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.011)\n\n#### INVENTORY\n- Add tab muni on Selector showing as many exploitations as the municipality has (disabled by default)\n- Enable the possibility to use a specific sequence on code for every feature type\n- Relate connec.plot_code with table by using plot code if variable edit_connec_autofill_plotcode is true\n- Add new field expl_id2 in mapzones\n- New field on ext_municipality, ext_region, ext_province: ext_code\n- Add utils table ext_province_x_region with double fk to ext_municipality\n- Do not modify geometry of link when arc_id is changed but link remains on same node as endpoint\n- Add combo for feature_type on dimensions dialog [ARC, NODE, CONNEC {GULLY}]\n\n#### OM\n- Rename config_graph_inlet to config_graph_mincut\n- Remove expl_id from config_graph_mincut\n- Disable mincut if user hasn't any inlet on canvas to work with\n- Remove config_graph_valve strategy by using graph_delimiter column from cat_feature\n- Add '%' symbol on profile's slope\n\n#### EPA\n- Remove to_arc and status on inp_shortpipe. Instead, now inventory values are used\n\n#### MASTERPLAN\n- New variable plan_node_replace_code in config_param_system. When a node replace in planification is performed, choose if new arcs will have the same code as the replaced one or not\n- New field on plan_netscenario_presszone: presszone_type\n- New fields on plan_netscenario_presszone and plan_netscenario_dma: stylesheet, expl_id2\n\n#### ADMIN/SYSTEM\n- Enhance cat_manager by working with system users and roles\n- Clean dbmodel: Drop views vi_parent_arc, and v_anl_flow_*"
+ },
+ {
+  "tag": "mv3.6.010",
+  "date": "2024-05-23",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.010",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.010)\n\n#### INVENTORY\n- Refactor database structure to manage additional fields:\n    - Remove man_addfields_value table.\n    - Create new tables for addfields.\n    - Improve database organization and efficiency.\n- Change qgis templates: add direction arrow on links and delete flowtrace layers for UD\n- CAD tools: Show a preview of what will be drawn & change circle geometry type to MultiCurve\n- Add layers button: ask before removing a layer\n- Refactor of gw_trg_link_connecrotation_update. Drop not necessary code and make it useful for QGIS latest versions (quadrant has change to position priority)\n- New field meter_code on man_meter (WS)\n\n#### OM\n- Allow using the selected exploitations on mapzones analysis\n\n#### EPA\n- Import rpt results: if there are velocities >50 they will get replaced in-memory, instead of changing the .rpt file\n- Enable tab 'Additional pump' in Dscenario and add/edit controls & rules with proper dialog\n- Calculate avg_press on mapzones for corporate results\n\n#### ADMIN/SYSTEM\n- PG_SERVICE: Improve management of credentials when using pgservice file"
+ },
+ {
+  "tag": "mv3.6.009",
+  "date": "2024-03-21",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.009",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.009)\n\n#### OM\n- Set graphconfig and stylesheet as text on v_edit_drainzone (ud)\n\n#### EPA\n- Bug fix: changing epa network mode with epa point of view active\n- Removing now() and fixing date with value '2001-01-01' on time column for views v_rpt_arc_all and v_rpt_node_all\n- Check links over nodarcs only when export mode > 2 for ws projects\n\n#### ADMIN/SYSTEM\n- Bug fix: manage info accept so widget values are not lost\n- Epa world: only apply to parent layers\n- Improve automatic extension creation & version management\n- Don't show backup files on advanced options menu"
+ },
+ {
+  "tag": "mv3.6.008",
+  "date": "2024-03-07",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.008",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.008)\n\n#### INVENTORY\n- Add action \"rotation\" on node custom form for UD\n\n#### OM\n- Add new option in Minsector Analysis to ignore broken valves\n- Add action \"mincut_export_hydro_csv\" on mincut form\n\n#### EPA\n- Refactor of inp_options_networkmode by using only [BASIC NETWORK, NETWORK & CONNECS]\n- Add info form to edit dscenario items\n\n#### MASTER\n- Allow setting geometry to psector other prices\n- Set style for netscenario layers when loaded\n\n#### ADMIN/SYSTEM\n- Refactor schema creation to be much more efficient and faster"
+ },
+ {
+  "tag": "mv3.6.007",
+  "date": "2024-02-06",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.007",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.007)\n\n#### INVENTORY\n- Add new field 'plot_code' to connecs\n- Drop not null for dma's (ud and ws)\n- Enhance the simbology of mapzones\n- Set epa_type not null in connecs\n\n#### EPA\n- Enable setting the outlet_id of subcatchments by editing the view v_edit_inp_subc2outlet\n- Use copy-paste on non-visual objects and dscenario demand dialogs\n- Refresh epa world view if networkmode changed\n- Add selector period strategy on selector\n- New checks on EPA data consistency\n\n#### ADMIN/SYSTEM\n- Add Import DWF to Import CSV\n- Refactor of the creation of projects (empty, inventory, full and mport inp)\n- Add 'Show inactive' checkbox on managers\n- Enable the possibility to delete all selected rows in managers\n- Add QGIS variable 'gw_dev_mode' to manage various developer options"
+ },
+ {
+  "tag": "mv3.6.006",
+  "date": "2023-12-14",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.006",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.006)\n\n#### INVENTORY\n- New variable to open Hydrometer tab on Connec instead of Basic Form when searching an hydrometer\n- Creation of example data for inventory\n\n#### OM\n- Simplify reports for water balance\n\n#### EPA\n- Manage Hydrology scenarios and dwf scenarios (ud)\n- Add Roughness catalog on Non-visual\n- Hug enhancement of performance by creating rpt_arc & rpt_node stats table with materialized results\n\n#### MASTER\n- Enhance button execute netscenario on netscenario_manager\n- New function to merge psectors (gw_fct_psector_merge)\n- New function setreapirpsector to be used to repair psectors when they has wrong topology\n- Enhance import rpt results in order to load it when they are generated by EPANET ui"
+ },
+ {
+  "tag": "mv3.6.005",
+  "date": "2023-11-21",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.005",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.005)\n\n#### INVENTORY\n- Add a Default macroexploitation even for Empty new projects\n- New fields on link: connecat_id, drainzone_id, workcat_id, workcat_id_end, startdate, enddate.\n\n#### EPA\n- New button to delete items from curve (non-visual objects)\n- New field sector_id on inp_transects (UD).\n- New view v_edit_inp_transects with trigger.\n\n#### MASTER\n- Enhancement: highlight features with state 0 in psector\n- Add new button to info right-click menu to open/close valves in netscenario\n- New button \"toggle active\" in netscenario\n- New fields on plan_netscenario_dma and plan_netscenario_presszone: active, lastupdate, lastupdate_user\n- New table plan_netscenario_valve and editabl view v_edit_plan_netscenario_valve\n- New function (3278) gw_fct_import_netscenario_valve_closed to import closed valves into netscenario configuration.\n\n#### ADMIN\n- Fix snapping when inserting features\n- Add date of creation in schema properties"
+ },
+ {
+  "tag": "mv3.5.041",
+  "date": "2023-11-07",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.041",
+  "notes": "#### INVENTORY\n- Minor bug fix. Wrong order on insert on trg_edit_dma (UD)\n- Enhance trg_edit_element to correctly manage polygon geometry, no matter if it is automatic or not\n- Managing tab_exploitation_add on selectors\n- Enhance setfeaturedelete by managing tab log\n- Update trigger edit link enabling values for exit_elev and exit_topelev\n#### OM\n- Enhance fct_mincut_connec setting anl_feature_type, anl_the_geom and anl_feature_id\n- manage non priority profile features - new parameter om_profile_nonpriority_statetype\n#### ADMIN/SYSTEM\n- Reset QSqlDatabase connection if lost"
+ },
+ {
+  "tag": "mv3.6.004",
+  "date": "2023-09-13",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.004",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.004)\n\n#### INVENTORY\n- New field trace_featuregeom on element and polygon to enable or disable their movement according to the movement of its node/connec/gully/element\n- Modify edit triggers to check that inserted streetname exists on ext_streetaxis\n#### OM\n- New function (3270) gw_fct_config_mapzones for configurating mapzones using manager\n- New button: Utils manager (mapzones manager & prices manager)\n- Add config_visit_parameter and om_visit_cat tables to Giswater Load Layers button\n#### EPA\n- Epa results manager: add \"Archive\" button\n- New function (3266) gw_fct_set_rpt_archived that moves data related to selected result_id from rpt and rpt_inp tables to archived tables\n- New function (3268) gw_fct_pg2epa_setinitvalues that updates initlevel of inlets and tanks using values from selected simulation\n- Enhance views (vi_t_) to export timeseries, patterns and curves from project to inp file only when they are used\n#### MASTER\n- New button: Netscenario manager\n- New tables: plan_netscenario, plan_netscenario_dma, plan_netscenario_presszone, plan_netscenario_arc, plan_netscenario_node, plan_netscenario_connec for storing data related to mapzone netscenario.\n- New function gw_fct_graphanalytics_mapzones_plan for creating mapzones for netscenario.\n- New function gw_fct_mapzones_dscenario_pattern for inserting features and it's patterns into dscenario demanda based on values assigned to each netscenario mapzone.\n- New functions: gw_fct_create_netscenario_empty, gw_fct_create_netscenario_from_toc, gw_fct_duplicate_netscenario for creating new netscenarios.\n- New field is_waterbal on ext_rtc_hydrometer to mark hydrometers which values enter into water balance calculations\n#### ADMIN/SYSTEM\n- Manage tabs editability on insert new feature\n- Bug fix: toolbox dialogs' titles now show function name"
+ },
+ {
+  "tag": "mv3.6.003",
+  "date": "2023-08-08",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.003",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.003)\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Change layers style when activating/deactivating epa world\n- Add new function to make massive interpolation for nodes\n#### EPA\n- Go2Epa multistep approach\n- Add properties button in dscenario dialog\n- Improvements & fixes to flowregulator & demand actions\n#### ADMIN/SYSTEM\n- Drop config_visit_class_x_feature (unused table)\n- Reduce the time it takes to open the info form\n- Fix highlight for polygons"
+ },
+ {
+  "tag": "mv3.5.040",
+  "date": "2023-08-08",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.040",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.040)\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Enhance setclosestaddress function allowing to insersect the results with a polygon layer\n#### ADMIN/SYSTEM\n- Bug fix: saving project sometimes crashed qgis"
+ },
+ {
+  "tag": "mv3.6.002",
+  "date": "2023-08-08",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.002",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.002)\n###  Or read the summarized changelog here\n\n#### EPA\n- Add styles for EPA world for parent layers\n- Add isoperative = true and use strategy of v_sector_node for inp views"
+ },
+ {
+  "tag": "mv3.6.001",
+  "date": "2023-08-08",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.6.001",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.6.001)\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Info is now fully configurable via database (widgets from all tabs, actions, tableviews, etc.)\n- New variable edit_link_check_arcdnom to check if new link is connected to an arc with smaller diameter than defined value (WS)\n- New process to check existing connecs related to arcs with diameter bigger than defined value (WS)\n- New process to check existing connects with more than 1 link on service\n- Add region and province tables and add region_id and province_id fields to municipality and inventory tables\n- Add new fields on inventory tables for UD:\n    - node, arc, connec, gully: adate, adescript\n    - gully: siphon_type, odorflap\n    - man_manhole, man_conduit: bottom_mat\n    - man_chamber: bottom_mat, slope\n    - cat_arc: visitability\n- New functionality: get address and postnumber automatically when inserting node and connec\n- Add staticpressure update on trg_edit_connec (harmonize with node)\n- Add lastupdate and lastupdate_user to v_edit_element\n#### OM\n- New function: gw_fct_mincut_show_current to show mincuts that are currently beeing executed in a field.\n#### EPA\n- New button: Toggle EPA World. Toggle an \"EPA Point of View\" to show the network as it would be exported to EPA software\n- Added tab EPA in info\n- Full refactor of inp database objects\n- Create new object ws-virtualpump and remove import inppump and import inpvalves\n- New function setoptimunoutlet and refactor of sutchament view for ud projects\n- Added new actions in info to manage flow regulators & demands for EPA objects\n#### MASTER\n- Do not allow to insert features with diferent expl_id than the psector\n#### ADMIN/SYSTEM\n- Drop obsolete table selector_plan_psector"
+ },
+ {
+  "tag": "mv3.5.039",
+  "date": "2023-08-02",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.039",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.039)\n###  Or read the summarized changelog here\n\n#### OM\n- Mapzones - return polygons of created zones and disconnect elements as temporal layer if commit chages is false\n- Force arcvidide function to move mapzones values from arc to inserted node\n#### EPA\n- Add nodeinflow for detailed rpt node on UD results\n- Don't load epa result/compare layers by default\n- Set raingage geometry column not null\n#### ADMIN/SYSTEM\n- Massive performance improvement of get_feature_by_id. Now the tools that search for features should be faster\n- Improve handling of config files.\n- Change querytext for *_type columns on v_edit_element form. Don't use featurecat_id\n- Various bug fixes"
+ },
+ {
+  "tag": "mv3.5.038",
+  "date": "2023-06-26",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.038",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.038)\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Correct management of inventory field on edit_triggers\n#### EPA\n- Add user variables to auto load or not go2epa selector layers\n#### ADMIN/SYSTEM\n- Enhance trg_config_control adding element_type to allowed values on featurecat_id field\n- Enhance performance for check projects\n- Fix duplicated widgets on config_form_fields for not sample new projects\n- Various bug fix"
+ },
+ {
+  "tag": "mv3.5.037",
+  "date": "2023-05-23",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.037",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.037)\n###  Or read the summarized changelog here\n\n#### EPA\n- Bug fix in Dscenario Manager.\n- Fix section title in go2epa options dialog.\n- Enhance options for go2epa (ws & ud)\n#### ADMIN/SYSTEM\n- Bug fix with config files. If they break the plugin will still load."
+ },
+ {
+  "tag": "mv3.5.036",
+  "date": "2023-05-10",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.036",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.036)\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Minor bug fix when arc_id is not null and link does not exists\n- Keep the scrolled amount on selector\n- Enhance stats for minsector table adding num_border, num_connec, num_hydro and length\n#### EPA\n- Add new source pattern from inp_connec when new scenario is created\n- Add \"Show only active\" checkbox to non-visual objects manager\n- Epa result manager: \"Set corporate\" button is now \"Toggle corporate\"\n#### MASTER\n- Refactor strategy of execute psector. New traceability tables for executed and canceled psectors"
+ },
+ {
+  "tag": "mv3.5.035",
+  "date": "2023-04-05",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.035",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.035)\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Add new field expl_id2\n- New field on WS man_netwjoin - wjoin_type;\n- New vdefault on config for workcat_id_plan\n#### EPA\n- Add button \"print\" on NonVisualObject for export SHAPES png"
+ },
+ {
+  "tag": "mv3.5.034",
+  "date": "2023-03-28",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.034",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.034)\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Bug fix from refactor links. Insert connects with state 0 on psector when planified node over operative node\n- Enhance v_ui_arc_x_relations (UD)\n#### MASTERPLAN\n- Rename v_plan_current_psector_* views to v_plan_psector_*"
+ },
+ {
+  "tag": "mv3.5.033",
+  "date": "2023-03-09",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.033",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.033)\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Make Element layer identifiable with Giswater info\n- Add new editable fields on man_meter: real_press_max, real_press_min, real_press_avg\n- New function on toolbox to capture address values from closest street number\n- New table node_border_sector, that stores relation between node and it's additional sectors\n- New function gw_fct_calculate_sander for UD - calculates the depth of sander depending on node sys_ymax and arc sys_y1\n#### OM\n- New system parameter edit_review_auto_field_checked - If true, at saving review data, it would be automatically set as finished\n- Add new review status - only review observations added, no data modifications"
+ },
+ {
+  "tag": "mv3.5.032",
+  "date": "2023-01-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.032",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.032)\n###  Or read the summarized changelog here\n- Bug fix from last release (search address, links behaviour when update arc_id)"
+ },
+ {
+  "tag": "mv3.5.031",
+  "date": "2023-01-18",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.031",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.031)\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- New fields related to steps and cover on man_manhole table and in the reviews\n- New field on review tables - insert_date\n- Improve address search returning values even if writing mismatch (fuzzystrmatch extension)\n- New fields on UD node - parent_id, arc_id\n- New fields on WS node, arc, connec - om_state, conserv_state\n- New fields on WS connec - priority, valve_location, valve_type, shutoff_valve, access_type, placement_type, crmzone_id\n- New fields on WS node - access_type, placement_type\n- New fields on WS man_valve - valve_type; man_wjoin - wjoin_type; man_greentap - greentap_type, cat_valve; man_hydrant - hydrant_type\n- Deep refactor on links to enhance usability and performance. Main changes:\n    - Add link features on \"Add arc\" toolbar button\n\t- Links are right now Giswater objects with same capabilities in terms of map than arc, node, connec, gully\n\t- Remove vnode table and any references\n\t- Change exit_type and pjoint_type. New values are: ARC, NODE, CONNEC, GULLY\n\t- It is possible to create planned links related to planned connects by using qgis tools\n\t- it is possible to relate any planned connect no any other object of network\n\t- Connects mapzones has consistency againts related arc, not only on operative state also on planned state\n- Allow basic info editable\n- Enhance \"Check all\" widget on selector form with help button and new functionalities\n#### EPA\n- New function gw_fct_epa2data (WS) that copies results from EPA to data form\n- New field on UD inp_timeseries - active\n- Enhancement for patterns managmement by using pattern method only to fill null values for pattern features\n#### MASTERPLAN\n- Refactor trg_edit_psector merging different execution modes\n- Add button \"Toggle active\" and checkbox \"Show inactive\" on psector manager form\n- Add button \"Toggle state / Toggle doable\" on psector form (tab_relations)\n- Update button \"set_to_arc\" on psector form, now there are two possibilities, closing point or user click coordinates (tab_relations)\n#### ADMIN/SYSTEM\n- New parameter on config_param_system 'admin_isproduction' (If true, deleting the schema using Giswater button will not be possible)\n- New system parameter 'admin_node_code_on_arc' - If true, codes of final nodes will be visible on arc's form. If false, node_id would be displayed\n- Add system variable to skip audit in massive processes\n- Reset dialog positions when load Giswater"
+ },
+ {
+  "tag": "mv3.5.030",
+  "date": "2022-11-02",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.030",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.030)\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Allow searching for catalog_id in change feature type & replace feature tools\n- Add editing action in dimensioning dialog\n- Get district_id when new feature is inside a district\n#### OM\n- Add type & streetaxis filters in mincut manager\n- Add chlorine & turbidity fields in mincut\n#### EPA\n- Add forcetanksoninlet for pg2epa export\n- New function gw_graphanalytics_upstream_section_control (UD) to control of sections inconsistencies between consecutive conduits\n- Minor enhancement on pg2epa for gullies on 1D/2D coupled model\n#### ADMIN/SYSTEM\n- Add 'Open plugin folder' action in Giswater menu\n- Major bug fix in info. The first time saving worked fine but then it didn't work properly.\n- Allow QLineEdit & QTextEdit to have tooltips via Qt translation\n- Add field 'iseditable' on cat_manager"
+ },
+ {
+  "tag": "mv3.5.028",
+  "date": "2022-11-02",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.028",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.028)\n\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Highlight connecs/gullys that will be disconnected on feature end process\n- Use hemisphere change to rotate node 180º\n- Bug fix: insert document from another dialog (info/visit)\n- Bug fix: don't allow role_basic/role_om users to edit in info\n\n#### OM\n- New functions to import scada values & hydrometer values (focused on waterbalance)\n\n#### EPA\n- Force reservoirs on inlets when go2epa for ws\n- Remove pg2epa_inlet_flowtrace function\n- Enhance dscenario_id value domain for dscenario relations by using qgis table\n- Improve dscenario filter\n\n#### ADMIN/SYSTEM\n- Enhance setselector for undefined mapzone when expl2sector and sector2expl is enabled\n- Add commitChanges parameter in mapzones function to allow running it without change feature table values\n- Improve performance for inserting features in large tables\n- Allow adding filters as additional columns in toolbox reports"
+ },
+ {
+  "tag": "mv3.5.027",
+  "date": "2022-08-22",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.027",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.027)\n\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Send messages to dialogs instead of to the canvas\n- Add node rotation logics on UD projects\n- Create edit_custom_link variable with google maps style and harmonize edit_feature_usefid_on_linkid the same way\n- Enhance delete feature: allow delete nodes connected to obsolete arcs (bug fix) and show on_service/obsolete arcs on getfeaturerelation\n\n#### OM\n- Allow starting a mincut from another point when a planified mincut is active\n- New table of ws - om_streetaxis for tramified streeter\n- New function gw_fct_graphanalytics_hydrant & gw_fct_graphanalytics_hydrant_recursive for finding calculating reach of hydrants\n\n#### EPA\n- Show message if curve is invalid (non-visual)\n- Add the_geom on v_om_waterbalance views\n\n#### MASTERPLAN\n- Plan check - control number of rows on plan_price (fid:465)\n\n#### ADMIN/SYSTEM\n- Add widget to hide querytext in toolbox report\n- Add new db variable to manage snapping configuration\n- Sort temporary layers by geometry type\n- Improve management of json keys\n- Refactor graf to graph"
+ },
+ {
+  "tag": "mv3.5.026",
+  "date": "2022-07-11",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.026",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.026)\n\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Allow users to input init/end nodes in arc forms when they are NULL\n- Check redundant values for elevation fields (UD)\n- Allow hyperlinks in custom form to be editable\n- Manage static pressure automatically\n- New default value for ymax on UD\n- New default value for users to search municipality\n\n#### OM\n- Recalculate mincut when execute start process\n- New columns on node and connec mincut result\n\n#### EPA\n- 1D/2D coupled model in combination with SWMM-IBER\n- Enhance valve management for ws go2epa exportation\n- Enable work with CRM values also on nodes (netwjoin)\n- Improvements on Dscenario manager\n- New system parameter to update inventory tables when change EPA values"
+ },
+ {
+  "tag": "mv3.5.025",
+  "date": "2022-06-20",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.025",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.025)\n\n###  Or read the summarized changelog here\n\n#### EPA\n- New buttons: New Non-Visual object and Non-Visual object manager\n- New triggers to edit data related to hydrology and dwf_scenario (UD)\n#### ADMIN/SYSTEM\n- New function to import configuration of cat features from csv files"
+ },
+ {
+  "tag": "mv3.5.024",
+  "date": "2022-05-30",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.024",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.024)\n\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Add editable views for cat_feature objects\n- Use gully Units field to draw related polygon\n- Orphan node function runs with all kind of nodes (divide or not)\n- Divide Check Project processes related to orphan nodes in OM or EPA\n#### OM\n- New trigger to update modification_date field on Mincut\n#### EPA\n- Add waterbalance strategy according IWA standards with om_waterbalance reports, functions, tables and views\n- Improve usability of Dscenario tables\n- Editable view v_edit_inp_coverages\n- New table inp_dscenario_rules and editable view v_edit_inp_dscenario_rules (WS)\n- New table inp_dscenario_controls and editable view v_edit_inp_dscenario_controls\n#### ADMIN/SYSTEM\n- Add Execution Time to different processes' dialog\n- Add Update button to Workspace Manager and minor improvement on delete\n- Improve reporting tool of Giswater Toolbox\n- New variable added to config_param_system to manage lastupdate field when using dynamic mapzones"
+ },
+ {
+  "tag": "mv3.5.017",
+  "date": "2022-04-26",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.017",
+  "notes": "Python\n- Minor enhancements\n- Minor bug fixes"
+ },
+ {
+  "tag": "mv3.5.016",
+  "date": "2022-04-26",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.016",
+  "notes": "Python\n-No changes for python on this version (only changes on dbmodel repository)"
+ },
+ {
+  "tag": "mv3.5.006",
+  "date": "2022-04-26",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.006",
+  "notes": "Python\n\n- No changes for python on this version (only changes on dbmodel repositori)"
+ },
+ {
+  "tag": "mv3.5.001",
+  "date": "2022-04-26",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.001",
+  "notes": "Python\n\n- Big refactor of python code\n- Code adapted to PEP8\n- Full refactor of classes, methods, user and system variables. All have been harmonized\n- New folder lib to manage 'as is' classes without dependences of Giswater"
+ },
+ {
+  "tag": "mv.3.5.002",
+  "date": "2022-04-26",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv.3.5.002",
+  "notes": "Python\n\n- No changes for python on this version (only changes on dbmodel repository)."
+ },
+ {
+  "tag": "mv3.5.013",
+  "date": "2022-04-26",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.013",
+  "notes": "Python\n- Upgrades on templates for WS and UD projects\n- Enhance robustness when loading projects\n- Bug fix on go2epa form\n- Enhancement: new class to manage pg_notify functions\n- Minor bug and typo fixes"
+ },
+ {
+  "tag": "mv3.5.015",
+  "date": "2022-04-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.015",
+  "notes": "Python\n- Minor enhancement and minor bug fix"
+ },
+ {
+  "tag": "mv3.4.037",
+  "date": "2022-04-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.037",
+  "notes": "Python\n   - Set a limit on message box's text\n   - Minor bug fix: save radio_button value on cad_add_point form and set result when open form\n   - Harmonize QDoubleValidator in cad_add_circle/point"
+ },
+ {
+  "tag": "mv3.4.036",
+  "date": "2022-04-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.036",
+  "notes": "Python\n   - Allow workcat_id null on upsert element\n   - Manage combo assigend_to on mincut form\n   - Manage open visit form from search button without sys_geomery"
+ },
+ {
+  "tag": "mv3.5.009",
+  "date": "2022-04-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.009",
+  "notes": "Python\n- Bug fix in managing user permissions when opening main dialog"
+ },
+ {
+  "tag": "mv3.4.035",
+  "date": "2022-04-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.035",
+  "notes": "- Bug fix: manage if exist column photo on visit tableview and open file using http, https or locale path\n   - Bug fix: Error on search address, setting street name into numberwidget\n   - Manage enddate from element\n   - Bug fix: set catalog for gully features using custom form action\n   - Keep Mincut manager opened when open existing mincut"
+ },
+ {
+  "tag": "mv3.5.007",
+  "date": "2022-04-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.007",
+  "notes": "Python\n\n- Minor bug fixes"
+ },
+ {
+  "tag": "mv3.5.003",
+  "date": "2022-04-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.003",
+  "notes": "Python\n   - No changes for python on this version (only changes on dbmodel repository)."
+ },
+ {
+  "tag": "mv3.4.033",
+  "date": "2022-04-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.033",
+  "notes": "Python\n\n- Add signals in order to know when notify process finish\n- Minor enhancment on creating qgis project files\n- Minor code refractor"
+ },
+ {
+  "tag": "mv3.4.030",
+  "date": "2022-04-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.030",
+  "notes": "Python\n- Bug fixes from previous version"
+ },
+ {
+  "tag": "mv3.4.029",
+  "date": "2022-04-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.029",
+  "notes": "Python\n - Enhance read EPANET files create by a Brazilian version of EPANET"
+ },
+ {
+  "tag": "mv3.4.028",
+  "date": "2022-04-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.028",
+  "notes": "Python\n- Bug fixes from previous version"
+ },
+ {
+  "tag": "mv3.4.027",
+  "date": "2022-04-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.027",
+  "notes": "Python\n   - Ask user before creating a sample schema\n   - Enhance profile tool\n   - Manage exceptions in function 'get_layer_source'\n   - Minor bug fix on mincut\n   - Minor bug fix: populate combo childs on config form"
+ },
+ {
+  "tag": "mv3.5.023",
+  "date": "2022-03-31",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.023",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.023)\n\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Add info over polygon returning the form for element\n- Improve reliability of button Add Child Layers\n#### OM\n- New button to add additional nodes in profiling tool\n#### EPA\n- Add option to import SWMM rpt file with >50 velocities\n#### ADMIN/SYSTEM\n- Make 'Update project schema' a thread\n- Bug fix autoupdate widgets in info\n- New function trigger gw_trg_sysaddfields\n- Get toolbox - order reports by role"
+ },
+ {
+  "tag": "mv3.5.22",
+  "date": "2022-03-09",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.22",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.022)\n\n###  Or read the summarized changelog here\n\n#### INVENTORY\n- Add \"Open/Close valve\" quick access in right-click with Info\n- Don't show PLANIFIED on selector_state but allow role_basic on selector_psector tab\n- Add default qml style to all layers available on Add Giswater Layer tool\n- Configure new default report - water consumption by period and dma\n- Create option of defining customized mapzone drawing definition\n- Use value of inverted_slope on fct_anl_arc_inverted\n- Add rules to control ids of 0 and -1 on mapzones\n- Add possibility of defining macrosector selector\n- Manage raster_layers and layers with more than one PK on add giswater layer button\n#### OM\n- Mincut hydrometer filters are now customizable with variable \"om_mincut_hydrometer_filter\"\n- Add modifcation_date column to om_mincut\n#### EPA\n- Add new button, dscenario manager\n- Update templates with new style for EPA result arcs\n- New edit filtered view for timeseries and patterns in ud\n- Views related to curves, patterns and timeseries filtered by exploitation instead of sector\n- Create 2 tables to define lid controls - inp_lid and inp_lid_values\n- Add new outlayer value for epa (depth) on ws projects\n- Define new shape of UD pipes - VERT_ELLIPSE\n#### PLAN\n- Add info box in psector manager\n- Manage draw polygon rubberband using new user variable \"show_psector_ruberband_duration\"\n#### ADMIN/SYSTEM\n- Project check now runs in a separate thread\n- Improve toolbox performance\n- New field addparam on sys_table\n- Remove fields sys_sequence and sys_sequence_field from sys_table"
+ },
+ {
+  "tag": "mv3.5.021",
+  "date": "2022-01-27",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.021",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.021)\n\n###  Or read the summarized changelog here\n\n### Python\n* Update version of EPANET\n* Update QGIS templates: delete Admin group, delete some unusual layers and enhance symbology\n* Enhance psector_raports.ui\n* Enhance debug message on threads execution\n* Refactor and enhance button add_child_layer. Manage more layers and categories\n* Refactor tab other_prices on psector form\n\n### SQL\n* Enhance usability of mapzones algorithm\n* Check node 'T candidate' with wrong topology\n* New column parent_id for sector\n* Upgrade to EPANET 2.2\n* Upgrade to SWMM 5.1015\n* Refactor how CRM is used on EPANET\n* Improve the write inp file creating ';xxxx' valous additional info to trace and debug\n* New column expl_id for catalogs of hydrololgy, dwf_scenario, dscenario and rpt_cat_result\n* New edit filtered views for catalogs of hydrololgy, dwf_scenario, dscenario\n* New column isaudit on sys_fprocess to config which fid's are auditable or not\n* New column fprocess_type on sys_fprocess to categorize processes\n* Refactor of pavcat_id strategy. From independent table to arc (and related views)\n* Improve the management of undefined (0) sector. Enable on filter selector, force disable on go2epa\n* Force selector for whole user on same cat_manager when new sector is created\n* New function gw_fct_setchangefeaturetype\n* Enhance performance for getinfoplan function and minor refactor for plan (connec and gullies)\n* Drop price columns realted to connec and gully catalogs (cost_ut, cost_ml, cost_m3)\n* New function gw_fct_admin_manage_migra"
+ },
+ {
+  "tag": "mv3.5.020",
+  "date": "2021-12-23",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.020",
+  "notes": "### Check out our extended [change log on Gitbook](https://giswater.gitbook.io/change-log/3.5.020)\n\n###  Or read the summarized changelog here\n\n### Python\n\n* Improve schema creation (more precise progress bar)\n* Improve management of signals\n\n### SQL\n* New check to control missed material for arcs\n* Minor adjustment of message on check-data-result\n* Only enable 'User Selectors' as execution mode on Check OM data and Check grafanalytics from toolbox\n* Add fid 106 (nodes duplicated) on Check OM data function\n* Enhance trg_edit_link to prevent error when one connect find itself as end point\n* General revision of Check Project. Harmonize Check OM and Check EPA functions and delete duplicated fid's\n* New function to check all the exploitations separately and save results into audit table"
+ },
+ {
+  "tag": "mv3.5.019",
+  "date": "2021-11-30",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.019",
+  "notes": "## Python\n* Enhancement on selector: minor visual refactor and allow rowsColor\n* Manage function \"def_set_selector\" when form is not docker, don't duplicate form when update parameters on selector\n* Manage Giswater menu without loaded project. Only show Advanced and Config folder\n* Minor enhancement and minor bug fix\n\n## SQL\n* Prevent error on permision to sys_param_user\n* Add qgis_form_selector_stylesheet to config_param_system\n* Enhance setcheckproject function by only checking selected exploitations\n* Minor bug fix trg_edit_link\n* Bug fix on mapzones functions using presszone as integer"
+ },
+ {
+  "tag": "mv3.5.018",
+  "date": "2021-11-22",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.018",
+  "notes": "## Python\n* Disable tab log on forms. Only enabled automatically\n* Enhancement: implement 3-step strategy for go2epa\n* Manage error when change planified feature to state 0 inside a psector\n* Enhancement: add backend function 'add_query_layer'\n* Bug fix: don't move canvas when selecting nodes on profile tool\n* Bug fix: Manage vdefault value for combo \"element_type\" when create new element\n\n## SQL\n* Check matcat_id on connecs (414)\n* Check pjoint_id and pjoint_type nulls for connecs/gullies (415 & 416)\n* Refactor of tab admin for config\n* Check Duplicated hydrometer related to more than one connec (419)\n* Check function / category / fluid / location types (421,422,423,424,245)\n* Clean code for vnode elevation & topelevations\n* Minor bug fix from prev releases\n* Enhance performance to export huge inp files\n* Enhance import epanet file managing double nodarcs of Giswater\n* New fid process to check models (426,427,428,429)\n* Improve the strategy to use urn sequence for corporate environments\n* Prevent error on insert of hydrometers to om_mincut_hydrometer"
+ },
+ {
+  "tag": "mv3.5.014",
+  "date": "2021-10-14",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.014",
+  "notes": "## Python\n* Arc divide and replace feature: Check if user wants to keep map tool active or not\n* Arc divide: drag-drop or select node to divide\n* Arc divide: possibility to disable warnings/log message\n* Add current psector/workspace to a docker\n* Bug fix: Manage translation of Admin button\n* Add info log for Workspaces when select a row\n\n## SQL\n* Enable epa_automatic_man2inp_values capability\n* Minor bug fixes from prev release\n* New functions on toolbox to copy values from diferent scenarios\n* New checks on go2epa (y0>ymax or cat_connec.dint = null)\n* Enhance functions managing scenario values (dwf, dscenario and hydrology)\n* Harmonize columns for inp_patterns on WS & UD projects\n* New check to control endpoint of link over nodarc\n* New check to control network mnode againts demand type (WS)"
+ },
+ {
+  "tag": "mv3.5.012",
+  "date": "2021-09-30",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.012",
+  "notes": "### Python\n* Add new widgets (parent_id, workcat_id) to psector form\n* Allow pan action activation between node selections (profile tool)\n* New tool to replace pipe automatically on psectors\n* Refactor: go2epa hydrology selector for UD same as WS\n* New button Workspace Manager\n\n### SQL\n* New mapzones conflict (-1)\n* Enhance dscenario management working with not only demands, adding pipes, shortpipes, valves, pumps, tanks and reservoir\n* Add new exportation method for ud (1D-SWMM or 1D/2D Coupled model)\n* Add function vodetrimarcs for UD exportation, relate to 1D/2D coupled model\n* Profilactic delete of legacy values on man_addfields_value on setcheckproject function\n* Add control on change street_id by streetname on edit triggers in order to avoid lose info\n* New functionality to replace pipes on plan mode in psectors\n* Add columns connec_matcat_id & gratecat2_id for gullies\n* Add column inlet_offset for man_conduit\n* Enhance manage views & manage child views functions\n* Enhance performace creating ud example projects\n* Create relation parent-child on dscenario and psector with selection logics and add selector dscenario on selector form\n* Remove trigger vnode_update\n* Calculate symbol rotation on gw_trg_link_connecrotation_update and manage it by system variable instead of user\n* Enable user_x_sector constraints when user_x_exploitation variable is configured\n* New function for workspace manager\n* Change polygon strategy for double geom. Using parent tables"
+ },
+ {
+  "tag": "mv3.5.011",
+  "date": "2021-08-17",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.011",
+  "notes": "#### SQL\n* New sys process: Check gully duplicated\n* New sys process: Check wrong topology for links\n* Create new function to execute report queries\n* Create new table config_report for configuration of personalized reports\n* Bug fix on v_edit_link when planned links\n* Force visible current psector when user is editing on planned mode\n* Enhance arcdivide function forcing new closest arc on network always will be some child arc created\n* Bug fix on ud elevations when elev where used on node and y on arc\n* New hidden variable used on code to disable temporary linktonetowork\n\n#### Python\n* Bug fix on manage list of element_types for populate combo location on manage element form\n* Bug fix on manage line break when add new document\n* Enhancement on manage admin form when dont have any schema created on current connection\n* Add section Report on toolbox form\n* Add new tab 'backend' in Log Message Panel"
+ },
+ {
+  "tag": "mv3.5.010",
+  "date": "2021-08-17",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.010",
+  "notes": "#### SQL\n* Create new function to reconfigure mapzones after network changes\n* Create new function to find short arcs\n* Enhance getinfofromid allowing select column to use on formheader\n* Create new function to find nodes with duplicated values of top_elev, ymax and elev\n* Create new function to find arcs with duplicated values of y and elev\n* Create new field asset_id on arc, node, connec and gully table\n* Create new field peak_factor on inp_connec, inp_junction\n\n#### Python\n* Enhancement: manage epsg from QGIS project\n* Enhancement: allow arcs on replace feature tool\n* Minor bug fix: Manage software_version_info on admin form acoording project_schema_name"
+ },
+ {
+  "tag": "mv3.5.008",
+  "date": "2021-06-28",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.008",
+  "notes": "#### SQL\n* Minor updates on sys_table\n* Enhancement on import swmm function\n* Grant role_admin for current_user when creation schema in case of it does not has\n* Create new function gw_fct_anl_arc_duplicated\n* Check missed values for cat_mat.arc when used on real arcs\n* Enhance getfeatureupsert function\n* Delete not used tables inp_report\n* Create new function to enhance scenario control for ud\n* Create new function to import curves from csv\n\n#### Python\n* Allow use of pgservice to connect with database\n* Add v_edit_inp_lid to QGIS templates\n* Add check read headers on import csv form\n* Populate combo featurecat_id applying active filter\n* Added 'Get help' action to Giswater menu\n* Bugs fixed"
+ },
+ {
+  "tag": "mv3.5.005",
+  "date": "2021-05-31",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.005",
+  "notes": "#### SQL\n* New v_edit_inp_dwf created for Ud\n* Improvement of the velocity for getinfofromcoordinates method\n* Enhamement of the start-from-scratch using ud inp file\n* Minor bugs fixed\n\n#### Python\n* Remove issample check for create qgis project\n* Set table model for all qttablemodels used\n* Change the strategy of superusers and ssl mode used on connection tool\n* Minor bugs fixed"
+ },
+ {
+  "tag": "mv3.5.004",
+  "date": "2021-05-10",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.5.004",
+  "notes": "#### SQL\n* Add active definition for cat_* on config_form_fields\n* Remove presszone_vdefault from config form\n* Control NULL geometry on setselectors\n* Improve the strategy of demand management by automatic remove when node is dry\n\n#### Python\n* Minor bug fix: load existing profile, error on close dialog\n* Bug fix: manage if exist column photo on visit tableview and open file using http, https or locale path\n* Replace node: remove sql from python\n* Bug fix: refactor reference self.controller"
+ },
+ {
+  "tag": "mv3.4.034",
+  "date": "2021-04-14",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.034",
+  "notes": "#### SQL\n* Change on delete restrict by on delete cascade on cat_feature fk\n* Enhance vi_curves when export tank curves\n* Enhance review tables functionality\n* Enhance links when planned connects, enabling to connect also connec, gullies and node\n* New checks (fid 371 and 372) to control missed matcat_id on cat_arc table and wrong topology for arc table\n#### Python\n* Create new thread when notify is empty instead of every second\n* Enhance node interpolate tool, adding extrapolate function\n* Manage line edit widgets from Element form with special characters\n* Fix i18n locale default"
+ },
+ {
+  "tag": "mv3.4.032",
+  "date": "2021-02-26",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.032",
+  "notes": "#### SQL\n* Force F-FACTOR = no\n* Show result_id on epa result manager\n* Various bug fix on epa workflow\n* Force variable plan_psector_force_delete on true when deleting from ve_* and v_edit_*\n* Force MULTI-UPDATE views when version < 3.4.032 and version > 3.4.030\n\nPython\n\n- No python changes"
+ },
+ {
+  "tag": "mv3.4.031",
+  "date": "2021-02-22",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.031",
+  "notes": "#### SQL\n* Bug fix on vi_valves\n* Add field workcat_id_plan to node, arc, connec and gully tables\n* Add connect_autoupdate_dma system variable\n* New function gw_fct_setowner (3024) that changes owner of a schema\n\n#### Python\n* Set correct title to workcat dialog\n* Set correct street_id on mincut\n* Update QComboBox values ​​after creating schema"
+ },
+ {
+  "tag": "mv3.4.026",
+  "date": "2021-01-20",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.026",
+  "notes": "#### SQL\n* Add v_plan_psector_* to show network which will be obsolete by a psector\n* Refactorize v_plan_psector integrating auxiliar views v_plan_psector_x_*\n* Enhance mapzones algorithm when conflict\n* Enhance junction views to make it dependant of vi_parent_arc\n* Enhance log message for check topology network\n* Delete ws_gw_fct_utils_update_dma_hydroval function\n* New state when mincut is created but is not finished, 4 (on planning)\n* Add index on anl_* tables\n* Add is_operative to hydrometer_state and modify fct's to only add operative hydrometers\n* Bug fix on mincut_result_overlap function checking hydrometer state values without WHERE cur_user\n* Enhance profile tool\n\n#### Python\n* Update qgis templates. Add v_plan_psector_* views, changes on inp_timeseries and inp_transects and add v_edit_cad_auxline\n* Ask user before creating a sample schema\n* Enhance profile tool\n* Manage exceptions in function 'get_layer_source'\n* Minor bug fix on mincut\n* Minor bug fix: populate combo childs on config form"
+ },
+ {
+  "tag": "mv3.4.025",
+  "date": "2020-12-15",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.025",
+  "notes": ""
+ },
+ {
+  "tag": "mv3.4.024",
+  "date": "2020-11-18",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.024",
+  "notes": ""
+ },
+ {
+  "tag": "mv3.4.023",
+  "date": "2020-10-21",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.023",
+  "notes": ""
+ },
+ {
+  "tag": "mv3.4.022",
+  "date": "2020-10-19",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.022",
+  "notes": ""
+ },
+ {
+  "tag": "mv3.4.021",
+  "date": "2020-10-16",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.021",
+  "notes": ""
+ },
+ {
+  "tag": "mv3.4.020",
+  "date": "2020-09-15",
+  "url": "https://github.com/giswater/plugin/releases/tag/mv3.4.020",
+  "notes": ""
+ },
+ {
+  "tag": "v3.1.100",
+  "date": "2018-09-08",
+  "url": "https://github.com/giswater/plugin/releases/tag/v3.1.100",
+  "notes": "Release version 3.1.100"
+ },
+ {
+  "tag": "v3.0.117",
+  "date": "2018-04-16",
+  "url": "https://github.com/giswater/plugin/releases/tag/v3.0.117",
+  "notes": ""
+ },
+ {
+  "tag": "v3.0.RC6",
+  "date": "2018-04-05",
+  "url": "https://github.com/giswater/plugin/releases/tag/v3.0.RC6",
+  "notes": ""
+ },
+ {
+  "tag": "v2.1",
+  "date": "2017-02-16",
+  "url": "https://github.com/giswater/plugin/releases/tag/v2.1",
+  "notes": ""
+ },
+ {
+  "tag": "v2.0",
+  "date": "2017-02-14",
+  "url": "https://github.com/giswater/plugin/releases/tag/v2.0",
+  "notes": ""
+ },
+ {
+  "tag": "v1.0",
+  "date": "2016-10-04",
+  "url": "https://github.com/giswater/plugin/releases/tag/v1.0",
+  "notes": ""
+ },
+ {
+  "tag": "v0.9",
+  "date": "2016-08-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/v0.9",
+  "notes": ""
+ },
+ {
+  "tag": "v0.8.2",
+  "date": "2016-08-25",
+  "url": "https://github.com/giswater/plugin/releases/tag/v0.8.2",
+  "notes": ""
+ },
+ {
+  "tag": "v0.6",
+  "date": "2016-06-07",
+  "url": "https://github.com/giswater/plugin/releases/tag/v0.6",
+  "notes": ""
+ },
+ {
+  "tag": "v0.5.1",
+  "date": "2016-06-01",
+  "url": "https://github.com/giswater/plugin/releases/tag/v0.5.1",
+  "notes": ""
+ }
+]

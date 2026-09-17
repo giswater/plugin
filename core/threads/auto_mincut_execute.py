@@ -102,7 +102,9 @@ class GwAutoMincutTask(GwTask):
                         tools_log.log_warning(result['last_error'])
                     tools_db.dao.rollback(self.mincut_class.mincut_aux_conn)
             except Exception as e:
-                tools_log.log_warning(f"Error canceling mincut task: {e}")
+                msg = "Error canceling mincut task: {0}"
+                msg_params = (e,)
+                tools_log.log_warning(msg, msg_params=msg_params)
         
         msg = "Task '{0}' was cancelled"
         msg_params = (self.description(),)
@@ -160,12 +162,15 @@ class GwAutoMincutTask(GwTask):
 
         # Handle python exception
         elif self.exception is not None:
-            msg = f'''<b>{tools_qt.tr('key')}: </b>{self.exception}<br>'''
-            msg += f'''<b>{tools_qt.tr('key container')}: </b>'body/data/ <br>'''
-            msg += f'''<b>{tools_qt.tr('Python file')}: </b>{__name__} <br>'''
-            msg += f'''<b>{tools_qt.tr('Python function')}:</b> {self.__class__.__name__} <br>'''
+            msg = (
+                "<b>Key: </b>{0}<br>"
+                "<b>Key container: </b>body/data/ <br>"
+                "<b>Python file: </b>{1} <br>"
+                "<b>Python function:</b> {2} <br>"
+            )
+            msg_params = (self.exception, __name__, self.__class__.__name__)
             title = "Key on returned json from ddbb is missed."
-            tools_qt.show_exception_message(title, msg)
+            tools_qt.show_exception_message(title, msg, msg_params=msg_params)
             self.task_finished.emit([False, self.complet_result])
 
         # Task finished but postgres function failed

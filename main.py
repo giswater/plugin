@@ -19,7 +19,7 @@ from .core.admin.admin_btn import GwAdminButton
 from .core.load_project import GwLoadProject
 from .core.utils import tools_gw
 from .core.utils.signal_manager import GwSignalManager
-from .libs import lib_vars, tools_qgis, tools_os, tools_log
+from .libs import lib_vars, tools_qgis, tools_os, tools_log, tools_db
 from .core.ui.dialog import GwDialog
 from .core.ui.main_window import GwMainWindow
 
@@ -102,19 +102,7 @@ class Giswater(QObject):
             msg_params = ("self.iface.actionPan().trigger()",)
             tools_log.log_info(msg, parameter=str(e), msg_params=msg_params)
 
-        message = "Exception in unload when disconnecting {0} signal"
-        try:
-            # Disconnect QgsProject.instance().crsChanged signal
-            tools_gw.disconnect_signal('load_project', 'project_read_crsChanged_set_epsg')
-        except Exception as e:
-            msg_params = ("QgsProject.instance().crsChanged",)
-            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
-
-        try:
-            tools_gw.disconnect_signal('load_project', 'manage_attribute_table_focusChanged')
-        except Exception as e:
-            msg_params = ("focusChanged",)
-            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
+        self._disconnect_unload_signals()
 
         try:
             # Remove 'Main Info button'
@@ -166,32 +154,14 @@ class Giswater(QObject):
             tools_log.log_info(msg, parameter=str(e), msg_params=msg_params)
 
         try:
-            # Check if project is current loaded and remove giswater toolbars from qgis
+            # Remove giswater toolbars from QGIS (must destroy, not hide)
+            GwLoadProject.destroy_plugin_toolbars(self.iface)
             if self.load_project:
-                if self.load_project.plugin_toolbars:
-                    main_window = self.iface.mainWindow()
-                    for plugin_toolbar in list(self.load_project.plugin_toolbars.values()):
-                        toolbar = getattr(plugin_toolbar, "toolbar", None)
-                        if toolbar is None:
-                            continue
-                        # ToC reuses the Layers panel toolbar — never remove/hide it.
-                        # Skip by toolbar_id/gw_name; objectName is translated and never equals 'toolbar_toc_name'.
-                        if getattr(plugin_toolbar, "toolbar_id", None) == "toc" or toolbar.property("gw_name") == "toc":
-                            plugin_toolbar.toolbar = None
-                            continue
-                        # Must remove from main window; hide + del only orphans widgets on PluginReloader
-                        try:
-                            main_window.removeToolBar(toolbar)
-                        except Exception:
-                            pass
-                        toolbar.setParent(None)
-                        toolbar.deleteLater()
-                        plugin_toolbar.toolbar = None
-                    self.load_project.plugin_toolbars.clear()
+                self.load_project.plugin_toolbars = {}
         except Exception as e:
             message = "Exception in unload when deleting {0}"
             msg_params = ("plugin_toolbar.toolbar",)
-            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
+            tools_log.log_info(message, parameter=str(e))
 
         try:
             # Set 'Main Info button' if project is unload or project don't have layers
@@ -203,7 +173,17 @@ class Giswater(QObject):
             msg_params = ("self._set_info_button()",)
             tools_log.log_info(msg, parameter=str(e), msg_params=msg_params)
 
+        self._close_plugin_db()
         self.load_project = None
+
+    def _close_plugin_db(self):
+        """Close this process's plugin dao/QSql. Does not touch other QGIS windows."""
+        try:
+            tools_db.close_plugin_db()
+        except Exception as e:
+            msg = "Exception in unload when {0}"
+            msg_params = ("tools_db.close_plugin_db()",)
+            tools_log.log_info(msg, parameter=str(e), msg_params=msg_params)
 
     # region private functions
 
@@ -361,6 +341,29 @@ class Giswater(QObject):
             tools_gw.disconnect_signal('main', 'actionSaveProject_save_toolbars_position')
         except TypeError:
             pass
+
+    def _disconnect_unload_signals(self):
+        """Disconnect remaining load_project signals during unload."""
+
+        message = "Exception in unload when disconnecting {0} signal"
+        try:
+            # Disconnect QgsProject.instance().crsChanged signal
+            tools_gw.disconnect_signal('load_project', 'project_read_crsChanged_set_epsg')
+        except Exception as e:
+            msg_params = ("QgsProject.instance().crsChanged",)
+            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
+
+        try:
+            tools_gw.disconnect_signal('load_project', 'manage_attribute_table_focusChanged')
+        except Exception as e:
+            msg_params = ("focusChanged",)
+            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
+
+        try:
+            tools_gw.disconnect_signal('mapzone_paste')
+        except Exception as e:
+            msg_params = ("mapzone_paste",)
+            tools_log.log_info(message, parameter=str(e), msg_params=msg_params)
 
     def _set_info_button(self):
         """ Set Giswater information button (always visible)

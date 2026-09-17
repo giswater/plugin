@@ -92,6 +92,28 @@ def test_malformed_url_without_host_raises_clear_error() -> None:
         )
 
 
+def test_resolve_conn_service_equals() -> None:
+    info = conn_mod.resolve("service=localhost_giswater", None)
+    assert info.service == "localhost_giswater"
+    assert info.dbname == ""
+    assert info.safe_repr() == "service=localhost_giswater"
+
+
+def test_resolve_conn_bare_service_name() -> None:
+    info = conn_mod.resolve("localhost_giswater", None)
+    assert info.service == "localhost_giswater"
+
+
+def test_resolve_conn_empty_service_rejected() -> None:
+    with pytest.raises(RuntimeError, match="pg_service name"):
+        conn_mod.resolve("service=", None)
+
+
+def test_resolve_conn_botched_url_not_a_service() -> None:
+    with pytest.raises(RuntimeError, match="postgres URL, service=NAME"):
+        conn_mod.resolve("user:pass@host/db", None)
+
+
 def test_no_connection_without_sources(cfg_root: Path) -> None:
     with pytest.raises(RuntimeError, match="gw config set database.conn"):
         conn_mod.resolve(None, None)

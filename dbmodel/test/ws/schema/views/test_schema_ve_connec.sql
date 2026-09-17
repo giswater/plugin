@@ -43,7 +43,8 @@ SELECT columns_are(
         'vel_min', 'vel_avg', 'result_id', 'sector_style', 'dma_style', 'presszone_style',
         'dqa_style', 'supplyzone_style', 'lock_level', 'expl_visibility', 'xcoord', 'ycoord',
         'lat', 'long', 'created_at', 'created_by', 'updated_at', 'updated_by',
-        'the_geom', 'p_state', 'uuid', 'uncertain', 'xyz_date', 'dataquality', 'dataquality_obs'
+        'the_geom', 'p_state', 'uuid', 'uncertain', 'xyz_date', 'dataquality', 'dataquality_obs', 'p_arc_id', 'p_pjoint_id',
+        'p_pjoint_type'
     ],
     'View ve_connec should have the correct columns'
 );
@@ -189,6 +190,9 @@ SELECT col_type_is('ve_connec', 'xyz_date', 'date', 'Column xyz_date should be d
 
 SELECT col_type_is('ve_connec', 'dataquality', 'int4', 'Column dataquality should be int4');
 SELECT col_type_is('ve_connec', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
+SELECT col_type_is('ve_connec', 'p_arc_id', 'int4', 'Column p_arc_id should be int4');
+SELECT col_type_is('ve_connec', 'p_pjoint_id', 'int4', 'Column p_pjoint_id should be int4');
+SELECT col_type_is('ve_connec', 'p_pjoint_type', 'varchar(16)', 'Column p_pjoint_type should be varchar(16)');
 
 SELECT * FROM finish();
 

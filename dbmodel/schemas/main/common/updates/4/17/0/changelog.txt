@@ -1,0 +1,52 @@
+- Fill empty EPA temps (`temp_t_arc`/`temp_t_node`/gully/pgr) from GIS `t_*` in `gw_fct_setcheckdatabase` when EPA checks are enabled.
+- Persist `expl_visibility` on links created or reconnected by `gw_fct_linktonetwork` (inherit from connec/gully/arc on INSERT; needed under RLS).
+- Persist `linkcat_id` on `ve_link` UPDATE (`gw_trg_edit_link`).
+- Fix `gw_fct_linkexitgenerator` to filter links by sector_id > 0 when is called from `gw_fct_pg2epa_fill_data` function.
+- Improve selector_sector to use sector_id >= 0, now users can select also the 0 sector.
+- Refactor gw_fct_getfeatures with shared list/filter helpers (gw_fct_build_filters_sql, gw_fct_resolve_list_query, gw_fct_build_canvas_filter_sql).
+- Add sys_message 4680 for GeoJSON output requiring the_geom in resolved tableName queries.
+- Materialize graph inundation temporal arcs into anl_graphinundation / v_anl_graphinundation for QGIS.
+- Fix performance on `sys_fprocess` queries.
+- Fix `gw_fct_linktonetwork` Force reconnect + Extra filters: rebuild link geometry from the connect, join `vf_arc`/`vf_node` inside KNN on `arc`/`node`, and log when no candidate is found.
+- Keep `link.userdefined_geom` when provided on `ve_link` edit; set TRUE on INSERT or geom change.
+- Skip `gw_fct_linktonetwork` entirely for links with `userdefined_geom` TRUE.
+- Do not skip `userdefined_geom` when `gw_fct_linktonetwork` creates a planned link (psector / arc divide); log sys_message 4692 when skipping in inventory mode.
+- Add editable `userdefined_geom` checkbox to link info forms.
+- Add `isvalidated` boolean to `rpt_cat_result` and expose it on `v_ui_rpt_cat_result` / EPA manager tableview.
+- Remove unused `DEPRECATED` (`status=0`) from `inp_result_status`; migrate existing rows to `ARCHIVED`.
+- Mapzone manager: array expl/sector/muni not mandatory, default Undefined (0); PK empty/non-editable (URN).
+- Mapzone INSTEAD OF triggers default empty/null expl_id, muni_id, sector_id arrays to ARRAY[0] so QGIS insert does not violate NOT NULL.
+- Load sys_feature_type into HIDDEN for native ValueRelation; macroexploitation is not auto-loaded (context MAP ZONES, Add Layers promotes out of HIDDEN with geometry); macroexpl_id points at macroexploitation.
+- Strip leftover self-ValueRelation from mapzone PK text fields (ve_exploitation.expl_id, ve_dma.dma_id, ...).
+- Native form ValueRelation is applied as configured (allowMulti) without a prior empty ValueMap wipe.
+- ConfigLayerFields configures geometryless catalog tables (cat_material) instead of skipping them.
+- Native form config falls back to config_form_fields if v_config_form_fields / getinfofromid is missing.
+- Update mapzone `code` via `gw_fct_generate_code` when `gw_fct_graphanalytics_mapzones_v1` writes geometry directly to the table.
+- Feature form muni_id combo uses ValueRelation on ve_municipality instead of QGIS ValueMap.
+- Remove unused `edit_feature_auto_builtdate`; builtdate on insert uses only `edit_builtdate_vdefault`.
+- Rename `abrevation` to `abbreviation` on `cat_feature`, `config_mapzones`, `ve_cat_feature_*` views, and `config_code_parts`.
+- Translate QGIS TOC group names from `config_typevalue.sys_table_context` via multilang (`v_config_typevalue`).
+- Keep the `HIDDEN` TOC group name in English so plugin lookups still match.
+- Translate QML rule labels from `sys_style` via multilang (`v_sys_style`).
+- Load toolbox process descriptions from `v_sys_function` so multilingual translations are used.
+- Fill CRM dscenario and water-balance toolbox descriptions with proposed end date from sys_message 4690.
+- Point `config_report.filterparam.columnname` at SQL columns (not display aliases) so report filters stay stable when query aliases are translated.
+- Give quoted aliases to all columns in report 101 (`connec_id`, `code`, `customer_code`) so they can be translated.
+- Stamp `updated_at`/`updated_by` on every UPDATE of tables that have those columns (`gw_trg_set_updated`).
+- Add `v_om_scada_graph` to Load Giswater layers under MASTERPLAN / SCADA.
+- Add toolbox process `Scada graph analysis` (`gw_fct_scada_graph_check`, Master / role_plan).
+- Move `gw_fct_scada_graph_export` from `gw_fct_scada_graph_build` to `gw_fct_scada_graph_check`.
+- Always write scada graph check summary lines to the toolbox Info Log (not only error rows).
+- Wrap leftover toolbox `selectedId` values in `gw_fct_getprocess` so negative combo ids (e.g. -901) do not crash JSON path `dvQueryText`.
+- Raise sys_message 4750 when inserting or updating a second operative (state=1) link from the same connec/gully.
+- Substitute sys_message %placeholders% even when extra parameter keys are sent; also replace them in hint_message.
+- Default element `ownercat_id` from `exploitation.owner_vdefault` on insert (form + trigger), same as node/arc/connec.
+- Rename tab_elements context menu / tooltip from "Delete element" to "Delete element relation".
+- Replace deprecated mapzone fids 367/534 with explicit toArc/nodeParent checks for sector (714, 716) and dma (718, 720).
+- Add `direct_insert` to `config_visit_parameter` so a visit can be saved without opening the extra event form.
+- Add user config `om_visit_direct_insert` (O&M / Visit direct insert) to enable the same shortcut from Config.
+- Capture `om_visit.muni_id` / `sector_id` in `gw_trg_om_visit` from user default, geometry or related feature.
+- Keep `om_visit.visit_type` when provided (Add Visit); fill from `config_visit_class` only if NULL.
+- Add sequence `config_style_id_seq` on `config_style.id`, set to MAX(id) so the next insert is 111.
+- Load info-form QToolBox titles (Main Data / Additional Data / Data / Dscenario) from `sys_label` 4001-4004 via `gw_fct_infofromid`.
+- Recreate `v_hydrometer` from `cibs.hydrometer` when CIBS is linked; otherwise add `brand_id`/`model_id` on local `ext_hydrometer` (CIBS already renamed that table).

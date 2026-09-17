@@ -122,8 +122,14 @@
         <layout class="QGridLayout" name="gridLayout_7">
          <item row="0" column="0">
           <widget class="QLabel" name="lbl_total1">
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
            <property name="text">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Total numbers:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            <string>Total numbers:</string>
            </property>
           </widget>
          </item>
@@ -277,8 +283,14 @@
          </item>
          <item row="0" column="0">
           <widget class="QLabel" name="lbl_total2">
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
            <property name="text">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Total numbers:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            <string>Total numbers:</string>
            </property>
           </widget>
          </item>

@@ -50,7 +50,7 @@ BEGIN
 		-- If style_id is provided, use it to get the style
 		v_styles := jsonb_object_agg(idval::text, stylevalue) FROM (
 			SELECT c.idval, stylevalue
-			FROM sys_style s
+			FROM v_sys_style s
 			JOIN config_style c ON s.styleconfig_id = c.id
 			WHERE s.layername = v_layername
 			  AND c.id = v_style_id::int
@@ -60,7 +60,7 @@ BEGIN
 		-- If no style_id, use the default style
 		v_styles := jsonb_object_agg(idval::text, stylevalue) FROM (
 			SELECT c.idval, stylevalue
-			FROM sys_style s
+			FROM v_sys_style s
 			JOIN config_style c ON s.styleconfig_id = c.id
 			WHERE s.layername = v_layername
 			  AND c.id = v_style_vdef
@@ -72,7 +72,7 @@ BEGIN
 	IF v_styles IS NULL THEN
 		v_styles := jsonb_object_agg(idval::text, stylevalue) FROM (
 			SELECT c.idval, stylevalue
-			FROM sys_style s
+			FROM v_sys_style s
 			JOIN config_style c ON s.styleconfig_id = c.id
 			WHERE s.layername = v_layername AND c.id=101 AND s.active IS TRUE
 		) sub;

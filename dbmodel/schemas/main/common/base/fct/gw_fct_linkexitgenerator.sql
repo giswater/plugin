@@ -47,9 +47,9 @@ BEGIN
 	-- select config values
 	SELECT project_type, giswater INTO v_project_type, v_version FROM sys_version ORDER BY id DESC LIMIT 1;
 
-	IF p_input = 1 THEN -- the whole ve_link
+	IF p_input = 1 THEN -- the whole ve_link (fill_data)
 		v_query_text_aux := '';
-	ELSIF p_input = 2 THEN -- only those links wich are on arcs present on temp_anl_arc and nodes present temp_anl_node
+	ELSIF p_input = 2 THEN -- only those links wich are on arcs present on temp_anl_arc and nodes present temp_anl_node (profiletool)
 		v_query_text_aux := ' AND exit_id IN (SELECT arc_id FROM temp_anl_arc UNION SELECT node_id FROM temp_anl_node)';
 	END IF;
 
@@ -78,7 +78,8 @@ BEGIN
 			ST_EndPoint(the_geom),
 			FALSE
 		FROM ve_link n1
-		WHERE state > 0 %s;
+		WHERE COALESCE(p_state, state) > 0 
+		%s;
 	$sql$, v_query_text_aux);
 
 	EXECUTE v_query_text;

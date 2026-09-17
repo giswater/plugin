@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'arc_id', 'node_1', 'node_2', 'arccat_id', 'gis_length', 'sector_id',
         'macrosector_id', 'state', 'state_type', 'expl_id', 'fusion_node', 'add_length',
-        'the_geom'
+        'the_geom', 'p_state'
     ],
     'View ve_inp_virtual should have the correct columns'
 );
@@ -42,6 +42,7 @@ SELECT col_type_is('ve_inp_virtual', 'expl_id', 'int4', 'Column expl_id should b
 SELECT col_type_is('ve_inp_virtual', 'fusion_node', 'int4', 'Column fusion_node should be int4');
 SELECT col_type_is('ve_inp_virtual', 'add_length', 'bool', 'Column add_length should be bool');
 SELECT col_type_is('ve_inp_virtual', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_virtual', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'element_id', 'node_id', 'to_arc', 'flwreg_length', 'power', 'curve_id',
         'speed', 'pattern_id', 'pump_type', 'effic_curve_id', 'energy_price', 'energy_pattern_id',
-        'status', 'the_geom'
+        'status', 'the_geom', 'p_state'
     ],
     'View ve_inp_frpump should have the correct columns'
 );
@@ -43,6 +43,7 @@ SELECT col_type_is('ve_inp_frpump', 'energy_price', 'float8', 'Column energy_pri
 SELECT col_type_is('ve_inp_frpump', 'energy_pattern_id', 'varchar(18)', 'Column energy_pattern_id should be varchar(18)');
 SELECT col_type_is('ve_inp_frpump', 'status', 'varchar(12)', 'Column status should be varchar(12)');
 SELECT col_type_is('ve_inp_frpump', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_frpump', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

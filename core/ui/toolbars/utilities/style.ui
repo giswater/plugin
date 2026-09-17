@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>405</width>
-    <height>241</height>
+    <height>340</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -140,7 +140,104 @@
           </widget>
          </item>
          <item row="0" column="3">
-          <widget class="QLineEdit" name="feature_id"/>
+          <widget class="QLineEdit" name="feature_id">
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <widget class="QLabel" name="lbl_addparam">
+           <property name="text">
+            <string>Addparam: </string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <spacer name="horizontalSpacer_7">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>44</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item row="4" column="3">
+          <widget class="QLineEdit" name="addparam">
+           <property name="placeholderText">
+            <string>{"orderBy":1}</string>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="0">
+          <widget class="QLabel" name="lbl_is_templayer">
+           <property name="text">
+            <string>Is templayer: </string>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="1">
+          <spacer name="horizontalSpacer_8">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>44</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item row="5" column="3">
+          <widget class="QCheckBox" name="is_templayer">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="0">
+          <widget class="QLabel" name="lbl_active">
+           <property name="text">
+            <string>Active: </string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="1">
+          <spacer name="horizontalSpacer_9">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>44</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item row="6" column="3">
+          <widget class="QCheckBox" name="active">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
          </item>
         </layout>
        </item>
@@ -190,6 +287,9 @@
   <tabstop>idval</tabstop>
   <tabstop>descript</tabstop>
   <tabstop>sys_role</tabstop>
+  <tabstop>addparam</tabstop>
+  <tabstop>is_templayer</tabstop>
+  <tabstop>active</tabstop>
  </tabstops>
  <resources/>
  <connections/>

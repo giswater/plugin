@@ -55,12 +55,6 @@ v_tabname text = 'tab_data';
 v_errcontext text;
 v_querystring text;
 v_msgerr json;
-v_ui_lang text;
-v_ml_pref jsonb;
-v_ml_project_type text;
-v_i18n_lb text;
-v_i18n_tt text;
-v_i18n_widgetcontrols jsonb;
 
 vdefault_querytext text;
 
@@ -151,18 +145,30 @@ BEGIN
 			-- Update array
 			IF (aux_json->>'widgettype')='combo' OR (aux_json->>'widgettype')='multiple_checkbox' THEN
 
-				-- Set default value if exist when inserting and feild_value is null
+				-- Set default value if exist when inserting and field_value is null.
+				-- Plain combos no longer ship comboIds (Python loads them async from
+				-- dv_querytext), so vdefault_* is applied directly. multiple_checkbox
+				-- still has comboIds and keeps the old validation against it.
 				IF p_tg_op ='INSERT' AND (field_value IS NULL OR field_value = '') THEN
 					IF (aux_json->>'widgetcontrols') IS NOT NULL THEN
-						IF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_value') THEN
-							IF (aux_json->>'widgetcontrols')::json->>'vdefault_value'::text in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+						IF (aux_json->>'widgettype') = 'combo' THEN
+							IF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_value') THEN
 								field_value = (aux_json->>'widgetcontrols')::json->>'vdefault_value';
-							END IF;
-						ELSEIF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_querytext') THEN
-							EXECUTE aux_json->>'widgetcontrols'::json->'vdefault_querytext'::text INTO vdefault_querytext;
-							IF vdefault_querytext in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+							ELSEIF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_querytext') THEN
+								EXECUTE aux_json->>'widgetcontrols'::json->'vdefault_querytext'::text INTO vdefault_querytext;
 								field_value = vdefault_querytext;
-							END iF;
+							END IF;
+						ELSE
+							IF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_value') THEN
+								IF (aux_json->>'widgetcontrols')::json->>'vdefault_value'::text in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+									field_value = (aux_json->>'widgetcontrols')::json->>'vdefault_value';
+								END IF;
+							ELSEIF ((aux_json->>'widgetcontrols')::jsonb ? 'vdefault_querytext') THEN
+								EXECUTE aux_json->>'widgetcontrols'::json->'vdefault_querytext'::text INTO vdefault_querytext;
+								IF vdefault_querytext in  (select a from json_array_elements_text(json_extract_path(v_fields_array[array_index],'comboIds'))a) THEN
+									field_value = vdefault_querytext;
+								END iF;
+							END IF;
 						END IF;
 					END IF;
 				END IF;
@@ -183,80 +189,6 @@ BEGIN
 			END IF;
 		END LOOP;
 
-	END IF;
-
-	-- Apply multilang UI translations for info dialog fields
-	v_ml_pref := NULL;
-	v_ui_lang := NULL;
-	v_ml_project_type := NULL;
-	IF to_regnamespace('multilang') IS NOT NULL THEN
-		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
-		v_ui_lang := v_ml_pref->>'lang';
-		v_ml_project_type := v_ml_pref->>'project_type';
-	END IF;
-	IF v_ui_lang IS NOT NULL AND fields_array IS NOT NULL THEN
-		FOR aux_json IN SELECT * FROM json_array_elements(array_to_json(fields_array))
-		LOOP
-			SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
-			FROM multilang.config_form_fields i
-			WHERE i.project_type = v_ml_project_type
-			  AND (
-				i.formname = v_table_id
-				OR i.formname = replace(v_idname, '_id', '')
-				OR v_table_id LIKE i.formname
-			  )
-			  AND i.formtype = 'form_feature'
-			  AND i.tabname = COALESCE(aux_json->>'tabname', v_tabname)
-			  AND i.source = aux_json->>'columnname'
-			  AND i.context = 'config_form_fields'
-			  AND i.lang = v_ui_lang
-			ORDER BY CASE
-				WHEN i.formname = v_table_id THEN 0
-				WHEN i.formname = replace(v_idname, '_id', '') THEN 1
-				ELSE 2
-			END
-			LIMIT 1;
-			IF v_i18n_lb IS NOT NULL THEN
-				fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
-					fields_array[(aux_json->>'orderby')::INT], 'label', v_i18n_lb);
-			END IF;
-			IF v_i18n_tt IS NOT NULL THEN
-				fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
-					fields_array[(aux_json->>'orderby')::INT], 'tooltip', v_i18n_tt);
-			END IF;
-
-			SELECT i."text" INTO v_i18n_widgetcontrols
-			FROM multilang.config_form_fields_json i
-			WHERE i.project_type = v_ml_project_type
-			  AND (
-				i.formname = v_table_id
-				OR i.formname = replace(v_idname, '_id', '')
-				OR v_table_id LIKE i.formname
-			  )
-			  AND i.formtype = 'form_feature'
-			  AND i.tabname = COALESCE(aux_json->>'tabname', v_tabname)
-			  AND i.source = aux_json->>'columnname'
-			  AND i.context = 'config_form_fields'
-			  AND i.hint = 'widgetcontrols'
-			  AND i.lang = v_ui_lang
-			ORDER BY CASE
-				WHEN i.formname = v_table_id THEN 0
-				WHEN i.formname = replace(v_idname, '_id', '') THEN 1
-				ELSE 2
-			END
-			LIMIT 1;
-			IF v_i18n_widgetcontrols IS NOT NULL THEN
-				fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
-					fields_array[(aux_json->>'orderby')::INT],
-					'widgetcontrols',
-					(COALESCE((fields_array[(aux_json->>'orderby')::INT]->'widgetcontrols')::jsonb, '{}'::jsonb)
-						|| v_i18n_widgetcontrols)::json);
-				IF v_i18n_widgetcontrols ? 'text' THEN
-					fields_array[(aux_json->>'orderby')::INT] := gw_fct_json_object_set_key(
-						fields_array[(aux_json->>'orderby')::INT], 'value', v_i18n_widgetcontrols->>'text');
-				END IF;
-			END IF;
-		END LOOP;
 	END IF;
 
 	-- Convert to json

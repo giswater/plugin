@@ -50,7 +50,7 @@ jobs:
 
       - name: Build Docker images
         working-directory: dbmodel
-        run: docker compose -f docker-compose.test.yml build --quiet postgres runner
+        run: docker compose -f docker-compose.test.yml build postgres runner
 
       - name: Start Postgres
         working-directory: dbmodel

@@ -77,7 +77,7 @@ jobs:
       - name: Build Docker images
         if: steps.filter.outputs.active == 'true'
         working-directory: dbmodel
-        run: docker compose -f docker-compose.test.yml build --quiet postgres runner
+        run: docker compose -f docker-compose.test.yml build postgres runner
 
       - name: Start Postgres
         if: steps.filter.outputs.active == 'true'
@@ -142,7 +142,7 @@ jobs:
         working-directory: dbmodel
         run: |
           chmod +x test/*.sh ../scripts/gw_*.sh ../scripts/gw_bootstrap_network.sh ../scripts/verify_dbmodel_ci_checks.sh 2>/dev/null || chmod +x test/*.sh
-          docker compose -f docker-compose.test.yml build --quiet postgres runner
+          docker compose -f docker-compose.test.yml build postgres runner
           docker compose -f docker-compose.test.yml up -d postgres --wait
           docker compose -f docker-compose.test.yml run --rm -T runner \
             bash /workspace/dbmodel/test/ci_lifecycle_inner.sh profiles-smoke
@@ -185,7 +185,7 @@ jobs:
         working-directory: dbmodel
         run: |
           chmod +x test/*.sh ../scripts/gw_*.sh ../scripts/gw_bootstrap_network.sh ../scripts/verify_dbmodel_ci_checks.sh 2>/dev/null || chmod +x test/*.sh
-          docker compose -f docker-compose.test.yml build --quiet postgres runner
+          docker compose -f docker-compose.test.yml build postgres runner
           docker compose -f docker-compose.test.yml up -d postgres --wait
           docker compose -f docker-compose.test.yml run --rm -T runner \
             bash /workspace/dbmodel/test/ci_lifecycle_inner.sh update-isolated
@@ -230,7 +230,7 @@ jobs:
         working-directory: dbmodel
         run: |
           chmod +x test/*.sh ../scripts/gw_*.sh ../scripts/gw_bootstrap_network.sh ../scripts/verify_dbmodel_ci_checks.sh 2>/dev/null || chmod +x test/*.sh
-          docker compose -f docker-compose.test.yml build --quiet postgres runner
+          docker compose -f docker-compose.test.yml build postgres runner
           docker compose -f docker-compose.test.yml up -d postgres --wait
           docker compose -f docker-compose.test.yml run --rm -T runner \
             bash /workspace/dbmodel/test/ci_lifecycle_inner.sh pgtap-satellites
@@ -275,7 +275,7 @@ jobs:
         working-directory: dbmodel
         run: |
           chmod +x test/*.sh ../scripts/gw_*.sh ../scripts/gw_bootstrap_network.sh ../scripts/verify_dbmodel_ci_checks.sh 2>/dev/null || chmod +x test/*.sh
-          docker compose -f docker-compose.test.yml build --quiet postgres runner
+          docker compose -f docker-compose.test.yml build postgres runner
           docker compose -f docker-compose.test.yml up -d postgres --wait
           docker compose -f docker-compose.test.yml run --rm -T runner \
             bash /workspace/dbmodel/test/ci_lifecycle_inner.sh pgtap-network

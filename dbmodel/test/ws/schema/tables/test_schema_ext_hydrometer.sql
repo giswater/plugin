@@ -26,7 +26,8 @@ SELECT columns_are(
         'priority_id', 'catalog_id', 'category_id', 'crmzone_id', 'crmzone_order', 'wmeter_number',
         'wmeter_builtdate', 'wmeter_instaldate', 'plot_code', 'muni_id', 'start_date', 'update_date',
         'shutdown_date', 'end_date', 'address1_1', 'address1_2', 'address1_3', 'address2_1',
-        'address2_2', 'address2_3', 'assessed_volume', 'is_waterbal', 'link'
+        'address2_2', 'address2_3', 'assessed_volume', 'is_waterbal', 'link',
+        'brand_id', 'model_id'
     ],
     'Table ext_hydrometer should have the correct columns'
 );
@@ -66,6 +67,8 @@ SELECT col_type_is('ext_hydrometer', 'address2_3', 'text', 'Column address2_3 sh
 SELECT col_type_is('ext_hydrometer', 'assessed_volume', 'float8', 'Column assessed_volume should be float8');
 SELECT col_type_is('ext_hydrometer', 'is_waterbal', 'bool', 'Column is_waterbal should be bool');
 SELECT col_type_is('ext_hydrometer', 'link', 'text', 'Column link should be text');
+SELECT col_type_is('ext_hydrometer', 'brand_id', 'varchar(50)', 'Column brand_id should be varchar(50)');
+SELECT col_type_is('ext_hydrometer', 'model_id', 'varchar(50)', 'Column model_id should be varchar(50)');
 
 -- Finish
 SELECT * FROM finish();

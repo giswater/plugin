@@ -40,12 +40,16 @@ BEGIN
 		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'MACROSECTOR', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
-		IF NEW.code IS NULL THEN
-			NEW.code := v_macrosector_id::text;
-		END IF;
 
 		IF NEW.active IS NULL THEN
 			NEW.active = TRUE;
+		END IF;
+
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
 		END IF;
 
 		INSERT INTO macrosector (macrosector_id, code, name, descript, active, expl_id, muni_id, stylesheet, link, lock_level, addparam, created_at, created_by, updated_at, updated_by)
@@ -65,6 +69,13 @@ BEGIN
 
 		IF v_view_name = 'EDIT' AND NEW.the_geom IS NOT NULL AND NEW.code IS NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'MACROSECTOR', json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
+
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
 		END IF;
 
 		UPDATE macrosector

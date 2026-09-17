@@ -34,7 +34,7 @@ BEGIN
 		value::json->>'separator',
 		COALESCE((value::json->>'decimals')::boolean, true)
 	INTO v_currency_symbol, v_separator, v_decimals
-	FROM config_param_system 
+	FROM v_config_param_system 
 	WHERE parameter = 'admin_currency';
 
 	-- Default values if not configured

@@ -56,9 +56,6 @@ BEGIN
 		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'SUPPLYZONE', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
-		IF NEW.code IS NULL THEN
-			NEW.code := NEW.supplyzone_id::text;
-		END IF;
 
 		IF NEW.active IS NULL THEN
 			NEW.active = TRUE;

@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'arc_id', 'node_1', 'node_2', 'arccat_id', 'expl_id', 'sector_id',
         'dma_id', 'state', 'state_type', 'custom_length', 'annotation', 'valve_type',
-        'setting', 'curve_id', 'minorloss', 'status', 'init_quality', 'the_geom'
+        'setting', 'curve_id', 'minorloss', 'status', 'init_quality', 'the_geom', 'p_state'
     ],
     'View ve_inp_virtualvalve should have the correct columns'
 );
@@ -47,6 +47,7 @@ SELECT col_type_is('ve_inp_virtualvalve', 'minorloss', 'numeric(12,4)', 'Column 
 SELECT col_type_is('ve_inp_virtualvalve', 'status', 'varchar(12)', 'Column status should be varchar(12)');
 SELECT col_type_is('ve_inp_virtualvalve', 'init_quality', 'float8', 'Column init_quality should be float8');
 SELECT col_type_is('ve_inp_virtualvalve', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_virtualvalve', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

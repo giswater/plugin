@@ -11,7 +11,7 @@ from functools import partial
 
 from qgis.PyQt.QtWidgets import QLineEdit
 from qgis.PyQt.sip import isdeleted
-from qgis.core import QgsExpression
+from qgis.core import QgsExpression, QgsFeatureRequest
 from qgis.gui import QgsMapToolEmitPoint
 
 from ..ui.ui_manager import GwScadaGraphUi
@@ -21,8 +21,10 @@ from ... import global_vars
 from ...libs import tools_qt, tools_qgis, tools_db
 
 _SIGNAL_GROUP = 'scada_graph'
-_GRAPH_LAYER_NAMES = ('om_graph',)
-_GRAPH_TABLE_NAMES = ('om_scada_graph', 've_om_scada_graph')
+_GRAPH_LAYER_NAMES = ('v_om_scada_graph', 'om_scada_graph', 'om_graph')
+_GRAPH_TABLE_NAMES = ('v_om_scada_graph', 'om_scada_graph')
+_GRAPH_FIELD_ID = 'node_1,node_2'
+_GRAPH_ALIAS = 'v_om_scada_graph'
 
 
 class GwScadaGraph:
@@ -38,6 +40,7 @@ class GwScadaGraph:
         self.layer_node = None
         self._pick_target = None
         self._node_widgets = {}
+        self._graph_layer = None
 
     def run(self):
         """ Open scada graph dialog """
@@ -52,7 +55,8 @@ class GwScadaGraph:
         body = {"client": {"cur_user": tools_db.current_user}, "form": form}
         json_result = tools_gw.execute_procedure('gw_fct_get_dialog', body)
         if not json_result or json_result.get('status') != 'Accepted':
-            tools_qgis.show_warning("Failed to load scada graph dialog.")
+            msg = "Failed to load scada graph dialog."
+            tools_qgis.show_warning(msg)
             return
 
         self.dlg = GwScadaGraphUi(self.parent_widget)
@@ -61,7 +65,8 @@ class GwScadaGraph:
         self._cache_node_widgets()
         self._init_snapping()
         self.dlg.rejected.connect(partial(self._on_dialog_closed, self.dlg))
-        tools_gw.open_dialog(self.dlg, dlg_name='scada_graph', title=tools_qt.tr('Scada graph'))
+        title = 'Scada graph'
+        tools_gw.open_dialog(self.dlg, dlg_name='scada_graph', title=title)
 
     def _prepare_dialog_json(self, json_result):
         """ Copy button icons from widgetcontrols into stylesheet """
@@ -107,13 +112,24 @@ class GwScadaGraph:
         object_2 = tools_qt.get_text(
             dialog, self._find_widget(dialog, 'object_2'), return_string_null=False)
         if not object_1 or not object_2:
-            tools_qt.show_info_box(tools_qt.tr('object_1 and object_2 are required.'))
+            msg = "object_1 and object_2 are required."
+            tools_qt.show_info_box(msg)
             return None, None
         if not str(object_1).isdigit() or not str(object_2).isdigit():
-            tools_qt.show_info_box(tools_qt.tr('object_1 and object_2 must be numeric node ids.'))
+            msg = "object_1 and object_2 must be numeric node ids."
+            tools_qt.show_info_box(msg)
             return None, None
         if str(object_1) == str(object_2):
-            tools_qt.show_info_box(tools_qt.tr('object_1 and object_2 must be different.'))
+            msg = "object_1 and object_2 must be different."
+            tools_qt.show_info_box(msg)
+            return None, None
+        sql = (
+            "SELECT 1 FROM om_scada_graph "
+            f"WHERE node_1 = {int(object_1)} AND node_2 = {int(object_2)} LIMIT 1"
+        )
+        if tools_db.get_row(sql, log_info=False):
+            msg = "Scada graph edge already exists."
+            tools_qt.show_info_box(msg)
             return None, None
         return int(object_1), int(object_2)
 
@@ -147,63 +163,90 @@ class GwScadaGraph:
         if node1 is None:
             return
 
-        params = f'"object_1":{node1}, "object_2":{node2}'
+        params = (
+            f'"object_1":{node1}, "object_2":{node2}, '
+            f'"node_1":{node1}, "node_2":{node2}'
+        )
         body = tools_gw.create_body(extras=f'"parameters":{{{params}}}')
-        json_result = tools_gw.execute_procedure('gw_fct_scada_graph_build', body)
+        json_result = tools_gw.execute_procedure(
+            'gw_fct_scada_graph_build', body, check_function=False, log_sql=True)
         if not json_result or json_result.get('status') != 'Accepted':
             return
 
-        edge_id = (json_result.get('body') or {}).get('data', {}).get('edgeId')
-        if edge_id is None:
-            return
-        self._refresh_graph_on_map(edge_id, dialog)
+        data = (json_result.get('body') or {}).get('data') or {}
+        node_1 = data.get('node_1', node1)
+        node_2 = data.get('node_2', node2)
+        self._refresh_graph_on_map(node_1, node_2, dialog)
+
+    def _use_graph_layer(self, layer):
+
+        if isinstance(layer, (list, tuple)):
+            layer = layer[0] if layer else None
+        if layer is None or isdeleted(layer) or not layer.isValid():
+            return None
+        self._graph_layer = layer
+        if not tools_qgis.is_layer_visible(layer):
+            tools_qgis.set_layer_visible(layer)
+        return layer
 
     def _ensure_graph_layer(self):
-        """ Load om_graph layer in QGIS project """
+        """ Load v_om_scada_graph in the QGIS project """
+
+        layer = self._use_graph_layer(self._graph_layer)
+        if layer is not None:
+            return layer
 
         for name in _GRAPH_LAYER_NAMES:
-            candidate = tools_qgis.get_layer_by_layername(name, log_info=False)
-            if candidate:
-                tools_qgis.set_layer_visible(candidate)
-                return candidate
+            layer = self._use_graph_layer(
+                tools_qgis.get_layer_by_layername(name, log_info=False))
+            if layer is not None:
+                return layer
         for tablename in _GRAPH_TABLE_NAMES:
-            layer = tools_qgis.get_layer_by_tablename(tablename, show_warning_=False)
-            if layer:
-                tools_qgis.set_layer_visible(layer)
+            layer = self._use_graph_layer(
+                tools_qgis.get_layer_by_tablename(tablename, show_warning_=False))
+            if layer is not None:
                 return layer
         tools_gw.add_layer_database(
-            'om_scada_graph', the_geom='the_geom', field_id='edge_id',
-            alias='om_graph', group='OM', sub_group='Scada')
-        layer = tools_qgis.get_layer_by_layername('om_graph', log_info=False)
-        if layer:
-            tools_qgis.set_layer_visible(layer)
+            'v_om_scada_graph', the_geom='the_geom', field_id=_GRAPH_FIELD_ID,
+            alias=_GRAPH_ALIAS, group='MASTERPLAN', sub_group='SCADA')
+        layer = self._use_graph_layer(
+            tools_qgis.get_layer_by_layername(_GRAPH_ALIAS, log_info=False))
+        if layer is not None:
             return layer
-        return tools_qgis.get_layer_by_tablename('om_scada_graph', show_warning_=False)
+        return self._use_graph_layer(
+            tools_qgis.get_layer_by_tablename('v_om_scada_graph', show_warning_=False))
 
-    def _refresh_graph_on_map(self, edge_id, dialog=None):
-        """ Reload layer, select edge and zoom """
+    def _refresh_graph_on_map(self, node_1, node_2, dialog=None):
+        """ Reload provider and zoom to the new edge """
 
         layer = self._ensure_graph_layer()
         if not layer:
-            tools_qgis.show_warning(
-                tools_qt.tr('Scada graph saved in DB but om_graph layer could not be loaded.'),
-                dialog=dialog)
+            msg = "Scada graph saved in DB but v_om_scada_graph layer could not be loaded."
+            tools_qgis.show_warning(msg, dialog=dialog)
             return
         layer.dataProvider().reloadData()
-        layer.triggerRepaint()
-        layer.removeSelection()
-        expr_obj = QgsExpression(f'"edge_id" = {edge_id}')
-        tools_qgis.select_features_by_expr(layer, expr_obj)
-        tools_gw.zoom_to_feature_by_id('om_scada_graph', 'edge_id', edge_id)
-        self.canvas.refresh()
-        tools_qgis.show_info(
-            tools_qt.tr('Scada graph edge created'),
-            parameter=str(edge_id),
-            dialog=dialog)
+        layer.updateExtents()
+
+        expr = f'"node_1" = {int(node_1)} AND "node_2" = {int(node_2)}'
+        request = QgsFeatureRequest(QgsExpression(expr))
+        request.setLimit(1)
+        feat = next(layer.getFeatures(request), None)
+        if feat is not None and feat.hasGeometry():
+            layer.removeSelection()
+            bbox = feat.geometry().boundingBox()
+            tools_qgis.zoom_to_rectangle(
+                bbox.xMinimum() - 15, bbox.yMinimum() - 15,
+                bbox.xMaximum() + 15, bbox.yMaximum() + 15)
+        else:
+            layer.triggerRepaint()
+
+        msg = "Scada graph edge created"
+        tools_qgis.show_info(msg, parameter=f"{node_1}-{node_2}", dialog=dialog)
 
     def activate_snapping(self, target, dialog):
         if self.layer_node is None:
-            tools_qgis.show_warning(tools_qt.tr('Node layer not found in the project.'))
+            msg = "Node layer not found in the project."
+            tools_qgis.show_warning(msg)
             return
         self._disconnect_snapping()
         self._pick_target = target
@@ -236,7 +279,8 @@ class GwScadaGraph:
             return
         node_id = self.snapper_manager.get_snapped_feature(result).attribute('node_id')
         self._set_picked_node(self._pick_target, node_id)
-        tools_qgis.show_info(tools_qt.tr('Node selected'), parameter=str(node_id))
+        msg = "Node selected"
+        tools_qgis.show_info(msg, parameter=str(node_id))
         self._disconnect_snapping()
 
     def _disconnect_snapping(self):

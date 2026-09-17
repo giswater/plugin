@@ -60,12 +60,20 @@ To make a new code contribution, select the appropriate repository:
 2. Fork the repository.
 3. Set up GitHub Desktop or use command line.
 4. Create a working branch and begin changes.
-5. Commit changes when satisfied, using appropriate commit messages.
+5. Commit changes when satisfied, using [Conventional Commits](#commit-messages).
 6. Self-review to expedite the review process.
+
+### Commit messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/): `type(optional-scope): subject` in imperative English.
+
+Common types: `fix`, `feat`, `refactor`, `chore`, `docs`, `test`, `ci`. Examples: `fix(sql): handle null language in patch`, `feat(epsg): detect project EPSG from sys_version`.
+
+Prefer the same `type` in the PR title.
 
 ### Create a Pull Request
 
-Once finished, create a PR and fill in the "Ready for review" template. Link the PR to any relevant issue. Enable maintainer edits for branch updates. A team member will review your PR, possibly requesting changes before merging.
+Once finished, open a PR. GitHub fills the [pull request template](.github/PULL_REQUEST_TEMPLATE.md): mark the type, write a short Summary, complete the Test plan, and link any related issue (`Closes #N` / `Refs #N`). Enable maintainer edits for branch updates. A team member will review your PR, possibly requesting changes before merging.
 
 ## Contributors List
 Josep Lluís Sala, GIS analyst on BGEO OEPN GIS.<br>

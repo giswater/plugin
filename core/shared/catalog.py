@@ -5,7 +5,6 @@ General Public License as published by the Free Software Foundation, either vers
 or (at your option) any later version.
 """
 # -*- coding: latin-1 -*-
-import operator
 from functools import partial
 
 from qgis.PyQt.QtWidgets import QGridLayout, QLabel, QLineEdit, QComboBox, QGroupBox, QSpacerItem, QSizePolicy, QWidget
@@ -32,7 +31,8 @@ class GwCatalog:
         if json_result is None:
             return
 
-        group_box_1 = QGroupBox(tools_qt.tr("Filter"))
+        title = "Filter"
+        group_box_1 = QGroupBox(tools_qt.tr(title))
         self.filter_form = QGridLayout()
 
         self.dlg_catalog = GwInfoCatalogUi(self)
@@ -103,11 +103,6 @@ class GwCatalog:
         extras = None
         if tools_gw.get_project_type() == 'ws':
             extras = f'"fields":{{"matcat_id":"{matcat_id_value}", "pnom":"{pn_value}", "dnom":"{dn_value}"}}'
-            addparam = tools_gw.get_sysversion_addparam()
-            if addparam:
-                addtype = addparam.get("type")
-                if addtype.lower() == 'pc':
-                    extras = None
         elif tools_gw.get_project_type() == 'ud':
             extras = f'"fields":{{"matcat_id":"{matcat_id_value}", "shape":"{pn_value}", "geom1":"{dn_value}"}}'
 
@@ -168,39 +163,40 @@ class GwCatalog:
     def _add_combobox(self, field):
         """ Add QComboBox to dialog """
 
-        widget = QComboBox()
+        widget = tools_gw.create_combo_box()
         widget.setObjectName(field['columnname'])
+        widget.setProperty('columnname', field['columnname'])
         widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._fill_combo(widget, field)
-        tools_qt.set_combo_value(widget, field.get('selectedId'), 0)
 
         return widget
 
     def _fill_combo(self, widget, field):
-        """
-        Fill QComboBox
-            :param widget: combobox destination (QComboBox)
-            :param field: json where find values (Json)
-        """
+        """Fill combo via shared async-aware ``fill_combo`` / ``fill_combo_values``.
 
-        # Generate list of items to add into combo
-        widget.blockSignals(True)
-        widget.clear()
-        widget.blockSignals(False)
-        combolist = []
-        comboIds = field.get('comboIds')
-        comboNames = field.get('comboNames')
-        if None not in (comboIds, comboNames):
-            for i in range(0, len(comboIds)):
-                if comboIds[i] is not None and comboNames[i] is not None:
-                    elem = [comboIds[i], comboNames[i]]
-                    combolist.append(elem)
-            records_sorted = sorted(combolist, key=operator.itemgetter(1))
-            # Populate combo
-            if widget.objectName() != 'id':
-                records_sorted.insert(0, ['', ''])
-            for record in records_sorted:
-                widget.addItem(str(record[1]), record)
+        Filter combos (matcat/pnom/dnom) no longer ship ``comboIds`` from
+        ``gw_fct_getformfields``; they load from ``queryText``. The id combo
+        still gets an explicit (possibly empty) list from ``gw_fct_getcatalog``.
+        """
+        if widget is None or not isinstance(field, dict):
+            return
+
+        payload = dict(field)
+        add_empty = widget.objectName() != 'id'
+        if add_empty:
+            payload['isNullValue'] = True
+
+        dialog = getattr(self, 'dlg_catalog', None)
+        combo_ids = field.get('comboIds')
+        if isinstance(combo_ids, list) and combo_ids:
+            tools_gw.fill_combo(widget, payload, dialog=dialog)
+            return
+        if 'comboIds' in field:
+            # Explicit empty result (no catalog matches). Do not fall back to queryText.
+            tools_qt.fill_combo_values(widget, None, add_empty=add_empty)
+            return
+
+        tools_gw.fill_combo(widget, payload, dialog=dialog)
 
     def _fill_geomcat_id(self, previous_dialog, widget_name):
         """ Fill the widget of the previous dialogue """

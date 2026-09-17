@@ -9,10 +9,11 @@ SET search_path = 'SCHEMA_NAME', public, pg_catalog;
 
 ALTER TABLE arc DISABLE TRIGGER gw_trg_topocontrol_arc;
 
-INSERT INTO selector_sector SELECT sector_id, current_user from sector where sector_id > 0 ON CONFLICT (sector_id, cur_user) DO NOTHING;
+INSERT INTO selector_sector SELECT sector_id, current_user from sector where sector_id > -1 ON CONFLICT (sector_id, cur_user) DO NOTHING;
 DELETE FROM selector_psector;
+DELETE FROM selector_inp_dscenario;
 
-INSERT INTO selector_municipality SELECT muni_id,current_user FROM ext_municipality where muni_id > 0 ON CONFLICT (muni_id, cur_user) DO NOTHING;
+INSERT INTO selector_municipality SELECT muni_id,current_user FROM ext_municipality ON CONFLICT (muni_id, cur_user) DO NOTHING;
 
 UPDATE cat_feature SET id = 'OVERFLOW_STORAGE' WHERE id = 'OWERFLOW_STORAGE';
 
@@ -60,7 +61,7 @@ DELETE FROM node WHERE node_id  = '250';
 UPDATE config_param_user SET value ='PARTIAL' WHERE parameter = 'inp_options_inertial_damping';
 
 -- add example for specific sequence on circ_manhole
-UPDATE cat_feature SET abrevation='CM_' WHERE id='CIRC_MANHOLE';
+UPDATE cat_feature SET abbreviation='CM_' WHERE id='CIRC_MANHOLE';
 
 CREATE SEQUENCE circ_manhole_code_seq
 	INCREMENT BY 1
@@ -198,3 +199,13 @@ UPDATE om_visit_x_link SET is_last = FALSE WHERE id NOT IN (SELECT max(id) FROM 
 UPDATE om_visit_x_gully SET is_last = TRUE WHERE id NOT IN (SELECT max(id) FROM om_visit_x_gully GROUP BY gully_id);
 
 UPDATE drainzone SET expl_id = ARRAY[0] WHERE drainzone_id <1;
+
+-- Extra filters example (sample only): fluid_type combo (nullable)
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
+VALUES
+('generic', 'link_to_connec', 'tab_none', 'fluid_type', 'lyt_extra_filters', 0, 'integer', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT id, idval FROM om_typevalue WHERE typevalue = ''fluid_type''', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0),
+('generic', 'link_to_gully', 'tab_none', 'fluid_type', 'lyt_extra_filters', 0, 'integer', 'combo', 'Fluid type:', 'Restrict connection to arcs/nodes with this fluid type', NULL, false, false, true, false, false, 'SELECT id, idval FROM om_typevalue WHERE typevalue = ''fluid_type''', true, true, NULL, NULL, NULL, NULL, NULL, NULL, false, 0)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+UPDATE config_mapzones SET is_dynamic = TRUE
+WHERE id IN ('MACROSECTOR', 'MACRODMA', 'MACROOMZONE', 'SECTOR', 'DMA', 'OMZONE', 'DWFZONE');

@@ -77,8 +77,12 @@ BEGIN
 		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'SECTOR', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
-		IF NEW.code IS NULL THEN
-			NEW.code := NEW.sector_id::text;
+
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
 		END IF;
 
 		INSERT INTO sector (sector_id, code, name, descript, active, macrosector_id, sector_type, expl_id, muni_id, avg_press, pattern_id, graphconfig, stylesheet, lock_level, link, addparam)
@@ -110,6 +114,14 @@ BEGIN
 		ELSIF v_view_name = 'UI' THEN
 			SELECT macrosector_id INTO v_mapzone_id FROM macrosector WHERE name = NEW.macrosector;
 		END IF;
+
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
+		END IF;
+
 		UPDATE sector
 		SET sector_id=NEW.sector_id, code=NEW.code, name=NEW.name, descript=NEW.descript, active=NEW.active, macrosector_id=v_mapzone_id, sector_type=NEW.sector_type,
 		expl_id=NEW.expl_id, muni_id=NEW.muni_id, avg_press=NEW.avg_press, pattern_id=NEW.pattern_id, graphconfig=NEW.graphconfig::json,

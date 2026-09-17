@@ -35,23 +35,23 @@ ALTER TABLE cat_feature_gully DROP COLUMN IF EXISTS _type;
 
 ALTER TABLE cat_feature DISABLE TRIGGER gw_trg_cat_feature_after;
 
-INSERT INTO cat_material (id, descript) VALUES 
-('FE', 'Iron'),
-('FD', 'Fundición dúctil'),
-('FG', 'Fundición gris'),
-('PE', 'Polietileno'),
+INSERT INTO cat_material (id, descript) VALUES
+('DI', 'Ductile iron'),
+('GCI', 'Grey cast iron'),
+('PE', 'Polietilen'),
 ('PVC', 'PVC'),
-('FC', 'Fibrocemento'),
-('DESC', 'Desconocido'),
-('HOR', 'Hormigón'),
-('ACER', 'Acero')
+('AC', 'Asbestos cement'),
+('UNK', 'Unknown'),
+('CON', 'Concrete'),
+('STEEL', 'Steel')
 ON CONFLICT (id) DO UPDATE SET descript = EXCLUDED.descript;
 
 INSERT INTO cat_arc_shape (id, epa) VALUES
 ('RECT_CLOSED', 'RECT_CLOSED'),
 ('FORCE_MAIN', 'FORCE_MAIN'),
 ('CIRCULAR', 'CIRCULAR'),
-('VIRTUAL', 'VIRTUAL')
+('VIRTUAL', 'VIRTUAL'),
+('CUSTOM', 'CUSTOM')
 ON CONFLICT (id) DO UPDATE SET epa = EXCLUDED.epa;
 
 INSERT INTO cat_feature (id, feature_class, feature_type, active, parent_layer, child_layer) VALUES
@@ -141,13 +141,13 @@ ON CONFLICT (id) DO UPDATE SET node_type = EXCLUDED.node_type;
 
 INSERT INTO cat_arc (id, arc_type, shape, geom1, geom2) VALUES
 ('CC315', 'CONDUIT', 'CIRCULAR', 0.315, NULL),
-('CC40', 'CONDUIT', 'CIRCULAR', 0.4, NULL),
-('CC50', 'CONDUIT', 'CIRCULAR', 0.5, NULL),
-('CC60', 'CONDUIT', 'CIRCULAR', 0.6, NULL),
-('CC70', 'CONDUIT', 'CIRCULAR', 0.7, NULL),
-('CC80', 'CONDUIT', 'CIRCULAR', 0.8, NULL),
-('CC100', 'CONDUIT', 'CIRCULAR', 1, NULL),
-('CC120', 'CONDUIT', 'CIRCULAR', 1.2, NULL),
+('CC400', 'CONDUIT', 'CIRCULAR', 0.4, NULL),
+('CC500', 'CONDUIT', 'CIRCULAR', 0.5, NULL),
+('CC600', 'CONDUIT', 'CIRCULAR', 0.6, NULL),
+('CC700', 'CONDUIT', 'CIRCULAR', 0.7, NULL),
+('CC800', 'CONDUIT', 'CIRCULAR', 0.8, NULL),
+('CC1000', 'CONDUIT', 'CIRCULAR', 1, NULL),
+('CC1200', 'CONDUIT', 'CIRCULAR', 1.2, NULL),
 ('RC150X200', 'CONDUIT', 'RECT_CLOSED', 1.5, 2),
 ('RC200X200', 'CONDUIT', 'RECT_CLOSED', 2, 2),
 ('FORCEMAIN200', 'FORCEMAIN', 'FORCE_MAIN', NULL, NULL),
@@ -172,13 +172,13 @@ INSERT INTO cat_link (id, link_type) VALUES
 ON CONFLICT (id) DO UPDATE SET link_type = EXCLUDED.link_type;
 
 INSERT INTO cat_gully (id, gully_type, matcat_id) VALUES
-('GU100X30', 'GULLY', 'FE'),
-('GRATE50', 'GRATE', 'FD')
+('GU100X30', 'GULLY', 'DI'),
+('GRATE50', 'GRATE', 'DI')
 ON CONFLICT (id) DO UPDATE SET gully_type = EXCLUDED.gully_type, matcat_id = EXCLUDED.matcat_id;
 
 INSERT INTO cat_element (id, element_type, matcat_id) VALUES
-('COVERD80', 'COVER', 'FD'),
-('COVERD100', 'COVER', 'FD')
+('COVERD80', 'COVER', 'DI'),
+('COVERD100', 'COVER', 'DI')
 ON CONFLICT (id) DO UPDATE SET element_type = EXCLUDED.element_type, matcat_id = EXCLUDED.matcat_id;
 
 ALTER TABLE cat_feature ENABLE TRIGGER gw_trg_cat_feature_after;

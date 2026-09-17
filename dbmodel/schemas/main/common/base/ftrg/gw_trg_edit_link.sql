@@ -100,8 +100,10 @@ BEGIN
 	v_check_arcdnom_status:= (SELECT value::json->>'status' FROM config_param_system WHERE parameter = 'edit_link_check_arcdnom');
 	v_check_arcdnom:= (SELECT value::json->>'diameter' FROM config_param_system WHERE parameter = 'edit_link_check_arcdnom');
 
+	-- modify values for custom view inserts
 	IF v_man_table IN (SELECT id FROM cat_feature WHERE feature_type = 'LINK') THEN
-		v_customfeature := v_man_table;
+		v_customfeature:=v_man_table;
+		v_man_table:=(SELECT man_table FROM cat_feature_link c JOIN cat_feature cf ON cf.id = c.id JOIN sys_feature_class s ON cf.feature_class = s.id WHERE c.id=v_man_table);
 	END IF;
 
 	-- Control insertions ID
@@ -454,6 +456,24 @@ BEGIN
 			END IF;
 		END IF;
 
+		-- skip inheriting dynamic mapzones (computed later by graphanalytics);
+		-- keep explicit NEW values, otherwise 0 (same fallback as node/arc/connec)
+		IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'SECTOR') IS TRUE THEN
+			v_sector := COALESCE(NEW.sector_id, 0);
+		END IF;
+
+		IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'DMA') IS TRUE THEN
+			v_dma := COALESCE(NEW.dma_id, 0);
+		END IF;
+
+		IF (SELECT is_dynamic FROM config_mapzones WHERE id = 'OMZONE') IS TRUE THEN
+			v_omzone := COALESCE(NEW.omzone_id, 0);
+		END IF;
+
+		IF v_projectype = 'WS' AND (SELECT is_dynamic FROM config_mapzones WHERE id = 'PRESSZONE') IS TRUE THEN
+			v_presszone := COALESCE(NEW.presszone_id, 0);
+		END IF;
+
 		-- control of null exit_type
 		IF NEW.exit_type IS NULL THEN
 
@@ -664,6 +684,36 @@ BEGIN
 		NEW.verified := (SELECT "value"::INTEGER FROM config_param_user WHERE "parameter"='edit_verified_vdefault' AND "cur_user"="current_user"() LIMIT 1);
 	END IF;
 
+	-- userdefined_geom: keep incoming value; TRUE on INSERT or when geom changed
+	IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+		IF NEW.userdefined_geom IS NOT NULL THEN
+			v_userdefined_geom := NEW.userdefined_geom;
+		ELSIF TG_OP = 'INSERT' THEN
+			v_userdefined_geom := TRUE;
+		ELSIF NOT COALESCE(ST_Equals(OLD.the_geom, NEW.the_geom), FALSE) THEN
+			v_userdefined_geom := TRUE;
+		ELSE
+			v_userdefined_geom := OLD.userdefined_geom;
+		END IF;
+	END IF;
+
+	-- only one operative link per origin feature (link_feature_id_state1_unique)
+	IF TG_OP IN ('INSERT', 'UPDATE') AND COALESCE(NEW.state, 1) = 1 AND NEW.feature_id IS NOT NULL THEN
+		SELECT link_id INTO v_linkexists
+		FROM link
+		WHERE feature_id = NEW.feature_id
+		  AND feature_type = NEW.feature_type
+		  AND state = 1
+		  AND link_id IS DISTINCT FROM NEW.link_id
+		LIMIT 1;
+
+		IF v_linkexists IS NOT NULL THEN
+			EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+			"data":{"message":"4750", "function":"1116","parameters":{"feature_type":"'||NEW.feature_type||
+			'", "feature_id":"'||NEW.feature_id||'", "link_id":"'||v_linkexists||'"}}}$$);';
+		END IF;
+	END IF;
+
 	-- upsert process
 	IF TG_OP ='INSERT' THEN
 
@@ -707,11 +757,13 @@ BEGIN
 				END IF;
 			END IF;
 
+
+
 			INSERT INTO link (link_id, code, feature_type, feature_id, expl_id, exit_id, exit_type, userdefined_geom, state, the_geom, sector_id,
 			fluid_type, omzone_id, dqa_id, presszone_id, minsector_id, linkcat_id, workcat_id, workcat_id_end, builtdate, enddate,
 			uncertain, muni_id, verified, datasource, top_elev1, depth1, top_elev2, depth2, location_type, custom_length, annotation,
 			observ, comment, descript, link, num_value, dma_id, state_type, brand_id, model_id, uuid, dataquality, dataquality_obs)
-			VALUES (NEW.link_id, NEW.code, NEW.feature_type, NEW.feature_id, v_expl, NEW.exit_id, NEW.exit_type, TRUE, NEW.state, NEW.the_geom, v_sector,
+			VALUES (NEW.link_id, NEW.code, NEW.feature_type, NEW.feature_id, v_expl, NEW.exit_id, NEW.exit_type, v_userdefined_geom, NEW.state, NEW.the_geom, v_sector,
 			v_fluidtype, v_omzone, v_dqa, v_presszone, v_minsector, NEW.linkcat_id, NEW.workcat_id, NEW.workcat_id_end, NEW.builtdate, NEW.enddate,
 			NEW.uncertain, NEW.muni_id, NEW.verified, NEW.datasource, NEW.top_elev1, NEW.depth1, NEW.top_elev2, NEW.depth2, NEW.location_type,
 			NEW.custom_length, NEW.annotation, NEW.observ, NEW.comment, NEW.descript, NEW.link, NEW.num_value, v_dma, NEW.state_type, NEW.brand_id, NEW.model_id, NEW.uuid, NEW.dataquality, NEW.dataquality_obs);
@@ -720,6 +772,23 @@ BEGIN
 			IF NEW.linkcat_id IS NULL THEN
 				v_linkcat_id = (SELECT value FROM config_param_user WHERE parameter = 'edit_linkcat_vdefault' AND "cur_user"="current_user"() LIMIT 1);
 				NEW.linkcat_id = v_linkcat_id;
+			END IF;
+
+			-- Link type
+			IF NEW.link_type IS NULL THEN
+				-- get it from relation on cat_link
+				IF NEW.link_type IS NULL THEN
+					NEW.link_type:= (SELECT c.id FROM cat_feature_link c JOIN cat_link s ON c.id = s.link_type WHERE s.id=NEW.linkcat_id);
+				END IF;
+
+				-- get it from vdefault
+				IF NEW.link_type IS NULL AND v_man_table='parent' THEN
+					NEW.link_type := (SELECT "value" FROM config_param_user WHERE "parameter"='edit_linktype_vdefault' AND "cur_user"="current_user"() LIMIT 1);
+				END IF;
+
+				IF NEW.link_type IS NULL AND v_man_table != 'parent' THEN
+					NEW.link_type := (SELECT id FROM cat_feature_link c JOIN cat_feature cf ON cf.id = c.id JOIN sys_feature_class s ON cf.feature_class = s.id WHERE man_table=v_man_table LIMIT 1);
+				END IF;
 			END IF;
 
 			IF NEW.top_elev1 IS NULL THEN
@@ -733,17 +802,17 @@ BEGIN
 			INSERT INTO link (link_id, code, sys_code, feature_type, feature_id, expl_id, exit_id, exit_type, userdefined_geom, state, the_geom, sector_id, fluid_type, omzone_id,
 			linkcat_id, workcat_id, workcat_id_end, builtdate, enddate, uncertain, muni_id, verified, custom_length, datasource, top_elev1, y1, top_elev2, y2, link_type, location_type,
 			annotation, observ, comment, descript, link, num_value, drainzone_outfall, dwfzone_outfall, brand_id, model_id, uuid, omunit_id, treatment_type, dataquality, dataquality_obs)
-			VALUES (NEW.link_id, NEW.code, NEW.sys_code, NEW.feature_type, NEW.feature_id, v_expl, NEW.exit_id, NEW.exit_type, TRUE, NEW.state, NEW.the_geom, v_sector, v_fluidtype::integer, v_omzone,
+			VALUES (NEW.link_id, NEW.code, NEW.sys_code, NEW.feature_type, NEW.feature_id, v_expl, NEW.exit_id, NEW.exit_type, v_userdefined_geom, NEW.state, NEW.the_geom, v_sector, v_fluidtype::integer, v_omzone,
 			NEW.linkcat_id, NEW.workcat_id, NEW.workcat_id_end, NEW.builtdate, NEW.enddate, NEW.uncertain, NEW.muni_id, NEW.verified, NEW.custom_length, NEW.datasource,
 			NEW.top_elev1, NEW.y1, NEW.top_elev2, NEW.y2, NEW.link_type, NEW.location_type,
-			NEW.annotation, NEW.observ, NEW.comment, NEW.descript, NEW.link, NEW.num_value, NEW.drainzone_outfall, NEW.dwfzone_outfall, NEW.brand_id, NEW.model_id, NEW.uuid, COALESCE(NEW.treatment_type, 0)::integer, NEW.dataquality, NEW.dataquality_obs);
+			NEW.annotation, NEW.observ, NEW.comment, NEW.descript, NEW.link, NEW.num_value, NEW.drainzone_outfall, NEW.dwfzone_outfall, NEW.brand_id, NEW.model_id, NEW.uuid, NEW.omunit_id, COALESCE(NEW.treatment_type, 0)::integer, NEW.dataquality, NEW.dataquality_obs);
 		END IF;
 
-		IF v_man_table = 'VLINK' THEN
+		IF v_man_table = 'man_vlink' THEN
 			INSERT INTO man_vlink VALUES (NEW.link_id);
-		ELSIF v_man_table = 'CONDUITLINK' THEN
+		ELSIF v_man_table = 'man_conduitlink' THEN
 			INSERT INTO man_conduitlink VALUES (NEW.link_id);
-		ELSIF v_man_table = 'PIPELINK' THEN
+		ELSIF v_man_table = 'man_pipelink' THEN
 			INSERT INTO man_pipelink VALUES (NEW.link_id);
 		ELSIF v_man_table='parent' THEN
 			v_man_table := (SELECT man_table FROM cat_feature_link c JOIN cat_feature cf ON cf.id = c.id JOIN sys_feature_class s ON cf.feature_class = s.id WHERE c.id = NEW.link_type);
@@ -926,14 +995,15 @@ BEGIN
 		UPDATE link SET code = NEW.code, state = NEW.state, the_geom = NEW.the_geom, workcat_id = NEW.workcat_id, workcat_id_end = NEW.workcat_id_end, builtdate = NEW.builtdate,
 		enddate = NEW.enddate, uncertain = NEW.uncertain, muni_id = NEW.muni_id, sector_id=v_sector, verified = NEW.verified, custom_length = NEW.custom_length,
 		datasource = NEW.datasource, location_type=NEW.location_type, annotation=NEW.annotation, observ=NEW.observ, comment=NEW.comment,
-		descript=NEW.descript, link=NEW.link, num_value=NEW.num_value, state_type=NEW.state_type, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
+		descript=NEW.descript, link=NEW.link, num_value=NEW.num_value, state_type=NEW.state_type, dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs,
+		userdefined_geom = v_userdefined_geom, linkcat_id = NEW.linkcat_id
 		WHERE link_id=NEW.link_id;
 
-		IF v_man_table = 'VLINK' THEN
+		IF v_man_table = 'man_vlink' THEN
 			UPDATE man_vlink SET link_id = NEW.link_id WHERE link_id = OLD.link_id;
-		ELSIF v_man_table = 'CONDUITLINK' THEN
+		ELSIF v_man_table = 'man_conduitlink' THEN
 			UPDATE man_conduitlink SET link_id = NEW.link_id WHERE link_id = OLD.link_id;
-		ELSIF v_man_table = 'PIPELINK' THEN
+		ELSIF v_man_table = 'man_pipelink' THEN
 			UPDATE man_pipelink SET link_id = NEW.link_id WHERE link_id = OLD.link_id;
 		ELSIF v_man_table='parent' THEN
 			v_man_table := (SELECT man_table FROM cat_feature_link c JOIN cat_feature cf ON cf.id = c.id JOIN sys_feature_class s ON cf.feature_class = s.id WHERE c.id = NEW.link_type);

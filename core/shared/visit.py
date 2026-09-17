@@ -157,6 +157,7 @@ class GwVisit(QObject):
         self.user_name = self.dlg_add_visit.findChild(QLineEdit, "user_name")
         self.ext_code = self.dlg_add_visit.findChild(QLineEdit, "ext_code")
         self.visitcat_id = self.dlg_add_visit.findChild(QComboBox, "visitcat_id")
+        self.visit_type = self.dlg_add_visit.findChild(QComboBox, "visit_type")
         self.exploitation = self.dlg_add_visit.findChild(QComboBox, "expl_id")
 
         # tab 'Event'
@@ -230,6 +231,7 @@ class GwVisit(QObject):
 
         # Ensure parameter_id is populated after visit/feature type are resolved
         self._set_parameter_id_combo(self.dlg_add_visit)
+        self._manage_events_changed()
 
         if self.it_is_new_visit is False:
             # Disable widgets when the visit is not new
@@ -530,16 +532,9 @@ class GwVisit(QObject):
         index = self._tab_index('tab_relations')
         self.tabs.setTabEnabled(index, True)
 
-        # set geometry_type
-        feature_type_index = self.cmb_feature_type.findText(self.locked_feature_type.upper())
-        if feature_type_index < 0:
+        # set geometry_type by combo id, not translated label
+        if not self._apply_combo_feature_type(self.locked_feature_type):
             return
-
-        # set default combo box value = trigger model and selection of related features
-        if self.cmb_feature_type.currentIndex() != feature_type_index:
-            self.cmb_feature_type.setCurrentIndex(feature_type_index)
-        else:
-            self.cmb_feature_type.currentIndexChanged.emit(feature_type_index)
 
         if self.locked_feature_id:
             self._ensure_locked_feature_relation()
@@ -581,6 +576,9 @@ class GwVisit(QObject):
         # tab Visit
         if self.current_tab_index == self._tab_index('tab_visit'):
             self._manage_leave_visit_tab()
+
+        if self.it_is_new_visit:
+            self._auto_insert_direct_event_if_needed()
 
         expl_value = tools_qt.get_combo_value(self.dlg_add_visit, self.exploitation)
         if expl_value not in (None, 'None', ''):
@@ -677,7 +675,7 @@ class GwVisit(QObject):
             self._fill_widget_with_fields(self.dlg_add_visit, self.current_visit, self.current_visit.field_names())
             # Get parameter_id and feature_type from his event
             self.event_parameter_id, self.event_feature_type = self._get_data_from_event(self.visit_id_value)
-            tools_qt.set_combo_value(self.dlg_add_visit.parameter_id, self.event_parameter_id, 0)
+            self._select_parameter_id(self.event_parameter_id)
 
         # C) load all related events in the relative table
         self.filter = f"visit_id = '{text}'"
@@ -698,39 +696,54 @@ class GwVisit(QObject):
         # E) load all related Relations in the relative table
         self._set_feature_type_by_visit_id()
 
+    def _combo_feature_type_id(self, index=None):
+        """ Return feature_type combo id, not the translated label (e.g. ES 'TODO' for 'ALL'). """
+        if index is None:
+            index = self.cmb_feature_type.currentIndex()
+        if index < 0:
+            return ''
+        elem = self.cmb_feature_type.itemData(index)
+        if not elem:
+            return ''
+        if isinstance(elem, (list, tuple)):
+            return str(elem[0]).lower()
+        return str(elem).lower()
+
+    def _apply_combo_feature_type(self, feature_type):
+        """ Set feature_type combo by id. Emit change if the index is already selected. """
+        wanted = str(feature_type).lower() if feature_type else ''
+        if not wanted:
+            return False
+        for index in range(self.cmb_feature_type.count()):
+            if self._combo_feature_type_id(index) != wanted:
+                continue
+            if self.cmb_feature_type.currentIndex() != index:
+                self.cmb_feature_type.setCurrentIndex(index)
+            else:
+                self.cmb_feature_type.currentIndexChanged.emit(index)
+            return True
+        return False
+
     def _set_feature_type_by_visit_id(self):
-        """ Set the feature_type in Relation tab basing on visit_id.
-        The steps to follow are:
-        1) check geometry type looking what table contain records related with visit_id
-        2) set gemetry type. """
+        """ Set the feature_type combo from om_visit_x_* rows. No relations → leave ALL. """
 
         selected_feature_type = None
-        feature_type_index = None
         for index in range(self.cmb_feature_type.count()):
-            # feture_type combobox is filled before the visit_id is changed
-            # it will contain all the geometry type allows basing on project type
-            feature_type = self.cmb_feature_type.itemText(index).lower()
-            if feature_type != '' and feature_type != 'all':
-                table_name = f'om_visit_x_{feature_type}'
-                sql = f"SELECT id FROM {table_name} WHERE visit_id = '{self.current_visit.id}'"
-                rows = tools_db.get_rows(sql, log_info=False)
-                if not rows or not rows[0]:
-                    continue
+            feature_type = self._combo_feature_type_id(index)
+            if feature_type not in ('arc', 'node', 'connec', 'link', 'gully'):
+                continue
+            table_name = f'om_visit_x_{feature_type}'
+            sql = f"SELECT id FROM {table_name} WHERE visit_id = '{self.current_visit.id}'"
+            rows = tools_db.get_rows(sql, log_info=False)
+            if not rows or not rows[0]:
+                continue
+            selected_feature_type = feature_type
+            break
 
-                selected_feature_type = feature_type
-                feature_type_index = index
-                break
-
-        # if no related records found do nothing
         if not selected_feature_type:
             return
 
-        # set default combo box value = trigger model and selection
-        # of related features
-        if self.cmb_feature_type.currentIndex() != feature_type_index:
-            self.cmb_feature_type.setCurrentIndex(feature_type_index)
-        else:
-            self.cmb_feature_type.currentIndexChanged.emit(feature_type_index)
+        self._apply_combo_feature_type(selected_feature_type)
 
     def _manage_leave_visit_tab(self):
         """ Manage all the action when leaving the tab_visit
@@ -745,6 +758,8 @@ class GwVisit(QObject):
         self.current_visit.visitcat_id = tools_qt.get_combo_value(self.dlg_add_visit, 'visitcat_id', 0)
         self.current_visit.descript = tools_qt.get_text(self.dlg_add_visit, 'descript', False, False)
         self.current_visit.status = tools_qt.get_combo_value(self.dlg_add_visit, 'status', 0)
+        visit_type = tools_qt.get_combo_value(self.dlg_add_visit, 'visit_type', 0)
+        self.current_visit.visit_type = None if visit_type in (None, -1, '', 'None') else visit_type
         if self.expl_id is None:
             self.expl_id = tools_qt.get_combo_value(self.dlg_add_visit, self.exploitation)
         if self.expl_id:
@@ -756,13 +771,18 @@ class GwVisit(QObject):
     def _update_relations(self, dialog, delete_old_relations=True):
         """ Save current selected features in every table of feature_type """
 
+        # Accept from Visit tab never left the tab, so the visit row is not in DB yet
+        if self.it_is_new_visit:
+            self._manage_leave_visit_tab()
+
         if delete_old_relations:
             for index in range(self.cmb_feature_type.count()):
                 # Remove all old relations related with current visit_id and @feature_type
-                feature_type = self.cmb_feature_type.itemText(index).lower()
+                feature_type = self._combo_feature_type_id(index)
                 self._delete_relations_feature_type(feature_type)
 
-        feature_type = tools_qt.get_text(self.dlg_add_visit, self.cmb_feature_type).lower()
+        feature_type = self._combo_feature_type_id()
+        self.feature_type = feature_type
         # Save new relations listed in every table of feature_type
         if feature_type == 'all':
             self._update_relations_feature_type("arc")
@@ -772,10 +792,11 @@ class GwVisit(QObject):
             if tools_gw.get_project_type() == 'ud':
                 self._update_relations_feature_type("gully")
         else:
-            self._update_relations_feature_type(self.feature_type)
+            self._update_relations_feature_type(feature_type)
 
-        widget_name = f"tbl_visit_x_{self.feature_type}"
-        tools_gw.enable_feature_type(dialog, widget_name, ids=self.rel_ids)
+        if feature_type not in ('', 'all'):
+            widget_name = f"tbl_visit_x_{feature_type}"
+            tools_gw.enable_feature_type(dialog, widget_name, ids=self.rel_ids)
 
     def _delete_relations_feature_type(self, feature_type):
         """ Remove all old relations related with current visit_id and @feature_type """
@@ -882,26 +903,32 @@ class GwVisit(QObject):
 
         self._fill_combo_parameter_id()
 
-        if self.event_parameter_id:
-            tools_qt.set_combo_value(self.dlg_add_visit.parameter_id, self.event_parameter_id, 0)
+        if self._select_parameter_id(self.event_parameter_id):
+            self._manage_events_changed()
             return
 
         parameter_id = tools_gw.get_config_value('om_visit_parameter_vdefault')
         if parameter_id:
-            tools_qt.set_combo_value(self.dlg_add_visit.parameter_id, parameter_id[0], 0)
+            self._select_parameter_id(parameter_id[0])
+        self._manage_events_changed()
 
     def _get_feature_type_of_parameter(self):
         """ Get feature type of selected parameter """
 
         sql = (f"SELECT feature_type "
-               f"FROM config_visit_parameter "
+               f"FROM v_config_visit_parameter "
                f"WHERE descript = '{self.parameter_id.currentText()}'")
         row = tools_db.get_row(sql)
         if row:
             self.feature_type_parameter = row[0]
+            # Do not overwrite an explicit combo selection (e.g. NODE) with the
+            # parameter's type (often ALL) — that prevented relations from saving.
             if self.it_is_new_visit:
-                self.feature_type = self.feature_type_parameter.lower()
+                combo_type = self._combo_feature_type_id()
+                if combo_type in ('', 'all'):
+                    self.feature_type = self.feature_type_parameter.lower()
             self._manage_tabs_enabled(True)
+        self._manage_events_changed()
 
     def _connect_signal_tab_feature_signal(self, connect=True, excluded_layers=[]):
 
@@ -1014,7 +1041,7 @@ class GwVisit(QObject):
         # 2) check if there are features related to the current visit
         # 3) if so, select them => would appear in the table associated to the model
         if feature_type is None:
-            feature_type = self.cmb_feature_type.currentText().lower()
+            feature_type = self._combo_feature_type_id()
 
         self.feature_type = feature_type
         if feature_type == '':
@@ -1025,8 +1052,7 @@ class GwVisit(QObject):
 
         self._fill_visitcat(self.visit_id.text())
 
-        if self.event_parameter_id:
-            tools_qt.set_combo_value(self.dlg_add_visit.parameter_id, self.event_parameter_id, 0)
+        self._select_parameter_id(self.event_parameter_id)
 
         if feature_type.lower() == 'all':
             return
@@ -1167,7 +1193,7 @@ class GwVisit(QObject):
         self._fill_visitcat(visit_id)
 
         # Fill ComboBox status
-        rows = tools_db.get_values_from_catalog('om_typevalue', 'visit_status')
+        rows = tools_db.get_values_from_catalog('v_om_typevalue', 'visit_status')
         if rows:
             tools_qt.fill_combo_values(self.dlg_add_visit.status, rows, sort_combo=True)
             status = tools_gw.get_config_value('om_visit_status_vdefault')
@@ -1180,6 +1206,18 @@ class GwVisit(QObject):
                        f"WHERE id = '{visit_id}'")
                 status = tools_db.get_row(sql)
                 tools_qt.set_combo_value(self.dlg_add_visit.status, str(status[0]), 0)
+
+        # Fill ComboBox visit_type (1-planned / 2-unexpected)
+        rows = tools_db.get_values_from_catalog('v_om_typevalue', 'visit_type')
+        if rows:
+            tools_qt.fill_combo_values(self.dlg_add_visit.visit_type, rows, sort_combo=True)
+            if visit_id is not None:
+                sql = (f"SELECT visit_type "
+                       f"FROM om_visit "
+                       f"WHERE id = '{visit_id}'")
+                visit_type = tools_db.get_row(sql)
+                if visit_type and visit_type[0] not in (None, 'None'):
+                    tools_qt.set_combo_value(self.dlg_add_visit.visit_type, str(visit_type[0]), 0)
 
         # Fill ComboBox exploitation
         sql = "SELECT exploitation.expl_id, name FROM selector_expl JOIN exploitation USING (expl_id) " \
@@ -1203,7 +1241,8 @@ class GwVisit(QObject):
 
         # Relations tab
         # fill feature_type
-        sql = ("SELECT 'ALL' as id, 'ALL' as idval "
+        msg = "ALL"
+        sql = (f"SELECT 'ALL' as id, '{tools_qt.tr(msg)}' as idval "
                "UNION SELECT id, id as idval "
                "FROM sys_feature_type "
                "WHERE classlevel = 1 OR classlevel = 2 OR classlevel = 4 "
@@ -1213,7 +1252,7 @@ class GwVisit(QObject):
 
         # Event tab
         # Fill ComboBox parameter_type_id
-        sql = "SELECT id, idval FROM om_typevalue WHERE typevalue = 'visit_param_type' ORDER by idval"
+        sql = "SELECT id, idval FROM v_om_typevalue WHERE typevalue = 'visit_param_type' ORDER by idval"
         parameter_type_ids = tools_db.get_rows(sql)
         tools_qt.fill_combo_values(self.dlg_add_visit.parameter_type_id, parameter_type_ids)
 
@@ -1232,7 +1271,7 @@ class GwVisit(QObject):
         if feature_type:
             feature_type = str(feature_type).lower()
 
-        sql = "SELECT id, descript FROM config_visit_parameter WHERE 1=1 "
+        sql = "SELECT id, descript FROM v_config_visit_parameter WHERE 1=1 "
         if parameter_type_id not in (None, -1, '', 'None'):
             sql += f"AND UPPER(parameter_type) = '{str(parameter_type_id).upper()}' "
         if feature_type and feature_type not in ('', 'all'):
@@ -1240,6 +1279,13 @@ class GwVisit(QObject):
         sql += "ORDER BY id"
         rows = tools_db.get_rows(sql)
         tools_qt.fill_combo_values(self.dlg_add_visit.parameter_id, rows)
+
+    def _select_parameter_id(self, parameter_id):
+        """ Select parameter_id only if it is in the current (filtered) combo. """
+
+        if parameter_id in (None, '', -1, '-1', 'None'):
+            return False
+        return tools_qt.set_combo_value(self.dlg_add_visit.parameter_id, parameter_id, 0, add_new=False)
 
     def _set_completers(self):
         """ Set autocompleters of the form """
@@ -1379,6 +1425,7 @@ class GwVisit(QObject):
         # save new event
         event.upsert()
         self._save_files_added(event.visit_id, event.id)
+        self._remember_visit_parameter(parameter_id)
 
         # update Table
         self.tbl_event.model().select()
@@ -1402,13 +1449,14 @@ class GwVisit(QObject):
         self.dlg_event.tbl_docs_x_event.horizontalHeader().setStretchLastSection(True)
         self.dlg_event.tbl_docs_x_event.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
-        # Get columns name and set headers of model with that
-        columns_name = tools_db.get_columns_list('om_visit_event_photo')
-        headers = []
-        for x in columns_name:
-            headers.append(x[0])
-        headers = ['value', 'filetype', 'fextension']
-        model.setHorizontalHeaderLabels(headers)
+        # Set headers matching the columns selected below
+        msg = "Value"
+        value_title = tools_qt.tr(msg)
+        msg = "File type"
+        filetype_title = tools_qt.tr(msg)
+        msg = "Extension"
+        extension_title = tools_qt.tr(msg)
+        model.setHorizontalHeaderLabels([value_title, filetype_title, extension_title])
 
         # Get values in order to populate model
         visit_id = tools_qt.get_text(self.dlg_add_visit, self.dlg_add_visit.visit_id)
@@ -1504,8 +1552,134 @@ class GwVisit(QObject):
         """ Action when at a Event model is changed.
         A) if some record is available => enable OK button of VisitDialog """
 
-        state = (self.tbl_event.model().rowCount() > 0)
-        self.dlg_add_visit.btn_accept.setEnabled(state)
+        model = self.tbl_event.model()
+        has_events = model is not None and model.rowCount() > 0
+        self.dlg_add_visit.btn_accept.setEnabled(has_events or self._can_direct_insert())
+
+    def _quote_sql_text(self, value):
+        """ Escape a value for interpolation into a SQL string literal. """
+
+        return str(value).replace("'", "''")
+
+    def _parameter_is_active(self, parameter_id):
+        """ True if the parameter exists and is active. """
+
+        if parameter_id in (None, '', -1, '-1', 'None'):
+            return False
+        sql = (f"SELECT 1 FROM v_config_visit_parameter "
+               f"WHERE id = '{self._quote_sql_text(parameter_id)}' "
+               f"AND COALESCE(active, TRUE) IS TRUE")
+        return tools_db.get_row(sql, log_info=False) is not None
+
+    def _parameter_allows_direct_insert(self, parameter_id):
+        """ True if the parameter is active and flagged for direct visit insert. """
+
+        if not self._parameter_is_active(parameter_id):
+            return False
+        sql = (f"SELECT 1 FROM v_config_visit_parameter "
+               f"WHERE id = '{self._quote_sql_text(parameter_id)}' "
+               f"AND COALESCE(direct_insert, FALSE) IS TRUE")
+        return tools_db.get_row(sql, log_info=False) is not None
+
+    def _user_wants_direct_insert(self):
+        """ User Config O&M checkbox om_visit_direct_insert. """
+
+        row = tools_gw.get_config_value('om_visit_direct_insert', log_info=False)
+        if not row:
+            return False
+        return tools_os.set_boolean(row[0], False) is True
+
+    def _can_use_parameter_for_direct_insert(self, parameter_id):
+        """ Catalog flag, or user Config Direct insert + an active parameter. """
+
+        if self._parameter_allows_direct_insert(parameter_id):
+            return True
+        return self._user_wants_direct_insert() and self._parameter_is_active(parameter_id)
+
+    def _can_direct_insert(self):
+        """ New visit can be accepted without opening the extra event form. """
+
+        return bool(self.it_is_new_visit and self._resolve_direct_insert_parameter())
+
+    def _resolve_direct_insert_parameter(self):
+        """ Parameter used for a silent event insert: combo, last used, then first match. """
+
+        parameter_id = tools_qt.get_combo_value(self.dlg_add_visit, self.dlg_add_visit.parameter_id, 0)
+        if self._can_use_parameter_for_direct_insert(parameter_id):
+            return parameter_id
+
+        last_used = tools_gw.get_config_value('om_visit_parameter_vdefault', log_info=False)
+        if last_used and self._can_use_parameter_for_direct_insert(last_used[0]):
+            return last_used[0]
+
+        feature_type = self.feature_type or self._combo_feature_type_id()
+        sql = ("SELECT id FROM v_config_visit_parameter "
+               "WHERE COALESCE(direct_insert, FALSE) IS TRUE "
+               "AND COALESCE(active, TRUE) IS TRUE ")
+        if feature_type and str(feature_type).lower() not in ('', 'all'):
+            sql += (f"AND UPPER(feature_type) IN ('{self._quote_sql_text(str(feature_type).upper())}', 'ALL') ")
+        sql += "ORDER BY id LIMIT 1"
+        row = tools_db.get_row(sql, log_info=False)
+        if row:
+            return row[0]
+        return None
+
+    def _event_value_for_parameter(self, parameter_id):
+        """ Default event value: parameter.vdefault, else user vdefault. """
+
+        sql = (f"SELECT vdefault FROM v_config_visit_parameter "
+               f"WHERE id = '{self._quote_sql_text(parameter_id)}'")
+        row = tools_db.get_row(sql)
+        if row and row[0] not in (None, '', 'defaultvalue'):
+            return row[0]
+        val = tools_gw.get_config_value('om_visit_paramvalue_vdefault', log_info=False)
+        if val:
+            return val[0]
+        return None
+
+    def _remember_visit_parameter(self, parameter_id):
+        """ Persist last used event parameter for this user. """
+
+        if parameter_id in (None, '', -1, '-1', 'None'):
+            return
+        value = self._quote_sql_text(parameter_id)
+        row = tools_gw.get_config_value('om_visit_parameter_vdefault', log_info=False)
+        if row:
+            sql = (f"UPDATE config_param_user SET value = '{value}' "
+                   f"WHERE parameter = 'om_visit_parameter_vdefault' AND cur_user = current_user")
+        else:
+            sql = (f"INSERT INTO config_param_user (parameter, value, cur_user) "
+                   f"VALUES ('om_visit_parameter_vdefault', '{value}', current_user)")
+        tools_db.execute_sql(sql)
+
+    def _insert_event_without_form(self, parameter_id):
+        """ Insert a minimal om_visit_event without opening the extra event form. """
+
+        event = GwOmVisitEvent()
+        event.id = event.max_pk() + 1
+        event.parameter_id = parameter_id
+        event.visit_id = int(self.visit_id.text())
+        event.value = self._event_value_for_parameter(parameter_id)
+        event.upsert()
+        self._remember_visit_parameter(parameter_id)
+        if self.tbl_event.model() is not None:
+            self.tbl_event.model().select()
+        self._manage_events_changed()
+
+    def _auto_insert_direct_event_if_needed(self):
+        """ On Accept of a new visit with no events, insert a direct_insert parameter event. """
+
+        visit_id = tools_qt.get_text(self.dlg_add_visit, self.visit_id)
+        if visit_id in (None, 'null', ''):
+            return
+        row = tools_db.get_row(
+            f"SELECT 1 FROM om_visit_event WHERE visit_id = '{self._quote_sql_text(visit_id)}' LIMIT 1")
+        if row:
+            return
+        parameter_id = self._resolve_direct_insert_parameter()
+        if not parameter_id:
+            return
+        self._insert_event_without_form(parameter_id)
 
     def _event_update(self):
         """ Update selected event. """

@@ -26,7 +26,7 @@ SELECT columns_are(
         'gis_length', 'sector_id', 'macrosector_id', 'state', 'state_type', 'annotation',
         'inverted_slope', 'custom_length', 'expl_id', 'weir_type', 'offsetval', 'cd',
         'ec', 'cd2', 'flap', 'geom1', 'geom2', 'geom3',
-        'geom4', 'surcharge', 'the_geom', 'road_width', 'road_surf', 'coef_curve'
+        'geom4', 'surcharge', 'the_geom', 'road_width', 'road_surf', 'coef_curve', 'p_state'
     ],
     'View ve_inp_weir should have the correct columns'
 );
@@ -68,6 +68,7 @@ SELECT col_type_is('ve_inp_weir', 'the_geom', 'geometry(linestring, SRID_VALUE)'
 SELECT col_type_is('ve_inp_weir', 'road_width', 'float8', 'Column road_width should be float8');
 SELECT col_type_is('ve_inp_weir', 'road_surf', 'varchar(16)', 'Column road_surf should be varchar(16)');
 SELECT col_type_is('ve_inp_weir', 'coef_curve', 'float8', 'Column coef_curve should be float8');
+SELECT col_type_is('ve_inp_weir', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

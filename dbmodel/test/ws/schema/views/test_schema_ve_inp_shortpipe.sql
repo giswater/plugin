@@ -24,7 +24,7 @@ SELECT columns_are(
         'node_id', 'top_elev', 'custom_top_elev', 'depth', 'nodecat_id', 'expl_id',
         'sector_id', 'dma_id', 'state', 'state_type', 'annotation', 'nodarc_id',
         'minorloss', 'status', 'bulk_coeff', 'wall_coeff', 'head', 'pattern_id',
-        'demand', 'demand_pattern_id', 'emitter_coeff', 'the_geom'
+        'demand', 'demand_pattern_id', 'emitter_coeff', 'the_geom', 'p_state'
     ],
     'View ve_inp_shortpipe should have the correct columns'
 );
@@ -52,6 +52,7 @@ SELECT col_type_is('ve_inp_shortpipe', 'demand', 'numeric(12,6)', 'Column demand
 SELECT col_type_is('ve_inp_shortpipe', 'demand_pattern_id', 'varchar(16)', 'Column demand_pattern_id should be varchar(16)');
 SELECT col_type_is('ve_inp_shortpipe', 'emitter_coeff', 'float8', 'Column emitter_coeff should be float8');
 SELECT col_type_is('ve_inp_shortpipe', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_shortpipe', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

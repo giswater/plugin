@@ -139,9 +139,7 @@ v_headertext text;
 v_formheader_value text;
 v_formheader_field text;
 v_formheader_new_text text;
-v_tabdata_lytname json;
-v_tabdata_lytname_result json;
-v_record record;
+v_toolbox_labels json;
 v_cur_user text;
 v_prev_cur_user text;
 v_table_child text;
@@ -163,12 +161,6 @@ v_order_id integer;
 v_flwreg_type text;
 v_arc_searchnodes double precision;
 v_talblenameorigin text;
-v_ui_lang text;
-v_ml_pref jsonb;
-v_ml_project_type text;
-v_i18n_lb text;
-v_i18n_tt text;
-v_tab_idx integer;
 
 
 BEGIN
@@ -413,7 +405,12 @@ BEGIN
 	-- Set layouts orientation
 	v_form_orientation = '"layouts": {';
 
-	SELECT array_agg(distinct layoutname) INTO v_layouts FROM config_form_fields  WHERE formtype = 'form_feature';
+	SELECT array_agg(distinct layoutname) INTO v_layouts
+	FROM config_form_fields
+	WHERE formtype = 'form_feature';
+	IF to_regclass('v_config_form_fields') IS NOT NULL THEN
+		SELECT array_agg(distinct layoutname) INTO v_layouts FROM v_config_form_fields WHERE formtype = 'form_feature';
+	END IF;
 	layout_orientation_exist = false;
 
 	IF v_layouts IS NOT NULL THEN
@@ -438,6 +435,24 @@ BEGIN
 	EXECUTE v_querystring INTO v_featuretype, v_parent_layer, v_featureclass;
 	v_featuretype := LOWER(v_featuretype);
 	v_featuretype := COALESCE(v_featuretype, '');
+
+	-- Parent layers (ve_element, ve_node, ...) match many cat_feature rows. LIMIT 1 above is
+	-- non-deterministic, so GENELEM info was getting FRELEM tabactions (actionSetToArc) and vice versa.
+	-- Re-resolve class/child from the actual feature before building visibleTabs.
+	IF v_id IS NOT NULL AND v_featuretype IN ('node', 'arc', 'connec', 'gully', 'element', 'link') THEN
+		v_querystring = concat(
+			'SELECT lower(cf.feature_class), lower(cf.child_layer) ',
+			'FROM cat_feature cf ',
+			'WHERE cf.id = (SELECT ', v_featuretype, '_type FROM ',
+			quote_ident(COALESCE(v_table_parent, v_tablename)),
+			' WHERE ', v_featuretype, '_id::text = ', quote_literal(v_id), ' LIMIT 1)'
+		);
+		BEGIN
+			EXECUTE v_querystring INTO v_featureclass, v_table_child;
+		EXCEPTION WHEN OTHERS THEN
+			NULL;
+		END;
+	END IF;
 
 	-- Get vdefault values
 	-- Create List
@@ -634,7 +649,7 @@ BEGIN
                        ELSE 3
                    END
            ) as rn
-    FROM config_form_tabs
+    FROM v_config_form_tabs
     WHERE (formname ='||quote_nullable(v_table_parent)||' OR formname ='||quote_nullable(v_table_class)||' OR formname ='||quote_nullable(v_table_child)||' OR formname ='||quote_nullable(v_tablename)||' OR formname IS NULL)
           AND '||quote_nullable(v_device)||' = ANY(device)
 	) AS subquery
@@ -642,36 +657,6 @@ BEGIN
 	ORDER BY orderby)a');
 
 	EXECUTE v_querystring INTO form_tabs;
-
-	-- Apply multilang UI translations for config_form_tabs
-	v_ml_pref := NULL;
-	v_ui_lang := NULL;
-	v_ml_project_type := NULL;
-	IF to_regnamespace('multilang') IS NOT NULL THEN
-		v_ml_pref := multilang.gw_fct_get_multilang_language('SCHEMA_NAME');
-		v_ui_lang := v_ml_pref->>'lang';
-		v_ml_project_type := v_ml_pref->>'project_type';
-	END IF;
-	IF v_ui_lang IS NOT NULL AND form_tabs IS NOT NULL THEN
-		FOR v_tab_idx IN 1..array_length(form_tabs, 1) LOOP
-			SELECT i.lb, i.tt INTO v_i18n_lb, v_i18n_tt
-			FROM multilang.config_form_tabs i
-			WHERE i.project_type = v_ml_project_type
-			  AND i.formname = form_tabs[v_tab_idx]->>'formname'
-			  AND i.source = form_tabs[v_tab_idx]->>'tabName'
-			  AND i.context = 'config_form_tabs'
-			  AND i.lang = v_ui_lang
-			LIMIT 1;
-			IF v_i18n_lb IS NOT NULL THEN
-				form_tabs[v_tab_idx] := gw_fct_json_object_set_key(
-					form_tabs[v_tab_idx], 'tabLabel', v_i18n_lb);
-			END IF;
-			IF v_i18n_tt IS NOT NULL THEN
-				form_tabs[v_tab_idx] := gw_fct_json_object_set_key(
-					form_tabs[v_tab_idx], 'tooltip', v_i18n_tt);
-			END IF;
-		END LOOP;
-	END IF;
 
 	if v_tablename_aux is not null then
 		v_tablename = v_tablename_aux;
@@ -806,9 +791,8 @@ BEGIN
 			IF v_id IS NULL AND v_isepa IS true THEN
 			    v_id = '';
 			ELSIF v_id IS NULL AND v_tablename in  ('ve_dma', 've_dqa', 've_sector', 've_drainzone', 've_supplyzone', 've_macrodma', 've_macrodqa', 've_macrosector', 've_dwfzone', 've_omzone', 've_macroomzone', 've_presszone') THEN
-				v_zone = replace(v_tablename,'ve_','');
-				v_querystring = format('SELECT max(%I_id::integer)+1 FROM %I WHERE %I_id::text ~ ''^[0-9]+$''', v_zone, v_zone, v_zone);
-				EXECUTE v_querystring INTO v_id;
+				-- PK is assigned by urn_id_seq on INSERT; keep empty so the dialog does not consume nextval
+				v_id = '';
 			ELSIF v_id IS NULL AND v_tablename IN ('plan_netscenario_dma', 'plan_netscenario_presszone') THEN
 				v_zone = replace(v_tablename, 'plan_netscenario_', '');
 				v_querystring = format('SELECT coalesce(max(%I_id::integer)+1, 1) FROM %I WHERE %I_id::text ~ ''^[0-9]+$''', v_zone, v_tablename, v_zone);
@@ -945,13 +929,13 @@ BEGIN
     v_editable := COALESCE(v_editable, 'false');
 
 	v_forminfo := gw_fct_json_object_set_key(v_forminfo,'headerText',v_headertext);
-	v_tabdata_lytname = (SELECT value::json->>'custom_form_tab_labels' FROM config_param_system WHERE parameter='admin_customform_param')::text;
-
-	FOR v_record IN SELECT (a)->>'index' as index,(a)->>'text' as text  FROM json_array_elements(v_tabdata_lytname) a
-	LOOP
-		v_tabdata_lytname_result := gw_fct_json_object_set_key(v_tabdata_lytname_result,concat('index_', v_record.index), v_record.text);
-	END LOOP;
-	v_forminfo := gw_fct_json_object_set_key(v_forminfo,'tabDataLytNames', v_tabdata_lytname_result);
+	SELECT json_build_object(
+		'page_main', (SELECT idval FROM v_sys_label WHERE id = 4001),
+		'page_add', (SELECT idval FROM v_sys_label WHERE id = 4002),
+		'page_epa', (SELECT idval FROM v_sys_label WHERE id = 4003),
+		'page_dscenario', (SELECT idval FROM v_sys_label WHERE id = 4004)
+	) INTO v_toolbox_labels;
+	v_forminfo := gw_fct_json_object_set_key(v_forminfo, 'toolboxLabels', COALESCE(v_toolbox_labels, '{}'::json));
 
 
 	v_forminfo:= concat(left(v_forminfo::text, length(v_forminfo::text) - 1), ',', v_form_orientation, '}');

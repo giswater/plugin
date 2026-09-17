@@ -26,10 +26,16 @@ class GwMassiveComposer:
 
     def open_massive_composer(self):
         
+        folderpath = tools_gw.get_composers_folderpath()
+        qpt_files = tools_gw.load_qpt_templates_into_project(folderpath)
         composers_list = tools_qgis.get_composer()
         if composers_list == '"{}"':
-            msg = "No composers found."
-            tools_qt.show_info_box(msg, "Info")
+            if folderpath and qpt_files is None:
+                msg = "Your composer's path is bad configured. Please, modify it and try again."
+                tools_qgis.show_warning(msg)
+            else:
+                msg = "No composers found."
+                tools_qt.show_info_box(msg, "Info")
             return
         
         dlg_comp = GwCompPagesUi(self)

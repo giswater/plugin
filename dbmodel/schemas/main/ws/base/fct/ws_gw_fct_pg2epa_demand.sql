@@ -45,7 +45,7 @@ BEGIN
 	UPDATE temp_t_node t SET demand = 0 FROM node n WHERE n.node_id::text = t.node_id AND n.epa_type != 'INLET';
 	UPDATE temp_t_node t SET pattern_id = null FROM node n WHERE n.node_id::text = t.node_id AND n.epa_type != 'INLET';
 
-	IF v_networkmode = 2 OR v_networkmode = 1 OR v_networkmode = 5 THEN-- NETWORK
+	IF v_networkmode = 2 OR v_networkmode = 1 THEN-- NETWORK
 
 		-- update patterns for nodes
 		UPDATE temp_t_node SET pattern_id=a.pattern_id FROM ve_inp_junction a WHERE temp_t_node.node_id=a.node_id::text;

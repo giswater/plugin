@@ -15,7 +15,6 @@ import re
 import shutil
 import sys
 import sqlite3
-import webbrowser
 import xml.etree.ElementTree as ET
 
 from typing import Literal, Dict, Optional, Union, Any, List, Tuple
@@ -27,20 +26,22 @@ from functools import partial
 from datetime import datetime
 
 from qgis.PyQt.QtCore import Qt, QStringListModel, QVariant, QDate, QRegularExpression, \
-    QItemSelectionModel, QTimer, QSettings
+    QItemSelectionModel, QTimer, QSettings, QUrl
 from qgis.PyQt.QtGui import QCursor, QPixmap, QColor, QStandardItemModel, QIcon, QStandardItem, \
-    QIntValidator, QDoubleValidator, QRegularExpressionValidator, QPalette
+    QIntValidator, QDoubleValidator, QRegularExpressionValidator, QPalette, QFont, QDesktopServices
 from qgis.PyQt.QtSql import QSqlTableModel
 from qgis.PyQt.QtWidgets import QSpacerItem, QSizePolicy, QLineEdit, QLabel, QComboBox, QGridLayout, QTabWidget, \
     QCompleter, QPushButton, QTableView, QFrame, QCheckBox, QDoubleSpinBox, QSpinBox, QDateEdit, QTextEdit, \
-    QToolButton, QWidget, QApplication, QMenu, QAction, QDialog, QListWidget, QListWidgetItem, QAbstractScrollArea, \
-    QVBoxLayout, QHeaderView
+    QToolButton, QWidget, QApplication, QMenu, QAction, QDialog, QListWidget, QListWidgetItem, \
+    QVBoxLayout, QHeaderView, QTableWidget, QAbstractItemView, \
+    QAbstractScrollArea, QGroupBox
+from qgis.PyQt.QtXml import QDomDocument
 from qgis.core import Qgis, QgsProject, QgsPointXY, QgsVectorLayer, QgsField, QgsFeature, QgsSymbol, \
     QgsFeatureRequest, QgsSimpleFillSymbolLayer, QgsRendererCategory, QgsCategorizedSymbolRenderer, \
     QgsCoordinateTransform, QgsCoordinateReferenceSystem, QgsVectorFileWriter, QgsCoordinateTransformContext, \
     QgsFieldConstraints, QgsEditorWidgetSetup, QgsRasterLayer, QgsGeometry, QgsExpression, QgsRectangle, \
     QgsEditFormConfig, QgsSymbolLayer, QgsProperty, QgsSimpleLineSymbolLayer, QgsSimpleMarkerSymbolLayer, QgsStyle, \
-    QgsDataSourceUri
+    QgsDataSourceUri, QgsPrintLayout, QgsReadWriteContext
 from qgis.gui import QgsDateTimeEdit, QgsRubberBand, QgsExpressionSelectionDialog
 
 from ..models.cat_feature import GwCatFeature
@@ -49,6 +50,7 @@ from ..ui.main_window import GwMainWindow
 from ..ui.docker import GwDocker
 from ..ui.ui_manager import GwSelectorUi, GwPsectorManagerUi
 from . import tools_backend_calls
+from .async_combo import GwAsyncComboBox, attach_combo_popup_search
 from ..load_project_menu import GwMenuLoad
 from ..utils.select_manager import GwSelectManager
 from ... import global_vars
@@ -78,6 +80,9 @@ geom_types_dict: Dict = {
     "point": Qgis.GeometryType.Point,
     "polygon": Qgis.GeometryType.Polygon
 }
+
+# Filter functions that load the data of the linked object into the QTableView on their own
+FILL_TABLE_FUNCTIONS: Tuple[str, ...] = ("filter_table", "filter_table_mincut")
 
 
 class ThemeManager:
@@ -126,6 +131,150 @@ class ThemeManager:
         if cls.is_dark_mode(widget):
             return alt, base
         return base, alt
+
+    @classmethod
+    def _widget_selector(cls, widget):
+        if widget is None:
+            return "QWidget"
+        return widget.__class__.__name__
+
+    @classmethod
+    def prefer_native_readonly(cls, widget=None):
+        return sys.platform == 'darwin' and not cls.is_dark_mode(widget)
+
+    @classmethod
+    def readonly_field_style(cls, widget=None, border=None):
+        if cls.prefer_native_readonly(widget):
+            if border:
+                selector = cls._widget_selector(widget)
+                return f"{selector} {{ border: {border}; }}"
+            return None
+
+        bg = cls.alternate_base_color(widget)
+        text = cls.color(QPalette.ColorRole.Text, widget=widget, fallback="#6e6e6e")
+        selector = cls._widget_selector(widget)
+        if border:
+            return f"{selector} {{ background: {bg}; color: {text}; border: {border}; }}"
+        return f"{selector} {{ background: {bg}; color: {text}; }}"
+
+    @classmethod
+    def apply_readonly_style(cls, widget, readonly=True, border=None):
+        if readonly:
+            style = cls.readonly_field_style(widget, border=border)
+            widget.setStyleSheet(style if style else None)
+        else:
+            widget.setStyleSheet(None)
+
+    @classmethod
+    def disabled_text_style(cls, widget=None):
+        text = cls.color(QPalette.ColorRole.Text, widget=widget, fallback="#6e6e6e")
+        selector = cls._widget_selector(widget)
+        return f"{selector} {{ color: {text}; }}"
+
+    @classmethod
+    def validation_border_style(cls, width=1):
+        return f"border: {width}px solid red"
+
+    @classmethod
+    def changed_field_style(cls, widget, color="#3ED396", border_width=2, readonly=False):
+        border = f"{border_width}px solid {color}"
+        if readonly:
+            style = cls.readonly_field_style(widget, border=border)
+            return style if style else f"border: {border}"
+        return f"border: {border}"
+
+    @classmethod
+    def hyperlink_style(cls, widget=None, visited=False):
+        palette = cls._get_palette(widget)
+        if palette is None:
+            color = "purple" if visited else "blue"
+        else:
+            link = palette.color(QPalette.ColorRole.Link)
+            if visited:
+                link = link.darker(120)
+            color = link.name()
+        selector = cls._widget_selector(widget)
+        return f"{selector} {{ color: {color}; text-decoration: underline; }}"
+
+    @classmethod
+    def readonly_hyperlink_style(cls, widget=None, visited=False):
+        if cls.prefer_native_readonly(widget):
+            return cls.hyperlink_style(widget, visited=visited)
+
+        bg = cls.alternate_base_color(widget)
+        palette = cls._get_palette(widget)
+        if palette is None:
+            color = "purple" if visited else "blue"
+        else:
+            link = palette.color(QPalette.ColorRole.Link)
+            if visited:
+                link = link.darker(120)
+            color = link.name()
+        selector = cls._widget_selector(widget)
+        return (f"{selector} {{ background: {bg}; color: {color}; "
+                f"text-decoration: underline; border: none; }}")
+
+    @classmethod
+    def set_stylesheet_for_field(cls, field, widget, wtype='label'):
+        if field.get('stylesheet') is None or wtype not in field['stylesheet']:
+            return widget
+        selector = 'QLabel' if wtype == 'label' else cls._widget_selector(widget)
+        widget.setStyleSheet(f"{selector}{{{field['stylesheet'][wtype]}}}")
+        return widget
+
+    @classmethod
+    def _font_weight_value(cls, font):
+        weight = font.weight()
+        try:
+            return int(weight)
+        except TypeError:
+            return int(weight.value)
+
+    @classmethod
+    def normalize_font_weight(cls, font):
+        """Map legacy Qt Designer weights (0-99) to Qt6 QFont.Weight."""
+        weight = cls._font_weight_value(font)
+        if 0 < weight < 100:
+            if weight <= 25:
+                font.setWeight(QFont.Weight.Light)
+            elif weight >= 75:
+                font.setWeight(QFont.Weight.Bold)
+            else:
+                font.setWeight(QFont.Weight.Normal)
+        elif weight < QFont.Weight.Normal:
+            font.setWeight(QFont.Weight.Normal)
+        return font
+
+    @classmethod
+    def label_font(cls, reference=None):
+        if reference is not None and hasattr(reference, 'font'):
+            font = QFont(reference.font())
+        else:
+            app = QApplication.instance()
+            font = QFont(app.font() if app is not None else QFont())
+        font = cls.normalize_font_weight(font)
+        if sys.platform == 'darwin' and cls._font_weight_value(font) < QFont.Weight.Medium:
+            font.setWeight(QFont.Weight.Medium)
+        return font
+
+    @classmethod
+    def apply_label_font(cls, label, reference=None):
+        label.setFont(cls.label_font(reference or label))
+
+    @classmethod
+    def normalize_dialog_fonts(cls, dialog):
+        """Fix legacy thin .ui fonts and improve label legibility on macOS."""
+        for widget in dialog.findChildren(QTabWidget) + dialog.findChildren(QGroupBox):
+            font = cls.normalize_font_weight(QFont(widget.font()))
+            if sys.platform == 'darwin' and cls._font_weight_value(font) < QFont.Weight.Medium:
+                font.setWeight(QFont.Weight.Medium)
+            widget.setFont(font)
+
+        for label in dialog.findChildren(QLabel):
+            stylesheet = label.styleSheet() or ''
+            if 'font-weight' in stylesheet:
+                continue
+            cls.apply_label_font(label)
 
 
 def _get_geom_type(geometry_type: QgsGeometryType = None):
@@ -213,6 +362,7 @@ def get_context_menu_levels(context_value: Any) -> Tuple[Optional[str], Optional
 
 def load_settings(dialog, plugin='core'):
     """ Load user UI settings related with dialog position and size """
+    upgrade_dialog_combos(dialog)
 
     # Get user UI config file
     try:
@@ -456,11 +606,30 @@ def add_btn_help(dlg):
     btn_help.clicked.connect(partial(open_help_link, context, uiname, dlg))
 
 
+def _open_external_url(url):
+    """Open a URL via Qt instead of Python webbrowser/subprocess.
+
+    webbrowser.open() leaves a live Popen; on Python 3.12+ its __del__ emits
+    ResourceWarning, and QGIS logging that from a destructor can abort the process.
+    """
+    if not url:
+        return False
+    try:
+        return QDesktopServices.openUrl(QUrl(str(url)))
+    except Exception as e:
+        msg = "Could not open URL: {0}"
+        msg_params = (e,)
+        tools_log.log_warning(msg, msg_params=msg_params)
+        return False
+
+
 def open_help_link(context, uiname, dlg=None):
     """ Opens the help link for the given dialog, or a default link if not found. """
 
-    # Base URL for the documentation
-    domain = get_config_value('help_domain', table='config_param_system')
+    # Skip the DB lookup when no schema is loaded (admin / create project).
+    domain = None
+    if lib_vars.schema_name:
+        domain = get_config_value('help_domain', table='config_param_system')
     if domain is None:
         domain = "https://docs.giswater.org"
     else:
@@ -471,21 +640,24 @@ def open_help_link(context, uiname, dlg=None):
     # Always use 'latest' to avoid errors when plugin version is diferent than docs
     base_url = f"{domain}/latest/{language}/docs/giswater/for-users"
 
-    uiname = uiname.replace("_", "-").replace(" ", "-").lower() + ".html"  # sanitize uiname
+    if uiname:
+        uiname = uiname.replace("_", "-").replace(" ", "-").lower() + ".html"
 
     tabname = 'tab_none'
-    tab_widgets = dlg.findChildren(QTabWidget)
-    if tab_widgets:
-        tab_widget = tab_widgets[0]
-        index_tab = tab_widget.currentIndex()
-        tabname = tab_widget.widget(index_tab).objectName()
+    if dlg is not None:
+        tab_widgets = dlg.findChildren(QTabWidget)
+        if tab_widgets:
+            tab_widget = tab_widgets[0]
+            index_tab = tab_widget.currentIndex()
+            tab = tab_widget.widget(index_tab)
+            if tab is not None and tab.objectName():
+                tabname = tab.objectName()
 
     # Construct the path dynamically
     if uiname:
         if uiname == 'info-feature.html':
             feature = dlg.windowTitle().split(' ')[0]
             sql = f"SELECT feature_type FROM {lib_vars.schema_name}.cat_feature WHERE id = '{feature}'"
-            print(sql)
             feature_type = tools_db.get_rows(sql)[0]['feature_type']
             if tabname.lower() == 'tab_data':
                 file_path = f"{base_url}/dialogs/info_feature/{global_vars.project_type.lower()}/{feature_type.lower()}/{feature.lower()}/tab_data.html"
@@ -501,15 +673,15 @@ def open_help_link(context, uiname, dlg=None):
         # Fallback to the general manual link if context and uiname are missing
         file_path = f"{base_url}/index.html"
 
-    print(file_path)
-    tools_os.open_file(file_path)
+    _open_external_url(file_path)
 
 
-def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, hide_config_widgets=False, plugin_dir=lib_vars.plugin_dir, plugin_name=lib_vars.plugin_name):
+def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, title_params=None, hide_config_widgets=False, plugin_dir=lib_vars.plugin_dir, plugin_name=lib_vars.plugin_name, skip_db_check=False):
     """ Open dialog """
     # Check database connection before opening dialog
-    if dlg_name not in ('admin_credentials', 'admin', 'load_menu') and not check_db_connection():
-        tools_qgis.show_warning("Database connection is not available")
+    if skip_db_check is False and not check_db_connection():
+        msg = "Database connection is not available"
+        tools_qgis.show_warning(msg)
         return
 
     # Manage translate
@@ -518,7 +690,7 @@ def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, hide_config_w
 
     # Set window title
     if title is not None:
-        dlg.setWindowTitle(title)
+        dlg.setWindowTitle(tools_qt.tr(title, list_params=title_params))
 
     # Manage stay on top, maximize/minimize button and information button
     flags = Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinMaxButtonsHint | Qt.WindowType.Window
@@ -528,7 +700,10 @@ def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, hide_config_w
 
     dlg.setWindowFlags(flags)
     if issubclass(type(dlg), GwDialog):
-        dlg.setModal(False)
+        if sys.platform == 'darwin':
+            dlg.setWindowModality(Qt.WindowModality.ApplicationModal)
+        else:
+            dlg.setModal(False)
 
     if hide_config_widgets:
         hide_widgets_form(dlg, dlg_name)
@@ -541,6 +716,8 @@ def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, hide_config_w
 
     # Create btn_help
     add_btn_help(dlg)
+
+    ThemeManager.normalize_dialog_fonts(dlg)
 
     # Show dialog
     dlg.show()
@@ -906,7 +1083,8 @@ def set_completer_feature_id(widget, feature_type, viewname):
 
 
 def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group="GW Layers", sub_group=None, alias=None, sub_sub_group=None, schema=None,
-                        visibility=None, auth_id=None, extent=None, passwd=None, create_project=False, force_create_group=False, properties=None):
+                        visibility=None, auth_id=None, extent=None, passwd=None, create_project=False, force_create_group=False, properties=None,
+                        add_to_toc=True, aux_conn=None, is_thread=False):
     """
     Put selected layer into TOC
         :param tablename: Postgres table name (String)
@@ -920,6 +1098,7 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
         :param visibility: Visibility of the layer (Boolean)
         :param auth_id: Auth ID of the layer (String)
         :param extent: Extent of the layer (QgsRectangle)
+        :param add_to_toc: Add the layer to the project (False = worker thread; caller adds later)
     """
 
     tablename_og = tablename
@@ -938,9 +1117,9 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
     elif extent is None:
         extent = _get_extent_parameters(schema_name, "node")
 
-    field_id = field_id.replace(" ", "")
+    field_id = (field_id or "id").replace(" ", "")
     uri, status = tools_db.get_uri(tablename, the_geom, schema_name)
-    if status is False:
+    if status is False or not the_geom or the_geom == "None":
         uri.setDataSource(schema_name, f'{tablename}', '', None, field_id)
     else:
         uri.setDataSource(schema_name, f'{tablename}', the_geom, None, field_id)
@@ -967,20 +1146,27 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
         if alias:
             tablename = alias
         layer = QgsRasterLayer(connString, tablename)
-        tools_qgis.add_layer_to_toc(layer, group, sub_group, create_groups=create_groups, custom_properties={"gw_id": tablename_og})
+        if add_to_toc:
+            tools_qgis.add_layer_to_toc(layer, group, sub_group, create_groups=create_groups, custom_properties={"gw_id": tablename_og})
+        else:
+            layer.setCustomProperty("gw_id", tablename_og)
 
     else:
         if alias:
             tablename = alias
         layer = QgsVectorLayer(uri.uri(), f'{tablename}', 'postgres')
-        tools_qgis.add_layer_to_toc(layer, group, sub_group, create_groups=create_groups, sub_sub_group=sub_sub_group, custom_properties={"gw_id": tablename_og})
+        if add_to_toc:
+            tools_qgis.add_layer_to_toc(layer, group, sub_group, create_groups=create_groups, sub_sub_group=sub_sub_group, custom_properties={"gw_id": tablename_og})
+        else:
+            layer.setCustomProperty("gw_id", tablename_og)
 
         # Apply styles to layer
         if schema_name != 'cm':
-            set_layer_styles(tablename_og, layer, schema_name if schema_name != "am" else None)
+            set_layer_styles(tablename_og, layer, schema_name if schema_name != "am" else None,
+                             aux_conn=aux_conn, is_thread=is_thread)
             # Get addparam from sys_table
             sql = f"SELECT addparam FROM sys_table WHERE id = '{tablename_og}'"
-            row = tools_db.get_row(sql)
+            row = tools_db.get_row(sql, is_thread=is_thread, aux_conn=aux_conn)
             if row:
                 addparam = row[0]
                 if addparam and addparam.get('refreshSymbology'):
@@ -988,16 +1174,16 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
                     if isinstance(renderer, QgsCategorizedSymbolRenderer):
                         refresh_categorized_layer_symbology_classes(layer, addparam)
 
-        if not create_project:
+        if add_to_toc and not create_project:
             if tablename and schema != 'am' and schema != 'cm':
                 # Set layer config
                 feature = '"tableName":"' + str(tablename_og) + '", "isLayer":true'
                 extras = '"infoType":"' + str(lib_vars.project_vars['info_type']) + '"'
                 body = create_body(feature=feature, extras=extras)
                 json_result = execute_procedure('gw_fct_getinfofromid', body, schema_name=schema_name)
-                config_layer_attributes(json_result, layer, alias)
+                config_layer_attributes(json_result, layer, tablename_og)
 
-    if visibility is not None:
+    if add_to_toc and visibility is not None:
         if visibility is False:
             tools_qgis.set_layer_visible(layer, recursive=False, visible=False)
 
@@ -1018,11 +1204,13 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
 
     # Apply mapzone styling if this is a mapzone layer
     mapzone_tables = ['presszone', 'dma', 'sector', 'dqa', 'minsector', 've_presszone', 've_dma', 've_sector', 've_dqa', 've_minsector', 've_minsector_mincut']
-    if any(mapzone_table in tablename_og.lower() for mapzone_table in mapzone_tables):
+    if add_to_toc and any(mapzone_table in tablename_og.lower() for mapzone_table in mapzone_tables):
         set_style_mapzones(schema_name)
 
-    if create_project is False:
+    if add_to_toc and create_project is False:
         global_vars.iface.mapCanvas().refresh()
+
+    return layer
 
 
 def add_layer_provider(gw_id: str, cfg, group="GW Layers", sub_group=None, alias=None, sub_sub_group=None,
@@ -1059,13 +1247,15 @@ def add_layer_provider(gw_id: str, cfg, group="GW Layers", sub_group=None, alias
         layer = QgsVectorLayer(uri, gw_id, provider)
 
     else:
-        msg = f"Unsupported layer_type: {layer_type}"
-        tools_qgis.show_warning(msg)
+        msg = "Unsupported layer_type: {0}"
+        msg_params = (layer_type,)
+        tools_qgis.show_warning(msg, msg_params=msg_params)
         return
 
     if not layer.isValid():
-        msg = f"Invalid layer:\nprovider={provider}\nuri={uri}"
-        tools_qgis.show_warning(msg)
+        msg = "Invalid layer:\nprovider={0}\nuri={1}"
+        msg_params = (provider, uri)
+        tools_qgis.show_warning(msg, msg_params=msg_params)
         return
 
     if force_create_group:
@@ -1097,6 +1287,8 @@ def add_layer_provider(gw_id: str, cfg, group="GW Layers", sub_group=None, alias
         if visibility is False:
             tools_qgis.set_layer_visible(layer, recursive=False, visible=False)
 
+    return layer
+
 
 def build_uri(gw_id: str, provider: str, cfg: dict) -> Optional[str]:
 
@@ -1116,8 +1308,9 @@ def build_uri(gw_id: str, provider: str, cfg: dict) -> Optional[str]:
     builder = builders.get(provider)
 
     if not builder:
-        msg = f"No URI builder for provider: {provider}"
-        tools_qgis.show_warning(msg)
+        msg = "No URI builder for provider: {0}"
+        msg_params = (provider,)
+        tools_qgis.show_warning(msg, msg_params=msg_params)
         return None
 
     return builder(cfg)
@@ -1271,9 +1464,9 @@ def build_network_uri(cfg: dict, encoding: str = "query") -> str:
 
         return uri.uri(False)
 
-    raise ValueError(
-        f"Unsupported URI encoding: {encoding}"
-    )
+    msg = "Unsupported URI encoding: {0}"
+    msg_params = (encoding,)
+    raise ValueError(tools_qt.tr(msg, list_params=msg_params))
 
 
 def refresh_categorized_layer_symbology_classes(layer, addparam=None):
@@ -1326,7 +1519,9 @@ def refresh_categorized_layer_symbology_classes(layer, addparam=None):
             else:
                 src_symbol = QgsSymbol.defaultSymbol(layer.geometryType())
         except Exception as e:
-            print(f"Error getting source symbol: {e}")
+            msg = "Error getting source symbol: {0}"
+            msg_params = (e,)
+            print(tools_qt.tr(msg, list_params=msg_params))
             src_symbol = QgsSymbol.defaultSymbol(layer.geometryType())
 
     # Set solid line style to the source symbol
@@ -1439,12 +1634,80 @@ def hide_group_from_toc(group):
     if ltv is None:
         return
 
-    tools_qgis.hide_node_from_treeview(root.findGroup(group), root, ltv)
+    group_node = root.findGroup(group)
+    if group_node is None:
+        return
+    tools_qgis.hide_node_from_treeview(group_node, root, ltv)
+
+
+_vr_remove_guard = False
+_vr_loading_tables = set()
+
+
+def remove_map_layer_allow_vr_target(layer):
+    """Remove @layer even if it is a ValueRelation lookup (skips HIDDEN clone)."""
+    global _vr_remove_guard
+    if layer is None:
+        return
+    _vr_remove_guard = True
+    try:
+        QgsProject.instance().removeMapLayer(layer)
+    finally:
+        _vr_remove_guard = False
+
+
+def _node_is_under_hidden(node):
+    """Return True if @node is the HIDDEN group or nested under it."""
+    current = node
+    while current is not None:
+        if (current.name() or "").lower() == "hidden":
+            return True
+        parent = current.parent() if hasattr(current, "parent") else None
+        if parent is None or parent == current:
+            break
+        current = parent
+    return False
+
+
+def protect_value_relation_layers_on_remove(node, index_from, index_to):
+    """Clone ValueRelation lookup layers into HIDDEN before QGIS drops their TOC node."""
+    global _vr_remove_guard
+    if _vr_remove_guard or node is None:
+        return
+    if _node_is_under_hidden(node):
+        return
+
+    children = node.children()
+    if index_from < 0 or index_to >= len(children) or index_from > index_to:
+        return
+
+    moved = False
+    _vr_remove_guard = True
+    try:
+        for i in range(index_from, index_to + 1):
+            child = children[i]
+            if (child.name() or "").lower() == "hidden":
+                continue
+            for layer in tools_qgis.collect_tree_layers(child):
+                if not tools_qgis.layer_is_value_relation_target(layer):
+                    continue
+                if tools_qgis.is_layer_under_group(layer, "HIDDEN"):
+                    continue
+                if tools_qgis.ensure_layer_node_in_group(layer, "HIDDEN"):
+                    moved = True
+        if moved:
+            hide_group_from_toc("HIDDEN")
+            hidden_group = QgsProject.instance().layerTreeRoot().findGroup("HIDDEN")
+            if hidden_group:
+                hidden_group.setItemVisibilityChecked(False)
+    finally:
+        _vr_remove_guard = False
 
 
 def validate_qml(qml_content):
     if not qml_content:
-        return False, "QML is empty!"
+        msg = "QML is empty!"
+        return False, tools_qt.tr(msg)
     qml_content_no_spaces = qml_content.replace("\n", "").replace("\t", "")
     try:
         root = ET.fromstring(qml_content_no_spaces)  # noqa: F841
@@ -1453,7 +1716,7 @@ def validate_qml(qml_content):
         return False, str(e)
 
 
-def set_layer_styles(tablename, layer, schema_name):
+def set_layer_styles(tablename, layer, schema_name, aux_conn=None, is_thread=False):
     # Save current layer custom properties and remove them to avoid QML overwrite them
     custom_properties = {}
     layer_custom_properties = layer.customPropertyKeys()
@@ -1461,7 +1724,8 @@ def set_layer_styles(tablename, layer, schema_name):
         custom_properties[cp_key] = layer.customProperty(cp_key)
 
     body = f'$${{"data":{{"layername":"{tablename}"}}}}$$'
-    json_return = execute_procedure('gw_fct_getstyle', body, schema_name=schema_name)
+    json_return = execute_procedure('gw_fct_getstyle', body, schema_name=schema_name,
+                                    aux_conn=aux_conn, is_thread=is_thread)
     if json_return is None or json_return['status'] == 'Failed':
         return
     if 'styles' in json_return['body']:
@@ -1472,7 +1736,10 @@ def set_layer_styles(tablename, layer, schema_name):
             valid_qml, error_message = validate_qml(qml)
             if not valid_qml:
                 msg = "The QML file is invalid."
-                tools_qgis.show_warning(msg, parameter=error_message)
+                if not is_thread:
+                    tools_qgis.show_warning(msg, parameter=error_message)
+                else:
+                    tools_log.log_warning(msg, parameter=error_message)
             else:
                 style_manager = layer.styleManager()
 
@@ -1702,11 +1969,163 @@ def configure_layers_from_table_name(table_name):
     return True
 
 
+def _parse_widgetcontrols(widgetcontrols):
+    if isinstance(widgetcontrols, str):
+        try:
+            return json.loads(widgetcontrols) if widgetcontrols else None
+        except (ValueError, TypeError):
+            return None
+    return widgetcontrols
+
+
+def _cff_native_fields(formname, thread=None):
+    """Native form fields from config_form_fields (does not need v_config_form_fields)."""
+    if not formname:
+        return []
+    safe = str(formname).replace("'", "''")
+    sql = (
+        "SELECT columnname, label, widgettype, iseditable, hidden, ismandatory, widgetcontrols "
+        f"FROM config_form_fields WHERE formname = '{safe}' AND formtype = 'form_feature'"
+    )
+    aux_conn = getattr(thread, 'aux_conn', None) if thread else None
+    rows = tools_db.get_rows(sql, log_info=False, is_thread=thread is not None, aux_conn=aux_conn)
+    if not rows:
+        return []
+    fields = []
+    for columnname, label, widgettype, iseditable, hidden, ismandatory, widgetcontrols in rows:
+        fields.append({
+            'columnname': columnname,
+            'label': label,
+            'widgettype': widgettype,
+            'iseditable': iseditable,
+            'hidden': hidden,
+            'ismandatory': ismandatory,
+            'widgetcontrols': _parse_widgetcontrols(widgetcontrols),
+        })
+    return fields
+
+
+def _merge_cff_into_fields(layer_name, fields, thread=None):
+    """Overlay CFF so ValueRelation/aliases apply even if getinfofromid failed or stripped widgetcontrols."""
+    if not isinstance(fields, list):
+        fields = []
+    by_col = {f.get('columnname'): f for f in fields if isinstance(f, dict) and f.get('columnname')}
+    for cff in _cff_native_fields(layer_name, thread=thread):
+        col = cff['columnname']
+        if col not in by_col:
+            by_col[col] = cff
+            continue
+        existing = by_col[col]
+        cff_wc = cff.get('widgetcontrols') or {}
+        if cff_wc.get('valueRelation'):
+            wc = _parse_widgetcontrols(existing.get('widgetcontrols')) or {}
+            wc['valueRelation'] = cff_wc['valueRelation']
+            existing['widgetcontrols'] = wc
+        if cff.get('widgettype'):
+            existing['widgettype'] = cff['widgettype']
+        if not existing.get('label') and cff.get('label'):
+            existing['label'] = cff['label']
+        if 'iseditable' in cff:
+            existing['iseditable'] = cff['iseditable']
+        if 'ismandatory' in cff:
+            existing['ismandatory'] = cff['ismandatory']
+    return list(by_col.values())
+
+
+def _apply_value_relation(layer, field_index, field, value_relation, layer_name, thread):
+    """Configure ValueRelation editor widget; load lookup layer if needed."""
+    try:
+        vr_layer = value_relation.get('layer', '')
+        vr_key = value_relation.get('keyColumn', '') or ''
+        layer_obj = tools_qgis.get_layer_by_tablename(vr_layer)
+        if layer_obj is not None and not layer_obj.isValid():
+            layer_obj = None
+        if layer_obj is None:
+            if thread is not None:
+                # Do not construct QgsVectorLayer off the GUI thread (breaks postgres layers in the project).
+                if vr_key or vr_layer not in thread.vr_tables_to_add:
+                    thread.vr_tables_to_add[vr_layer] = vr_key
+                thread.vr_pending.append((layer, field_index, field, value_relation, layer_name))
+                return
+            layer_obj = load_layer_in_hidden_group(vr_layer, vr_key, add_to_toc=True)
+
+        if layer_obj is None:
+            raise Exception(f"Layer '{vr_layer}' not found")
+
+        vr_filter_expression = value_relation.get('filterExpression', '') or ''
+        try:
+            vr_nof_columns = int(value_relation.get('nofColumns', 1))
+        except (ValueError, TypeError):
+            vr_nof_columns = 1
+
+        editor_widget_setup = QgsEditorWidgetSetup('ValueRelation', {
+            'Layer': str(layer_obj.id()),
+            'LayerName': str(layer_obj.name()),
+            'Key': str(value_relation.get('keyColumn', 'id')),
+            'Value': str(value_relation.get('valueColumn', 'idval')),
+            'AllowNull': tools_os.set_boolean(value_relation.get('nullValue'), False),
+            'FilterExpression': str(vr_filter_expression),
+            'AllowMulti': tools_os.set_boolean(value_relation.get('allowMulti'), False),
+            'UseCompleter': tools_os.set_boolean(value_relation.get('useCompleter'), False),
+            'NofColumns': vr_nof_columns,
+        })
+        layer.setEditorWidgetSetup(field_index, editor_widget_setup)
+
+    except Exception as e:
+        msg = "Failed to set ValueRelation for field '{0}': {1}"
+        msg_params = (field.get('columnname'), e)
+        tools_log.log_warning(msg, msg_params=msg_params)
+        if thread:
+            thread.exception = e
+            thread.vr_errors.add(layer_name)
+            if 'layer' in value_relation:
+                thread.vr_missing.add(value_relation['layer'])
+            thread.message = f"ValueRelation for {thread.vr_errors} skipped because " \
+                                f"layers {thread.vr_missing} are not present on QGIS project"
+
+
+def _apply_editor_widget(layer, field_index, field):
+    """Set non-ValueRelation editor widget from widgettype."""
+    widgettype = field.get('widgettype')
+    wc = field.get('widgetcontrols') or {}
+    if widgettype == 'combo':
+        # Plain combos no longer ship comboIds/comboNames in the JSON;
+        # `resolve_combo_valuemap` falls back to executing dv_querytext.
+        valuemap_values = resolve_combo_valuemap(field)
+        if valuemap_values:
+            editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': valuemap_values})
+        else:
+            # Empty ValueMap rejects every typed value (cell reverts, buffer may still dirty)
+            editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'False'})
+    elif widgettype == 'check':
+        editor_widget_setup = QgsEditorWidgetSetup('CheckBox', {'CheckedState': 'true', 'UncheckedState': 'false'})
+    elif widgettype == 'datetime':
+        editor_widget_setup = QgsEditorWidgetSetup('DateTime', {
+            'allow_null': True,
+            'calendar_popup': True,
+            'display_format': 'yyyy-MM-dd',
+            'field_format': 'yyyy-MM-dd',
+            'field_iso_format': False,
+        })
+    elif widgettype == 'list':
+        editor_widget_setup = QgsEditorWidgetSetup('List', {})
+    else:
+        multiline = widgettype == 'textarea' or bool(wc.get('setMultiline'))
+        editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'True' if multiline else 'False'})
+    layer.setEditorWidgetSetup(field_index, editor_widget_setup)
+
+
 def config_layer_attributes(json_result, layer, layer_name, thread=None):
 
-    for field in json_result['body']['data']['fields']:
-        valuemap_values = {}
+    try:
+        fields = json_result['body']['data']['fields']
+    except (KeyError, TypeError):
+        fields = []
+    if not isinstance(fields, list):
+        fields = []
+    fields = _merge_cff_into_fields(layer_name, fields, thread=thread)
 
+    for field in fields:
         # Get column index
         field_index = layer.fields().indexFromName(field['columnname'])
 
@@ -1729,140 +2148,127 @@ def config_layer_attributes(json_result, layer, layer_name, thread=None):
             norm_label = normalize_label(field['label'], add_colon=False)
             layer.setFieldAlias(field_index, norm_label)
 
-        # widgetcontrols
-        widgetcontrols = field.get('widgetcontrols')
-        if widgetcontrols:
-            if widgetcontrols.get('setQgisConstraints') is True:
-                layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
-                                         QgsFieldConstraints.ConstraintStrength.ConstraintStrengthSoft)
-                layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintUnique,
-                                         QgsFieldConstraints.ConstraintStrength.ConstraintStrengthHard)
+        widgetcontrols = _parse_widgetcontrols(field.get('widgetcontrols'))
+        field['widgetcontrols'] = widgetcontrols
+
+        if widgetcontrols and widgetcontrols.get('setQgisConstraints') is True:
+            layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
+                                     QgsFieldConstraints.ConstraintStrength.ConstraintStrengthSoft)
+            layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintUnique,
+                                     QgsFieldConstraints.ConstraintStrength.ConstraintStrengthHard)
 
         if field.get('ismandatory') is True:
             layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
                                      QgsFieldConstraints.ConstraintStrength.ConstraintStrengthHard)
-        else:
+
+        # Soft NotNull: empty PK must not grey native Add Feature OK.
+        if field.get('iseditable') is False and field.get('ismandatory') is not True:
             layer.setFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintNotNull,
                                      QgsFieldConstraints.ConstraintStrength.ConstraintStrengthSoft)
+            layer.removeFieldConstraint(field_index, QgsFieldConstraints.Constraint.ConstraintUnique)
 
         # Manage editability
-        # Get layer config
         config = layer.editFormConfig()
         try:
-            # Set field editability
             config.setReadOnly(field_index, not field['iseditable'])
         except KeyError:
             pass
         finally:
-            # Set layer config
             layer.setEditFormConfig(config)
 
-        # delete old values on ValueMap
-        editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': valuemap_values})
-        layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-
-        # Manage ValueRelation configuration
-        use_vr = 'widgetcontrols' in field and field['widgetcontrols'] \
-                 and 'valueRelation' in field['widgetcontrols'] and field['widgetcontrols']['valueRelation']
-
+        use_vr = bool(widgetcontrols and widgetcontrols.get('valueRelation'))
         if use_vr:
-            value_relation = field['widgetcontrols']['valueRelation']
-            try:
-                vr_layer = value_relation.get('layer', '')
-                layer_obj = tools_qgis.get_layer_by_tablename(vr_layer)
-                if layer_obj is None:
-                    add_to_toc = thread is None
-                    layer_obj = load_layer_in_hidden_group(vr_layer, value_relation.get('keyColumn', ''), add_to_toc=add_to_toc)
-                    if thread:
-                        if layer_obj.name() not in [layer.name() for layer in thread.vr_layers_to_add]:
-                            thread.vr_layers_to_add.add(layer_obj)
+            _apply_value_relation(layer, field_index, field, widgetcontrols['valueRelation'], layer_name, thread)
+        else:
+            _apply_editor_widget(layer, field_index, field)
 
-                if layer_obj is None:
-                    raise Exception(f"Layer '{vr_layer}' not found")
-
-                vr_layer = layer_obj.id()  # Get layer id
-                # Get required keys with safe defaults
-                vr_key_column = value_relation.get('keyColumn', 'id')  # Get 'Key' with default
-                vr_value_column = value_relation.get('valueColumn', 'idval')  # Get 'Value' with default
-                vr_allow_nullvalue = tools_os.set_boolean(value_relation.get('nullValue'), False)
-                vr_filter_expression = value_relation.get('filterExpression', '')  # Get 'FilterExpression' with default
-                if vr_filter_expression is None:
-                    vr_filter_expression = ''
-                vr_allow_multi = tools_os.set_boolean(value_relation.get('allowMulti'), False)
-                vr_use_completer = tools_os.set_boolean(value_relation.get('useCompleter'), False)
-                try:
-                    vr_nof_columns = int(value_relation.get('nofColumns', 1))
-                except (ValueError, TypeError):
-                    vr_nof_columns = 1
-
-                # Create and apply ValueRelation config
-                editor_widget_setup = QgsEditorWidgetSetup('ValueRelation', {'Layer': str(vr_layer),
-                                                                             'Key': str(vr_key_column),
-                                                                             'Value': str(vr_value_column),
-                                                                             'AllowNull': vr_allow_nullvalue,
-                                                                             'FilterExpression': str(vr_filter_expression),
-                                                                             'AllowMulti': vr_allow_multi,
-                                                                             'UseCompleter': vr_use_completer,
-                                                                             'NofColumns': vr_nof_columns})
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-
-            except Exception as e:
-                msg = "Failed to set ValueRelation for field '{0}': {1}"
-                msg_params = (field.get('columnname'), e)
-                tools_log.log_warning(msg, msg_params=msg_params)
-                if thread:
-                    thread.exception = e
-                    thread.vr_errors.add(layer_name)
-                    if 'layer' in value_relation:
-                        thread.vr_missing.add(value_relation['layer'])
-                    thread.message = f"ValueRelation for {thread.vr_errors} switched to ValueMap because " \
-                                        f"layers {thread.vr_missing} are not present on QGIS project"
-
-        if not use_vr:
-            # Manage new values in ValueMap
-            if field['widgettype'] == 'combo':
-                if 'comboIds' in field:
-                    # Set values
-                    for i in range(0, len(field['comboIds'])):
-                        valuemap_values[field['comboNames'][i]] = field['comboIds'][i]
-                # Set values into valueMap
-                editor_widget_setup = QgsEditorWidgetSetup('ValueMap', {'map': valuemap_values})
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif field['widgettype'] == 'check':
-                config = {'CheckedState': 'true', 'UncheckedState': 'false'}
-                editor_widget_setup = QgsEditorWidgetSetup('CheckBox', config)
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif field['widgettype'] == 'datetime':
-                config = {'allow_null': True,
-                          'calendar_popup': True,
-                          'display_format': 'yyyy-MM-dd',
-                          'field_format': 'yyyy-MM-dd',
-                          'field_iso_format': False}
-                editor_widget_setup = QgsEditorWidgetSetup('DateTime', config)
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif field['widgettype'] == 'textarea':
-                editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'True'})
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            elif field['widgettype'] == 'list':
-                editor_widget_setup = QgsEditorWidgetSetup('List', {})
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-            else:
-                editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': 'False'})
-                layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-
-        # multiline: key comes from widgecontrol but it's used here in order to set false when key is missing
-        if field['widgettype'] == 'text':
-            if field['widgetcontrols'] and 'setMultiline' in field['widgetcontrols']:
-                editor_widget_setup = QgsEditorWidgetSetup('TextEdit',
-                                                           {'IsMultiline': field['widgetcontrols']['setMultiline']})
-            else:
-                editor_widget_setup = QgsEditorWidgetSetup('TextEdit', {'IsMultiline': False})
-            layer.setEditorWidgetSetup(field_index, editor_widget_setup)
-
+    configured = [field_json['columnname'] for field_json in fields]
     for field in layer.fields():
-        if field.name() not in [field_json['columnname'] for field_json in json_result['body']['data']['fields']]:
+        if field.name() not in configured:
             field_index = layer.fields().indexFromName(field.name())
             layer.setFieldAlias(field_index, normalize_label(field.name(), add_colon=False))
+
+
+_MAPZONE_ARRAY_FK_FIELDS = ('expl_id', 'muni_id', 'sector_id')
+
+
+def _field_is_int_array(field):
+    type_name = (field.typeName() or '').lower().replace(' ', '')
+    if '[]' in type_name or type_name.startswith('_int') or type_name in ('_int4', 'int4[]', 'integer[]'):
+        return True
+    return field.type() in (QVariant.List, QVariant.StringList)
+
+
+def _coerce_scalar_to_int_list(value):
+    """Wrap a pasted scalar PK into int[] so QGIS does not INSERT integer into integer[]."""
+    if value is None or value == '':
+        return None
+    if isinstance(value, (list, tuple)):
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return [int(value)]
+    if isinstance(value, str):
+        text = value.strip()
+        if text.isdigit() or (text.startswith('-') and text[1:].isdigit()):
+            return [int(text)]
+    return None
+
+
+def _on_mapzone_feature_added(layer, feature_id):
+    """Paste from exploitation (expl_id int) into a mapzone (expl_id int4[]): wrap and show form."""
+    if layer is None or isdeleted(layer):
+        return
+    feature = tools_qt.get_feature_by_id(layer, feature_id)
+    if not feature:
+        return
+    changed = False
+    for name in _MAPZONE_ARRAY_FK_FIELDS:
+        idx = layer.fields().indexFromName(name)
+        if idx < 0 or not _field_is_int_array(layer.fields().field(idx)):
+            continue
+        coerced = _coerce_scalar_to_int_list(feature.attribute(idx))
+        if coerced is None:
+            continue
+        feature.setAttribute(idx, coerced)
+        changed = True
+    if not changed:
+        return
+    layer.updateFeature(feature)
+    iface = global_vars.iface
+    if iface is None:
+        return
+    if not iface.openFeatureForm(layer, feature):
+        layer.deleteFeature(feature.id())
+
+
+def hook_mapzone_array_fk_paste():
+    """Hook mapzone layers so paste from scalar expl_id/muni_id does not fail commit."""
+    disconnect_signal('mapzone_paste')
+    schema = str(lib_vars.schema_name or '').replace('"', '').lower()
+    if not schema:
+        return
+    for layer in tools_qgis.get_project_layers():
+        layer_schema = tools_qgis.get_layer_schema(layer)
+        if not layer_schema:
+            layer_schema = (tools_qgis.get_layer_source(layer).get('schema') or '')
+        if str(layer_schema).replace('"', '').lower() != schema:
+            continue
+        has_array_fk = False
+        for name in _MAPZONE_ARRAY_FK_FIELDS:
+            idx = layer.fields().indexFromName(name)
+            if idx >= 0 and _field_is_int_array(layer.fields().field(idx)):
+                has_array_fk = True
+                break
+        if not has_array_fk:
+            continue
+        connect_signal(
+            layer.featureAdded,
+            partial(_on_mapzone_feature_added, layer),
+            'mapzone_paste',
+            'featureAdded_{0}'.format(layer.id()),
+        )
 
 
 def load_missing_layers(filter, group="GW Layers", sub_group=None):
@@ -1882,25 +2288,118 @@ def load_missing_layers(filter, group="GW Layers", sub_group=None):
                 add_layer_database(tablename, the_geom=the_geom, alias=alias, group=group, sub_group=sub_group)
 
 
-def load_layer_in_hidden_group(layer_name, key_column, add_to_toc=True):
-    """ Load a layer into the 'Hidden' group """
-    # Resolve schema and table name
+def _table_geometry_column(schema, table, aux_conn=None, is_thread=False):
+    """Return geometry column name for schema.table, or None."""
+    if not schema or not table:
+        return None
+    schema = str(schema).replace('"', '').replace("'", "''")
+    table = str(table).replace('"', '').replace("'", "''")
+    row = tools_db.get_row(
+        "SELECT f_geometry_column FROM geometry_columns "
+        f"WHERE f_table_schema = '{schema}' AND f_table_name = '{table}' "
+        "ORDER BY CASE WHEN f_geometry_column = 'the_geom' THEN 0 ELSE 1 END LIMIT 1",
+        log_info=False, is_thread=is_thread, aux_conn=aux_conn
+    )
+    return row[0] if row and row[0] else None
+
+
+def _relation_exists(schema, table, aux_conn=None, is_thread=False):
+    """True if schema.table exists (table, view or matview)."""
+    if not schema or not table:
+        return False
+    row = tools_db.get_row(
+        "SELECT to_regclass(%s)",
+        params=[f"{schema}.{table}"],
+        log_info=False, is_thread=is_thread, aux_conn=aux_conn,
+    )
+    return bool(row and row[0])
+
+
+def _vr_layer_add_params(table, schema, key_column, aux_conn=None, is_thread=False):
+    """Resolve alias / geom / pkey the same way as gw_fct_getaddlayervalues."""
+    table_sql = str(table).replace("'", "''")
+    schema_sql = str(schema).replace("'", "''") if schema else ''
+    sql = (
+        f"SELECT alias, addparam FROM {schema_sql}.sys_table WHERE id = '{table_sql}'"
+        if schema_sql else
+        f"SELECT alias, addparam FROM sys_table WHERE id = '{table_sql}'"
+    )
+    row = tools_db.get_row(sql, log_info=False, is_thread=is_thread, aux_conn=aux_conn)
+    alias = table
+    pkey = (key_column or "").strip() or None
+    addparam = None
+    if row:
+        if row[0]:
+            alias = row[0]
+        addparam = row[1] if len(row) > 1 else None
+        if isinstance(addparam, str):
+            try:
+                addparam = json.loads(addparam)
+            except (TypeError, ValueError):
+                addparam = None
+        if not pkey and addparam and addparam.get('pkey'):
+            pkey = addparam['pkey']
+    if not pkey:
+        pkey = 'id'
+    geom = _table_geometry_column(schema, table, aux_conn=aux_conn, is_thread=is_thread)
+    if geom and addparam and addparam.get('geom'):
+        geom = addparam['geom']
+    return alias, geom, pkey
+
+
+def load_layer_in_hidden_group(layer_name, key_column, add_to_toc=True, aux_conn=None, is_thread=False):
+    """Load a VR lookup via add_layer_database into HIDDEN (unchecked)."""
     if '.' in layer_name:
         schema, table = layer_name.split('.', 1)
+        schema = schema.replace('"', '')
     else:
-        schema = lib_vars.schema_name
+        creds = tools_db.dao_db_credentials or {}
+        schema = (lib_vars.schema_name or creds.get('schema') or '').replace('"', '')
         table = layer_name
 
-    uri, _ = tools_db.get_uri(tablename=table)
-    if uri:
-        uri.setDataSource(schema, table, None, "", key_column)
-        layer = QgsVectorLayer(uri.uri(False), layer_name, "postgres")
-        if layer.isValid():
-            if add_to_toc:
-                tools_qgis.add_layer_to_toc(layer, group="HIDDEN", create_groups=True, custom_properties={"gw_id": table})
-            return layer
+    existing = tools_qgis.get_layer_by_tablename(table) or tools_qgis.get_layer(custom_properties={"gw_id": table})
+    if existing and existing.isValid():
+        return existing
+    if existing:
+        QgsProject.instance().removeMapLayer(existing.id())
 
-    # Select the layer called 've_node'
+    if not _relation_exists(schema, table, aux_conn=aux_conn, is_thread=is_thread):
+        msg = "ValueRelation lookup table not found: {0}"
+        msg_params = (f"{schema}.{table}",)
+        tools_log.log_warning(msg, msg_params=msg_params)
+        return None
+
+    if table in _vr_loading_tables:
+        return tools_qgis.get_layer_by_tablename(table)
+    _vr_loading_tables.add(table)
+    try:
+        alias, geom, pkey = _vr_layer_add_params(
+            table, schema, key_column, aux_conn=aux_conn, is_thread=is_thread)
+        layer = add_layer_database(
+            tablename=table,
+            the_geom=geom,
+            field_id=pkey,
+            group="HIDDEN",
+            alias=alias,
+            schema=schema,
+            visibility=False,
+            force_create_group=True,
+            add_to_toc=add_to_toc,
+            aux_conn=aux_conn,
+            is_thread=is_thread,
+        )
+        if layer and layer.isValid():
+            if add_to_toc:
+                hide_group_from_toc("HIDDEN")
+                hidden_group = QgsProject.instance().layerTreeRoot().findGroup("HIDDEN")
+                if hidden_group:
+                    hidden_group.setItemVisibilityChecked(False)
+            return layer
+        if layer:
+            QgsProject.instance().removeMapLayer(layer.id())
+    finally:
+        _vr_loading_tables.discard(table)
+
     layer = tools_qgis.get_layer_by_tablename('ve_node')
     if layer:
         global_vars.iface.setActiveLayer(layer)
@@ -1942,6 +2441,7 @@ def fill_tab_log(dialog, data, force_tab=True, reset_text=True, tab_idx=1, call_
     infolog_widget = dialog.findChild(QTextEdit, 'tab_log_txt_infolog')
     if infolog_widget:
         infolog_widget.setReadOnly(True)
+        infolog_widget.setStyleSheet(None)
     qtabwidget = dialog.findChild(QTabWidget, 'mainTab')
     if qtabwidget is not None:
         qtabwidget.setTabEnabled(qtabwidget.count() - 1, True)
@@ -2042,7 +2542,10 @@ def enable_widgets(dialog, result, enable):
                         set_widget_readonly(widget, not enable)
                     elif isinstance(widget, (QComboBox, QgsDateTimeEdit, QCheckBox)):
                         widget.setEnabled(enable)
-                        widget.setStyleSheet("QWidget {color: rgb(110, 110, 110)}")
+                        if enable:
+                            widget.setStyleSheet(None)
+                        else:
+                            widget.setStyleSheet(ThemeManager.disabled_text_style(widget))
                     elif type(widget) is QPushButton:
                         # Manage the clickability of the buttons according to the configuration
                         # in the table config_form_fields simultaneously with the edition,
@@ -2085,10 +2588,7 @@ def enable_all(dialog, result, from_apply=False):
 
 def set_stylesheet(field, widget, wtype='label'):
 
-    if field.get('stylesheet') is not None:
-        if wtype in field['stylesheet']:
-            widget.setStyleSheet("QWidget{" + field['stylesheet'][wtype] + "}")
-    return widget
+    return ThemeManager.set_stylesheet_for_field(field, widget, wtype=wtype)
 
 
 def delete_selected_rows(widget, table_object, field_object_id=None, col_idx=0):
@@ -2257,11 +2757,11 @@ def manage_feature_cat():
     if not result:
         return None
 
-    msg = tools_qt.tr("Field child_layer of id: ")
+    missing_ids = []
     for value in result['body']['data']['values']:
         tablename = value['child_layer']
         if not tablename:
-            msg += f"{value['id']}, "
+            missing_ids.append(str(value['id']))
             continue
         elem = GwCatFeature(value['id'], value['feature_class'], value['feature_type'], value['shortcut_key'],
                             value['parent_layer'], value['child_layer'])
@@ -2270,12 +2770,25 @@ def manage_feature_cat():
 
     feature_cat = OrderedDict(sorted(feature_cat.items(), key=lambda t: t[0]))
 
-    if msg != tools_qt.tr("Field child_layer of id: "):
-        msg = "{0} is not defined in table cat_feature"
-        msg_params = (msg, )
+    if missing_ids:
+        msg = "Field child_layer of id: {0} is not defined in table cat_feature"
+        msg_params = (", ".join(missing_ids),)
         tools_qgis.show_warning(msg, msg_params=msg_params)
 
     return feature_cat
+
+
+def hide_action_link_if_field_hidden(dialog, fields):
+    """Hide actionLink when the feature's link widget is hidden in config_form_fields."""
+    if not fields:
+        return
+    for field in fields:
+        if field.get('columnname') == 'link' or field.get('linkedobject') == 'action_link':
+            if field.get('hidden'):
+                action = dialog.findChild(QAction, 'actionLink')
+                if action:
+                    action.setVisible(False)
+            return
 
 
 def build_dialog_info(dialog, result, my_json=None, layout_positions=None, tab_name=None, enable_actions=True, is_inserting=False):
@@ -2299,6 +2812,7 @@ def build_dialog_info(dialog, result, my_json=None, layout_positions=None, tab_n
         label = QLabel()
         label.setObjectName('lbl_' + field['label'])
         label.setText(field['label'].capitalize())
+        ThemeManager.apply_label_font(label, reference=dialog)
 
         if 'tooltip' in field:
             label.setToolTip(field['tooltip'])
@@ -2413,6 +2927,8 @@ def build_dialog_info(dialog, result, my_json=None, layout_positions=None, tab_n
                         if 'actionTooltip' in act:
                             action.setToolTip(tools_qt.tr(act['actionTooltip']))
 
+    hide_action_link_if_field_hidden(dialog, fields.get('fields'))
+
     # Enable/Disable actions based on global and static rules
     static_actions = ('actionEdit', 'actionCentered', 'actionLink', 'actionHelp',
                       'actionSection', 'actionOrifice', 'actionOutlet', 'actionPump', 'actionWeir', 'actionDemand')
@@ -2459,6 +2975,7 @@ def build_dialog_options(dialog, row, pos, _json, temp_layers_added=None, module
                 lbl.setText(field['label'])
                 lbl.setMinimumSize(160, 0)
                 lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+                ThemeManager.apply_label_font(lbl, reference=dialog)
                 if 'tooltip' in field:
                     lbl.setToolTip(field['tooltip'])
 
@@ -3145,7 +3662,6 @@ def set_widget_size(widget, field):
 
     if field.get('widgetcontrols') and field['widgetcontrols'].get('widgetdim'):
         widget.setMaximumWidth(field['widgetcontrols']['widgetdim'])
-        widget.setMinimumWidth(field['widgetcontrols']['widgetdim'])
 
     return widget
 
@@ -3162,9 +3678,15 @@ def set_widget_readonly(widget, readonly, from_apply=False):
 
     if readonly:
         widget.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
-        widget.setStyleSheet("QWidget { background: rgb(242, 242, 242); color: rgb(110, 110, 110)}")
-        if type(widget) is GwHyperLinkLineEdit:
-            widget.setStyleSheet("QLineEdit { background: rgb(242, 242, 242); color:blue; text-decoration: underline; border: none;}")
+        # QTextEdit keeps the native palette (same as go2epa infolog). Themed/hardcoded
+        # gray looks like a disabled field and breaks dark theme.
+        if type(widget) is QTextEdit:
+            if not from_apply:
+                widget.setStyleSheet(None)
+        elif type(widget) is GwHyperLinkLineEdit:
+            widget.setStyleSheet(ThemeManager.readonly_hyperlink_style(widget))
+        else:
+            ThemeManager.apply_readonly_style(widget, readonly=True)
     else:
         widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         if not from_apply:
@@ -3277,14 +3799,25 @@ def add_frame(field, x=None):
 
 
 def add_combo(field, dialog=None, complet_result=None, ignore_function=False, class_info=None):
-    widget = CustomQComboBox()
+    widget = GwAsyncComboBox()
 
     widget.setObjectName(field['widgetname'])
     if 'widgetcontrols' in field and field['widgetcontrols']:
         widget.setProperty('widgetcontrols', field['widgetcontrols'])
     if 'columnname' in field:
         widget.setProperty('columnname', field['columnname'])
-    widget = fill_combo(widget, field)
+
+    payload = field
+    parent_id = _get_async_combo_parent_id(field)
+    if parent_id and _get_async_combo_query_filter(field) and dialog is not None:
+        form_values = dialog.property('_gw_form_values')
+        if isinstance(form_values, dict):
+            parent_val = form_values.get(str(parent_id))
+            if parent_val not in (None, '', -1):
+                payload = dict(field)
+                payload['parentValue'] = parent_val
+
+    widget = fill_combo(widget, payload, dialog=dialog)
     if 'selectedId' in field:
         widget.setProperty('selectedId', field['selectedId'])
     else:
@@ -3292,7 +3825,7 @@ def add_combo(field, dialog=None, complet_result=None, ignore_function=False, cl
     if 'iseditable' in field:
         widget.setEnabled(bool(field['iseditable']))
         if not field['iseditable']:
-            widget.setStyleSheet("QComboBox { background: rgb(242, 242, 242); color: rgb(100, 100, 100)}")
+            ThemeManager.apply_readonly_style(widget, readonly=True)
 
     if not ignore_function and 'widgetfunction' in field and field['widgetfunction']:
         widgetfunction = field['widgetfunction']
@@ -3400,6 +3933,35 @@ def add_multiple_option(field, dialog=None, complet_result=None, ignore_function
     return container
 
 
+def _multiple_option_selected(list_widget):
+    """Return (display texts, ids) already chosen in the multiple_option list."""
+    texts = set()
+    ids = set()
+    if list_widget is None:
+        return texts, ids
+    for i in range(list_widget.count()):
+        item = list_widget.item(i)
+        texts.add(str(item.text()))
+        key = item.data(Qt.ItemDataRole.UserRole)
+        if key is not None:
+            ids.add(str(key))
+    return texts, ids
+
+
+def _prune_completer_selected(completer, list_widget):
+    """Drop already-selected rows from the completer source model (no popup rebuild)."""
+    model = completer.model() if completer else None
+    if model is None or not hasattr(model, "removeRow"):
+        return
+    texts, ids = _multiple_option_selected(list_widget)
+    for row in range(model.rowCount() - 1, -1, -1):
+        idx = model.index(row, 0)
+        idval = idx.data()
+        key = idx.data(Qt.ItemDataRole.UserRole)
+        if str(idval) in texts or (key is not None and str(key) in ids):
+            model.removeRow(row)
+
+
 def make_list_multiple_option(completer, model, widget, field, list_widget):
     """
     Populate completer suggestions for multiple_option fields.
@@ -3420,21 +3982,25 @@ def make_list_multiple_option(completer, model, widget, field, list_widget):
 
     result = None
     if field.get("queryText") and value is not None:
-        if field.get("queryTextFilter"):
-            sql = f"{field['queryText']} {field['queryTextFilter']}::text ilike '%{str(value)}%';"
-        else:
-            sql = f"{field['queryText']};"
+        query_text = field["queryText"].rstrip().rstrip(";")
+        escaped = str(value).replace("'", "''")
+        sql = (
+            f"SELECT id, idval FROM ({query_text}) a "
+            f"WHERE a.id::text ILIKE '%{escaped}%' OR a.idval::text ILIKE '%{escaped}%'"
+        )
         result = tools_db.get_rows(sql)
 
     if not result:
         return False
 
-    existing_items = {list_widget.item(i).text() for i in range(list_widget.count())}
+    existing_texts, existing_ids = _multiple_option_selected(list_widget)
 
     display_list = []
     for data in result:
-        if data[1] not in existing_items:
-            display_list.append({"id": data[0], "idval": data[1]})
+        _id, idval = data[0], data[1]
+        if str(idval) in existing_texts or str(_id) in existing_ids:
+            continue
+        display_list.append({"id": _id, "idval": idval})
 
     tools_qt.set_completer_object(
         completer, model, widget,
@@ -3484,14 +4050,33 @@ def add_item_multiple_option(completer, widget, typeahead):
     _key = completer.completionModel().index(row, 0).data(Qt.ItemDataRole.UserRole)
     value = completer.completionModel().index(row, 0).data()
 
-    # Create and configure new list widget item
-    item = QListWidgetItem()
-    item.setText(value)  # Set display text
-    if _key:
-        item.setData(Qt.ItemDataRole.UserRole, _key)  # Store key in user role
-    widget.addItem(item)  # Add item to list widget
+    existing_texts, existing_ids = _multiple_option_selected(widget)
+    already_added = str(value) in existing_texts or (
+        _key is not None and str(_key) in existing_ids
+    )
+    if not already_added:
+        item = QListWidgetItem()
+        item.setText(value)
+        if _key:
+            item.setData(Qt.ItemDataRole.UserRole, _key)
+        widget.addItem(item)
 
-    typeahead.setText('')
+    _prune_completer_selected(completer, widget)
+
+    # QLineEdit fills the completer text after activated; clear on next tick
+    typeahead.setProperty("_gw_setting_from_completer", True)
+
+    def _clear_typeahead():
+        typeahead.clear()
+        popup = completer.popup()
+        if popup:
+            popup.hide()
+        source_model = completer.model()
+        if source_model is not None and hasattr(source_model, "clear"):
+            source_model.clear()
+        typeahead.setProperty("_gw_setting_from_completer", False)
+
+    QTimer.singleShot(0, _clear_typeahead)
 
 
 def fill_multiple_option(widget, field, index_to_show=1, index_to_compare=0):
@@ -3724,7 +4309,26 @@ def set_multiple_checkbox_value(listwidget, value, add_new=True):
     return False
 
 
-def fill_combo(widget, field, index_to_show=1, index_to_compare=0):
+def fill_combo(widget, field, index_to_show=1, index_to_compare=0, dialog=None):
+    # Async (query-backed) combos: rebuild the SQL from queryText/queryTextFilter
+    # and the current parent value, then schedule the background load.
+    if getattr(widget, '_gw_is_async_combo', False):
+        if _should_use_async_combo_fill(widget, field, dialog):
+            payload = dict(field)
+            parent_val = _resolve_async_parent_value(widget, payload, dialog)
+            if parent_val not in (None, '', -1):
+                payload['parentValue'] = parent_val
+            return _fill_async_combo(widget, payload, index_to_compare, dialog=dialog)
+        if _field_has_legacy_combo_rows(field):
+            if _legacy_combo_rows_are_stale(field):
+                if _is_async_combo_field(field):
+                    return _fill_async_combo(widget, field, index_to_compare, dialog=dialog)
+            else:
+                return _apply_legacy_rows_to_async(widget, field, index_to_compare)
+        if _is_async_combo_field(field):
+            return _fill_async_combo(widget, field, index_to_compare, dialog=dialog)
+        return _apply_legacy_rows_to_async(widget, field, index_to_compare)
+
     # check if index_to_show is in widgetcontrols, then assign new value
     if field.get('widgetcontrols') and 'index_to_show' in field.get('widgetcontrols'):
         index_to_show = field.get('widgetcontrols')['index_to_show']
@@ -3754,23 +4358,531 @@ def fill_combo(widget, field, index_to_show=1, index_to_compare=0):
     return widget
 
 
+# region Async combo helpers
+
+def set_form_field_values(dialog, fields) -> None:
+    """Store feature field values on the dialog for child combo parent lookup."""
+    if dialog is None or isdeleted(dialog) or not fields:
+        return
+    values = {}
+    for field in fields:
+        if not field or not field.get('columnname'):
+            continue
+        val = _resolve_combo_selected_id(field)
+        if val in (None, ''):
+            val = field.get('value')
+        if val in (None, '', 'null', 'None'):
+            continue
+        values[str(field['columnname'])] = val
+    if values:
+        dialog.setProperty('_gw_form_values', values)
+
+
+def _should_skip_combo_upgrade(combo) -> bool:
+    """Return True for combos that must not receive popup-search attachment."""
+    if combo is None or isdeleted(combo):
+        return True
+    if getattr(combo, '_gw_is_async_combo', False):
+        return True
+    if combo.property('_gw_popup_search'):
+        return True
+    parent = combo.parentWidget()
+    while parent is not None:
+        # Table/index cell widgets are owned by setCellWidget/setIndexWidget.
+        if isinstance(parent, (QTableWidget, QAbstractItemView)):
+            return True
+        parent = parent.parentWidget()
+    return False
+
+
+def upgrade_dialog_combos(root) -> None:
+    """Attach popup type-to-filter search to plain ``.ui`` ``QComboBox`` widgets."""
+    if root is None or isdeleted(root):
+        return
+    if root.property('_gw_combos_upgraded'):
+        return
+
+    for combo in root.findChildren(QComboBox):
+        if _should_skip_combo_upgrade(combo):
+            continue
+        try:
+            attach_combo_popup_search(combo)
+        except Exception as exc:
+            tools_log.log_warning(
+                "attach_combo_popup_search failed for '{0}': {1}",
+                msg_params=(combo.objectName(), exc),
+            )
+
+    try:
+        root.setProperty('_gw_combos_upgraded', True)
+    except Exception:
+        pass
+
+
+def _field_has_legacy_combo_rows(field) -> bool:
+    """Return True when a field ships a non-empty comboIds/comboNames payload."""
+    if not isinstance(field, dict):
+        return False
+    ids = field.get('comboIds')
+    names = field.get('comboNames')
+    if not isinstance(ids, list) or not isinstance(names, list):
+        return False
+    return len(ids) > 0 and len(names) > 0
+
+
+def _legacy_combo_rows_are_stale(field) -> bool:
+    """True when comboIds is only the null placeholder (id 0 / Undefined)."""
+    if not _field_has_legacy_combo_rows(field):
+        return False
+    ids = field.get('comboIds') or []
+    names = field.get('comboNames') or []
+    if len(ids) != 1:
+        return False
+    only_id = str(ids[0])
+    if only_id not in ('0', '', 'None', 'null'):
+        return False
+    if len(names) == 1:
+        label = str(names[0]).strip().lower()
+        if label in ('undefined', '', 'none', 'null', '(undefined)'):
+            return True
+    return only_id == '0'
+
+
+def _combo_parent_columns(fields) -> set:
+    """Return column names referenced as parent by any combo field."""
+    parents = set()
+    if not fields:
+        return parents
+    for field in fields:
+        if not field or field.get('widgettype') != 'combo':
+            continue
+        parent_id = field.get('parentId') or field.get('dv_parent_id')
+        if parent_id not in (None, ''):
+            parents.add(str(parent_id))
+    return parents
+
+
+def _field_triggers_child_refresh(field, parent_columns) -> bool:
+    """True when a combo should refresh its children on change."""
+    if not field or field.get('widgettype') != 'combo':
+        return False
+    if tools_os.set_boolean(field.get('isparent'), False):
+        return True
+    col = field.get('columnname')
+    return bool(col and str(col) in parent_columns)
+
+
+def _resolve_combo_selected_id(field):
+    """Return the id that should be selected in a combo field."""
+    selected_id = field.get('selectedId')
+    if selected_id not in (None, ''):
+        return selected_id
+    value = field.get('value')
+    if value not in (None, '', 'null'):
+        return value
+    return None
+
+
+def _resolve_async_parent_value(widget, field, dialog=None):
+    """Return the parent id for a filtered child combo, if known."""
+    if not isinstance(field, dict):
+        return None
+    parent_val = field.get('parentValue')
+    if parent_val not in (None, '', -1):
+        return parent_val
+    if _get_async_combo_query_filter(field):
+        return _resolve_parent_value(widget, field, dialog)
+    return None
+
+
+def _should_use_async_combo_fill(widget, field, dialog=None) -> bool:
+    """True when a child combo should load via SQL instead of comboIds."""
+    if not _is_async_combo_field(field):
+        return False
+    if not _get_async_combo_query_filter(field):
+        return False
+    parent_val = _resolve_async_parent_value(widget, field, dialog)
+    return parent_val not in (None, '', -1)
+
+
+def _should_defer_filtered_child_load(field, dialog) -> bool:
+    """Skip the first SQL load when ``connect_isparent_combos`` will refresh this child."""
+    if dialog is None or isdeleted(dialog) or not isinstance(field, dict):
+        return False
+    if not dialog.property('_gw_defer_filtered_child_combos'):
+        return False
+    if not _is_async_combo_field(field):
+        return False
+    if not _get_async_combo_query_filter(field):
+        return False
+    return bool(_get_async_combo_parent_id(field))
+
+
+def _find_form_combo(dialog, field_or_name, columnname=None):
+    """Locate a form combo by widgetname / columnname."""
+    if dialog is None or isdeleted(dialog):
+        return None
+    name = None
+    col = columnname
+    if isinstance(field_or_name, dict):
+        name = field_or_name.get('widgetname')
+        col = col or field_or_name.get('columnname')
+    elif isinstance(field_or_name, str):
+        name = field_or_name
+    if name:
+        combo = dialog.findChild(QComboBox, str(name))
+        if combo is not None:
+            return combo
+    if col:
+        combo = dialog.findChild(QComboBox, f"tab_data_{col}")
+        if combo is not None:
+            return combo
+        for combo in dialog.findChildren(QComboBox):
+            if combo.property('columnname') == col:
+                return combo
+    return None
+
+
+def _run_isparent_refresh_if_ready(dialog, parent_widget, refresh) -> None:
+    """Run ``refresh`` when the parent combo already has a value.
+
+    Async parent combos are still loading here on form open; they trigger
+    ``refresh`` via ``currentIndexChanged`` once ``apply_rows`` finishes.
+    """
+    if dialog is None or isdeleted(dialog) or parent_widget is None or isdeleted(parent_widget):
+        return
+    if getattr(parent_widget, '_gw_is_async_combo', False) and not parent_widget.property('rows_loaded'):
+        return
+
+    combo_id = tools_qt.get_combo_value(dialog, parent_widget, 0)
+    if combo_id in (None, '', -1):
+        form_values = dialog.property('_gw_form_values')
+        col = parent_widget.property('columnname')
+        if isinstance(form_values, dict) and col:
+            combo_id = form_values.get(str(col))
+    if combo_id in (None, '', -1):
+        return
+
+    refresh()
+
+
+def connect_isparent_combos(dialog, fields, refresh_fn, *refresh_args) -> None:
+    """Connect parent combos to ``refresh_fn`` and refresh children once.
+
+    A combo is treated as a parent when ``isparent`` is true **or** when any
+    other combo field lists it in ``parentId`` / ``dv_parent_id`` (e.g.
+    sector_id -> dma_id even if sector is not flagged isparent).
+    """
+    if dialog is None or isdeleted(dialog) or not fields:
+        return
+    field_list = fields.get('fields') if isinstance(fields, dict) and 'fields' in fields else fields
+    parent_columns = _combo_parent_columns(field_list)
+    for field in field_list:
+        if not _field_triggers_child_refresh(field, parent_columns):
+            continue
+        widget = _find_form_combo(dialog, field)
+        if widget is None:
+            continue
+        bound = partial(refresh_fn, dialog, widget, *refresh_args)
+        widget.currentIndexChanged.connect(bound)
+        QTimer.singleShot(
+            0,
+            partial(_run_isparent_refresh_if_ready, dialog, widget, bound),
+        )
+
+
+def create_combo_box(parent=None) -> GwAsyncComboBox:
+    """Factory for programmatic combo creation."""
+    return GwAsyncComboBox(parent)
+
+
+def _is_async_combo_field(field):
+    """Return True when the field metadata describes a query-backed combo.
+
+    Server functions (`gw_fct_getformfields`, `gw_fct_cm_getformfields`,
+    `gw_fct_getchilds`) keep the dv_querytext exposed for `widgettype = 'combo'`.
+    Multiple_checkbox / multiple_option still ship `comboIds`, so they do NOT
+    take this code path even when they have a queryText.
+    """
+    if not isinstance(field, dict):
+        return False
+    if field.get('widgettype') != 'combo':
+        return False
+    return _get_async_combo_query_text(field) is not None
+
+
+def _get_async_combo_query_text(field):
+    """Return dv_querytext under any of its known key spellings."""
+    for key in ('queryText', 'dvQueryText', 'dv_querytext'):
+        value = field.get(key)
+        if value:
+            return value
+    return None
+
+
+def _get_async_combo_query_filter(field):
+    for key in ('queryTextFilter', 'dv_querytext_filterc'):
+        value = field.get(key)
+        if value:
+            return value
+    return None
+
+
+def _get_async_combo_parent_id(field):
+    return field.get('parentId') or field.get('dv_parent_id')
+
+
+def _get_async_combo_order_by_id(field):
+    if 'orderById' in field:
+        return tools_os.set_boolean(field.get('orderById'), False)
+    return tools_os.set_boolean(field.get('dv_orderby_id'), False)
+
+
+def _get_async_combo_is_null_value(field):
+    if 'isNullValue' in field:
+        return tools_os.set_boolean(field.get('isNullValue'), False)
+    return tools_os.set_boolean(field.get('dv_isnullvalue'), False)
+
+
+def _sql_quote_literal(value):
+    """Postgres-style single quoted literal with escaped quotes."""
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def _resolve_parent_value(widget, field, dialog=None):
+    """Return the current value of the parent combo (or None) for a child combo."""
+    parent_id = _get_async_combo_parent_id(field)
+    if not parent_id:
+        return None
+    if 'parentValue' in field and field['parentValue'] not in (None, ''):
+        return field['parentValue']
+    if dialog is None and widget is not None:
+        try:
+            dialog = widget.window()
+        except RuntimeError:
+            dialog = None
+    if dialog is None or isdeleted(dialog):
+        return None
+    for combo in dialog.findChildren(QComboBox):
+        if combo is widget:
+            continue
+        if combo.property('columnname') == parent_id:
+            value = tools_qt.get_combo_value(dialog, combo, 0)
+            if value not in (None, '', -1):
+                return value
+    fallback = dialog.findChild(QWidget, f"tab_data_{parent_id}")
+    if isinstance(fallback, QComboBox):
+        value = tools_qt.get_combo_value(dialog, fallback, 0)
+        if value not in (None, '', -1):
+            return value
+    form_values = dialog.property('_gw_form_values')
+    if isinstance(form_values, dict):
+        value = form_values.get(str(parent_id))
+        if value not in (None, '', -1, 'null', 'None'):
+            return value
+    return None
+
+
+def _build_async_combo_query(widget, field, dialog=None):
+    """Build the final SQL the loader should execute.
+
+    Mirrors the wrapping the server used to do (subselect + ORDER BY decided
+    by `orderById`), so the items arrive in the same order legacy combos used.
+    """
+    query_text = _get_async_combo_query_text(field)
+    if not query_text:
+        return None
+
+    order_col = 'id' if _get_async_combo_order_by_id(field) else 'idval'
+    query_filter = _get_async_combo_query_filter(field)
+    parent_value = _resolve_parent_value(widget, field, dialog) if query_filter else None
+
+    if query_filter and parent_value not in (None, '', -1):
+        quoted = _sql_quote_literal(parent_value)
+        col = query_filter.strip()
+        if col.upper().startswith('AND '):
+            col = col[4:].strip()
+        # Mapzone tables (dma, presszone, …) store expl_id / sector_id as int4[].
+        # ``col::text = '1'`` never matches ``{1}``; use ANY like the rest of WS.
+        if col.endswith('.expl_id') or col.endswith('.sector_id'):
+            inner = f"{query_text} AND {quoted}::integer = ANY({col})"
+        else:
+            inner = f"{query_text} {query_filter}::text = {quoted}"
+    elif query_filter:
+        return None
+    else:
+        inner = query_text
+
+    return f"SELECT id, idval FROM ({inner}) a ORDER BY {order_col}"
+
+
+def _fill_async_combo(widget, field, index_to_compare=0, dialog=None):
+    """Configure an async combo from JSON metadata and start the background load."""
+    if not isinstance(widget, GwAsyncComboBox):
+        return widget
+
+    widget.set_null_value_enabled(_get_async_combo_is_null_value(field))
+
+    selected_id = _resolve_combo_selected_id(field)
+    if _should_defer_filtered_child_load(field, dialog):
+        widget.start_loading('')
+    else:
+        query = _build_async_combo_query(widget, field, dialog)
+        widget.start_loading(query)
+    if selected_id not in (None, ''):
+        widget.set_pending_selection(selected_id, index_to_compare)
+    return widget
+
+
+def _apply_legacy_rows_to_async(widget, field, index_to_compare=0):
+    """Push a `comboIds`/`comboNames` payload into a `GwAsyncComboBox`.
+
+    Some server flows (`gw_fct_setcatalog`, `gw_fct_getchangefeaturetype`) keep
+    returning explicit lists/values that are meant to override the combo
+    contents. We translate them into the async widget's row API so we don't
+    bypass its model setup and pending-selection bookkeeping.
+    """
+    raw_ids = field.get('comboIds')
+    raw_names = field.get('comboNames')
+    ids = raw_ids if isinstance(raw_ids, list) else ([] if raw_ids is None else [raw_ids])
+    names = raw_names if isinstance(raw_names, list) else ([] if raw_names is None else [raw_names])
+
+    rows = []
+    for i in range(min(len(ids), len(names))):
+        if ids[i] is None and names[i] is None:
+            continue
+        rows.append((
+            '' if ids[i] is None else str(ids[i]),
+            '' if names[i] is None else str(names[i]),
+        ))
+
+    widget.set_null_value_enabled(_get_async_combo_is_null_value(field))
+
+    selected_id = _resolve_combo_selected_id(field)
+    if selected_id not in (None, ''):
+        widget.set_pending_selection(selected_id, index_to_compare)
+
+    widget.apply_rows(rows)
+    return widget
+
+
+def resolve_combo_valuemap(field):
+    """Return a `{idval: id}` dict for a combo field.
+
+    Used by callers that build a QGIS `ValueMap` editor widget on a layer
+    (`config_layer_attributes`, `refresh_attribute_table`). Plain combos no
+    longer ship `comboIds`/`comboNames` in the JSON, so we synchronously
+    execute the configured `dv_querytext` here. This runs at project-load
+    time (already inside a worker `GwProjectLayersConfig` task), so a single
+    blocking query is acceptable.
+    """
+    if not isinstance(field, dict):
+        return {}
+    if 'comboIds' in field and 'comboNames' in field:
+        ids = field.get('comboIds') or []
+        names = field.get('comboNames') or []
+        return {
+            str(names[i]): str(ids[i])
+            for i in range(min(len(ids), len(names)))
+            if ids[i] is not None and names[i] is not None
+        }
+    query_text = _get_async_combo_query_text(field)
+    if not query_text:
+        return {}
+    try:
+        rows = tools_db.get_rows(
+            f"SELECT id, idval FROM ({query_text}) a", log_info=False
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        msg = "resolve_combo_valuemap: failed to load values for '{0}': {1}"
+        msg_params = (field.get('columnname'), exc,)
+        tools_log.log_warning(msg, msg_params=msg_params)
+        return {}
+    if not rows:
+        return {}
+    valuemap = {}
+    for row in rows:
+        try:
+            row_id = row[0]
+            row_idval = row[1]
+        except (IndexError, KeyError, TypeError):
+            continue
+        if row_id is None:
+            continue
+        valuemap[str(row_idval if row_idval is not None else row_id)] = str(row_id)
+    return valuemap
+
+
+def _child_combo_selected_id(dialog, field):
+    """Pick the id to select when (re)loading a filtered child combo.
+
+    ``gw_fct_getchilds`` returns ``selectedId`` from ``config_param_user``
+    (user default), not the feature row. On form open we must keep the value
+    the feature was saved with; only when the parent combo actually changed
+    do we accept the getchilds default.
+    """
+    if dialog is None or isdeleted(dialog) or not isinstance(field, dict):
+        return _resolve_combo_selected_id(field)
+
+    col = field.get('columnname')
+    form_values = dialog.property('_gw_form_values')
+    if not isinstance(form_values, dict) or not col:
+        return _resolve_combo_selected_id(field)
+
+    saved = form_values.get(str(col))
+    if saved in (None, '', 'null', 'None'):
+        return _resolve_combo_selected_id(field)
+
+    parent_id = _get_async_combo_parent_id(field)
+    if parent_id:
+        saved_parent = form_values.get(str(parent_id))
+        current_parent = tools_qt.get_combo_value(
+            dialog, _find_form_combo(dialog, str(parent_id)), 0
+        )
+        if current_parent in (None, '', -1):
+            current_parent = saved_parent
+        if saved_parent not in (None, '', -1) and str(current_parent) != str(saved_parent):
+            return _resolve_combo_selected_id(field)
+
+    return saved
+
+# endregion
+
+
 def fill_combo_child(dialog, combo_child):
 
     if 'widgetname' in combo_child:
-        child = dialog.findChild(QComboBox, str(combo_child['widgetname']))
+        child = _find_form_combo(dialog, combo_child)
         if child is not None:
-            fill_combo(child, combo_child)
+            payload = combo_child
+            selected_id = _child_combo_selected_id(dialog, combo_child)
+            if selected_id not in (None, ''):
+                payload = dict(combo_child)
+                payload['selectedId'] = selected_id
+            fill_combo(child, payload, dialog=dialog)
 
 
-def manage_combo_child(dialog, combo_parent, combo_child):
+def manage_combo_child(dialog, combo_parent, combo_child, parent_value=None):
 
     if 'widgetname' in combo_child:
-        child = dialog.findChild(QComboBox, str(combo_child['widgetname']))
+        child = _find_form_combo(dialog, combo_child)
 
         if child:
             child.setEnabled(True)
 
-            fill_combo_child(dialog, combo_child)
+            # Hint the parent value into the child JSON so that async combos
+            # can build their SQL without scanning the dialog. We do not mutate
+            # the original dict because it might be reused by callers.
+            if parent_value in (None, '', -1):
+                parent_value = tools_qt.get_combo_value(dialog, combo_parent, 0)
+            child_payload = combo_child
+            if _is_async_combo_field(combo_child) or _get_async_combo_query_filter(combo_child):
+                child_payload = dict(combo_child)
+                child_payload['parentValue'] = (
+                    parent_value if parent_value not in (None, '', -1) else None
+                )
+
+            fill_combo_child(dialog, child_payload)
             if 'widgetcontrols' not in combo_child or not combo_child['widgetcontrols'] or \
                     'enableWhenParent' not in combo_child['widgetcontrols']:
                 return
@@ -3791,6 +4903,8 @@ def fill_child(dialog, widget, action, feature_type=''):
 
     combo_parent = widget.objectName()
     combo_id = tools_qt.get_combo_value(dialog, widget)
+    if combo_id in (None, '', -1):
+        return
     # TODO cambiar por gw_fct_getchilds then unified with get_child if posible
     json_result = execute_procedure('gw_fct_getcombochilds', f"'{action}' ,'' ,'' ,'{combo_parent}', '{combo_id}','{feature_type}'")
     if json_result is None:
@@ -3798,7 +4912,7 @@ def fill_child(dialog, widget, action, feature_type=''):
 
     for combo_child in json_result['fields']:
         if combo_child is not None:
-            fill_combo_child(dialog, combo_child)
+            manage_combo_child(dialog, widget, combo_child, combo_id)
 
 
 def get_expression_filter(feature_type, list_ids=None, layers=None):
@@ -3908,13 +5022,14 @@ def exec_pg_function(function_name, parameters=None, commit=True, schema_name=No
 
 
 def execute_procedure(function_name, parameters=None, schema_name=None, commit=True, log_sql=True, rubber_band=None,
-        aux_conn=None, is_thread=False, check_function=True):
+        aux_conn=None, is_thread=False, check_function=True, show_exception=True):
     """ Manage execution database function
     :param function_name: Name of function to call (text)
     :param parameters: Parameters for function (json) or (query parameters)
     :param commit: Commit sql (bool)
     :param log_sql: Show query in qgis log (bool)
     :param aux_conn: Auxiliar connection to database used by threads (psycopg2.connection)
+    :param show_exception: Show Failed status on the QGIS message bar (bool)
     :return: Response of the function executed (json)
     """
 
@@ -3972,7 +5087,13 @@ def execute_procedure(function_name, parameters=None, schema_name=None, commit=T
 
     # If failed, manage exception
     if json_result.get('status') == 'Failed':
-        manage_json_exception(json_result, sql, is_thread=is_thread)
+        if show_exception:
+            manage_json_exception(json_result, sql, is_thread=is_thread)
+        else:
+            failed_msg = json_result.get('message')
+            if isinstance(failed_msg, dict):
+                failed_msg = failed_msg.get('text')
+            tools_log.log_warning(failed_msg)
         return json_result
 
     try:
@@ -4353,6 +5474,7 @@ def get_rows_by_feature_type(class_object, dialog, table_object, feature_type, f
 
     table_name = f"{class_object.schema_name}.{feature_type}"
     tools_qt.set_table_model(dialog, widget_name, table_name, expr_filter, columns_to_show)
+    set_tablemodel_config(dialog, widget_name, f"ve_{feature_type}")
 
 
 def load_tableview_feature_end(class_object, dialog, table_object, feature_type, feature_id=None, feature_idname=None, expr_filter=None):
@@ -4383,6 +5505,7 @@ def load_tableview_feature_end(class_object, dialog, table_object, feature_type,
     table_name = f"{class_object.schema_name}.{feature_type}"
     columns_to_show = [f"{feature_type}_id", "code", "sys_code", f"{feature_type}_type", "sector_id", "state", "state_type", "expl_id", "descript"]
     tools_qt.set_table_model(dialog, widget_name, table_name, expr_filter, columns_to_show)
+    set_tablemodel_config(dialog, widget_name, f"ve_{feature_type}")
 
 
 def get_project_type(schemaname=None):
@@ -4515,7 +5638,7 @@ def get_config_value(parameter='', columns='value', table='config_param_user', s
 
     if not check_db_connection():
         return None
-    if not tools_db.check_table(table):
+    if not tools_db.check_table(table) and not tools_db.check_view(table):
         msg = "Table not found: {0}"
         msg_params = (table,)
         tools_log.log_warning(msg, msg_params=msg_params)
@@ -4529,6 +5652,99 @@ def get_config_value(parameter='', columns='value', table='config_param_user', s
     sql += ";"
     row = tools_db.get_row(sql, log_info=log_info)
     return row
+
+
+def get_composers_folderpath():
+    """Return user-configured QGIS composers folder from config_param_user, or None."""
+    row = get_config_value('qgis_composers_folderpath')
+    if row and row[0] and str(row[0]).strip():
+        return str(row[0]).strip()
+    return None
+
+
+def list_qpt_templates(folderpath=None):
+    """Return `.qpt` filenames in the composers folder.
+
+    Returns None if the folder is not configured or cannot be read.
+    """
+    if folderpath is None:
+        folderpath = get_composers_folderpath()
+    if not folderpath:
+        return None
+    try:
+        return [f for f in os.listdir(folderpath) if f.lower().endswith('.qpt')]
+    except (FileNotFoundError, NotADirectoryError, OSError):
+        return None
+
+
+def load_layout_from_qpt(template_name, folderpath=None):
+    """Load a `.qpt` into the project layout manager if it is not already there.
+
+    :param template_name: Layout name, with or without `.qpt`
+    :return: QgsPrintLayout or None
+    """
+    if not template_name:
+        return None
+    if template_name.lower().endswith('.qpt'):
+        layout_name = template_name[:-4]
+        filename = template_name
+    else:
+        layout_name = template_name
+        filename = f"{template_name}.qpt"
+
+    project = QgsProject.instance()
+    layout_manager = project.layoutManager()
+    existing = layout_manager.layoutByName(layout_name)
+    if existing is not None:
+        return existing
+
+    if folderpath is None:
+        folderpath = get_composers_folderpath()
+    if not folderpath:
+        return None
+
+    template_path = os.path.join(folderpath, filename)
+    if not os.path.exists(template_path):
+        return None
+
+    with open(template_path, 'rt') as template_file:
+        template_content = template_file.read()
+
+    document = QDomDocument()
+    document.setContent(template_content)
+    layout = QgsPrintLayout(project)
+    layout.loadFromTemplate(document, QgsReadWriteContext())
+    layout.setName(layout_name)
+    layout_manager.addLayout(layout)
+
+    layout = layout_manager.layoutByName(layout_name)
+    if layout is None:
+        layouts = layout_manager.layouts()
+        if layouts:
+            layout = layouts[-1]
+            if layout.name() != layout_name:
+                layout.setName(layout_name)
+        else:
+            msg = "Failed to create layout from template"
+            tools_log.log_warning(msg)
+            return None
+    return layout
+
+
+def load_qpt_templates_into_project(folderpath=None):
+    """Load all `.qpt` templates from the composers folder into the project.
+
+    Skips templates whose name is already in the layout manager.
+    Returns the list of `.qpt` filenames, or None if the folder is unreadable.
+    """
+    if folderpath is None:
+        folderpath = get_composers_folderpath()
+    files = list_qpt_templates(folderpath)
+    if not files:
+        return files
+    for filename in files:
+        load_layout_from_qpt(filename, folderpath=folderpath)
+    return files
 
 
 def parse_currency(value_str, currency_config=None):
@@ -4545,7 +5761,7 @@ def parse_currency(value_str, currency_config=None):
 
     if currency_config is None:
         try:
-            row = get_config_value(parameter='admin_currency', columns='value::text', table='config_param_system')
+            row = get_config_value(parameter='admin_currency', columns='value::text', table='v_config_param_system')
             if row:
                 currency_config = json.loads(row[0])
         except Exception:
@@ -4590,7 +5806,7 @@ def format_currency(value, currency_config=None, with_symbol=True):
 
     if currency_config is None:
         try:
-            row = get_config_value(parameter='admin_currency', columns='value::text', table='config_param_system')
+            row = get_config_value(parameter='admin_currency', columns='value::text', table='v_config_param_system')
             if row:
                 currency_config = json.loads(row[0])
         except Exception:
@@ -5768,9 +6984,14 @@ def set_tablemodel_config(dialog, widget, table_name, sort_order=Qt.SortOrder.As
         return widget
 
     if schema_name is not None:
-        config_table = f"{schema_name}.config_form_tableview"
+        schema = schema_name
     else:
-        config_table = f"{lib_vars.schema_name}.config_form_tableview"
+        schema = lib_vars.schema_name
+
+    config_rel = "v_config_form_tableview"
+    if not _relation_exists(schema, config_rel):
+        config_rel = "config_form_tableview"
+    config_table = f"{schema}.{config_rel}"
 
     # Set width and alias of visible columns
     columns_to_delete = []
@@ -5783,55 +7004,141 @@ def set_tablemodel_config(dialog, widget, table_name, sort_order=Qt.SortOrder.As
     if not rows:
         return widget
 
-    # Create a dictionary to store the desired column positions
-    column_order = {}
-    for row in rows:
-        column_order[row['columnname']] = row['columnindex']
+    model = widget.model()
+    if model is None:
+        return widget
 
     # Clear columns_dict
     widget.setProperty('columns', None)
 
-    # Reorder columns in the widget according to columnindex
     header = widget.horizontalHeader()
-    for i, (column_name, column_index) in enumerate(sorted(column_order.items(), key=lambda item: item[1])):
-        col_idx = tools_qt.get_col_index_by_col_name(widget, column_name)
-        if col_idx is not None:
-            current_visual_index = header.visualIndex(col_idx)
-            if current_visual_index != i:
-                header.moveSection(current_visual_index, i)
 
-    columns_dict: Dict[str, str] = {}
-    for row in rows:
-        col_idx = tools_qt.get_col_index_by_col_name(widget, row['columnname'])
-        if col_idx is None:
-            continue
-        columns_dict[str(row['alias'] if row['alias'] else row['columnname'])] = str(row['columnname'])
-        if not row['visible']:
-            columns_to_delete.append(col_idx)
-        else:
-            style = row.get('style')
-            if style:
-                stretch = style.get('stretch')
-                if stretch is not None:
-                    stretch = QHeaderView.ResizeMode.Stretch if stretch else QHeaderView.ResizeMode.Interactive
-                    widget.horizontalHeader().setSectionResizeMode(col_idx, stretch)
-            width = row['width']
-            if width is None:
-                width = 100
-            widget.setColumnWidth(col_idx, width)
-            if row['alias'] is not None:
-                widget.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, row['alias'])
-    widget.setProperty('columns', columns_dict)
-    # Set order
-    if isinstance(widget.model(), QStandardItemModel) is False:
-        widget.model().setSort(0, sort_order)
-        widget.model().select()
-    # Delete columns
-    for column in columns_to_delete:
-        if column is not None:
-            widget.hideColumn(column)
+    # Every section move, resize or alias applied below makes an automatic resize mode measure the
+    # cells of the table again. Work with fixed sections and restore the modes once, at the end
+    resize_modes = [header.sectionResizeMode(i) for i in range(header.count())]
+    modes_to_apply = {i for i, mode in enumerate(resize_modes)
+                      if mode in (QHeaderView.ResizeMode.ResizeToContents, QHeaderView.ResizeMode.Stretch)}
+    for col_idx in modes_to_apply:
+        header.setSectionResizeMode(col_idx, QHeaderView.ResizeMode.Interactive)
+
+    updates_enabled = widget.updatesEnabled()
+    widget.setUpdatesEnabled(False)
+    try:
+        # Index of every column of the model, to avoid searching the headers once per configured column
+        col_indexes = _get_model_col_indexes(model)
+
+        # Reorder columns in the widget according to columnindex
+        column_order = sorted(((row['columnname'], row['columnindex']) for row in rows), key=lambda item: item[1])
+        for i, (column_name, column_index) in enumerate(column_order):
+            col_idx = col_indexes.get(column_name)
+            if col_idx is not None:
+                current_visual_index = header.visualIndex(col_idx)
+                if current_visual_index != i:
+                    header.moveSection(current_visual_index, i)
+
+        columns_dict: Dict[str, str] = {}
+        header_meta: List[Tuple[int, Optional[str], str]] = []
+        for row in rows:
+            col_idx = col_indexes.get(row['columnname'])
+            if col_idx is None:
+                continue
+            columnname = str(row['columnname'])
+            alias = str(row['alias']) if row['alias'] else None
+            columns_dict[str(alias if alias else columnname)] = columnname
+            header_meta.append((col_idx, alias, columnname))
+            if not row['visible']:
+                columns_to_delete.append(col_idx)
+            else:
+                style = row.get('style')
+                if style:
+                    stretch = style.get('stretch')
+                    if stretch is not None:
+                        stretch = QHeaderView.ResizeMode.Stretch if stretch else QHeaderView.ResizeMode.Interactive
+                        if col_idx < len(resize_modes):
+                            resize_modes[col_idx] = stretch
+                            modes_to_apply.add(col_idx)
+                        else:
+                            header.setSectionResizeMode(col_idx, stretch)
+                width = row['width']
+                if width is None:
+                    width = 100
+                widget.setColumnWidth(col_idx, width)
+        widget.setProperty('columns', columns_dict)
+        # Set order. select() can wipe custom headerData, so apply alias/columnname after it.
+        if isinstance(model, QStandardItemModel) is False:
+            model.setSort(0, sort_order)
+            model.select()
+        _apply_model_header_names(model, header_meta)
+        # Delete columns
+        for column in columns_to_delete:
+            if column is not None:
+                widget.hideColumn(column)
+    finally:
+        for col_idx in sorted(modes_to_apply):
+            header.setSectionResizeMode(col_idx, resize_modes[col_idx])
+        widget.setUpdatesEnabled(updates_enabled)
 
     return widget
+
+
+def _get_model_col_indexes(model) -> Dict[str, int]:
+    """ Return a dict with the index of every column of @model, keyed by column name """
+
+    col_indexes: Dict[str, int] = {}
+    try:
+        record = model.record(0)
+        for i in range(record.count()):
+            col_indexes.setdefault(record.fieldName(i), i)
+    except AttributeError:
+        # Models without records (e.g. QStandardItemModel) are indexed by header text
+        for i in range(model.columnCount()):
+            header_text = model.headerData(i, Qt.Orientation.Horizontal)
+            if header_text is not None:
+                col_indexes.setdefault(str(header_text), i)
+
+    return col_indexes
+
+
+def _apply_model_header_names(model, header_meta: List[Tuple[int, Optional[str], str]]) -> None:
+    """Set DisplayRole = alias and UserRole = columnname for each configured column."""
+    for col_idx, alias, columnname in header_meta:
+        model.setHeaderData(col_idx, Qt.Orientation.Horizontal, columnname, Qt.ItemDataRole.UserRole)
+        if alias is not None:
+            model.setHeaderData(col_idx, Qt.Orientation.Horizontal, alias)
+
+
+def get_model_column_name(widget, col_idx=0):
+    """Return the SQL columnname for tableview column @col_idx (not the header alias).
+
+    Preference order:
+      1. QSqlTableModel.record().fieldName(i)  — always the SQL field
+      2. headerData(..., UserRole)             — set by set_tablemodel_config
+      3. widget.property('columns')[alias]     — {alias: columnname}
+    headerData(..., DisplayRole) is the label ('Dma id') and must not be used in SQL.
+    """
+    if widget is None:
+        return None
+    model = widget.model()
+    if model is None:
+        return None
+
+    try:
+        name = model.record().fieldName(col_idx)
+        if name:
+            return name
+    except (AttributeError, IndexError):
+        pass
+
+    name = model.headerData(col_idx, Qt.Orientation.Horizontal, Qt.ItemDataRole.UserRole)
+    if name:
+        return str(name)
+
+    columns_dict = widget.property("columns") or {}
+    header = model.headerData(col_idx, Qt.Orientation.Horizontal)
+    if header is None:
+        return None
+    header = str(header)
+    return columns_dict.get(header, header)
 
 
 def add_icon(widget, icon, folder="dialogs"):
@@ -5878,6 +7185,9 @@ def add_tableview_header(widget: QWidget, fields: Optional[List[Dict[str, Any]]]
     model.clear()
     widget.setModel(model)
     widget.horizontalHeader().setStretchLastSection(True)
+    # Sizing the columns while the rows are loaded is what takes the longest on big tables, so make
+    # sure the header samples a few rows instead of measuring the cells of a thousand of them
+    widget.horizontalHeader().setResizeContentsPrecision(tools_qt.RESIZE_CONTENTS_PRECISION)
     try:
         # Get headers
         headers = []
@@ -5904,16 +7214,23 @@ def fill_tableview_rows(widget, fields: List[Dict[str, Any]]):
     if not fields:
         return widget
     model = widget.model()
+    if model is None:
+        return widget
 
     for item in fields:
+        get_values = getattr(item, 'values', None)
+        if get_values is None:
+            continue
         row = []
-        for value in item.values():
+        for value in get_values():
             if value is None:
                 value = ""
-            if issubclass(type(value), dict):
+            elif isinstance(value, dict):
                 value = json.dumps(value)
-            row.append(QStandardItem(str(value)))
-        if len(row) > 0:
+            elif not isinstance(value, str):
+                value = str(value)
+            row.append(QStandardItem(value))
+        if row:
             model.appendRow(row)
 
     return widget
@@ -5998,8 +7315,7 @@ def load_tableview_visit(dialog, feature_id, rel_feature_type):
     message = tools_qt.fill_table(qtable, f"{tablename}", expr, QSqlTableModel.EditStrategy.OnFieldChange)
     if message:
         tools_qgis.show_warning(message)
-    tableview = f'tbl_visit_x_{rel_feature_type}'
-    set_tablemodel_config(dialog, qtable, f"{tableview}")
+    set_tablemodel_config(dialog, qtable, f"{tablename}")
     tools_qgis.refresh_map_canvas()
 
 
@@ -6487,15 +7803,15 @@ def open_dlg_help():
     parser = configparser.ConfigParser(comment_prefixes=";", allow_no_value=True, strict=False)
     path = f"{lib_vars.plugin_dir}{os.sep}config{os.sep}giswater.config"
     if not os.path.exists(path):
-        webbrowser.open_new_tab('https://giswater.gitbook.io/giswater-manual')
+        _open_external_url('https://giswater.gitbook.io/giswater-manual')
         return True
 
     try:
         parser.read(path)
         web_tag = parser.get('web_tag', lib_vars.session_vars['last_focus'])
-        webbrowser.open_new_tab(f'https://giswater.gitbook.io/giswater-manual/{web_tag}')
+        _open_external_url(f'https://giswater.gitbook.io/giswater-manual/{web_tag}')
     except Exception:
-        webbrowser.open_new_tab('https://giswater.gitbook.io/giswater-manual')
+        _open_external_url('https://giswater.gitbook.io/giswater-manual')
     finally:
         return True
 
@@ -6645,15 +7961,38 @@ def _change_plan_mode_buttons(enable, psector_id, update_cmb_psector_id=False, c
 
 
 def fill_cmb_psector_id(cmb_psector_id, psector_id=None):
-    """ Fill cmb_psector_id """
-    sql = "SELECT psector_id as id, name as idval FROM v_ui_plan_psector WHERE archived = false ORDER BY id ASC"
-    rows = tools_db.get_rows(sql)
+    """Fill the status-bar psector combo from the main DB connection.
+
+    This list is tiny and is mutated in-session (manager create / toggle /
+    duplicate / delete). An async+cached load races those writes: pending
+    selection hits the old rows, gets cleared, and apply_rows falls back to
+    index 0.
+    """
+    if cmb_psector_id is None:
+        return
+
+    sql = (
+        "SELECT psector_id AS id, name AS idval "
+        "FROM v_ui_plan_psector WHERE archived = false ORDER BY id ASC"
+    )
+
     disconnect_signal("psignals", "fill_cmb_psector_id_currentIndexChanged_manage_psector_change")
-    tools_qt.fill_combo_values(cmb_psector_id, rows)
+
+    if psector_id is None:
+        current = tools_qt.get_combo_value(None, cmb_psector_id)
+        if current not in (None, '', -1, 'None'):
+            psector_id = current
+
+    rows = tools_db.get_rows(sql, log_info=False) or []
     if psector_id is not None:
-        tools_qt.set_combo_value(cmb_psector_id, psector_id, 0, add_new=False)
-    connect_signal(cmb_psector_id.currentIndexChanged, partial(manage_psector_change, cmb_psector_id),
-                   "psignals", "fill_cmb_psector_id_currentIndexChanged_manage_psector_change"
+        cmb_psector_id.set_pending_selection(psector_id, 0, apply_if_loaded=False)
+    cmb_psector_id.apply_rows(rows)
+
+    connect_signal(
+        cmb_psector_id.currentIndexChanged,
+        partial(manage_psector_change, cmb_psector_id),
+        "psignals",
+        "fill_cmb_psector_id_currentIndexChanged_manage_psector_change",
     )
 
 
@@ -6669,8 +8008,11 @@ def create_sqlite_conn(file_name):
     status = False
     cursor = None
     try:
-        db_path = f"{lib_vars.plugin_dir}{os.sep}resources{os.sep}gis{os.sep}{file_name}.sqlite"
+        gis_dir = f"{lib_vars.plugin_dir}{os.sep}resources{os.sep}gis"
+        db_path = f"{gis_dir}{os.sep}{file_name}.sqlite"
         tools_log.log_info(db_path)
+        if file_name == "locales" and not os.path.exists(db_path):
+            _create_locales_sqlite(gis_dir, db_path)
         if os.path.exists(db_path):
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
@@ -6682,6 +8024,31 @@ def create_sqlite_conn(file_name):
         tools_log.log_warning(str(e))
 
     return status, cursor
+
+
+def _create_locales_sqlite(gis_dir, db_path):
+    """Create locales.sqlite from the bundled SQL seed when the file is missing."""
+    seed_path = f"{gis_dir}{os.sep}locales.sql"
+    if not os.path.exists(seed_path):
+        msg = "Locales seed file not found"
+        tools_log.log_warning(msg, parameter=seed_path)
+        return
+
+    os.makedirs(gis_dir, exist_ok=True)
+    with open(seed_path, "r", encoding="utf-8") as f:
+        seed_sql = f.read()
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.executescript(seed_sql)
+        conn.commit()
+    except Exception:
+        conn.close()
+        if os.path.exists(db_path):
+            os.remove(db_path)
+        raise
+    conn.close()
+    msg = "Created locales database from seed"
+    tools_log.log_info(msg, parameter=db_path)
 
 
 def manage_user_config_folder(user_folder_dir):
@@ -7175,6 +8542,13 @@ def create_giswater_menu(project_loaded=False):
     global_vars.load_project_menu.read_menu(project_loaded)
 
 
+def add_giswater_language_menu():
+    """Add Language entry to the Giswater menu when a database connection is active."""
+    if global_vars.load_project_menu is None:
+        return
+    global_vars.load_project_menu._add_language_menu()
+
+
 def unset_giswater_menu():
     """ Unset Giswater menu (when plugin is disabled or reloaded) """
 
@@ -7223,8 +8597,9 @@ def _insert_feature(dialog, relation_id, relation_type, feature_type, ids=None, 
         return
 
     if not relation_id:
-        msg = f"{relation_type.title()} ID is missing."
-        tools_qgis.show_warning(msg)
+        msg = "{0} ID is missing."
+        msg_params = (relation_type.title(),)
+        tools_qgis.show_warning(msg, msg_params=msg_params)
         return
 
     # Toggle audit and topocontrol off during bulk insert for performance (only for campaign)
@@ -7432,7 +8807,8 @@ def load_tableview_lot(dialog, feature_type, lot_id, layers, ids=None):
     """Reload QTableView for campaign_lot_x_<feature_type> safely, avoiding recursive selectionChanged loop."""
 
     if not lot_id:
-        tools_qgis.show_warning("Lot ID not found.")
+        msg = "Lot ID not found."
+        tools_qgis.show_warning(msg)
         return
 
     class_object = dialog.parent()
@@ -7516,7 +8892,7 @@ def _check_user_params(section, parameter, file_name, prefix=False):
     (would dirty the git checkout). Only seed missing keys in the user-folder copy.
     """
 
-    if section == "i18n_generator" or parameter == "dev_commit":
+    if section in ("i18n_generator", "i18n_languages") or parameter == "dev_commit":
         return
 
     inv_key = _inventory_key_for_user_param(parameter, prefix)
@@ -7598,27 +8974,36 @@ def _get_extent_parameters(schema_name, table_name="node", geom_name="the_geom")
     return rectangle
 
 
-def fill_tbl(complet_result, dialog, widgetname, linkedobject, filter_fields):
-    """ Put filter widgets into layout and set headers into QTableView """
+def fill_tbl(complet_result, dialog, widgetname, linkedobject, filter_fields, fill_data=True):
+    """ Put filter widgets into layout and set headers into QTableView
+    :param fill_data: Get the data of @linkedobject and load it into the QTableView (bool). Set it to False when the
+    data is going to be loaded right after by the filter widgets, to avoid querying and loading the whole list twice
+    """
 
-    complet_list = _get_list(complet_result, filter_fields, linkedobject)
     tab_name = 'tab_none'
-    if complet_list in (False, None):
-        return False, False
-    data = complet_list['body']['data']
-    headers = complet_list['body']['form'].get('headers')
-    fields = data['fields']
-
-    if data.get('hidden'):
-        return False, False
     short_name = f'{tab_name}_{widgetname}' if tab_name not in widgetname else widgetname
     widget = dialog.findChild(QTableView, short_name)
     if widget is None:
         return False, False
-    widget = add_tableview_header(widget, fields, headers)
-    widget = fill_tableview_rows(widget, fields)
-    widget = set_tablemodel_config(dialog, widget, short_name, Qt.SortOrder.DescendingOrder)
-    tools_qt.set_tableview_config(widget, edit_triggers=QTableView.EditTrigger.DoubleClicked)
+
+    complet_list = None
+    if fill_data:
+        complet_list = _get_list(complet_result, filter_fields, linkedobject)
+        if complet_list in (False, None):
+            return False, False
+        data = complet_list['body']['data']
+        headers = complet_list['body']['form'].get('headers')
+        fields = data['fields']
+
+        if data.get('hidden'):
+            return False, False
+        widget = add_tableview_header(widget, fields, headers)
+        widget = fill_tableview_rows(widget, fields)
+        widget = set_tablemodel_config(dialog, widget, short_name, Qt.SortOrder.DescendingOrder)
+        tools_qt.set_tableview_config(widget, edit_triggers=QTableView.EditTrigger.DoubleClicked)
+    elif widget.model() is None:
+        # Whoever loads the data afterwards expects the QTableView to already have a model
+        widget = add_tableview_header(widget)
 
     widget_list = []
     widget_list.extend(dialog.findChildren(QComboBox, QRegularExpression(f"{tab_name}_")))
@@ -7706,6 +9091,7 @@ def set_filter_listeners(complet_result, dialog, widget_list, columnname, widget
                         -> widget.currentIndexChanged.connect(partial(getattr(tools_backend_calls, widgetfunction), **kwargs))
        module = tools_backend_calls -> def open_rpt_result(**kwargs)
                                     -> def filter_table(self, **kwargs)
+    :return: True when the emitted filter has loaded the data into the QTableView (bool)
      """
 
     model = None
@@ -7717,6 +9103,7 @@ def set_filter_listeners(complet_result, dialog, widget_list, columnname, widget
     # widget, we will emit only the one of the last widget. This is enough for the correct filtering of the
     # QTableView and we gain in performance
     last_widget = None
+    last_function_name = ""
     for widget in widget_list:
         if widget.property('isfilter') is not True:
             continue
@@ -7764,7 +9151,7 @@ def set_filter_listeners(complet_result, dialog, widget_list, columnname, widget
                             msg = "widget {0} has associated function {1}, but {2} not exist"
                             msg_params = (widget.property('widgetname'), function_name, function_name,)
                             tools_qgis.show_message(msg, Qgis.MessageLevel.Critical, msg_params=msg_params)
-                            return widget
+                            return False
                     else:
                         msg = "Parameter functionName is null for button"
                         tools_qgis.show_message(msg, Qgis.MessageLevel.Critical, parameter=widget.objectName())
@@ -7779,7 +9166,7 @@ def set_filter_listeners(complet_result, dialog, widget_list, columnname, widget
                     msg = "widget {0} has associated function {1}, but {2} not exist"
                     msg_params = (widget.property('widgetname'), function_name, function_name,)
                     tools_qgis.show_message(msg, Qgis.MessageLevel.Critical, msg_params=msg_params)
-                    return widget
+                    return False
                 if 'parameters' in widgetfunction[i]:
                     func_params = widgetfunction[i]['parameters']
 
@@ -7801,14 +9188,20 @@ def set_filter_listeners(complet_result, dialog, widget_list, columnname, widget
                     continue
 
             last_widget = widget
+            last_function_name = function_name
 
     # Emit signal changed
+    data_loaded = False
     if last_widget is not None:
         if type(last_widget) is QLineEdit:
             text = tools_qt.get_text(dialog, last_widget, False, False)
             last_widget.textChanged.emit(text)
+            data_loaded = last_function_name in FILL_TABLE_FUNCTIONS
         elif isinstance(last_widget, QComboBox):
             last_widget.currentIndexChanged.emit(last_widget.currentIndex())
+            data_loaded = last_function_name in FILL_TABLE_FUNCTIONS
+
+    return data_loaded
 
 
 def manage_dlg_widgets(class_object, dialog, complet_result):
@@ -7824,6 +9217,10 @@ def manage_dlg_widgets(class_object, dialog, complet_result):
             layout_orientations[layout_name] = orientation
 
     current_layout = ""
+
+    # Cache feature values before widgets are built so filtered child combos
+    # (e.g. dma_id / expl_id) can resolve their parent on the first load.
+    set_form_field_values(dialog, complet_result['body']['data'].get('fields'))
 
     # Loop through fields to add them to the appropriate layout
     for field in complet_result['body']['data']['fields']:
@@ -7892,7 +9289,10 @@ def set_widgets(dialog, complet_result, field, tablename, class_info):
         else:
             label.setToolTip(field['label'].capitalize())
         if 'widgetcontrols' in field and field['widgetcontrols'] is not None and 'labelSize' in field['widgetcontrols']:
-            label.setFixedWidth(field['widgetcontrols']['labelSize'])
+            label.setMinimumWidth(field['widgetcontrols']['labelSize'])
+            label.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
+        if 'font-weight' not in (label.styleSheet() or ''):
+            ThemeManager.apply_label_font(label, reference=dialog)
 
     if 'widgettype' in field and not field['widgettype']:
         msg = "The field widgettype is not configured for"
@@ -8157,7 +9557,9 @@ def _manage_tableview(**kwargs):
     class_self = kwargs['class']
     module = tools_backend_calls
     widget = add_tableview(complet_result, field, dialog, module, class_self)
+    # Column names from keys of the first row (also clears the model).
     widget = add_tableview_header(widget, field.get('value'))
+    # Cell values from every row.
     widget = fill_tableview_rows(widget, field.get('value'))
     tools_qt.set_tableview_config(widget)
     return widget
@@ -8217,25 +9619,105 @@ def _force_button_click(dlg, obj, name, pos):
         dlg.findChild(obj, name).click()
 
 
-def _show_context_menu(self, qtableview):
-        """Show custom context menu"""
+def _widget_parent_names(widget):
+    """Return objectName of widget and all parent widgets."""
+    names = []
+    par = widget
+    while par is not None and hasattr(par, 'objectName'):
+        names.append(par.objectName())
+        par = par.parentWidget()
+    return names
 
-        menu = QMenu(qtableview)
 
-        buttons = qtableview.window().findChildren(QPushButton)
-        for btn in buttons:
-            if btn.property('widgetcontrols') is not None:
-                if btn.property('widgetcontrols').get('onContextMenu') is not None:
-                    parents = list()
-                    par = btn
-                    while hasattr(par, 'objectName'):
-                        parents.append(par.objectName())
-                        par = par.parentWidget()
-                    if qtableview.objectName() in parents:
-                        action = QAction(btn.property('widgetcontrols').get('onContextMenu'), qtableview)
-                        action.triggered.connect(partial(_force_button_click, qtableview.window(), QPushButton, btn.objectName()))
-                        menu.addAction(action)
+def _context_menu_functions(btn):
+    """Normalize widgetfunction property to a list of dicts."""
+    wf = btn.property('widgetfunction')
+    if isinstance(wf, list):
+        return [fn for fn in wf if isinstance(fn, dict)]
+    if isinstance(wf, dict):
+        return [wf]
+    return []
 
+
+def _table_name_matches_ref(table_name, ref):
+    """True if table_name equals ref or is a prefix match (ref_...)."""
+    if not table_name or not ref or not isinstance(ref, str):
+        return False
+    if table_name == ref:
+        return True
+    return table_name.startswith(ref) and (
+        len(table_name) == len(ref) or table_name[len(ref)] == '_'
+    )
+
+
+def _context_menu_bound_tables(btn, widgetcontrols):
+    """
+    Tables this action is bound to.
+
+    Explicit widgetcontrols.onContextMenuWidget wins; otherwise targetwidget /
+    sourcewidget from widgetfunction. None means tab-wide (legacy).
+    """
+    explicit = widgetcontrols.get('onContextMenuWidget') if widgetcontrols else None
+    if explicit:
+        return explicit if isinstance(explicit, list) else [explicit]
+
+    bound = []
+    for fn in _context_menu_functions(btn):
+        params = fn.get('parameters') or {}
+        for key in ('targetwidget', 'sourcewidget'):
+            ref = params.get(key)
+            if not ref:
+                continue
+            if isinstance(ref, list):
+                bound.extend(ref)
+            else:
+                bound.append(ref)
+    return bound or None
+
+
+def _context_action_applies(btn, table_name, bound_tables):
+    """Whether a context-menu button should appear on this table."""
+    fnames = [fn.get('functionName') for fn in _context_menu_functions(btn)]
+    is_dscenario_table = 'tbl_frelem_dsc' in (table_name or '')
+
+    # Remove-from-dscenario only makes sense on the dscenario subtables
+    if 'remove_frelem_from_dscenario' in fnames:
+        return is_dscenario_table
+
+    if bound_tables:
+        for ref in bound_tables:
+            if _table_name_matches_ref(table_name, ref):
+                return True
+        return False
+
+    # Unbound actions stay tab-wide, except on dscenario subtables
+    return not is_dscenario_table
+
+
+def _show_context_menu(table, container, pos=None):
+    """Show custom context menu for the table that was right-clicked."""
+    menu = QMenu(table)
+    container_name = container.objectName() if container is not None else None
+    table_name = table.objectName() if table is not None else ''
+
+    buttons = table.window().findChildren(QPushButton)
+    for btn in buttons:
+        widgetcontrols = btn.property('widgetcontrols')
+        if not widgetcontrols or not isinstance(widgetcontrols, dict):
+            continue
+        title = widgetcontrols.get('onContextMenu')
+        if not title:
+            continue
+        if container_name and container_name not in _widget_parent_names(btn):
+            continue
+        bound_tables = _context_menu_bound_tables(btn, widgetcontrols)
+        if not _context_action_applies(btn, table_name, bound_tables):
+            continue
+        action = QAction(tools_qt.tr(title), table)
+        action.triggered.connect(partial(_force_button_click, table.window(), QPushButton, btn.objectName()))
+        menu.addAction(action)
+
+    if menu.actions():
         menu.exec(QCursor.pos())
 
 # endregion
@@ -8246,16 +9728,9 @@ def _show_context_menu(self, qtableview):
 """ Custom classes to disable wheel scroll event when the widget is not fucused """
 
 
-class CustomQComboBox(QComboBox):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-
-    def wheelEvent(self, *args, **kwargs):
-        if self.hasFocus():
-            return QComboBox.wheelEvent(self, *args, **kwargs)
-        else:
-            return
+class CustomQComboBox(GwAsyncComboBox):
+    """Backward-compatible alias for ``GwAsyncComboBox``."""
+    pass
 
 
 class CustomQgsDateTimeEdit(QgsDateTimeEdit):

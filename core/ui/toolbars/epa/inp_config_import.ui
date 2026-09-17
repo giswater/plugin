@@ -379,7 +379,7 @@
          <item row="0" column="0">
           <widget class="QLabel" name="lbl_feature">
            <property name="text">
-            <string>Select the appropriate feature_id for each EPA type from the options below. If needed, you can add a new feature type in the Giswater catalog and click the &quot;Reload Options&quot; button below.</string>
+            <string>Select the appropriate feature_id for each EPA type from the options below. If needed, you can add a new feature type in the Giswater catalog and click the Reload options button below.</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>
@@ -396,7 +396,7 @@
          <item row="0" column="0">
           <widget class="QLabel" name="lbl_material">
            <property name="text">
-            <string>Select the appropriate material for each roughness from the options below. If needed, you can add a new material in the Giswater catalog and click the &quot;Reload Options&quot; button below.</string>
+            <string>Select the appropriate material for each roughness from the options below. If needed, you can add a new material in the Giswater catalog and click the Reload options button below.</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>
@@ -458,7 +458,7 @@
          <item row="0" column="1">
           <widget class="QLabel" name="lbl_nodes">
            <property name="text">
-            <string>Select the appropriate nodecat_id for each EPA type from the options below. If you choose &quot;Create new&quot;, enter the new name in the &quot;New catalog name&quot; column.</string>
+            <string>Select the appropriate nodecat_id for each EPA type from the options below. If you choose Create new, enter the new name in the New catalog name column.</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>
@@ -510,7 +510,7 @@
          <item row="0" column="0">
           <widget class="QLabel" name="lbl_arcs">
            <property name="text">
-            <string>Select the appropriate arccat_id for each arc combination from the options below. If you choose &quot;Create new&quot;, enter the new name in the &quot;New catalog name&quot; column.</string>
+            <string>Select the appropriate arccat_id for each arc combination from the options below. If you choose Create new, enter the new name in the New catalog name column.</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>
@@ -527,7 +527,7 @@
          <item row="0" column="0">
           <widget class="QLabel" name="lbl_flwreg">
            <property name="text">
-            <string>Select the appropriate catalog id for each flow regulator from the options below. If you choose &quot;Create new&quot;, enter the new name in the &quot;New catalog name&quot; column.</string>
+            <string>Select the appropriate catalog id for each flow regulator from the options below. If you choose Create new, enter the new name in the New catalog name column.</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>

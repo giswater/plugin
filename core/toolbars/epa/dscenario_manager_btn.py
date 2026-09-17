@@ -524,7 +524,10 @@ class GwDscenarioManagerButton(GwAction):
         """ Fill btn_create QMenu """
 
         # Functions
-        sql = "SELECT id, alias FROM config_toolbox WHERE "
+        toolbox_table = "v_config_toolbox"
+        if not tools_gw._relation_exists(lib_vars.schema_name, toolbox_table):
+            toolbox_table = "config_toolbox"
+        sql = f"SELECT id, alias FROM {toolbox_table} WHERE "
 
         if global_vars.project_type == 'ws':
             sql += "id IN (3134, 3110, 3112, 3108, 3158)"

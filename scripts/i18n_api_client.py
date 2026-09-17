@@ -10,7 +10,7 @@ Authentication matches scripts/i18n_export_zips.py::
 Configurable endpoints (defaults are placeholders until the API is deployed)::
 
   GET  /api/i18n/messages          (full baseline, no query params)
-  POST /api/i18n/clear_pending_detections  (empty body; before cat_* uploads)
+  POST /api/i18n/clear_pending_detections  (body: {detected_version}; before cat_* uploads)
   POST /api/i18n/cat_changed_text
   POST /api/i18n/cat_delete_text
   POST /api/i18n/cat_new_text
@@ -40,6 +40,8 @@ TABLE_SPECIFIC_PK_COLUMNS: dict[str, tuple[str, ...]] = {
     "dbconfig_form_fields": ("formname", "formtype", "tabname", "source"),
     "dbconfig_form_fields_feat": ("feature_type", "formtype", "tabname", "source"),
     "dbconfig_form_fields_json": ("formname", "formtype", "tabname", "source", "hint"),
+    "dbconfig_form_fields_query": ("formname", "formtype", "tabname", "source", "hint"),
+    "dbconfig_report_query": ("source", "hint"),
     "dbparam_user": ("source",),
     "dbconfig_param_system": ("source",),
     "dbconfig_typevalue": ("formname", "source"),
@@ -68,6 +70,8 @@ TABLE_SPECIFIC_PK_COLUMNS: dict[str, tuple[str, ...]] = {
 TABLE_EXTRA_COLUMNS: dict[str, tuple[str, ...]] = {
     "dbjson": ("text",),
     "dbconfig_form_fields_json": ("text",),
+    "dbconfig_form_fields_query": ("text",),
+    "dbconfig_report_query": ("text",),
     "dbconfig_form_fields_feat": ("formname",),
     "dbstyle": ("org_text",),
 }
@@ -416,20 +420,25 @@ def fetch_i18n_messages(
 
 def clear_pending_detections(
     api: TranslationsApiClient,
+    detected_version: str,
     path: str = DEFAULT_CLEAR_PENDING_PATH,
     *,
     dry_run: bool = False,
 ) -> list[str]:
-    """POST empty body to clear pending new/changed/deleted detections.
+    """POST ``{detected_version}`` to clear pending new/changed/deleted detections.
 
     Must run before ``cat_*_text`` uploads so prior pending rows do not linger.
     """
+    if not detected_version:
+        raise ValueError("detected_version is required for clear_pending_detections")
+
+    body = {"detected_version": detected_version}
     if dry_run:
-        print(f"DRY-RUN POST {path}: {{}}")
+        print(f"DRY-RUN POST {path}: {body!r}")
         return list(EXPECTED_CLEARED_KINDS)
 
     url = api._url(path)
-    status, payload = api.post_json(path, {}, with_status=True)
+    status, payload = api.post_json(path, body, with_status=True)
     if status != 200 or not isinstance(payload, dict):
         raise RuntimeError(
             f"clear_pending_detections: POST {url} returned unexpected response "

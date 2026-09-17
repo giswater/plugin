@@ -15,118 +15,150 @@ AS $function$
 
 /*
 
-- Example:
-
-SELECT SCHEMA_NAME.gw_fct_scada_graph_export($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},"data":{"parameters":{"explId":513, "searchDistRouting":999}}}$$);
-
-
-- Documentation:
-It takes the row of table "om_scada_graph" according to the expl_id (v_expl_id) and it creates a JSON which is inserted into table "om_scada_graph_json".
+Called from gw_fct_scada_graph_check on commitChanges=true (same session).
+One om_scada_graph_json row per distinct group_id (one synoptic).
+Reads temp_om_scada_graph;
+Exploitation scoping is already done in check. Do not re-filter by explId here.
+Does not delete JSON rows of groups that are still in om_scada_graph
+(other exploitations). Drops only group_ids gone from om_scada_graph.
 
  */
 
-
 DECLARE
 v_schema_date date;
-v_json_result_header json;
-v_json_result_nodes json;
-v_json_result_links json;
-v_json_result_return json;
-v_expl_id integer;
-v_object_1 integer;
-v_object_2 integer;
 v_result JSON;
-v_Result_info JSON;
+v_result_info JSON;
 v_error_context text;
+v_message text;
 BEGIN
 
-	-- Search path
 	SET search_path = "SCHEMA_NAME", public;
-	-- Input params
+
+	IF to_regclass('pg_temp.temp_om_scada_graph') IS NULL THEN
+		SELECT COALESCE(
+			(SELECT error_message FROM v_sys_message WHERE id = 4732 LIMIT 1),
+			'temp_om_scada_graph not found; call gw_fct_scada_graph_export from gw_fct_scada_graph_check'
+		)
+		INTO v_message;
+		RETURN gw_fct_json_create_return(json_build_object(
+			'status', 'Failed',
+			'message', json_build_object('level', 2, 'text', v_message),
+			'version', '',
+			'body', json_build_object('form', '{}'::json, 'data', '{}'::json)
+		)::json, 3546, null, null, null);
+	END IF;
+
 	SELECT "date" INTO v_schema_date FROM sys_version ORDER BY giswater DESC LIMIT 1;
-	v_expl_id := COALESCE(
-		(p_data -> 'data' -> 'parameters' ->> 'explId')::integer,
-		(p_data -> 'data' ->> 'explId')::integer
-	);
-	v_object_1 := COALESCE((p_data -> 'data' -> 'parameters' ->> 'object_1')::integer, (p_data -> 'data' ->> 'object_1')::integer);
-	v_object_2 := COALESCE((p_data -> 'data' -> 'parameters' ->> 'object_2')::integer, (p_data -> 'data' ->> 'object_2')::integer);
 
-	IF v_expl_id IS NULL AND v_object_1 IS NOT NULL AND v_object_2 IS NOT NULL THEN
-		SELECT COALESCE(expl_1, expl_2) INTO v_expl_id
-		FROM om_scada_graph
-		WHERE object_1 = v_object_1 AND object_2 = v_object_2
-		ORDER BY edge_id DESC LIMIT 1;
-	END IF;
-
-	IF v_expl_id IS NULL THEN
-		SELECT COALESCE(expl_1, expl_2) INTO v_expl_id FROM om_scada_graph ORDER BY edge_id DESC LIMIT 1;
-	END IF;
-
-	IF v_expl_id IS NULL THEN
-		RETURN gw_fct_json_create_return(('{"status":"Failed", "message":{"level":2, "text":"explId could not be resolved from om_scada_graph"}, "version":""'||
-			',"body":{"form":{},"data":{}}}')::json, 3546, null, null, null);
-	END IF;
-
-	-- Build Network info:
-	SELECT json_build_object(
-		'name', concat('Network graph'),
-		'entity', '',
-		'generatedDate', now(),
-		'schemaDate', v_schema_date
-	) INTO v_json_result_header;
-
-	
-	-- Build key "links" (table om_scada_graph)
-  SELECT 
-	json_agg(
-		json_build_object(
-		'edgeId', edge_id,
-		'orderId', order_id,
-		'fromNode', object_1,
-		'nodeType1', objecttype_1,
-		'nodeName1', object_name_1,
-		'explId1', expl_1,
-		'dma_id_1', dma_id_1,
-		'dma_name_1', dma_name_1,
-		'toNode', object_2,
-		'nodeType2', objecttype_2,
-		'nodeName2', object_name_2,
-		'explId2', expl_2,		
-		'dma_id_2', dma_id_2,
-		'dma_name_2', dma_name_2,
-		'sist_com_1', sist_com_1,
-		'sist_com_2', sist_com_2,
-		'attributes', attrib::JSON,
-		'explAdd',expl_add
+	WITH scada_groups AS (
+		SELECT
+			g.group_id,
+			COALESCE((
+				SELECT ARRAY(
+					SELECT DISTINCT e
+					FROM temp_om_scada_graph t
+					CROSS JOIN LATERAL unnest(t.expl_id) AS e
+					WHERE t.group_id = g.group_id
+						AND t.is_real = TRUE
+						AND e IS NOT NULL
+					ORDER BY e
+				)
+			), '{}'::int4[]) AS expl_id
+		FROM (
+			SELECT DISTINCT group_id
+			FROM temp_om_scada_graph
+			WHERE group_id IS NOT NULL
+		) g
+	),
+	links AS (
+		SELECT s.group_id, json_agg(s.link ORDER BY s.level_id, s.position_id) AS links
+		FROM (
+			SELECT
+				g.group_id,
+				v.level_id,
+				v.position_id,
+				json_build_object(
+					'groupId', g.group_id,
+					'fromNode', g.node_1,
+					'nodeType1', g.node_type_1,
+					'nodeName1', n1.sys_code,
+					'explId1', n1.expl_id,
+					'dma_id_1', n1.dma_id,
+					'dma_name_1', d1.name,
+					'toNode', g.node_2,
+					'nodeType2', g.node_type_2,
+					'nodeName2', n2.sys_code,
+					'explId2', n2.expl_id,
+					'dma_id_2', n2.dma_id,
+					'dma_name_2', d2.name,
+					'attributes', CASE WHEN g.attrib IS JSON THEN g.attrib::json ELSE NULL END,
+					'explId', g.expl_id
+				) AS link
+			FROM temp_om_scada_graph g
+			JOIN temp_om_scada_vertice v ON g.node_1 = v.node_id
+			LEFT JOIN node n1 ON n1.node_id = g.node_1
+			LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
+			LEFT JOIN node n2 ON n2.node_id = g.node_2
+			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
+			WHERE g.group_id IS NOT NULL
+				AND g.is_real = TRUE
+		) s
+		GROUP BY s.group_id
 	)
-	) INTO v_json_result_links
-	FROM om_scada_graph a
-	WHERE (expl_1 = v_expl_id OR expl_2 = v_expl_id) OR v_expl_id::text IN (expl_add);
-	
+	INSERT INTO om_scada_graph_json (group_id, expl_id, om_scada_graph_json, insert_tstamp, update_tstamp)
+	SELECT
+		g.group_id,
+		g.expl_id,
+		json_build_object(
+			'networkInfo', json_build_object(
+				'name', concat('Network graph'),
+				'entity', '',
+				'generatedDate', now(),
+				'schemaDate', v_schema_date,
+				'groupId', g.group_id
+			),
+			'links', COALESCE(l.links, '[]'::json)
+		),
+		now(),
+		now()
+	FROM scada_groups g
+	JOIN links l ON l.group_id = g.group_id
+	ON CONFLICT (group_id) DO UPDATE
+	SET expl_id = excluded.expl_id,
+		om_scada_graph_json = excluded.om_scada_graph_json,
+		update_tstamp = now();
 
-	v_json_result_return = json_build_object(
-		'networkInfo', v_json_result_header, 
-		'links', v_json_result_links
+	DELETE FROM om_scada_graph_json j
+	WHERE NOT EXISTS (
+		SELECT 1 FROM om_scada_graph g WHERE g.group_id = j.group_id
 	);
 
+	SELECT COALESCE(
+		(SELECT error_message FROM v_sys_message WHERE id = 4734 LIMIT 1),
+		'Network Graph generated from scada graph check'
+	)
+	INTO v_message;
 
-	INSERT INTO om_scada_graph_json (expl_id, om_scada_graph_json, insert_tstamp, update_tstamp)
-	SELECT v_expl_id, v_json_result_return::json, now(), now()
-	ON CONFLICT (expl_id) DO UPDATE 
-	SET om_scada_graph_json= excluded.om_scada_graph_json,
-	update_tstamp = now();
-
-
-	-- info
-	SELECT array_to_json(array_agg(row_to_json(row))) INTO v_result 
-	FROM (SELECT 1, concat('Network Graph generated for expl_id ', v_expl_id) as message) row;
-	v_result := COALESCE(v_result, '{}'); 
+	SELECT array_to_json(array_agg(row_to_json(row))) INTO v_result
+	FROM (SELECT 1, v_message as message) row;
+	v_result := COALESCE(v_result, '{}');
 	v_result_info = concat ('{"geometryType":"", "values":',v_result, '}');
 
-	RETURN gw_fct_json_create_return(('{"status":"Accepted", "message":{"level":1, "text":"Network JSON graph successfully created"}, "version":""'||
-				',"body":{"form":{}'||
-				',"data":{  "info":'||v_result_info||', "result":'||v_json_result_return||'}}'||
-			'}')::json, 3546, null, null, null);
+	SELECT COALESCE(
+		(SELECT error_message FROM v_sys_message WHERE id = 4736 LIMIT 1),
+		'Network JSON graph successfully created'
+	)
+	INTO v_message;
+
+	RETURN gw_fct_json_create_return(json_build_object(
+		'status', 'Accepted',
+		'message', json_build_object('level', 1, 'text', v_message),
+		'version', '',
+		'body', json_build_object(
+			'form', '{}'::json,
+			'data', json_build_object('info', v_result_info::json)
+		)
+	)::json, 3546, null, null, null);
 
 EXCEPTION WHEN OTHERS THEN
 	GET STACKED DIAGNOSTICS v_error_context = pg_exception_context;

@@ -49,6 +49,8 @@ DECLARE
     v_result json;
     v_result_init json;
     v_result_valve_proposed json;
+    v_result_valve_unaccess json;
+    v_result_valve_changestatus json;
     v_result_valve_not_proposed json;
     v_result_node json;
     v_result_connec json;
@@ -262,7 +264,11 @@ BEGIN
 
             v_result_init = v_result;
 
-            --v_om_mincut_valve proposed true
+            -- Valve / node / connec GeoJSON carry network feature ids.
+            -- Valves are split into four exclusive buckets (priority:
+            -- unaccess → proposed → changestatus → not-proposed/DNO).
+
+            -- unaccess
             SELECT jsonb_build_object(
                 'type', 'FeatureCollection',
                 'features', COALESCE(jsonb_agg(features.feature), '[]'::jsonb)
@@ -273,12 +279,31 @@ BEGIN
             'geometry',   ST_AsGeoJSON(the_geom)::jsonb,
             'properties', to_jsonb(row) - 'the_geom'
             ) AS feature
-            FROM (SELECT id, ST_Transform(the_geom, 4326) as the_geom
-            FROM  v_om_mincut_valve WHERE proposed = true) row) features;
+            FROM (SELECT id, node_id, ST_Transform(the_geom, 4326) as the_geom
+            FROM  v_om_mincut_valve
+            WHERE COALESCE(unaccess, false)) row) features;
+
+            v_result_valve_unaccess = v_result;
+
+            -- proposed (and not unaccess)
+            SELECT jsonb_build_object(
+                'type', 'FeatureCollection',
+                'features', COALESCE(jsonb_agg(features.feature), '[]'::jsonb)
+            ) INTO v_result
+                FROM (
+            SELECT jsonb_build_object(
+             'type',       'Feature',
+            'geometry',   ST_AsGeoJSON(the_geom)::jsonb,
+            'properties', to_jsonb(row) - 'the_geom'
+            ) AS feature
+            FROM (SELECT id, node_id, ST_Transform(the_geom, 4326) as the_geom
+            FROM  v_om_mincut_valve
+            WHERE COALESCE(proposed, false)
+              AND NOT COALESCE(unaccess, false)) row) features;
 
             v_result_valve_proposed = v_result;
 
-            --v_om_mincut_valve proposed false
+            -- changestatus (and not unaccess / proposed)
             SELECT jsonb_build_object(
                 'type', 'FeatureCollection',
                 'features', COALESCE(jsonb_agg(features.feature), '[]'::jsonb)
@@ -289,8 +314,30 @@ BEGIN
             'geometry',   ST_AsGeoJSON(the_geom)::jsonb,
             'properties', to_jsonb(row) - 'the_geom'
             ) AS feature
-            FROM (SELECT id, ST_Transform(the_geom, 4326) as the_geom
-            FROM  v_om_mincut_valve WHERE proposed = false) row) features;
+            FROM (SELECT id, node_id, ST_Transform(the_geom, 4326) as the_geom
+            FROM  v_om_mincut_valve
+            WHERE COALESCE(changestatus, false)
+              AND NOT COALESCE(unaccess, false)
+              AND NOT COALESCE(proposed, false)) row) features;
+
+            v_result_valve_changestatus = v_result;
+
+            -- not proposed / do-not-operate (residual)
+            SELECT jsonb_build_object(
+                'type', 'FeatureCollection',
+                'features', COALESCE(jsonb_agg(features.feature), '[]'::jsonb)
+            ) INTO v_result
+                FROM (
+            SELECT jsonb_build_object(
+             'type',       'Feature',
+            'geometry',   ST_AsGeoJSON(the_geom)::jsonb,
+            'properties', to_jsonb(row) - 'the_geom'
+            ) AS feature
+            FROM (SELECT id, node_id, ST_Transform(the_geom, 4326) as the_geom
+            FROM  v_om_mincut_valve
+            WHERE NOT COALESCE(unaccess, false)
+              AND NOT COALESCE(proposed, false)
+              AND NOT COALESCE(changestatus, false)) row) features;
 
             v_result_valve_not_proposed = v_result;
 
@@ -305,7 +352,7 @@ BEGIN
             'geometry',   ST_AsGeoJSON(the_geom)::jsonb,
             'properties', to_jsonb(row) - 'the_geom'
             ) AS feature
-            FROM (SELECT id, ST_Transform(the_geom, 4326) as the_geom
+            FROM (SELECT id, node_id, ST_Transform(the_geom, 4326) as the_geom
             FROM  v_om_mincut_node) row) features;
 
             v_result_node = v_result;
@@ -321,7 +368,7 @@ BEGIN
             'geometry',   ST_AsGeoJSON(the_geom)::jsonb,
             'properties', to_jsonb(row) - 'the_geom'
             ) AS feature
-            FROM (SELECT id, ST_Transform(the_geom, 4326) as the_geom
+            FROM (SELECT id, connec_id, ST_Transform(the_geom, 4326) as the_geom
             FROM  v_om_mincut_connec) row) features;
 
             v_result_connec = v_result;
@@ -382,6 +429,8 @@ BEGIN
 
         v_result_init = COALESCE(v_result_init, '{}');
         v_result_valve_proposed = COALESCE(v_result_valve_proposed, '{}');
+        v_result_valve_unaccess = COALESCE(v_result_valve_unaccess, '{}');
+        v_result_valve_changestatus = COALESCE(v_result_valve_changestatus, '{}');
         v_result_valve_not_proposed = COALESCE(v_result_valve_not_proposed, '{}');
         v_result_node = COALESCE(v_result_node, '{}');
         v_result_connec = COALESCE(v_result_connec, '{}');
@@ -395,6 +444,8 @@ BEGIN
               ',"mincutState":',(v_values_array->>'mincut_state')::text,
               ',"mincutInit":',v_result_init::text,
               ',"mincutProposedValve":',v_result_valve_proposed::text,
+              ',"mincutUnaccessValve":',v_result_valve_unaccess::text,
+              ',"mincutChangestatusValve":',v_result_valve_changestatus::text,
               ',"mincutNotProposedValve":',v_result_valve_not_proposed::text,
               ',"mincutNode":',v_result_node::text,
               ',"mincutConnec":',v_result_connec::text,

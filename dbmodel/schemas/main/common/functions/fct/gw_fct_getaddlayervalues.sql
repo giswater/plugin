@@ -124,11 +124,11 @@ BEGIN
 			ELSE st.addparam->>'pkey'
 		END AS "tableId",
 		st.provider_config as "providerConfig"
-		FROM sys_table st
-		join config_typevalue ct ON ct.id= context
-		left join geomtable c ON st.id =c.table_name
-		left join idtable i ON st.id =i.table_name
-		WHERE typevalue = 'sys_table_context' and (c.column_name IS null or c.column_name != 'link_the_geom') and ct.idval !='["HIDDEN"]'
+		FROM v_sys_table st
+		JOIN v_config_typevalue ct ON ct.id = st.context
+		LEFT JOIN geomtable c ON st.id = c.table_name
+		LEFT JOIN idtable i ON st.id = i.table_name
+		WHERE typevalue = 'sys_table_context' AND (c.column_name IS null OR c.column_name != 'link_the_geom') AND ct.idval != '["HIDDEN"]'
 		ORDER BY  json_extract_path_text(ct.addparam,'orderBy')::integer,orderby, alias
 	)d into v_fields_array;
 

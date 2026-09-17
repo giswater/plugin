@@ -51,6 +51,13 @@ def test_list_sql_files_non_recursive(tmp_path: Path):
     assert [Path(p).name for p in flat] == ["a.sql", "b.sql"]
 
 
+def test_list_sql_files_single_file(tmp_path: Path):
+    """sql_dir sources may be a file (init.sql); listing must not skip it."""
+    p = tmp_path / "init.sql"
+    p.write_text("-- init", encoding="utf-8")
+    assert list_sql_files(str(p)) == [str(p)]
+
+
 def test_list_sql_files_recursive(tmp_path: Path):
     (tmp_path / "a.sql").write_text("-- a")
     (tmp_path / "sub").mkdir()

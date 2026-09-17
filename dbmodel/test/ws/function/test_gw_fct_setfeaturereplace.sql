@@ -11,8 +11,8 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 1 test
-SELECT plan(1);
+-- Plan for 3 tests
+SELECT plan(3);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -37,6 +37,22 @@ SELECT is(
     "workcat_id_end":"work1", "enddate":"2017-12-06", "keep_elements":"False", "keep_epa_values":"False"}}$$)::JSON)->>'status',
     'Accepted',
     'Check if gw_fct_setfeaturereplace returns status "Accepted"'
+);
+
+-- Column itself NULL (the real bug): disable/restore must not rewrite invalid JSON
+UPDATE config_param_system SET value = NULL WHERE parameter = 'edit_connec_proximity';
+
+SELECT is(
+    (gw_fct_setfeaturereplace($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{}, "feature":{"type":"connec"},
+    "data":{"filterFields":{}, "pageInfo":{}, "old_feature_id":"3008", "feature_type_new":"WJOIN", "featurecat_id":"FACADE-CABINET",
+    "workcat_id_end":"work1", "enddate":"2017-12-06", "keep_elements":"False", "keep_epa_values":"False"}}$$)::JSON)->>'status',
+    'Accepted',
+    'Check if gw_fct_setfeaturereplace connec returns status "Accepted" when edit_connec_proximity is NULL'
+);
+
+SELECT ok(
+    (SELECT value FROM config_param_system WHERE parameter = 'edit_connec_proximity') IS NULL,
+    'gw_fct_setfeaturereplace restores edit_connec_proximity when the column is NULL'
 );
 
 -- Finish the test

@@ -113,7 +113,7 @@ BEGIN
 			-- The result has a different network type or distinct sectors. Proceed with creating a new corporate entity.
 		end if;
 
-		UPDATE rpt_cat_result SET iscorporate=v_iscorporate WHERE result_id = v_result_id;
+		UPDATE rpt_cat_result SET iscorporate=v_iscorporate, isvalidated=true WHERE result_id = v_result_id;
 
 		SELECT result_id INTO v_current_selector FROM selector_rpt_main WHERE cur_user=current_user;
 

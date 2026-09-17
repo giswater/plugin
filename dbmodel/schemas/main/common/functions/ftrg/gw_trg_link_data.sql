@@ -81,10 +81,6 @@ BEGIN
 		ELSIF v_feature_type = 'GULLY' THEN
 			UPDATE link SET is_operative = v.is_operative, expl_visibility = NEW.expl_visibility, fluid_type = NEW.fluid_type, muni_id = NEW.muni_id
 			FROM value_state_type v WHERE id = NEW.state_type AND feature_id = NEW.gully_id;
-
-		ELSIF v_feature_type = 'LINK' THEN
-			-- only apply for traceability when the_geom changes
-			UPDATE link SET updated_at = now(), updated_by = current_user WHERE link_id = NEW.link_id;
 		END IF;
 	END IF;
 

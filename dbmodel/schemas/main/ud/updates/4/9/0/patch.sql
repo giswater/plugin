@@ -61,10 +61,10 @@ FOREIGN KEY (dscenario_id, pattern_id) REFERENCES inp_dscenario_pattern(dscenari
 ON DELETE CASCADE ON UPDATE CASCADE;
 
 
-ALTER TABLE dwfzone DISABLE TRIGGER ALL;
-ALTER TABLE drainzone DISABLE TRIGGER ALL;
-ALTER TABLE omunit DISABLE TRIGGER ALL;
-ALTER TABLE macroomunit DISABLE TRIGGER ALL;
+ALTER TABLE dwfzone DISABLE TRIGGER USER;
+ALTER TABLE drainzone DISABLE TRIGGER USER;
+ALTER TABLE omunit DISABLE TRIGGER USER;
+ALTER TABLE macroomunit DISABLE TRIGGER USER;
 
 UPDATE dwfzone SET expl_id = ARRAY[0] WHERE expl_id IS NULL;
 UPDATE dwfzone SET sector_id = ARRAY[0] WHERE sector_id IS NULL;
@@ -109,10 +109,10 @@ ALTER TABLE macroomunit ALTER COLUMN muni_id SET NOT NULL;
 ALTER TABLE omunit ALTER COLUMN the_geom TYPE public.geometry(multilinestring, SRID_VALUE) USING the_geom::public.geometry(multilinestring, SRID_VALUE);
 ALTER TABLE macroomunit ALTER COLUMN the_geom TYPE public.geometry(multilinestring, SRID_VALUE) USING the_geom::public.geometry(multilinestring, SRID_VALUE);
 
-ALTER TABLE dwfzone ENABLE TRIGGER ALL;
-ALTER TABLE drainzone ENABLE TRIGGER ALL;
-ALTER TABLE omunit ENABLE TRIGGER ALL;
-ALTER TABLE macroomunit ENABLE TRIGGER ALL;
+ALTER TABLE dwfzone ENABLE TRIGGER USER;
+ALTER TABLE drainzone ENABLE TRIGGER USER;
+ALTER TABLE omunit ENABLE TRIGGER USER;
+ALTER TABLE macroomunit ENABLE TRIGGER USER;
 
 
 DROP RULE IF EXISTS omzone_expl ON omzone;

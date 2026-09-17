@@ -24,7 +24,7 @@ SELECT columns_are(
         'element_id', 'node_id', 'to_arc', 'flwreg_length', 'weir_type', 'offsetval',
         'cd', 'ec', 'cd2', 'flap', 'geom1', 'geom2',
         'geom3', 'geom4', 'surcharge', 'road_width', 'road_surf', 'coef_curve',
-        'the_geom'
+        'the_geom', 'p_state'
     ],
     'View ve_inp_frweir should have the correct columns'
 );
@@ -49,6 +49,7 @@ SELECT col_type_is('ve_inp_frweir', 'road_width', 'float8', 'Column road_width s
 SELECT col_type_is('ve_inp_frweir', 'road_surf', 'varchar(16)', 'Column road_surf should be varchar(16)');
 SELECT col_type_is('ve_inp_frweir', 'coef_curve', 'float8', 'Column coef_curve should be float8');
 SELECT col_type_is('ve_inp_frweir', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_frweir', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

@@ -48,7 +48,7 @@ v_level integer;
 v_status text;
 v_message text;
 v_audit_result json;
-v_count integer;
+v_count integer := 0;
 v_error_context text;
 
 BEGIN
@@ -66,6 +66,7 @@ BEGIN
 	v_worklayer := ((p_data ->>'feature')::json->>'tableName')::text;
 	v_feature_type := lower(((p_data ->>'feature')::json->>'featureType'))::text;
 	v_updatevalues :=  ((p_data ->>'data')::json->>'parameters')::json->>'updateValues'::text;
+	v_update_field :=  ((p_data ->>'data')::json->>'parameters')::json->>'updateField'::text;
 
 	select string_agg(quote_literal(a),',') into v_array from json_array_elements_text(v_id) a;
 
@@ -82,7 +83,10 @@ BEGIN
 	ELSIF (SELECT json_extract_path_text(value::json,'activated')::boolean FROM config_param_system WHERE parameter='admin_raster_dem') IS TRUE THEN
 
 		--select update field
-		SELECT json_extract_path_text(value::json,'updateField') INTO v_update_field FROM config_param_system WHERE parameter='admin_raster_dem';
+
+		IF v_update_field IS NULL THEN
+			SELECT json_extract_path_text(value::json,'updateField') INTO v_update_field FROM config_param_system WHERE parameter='admin_raster_dem';
+		END IF;
 
 		IF v_update_field NOT IN ('elevation', 'custom_top_elev', 'top_elev') THEN
 			EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
@@ -153,6 +157,8 @@ BEGIN
 						EXECUTE 'UPDATE '||v_feature_type||' SET '||v_update_field||' = '||v_elevation||' ::numeric WHERE '||v_feature_type||'_id = '||rec.feature_id||'';
 					END IF;
 
+					v_count = v_count + 1;
+
 					--temporal insert values into anl_node to create layer with all updated points
 					INSERT INTO anl_node (node_id, state, expl_id, fid, the_geom, descript)
 					VALUES (rec.feature_id, rec.state::integer, rec.expl_id, 168,rec.the_geom, upper(v_feature_type));
@@ -166,9 +172,6 @@ BEGIN
 		END IF;
 
 	END IF;
-
-	--count updated elements
-	select count(*) from audit_check_data where fid = 168 and error_message like 'ELEVATION UPDATED%' and tstamp = now() into v_count;
 
 	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
     	"data":{"function":"2760", "fid":"168", "is_process":true, "separator_id":"2030"}}$$)';

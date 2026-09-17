@@ -193,6 +193,11 @@ BEGIN
 			END IF;
 		END IF;
 
+		-- Ownercat_id from exploitation.owner_vdefault (same as node/arc/connec form default)
+		IF (NEW.ownercat_id IS NULL AND NEW.expl_id IS NOT NULL) THEN
+			NEW.ownercat_id := (SELECT owner_vdefault FROM exploitation WHERE expl_id = NEW.expl_id LIMIT 1);
+		END IF;
+
 		-- Sector
 		IF (NEW.sector_id IS NULL AND NEW.the_geom IS NOT NULL) THEN
 			NEW.sector_id := (SELECT sector_id FROM sector WHERE ST_intersects(NEW.the_geom, sector.the_geom) AND active IS TRUE limit 1);

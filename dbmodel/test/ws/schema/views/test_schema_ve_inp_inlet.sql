@@ -26,7 +26,7 @@ SELECT columns_are(
         'minlevel', 'maxlevel', 'diameter', 'minvol', 'curve_id', 'overflow',
         'mixing_model', 'mixing_fraction', 'reaction_coeff', 'init_quality', 'source_type', 'source_quality',
         'source_pattern_id', 'pattern_id', 'head', 'demand', 'demand_pattern_id', 'emitter_coeff',
-        'the_geom'
+        'the_geom', 'p_state'
     ],
     'View ve_inp_inlet should have the correct columns'
 );
@@ -63,6 +63,7 @@ SELECT col_type_is('ve_inp_inlet', 'demand', 'numeric(12,6)', 'Column demand sho
 SELECT col_type_is('ve_inp_inlet', 'demand_pattern_id', 'varchar(16)', 'Column demand_pattern_id should be varchar(16)');
 SELECT col_type_is('ve_inp_inlet', 'emitter_coeff', 'float8', 'Column emitter_coeff should be float8');
 SELECT col_type_is('ve_inp_inlet', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
+SELECT col_type_is('ve_inp_inlet', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

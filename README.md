@@ -29,15 +29,16 @@ Developed in Python (QGIS plugin) and PL/SQL (PostgreSQL database), the project 
 
 1. [Requirements](#requirements)
 2. [Install](#install)
-3. [Test](#test)
-4. [Deployment](#deployment)
-5. [Wiki](#wiki)
-6. [FAQ](#faqs)
-7. [Code Repositories](#code-repositories)
-8. [Versioning](#versioning)
-9. [Third-Party Libraries](#third-party-libraries)
-10. [License](#license)
-11. [Acknowledgments](#acknowledgments)
+3. [Optional: Go2Epa with hydraulic_engine](#optional-go2epa-with-hydraulic_engine)
+4. [Test](#test)
+5. [Deployment](#deployment)
+6. [Wiki](#wiki)
+7. [FAQ](#faqs)
+8. [Code Repositories](#code-repositories)
+9. [Versioning](#versioning)
+10. [Third-Party Libraries](#third-party-libraries)
+11. [License](#license)
+12. [Acknowledgments](#acknowledgments)
 
 ---
 
@@ -97,7 +98,7 @@ Compatible with Windows, Mac, and Linux OS.
   role_crm   (standalone)
   ```
 
-  **Installer requirements:** connect as a PostgreSQL superuser (or equivalent: `CREATEROLE` + `CREATE` on the target database). The build creates missing roles, (re)applies the role hierarchy on every schema create (`GRANT` is idempotent), grants `role_system` to the installer when superuser, creates the project schema `AUTHORIZATION role_system`, and runs restrictive grants (no blanket `ALL` on tables — see [`gw_fct_admin_role_permissions`](dbmodel/schemas/main/common/base/fct/gw_fct_admin_role_permissions.sql)).
+  **Installer requirements:** `gw db init` must run as a PostgreSQL superuser (extensions, roles, `GRANT CREATE ON DATABASE … TO role_system`). After that, schema create/update/drop can run as that superuser **or** as a login granted `role_system`. `init.sql` creates the schema `AUTHORIZATION role_system` and `SET ROLE role_system` for base DDL; later phases (updates, sample) run as the installer login. Drop/rename still `SET ROLE role_system` because the schema is owned by that role. Restrictive object grants are applied by [`gw_fct_admin_role_permissions`](dbmodel/schemas/main/common/base/fct/gw_fct_admin_role_permissions.sql).
 
   **Manual bootstrap** (only if you must prepare roles before the first schema build, e.g. restricted DBA workflow):
 
@@ -164,10 +165,11 @@ Compatible with Windows, Mac, and Linux OS.
 
 ### Frontend environment:
 
-Compatible with Windows, Mac, and Linux, but EPA models are only supported on Windows.
+Compatible with Windows, Mac, and Linux.
 
-- Install the latest Long-Term Release (LTR) of QGIS.
-- Install SWMM (5.1) and EPANET (2.2). _Note_: EPA SWMM and EPANET may not work on Linux front-end environments.
+- Install the latest Long-Term Release (LTR) of QGIS (or QGIS 4.x).
+- Install the [QPIP](https://plugins.qgis.org/) plugin dependency manager so Giswater can install Python packages from `requirements.txt` (WNTR, pyswmm, etc.).
+- Classic EPA desktop apps (SWMM 5.1 / EPANET 2.2) are mainly relevant on Windows. On macOS/Linux, Go2Epa **Execute EPA** needs the optional [`hydraulic_engine`](https://github.com/bgeo-gis/hydraulic-engine) package (see [below](#optional-go2epa-with-hydraulic_engine)).
 - On Linux systems, you may need to install the PostgreSQL Qt driver for database connectivity.
   - On Ubuntu:
   ```
@@ -177,6 +179,80 @@ Compatible with Windows, Mac, and Linux, but EPA models are only supported on Wi
   ```
   sudo dnf install qt5-qtbase-postgresql
   ```
+
+## Optional: Go2Epa with hydraulic_engine
+
+Go2Epa works **without** [`hydraulic_engine`](https://github.com/bgeo-gis/hydraulic-engine): on Windows it uses the classic EPA desktop apps. Install the package only if you want the enhanced path (clearer run/import errors; **Execute EPA** on Linux/macOS for WS and UD). When the package is missing, Giswater keeps the classic EPA path automatically.
+
+### Why it is not in `requirements.txt` / QPIP
+
+QPIP installs into the profile `python/dependencies` tree with an isolated prefix that does **not** see QGIS’s bundled site-packages. Pip then tends to pull its own latest stack (including SciPy). At runtime QGIS often still loads **NumPy from its own Python**, which can be incompatible with the SciPy sitting under dependencies. We hit that mismatch with `hydraulic_engine`, so the package stays **optional and manual** — users who want it install a pinned version themselves.
+
+Tested pin with Giswater 4.x: **`hydraulic_engine==0.9.0`**.
+
+### Manual install
+
+Use **QGIS’s Python** (not system Python) and install into the same dependencies prefix QPIP uses for your profile. Adjust the QGIS path, profile name, and Python minor version (`3.9`, `3.12`, …) to match your install.
+
+**Windows** (PowerShell example; point `python-qgis.bat` at your QGIS install):
+
+```powershell
+$py = "C:\Program Files\QGIS 3.40.0\bin\python-qgis.bat"
+$prefix = "$env:APPDATA\QGIS\QGIS3\profiles\default\python\dependencies"
+& $py -m pip install "hydraulic_engine==0.9.0" --prefix $prefix
+```
+
+**macOS / Linux** (example; use the Python that ships with QGIS):
+
+```bash
+# Set QGIS_PYTHON to your QGIS python binary, then:
+PREFIX="$HOME/Library/Application Support/QGIS/QGIS3/profiles/default/python/dependencies"  # macOS QGIS 3
+# Linux often: "$HOME/.local/share/QGIS/QGIS3/profiles/default/python/dependencies"
+"$QGIS_PYTHON" -m pip install "hydraulic_engine==0.9.0" --prefix "$PREFIX"
+```
+
+Fully quit and reopen QGIS afterwards. In the log you should see that hydraulic engine was imported; otherwise Go2Epa falls back to classic EPA.
+
+### Align SciPy with QGIS (recommended after install)
+
+`hydraulic_engine` (and its deps) often pull a newer SciPy than QGIS’s bundled NumPy can load. **After** installing `hydraulic_engine`, reinstall the **same SciPy version QGIS already has** into the dependencies prefix:
+
+1. In the QGIS Python console:
+
+   ```python
+   import scipy
+   print(scipy.__version__)
+   ```
+
+2. Reinstall that version with the same QGIS Python and `--prefix` as above, e.g.:
+
+   ```bash
+   "$QGIS_PYTHON" -m pip install "scipy==<version-from-step-1>" --prefix "$PREFIX"
+   ```
+
+Example that fixed the NumPy/SciPy mismatch after `hydraulic_engine==0.9.0` on **QGIS 3.40.12 / Python 3.12.11 / Windows 11 / NumPy 1.26.4**: install `scipy==1.17.1`. Do **not** copy that SciPy pin blindly — use the version printed in step 1 for your QGIS.
+
+If imports still fail, check that QGIS NumPy is the one being used (`import numpy; print(numpy.__version__, numpy.__file__)`) and avoid leaving a different `numpy` under `python/dependencies`.
+
+### macOS: re-sign native libraries
+
+On macOS, QGIS runs with Hardened Runtime. Native libraries from QPIP/pip wheels (`wntr` / EPANET, `pyswmm` / SWMM, `hydraulic_engine`, etc.) often ship **ad-hoc or unsigned**. Loading them into QGIS can kill the app with:
+
+`EXC_BAD_ACCESS (SIGKILL) — CODESIGNING / Invalid Page`
+
+This is a packaging limitation of those PyPI wheels, not a Giswater bug. After installing or updating dependencies, re-sign them locally:
+
+```bash
+# QGIS 4 + Python 3.12 (default profile).
+# QGIS 3: replace QGIS4 with QGIS3. Adjust 3.12 if your QGIS Python minor differs.
+DEP="$HOME/Library/Application Support/QGIS/QGIS4/profiles/default/python/dependencies/3.12"
+
+xattr -dr com.apple.quarantine "$DEP" 2>/dev/null
+find "$DEP" \( -name "*.so" -o -name "*.dylib" \) \
+  -exec codesign --force --sign - {} \;
+```
+
+Fully quit and reopen QGIS afterwards. Re-run this command after any QPIP / `pip` update that refreshes native wheels.
 
 ## Test
 
@@ -197,7 +273,7 @@ Use the provided example projects, pre-loaded with datasets for testing. Find se
 
 ### Requirements
 
-Ensure you have the permissions to connect to PostgreSQL and that your user has superuser rights for database administration tasks (e.g., creating schemas, roles, backups).
+Ensure you have the permissions to connect to PostgreSQL. Database bootstrap (`gw db init`, extensions, roles) needs superuser rights. After that, schema administration can be done by a login that is a member of `role_system`.
 
 ### Project Setup
 
@@ -214,6 +290,10 @@ Explore additional documentation on the [Giswater Wiki](https://github.com/giswa
 ## FAQs
 
 Find answers to common questions in the [Giswater FAQs](https://github.com/giswater/plugin/wiki/FAQs).
+
+**QGIS on macOS crashes when running Go2Epa / EPANET?** See [macOS: re-sign native libraries](#macos-re-sign-native-libraries).
+
+**Want Go2Epa with hydraulic_engine / Execute EPA on Linux or macOS?** See [Optional: Go2Epa with hydraulic_engine](#optional-go2epa-with-hydraulic_engine) (manual install; not via QPIP).
 
 ## Code Repositories
 

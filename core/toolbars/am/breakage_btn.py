@@ -51,15 +51,21 @@ class GwAmBreakageButton(GwAction):
         self.action_group = action_group
 
         # Menu labels
-        self.txt_assignation = tools_qt.tr("Breakdown Assignation")
-        self.txt_priority = tools_qt.tr("Priority Calculation (Global)")
+        title = "Breakdown Assignation"
+        self.txt_assignation = tools_qt.tr(title)
+        title = "Priority Calculation (Global)"
+        self.txt_priority = tools_qt.tr(title)
+
+        # First add the menu before adding it to the toolbar
+        if toolbar is not None:
+            toolbar.removeAction(self.action)
 
         # Create a menu and add all the actions
         self.menu = QMenu()
         self.menu.setObjectName("AM_breakage_tools")
         self._fill_action_menu()
 
-        if toolbar and self.action:
+        if toolbar is not None:
             self.action.setMenu(self.menu)
             toolbar.addAction(self.action)
 
@@ -170,14 +176,10 @@ class GwAmBreakageButton(GwAction):
             )
 
             if not os.path.exists(config_path):
-                print(
-                    tools_qt.tr(
-                        "Configuration file not found, "
-                        "please make sure it is located in the correct directory "
-                        "and try again"
-                    )
-                    + f": {config_path}"
-                )
+                msg = ("Configuration file not found, please make sure it is located in the correct directory "
+                       "and try again: {0}")
+                msg_params = (config_path,)
+                print(tools_qt.tr(msg, list_params=msg_params))
                 return
 
             config.read(config_path)
@@ -288,8 +290,9 @@ class GwAmBreakageButton(GwAction):
         if not tools_qt.show_question(msg):
             return
 
+        title = "Breakdown Assignation"
         self.thread = GwAssignation(
-            tools_qt.tr("Breakdown Assignation"),
+            tools_qt.tr(title),
             buffer,
             years,
             max_distance,
@@ -446,7 +449,9 @@ class GwAmBreakageButton(GwAction):
                 target_layers.append((target_layer, row[1]))
 
             if len(target_layers) > 0:
-                result = tools_qt.show_question("Do you want to update the symbology of the layers currently loaded in the project?", "Update AM Layers Symbology", force_action=True)
+                msg = "Do you want to update the symbology of the layers currently loaded in the project?"
+                title = "Update AM Layers Symbology"
+                result = tools_qt.show_question(msg, title, force_action=True)
                 if result:
                     for layer, addparam in target_layers:
                         tools_gw.refresh_categorized_layer_symbology_classes(layer, addparam)

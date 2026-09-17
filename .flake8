@@ -12,9 +12,7 @@ exclude =
     packages,
     dbmodel,
     test,
-    i18n_manager.py,
     schema_i18n_update.py,
-    i18n_generator.py,
     markdown_generator.py
 # Line length (QGIS plugins often need longer lines)
 max-line-length = 120

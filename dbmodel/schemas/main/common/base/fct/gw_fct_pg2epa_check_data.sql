@@ -49,8 +49,6 @@ BEGIN
 
 	IF v_isembebed IS FALSE OR v_isembebed IS NULL THEN -- create temporal tables if function is not embebed
 		EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"fid":'||v_fid||', "project_type":"'||v_project_type||'", "action":"CREATE", "group":"EPAMAIN"}}}$$)';
-	ELSE
-		EXECUTE 'SELECT gw_fct_manage_temp_tables($${"data":{"parameters":{"fid":'||v_fid||', "project_type":"'||v_project_type||'", "action":"CREATE", "group":"EPA"}}}$$)';
 	END IF;
 
     -- [MODIFICACIÓN 1] Insertar cabeceras y separadores para ordenar la salida (Estilo O&M)

@@ -40,10 +40,16 @@ class GwFastprint:
         self.rubber_band = tools_gw.create_rubberband(self.canvas)
         self.my_json = {}
 
+        folderpath = tools_gw.get_composers_folderpath()
+        qpt_files = tools_gw.load_qpt_templates_into_project(folderpath)
         composers_list = tools_qgis.get_composer()
         if composers_list == '"{}"':
-            msg = "No composers found."
-            tools_qt.show_info_box(msg, "Info")
+            if folderpath and qpt_files is None:
+                msg = "Your composer's path is bad configured. Please, modify it and try again."
+                tools_qgis.show_warning(msg)
+            else:
+                msg = "No composers found."
+                tools_qt.show_info_box(msg, "Info")
             return
 
         self.initial_rotation = self.canvas.rotation()
@@ -95,7 +101,7 @@ class GwFastprint:
         self._check_whidget_exist(self.dlg_composer)
         self._load_composer_values(self.dlg_composer)
 
-        tools_gw.open_dialog(self.dlg_composer, dlg_name='fastprint')
+        tools_gw.open_dialog(self.dlg_composer, dlg_name='print')
 
         # Control if no have composers
         if composers_list != '"{}"':
@@ -176,7 +182,9 @@ class GwFastprint:
             if type(item) is not QgsLayoutItemLabel or item is None:
                 widget.clear()
                 widget.setStyleSheet("border: 1px solid red")
-                widget.setPlaceholderText(f"Widget '{widget.property('columnname')}' not found in the composer")
+                msg = "Widget '{0}' not found in the composer"
+                msg_params = (widget.property('columnname'),)
+                widget.setPlaceholderText(tools_qt.tr(msg, list_params=msg_params))
             elif type(item) is QgsLayoutItemLabel and item is not None:
                 widget.setStyleSheet(None)
 

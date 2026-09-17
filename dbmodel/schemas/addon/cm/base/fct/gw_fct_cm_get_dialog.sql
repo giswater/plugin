@@ -156,7 +156,7 @@ BEGIN
 				    't.tabname as "tabName", t.label as "tabLabel", t.tooltip as "tooltip", ',
 				    'NULL as "tabFunction", NULL AS "tabactions", t.orderby, ',
 				    'ct.addparam as "addparam" ',
-				    'FROM config_form_tabs t ',
+				    'FROM v_config_form_tabs t ',
 				    'LEFT JOIN config_typevalue ct ON ct.typevalue = ''tabname_typevalue'' AND ct.id = t.tabname ',
 				    'WHERE t.tabname = ''', v_tab_name, ''' ',
 				    'AND t.formname = ''', v_formtype, ''' AND ', v_device,
@@ -251,7 +251,7 @@ BEGIN
  	v_fieldsjson := COALESCE(v_fieldsjson, '[]');
 
 	-- Create JSON from layouts
-	SELECT array_agg(distinct layoutname) into v_layouts FROM config_form_fields  WHERE formtype = v_formtype;
+	SELECT array_agg(distinct layoutname) into v_layouts FROM v_config_form_fields  WHERE formtype = v_formtype;
 
 	v_form:= '"layouts": {';
 

@@ -29,6 +29,12 @@ Main workflows:
 - Redraw an existing link when target feature have been changed
 - Reverse link geom when need in order to repair it
 
+extraFilters (data.extraFilters, keys = column names on arc / node)
+-------------------------------------------------------------------
+AND predicates on the KNN CTE (with maxDistance / pipeDiameter / forced set). Applied on new links,
+forceReconnect and forceNode. Not applied when snapping an existing link without forceReconnect.
+Only TABLE columns are used; keys that exist only on ve_arc/ve_node are skipped.
+
 
 EXAMPLES
 --------
@@ -40,6 +46,9 @@ SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1
 
 SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{"id":["100013"]},"data":{"feature_type":"CONNEC"}}$$);
 SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{"id":["100014"]},"data":{"feature_type":"GULLY"}}$$);
+SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{"id":["100013"]},"data":{"feature_type":"CONNEC", "forceNode":true}}$$);
+SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{"id":["100014"]},"data":{"feature_type":"GULLY", "forcedNodes":["1001"]}}$$);
+SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{"id":["100013"]},"data":{"feature_type":"CONNEC", "extraFilters":{"fluid_type":"1"}}}$$);
 
 SELECT SCHEMA_NAME.gw_fct_setlinktonetwork($${"client":{"device":4, "infoType":1,"lang":"ES"},"feature":
 {"id":"SELECT array_to_json(array_agg(connec_id::text)) FROM ve_connec WHERE connec_id IS NOT NULL AND state=1"},"data":{"feature_type":"CONNEC"}}$$);
@@ -56,6 +65,12 @@ v_feature_type text;-- Type of features affected
 v_feature_ids text; -- List of feature affected
 v_forcedarcs text; -- Used to force only some specific arcs
 v_isforcedarcs boolean; -- Check if forced arcs strategy is being used
+v_forcednodes text; -- Used to force only some specific nodes
+v_isforcednodes boolean = false; -- Check if forced nodes strategy is being used
+v_forcenode boolean = false; -- Search closest node instead of closest arc
+v_isnodedest boolean = false; -- Current connect is linking to a NODE
+v_node record; -- Record to store the value for the used node
+v_node_id integer; -- Id for the used node
 v_ispsector boolean; -- When function is called from psector side (gw_trg_plan_psector_link)
 v_isarcdivide boolean;	-- When function is called for arcdivide procedure (gw_fct_setarcdivide)
 v_link_id integer; -- Id for link
@@ -120,6 +135,20 @@ v_state_type integer;
 v_man_table text;
 
 v_min_arcdnom float;
+v_expl_vis smallint[];
+
+v_extrafilters json;
+v_extrafilters_arc text := '';
+v_extrafilters_node text := '';
+v_ef_key text;
+v_ef_value json;
+v_ef_rel text;
+v_ef_alias text;
+v_ef_coltype text;
+v_ef_isarray boolean;
+v_ef_text text;
+v_ef_arr text[];
+v_ef_frag text;
 
 BEGIN
 
@@ -136,6 +165,8 @@ BEGIN
 	v_feature_type =  ((p_data ->>'data')::json->>'feature_type'::text);
 	v_feature_ids = ((p_data ->>'feature')::json->>'id'::text);
 	v_forcedarcs = (p_data->>'data')::json->>'forcedArcs';
+	v_forcednodes = (p_data->>'data')::json->>'forcedNodes';
+	v_forcenode = (p_data->>'data')::json->>'forceNode';
 	v_ispsector = (p_data->>'data')::json->>'isPsector';
 	v_forceendpoint = (p_data->>'data')::json->>'forceEndPoint';
 	v_force_reconnect = (p_data->>'data')::json->>'forceReconnect';
@@ -146,6 +177,7 @@ BEGIN
 	v_check_arcdnom = (p_data->>'data')::json->>'pipeDiameter';
 	v_check_maxdistance = (p_data->>'data')::json->>'maxDistance';
 	v_psector_id_param = ((p_data->>'data')::json->>'psectorId')::integer;
+	v_min_arcdnom = (p_data->>'data')::json->>'minPipeDiameter';
 
 	-- get user variables (use psector from Python if provided, otherwise from config)
 	v_psector_current = COALESCE(v_psector_id_param, (SELECT value::integer FROM config_param_user WHERE parameter = 'plan_psector_current' AND cur_user = current_user));
@@ -153,6 +185,7 @@ BEGIN
 	--profilactic values
 	IF v_forceendpoint IS NULL THEN v_forceendpoint = FALSE; END IF;
 	IF v_force_reconnect IS NULL THEN v_force_reconnect = FALSE; END IF;
+	IF v_forcenode IS NULL THEN v_forcenode = FALSE; END IF;
 
 	--control v_check status and value and distance
 	IF v_check_maxdistance IS NULL THEN v_check_maxdistance = 9999; END IF;
@@ -164,14 +197,16 @@ BEGIN
 
   	IF v_projecttype = 'WS' THEN
 		BEGIN
-			SELECT min(ca.dnom::float) INTO v_min_arcdnom
-			FROM cat_arc ca
-			WHERE ca.id IN (
-				SELECT DISTINCT arccat_id
-				FROM arc
-				JOIN vf_arc va ON va.arc_id = arc.arc_id
-				WHERE state > 0 AND arccat_id IS NOT NULL
-			);
+			IF v_min_arcdnom IS NULL THEN
+				SELECT min(ca.dnom::float) INTO v_min_arcdnom
+				FROM cat_arc ca
+				WHERE ca.id IN (
+					SELECT DISTINCT arccat_id
+					FROM arc
+					JOIN vf_arc va ON va.arc_id = arc.arc_id
+					WHERE state > 0 AND arccat_id IS NOT NULL
+				);
+			END IF;
 
 			IF v_min_arcdnom IS NOT NULL AND v_check_arcdnom <= v_min_arcdnom THEN
 				EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
@@ -201,6 +236,81 @@ BEGIN
 		END IF;
 	END IF;
 
+	-- create query text for forced nodes
+	IF v_forcednodes IS NULL THEN
+		v_forcednodes= '';
+		v_isforcednodes = False;
+	ELSE
+		v_forcednodes = replace(ARRAY(SELECT json_array_elements_text(((p_data::json->>'data')::json->>'forcedNodes')::json))::text, '{','(');
+		v_forcednodes = concat (' AND node_id::integer IN ', replace (v_forcednodes, '}',')'));
+		v_isforcednodes = True;
+
+		v_querytext = 'SELECT count(node_id) FROM ve_node WHERE node_id IS NOT NULL '||v_forcednodes||';';
+		EXECUTE v_querytext INTO v_count;
+		IF v_count=0 THEN
+			v_forcednodes= '';
+			v_isforcednodes = False;
+		END IF;
+	END IF;
+
+	v_isnodedest = (v_forcenode IS TRUE OR v_isforcednodes IS TRUE);
+
+	-- extraFilters: AND a.col / n.col on TABLE columns only. Skip unknown keys. Same JSON compiled for arc and node.
+	v_extrafilters = ((p_data->>'data')::json)->'extraFilters';
+	v_extrafilters_arc := '';
+	v_extrafilters_node := '';
+	IF v_extrafilters IS NOT NULL AND json_typeof(v_extrafilters) = 'object' THEN
+		FOREACH v_ef_rel IN ARRAY ARRAY['arc', 'node']
+		LOOP
+			v_ef_alias := CASE WHEN v_ef_rel = 'arc' THEN 'a' ELSE 'n' END;
+			v_ef_frag := '';
+			FOR v_ef_key, v_ef_value IN SELECT * FROM json_each(v_extrafilters)
+			LOOP
+				IF v_ef_key !~ '^[a-zA-Z_][a-zA-Z0-9_]*$' THEN
+					CONTINUE;
+				END IF;
+				IF json_typeof(v_ef_value) IS NULL OR json_typeof(v_ef_value) = 'null' THEN
+					CONTINUE;
+				END IF;
+
+				SELECT format_type(a.atttypid, a.atttypmod), (t.typcategory = 'A')
+				INTO v_ef_coltype, v_ef_isarray
+				FROM pg_attribute a
+				JOIN pg_type t ON t.oid = a.atttypid
+				WHERE a.attrelid = to_regclass(v_ef_rel)
+				AND a.attname = v_ef_key
+				AND a.attnum > 0 AND NOT a.attisdropped;
+
+				IF v_ef_coltype IS NULL THEN
+					CONTINUE;
+				END IF;
+
+				IF json_typeof(v_ef_value) = 'array' THEN
+					v_ef_arr := ARRAY(SELECT json_array_elements_text(v_ef_value));
+					IF v_ef_arr IS NULL OR coalesce(array_length(v_ef_arr, 1), 0) = 0 THEN
+						CONTINUE;
+					END IF;
+					IF v_ef_isarray THEN
+						v_ef_frag := v_ef_frag || format(' AND %I.%I && %L::%s', v_ef_alias, v_ef_key, v_ef_arr, v_ef_coltype);
+					ELSE
+						v_ef_frag := v_ef_frag || format(' AND %I.%I = ANY(%L::%s[])', v_ef_alias, v_ef_key, v_ef_arr, v_ef_coltype);
+					END IF;
+				ELSE
+					v_ef_text := v_ef_value #>> '{}';
+					IF v_ef_text IS NULL OR v_ef_text = '' THEN
+						CONTINUE;
+					END IF;
+					v_ef_frag := v_ef_frag || format(' AND %I.%I = %L::%s', v_ef_alias, v_ef_key, v_ef_text, v_ef_coltype);
+				END IF;
+			END LOOP;
+			IF v_ef_rel = 'arc' THEN
+				v_extrafilters_arc := v_ef_frag;
+			ELSE
+				v_extrafilters_node := v_ef_frag;
+			END IF;
+		END LOOP;
+	END IF;
+
 	-- get values from feature array
 	IF v_feature_ids ILIKE '[%]' THEN
 		v_feature_array = ARRAY(SELECT json_array_elements_text(v_feature_ids::json)::integer);
@@ -219,7 +329,11 @@ BEGIN
 	EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "1105","function":"3188","fid": 217,"v_criticity": 4}}$$);';
 
 	-- Main loop
-	IF v_feature_array IS NOT NULL THEN
+	IF v_isnodedest IS TRUE AND v_isforcedarcs IS TRUE THEN
+		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+		"data":{"message":"4682", "function":"3188","fid": 217, "parameters":null, "is_process":true}}$$);' INTO v_audit_result;
+
+	ELSIF v_feature_array IS NOT NULL THEN
 
 	    FOREACH v_connect_id IN ARRAY v_feature_array
 	    LOOP
@@ -322,6 +436,25 @@ BEGIN
 				SELECT * INTO v_link FROM ve_link WHERE feature_id = v_connect_id limit 1;
 			END IF;
 
+			-- skip userdefined links in inventory mode only.
+			-- Planned clone (psector / arc-divide) must still create a state=2 link from the operative geom.
+			IF v_link.userdefined_geom IS TRUE
+				AND COALESCE(v_isoperative_psector, false) IS FALSE
+				AND COALESCE(v_ispsector, false) IS FALSE
+				AND COALESCE(v_isarcdivide, false) IS FALSE THEN
+				EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "4692","function":"3188","fid": 217,"v_criticity": 2,
+				"parameters":{"feature_type":"'||lower(v_feature_type)||'", "connect_id":"'||v_connect_id||'"}}}$$);';
+				v_connect := null;
+				v_link := null;
+				v_arc := null;
+				v_point_aux := null;
+				v_isoperative_psector := false;
+				v_existing_link := null;
+				v_linkfrompsector := null;
+				v_old_arc_id := null;
+				CONTINUE;
+			END IF;
+
 			-- exception control. It is not possible to create a link for connec over arc
 			SELECT * INTO v_arc FROM ve_arc WHERE ST_DWithin(v_connect.the_geom, ve_arc.the_geom, 0.001);
 
@@ -338,22 +471,70 @@ BEGIN
 				END IF;
 			END IF;
 
-			IF v_arc.arc_id IS NOT NULL THEN
+			IF v_arc.arc_id IS NOT NULL AND v_isnodedest IS FALSE THEN
 				EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "1113","function":"3188","fid": 217,"v_criticity": 4, 
 				"parameters":{"connect_id":"'||v_connect_id||'", "arc_id":"'||v_arc.arc_id||'"}}}$$);';
 			ELSE
 
 				-- Use check arc diameter variable
 				IF v_projecttype = 'WS' THEN
-					v_checkeddiam = concat(' AND dnom::float <',v_check_arcdnom,' ');
+					v_checkeddiam = concat(' AND dnom::float <=',v_check_arcdnom,' ');
 				ELSE v_checkeddiam = '';
 				END IF;
 
-				IF v_link.the_geom IS NULL OR v_force_reconnect THEN -- looking for closest arc from connect
+				IF v_isnodedest THEN
+					-- forceNode / forcedNodes: KNN from connect on node JOIN vf_node; extraFilters_node is in the CTE WHERE
+					v_arc := null;
+					v_node := null;
+					v_node_id := null;
+					IF v_isforcednodes IS FALSE THEN
+						v_forcednodes = '';
+					END IF;
+					EXECUTE format(
+					'WITH knn AS MATERIALIZED (
+                            SELECT n.node_id, ST_Distance(n.the_geom, %L::geometry) AS distance
+                            FROM node n
+                            JOIN vf_node vn ON vn.node_id = n.node_id
+                            WHERE n.state > 0
+                            %s
+                            ORDER BY n.the_geom <-> %L::geometry
+                            LIMIT 200
+                        )
+                        SELECT k.node_id
+                        FROM knn k
+                        WHERE k.distance < %s
+                        ORDER BY k.distance
+                        LIMIT 1',
+					v_connect.the_geom::text, replace(v_forcednodes, 'node_id', 'n.node_id') || v_extrafilters_node,
+					v_connect.the_geom::text, v_check_maxdistance)
+					INTO v_node_id;
+
+					IF v_node_id IS NOT NULL THEN
+						SELECT * INTO v_node FROM node WHERE node_id = v_node_id;
+						SELECT * INTO v_arc FROM ve_arc
+						WHERE node_1 = v_node.node_id OR node_2 = v_node.node_id
+						ORDER BY ST_Distance(the_geom, v_connect.the_geom)
+						LIMIT 1;
+						v_connect.arc_id = v_arc.arc_id;
+						IF NOT FOUND THEN
+							v_arc := json_populate_record(NULL::arc, json_build_object(
+								'expl_id', v_node.expl_id,
+								'sector_id', v_node.sector_id,
+								'omzone_id', v_node.omzone_id,
+								'dma_id', v_node.dma_id,
+								'state', v_node.state
+							));
+						END IF;
+					END IF;
+
+				ELSIF v_link.the_geom IS NULL OR v_force_reconnect THEN
+					-- new link or forceReconnect: KNN from connect. extraFilters apply here (and on forceNode above).
+					-- FROM arc JOIN vf_arc inside the CTE so selector is applied before LIMIT 200 and <-> uses arc gist.
 					EXECUTE format(
 					'WITH knn AS MATERIALIZED (
                             SELECT a.arc_id, a.arccat_id, ST_Distance(a.the_geom, %L::geometry) AS distance
                             FROM arc a
+                            JOIN vf_arc va ON va.arc_id = a.arc_id
                             WHERE a.state > 0
                             %s
                             ORDER BY a.the_geom <-> %L::geometry
@@ -362,20 +543,21 @@ BEGIN
                         SELECT k.arc_id
                         FROM knn k
                         JOIN cat_arc ca ON ca.id = k.arccat_id
-                        JOIN vf_arc va ON va.arc_id = k.arc_id
                         WHERE k.distance < %s
                         %s
                         ORDER BY k.distance
                         LIMIT 1',
-					v_connect.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id'),
+					v_connect.the_geom::text, replace(v_forcedarcs, 'arc_id', 'a.arc_id') || v_extrafilters_arc,
 					v_connect.the_geom::text, v_check_maxdistance, v_checkeddiam)
 					INTO v_connect.arc_id;
 
-				ELSIF v_link.the_geom IS NOT NULL THEN -- looking for closest arc from link's endpoint
+				ELSIF v_link.the_geom IS NOT NULL THEN
+					-- existing link, no forceReconnect: snap from old endpoint. extraFilters intentionally omitted.
 					EXECUTE format(
 					'WITH knn AS MATERIALIZED (
                             SELECT a.arc_id, a.arccat_id, ST_Distance(a.the_geom, ST_EndPoint(%L::geometry)) AS distance
                             FROM arc a
+                            JOIN vf_arc va ON va.arc_id = a.arc_id
                             WHERE a.state > 0
                             %s
                             ORDER BY a.the_geom <-> ST_EndPoint(%L::geometry)
@@ -384,7 +566,6 @@ BEGIN
                         SELECT k.arc_id
                         FROM knn k
                         JOIN cat_arc ca ON ca.id = k.arccat_id
-                        JOIN vf_arc va ON va.arc_id = k.arc_id
                         WHERE k.distance < %s
                         %s
                         ORDER BY k.distance
@@ -398,6 +579,7 @@ BEGIN
 						'WITH knn AS MATERIALIZED (
                             SELECT a.arc_id, a.arccat_id, ST_Distance(a.the_geom, %L::geometry) AS distance
                             FROM arc a
+                            JOIN vf_arc va ON va.arc_id = a.arc_id
                             WHERE a.state > 0
                             %s
                             ORDER BY a.the_geom <-> %L::geometry
@@ -406,7 +588,6 @@ BEGIN
                         SELECT k.arc_id
                         FROM knn k
                         JOIN cat_arc ca ON ca.id = k.arccat_id
-                        JOIN vf_arc va ON va.arc_id = k.arc_id
                         WHERE k.distance < %s
                         %s
                         ORDER BY k.distance
@@ -418,12 +599,17 @@ BEGIN
 
 				END IF;
 
-				IF v_connect.arc_id IS NULL THEN
-				--pass
+				IF (v_isnodedest IS FALSE AND v_connect.arc_id IS NULL) OR (v_isnodedest AND v_node_id IS NULL) THEN
+					EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "4686","function":"3188","fid": 217,"v_criticity": 2,
+					"parameters":{"feature_type":"'||lower(v_feature_type)||'", "connect_id":"'||v_connect_id||'"}}}$$);';
 				ELSE
 
 					-- get ve_arc information
-					SELECT * INTO v_arc FROM arc WHERE arc_id = v_connect.arc_id;
+					IF v_isnodedest IS FALSE THEN
+						SELECT * INTO v_arc FROM arc WHERE arc_id = v_connect.arc_id;
+					ELSIF v_connect.arc_id IS NOT NULL THEN
+						SELECT * INTO v_arc FROM arc WHERE arc_id = v_connect.arc_id;
+					END IF;
 
 					-- state control
 					IF v_arc.state=2 AND v_connect.state=1 AND v_isarcdivide is false THEN
@@ -432,7 +618,14 @@ BEGIN
 					END IF;
 
 					-- get endfeature attributes (forceReconnect always targets closest ARC)
-					IF v_force_reconnect THEN
+					IF v_isnodedest THEN
+						v_pjointtype='NODE';
+						v_endfeature_geom = v_node.the_geom;
+						v_link.exit_type = 'NODE';
+						v_link.exit_id = v_node.node_id;
+						v_pjointid = v_node.node_id;
+
+					ELSIF v_force_reconnect THEN
 						v_pjointtype='ARC';
 						v_endfeature_geom = v_arc.the_geom;
 						v_link.exit_type = 'ARC';
@@ -472,7 +665,20 @@ BEGIN
 					END IF;
 
 					-- compute link
-					IF v_arc.the_geom IS NOT NULL THEN
+					IF v_isnodedest OR v_arc.the_geom IS NOT NULL THEN
+
+						IF v_isnodedest THEN
+							v_point_aux := v_node.the_geom;
+							DELETE FROM temp_table WHERE fid = 485 AND cur_user=current_user;
+							IF v_link.the_geom IS NULL THEN
+								v_link.the_geom := st_setsrid(ST_makeline(v_connect.the_geom, v_node.the_geom), ST_SRID(v_connect.the_geom));
+							ELSIF (st_dwithin (st_startpoint(v_link.the_geom), v_connect.the_geom, 0.01)) IS FALSE THEN
+								v_link.the_geom = ST_SetPoint(v_link.the_geom, 0, v_node.the_geom);
+							ELSE
+								v_link.the_geom = ST_SetPoint(v_link.the_geom, (ST_NumPoints(v_link.the_geom) - 1), v_node.the_geom);
+							END IF;
+
+						ELSE
 
 						-- setting distance factor
 						IF v_projecttype  ='WS' THEN
@@ -493,10 +699,12 @@ BEGIN
 
 						IF v_point_aux IS NULL THEN
 
-							-- getting the appropiate vertex of link to check distance againts arc
-							select geom INTO v_link_point from (select (st_dumppoints(the_geom)).geom, (st_dumppoints(the_geom)).path, the_geom
-							from link where link.link_id = v_link.link_id) a where path[1] = st_numpoints(the_geom)-1;
-							v_point_aux := St_closestpoint(v_arc.the_geom, v_link_point);
+							IF v_force_reconnect IS NOT TRUE THEN
+								-- getting the appropiate vertex of link to check distance againts arc
+								select geom INTO v_link_point from (select (st_dumppoints(the_geom)).geom, (st_dumppoints(the_geom)).path, the_geom
+								from link where link.link_id = v_link.link_id) a where path[1] = st_numpoints(the_geom)-1;
+								v_point_aux := St_closestpoint(v_arc.the_geom, v_link_point);
+							END IF;
 
 							-- profilactic control for v_point_aux
 							IF v_point_aux IS NULL THEN
@@ -519,7 +727,17 @@ BEGIN
 
 						END IF;
 
-						IF v_link.the_geom IS NULL AND v_pjointtype='ARC' THEN
+						IF v_force_reconnect AND v_pjointtype='ARC' THEN
+							v_link.the_geom := st_setsrid(ST_makeline(v_connect.the_geom, v_point_aux), ST_SRID(v_connect.the_geom));
+
+							IF v_isforcedarcs THEN
+								EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "1117","function":"3188","fid": 217,"v_criticity": 4, 
+								"parameters":{"arc_id":"'||v_connect.arc_id||'"}}}$$);';
+							ELSE
+								EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "1119","function":"3188","fid": 217,"v_criticity": 4}}$$);';
+							END IF;
+
+						ELSIF v_link.the_geom IS NULL AND v_pjointtype='ARC' THEN
 
 							IF v_link.the_geom IS NULL THEN
 								SELECT the_geom INTO v_link.the_geom FROM link WHERE feature_id = v_connect_id AND feature_type=v_feature_type AND state=1 LIMIT 1;
@@ -569,11 +787,20 @@ BEGIN
 						ELSE
 							-- do nothing for those links coming from connec, guly, node and they not are forced with some arc_id
 						END IF;
+						END IF;
+
 					END IF;
 
 					-- getting values for dma and fluidtype automatic values
 					v_dma_value = v_arc.dma_id;
 					v_fluidtype_value = v_connect.fluid_type;
+					-- base table: ve_connec/ve_gully may not populate expl_visibility on the record
+					IF v_feature_type = 'CONNEC' THEN
+						SELECT expl_visibility INTO v_expl_vis FROM connec WHERE connec_id = v_connect_id;
+					ELSIF v_feature_type = 'GULLY' THEN
+						SELECT expl_visibility INTO v_expl_vis FROM gully WHERE gully_id = v_connect_id;
+					END IF;
+					v_expl_vis := COALESCE(v_expl_vis, v_arc.expl_visibility, v_link.expl_visibility);
 
 					IF v_link.link_id IS NULL THEN
 
@@ -601,17 +828,17 @@ BEGIN
 					
 						IF v_projecttype = 'WS' THEN
 							INSERT INTO link (link_id, the_geom, feature_id, feature_type, exit_type, exit_id, state, expl_id, sector_id, dma_id, omzone_id,
-							presszone_id, dqa_id, minsector_id, fluid_type, muni_id, linkcat_id, state_type)
+							presszone_id, dqa_id, minsector_id, fluid_type, muni_id, linkcat_id, state_type, expl_visibility)
 							VALUES (v_link.link_id, v_link.the_geom, v_connect_id, v_feature_type, v_link.exit_type, v_link.exit_id,
 							CASE WHEN v_isoperative_psector THEN 2 ELSE v_connect.state END, v_arc.expl_id, v_arc.sector_id, v_dma_value, v_arc.omzone_id, v_arc.presszone_id, v_arc.dqa_id, v_arc.minsector_id, v_fluidtype_value, v_connect.muni_id,
-							v_linkcat_id, v_state_type);
+							v_linkcat_id, v_state_type, v_expl_vis);
 
 							EXECUTE 'INSERT INTO man_'||v_man_table||' values ('||v_link.link_id||')';
 
 						ELSIF v_projecttype = 'UD' THEN
-							INSERT INTO link (link_id, the_geom, feature_id, feature_type, exit_type, exit_id, state, expl_id, sector_id, omzone_id, fluid_type, muni_id, linkcat_id, link_type, state_type)
+							INSERT INTO link (link_id, the_geom, feature_id, feature_type, exit_type, exit_id, state, expl_id, sector_id, omzone_id, fluid_type, muni_id, linkcat_id, link_type, state_type, expl_visibility)
 							VALUES (v_link.link_id, v_link.the_geom, v_connect_id, v_feature_type, v_link.exit_type, v_link.exit_id,
-							CASE WHEN v_isoperative_psector THEN 2 ELSE v_connect.state END, v_arc.expl_id, v_arc.sector_id, v_arc.omzone_id, v_fluidtype_value::INTEGER, v_connect.muni_id, v_linkcat_id, v_link_type, v_state_type);
+							CASE WHEN v_isoperative_psector THEN 2 ELSE v_connect.state END, v_arc.expl_id, v_arc.sector_id, v_arc.omzone_id, v_fluidtype_value::INTEGER, v_connect.muni_id, v_linkcat_id, v_link_type, v_state_type, v_expl_vis);
 
 							EXECUTE 'INSERT INTO man_'||v_man_table||' values ('||v_link.link_id||')';
 
@@ -619,18 +846,22 @@ BEGIN
 					ELSE
 						IF v_linkcat_id IS NULL THEN
 							IF v_projecttype = 'WS' THEN
-								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value
+								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value,
+								expl_visibility = COALESCE(v_expl_vis, expl_visibility)
 								WHERE link_id = v_link.link_id;
 							ELSE
-								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value::INTEGER
+								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value::INTEGER,
+								expl_visibility = COALESCE(v_expl_vis, expl_visibility)
 								WHERE link_id = v_link.link_id;
 							END IF;
 						ELSE
 							IF v_projecttype = 'WS' THEN
-								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value, linkcat_id = v_linkcat_id
+								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value, linkcat_id = v_linkcat_id,
+								expl_visibility = COALESCE(v_expl_vis, expl_visibility)
 								WHERE link_id = v_link.link_id;
 							ELSE
-								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value::INTEGER, linkcat_id = v_linkcat_id
+								UPDATE link SET the_geom=v_link.the_geom, exit_type=v_link.exit_type, exit_id=v_link.exit_id, omzone_id = v_arc.omzone_id, fluid_type = v_fluidtype_value::INTEGER, linkcat_id = v_linkcat_id,
+								expl_visibility = COALESCE(v_expl_vis, expl_visibility)
 								WHERE link_id = v_link.link_id;
 							END IF;
 						END IF;
@@ -742,13 +973,20 @@ BEGIN
 							END IF;
 						END IF;
 					END IF;
-					EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "4430","function":"3188","fid": 217,"v_criticity": 4, 
-					"parameters":{"feature_type":"'||lower(v_feature_type)||'", "connec_id":"'||v_connect_id||'", "arc_id":"'||v_arc.arc_id||'"}}}$$);';
+					IF v_isnodedest THEN
+						EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "4684","function":"3188","fid": 217,"v_criticity": 4, 
+						"parameters":{"feature_type":"'||lower(v_feature_type)||'", "connec_id":"'||v_connect_id||'", "node_id":"'||v_node.node_id||'"}}}$$);';
+					ELSE
+						EXECUTE 'SELECT gw_fct_getmessage($${"data": {"message": "4430","function":"3188","fid": 217,"v_criticity": 4, 
+						"parameters":{"feature_type":"'||lower(v_feature_type)||'", "connec_id":"'||v_connect_id||'", "arc_id":"'||v_arc.arc_id||'"}}}$$);';
+					END IF;
 				end if;
 				-- reset values
 				v_connect := null;
 				v_link := null;
 				v_arc := null;
+				v_node := null;
+				v_node_id := null;
 				v_point_aux := null;
 				-- Reset psector-related variables for next iteration
 				v_isoperative_psector := false;

@@ -48,9 +48,6 @@ BEGIN
 		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'DRAINZONE', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
-		IF NEW.code IS NULL THEN
-			NEW.code := v_drainzone_id::text;
-		END IF;
 
 		INSERT INTO drainzone (drainzone_id, code, name, active, drainzone_type, expl_id, sector_id, muni_id, descript, graphconfig, stylesheet, link, lock_level, addparam, created_at, created_by, updated_at, updated_by)
 		VALUES (v_drainzone_id, NEW.code, NEW.name, NEW.active, NEW.drainzone_type, NEW.expl_id, NEW.sector_id, NEW.muni_id, NEW.descript,

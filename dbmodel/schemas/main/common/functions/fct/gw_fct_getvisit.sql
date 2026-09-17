@@ -339,7 +339,7 @@ BEGIN
                 NULL as "tabFunction",
                 NULL AS "tabactions",
                 orderby
-            FROM config_form_tabs
+            FROM v_config_form_tabs
             WHERE formname = ''', v_formname, '''
               AND ', v_device, ' = ANY(device)
               AND orderby IS NOT NULL

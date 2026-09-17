@@ -193,8 +193,12 @@ class GwToolBoxTask(GwTask):
             title = "Key on returned json from ddbb is missed."
             tools_qt.show_exception_message(title, msg)
         # If database fail
-        elif result is False and lib_vars.session_vars['last_error_msg'] is not None:
-            tools_qt.show_exception_message(msg=lib_vars.session_vars['last_error_msg'])
+        elif result is False and lib_vars.session_vars['last_error'] is not None:
+            if lib_vars.session_vars['last_error_msg'] is not None:
+                msg = lib_vars.session_vars['last_error_msg']
+            else:
+                msg = lib_vars.session_vars['last_error']
+            tools_qt.show_exception_message(msg=msg)
         elif result:
             tools_gw.fill_tab_log(self.dialog, self.json_result['body']['data'], True, True, 1, False, False)
             self.dialog.btn_run.setEnabled(False)

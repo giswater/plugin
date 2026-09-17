@@ -40,7 +40,7 @@ def global_parent(*, needs_dbmodel: bool = True) -> argparse.ArgumentParser:
 def add_conn_args(sp: argparse.ArgumentParser) -> None:
     g = sp.add_argument_group("connection")
     g.add_argument("--conn", default=None,
-                   help="postgres://user:pass@host:port/dbname")
+                   help="postgres URL, service=NAME, or a pg_service name")
     g.add_argument("--config", default=None,
                    help="YAML with host/port/user/password/dbname/service.")
 

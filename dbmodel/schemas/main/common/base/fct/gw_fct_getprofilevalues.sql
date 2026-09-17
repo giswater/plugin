@@ -504,13 +504,13 @@ BEGIN
 
 		IF v_project_type = 'UD' THEN
 			v_fymax := 'ymax';
-			v_fsysymax := 'n.sys_ymax';
-			v_fsyselev := 'n.sys_elev ';
+			v_fsysymax := 'COALESCE(COALESCE(n.custom_top_elev, n.top_elev) - COALESCE(n.custom_elev, n.elev), n.ymax)';
+			v_fsyselev := 'COALESCE(n.custom_elev, n.elev) ';
 
 		ELSIF v_project_type = 'WS' THEN
 			v_fymax := 'depth';
 			v_fsysymax := 'n.depth';
-			v_fsyselev := 'n.sys_top_elev - n.depth';
+			v_fsyselev := 'COALESCE(n.custom_top_elev, n.top_elev) - n.depth';
 
 		END IF;
 
@@ -536,9 +536,9 @@ BEGIN
 				222 AS fid,
 				n.node_id,
 				COALESCE(n.code, n.node_id::varchar),
-				n.sys_type,
+				cat_feature.feature_class,
 				n.nodecat_id,
-				n.sys_top_elev AS top_elev,
+				COALESCE(n.custom_top_elev, n.top_elev) AS top_elev,
 				%s AS ymax,
 				%s AS elev,
 				n.arc_id,
@@ -547,7 +547,10 @@ BEGIN
 				n.expl_id,
 				n.the_geom
 			FROM temp_pgr_dijkstra d
-			JOIN ve_node n ON d.node = n.node_id
+			JOIN node n ON d.node = n.node_id
+			JOIN vf_node vfn ON vfn.node_id = n.node_id
+			JOIN cat_node ON cat_node.id::text = n.nodecat_id::text
+     		JOIN cat_feature ON cat_feature.id::text = cat_node.node_type::text
 			WHERE d.edge <> -1
 			ORDER BY d.seq;
 		$sql$,

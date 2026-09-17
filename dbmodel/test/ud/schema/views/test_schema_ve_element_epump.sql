@@ -29,7 +29,8 @@ SELECT columns_are(
         'datasource', 'label_x', 'label_y', 'label_rotation', 'rotation', 'inventory',
         'publish', 'trace_featuregeom', 'lock_level', 'expl_visibility', 'created_at', 'created_by',
         'updated_at', 'updated_by', 'the_geom', 'uuid', 'sector_visibility', 'muni_visibility',
-        'node_id', 'to_arc', 'flwreg_length', 'dataquality', 'dataquality_obs'
+        'node_id', 'to_arc', 'flwreg_length', 'dataquality', 'dataquality_obs',
+        'p_state', 'is_operative'
     ],
     'View ve_element_epump should have the correct columns'
 );
@@ -86,9 +87,10 @@ SELECT col_type_is('ve_element_epump', 'muni_visibility', 'int4[]', 'Column muni
 SELECT col_type_is('ve_element_epump', 'node_id', 'int4', 'Column node_id should be int4');
 SELECT col_type_is('ve_element_epump', 'to_arc', 'int4', 'Column to_arc should be int4');
 SELECT col_type_is('ve_element_epump', 'flwreg_length', 'numeric', 'Column flwreg_length should be numeric');
-
 SELECT col_type_is('ve_element_epump', 'dataquality', 'int4', 'Column dataquality should be int4');
 SELECT col_type_is('ve_element_epump', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');
+SELECT col_type_is('ve_element_epump', 'p_state', 'int2', 'Column p_state should be int2');
+SELECT col_type_is('ve_element_epump', 'is_operative', 'bool', 'Column is_operative should be bool');
 
 SELECT * FROM finish();
 

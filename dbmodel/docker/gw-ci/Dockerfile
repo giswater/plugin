@@ -4,7 +4,9 @@ ARG PG_MAJOR=16
 ARG POSTGIS_VERSION=3.5
 FROM --platform=linux/amd64 postgis/postgis:${PG_MAJOR}-${POSTGIS_VERSION}
 
-RUN apt-get update \
+# Check-Valid-Until=false: bullseye-security InRelease can lag Valid-Until and break apt
+# update in CI (exit 100) even when packages are fine.
+RUN apt-get -o Acquire::Check-Valid-Until=false update \
     && apt-get install -y --no-install-recommends \
        postgresql-${PG_MAJOR}-pgrouting \
        postgresql-${PG_MAJOR}-pgtap \

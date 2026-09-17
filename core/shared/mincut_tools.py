@@ -79,8 +79,9 @@ class GwMincutTools:
             widgetname = table.objectName()
             columnname = table.property('columnname')
             if columnname is None:
-                msg = f"widget {widgetname} in tab {self.dlg_mincut_man.objectName()} has not columnname and cant be configured"
-                tools_qgis.show_info(msg, 3)
+                msg = "widget {0} in tab {1} has not columnname and cant be configured"
+                msg_params = (widgetname, self.dlg_mincut_man.objectName())
+                tools_qgis.show_info(msg, 3, msg_params=msg_params)
                 continue
             linkedobject = table.property('linkedobject')
             complet_list, widget_list = tools_gw.fill_tbl(complet_result, self.dlg_mincut_man, columnname, linkedobject,
@@ -297,8 +298,9 @@ def _reload_table(dialog, complet_result):
         widgetname = table.objectName()
         columnname = table.property('columnname')
         if columnname is None:
-            msg = f"widget {widgetname} has not columnname and cant be configured"
-            tools_qgis.show_info(msg, 1)
+            msg = "widget {0} has not columnname and cant be configured"
+            msg_params = (widgetname,)
+            tools_qgis.show_info(msg, 1, msg_params=msg_params)
             continue
         # Get value from filter widgets
         filter_fields = tools_backend_calls.get_filter_qtableview_mincut(dialog, widget_list, complet_result)

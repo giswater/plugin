@@ -22,7 +22,7 @@ SELECT columns_are(
     've_inp_inflows_poll',
     ARRAY[
         'node_id', 'poll_id', 'timser_id', 'form_type', 'mfactor', 'sfactor',
-        'base', 'pattern_id'
+        'base', 'pattern_id', 'p_state'
     ],
     'View ve_inp_inflows_poll should have the correct columns'
 );
@@ -36,6 +36,7 @@ SELECT col_type_is('ve_inp_inflows_poll', 'mfactor', 'numeric(12,4)', 'Column mf
 SELECT col_type_is('ve_inp_inflows_poll', 'sfactor', 'numeric(12,4)', 'Column sfactor should be numeric(12,4)');
 SELECT col_type_is('ve_inp_inflows_poll', 'base', 'numeric(12,4)', 'Column base should be numeric(12,4)');
 SELECT col_type_is('ve_inp_inflows_poll', 'pattern_id', 'varchar(16)', 'Column pattern_id should be varchar(16)');
+SELECT col_type_is('ve_inp_inflows_poll', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

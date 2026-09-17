@@ -21,6 +21,21 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
+    <property name="leftMargin">
+     <number>8</number>
+    </property>
+    <property name="topMargin">
+     <number>8</number>
+    </property>
+    <property name="rightMargin">
+     <number>8</number>
+    </property>
+    <property name="bottomMargin">
+     <number>8</number>
+    </property>
+    <property name="spacing">
+     <number>8</number>
+    </property>
     <item row="1" column="0">
      <layout class="QGridLayout" name="lyt_buttons">
       <property name="topMargin">
@@ -69,7 +84,6 @@
       <property name="font">
        <font>
         <pointsize>8</pointsize>
-        <weight>50</weight>
         <bold>false</bold>
        </font>
       </property>

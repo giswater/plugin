@@ -6,7 +6,6 @@ or (at your option) any later version.
 """
 # -*- coding: utf-8 -*-
 import json
-import operator
 from functools import partial
 
 from qgis.PyQt.QtCore import QDate
@@ -63,6 +62,8 @@ class GwConfigButton(GwAction):
             return False
 
         self._initial_ui_locale = tools_qgis.get_ui_language_locale()
+        self._initial_multilang_language = self._get_multilang_language()
+        self._multilang_language_changed = False
 
         # Get widget controls
         self._get_widget_controls()
@@ -90,6 +91,7 @@ class GwConfigButton(GwAction):
         self.dlg_config.btn_accept.clicked.connect(partial(self._update_values))
         self.dlg_config.key_escape.connect(partial(tools_gw.close_dialog, self.dlg_config))
         self.dlg_config.btn_cancel.clicked.connect(partial(tools_gw.close_dialog, self.dlg_config))
+        self.dlg_config.dlg_closed.connect(partial(self._on_config_closed))
         self.dlg_config.dlg_closed.connect(partial(tools_gw.save_settings, self.dlg_config))
 
         # Open form
@@ -102,13 +104,26 @@ class GwConfigButton(GwAction):
 
         self._hide_void_tab(self.json_result['body']['form']['formTabs'][0], 'tab_addfields', 'lyt_addfields')
 
+        self._current_tab_index = self.tab_main.currentIndex()
         self.tab_main.currentChanged.connect(partial(self._tab_activation))
 
-    def _tab_activation(self):
+    def _tab_activation(self, index_tab=None):
         """ Call functions depend on tab selection """
 
-        # Get index of selected tab
-        index_tab = self.tab_main.currentIndex()
+        if index_tab is None:
+            index_tab = self.tab_main.currentIndex()
+
+        previous_index = self._current_tab_index
+        if index_tab != previous_index:
+            previous_tab = self.tab_main.widget(previous_index)
+            if not self._validate_mandatory_parameters(previous_tab):
+                self.tab_main.blockSignals(True)
+                self.tab_main.setCurrentIndex(previous_index)
+                self.tab_main.blockSignals(False)
+                self._show_missing_mandatory_warning()
+                return
+            self._current_tab_index = index_tab
+
         grbox_list = self.tab_main.widget(index_tab).findChildren(QGroupBox)
         layoutname_list = []
         layout_list = self.tab_main.widget(index_tab).findChildren(QGridLayout)
@@ -179,13 +194,22 @@ class GwConfigButton(GwAction):
 
     def _get_event_combo_parent(self, row):
 
-        for field in row[0]["fields"]:
-            if field['isparent']:
-                widget = self.dlg_config.findChild(QComboBox, field['widgetname'])
-                if widget:
-                    widget.currentIndexChanged.connect(partial(tools_gw.fill_child, self.dlg_config, widget, 'config'))
+        for tab in row or []:
+            fields = tab.get('fields') if isinstance(tab, dict) else None
+            if not fields:
+                continue
+            tools_gw.connect_isparent_combos(
+                self.dlg_config,
+                fields,
+                tools_gw.fill_child,
+                'config',
+            )
 
     def _update_values(self):
+
+        if not self._validate_mandatory_parameters():
+            self._show_missing_mandatory_warning()
+            return False
 
         my_json = json.dumps(self.list_update)
         extras = f'"fields":{my_json}'
@@ -198,10 +222,79 @@ class GwConfigButton(GwAction):
         if new_locale != getattr(self, '_initial_ui_locale', None):
             tools_qt._add_translator(True)
 
+        if self._multilang_language_has_changed():
+            self._multilang_language_changed = True
+
         msg = "Values has been updated"
         tools_qgis.show_info(msg)
         # Close dialog
         tools_gw.close_dialog(self.dlg_config)
+
+    def _show_missing_mandatory_warning(self):
+        msg = "Some mandatory values are missing. Please check the widgets marked in red."
+        tools_qgis.show_warning(msg, dialog=self.dlg_config)
+
+    def _validate_mandatory_parameters(self, tab_widget=None):
+        """Reject unchecked mandatory overrides; boolean checkboxes represent a value and are exempt."""
+
+        is_valid = True
+        user_tabs = self.json_result.get('body', {}).get('form', {}).get('formTabs', [])
+        if not user_tabs:
+            return is_valid
+
+        for field in user_tabs[0].get('fields', []):
+            if field.get('ismandatory') is not True or field.get('widgettype') in ('check', 'checkbox'):
+                continue
+
+            chk = self.dlg_config.findChild(QCheckBox, f"chk_{field['widgetname']}")
+            if chk is None:
+                continue
+            if tab_widget is not None and not tab_widget.isAncestorOf(chk):
+                continue
+
+            chk.setStyleSheet(None)
+            if not chk.isChecked():
+                chk.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
+                is_valid = False
+
+        return is_valid
+
+    def _get_multilang_language(self):
+        """Return current multilang_language preference for the user, or None."""
+        try:
+            schema_name = lib_vars.schema_name
+            if not schema_name or not tools_db.check_schema("multilang"):
+                return None
+            schema_esc = schema_name.replace('"', "").strip().replace("'", "''")
+            row = tools_db.get_row(
+                f"SELECT value FROM {schema_esc}.config_param_user "
+                "WHERE parameter = 'multilang_language' AND cur_user = current_user",
+                log_info=False,
+            )
+            if row and row[0] is not None:
+                value = str(row[0]).strip().lower()
+                if value in ('', 'default'):
+                    return None
+                return value
+        except Exception:
+            pass
+        return None
+
+    def _multilang_language_has_changed(self):
+        """True when multilang is enabled and the saved language differs from the initial one."""
+        if self._initial_multilang_language is None and self._get_multilang_language() is None:
+            return False
+        return self._get_multilang_language() != self._initial_multilang_language
+
+    def _on_config_closed(self):
+        """Inform the user that a QGIS restart is needed after a multilang language change."""
+        if not getattr(self, '_multilang_language_changed', False):
+            return
+        msg = (
+            "The multilang language has been changed. "
+            "To update the TOC and toolbar tooltips language, restart QGIS."
+        )
+        tools_qgis.show_info(msg)
 
     def _build_dialog_options(self, row, tab, list):
 
@@ -218,6 +311,7 @@ class GwConfigButton(GwAction):
                     lbl.setMinimumSize(160, 0)
                     lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
                     lbl.setToolTip(field['tooltip'])
+                    tools_gw.ThemeManager.apply_label_font(lbl, reference=self.dlg_config)
 
                     if self.tab == 'user':
                         self.chk = QCheckBox()
@@ -226,6 +320,9 @@ class GwConfigButton(GwAction):
                             self.chk.setChecked(True)
                         elif field['checked'] in ('false', 'False', 'FALSE', False):
                             self.chk.setChecked(False)
+                        if field.get('ismandatory') is True and field['widgettype'] not in ('check', 'checkbox'):
+                            self.chk.setChecked(True)
+                            self.chk.setEnabled(False)
                         self.chk.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
                     if field['widgettype'] in ('text', 'linetext', 'typeahead'):
@@ -248,7 +345,7 @@ class GwConfigButton(GwAction):
                         widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
                     elif field['widgettype'] == 'combo':
-                        widget = QComboBox()
+                        widget = tools_gw.create_combo_box()
                         self._fill_combo(widget, field)
                         widget.currentIndexChanged.connect(partial(self._get_dialog_changed_values, widget, self.tab, self.chk))
                         widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -338,26 +435,10 @@ class GwConfigButton(GwAction):
 
     def _fill_combo(self, widget, field):
 
-        # Generate list of items to add into combo
-        widget.blockSignals(True)
-        widget.clear()
-        widget.blockSignals(False)
-        combolist = []
-        comboIds = field.get('comboIds')
-        comboNames = field.get('comboNames')
-        if None not in (comboIds, comboNames):
-            for i in range(0, len(comboIds)):
-                if comboIds[i] is not None and comboNames[i] is not None:
-                    elem = [comboIds[i], comboNames[i]]
-                    combolist.append(elem)
-
-            records_sorted = sorted(combolist, key=operator.itemgetter(1))
-            # Populate combo
-            for record in records_sorted:
-                widget.addItem(record[1], record)
-        value = field.get('value')
-        if value not in (None, 'None'):
-            tools_qt.set_combo_value(widget, value, 0)
+        payload = dict(field)
+        if payload.get('value') not in (None, 'None') and 'selectedId' not in payload:
+            payload['selectedId'] = payload['value']
+        tools_gw.fill_combo(widget, payload)
 
     def _get_dialog_changed_values(self, widget, tab, chk):
 

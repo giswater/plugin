@@ -79,14 +79,14 @@ Rest of repositories are no significant. Some of them they are deprecated or som
 6. Using the command line: Fork the repo so that you can make your changes without affecting the original project until you're ready to merge them.
 7. Create a working branch and start with your changes!
 8. Commit your update.
-9. Commit the changes once you are happy with them. See Atom's contributing guide to know how to use emoji for commit messages.
+9. Commit the changes once you are happy with them. Use [Conventional Commits](https://www.conventionalcommits.org/): `type(optional-scope): subject` in imperative English (e.g. `fix`, `feat`, `refactor`, `chore`, `docs`, `test`, `ci`). Prefer the same `type` in the PR title.
 10. Once your changes are ready, don't forget to self-review to speed up the review process.
 
 ### Create Pull Request:
 
 When you're finished with the changes, create a pull request, also known as a PR.
 
-Fill the "Ready for review" template so that we can review your PR. This template helps reviewers understand your changes as well as the purpose of your pull request. Don't forget to link PR to issue if you are solving one.
+GitHub fills the pull request template (see `.github/PULL_REQUEST_TEMPLATE.md` in the plugin repo, or the template on this repository if present): mark the type, write a short Summary, complete the Test plan, and link the PR to any related issue (`Closes #N` / `Refs #N`).
 
 Enable the checkbox to allow maintainer edits so the branch can be updated for a merge. Once you submit your PR, a team member will review your proposal. We may ask questions or request for additional information.
 

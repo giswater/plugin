@@ -542,7 +542,7 @@ BEGIN
 									END IF;
 
 									-- distribute visit to new arc
-									INSERT INTO om_visit_x_arc (visit_id, arc_id) VALUES (rec_visit.id, v_newarc) ON CONFLICT (visit_id, arc_id) DO NOTHING;
+									INSERT INTO om_visit_x_arc (visit_id, arc_id) VALUES (rec_visit.id, v_newarc::integer) ON CONFLICT (visit_id, arc_id) DO NOTHING;
 									DELETE FROM om_visit_x_arc WHERE arc_id=v_arc_id;
 								END IF;
 							END LOOP;

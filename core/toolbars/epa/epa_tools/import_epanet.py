@@ -27,7 +27,7 @@ from ....ui.dialog import GwDialog
 from ....ui.ui_manager import GwInpConfigImportUi, GwInpParsingUi
 from ....threads.import_inp.import_epanet_task import GwImportInpTask
 from ....utils import tools_gw
-from ....utils.import_inp import create_load_menu, save_config, save_config_to_file, fill_txt_info
+from ....utils.import_inp import create_load_menu, save_config, save_config_to_file, fill_txt_info, unescape_dialog_labels
 
 CREATE_NEW = "Create new"
 SPATIAL_INTERSECT = "Get from spatial intersect"
@@ -145,7 +145,9 @@ class GwImportEpanet:
 
         self._manage_widgets_visibility()
 
+        tools_gw.disable_tab_log(self.dlg_config)
         tools_gw.open_dialog(self.dlg_config, dlg_name="inp_config_import")
+        unescape_dialog_labels(self.dlg_config)
 
     def _manage_psector(self):
         """ Manage the psector checkbox and the workcat and exploitation combo """
@@ -229,7 +231,6 @@ class GwImportEpanet:
             "gpv": self.catalog_source["gpv"] == "db_nodes",
         }
 
-        self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
         if TESTING_MODE:
             # Show warning message
             msg = "You are about to import the INP file in TESTING MODE. This will delete all the data in the database related to the network you are importing. Are you sure you want to proceed?"
@@ -299,10 +300,13 @@ class GwImportEpanet:
 
             save_config(self, workcat=workcat, exploitation=exploitation, sector=sector, municipality=municipality, dscenario=dscenario, catalogs=catalogs)
 
+            self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
+            tools_gw.set_tabs_enabled(self.dlg_config, hide_btn_accept=True, change_btn_cancel=False)
+
             # Set background task 'Import INP'
-            description = "Import INP (TESTING MODE)"
+            msg = "Import INP (TESTING MODE)"
             self.import_inp_task = GwImportInpTask(
-                description,
+                tools_qt.tr(msg),
                 self.file_path,
                 self.parse_inp_task.network,
                 workcat,
@@ -342,7 +346,7 @@ class GwImportEpanet:
         sql: str = "SELECT id FROM cat_work WHERE id = %s"
         row = tools_db.get_row(sql, params=(workcat,))
         if row is not None and not psector:
-            msg = tools_qt.tr('The Workcat_id "{0}" is already in use. Please enter a different ID.')
+            msg = 'The Workcat_id "{0}" is already in use. Please enter a different ID.'
             msg_params = (workcat,)
             tools_qt.show_info_box(msg, msg_params=msg_params)
             return
@@ -399,7 +403,7 @@ class GwImportEpanet:
                     new_catalog = new_catalog_cell.text().strip()
 
                     if combo_value == CREATE_NEW and new_catalog == "":
-                        msg = tools_qt.tr('Please enter a new catalog name when the "{0}" option is selected.')
+                        msg = 'Please enter a new catalog name when the "{0}" option is selected.'
                         msg_params = (CREATE_NEW,)
                         tools_qt.show_info_box(msg, msg_params=msg_params)
                         return
@@ -411,6 +415,9 @@ class GwImportEpanet:
         # Save options to the configuration file
         save_config(self, workcat=workcat, exploitation=exploitation, sector=sector, municipality=municipality, dscenario=dscenario, catalogs=catalogs, psector=psector)
 
+        self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
+        tools_gw.set_tabs_enabled(self.dlg_config, hide_btn_accept=True, change_btn_cancel=False)
+
         # Manage psector
         if psector:
             state = 2
@@ -420,9 +427,9 @@ class GwImportEpanet:
             state_type = 2
 
         # Set background task 'Import INP'
-        description = "Import INP"
+        msg = "Import INP"
         self.import_inp_task = GwImportInpTask(
-            description,
+            tools_qt.tr(msg),
             self.file_path,
             self.parse_inp_task.network,
             workcat,
@@ -472,7 +479,7 @@ class GwImportEpanet:
                 first_column.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 tbl_nodes.setItem(row, 0, first_column)
 
-                combo_cat = QComboBox()
+                combo_cat = tools_gw.create_combo_box()
                 tbl_nodes.setCellWidget(row, 1, combo_cat)
 
                 new_cat_name = QTableWidgetItem("")
@@ -494,7 +501,8 @@ class GwImportEpanet:
                 row: int = tbl_arcs.rowCount()
                 tbl_arcs.setRowCount(row + 1)
 
-                first_column = QTableWidgetItem("PIPE")
+                title = "PIPE"
+                first_column = QTableWidgetItem(tools_qt.tr(title))
                 first_column.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 tbl_arcs.setItem(row, 0, first_column)
 
@@ -506,7 +514,7 @@ class GwImportEpanet:
                 r_column.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 tbl_arcs.setItem(row, 2, r_column)
 
-                combo_cat = QComboBox()
+                combo_cat = tools_gw.create_combo_box()
                 tbl_arcs.setCellWidget(row, 3, combo_cat)
 
                 new_cat_name = QTableWidgetItem("")
@@ -536,7 +544,7 @@ class GwImportEpanet:
                 first_column.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 tbl_material.setItem(row, 0, first_column)
 
-                combo_mat = QComboBox()
+                combo_mat = tools_gw.create_combo_box()
                 tbl_material.setCellWidget(row, 1, combo_mat)
 
                 self.tbl_elements["materials"][roughness] = (combo_mat,)
@@ -579,7 +587,7 @@ class GwImportEpanet:
             first_column.setFlags(Qt.ItemFlag.ItemIsEnabled)
             tbl_feature.setItem(row, 0, first_column)
 
-            combo_feat = QComboBox()
+            combo_feat = tools_gw.create_combo_box()
             tbl_feature.setCellWidget(row, 1, combo_feat)
 
             self.tbl_elements["features"][tag.lower()] = (combo_feat,)
@@ -680,12 +688,12 @@ class GwImportEpanet:
             if len(element_catalog) > 0:
                 combo.insertSeparator(combo.count())
                 combo.addItem("Recommended catalogs:")
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(element_catalog)
             if len(db_catalog) > len(element_catalog):
                 combo.insertSeparator(combo.count())
                 combo.addItem("Other catalogs:")
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(cat for cat in db_catalog if cat not in element_catalog)
             combo.setCurrentText(old_value)
 
@@ -701,13 +709,15 @@ class GwImportEpanet:
                 combo.addItems(["", CREATE_NEW])
                 if len(pipe_catalog) > 0:
                     combo.insertSeparator(combo.count())
-                    combo.addItem("Recommended catalogs:")
-                    combo.model().item(combo.count() - 1).setEnabled(False)
+                    title = "Recommended catalogs:"
+                    combo.addItem(tools_qt.tr(title))
+                    tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                     combo.addItems(pipe_catalog)
                 if len(self.catalogs.db_arcs) > len(pipe_catalog):
                     combo.insertSeparator(combo.count())
-                    combo.addItem("Other catalogs:")
-                    combo.model().item(combo.count() - 1).setEnabled(False)
+                    title = "Other catalogs:"
+                    combo.addItem(tools_qt.tr(title))
+                    tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                     combo.addItems(
                         cat for cat in self.catalogs.db_arcs if cat not in pipe_catalog
                     )
@@ -726,13 +736,15 @@ class GwImportEpanet:
             combo.addItem("")
             if len(material_catalog) > 0:
                 combo.insertSeparator(combo.count())
-                combo.addItem("Recommended materials:")
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                title = "Recommended materials:"
+                combo.addItem(tools_qt.tr(title))
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(material_catalog)
             if len(self.catalogs.db_materials) > len(material_catalog):
                 combo.insertSeparator(combo.count())
-                combo.addItem("Other materials:")
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                title = "Other materials:"
+                combo.addItem(tools_qt.tr(title))
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(
                     mat
                     for mat in self.catalogs.db_materials
@@ -773,13 +785,15 @@ class GwImportEpanet:
             combo.addItem("")
             if len(feat_catalog) > 0:
                 combo.insertSeparator(combo.count())
-                combo.addItem("Recommended feature ids:")
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                title = "Recommended feature ids:"
+                combo.addItem(tools_qt.tr(title))
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(feat_catalog)
             if len(system_catalog) > len(feat_catalog):
                 combo.insertSeparator(combo.count())
-                combo.addItem("Other feature ids:")
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                title = "Other feature ids:"
+                combo.addItem(tools_qt.tr(title))
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(
                     feat for feat in system_catalog if feat not in feat_catalog
                 )
@@ -864,7 +878,7 @@ class GwImportEpanet:
             tbl.setItem(row, 0, first_column)
 
             # Create the combo box and put it in the second or fourth column
-            combo_cat = QComboBox()
+            combo_cat = tools_gw.create_combo_box()
             combo_idx = 3 if feature_type == "ARC" else 1
             tbl.setCellWidget(row, combo_idx, combo_cat)
 
@@ -1003,7 +1017,8 @@ class GwImportEpanet:
         # TextEdit log
         txt_infolog = self.dlg_config.findChild(QTextEdit, 'tab_log_txt_infolog')
         cur_text = tools_qt.get_text(self.dlg_config, txt_infolog, return_string_null=False)
-        if process and process not in (self.cur_process, "Generate INP algorithm"):
+        title = "Generate INP algorithm"
+        if process and process not in (self.cur_process, title, tools_qt.tr(title)):
             cur_text = f"{cur_text}\n" \
                        f"--------------------\n" \
                        f"{process}\n" \
@@ -1012,7 +1027,7 @@ class GwImportEpanet:
             self.cur_text = None
 
         # Generate INP log is cumulative, so it's saved until the process ends
-        if process == "Generate INP algorithm" and not self.cur_text:
+        if process in (title, tools_qt.tr(title)) and not self.cur_text:
             self.cur_text = cur_text
 
         if self.cur_text:

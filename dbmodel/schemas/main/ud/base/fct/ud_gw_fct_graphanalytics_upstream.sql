@@ -141,7 +141,8 @@ BEGIN
 		WITH
 			arc_selected AS (
 				SELECT a.arc_id, a.node_1, a.node_2
-				FROM ve_arc a
+				FROM arc a
+				JOIN vf_arc vfa ON vfa.arc_id = a.arc_id
 				WHERE a.node_1 IS NOT NULL
 				AND a.node_2 IS NOT NULL
 			)
@@ -154,18 +155,20 @@ BEGIN
 			FROM arc_selected
 	$sql$, v_source, v_target);
 
-	EXECUTE 'SELECT count(*)::float FROM ve_arc'
+	EXECUTE 'SELECT count(*)::float FROM vf_arc'
 	INTO v_distance;
 
     IF v_node IS NOT NULL THEN
         EXECUTE $sql$
 			INSERT INTO t_anl_node (node_id, fid, nodecat_id, state, expl_id, drainzone_id, addparam, the_geom)
-			SELECT n.node_id, $1, n.node_type, n.state, n.expl_id, n.drainzone_id, $2, n.the_geom
+			SELECT n.node_id, $1, n.node_type, n.state, n.expl_id, dwf.drainzone_id, $2, n.the_geom
 				FROM (
 				SELECT node
 				FROM pgr_drivingdistance($3, $4, $5)
 			) t
-			JOIN ve_node n ON n.node_id = t.node;
+			JOIN node n ON n.node_id = t.node
+			JOIN vf_node vfn ON vfn.node_id = n.node_id
+			JOIN dwfzone dwf ON dwf.dwfzone_id = n.dwfzone_id
 		$sql$
 		USING v_fid, v_diverted_flow, v_query, v_node, v_distance;
     END IF;
@@ -175,7 +178,8 @@ BEGIN
 		WITH
 			arc_selected AS (
 				SELECT a.arc_id, a.node_1, a.node_2
-				FROM ve_arc a
+				FROM arc a
+				JOIN vf_arc vfa ON vfa.arc_id = a.arc_id
 				WHERE a.node_1 IS NOT NULL
 				AND a.node_2 IS NOT NULL
 				AND a.initoverflowpath IS DISTINCT FROM TRUE
@@ -207,10 +211,12 @@ BEGIN
     END IF;
 
 	INSERT INTO t_anl_arc (arc_id, fid, arccat_id, state, expl_id, drainzone_id, addparam, the_geom, omunit_id)
-	SELECT a.arc_id, v_fid, a.arc_type, a.state, a.expl_id, a.drainzone_id, n2.addparam, a.the_geom, a.omunit_id
-	FROM ve_arc a
+	SELECT a.arc_id, v_fid, a.arc_type, a.state, a.expl_id, dwf.drainzone_id, n2.addparam, a.the_geom, a.omunit_id
+	FROM arc a
+	JOIN vf_arc vfa ON vfa.arc_id = a.arc_id
 	JOIN t_anl_node n1 ON a.node_1 = n1.node_id
-	JOIN t_anl_node n2 ON a.node_2 = n2.node_id;
+	JOIN t_anl_node n2 ON a.node_2 = n2.node_id
+	JOIN dwfzone dwf ON dwf.dwfzone_id = a.dwfzone_id;
 
 	v_result_line := jsonb_build_object(
 		'type', 'FeatureCollection',

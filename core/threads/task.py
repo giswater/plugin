@@ -34,7 +34,7 @@ class GwTask(QgsTask, QObject):
 
         lib_vars.session_vars['threads'].append(self)
 
-        if self.use_aux_conn:
+        if self.use_aux_conn and tools_db.dao is not None:
             self.aux_conn = tools_db.dao.get_aux_conn()
 
         msg = "Started task {0}"
@@ -42,13 +42,25 @@ class GwTask(QgsTask, QObject):
         tools_log.log_info(msg, msg_params=msg_params)
         return True
 
+    def _close_aux_conn(self):
+        """Drop the worker aux connection. Safe if dao was already closed (plugin reload)."""
+        dao = tools_db.dao
+        if dao is not None:
+            dao.delete_aux_con(self.aux_conn)
+        elif self.aux_conn is not None:
+            try:
+                self.aux_conn.close()
+            except Exception:
+                pass
+        self.aux_conn = None
+
     def finished(self, result):
 
         try:
             lib_vars.session_vars['threads'].remove(self)
         except ValueError:
             pass
-        tools_db.dao.delete_aux_con(self.aux_conn)
+        self._close_aux_conn()
         iface.actionOpenProject().setEnabled(True)
         iface.actionNewProject().setEnabled(True)
         if result:
@@ -67,12 +79,19 @@ class GwTask(QgsTask, QObject):
 
     def cancel(self):
 
+        if self.aux_conn is None:
+            msg = "Task '{0}' was cancelled"
+            msg_params = (self.description(),)
+            tools_log.log_info(msg, msg_params=msg_params)
+            super().cancel()
+            return
         pid = self.aux_conn.get_backend_pid()
         if isinstance(pid, int):
             result = tools_db.cancel_pid(pid)
             if result['last_error'] is not None:
                 tools_log.log_warning(result['last_error'])
-            tools_db.dao.rollback(self.aux_conn)
+            if tools_db.dao is not None:
+                tools_db.dao.rollback(self.aux_conn)
         msg = "Task '{0}' was cancelled"
         msg_params = (self.description(),)
         tools_log.log_info(msg, msg_params=msg_params)

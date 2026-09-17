@@ -15,7 +15,7 @@ from time import time
 from datetime import timedelta
 
 from qgis.PyQt.QtCore import QStringListModel, Qt, QTimer, QRegularExpression, QPoint
-from qgis.PyQt.QtWidgets import QWidget, QComboBox, QCompleter, QGroupBox, QSpacerItem, QSizePolicy, QGridLayout, QLabel, QTabWidget, QMenu, QAction, QActionGroup
+from qgis.PyQt.QtWidgets import QWidget, QCompleter, QGroupBox, QSpacerItem, QSizePolicy, QGridLayout, QLabel, QTabWidget, QMenu, QAction, QActionGroup
 from qgis.PyQt.QtGui import QIcon
 from qgis.core import QgsApplication
 
@@ -145,14 +145,8 @@ class GwGo2EpaButton(GwAction):
         self.dlg_go2epa.btn_hs_ds.clicked.connect(
             partial(self._sector_selection))
 
-        # Execute EPA: Windows always; Linux only for WS (hydraulic_engine). UD needs native SWMM exe.
-        try:
-            from importlib.util import find_spec
-            has_hydraulic_engine = find_spec("hydraulic_engine") is not None
-        except ImportError:
-            has_hydraulic_engine = False
-
-        if sys.platform != "win32" and (not has_hydraulic_engine or self.project_type == "ud"):
+        # Execute EPA: Windows always; Linux when hydraulic_engine is available (WS/UD).
+        if sys.platform != "win32" and not self._has_hydraulic_engine():
             tools_qt.set_checked(self.dlg_go2epa, self.dlg_go2epa.chk_exec, False)
             self.dlg_go2epa.chk_exec.setEnabled(False)
             self.dlg_go2epa.chk_exec.setText('Execute EPA software (Runs only on Windows)')
@@ -165,6 +159,26 @@ class GwGo2EpaButton(GwAction):
             self.dlg_go2epa.btn_close.clicked.connect(partial(tools_gw.close_docker, option_name='position'))
         else:
             tools_gw.open_dialog(self.dlg_go2epa, dlg_name='go2epa')
+
+    @staticmethod
+    def _has_hydraulic_engine():
+        """Return True if hydraulic_engine is on sys.path (no package import)."""
+        try:
+            from importlib.util import find_spec
+            return find_spec("hydraulic_engine") is not None
+        except ImportError:
+            return False
+
+    def _hide_hydraulic_engine_only_options(self, dialog):
+        """Hide EPA options that only apply when hydraulic_engine is installed."""
+        if self._has_hydraulic_engine():
+            return
+        widget = dialog.findChild(QWidget, "inp_report_onlymaxmin_values")
+        label = dialog.findChild(QLabel, "lblinp_report_onlymaxmin_values")
+        if widget is not None:
+            widget.setVisible(False)
+        if label is not None:
+            label.setVisible(False)
 
     def _set_signals(self):
 
@@ -445,8 +459,8 @@ class GwGo2EpaButton(GwAction):
         if tools_qt.is_checked(self.dlg_go2epa, self.dlg_go2epa.chk_import_result) or tools_qt.is_checked(self.dlg_go2epa, self.dlg_go2epa.chk_exec):
             file_rpt = tools_qt.get_text(self.dlg_go2epa, self.dlg_go2epa.txt_file_rpt)
             if not file_rpt or file_rpt == 'null':
-                message = tools_qt.tr("RPT file path is required when importing results or executing EPA")
-                tools_qgis.show_warning(message)
+                msg = "RPT file path is required when importing results or executing EPA"
+                tools_qgis.show_warning(msg)
                 return
         # Save user values
         self._save_user_values()
@@ -560,6 +574,7 @@ class GwGo2EpaButton(GwAction):
 
             tools_gw.build_dialog_options(
                 dialog, json_result['body']['form']['formTabs'], 0, self.epa_options_list)
+            self._hide_hydraulic_engine_only_options(dialog)
             grbox_list = dialog.findChildren(QGroupBox)
             for grbox in grbox_list:
                 widget_list = grbox.findChildren(QWidget)
@@ -590,6 +605,7 @@ class GwGo2EpaButton(GwAction):
 
         tools_gw.build_dialog_options(
             self.dlg_go2epa_options, json_result['body']['form']['formTabs'], 0, self.epa_options_list)
+        self._hide_hydraulic_engine_only_options(self.dlg_go2epa_options)
         grbox_list = self.dlg_go2epa_options.findChildren(QGroupBox)
         for grbox in grbox_list:
             widget_list = grbox.findChildren(QWidget)
@@ -636,16 +652,20 @@ class GwGo2EpaButton(GwAction):
 
     def _get_event_combo_parent(self, complet_result):
 
-        for field in complet_result['body']['form']['formTabs'][0]["fields"]:
-            if field['isparent']:
-                widget = self.dlg_go2epa_options.findChild(QComboBox, field['widgetname'])
-                if widget:
-                    widget.currentIndexChanged.connect(partial(self._fill_child, self.dlg_go2epa_options, widget))
+        fields = complet_result['body']['form']['formTabs'][0].get('fields', [])
+        tools_gw.connect_isparent_combos(
+            self.dlg_go2epa_options,
+            fields,
+            self._fill_child,
+        )
 
     def _fill_child(self, dialog, widget):
 
+        combo_id = tools_qt.get_combo_value(dialog, widget, 0)
+        if combo_id in (None, '', -1):
+            return False
+
         combo_parent = widget.objectName()
-        combo_id = tools_qt.get_combo_value(dialog, widget)
         # TODO cambiar por gw_fct_getchilds then unified with tools_gw.get_child if posible
         json_result = tools_gw.execute_procedure('gw_fct_getcombochilds', f"'epaoptions', '', '', '{combo_parent}', '{combo_id}', ''")
         if not json_result or json_result['status'] == 'Failed':
@@ -653,7 +673,7 @@ class GwGo2EpaButton(GwAction):
 
         for combo_child in json_result['fields']:
             if combo_child is not None:
-                tools_gw.manage_combo_child(dialog, widget, combo_child)
+                tools_gw.manage_combo_child(dialog, widget, combo_child, combo_id)
 
     def _calculate_elapsed_time(self, dialog):
 

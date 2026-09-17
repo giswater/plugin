@@ -6,6 +6,7 @@ or (at your option) any later version.
 """
 # -*- coding: utf-8 -*-
 from functools import partial
+import json
 import tempfile
 
 from ....ui.ui_manager import GwStyleManagerUi, GwStyleUi, GwUpdateStyleGroupUi
@@ -13,9 +14,8 @@ from ....utils import tools_gw
 from .....libs import lib_vars, tools_db, tools_qgis, tools_qt
 from ..... import global_vars
 
-from qgis.PyQt.QtWidgets import QHeaderView, QTableView, QMenu, QAction, QPushButton
+from qgis.PyQt.QtWidgets import QHeaderView, QMenu, QAction, QPushButton
 from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtSql import QSqlTableModel
 from qgis.PyQt.QtGui import QCursor
 from qgis.core import Qgis
 
@@ -134,44 +134,65 @@ class GwStyleManager:
         tools_gw.load_settings(dialog_create)
 
         self._load_sys_roles(dialog_create)
+        self._prefill_style_group_id(dialog_create)
+        dialog_create.active.setChecked(True)
 
         dialog_create.btn_add.clicked.connect(partial(self._handle_add_feature, dialog_create))
         dialog_create.btn_cancel.clicked.connect(partial(tools_gw.close_dialog, dialog_create))
-        dialog_create.feature_id.textChanged.connect(partial(self._check_style_exists, dialog_create))
         dialog_create.idval.textChanged.connect(partial(self._check_style_exists, dialog_create))
 
         tools_gw.open_dialog(dialog_create, dlg_name='create_style_group')
+
+    def _prefill_style_group_id(self, dialog_create):
+        """Show next config_style.id from the sequence; field is display-only."""
+        schema = (self.schema_name or '').replace('"', '') or None
+        next_id = tools_gw.get_sequence_next_preview('config_style_id_seq', schema)
+        dialog_create.feature_id.setText(str(next_id))
+        dialog_create.feature_id.setReadOnly(True)
 
     def _handle_add_feature(self, dialog_create):
         """Handles the logic when the add button is clicked."""
 
         # Gather data from the dialog fields
-        feature_id = dialog_create.feature_id.text()
         idval = dialog_create.idval.text()
         descript = dialog_create.descript.text()
         sys_role = dialog_create.sys_role.currentText()
+        addparam = dialog_create.addparam.text().strip()
+        is_templayer = dialog_create.is_templayer.isChecked()
+        active = dialog_create.active.isChecked()
 
-        # Validate that the mandatory fields are not empty
-        if not feature_id or not idval:
-            msg = "Feature ID and Idval cannot be empty."
+        if not idval:
+            msg = "Category name cannot be empty."
             tools_qgis.show_warning(msg, dialog=self.style_mng_dlg)
             return
 
+        if addparam:
+            try:
+                json.loads(addparam)
+            except ValueError:
+                msg = "Addparam must be valid JSON."
+                tools_qgis.show_warning(msg, dialog=self.style_mng_dlg)
+                return
+
         # Start building the SQL query
-        sql = "INSERT INTO config_style (id, idval"
+        sql = "INSERT INTO config_style (idval"
+        values = f"'{idval}'"
 
-        # Initialize the values part with the mandatory fields
-        values = f"'{feature_id}', '{idval}'"
-
-        # Add optional fields if they are not empty
         if descript:
             sql += ", descript"
             values += f", '{descript}'"
         if sys_role:
             sql += ", sys_role"
             values += f", '{sys_role}'"
+        if addparam:
+            sql += ", addparam"
+            values += ", '%s'::json" % addparam.replace("'", "''")
+        sql += ", is_templayer, active"
+        values += ", %s, %s" % (
+            'true' if is_templayer else 'false',
+            'true' if active else 'false',
+        )
 
-        # Close the fields section of the SQL query
         sql += f") VALUES ({values}) RETURNING id;"
 
         try:
@@ -203,67 +224,37 @@ class GwStyleManager:
             filter_str += f"category = '{selected_stylegroup_name}'"
 
         model = self.style_mng_dlg.tbl_style.model()
+        if model is None:
+            return
         model.setFilter(filter_str)
         model.select()
 
     def _load_styles(self):
         """Loads styles into the table based on the selected style group."""
-        selected_stylegroup_name = self.style_mng_dlg.cmb_stylegroup.currentText()
+        tools_qt.fill_table(self.style_mng_dlg.tbl_style, 'v_ui_style')
 
-        # Prepare the SQL query to load data from the view
-        model = QSqlTableModel(db=lib_vars.qgis_db_credentials)
-        model.setTable(f"{lib_vars.schema_name}.v_ui_style")
-
-        if selected_stylegroup_name:
-            # Apply filter based on the selected style group
-            model.setFilter(f"category = '{selected_stylegroup_name}'")
-        model.select()
-
-        # Check for any errors
-        if model.lastError().isValid():
+        model = self.style_mng_dlg.tbl_style.model()
+        if model is not None and model.lastError().isValid():
             msg = "Database Error"
             param = model.lastError().text()
             tools_qgis.show_warning(msg, dialog=self.style_mng_dlg, parameter=param)
             return
 
-        self.style_mng_dlg.tbl_style.setModel(model)
-        model.setEditStrategy(QSqlTableModel.EditStrategy.OnManualSubmit)
-        self.style_mng_dlg.tbl_style.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
-        self.style_mng_dlg.tbl_style.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
-
-        # Customize table view
-        header = self.style_mng_dlg.tbl_style.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        header.setStretchLastSection(True)
+        tools_gw.set_tablemodel_config(self.style_mng_dlg, self.style_mng_dlg.tbl_style, 'v_ui_style')
+        tools_qt.set_tableview_config(
+            self.style_mng_dlg.tbl_style,
+            section_resize_mode=QHeaderView.ResizeMode.Interactive,
+        )
+        self._filter_styles()
 
     def _check_style_exists(self, dialog_create):
-        feature_id_text = dialog_create.feature_id.text().strip()
         idval_text = dialog_create.idval.text().strip()
         color = "border: 1px solid red"
         has_error = False
 
-        dialog_create.feature_id.setStyleSheet("")
-        dialog_create.feature_id.setToolTip("")
         dialog_create.idval.setStyleSheet("")
         dialog_create.idval.setToolTip("")
 
-        # Validates Feature ID if it's not empty
-        if feature_id_text:
-            try:
-                feature_id = int(feature_id_text)
-                sql_id = f"SELECT id FROM config_style WHERE id = '{feature_id}'"
-                row_id = tools_db.get_row(sql_id, log_info=False)
-
-                if row_id:
-                    dialog_create.feature_id.setStyleSheet(color)
-                    dialog_create.feature_id.setToolTip("Feature ID already exists")
-                    has_error = True
-            except ValueError:
-                dialog_create.feature_id.setStyleSheet(color)
-                dialog_create.feature_id.setToolTip("Feature ID must be an integer")
-                has_error = True
-
-        # Validates Idval if it's not empty
         if idval_text:
             sql_idval = f"SELECT idval FROM config_style WHERE idval = '{idval_text}'"
             row_idval = tools_db.get_row(sql_idval, log_info=False)
@@ -272,9 +263,6 @@ class GwStyleManager:
                 dialog_create.idval.setStyleSheet(color)
                 dialog_create.idval.setToolTip("Category already exists")
                 has_error = True
-            else:
-                dialog_create.idval.setStyleSheet("")
-                dialog_create.idval.setToolTip("")
 
         dialog_create.btn_add.setEnabled(not has_error)
 
@@ -397,13 +385,16 @@ class GwStyleManager:
             return
 
         try:
+            model = self.style_mng_dlg.tbl_style.model()
+            layername_col = tools_qt.get_col_index_by_col_name(self.style_mng_dlg.tbl_style, 'layername')
+            category_col = tools_qt.get_col_index_by_col_name(self.style_mng_dlg.tbl_style, 'category')
+            if layername_col is None or category_col is None:
+                return
+
             for index in selected_rows:
                 row = index.row()
-                layername_index = self.style_mng_dlg.tbl_style.model().index(row, 0)
-                idval_index = self.style_mng_dlg.tbl_style.model().index(row, 1)
-
-                layername = self.style_mng_dlg.tbl_style.model().data(layername_index)
-                idval = self.style_mng_dlg.tbl_style.model().data(idval_index)
+                layername = model.data(model.index(row, layername_col))
+                idval = model.data(model.index(row, category_col))
 
                 sql_get_id = (
                     f"SELECT id FROM {lib_vars.schema_name}.config_style "
@@ -419,9 +410,9 @@ class GwStyleManager:
 
                 styleconfig_id = row_result[0]
 
-                # Delete the selected row from sys_style using the retrieved numeric `styleconfig_id`
+                # Delete the selected row from v_sys_style using the retrieved numeric `styleconfig_id`
                 sql_delete_style = (
-                    f"DELETE FROM {lib_vars.schema_name}.sys_style "
+                    f"DELETE FROM {lib_vars.schema_name}.v_sys_style "
                     f"WHERE layername = '{layername}' AND styleconfig_id = {styleconfig_id};"
                 )
                 tools_db.execute_sql(sql_delete_style)
@@ -527,7 +518,7 @@ class GwStyleManager:
             new_styleconfig_id = row_result[0]
             sql_check_exists = (
                 f"SELECT COUNT(*) "
-                f"FROM {lib_vars.schema_name}.sys_style "
+                f"FROM {lib_vars.schema_name}.v_sys_style "
                 f"WHERE layername = '{table_name}' AND styleconfig_id = {new_styleconfig_id};"
             )
             style_exists = tools_db.get_row(sql_check_exists)[0] > 0
@@ -540,7 +531,7 @@ class GwStyleManager:
 
             sql_gw_basic = (
                 f"SELECT styletype, stylevalue, active "
-                f"FROM {lib_vars.schema_name}.sys_style "
+                f"FROM {lib_vars.schema_name}.v_sys_style "
                 f"WHERE layername = '{table_name}' AND styleconfig_id = ("
                 f"SELECT id FROM {lib_vars.schema_name}.config_style WHERE idval = 'GwBasic'"
                 f");"
@@ -556,7 +547,7 @@ class GwStyleManager:
                 active = True
 
             sql_insert_style = (
-                f"INSERT INTO {lib_vars.schema_name}.sys_style "
+                f"INSERT INTO {lib_vars.schema_name}.v_sys_style "
                 f"(layername, styleconfig_id, styletype, stylevalue, active) "
                 f"VALUES ('{table_name}', {new_styleconfig_id}, '{styletype}', '{stylevalue_clean}', {active});"
             )
@@ -587,12 +578,15 @@ class GwStyleManager:
             return
 
         try:
-            for index in selected_rows:
-                layername_index = self.style_mng_dlg.tbl_style.model().index(index.row(), 0)
-                idval_index = self.style_mng_dlg.tbl_style.model().index(index.row(), 1)
+            model = self.style_mng_dlg.tbl_style.model()
+            layername_col = tools_qt.get_col_index_by_col_name(self.style_mng_dlg.tbl_style, 'layername')
+            category_col = tools_qt.get_col_index_by_col_name(self.style_mng_dlg.tbl_style, 'category')
+            if layername_col is None or category_col is None:
+                return
 
-                layername = self.style_mng_dlg.tbl_style.model().data(layername_index)
-                idval = self.style_mng_dlg.tbl_style.model().data(idval_index)
+            for index in selected_rows:
+                layername = model.data(model.index(index.row(), layername_col))
+                idval = model.data(model.index(index.row(), category_col))
 
                 msg = ("Are you sure you want to update the style of {0} ({1}) with the symbology"
                         " of the layer in the project? \nYou are going to lose previous information!")

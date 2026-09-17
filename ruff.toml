@@ -11,9 +11,7 @@ exclude = [
     "packages",
     "dbmodel",
     "test",
-    "i18n_manager.py",
     "schema_i18n_update.py",
-    "i18n_generator.py",
     "markdown_generator.py",
 ]
 

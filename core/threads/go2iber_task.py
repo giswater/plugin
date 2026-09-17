@@ -66,7 +66,8 @@ class GwGo2IberTask(GwTask):
 
         super().run()
 
-        self.step_completed.emit({"message": {"level": 1, "text": "GO2IBER - Work in progress"}}, "\n")
+        msg = "GO2IBER - Work in progress"
+        self.step_completed.emit({"message": {"level": 1, "text": tools_qt.tr(msg)}}, "\n")
         self.step_completed.emit({"message": {"level": 1, "text": "--------------------------"}}, "\n")
 
         self.initialize_variables()

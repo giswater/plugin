@@ -46,26 +46,31 @@ class GwRenameSchemaTask(GwTask):
         schema = self.params.get('schema')
         self.new_schema_name = self.params.get('new_schema_name')
 
-        sql = f'ALTER SCHEMA {schema} RENAME TO {self.new_schema_name}'
-        status = tools_db.execute_sql(sql, commit=False, is_thread=True)        
-        if status:
-            # Reload fcts
-            self.admin._reload_fct_ftrg()
-            if self.isCanceled():
-                return True
-            # Call fct gw_fct_admin_rename_fixviews
-            sql = ('SELECT ' + str(self.new_schema_name) + '.gw_fct_admin_rename_fixviews($${"data":{"currentSchemaName":"'
-                   + self.new_schema_name + '","oldSchemaName":"' + str(schema) + '"}}$$)::text')
-            tools_db.execute_sql(sql, commit=False, is_thread=True)
-            # Execute last_process
-            self.admin.execute_last_process(schema_name=self.new_schema_name, locale=True, schema_type=self.admin.project_type)
+        status = False
+        tools_db.execute_sql("SET ROLE role_system", commit=False, is_thread=True)
+        try:
+            sql = f'ALTER SCHEMA {schema} RENAME TO {self.new_schema_name}'
+            status = tools_db.execute_sql(sql, commit=False, is_thread=True)
+            if status:
+                # Reload fcts
+                self.admin._reload_fct_ftrg()
+                if self.isCanceled():
+                    return True
+                # Call fct gw_fct_admin_rename_fixviews
+                sql = ('SELECT ' + str(self.new_schema_name) + '.gw_fct_admin_rename_fixviews($${"data":{"currentSchemaName":"'
+                       + self.new_schema_name + '","oldSchemaName":"' + str(schema) + '"}}$$)::text')
+                tools_db.execute_sql(sql, commit=False, is_thread=True)
+                # Execute last_process
+                self.admin.execute_last_process(schema_name=self.new_schema_name, locale=True, schema_type=self.admin.project_type)
 
-        # Show message
-        status = (self.admin.error_count == 0)
-        if status:
-            tools_db.dao.commit()            
-        else:
-            tools_db.dao.rollback()
+            # Show message
+            status = (self.admin.error_count == 0)
+            if status:
+                tools_db.dao.commit()
+            else:
+                tools_db.dao.rollback()
+        finally:
+            tools_db.execute_sql("RESET ROLE", commit=False, is_thread=True)
 
         # Reset count error variable to 0
         self.admin.error_count = 0

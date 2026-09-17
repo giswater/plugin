@@ -24,7 +24,7 @@ SELECT columns_are(
         'arc_id', 'node_1', 'node_2', 'arccat_id', 'expl_id', 'sector_id',
         'dma_id', 'state', 'state_type', 'custom_length', 'annotation', 'minorloss',
         'status', 'cat_matcat_id', 'builtdate', 'custom_roughness', 'cat_dint', 'custom_dint',
-        'bulk_coeff', 'wall_coeff', 'the_geom'
+        'bulk_coeff', 'wall_coeff', 'the_geom', 'p_state'
     ],
     'View ve_inp_pipe should have the correct columns'
 );
@@ -51,6 +51,7 @@ SELECT col_type_is('ve_inp_pipe', 'custom_dint', 'numeric(12,3)', 'Column custom
 SELECT col_type_is('ve_inp_pipe', 'bulk_coeff', 'float8', 'Column bulk_coeff should be float8');
 SELECT col_type_is('ve_inp_pipe', 'wall_coeff', 'float8', 'Column wall_coeff should be float8');
 SELECT col_type_is('ve_inp_pipe', 'the_geom', 'geometry(linestring, SRID_VALUE)', 'Column the_geom should be geometry(linestring, SRID_VALUE)');
+SELECT col_type_is('ve_inp_pipe', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

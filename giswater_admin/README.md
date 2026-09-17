@@ -110,7 +110,7 @@ flowchart TB
 
 | Type | Behavior |
 |------|----------|
-| `sql_dir` | Run every `*.sql` in listed folders (optional `recursive`) |
+| `sql_dir` | Run every `*.sql` in listed folders (optional `recursive`, `shared_source`, `exclude`) |
 | `version_walk` | Walk `updates/<M>/<m>/<p>/` semver-ordered; `roots:` for ws/ud (common then kind) |
 | `sql_function` | `SELECT schema.fn($${JSON}$$)` (e.g. `lastprocess`) |
 | `sql_file` | Single file with optional `fallback_source` |
@@ -330,7 +330,7 @@ Env: `SATELLITES=utils,cibs`, `PARENT_PROFILE=empty|sample|inventory`, `PLUGIN_V
 
 Resolution order (first match wins):
 
-1. `--conn` — `postgresql://user:pass@host:port/dbname` (or `postgres://…`)
+1. `--conn` — `postgresql://user:pass@host:port/dbname`, `service=NAME`, or a bare pg_service name
 2. `--config` — YAML with `host`, `port`, `user`, `password`, `dbname`, and/or `service`
 3. User config — `gw config set database.conn …` or `database.config /path/to/conn.yaml`
 4. Environment — `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `PGSERVICE`
@@ -346,13 +346,17 @@ gw config set database.config /path/conn.yaml
 gw config set database.conn null   # clear URL
 ```
 
-**Superuser:** mutating commands (`db init`, `schema` create/integrate/update/drop, `network update`, and `--check` with a live connection) require a PostgreSQL **superuser**. Read-only commands (`schema list`, `network show`) work with any role that can `SELECT` Giswater schemas and `pg_catalog`.
+**Privileges:** `db init` requires a PostgreSQL **superuser** (creates extensions, roles, and `GRANT CREATE ON DATABASE … TO role_system`). After that, mutating schema commands (`schema` create/integrate/update/drop, `network update`, and `--check` with a live connection) accept a superuser **or** a login that is a member of `role_system`. Read-only commands (`schema list`, `network show`) work with any role that can `SELECT` Giswater schemas and `pg_catalog`.
 
 ### Linux / macOS
 
 ```bash
 export CONN='postgresql://gisadmin:secret@127.0.0.1:5432/giswater_cli'
 python3 -m giswater_admin status --conn "$CONN"
+
+# or a pg_service from ~/.pg_service.conf (beats user config, unlike PGSERVICE)
+gw schema list --conn giswater
+gw schema list --conn service=giswater
 ```
 
 ### Windows (PowerShell)
@@ -457,7 +461,7 @@ Use `--version X.Y.Z` everywhere (replaces `--plugin-version` / `--to-version`).
 
 ### `db init`
 
-Creates extensions in order: `postgis` → `postgis_raster` → `tablefunc` → `pgrouting` → `unaccent` (optional `postgres_fdw` with `--with-fdw`). Run **once per database** before the first schema create.
+Creates extensions in order: `postgis` → `postgis_raster` → `tablefunc` → `pgrouting` → `unaccent` (optional `postgres_fdw` with `--with-fdw`). Also creates the Giswater role hierarchy if missing and `GRANT CREATE ON DATABASE` to `role_system` so a `role_system` member can create schemas afterwards. Requires a PostgreSQL **superuser**. Run **once per database** before the first schema create.
 
 | Option | Description |
 |--------|-------------|
@@ -568,7 +572,7 @@ gw schema addon drop --type utils --yes --cascade --conn "$CONN"
 
 #### `schema list`
 
-Read-only inventory of schemas with `sys_version`. No superuser required.
+Read-only inventory of schemas with `sys_version`. No superuser / role_system required.
 
 | Option | Description |
 |--------|-------------|

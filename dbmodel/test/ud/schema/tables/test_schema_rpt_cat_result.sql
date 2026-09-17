@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'result_id', 'exec_date', 'cur_user', 'inp_options', 'rpt_stats', 'export_options',
         'network_stats', 'status', 'addparam', 'expl_id', 'network_type', 'sector_id',
-        'descript', 'iscorporate', 'inp_file', 'is_twin', 'parent_id'
+        'descript', 'iscorporate', 'inp_file', 'is_twin', 'parent_id', 'isvalidated'
     ],
     'Table rpt_cat_result should have the correct columns'
 );
@@ -46,6 +46,7 @@ SELECT col_type_is('rpt_cat_result', 'iscorporate', 'bool', 'Column iscorporate 
 SELECT col_type_is('rpt_cat_result', 'inp_file', 'bytea', 'Column inp_file should be bytea');
 SELECT col_type_is('rpt_cat_result', 'is_twin', 'bool', 'Column is_twin should be bool');
 SELECT col_type_is('rpt_cat_result', 'parent_id', 'varchar(16)', 'Column parent_id should be varchar(16)');
+SELECT col_type_is('rpt_cat_result', 'isvalidated', 'bool', 'Column isvalidated should be bool');
 -- Finish
 SELECT * FROM finish();
 

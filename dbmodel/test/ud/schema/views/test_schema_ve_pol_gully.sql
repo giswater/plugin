@@ -22,7 +22,7 @@ SELECT columns_are(
     've_pol_gully',
     ARRAY[
         'pol_id', 'feature_id', 'featurecat_id', 'state', 'sys_type', 'the_geom',
-        'fluid_type', 'trace_featuregeom'
+        'fluid_type', 'trace_featuregeom', 'state_type'
     ],
     'View ve_pol_gully should have the correct columns'
 );
@@ -36,6 +36,7 @@ SELECT col_type_is('ve_pol_gully', 'sys_type', 'varchar(30)', 'Column sys_type s
 SELECT col_type_is('ve_pol_gully', 'the_geom', 'geometry(multipolygon, SRID_VALUE)', 'Column the_geom should be geometry(multipolygon, SRID_VALUE)');
 SELECT col_type_is('ve_pol_gully', 'fluid_type', 'int4', 'Column fluid_type should be int4');
 SELECT col_type_is('ve_pol_gully', 'trace_featuregeom', 'bool', 'Column trace_featuregeom should be bool');
+SELECT col_type_is('ve_pol_gully', 'state_type', 'int2', 'Column state_type should be int2');
 
 SELECT * FROM finish();
 

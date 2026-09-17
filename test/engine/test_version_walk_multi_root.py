@@ -86,7 +86,7 @@ def test_multi_root_per_version_order_common_first(tmp_path: Path):
     b = SchemaBuilder(conn, _multi_root_manifest(), params)
     b.run()
 
-    executed = [Path(p).name for p in conn.executed]
+    executed = [Path(p).name for p in conn.executed if p]
     assert executed == ["10_common.sql", "20_ws.sql", "30_common.sql", "40_ws.sql"]
 
 
@@ -103,7 +103,7 @@ def test_multi_root_missing_in_one_root(tmp_path: Path):
     conn = _FakeConn()
     b = SchemaBuilder(conn, _multi_root_manifest(), params)
     b.run()
-    executed = [Path(p).name for p in conn.executed]
+    executed = [Path(p).name for p in conn.executed if p]
     assert executed == ["c.sql", "ws_only.sql"]
 
 
@@ -162,5 +162,5 @@ def test_upgrade_step_applies_single_version(tmp_path: Path):
     )
     conn = _FakeConn()
     SchemaBuilder(conn, _multi_root_manifest(), params).run()
-    executed = [Path(p).name for p in conn.executed]
+    executed = [Path(p).name for p in conn.executed if p]
     assert executed == ["apply.sql", "ws.sql"]

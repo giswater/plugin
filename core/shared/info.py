@@ -379,6 +379,9 @@ class GwInfo(QObject):
                 msg_params = (widget_name,)
                 tools_qgis.show_message(msg, dialog=dialog, msg_params=msg_params)
                 return
+        action.setCheckable(True)
+        action.setChecked(True)
+
         # Block the signals of de dialog so that the key ESC does not close it
         dialog.blockSignals(True)
 
@@ -499,6 +502,21 @@ class GwInfo(QObject):
 
         return result, self.dlg_generic
 
+    def _apply_data_toolbox_labels(self, complet_result):
+        """Override QToolBox page titles from sys_label. Call after open_dialog/docker_dialog so .qm does not win."""
+        labels = complet_result.get("body", {}).get("form", {}).get("toolboxLabels") or {}
+        if not labels:
+            return
+        for toolbox_name in ("data_toolbox", "epa_toolbox"):
+            toolbox = self.dlg_cf.findChild(QToolBox, toolbox_name)
+            if toolbox is None:
+                continue
+            for i in range(toolbox.count()):
+                page = toolbox.widget(i)
+                text = labels.get(page.objectName()) if page is not None else None
+                if text:
+                    toolbox.setItemText(i, text)
+
     def _open_custom_form(self, feature_id, complet_result, tab_type=None, sub_tag=None, is_docker=True, new_feature=None, connect_signal=None,
                           linked_feature=None):
         """
@@ -603,9 +621,11 @@ class GwInfo(QObject):
         dlg_cf, fid = self._manage_actions_signals(complet_result, list_points, new_feature, tab_type, result)
 
         self._show_actions(self.dlg_cf, 'tab_data')
-        if self.new_feature_id is not None and self.feature_type not in ('element'):
+        if self.new_feature_id is not None:
             self._enable_action(self.dlg_cf, "actionCentered", False)
-            self._enable_action(self.dlg_cf, "actionSetToArc", False)
+            # FRELEM keeps Set To Arc (visible from tabactions); GENELEM must not get it
+            if not (self.action_set_to_arc and self.action_set_to_arc.isVisible()):
+                self._enable_action(self.dlg_cf, "actionSetToArc", False)
 
         btn_cancel = self.dlg_cf.findChild(QPushButton, 'btn_cancel')
         btn_accept = self.dlg_cf.findChild(QPushButton, 'btn_accept')
@@ -625,6 +645,7 @@ class GwInfo(QObject):
                 del last_info
 
             tools_gw.docker_dialog(dlg_cf, dlg_name='info_feature', title='info_feature')
+            self._apply_data_toolbox_labels(complet_result)
             lib_vars.session_vars['dialog_docker'].widget().dlg_closed.connect(self._manage_docker_close)
             lib_vars.session_vars['dialog_docker'].setWindowTitle(title)
             btn_cancel.clicked.connect(self._manage_docker_close)
@@ -663,6 +684,7 @@ class GwInfo(QObject):
             partial(self._accept_from_btn, dlg_cf, self.action_edit, new_feature, self.my_json, complet_result, False, linked_feature=linked_feature))
             # Open dialog
             tools_gw.open_dialog(self.dlg_cf, dlg_name='info_feature')
+            self._apply_data_toolbox_labels(complet_result)
             self.dlg_cf.setWindowTitle(title)
 
         # Check if audit schema exists
@@ -716,6 +738,8 @@ class GwInfo(QObject):
         self.action_workcat = self.dlg_cf.findChild(QAction, "actionWorkcat")
         self.action_mapzone = self.dlg_cf.findChild(QAction, "actionMapZone")
         self.action_set_to_arc = self.dlg_cf.findChild(QAction, "actionSetToArc")
+        if self.action_set_to_arc:
+            self.action_set_to_arc.setCheckable(True)
         self.action_get_arc_id = self.dlg_cf.findChild(QAction, "actionGetArcId")
         self.action_get_parent_id = self.dlg_cf.findChild(QAction, "actionGetParentId")
         self.action_centered = self.dlg_cf.findChild(QAction, "actionCentered")
@@ -772,6 +796,8 @@ class GwInfo(QObject):
                 layout_orientations[layout_name] = orientation
 
         current_layout = ""
+        self.dlg_cf.setProperty('_gw_defer_filtered_child_combos', not reload_epa)
+        tools_gw.set_form_field_values(self.dlg_cf, result.get('fields'))
         for field in complet_result['body']['data']['fields']:
 
             if field.get('hidden'):
@@ -850,15 +876,16 @@ class GwInfo(QObject):
 
         if reload_epa:
             return
+        self.dlg_cf.setProperty('_gw_defer_filtered_child_combos', False)
         # Manage combo parents and children:
-        for field in result['fields']:
-            if field['isparent']:
-                if field['widgettype'] == 'combo':
-                    widget = self.dlg_cf.findChild(QComboBox, field['widgetname'])
-                    if widget is not None:
-                        widget.currentIndexChanged.connect(partial(
-                            self._get_combo_child, self.dlg_cf, widget, self.feature_type,
-                            self.tablename, self.field_id))
+        tools_gw.connect_isparent_combos(
+            self.dlg_cf,
+            result['fields'],
+            self._get_combo_child,
+            self.feature_type,
+            self.tablename,
+            self.field_id,
+        )
 
     def _manage_actions_signals(self, complet_result, list_points, new_feature, tab_type, result):
         """ Connects signals to the actions """
@@ -944,7 +971,8 @@ class GwInfo(QObject):
                         {"tbl": "tbl_dscenario", "view": "inp_dscenario_flwreg_orifice", "add_view": "ve_inp_dscenario_flwreg_orifice", "pk": ["dscenario_id", "nodarc_id"], "add_dlg_title": "Orifice - Dscenario"}
                        ]}
         kwargs = {"complet_result": self.complet_result, "class": self, "func_params": func_params}
-        open_epa_dlg("Orifice", **kwargs)
+        title = "Orifice"
+        open_epa_dlg(title, **kwargs)
 
     def _open_outlet_dlg(self):
         # kwargs
@@ -954,7 +982,8 @@ class GwInfo(QObject):
                         {"tbl": "tbl_dscenario", "view": "inp_dscenario_flwreg_outlet", "add_view": "ve_inp_dscenario_flwreg_outlet", "pk": ["dscenario_id", "nodarc_id"], "add_dlg_title": "Outlet - Dscenario"}
                        ]}
         kwargs = {"complet_result": self.complet_result, "class": self, "func_params": func_params}
-        open_epa_dlg("Outlet", **kwargs)
+        title = "Outlet"
+        open_epa_dlg(title, **kwargs)
 
     def _open_weir_dlg(self):
         # kwargs
@@ -964,7 +993,8 @@ class GwInfo(QObject):
                         {"tbl": "tbl_dscenario", "view": "inp_dscenario_flwreg_weir", "add_view": "ve_inp_dscenario_flwreg_weir", "pk": ["dscenario_id", "nodarc_id"], "add_dlg_title": "Weir - Dscenario"}
                        ]}
         kwargs = {"complet_result": self.complet_result, "class": self, "func_params": func_params}
-        open_epa_dlg("Weir", **kwargs)
+        title = "Weir"
+        open_epa_dlg(title, **kwargs)
 
     def _open_demand_dlg(self):
         # kwargs
@@ -973,7 +1003,8 @@ class GwInfo(QObject):
                         {"tbl": "tbl_dscenario", "view": "inp_dscenario_demand", "add_view": "ve_inp_dscenario_demand", "id_name": "feature_id", "pk": ["dscenario_id", "feature_id"], "add_dlg_title": "Demand - Dscenario"}
                        ]}
         kwargs = {"complet_result": self.complet_result, "class": self, "func_params": func_params}
-        open_epa_dlg("Demand", **kwargs)
+        title = "Demand"
+        open_epa_dlg(title, **kwargs)
 
     def _open_dwf_dlg(self):
         # kwargs
@@ -983,20 +1014,25 @@ class GwInfo(QObject):
                         {"tbl": "tbl_inflows", "view": "inp_dscenario_inflows", "pk": ["dscenario_id", "node_id", "order_id"], "add_view": "ve_inp_dscenario_inflows", "add_dlg_title": "INFLOWS - Dscenario"}
                        ]}
         kwargs = {"complet_result": self.complet_result, "class": self, "func_params": func_params}
-        open_epa_dlg("DWF & INFLOWS", **kwargs)
+        title = "DWF & INFLOWS"
+        open_epa_dlg(title, **kwargs)
 
     def action_open_link(self):
         """ Manage def open_file from action 'Open Link' """
 
-        try:
-            widget_list = self.dlg_cf.findChildren(tools_qt.GwHyperLinkLabel)
-            for widget in widget_list:
-                path = widget.text()
-                status, message = tools_os.open_file(path)
-                if status is False and message is not None:
-                    tools_qgis.show_warning(message, parameter=path, dialog=self.dlg_cf)
-        except Exception:
-            pass
+        widget_list = self.dlg_cf.findChildren((tools_qt.GwHyperLinkLabel, GwHyperLinkLineEdit))
+        if not widget_list:
+            msg = "Link widget not found. Check config_form_fields."
+            tools_qgis.show_warning(msg, dialog=self.dlg_cf)
+            return
+
+        for widget in widget_list:
+            path = widget.text()
+            if not path or path in ('null',):
+                continue
+            status, message = tools_os.open_file(path)
+            if status is False and message is not None:
+                tools_qgis.show_warning(message, parameter=path, dialog=self.dlg_cf)
 
     def _get_feature_type(self, complet_result):
         """ Get feature type as feature_type (node, arc, connec, gully) """
@@ -1025,20 +1061,20 @@ class GwInfo(QObject):
         # Try with current locale
         png_path = os.path.join(png_folder, f"{project_type}_{feature_type}_{locale}.png")
         if os.path.exists(png_path):
-            os.system(png_path)
+            tools_os.open_file(png_path)
             return
 
         # If locale starts with 'es', try with es_ES
         if locale.startswith('es'):
             png_path = os.path.join(png_folder, f"{project_type}_{feature_type}_es_ES.png")
             if os.path.exists(png_path):
-                os.system(png_path)
+                tools_os.open_file(png_path)
                 return
 
         # Try with en_US as fallback
         png_path = os.path.join(png_folder, f"{project_type}_{feature_type}_en_US.png")
         if os.path.exists(png_path):
-            os.system(png_path)
+            tools_os.open_file(png_path)
             return
 
         # If no help file found, show warning
@@ -1379,6 +1415,9 @@ class GwInfo(QObject):
             action_widget.setChecked(False)
         tools_gw.disconnect_signal('info_snapping', 'change_hemisphere_ep_canvasClicked_action_rotation_canvas_clicked')
 
+        tools_qgis.force_refresh_map_canvas()
+        global_vars.canvas.setMapTool(self.previous_map_tool)
+
     def _manage_action_copy_paste(self, dialog, feature_type, tab_type=None):
         """ Copy some fields from snapped feature to current feature """
 
@@ -1463,8 +1502,7 @@ class GwInfo(QObject):
         # Select only first element of the feature list
         feature = feature_list[0]
         feature_id = feature.attribute(str(self.feature_type) + '_id')
-        msg = (f'''{tools_qt.tr('Selected snapped feature_id to copy values from')}: {snapped_feature_attr[0]}\n'''
-               f'''{tools_qt.tr('Do you want to copy its values to the current node?')}\n\n''')
+        snapped_id = snapped_feature_attr[0]
         # Replace id because we don't have to copy it!
         snapped_feature_attr[0] = feature_id
         snapped_feature_attr_aux = []
@@ -1483,12 +1521,19 @@ class GwInfo(QObject):
                     snapped_feature_attr_aux.append(snapped_feature_attr[i])
                     fields_aux.append(fields[i].name())
 
-        for i in range(0, len(fields_aux)):
-            msg += f"{fields_aux[i]}: {snapped_feature_attr_aux[i]}\n"
+        fields_text = "\n".join(
+            f"{fields_aux[i]}: {snapped_feature_attr_aux[i]}" for i in range(0, len(fields_aux))
+        )
 
         # Ask confirmation question showing fields that will be copied
+        msg = (
+            "Selected snapped feature_id to copy values from: {0}\n"
+            "Do you want to copy its values to the current node?\n\n"
+            "{1}"
+        )
+        msg_params = (snapped_id, fields_text)
         title = "Update records"
-        answer = tools_qt.show_question(msg, title, None)
+        answer = tools_qt.show_question(msg, title, msg_params=msg_params)
         if answer:
             for i in range(0, len(fields)):
                 for x in range(0, len(fields_aux)):
@@ -1611,7 +1656,8 @@ class GwInfo(QObject):
         # Therefore whenever the cursor enters a widget, it will ask if we want to save changes
         if not action_edit.isChecked() or from_apply:
             self._get_last_value(dialog, generic)
-            if str(self.my_json) == '{}' and str(self.my_json_epa) == '{}':
+            geom_pending = self.point_xy.get('x') is not None
+            if str(self.my_json) == '{}' and str(self.my_json_epa) == '{}' and not geom_pending:
                 tools_qt.set_action_checked(action_edit, False)
                 tools_gw.enable_widgets(dialog, self.complet_result['body']['data'], False)
                 if self.epa_complet_result:
@@ -1673,7 +1719,8 @@ class GwInfo(QObject):
 
     def _stop_editing(self, dialog, action_edit, layer, fid, my_json, new_feature=None):
 
-        if (my_json == '' or str(my_json) == '{}') and (self.my_json_epa == '' or str(self.my_json_epa) == '{}'):
+        if ((my_json == '' or str(my_json) == '{}') and (self.my_json_epa == '' or str(self.my_json_epa) == '{}')
+                and self.point_xy.get('x') is None):
             QgsProject.instance().blockSignals(True)
             tools_qt.set_action_checked(action_edit, False)
             tools_gw.enable_widgets(dialog, self.complet_result['body']['data'], False)
@@ -1720,8 +1767,8 @@ class GwInfo(QObject):
 
     def _ask_for_save(self, action_edit, fid):
 
-        msg = tools_qt.tr('Are you sure to save this feature?')
-        title = tools_qt.tr("Save feature")
+        msg = 'Are you sure to save this feature?'
+        title = "Save feature"
         answer = tools_qt.show_question(msg, title, None, parameter=fid)
         if not answer:
             tools_qt.set_action_checked(action_edit, True)
@@ -1756,7 +1803,8 @@ class GwInfo(QObject):
         tools_gw.load_settings(dlg_sections)
 
         # Set dialog not resizable
-        dlg_sections.setFixedSize(757, 462)
+        dlg_sections.resize(757, 462)
+        dlg_sections.setMinimumSize(757, 462)
 
         feature = '"id":"' + self.feature_id + '"'
         body = tools_gw.create_body(feature=feature)
@@ -1813,6 +1861,8 @@ class GwInfo(QObject):
         newfeature_id = complet_result['body']['feature']['id']
         list_mandatory = []
         skip_mandatory = bool(_json) and set(_json.keys()) == {'epa_type'}
+        if self.point_xy.get('x') is not None and (not _json or str(_json) == '{}'):
+            skip_mandatory = True
         # Manage autoupdate and mandatory widgets
         fields_reload = self._manage_autoupdate_and_mandatory_widgets(dialog, complet_result, p_widget, list_mandatory)
 
@@ -1842,7 +1892,10 @@ class GwInfo(QObject):
                 self.new_feature_id = None
                 self._enable_action(dialog, "actionCentered", True)
                 self._enable_action(dialog, "actionAudit", True)
-                self._enable_action(dialog, "actionSetToArc", True)
+                if self.action_set_to_arc and self.action_set_to_arc.isVisible():
+                    self._enable_action(dialog, "actionSetToArc", True)
+                if self.action_set_geom and self.action_set_geom.isVisible():
+                    self._enable_action(dialog, "actionSetGeom", True)
                 global is_inserting  # noqa: F824
                 is_inserting = False
 
@@ -1874,7 +1927,7 @@ class GwInfo(QObject):
                 epa_type_changed = True
                 new_epa_type_value = _json.get('epa_type')
 
-            json_result = tools_gw.execute_procedure('gw_fct_setfields', body)
+            json_result = tools_gw.execute_procedure('gw_fct_setfields', body, show_exception=False)
             if not json_result:
                 return False
 
@@ -1884,7 +1937,7 @@ class GwInfo(QObject):
             if "Failed" in json_result['status']:
                 msg = json_result['message']['text']
                 if msg is None:
-                    msg = tools_qt.tr('Feature not upserted')
+                    msg = 'Feature not upserted'
                 msg_level = json_result['message']['level']
                 if msg_level is None:
                     msg_level = 2
@@ -1895,7 +1948,7 @@ class GwInfo(QObject):
             if "Accepted" in json_result['status']:
                 msg = json_result['message']['text']
                 if msg is None:
-                    msg = tools_qt.tr('Feature upserted')
+                    msg = 'Feature upserted'
                 msg_level = json_result['message']['level']
                 if msg_level is None:
                     msg_level = 1
@@ -1905,10 +1958,6 @@ class GwInfo(QObject):
                 if epa_type_changed:
                     self.epa_type = str(new_epa_type_value)
                     self._reload_epa_tab(dialog)
-
-                # Update geometry field (if user have selected a point)
-                if self.point_xy['x'] is not None:
-                    self._update_geom(p_table_id, id_name, newfeature_id)
 
                 if thread:
                     # If param is true show question and create thread
@@ -1947,6 +1996,10 @@ class GwInfo(QObject):
             if not json_result or "Failed" in json_result['status']:
                 return False
 
+        # Update geometry even when no other fields changed (Set Geom on GENELEM)
+        if self.point_xy.get('x') is not None:
+            self._update_geom(p_table_id, id_name, newfeature_id)
+
         # Force a map refresh
         tools_qgis.refresh_map_canvas()  # First refresh all the layers
         global_vars.iface.mapCanvas().refresh()  # Then refresh the map view itself
@@ -1977,7 +2030,7 @@ class GwInfo(QObject):
                 widget.setStyleSheet(None)
                 value = tools_qt.get_text(dialog, widget)
                 if value in ('null', None, ''):
-                    widget.setStyleSheet("border: 1px solid red")
+                    widget.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
                     list_mandatory.append(field['widgetname'])
         return fields_reload
 
@@ -2051,7 +2104,7 @@ class GwInfo(QObject):
             widget.setStyleSheet(None)
             btn_accept.setEnabled(True)
         else:
-            widget.setStyleSheet("border: 1px solid red")
+            widget.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
             btn_accept.setEnabled(False)
 
     def _check_integer(self, value, widget, btn_accept):
@@ -2064,7 +2117,7 @@ class GwInfo(QObject):
             widget.setStyleSheet(None)
             btn_accept.setEnabled(True)
         else:
-            widget.setStyleSheet("border: 1px solid red")
+            widget.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
             btn_accept.setEnabled(False)
 
     def _check_min_max_value(self, dialog, widget, btn_accept):
@@ -2073,13 +2126,13 @@ class GwInfo(QObject):
         try:
             if value and ((widget.property('minValue') and float(value) < float(widget.property('minValue')))
                     or (widget.property('maxValue') and float(value) > float(widget.property('maxValue')))):
-                widget.setStyleSheet("border: 1px solid red")
+                widget.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
                 btn_accept.setEnabled(False)
             else:
                 widget.setStyleSheet(None)
                 btn_accept.setEnabled(True)
         except ValueError:
-            widget.setStyleSheet("border: 1px solid red")
+            widget.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
             btn_accept.setEnabled(False)
 
     def _check_tab_data(self, field):
@@ -2249,9 +2302,8 @@ class GwInfo(QObject):
         # Restore QLineEdit stylesheet
         widget_list = dialog.tab_data.findChildren(QLineEdit)
         for widget in widget_list:
-            is_readonly = widget.isReadOnly()
-            if is_readonly:
-                widget.setStyleSheet("QLineEdit {background: rgb(244, 244, 244); color: rgb(100, 100, 100)}")
+            if widget.isReadOnly():
+                tools_gw.ThemeManager.apply_readonly_style(widget, readonly=True)
             else:
                 widget.setStyleSheet(None)
 
@@ -2271,12 +2323,12 @@ class GwInfo(QObject):
                 if str(cur_value) != str(value):
                     widget.setText(value)
                     if not isinstance(widget, QPushButton):
-                        widget.setStyleSheet(f"border: 2px solid {changed_color}")
+                        widget.setStyleSheet(tools_gw.ThemeManager.changed_field_style(widget, color=changed_color))
                     else:
                         changed_color = "#EB9438"
                     if getattr(widget, 'isReadOnly', False):
-                        widget.setStyleSheet(f"QLineEdit {{background: rgb(244, 244, 244); color: rgb(100, 100, 100); "
-                                             f"border: 2px solid {changed_color}}}")
+                        widget.setStyleSheet(tools_gw.ThemeManager.changed_field_style(
+                            widget, color=changed_color, readonly=True))
 
             elif "message" in field:
                 level = field['message']['level'] if 'level' in field['message'] else 0
@@ -2485,7 +2537,8 @@ class GwInfo(QObject):
         if json_response and json_response['status'] != "Failed":
             # Refresh canvas & send a message
             tools_qgis.refresh_map_canvas()
-            tools_qgis.show_info(tools_qt.tr("Node set correctly"), dialog=dialog)
+            msg = "Node set correctly"
+            tools_qgis.show_info(msg, dialog=dialog)
 
             # Delete lineedit
             widget.deleteLater()
@@ -2499,7 +2552,8 @@ class GwInfo(QObject):
             if layout is not None:
                 layout.addWidget(new_widget, int(field['layoutorder']), 2)
             return
-        tools_qgis.show_warning(tools_qt.tr("Error setting node"), dialog=dialog)
+        msg = "Error setting node"
+        tools_qgis.show_warning(msg, dialog=dialog)
 
     def _open_catalog(self, tab_type, feature_type, child_type):
 
@@ -2535,6 +2589,11 @@ class GwInfo(QObject):
                             if 'actionTooltip' in act:
                                 action.setToolTip(tools_qt.tr(act['actionTooltip']))
                             action.setVisible(True)
+
+        fields = None
+        if getattr(self, 'complet_result', None):
+            fields = self.complet_result.get('body', {}).get('data', {}).get('fields')
+        tools_gw.hide_action_link_if_field_hidden(dialog, fields)
 
         if enable_actions:
             self._enable_actions(dialog, self.action_edit.isChecked())
@@ -2766,8 +2825,9 @@ class GwInfo(QObject):
             widgetname = table.objectName()
             columnname = table.property('columnname')
             if columnname is None:
-                msg = f"widget {widgetname} in tab {self.tab_main.widget(index_tab).objectName()} has not columnname and cant be configured"
-                tools_qgis.show_info(msg, 3)
+                msg = "widget {0} in tab {1} has not columnname and cant be configured"
+                msg_params = (widgetname, self.tab_main.widget(index_tab).objectName())
+                tools_qgis.show_info(msg, 3, msg_params=msg_params)
                 continue
             linkedobject = table.property('linkedobject')
             if linkedobject is None:
@@ -3008,7 +3068,7 @@ class GwInfo(QObject):
             value = tools_qt.get_text(dialog, widget, False, False)
             if widget.property('ismandatory') and value in (None, ''):
                 missing_mandatory = True
-                tools_qt.set_stylesheet(widget, "border: 2px solid red")
+                tools_qt.set_stylesheet(widget, tools_gw.ThemeManager.validation_border_style(2))
         if missing_mandatory:
             message = "Mandatory field is missing. Please, set a value"
             tools_qgis.show_warning(message)
@@ -3114,7 +3174,8 @@ class GwInfo(QObject):
                 #       def _set_to_arc(self, dialog, feat_id, child_type, widget_name, simple=False)
                 getattr(self, options[option][1])(dialog, feat_id, child_type, widget_name, simple=True)
         except Exception as e:
-            tools_qgis.show_warning(tools_qt.tr("Exception in info (def _get_id)"), parameter=e)
+            msg = "Exception in info (def _get_id)"
+            tools_qgis.show_warning(msg, parameter=e)
         finally:
             self._cancel_snapping_tool(dialog, action)
 
@@ -3175,7 +3236,9 @@ class GwInfo(QObject):
                 widget.setReadOnly(False)
                 widget.editingFinished.emit()  # Emit signal to indicate value has changed
         else:
-            tools_qgis.show_warning(f"Widget '{widget_name}' not found in the dialog.")
+            msg = "Widget '{0}' not found in the dialog."
+            msg_params = (widget_name,)
+            tools_qgis.show_warning(msg, msg_params=msg_params)
 
     def _cancel_snapping_tool(self, dialog, action):
 
@@ -3255,7 +3318,9 @@ class GwInfo(QObject):
         """
 
         combo_parent = widget.property('columnname')
-        combo_id = tools_qt.get_combo_value(dialog, widget)
+        combo_id = tools_qt.get_combo_value(dialog, widget, 0)
+        if combo_id in (None, '', -1):
+            return False
 
         feature = f'"featureType":"{feature_type}", '
         feature += f'"tableName":"{tablename}", '
@@ -3268,21 +3333,45 @@ class GwInfo(QObject):
 
         for combo_child in result['body']['data']:
             if combo_child is not None:
-                tools_gw.manage_combo_child(dialog, widget, combo_child)
+                tools_gw.manage_combo_child(dialog, widget, combo_child, combo_id)
 
     def _get_point_xy(self):
         """ Capture point XY from the canvas """
         self.snapper_manager.add_point(self.vertex_marker)
         self.point_xy = self.snapper_manager.point_xy
+        if self.point_xy.get('x') is None or not self.complet_result:
+            return
+        self.complet_result['body']['feature']['geometry'] = {
+            'x': self.point_xy['x'],
+            'y': self.point_xy['y'],
+            'st_astext': f"POINT({self.point_xy['x']} {self.point_xy['y']})"
+        }
+        tools_gw.reset_rubberband(self.rubber_band)
+        tools_gw.draw_by_json(self.complet_result, self.rubber_band)
 
     def _update_geom(self, table_id, id_name, newfeature_id):
         """ Update geometry field """
 
         srid = lib_vars.data_epsg
-        sql = (f"UPDATE {table_id}"
-               f" SET the_geom = ST_SetSRID(ST_MakePoint({self.point_xy['x']},{self.point_xy['y']}), {srid})"
-               f" WHERE {id_name} = {newfeature_id}")
+        sql = (
+            f"UPDATE {table_id}"
+            f" SET the_geom = ST_SetSRID(ST_MakePoint({self.point_xy['x']},{self.point_xy['y']}), {srid})"
+            f" WHERE {id_name}::text = '{newfeature_id}'"
+        )
         tools_db.execute_sql(sql)
+        if self.layer:
+            self.layer.dataProvider().reloadData()
+            self.layer.triggerRepaint()
+        if self.complet_result and self.complet_result.get('body', {}).get('feature') is not None:
+            self.complet_result['body']['feature']['geometry'] = {
+                'x': self.point_xy['x'],
+                'y': self.point_xy['y'],
+                'st_astext': f"POINT({self.point_xy['x']} {self.point_xy['y']})"
+            }
+            tools_gw.reset_rubberband(self.rubber_band)
+            tools_gw.draw_by_json(self.complet_result, self.rubber_band)
+        tools_qgis.force_refresh_map_canvas()
+        self.point_xy = {"x": None, "y": None}
 
     # endregion
 # region Static functions used by the widgets in the custom form
@@ -3406,7 +3495,7 @@ def open_epa_dlg(windowtitle, **kwargs):
     # Build dlg
     info.dlg = globals()[ui](info)
     tools_gw.load_settings(info.dlg)
-    info.dlg.setWindowTitle(windowtitle)
+    info.dlg.setWindowTitle(tools_qt.tr(windowtitle))
 
     if windowtitle == "DWF & INFLOWS":
         pages = ["page_base", "page_dscenario"]
@@ -3525,35 +3614,43 @@ def _show_context_menu(qtableview, tableview):
 
         menu = QMenu(qtableview)
         if 'dscenario' in tableview['view'] and 'inflows' not in tableview['view']:
-            action_delete = QAction("Delete dscenario", qtableview)
+            title = "Delete dscenario"
+            action_delete = QAction(tools_qt.tr(title), qtableview)
             action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete_dscenario"))
             menu.addAction(action_delete)
 
-            action_edit = QAction("Edit dscenario", qtableview)
+            title = "Edit dscenario"
+            action_edit = QAction(tools_qt.tr(title), qtableview)
             action_edit.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_edit_dscenario"))
             menu.addAction(action_edit)
         elif 'dwf' in tableview['view']:
-            action_delete = QAction("Delete dwf", qtableview)
+            title = "Delete dwf"
+            action_delete = QAction(tools_qt.tr(title), qtableview)
             action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete_dwf"))
             menu.addAction(action_delete)
 
-            action_edit = QAction("Edit dwf", qtableview)
+            title = "Edit dwf"
+            action_edit = QAction(tools_qt.tr(title), qtableview)
             action_edit.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_edit_dwf"))
             menu.addAction(action_edit)
         elif 'inflows' in tableview['view']:
-            action_delete = QAction("Delete inflows", qtableview)
+            title = "Delete inflows"
+            action_delete = QAction(tools_qt.tr(title), qtableview)
             action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete_inflows"))
             menu.addAction(action_delete)
 
-            action_edit = QAction("Edit inflows", qtableview)
+            title = "Edit inflows"
+            action_edit = QAction(tools_qt.tr(title), qtableview)
             action_edit.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_edit_inflows"))
             menu.addAction(action_edit)
         else:
-            action_delete = QAction("Delete base", qtableview)
+            title = "Delete base"
+            action_delete = QAction(tools_qt.tr(title), qtableview)
             action_delete.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_delete_base"))
             menu.addAction(action_delete)
 
-            action_edit = QAction("Edit base", qtableview)
+            title = "Edit base"
+            action_edit = QAction(tools_qt.tr(title), qtableview)
             action_edit.triggered.connect(partial(tools_gw._force_button_click, qtableview.window(), QPushButton, "btn_edit_base"))
             menu.addAction(action_edit)
 
@@ -3681,6 +3778,8 @@ def add_row_epa(tbl, view, tablename, pkey, dlg, dlg_title, force_action, **kwar
 
     # Setup "Set to Arc" action
     action_set_to_arc = info.add_dlg.findChild(QAction, "actionSetToArc")
+    if action_set_to_arc:
+        action_set_to_arc.setCheckable(True)
     tools_gw.add_icon(action_set_to_arc, "157")
 
     action_set_to_arc.triggered.connect(
@@ -3800,7 +3899,7 @@ def accept_add_dlg(dialog, tablename, pkey, feature_id, my_json, complet_result,
             widget.setStyleSheet(None)
             value = tools_qt.get_text(dialog, widget)
             if value in ('null', None, ''):
-                widget.setStyleSheet("border: 1px solid red")
+                widget.setStyleSheet(tools_gw.ThemeManager.validation_border_style())
                 list_mandatory.append(field['widgetname'])
             else:
                 elem = [field['columnname'], value]
@@ -3839,7 +3938,8 @@ def accept_add_dlg(dialog, tablename, pkey, feature_id, my_json, complet_result,
             pass
         return
 
-    tools_qgis.show_warning(tools_qt.tr('Error'), parameter=json_result, dialog=dialog)
+    msg = "Error"
+    tools_qgis.show_warning(msg, parameter=json_result, dialog=dialog)
 
 
 def tbl_data_changed(info, view, tbl, model, addparam, index):
@@ -3906,7 +4006,7 @@ def save_tbl_changes(table_name, info, dialog, pk):
     if status:
         tools_gw.close_dialog(dialog)
     else:
-        msg = tools_qt.tr('There are some error in the records with id')
+        msg = 'There are some error in the records with id'
         tools_qgis.show_warning(msg, parameter=list_rows, dialog=dialog)
 
 
@@ -3937,7 +4037,7 @@ def save_widgets_changes(table_name, info, dialog, pk):
     if status:
         tools_gw.close_dialog(dialog)
     else:
-        msg = tools_qt.tr('There are some error in the records with id')
+        msg = 'There are some error in the records with id'
         tools_qgis.show_warning(msg, parameter=id_, dialog=dialog)
 
 
@@ -4138,8 +4238,9 @@ def add_frelem_to_dscenario(**kwargs):
                 continue
             epa_type = row_data[0]
             if epa_type == 'UNDEFINED':
-                message = f"Epa type is not defined for element {element_id}"
-                tools_qgis.show_warning(message, dialog=dialog)
+                message = "Epa type is not defined for element {0}"
+                msg_params = (element_id,)
+                tools_qgis.show_warning(message, msg_params=msg_params, dialog=dialog)
                 continue
             # Add frelem to dscenario
             sql = (f"INSERT INTO ve_inp_dscenario_{epa_type.lower()} (dscenario_id, element_id, node_id) "
@@ -4617,8 +4718,7 @@ def open_visit_event(**kwargs):
         widget_list.append(w)
     for widget in widget_list:
         widget.setReadOnly(True)
-        widget.setStyleSheet("QWidget { background: rgb(242, 242, 242);"
-                             " color: rgb(100, 100, 100)}")
+        tools_gw.ThemeManager.apply_readonly_style(widget, readonly=True)
     dlg_event_full.btn_close.clicked.connect(partial(tools_gw.close_dialog, dlg_event_full))
     dlg_event_full.tbl_docs_x_event.doubleClicked.connect(partial(_open_file, dlg_event_full))
     tools_qt.set_tableview_config(dlg_event_full.tbl_docs_x_event)
@@ -4632,13 +4732,14 @@ def _populate_tbl_docs_x_event(dlg_event_full, visit_id, event_id):
     dlg_event_full.tbl_docs_x_event.setModel(model)
     dlg_event_full.tbl_docs_x_event.horizontalHeader().setStretchLastSection(True)
     dlg_event_full.tbl_docs_x_event.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-    # Get columns name and set headers of model with that
-    columns_name = tools_db.get_columns_list('om_visit_event_photo')
-    headers = []
-    for x in columns_name:
-        headers.append(x[0])
-    headers = ['value', 'filetype', 'fextension']
-    model.setHorizontalHeaderLabels(headers)
+    # Set headers matching the columns selected below
+    msg = "Value"
+    value_title = tools_qt.tr(msg)
+    msg = "File type"
+    filetype_title = tools_qt.tr(msg)
+    msg = "Extension"
+    extension_title = tools_qt.tr(msg)
+    model.setHorizontalHeaderLabels([value_title, filetype_title, extension_title])
 
     # Get values in order to populate model
     sql = (f"SELECT value, filetype, fextension FROM om_visit_event_photo "

@@ -85,6 +85,7 @@ v_proposed_enddate TEXT;
 v_step integer;
 v_descript TEXT;
 v_propose_initdate text;
+v_message text;
 
 v_mapzones_version integer;
 
@@ -191,10 +192,20 @@ v_queryhydro =
 
 		v_propose_initdate = ((now() - interval '12 years')::date)::text;
 
-		EXECUTE '
- 		UPDATE temp_sys_function
- 		SET descript = REPLACE(descript, split_part(descript, ''>'', 2), ''End Date proposal for '||v_percent_hydro||'% of hydrometers which consum is out of the period: '||v_proposed_enddate::TIMESTAMP||''')
-    	WHERE id in (3142)';
+		SELECT replace(
+			replace(error_message, '%v_percent_hydro%', COALESCE(v_percent_hydro, '')),
+			'%v_proposed_enddate%', COALESCE(v_proposed_enddate::timestamp::text, '')
+		)
+		INTO v_message
+		FROM v_sys_message
+		WHERE id = 4688;
+
+		UPDATE temp_sys_function
+		SET descript = CASE
+			WHEN v_message IS NULL THEN descript
+			ELSE v_message
+		END
+		WHERE id = 3142;
 
    		UPDATE temp_config_toolbox c SET inputparams = (replace (inputparams::text, '1111-12-12', ''))::json WHERE id = 3142; --enddate
  		UPDATE temp_config_toolbox c SET inputparams = (replace (inputparams::text, '9999-12-12', v_proposed_enddate))::json WHERE id = 3142; --enddate

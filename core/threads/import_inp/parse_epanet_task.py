@@ -33,7 +33,9 @@ class GwParseInpTask(GwTask):
 
             self.log.append("Analyzing catalogs...")
 
-            self.catalogs: Catalogs = Catalogs.from_network_model(self.network)
+            self.catalogs: Catalogs = Catalogs.from_network_model(
+                self.network, aux_conn=self.aux_conn, is_thread=True
+            )
 
             return True
         except Exception as e:
@@ -67,9 +69,12 @@ class Catalogs:
     inp_valves_gpv: Optional[list[str]]
 
     @classmethod
-    def from_network_model(cls, wn):
+    def from_network_model(cls, wn, aux_conn=None, is_thread=False):
+        def _get_rows(sql):
+            return tools_db.get_rows(sql, is_thread=is_thread, aux_conn=aux_conn)
+
         # Get node catalog from DB
-        rows = tools_db.get_rows("""
+        rows = _get_rows("""
                 SELECT n.id, f.epa_default
                 FROM cat_node AS n
                 JOIN cat_feature_node AS f ON (n.node_type = f.id)
@@ -82,7 +87,7 @@ class Catalogs:
             )
 
         # Get arc catalog from DB
-        rows = tools_db.get_rows("""
+        rows = _get_rows("""
                 SELECT a.id, a.dint, r.roughness
                 FROM cat_arc AS a
                 LEFT JOIN cat_mat_roughness AS r USING (matcat_id)
@@ -99,7 +104,7 @@ class Catalogs:
             db_arc_catalog = dict(sorted(unsorted_dict.items()))
 
         # Get roughness catalog
-        rows = tools_db.get_rows("""
+        rows = _get_rows("""
                 SELECT matcat_id, array_agg(roughness)
                 FROM cat_mat_roughness
                 GROUP BY matcat_id
@@ -113,7 +118,7 @@ class Catalogs:
             db_mat_roughness_cat = dict(sorted(unsorted_dict.items()))
 
         # Get feature catalog
-        rows = tools_db.get_rows("""
+        rows = _get_rows("""
                 SELECT id, feature_class, feature_type
                 FROM cat_feature
             """)

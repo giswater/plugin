@@ -38,9 +38,6 @@ BEGIN
 		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'OMZONE', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
-		IF NEW.code IS NULL THEN
-			NEW.code := NEW.omzone_id::text;
-		END IF;
 
 		IF NEW.active IS NULL THEN
 			NEW.active = TRUE;
@@ -49,9 +46,19 @@ BEGIN
 		IF v_view_name = 'EDIT' THEN
 			IF NEW.the_geom IS NOT NULL THEN
 				IF NEW.expl_id IS NULL THEN
-					NEW.expl_id := (SELECT expl_id FROM exploitation WHERE active IS TRUE AND ST_DWithin(NEW.the_geom, exploitation.the_geom,0.001) LIMIT 1);
+					NEW.expl_id := (SELECT array_agg(expl_id) FROM exploitation WHERE active IS TRUE AND ST_DWithin(NEW.the_geom, exploitation.the_geom,0.001) LIMIT 1);
 				END IF;
 			END IF;
+		END IF;
+
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
+		END IF;
+		IF NEW.sector_id IS NULL OR NEW.sector_id = '{}'::integer[] THEN
+			NEW.sector_id := ARRAY[0];
 		END IF;
 
 		INSERT INTO omzone (omzone_id, code, name, descript, active, macroomzone_id, expl_id, sector_id, muni_id, graphconfig, stylesheet, link, lock_level, addparam, created_at, created_by, updated_at, updated_by)
@@ -76,6 +83,16 @@ BEGIN
 					NEW.code := gw_fct_generate_code('mapzone', 'OMZONE', json_strip_nulls(row_to_json(NEW)::json));
 				END IF;
 			END IF;
+		END IF;
+
+		IF NEW.expl_id IS NULL OR NEW.expl_id = '{}'::integer[] THEN
+			NEW.expl_id := ARRAY[0];
+		END IF;
+		IF NEW.muni_id IS NULL OR NEW.muni_id = '{}'::integer[] THEN
+			NEW.muni_id := ARRAY[0];
+		END IF;
+		IF NEW.sector_id IS NULL OR NEW.sector_id = '{}'::integer[] THEN
+			NEW.sector_id := ARRAY[0];
 		END IF;
 
 		UPDATE omzone

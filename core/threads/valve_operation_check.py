@@ -12,7 +12,7 @@ from pathlib import Path
 from qgis.core import QgsTask
 
 from .task import GwTask
-from ...libs import lib_vars, tools_db, tools_os
+from ...libs import lib_vars, tools_db, tools_os, tools_qt
 
 
 class GwValveOperationCheck(GwTask):
@@ -55,26 +55,28 @@ class GwValveOperationCheck(GwTask):
         try:
             tools_os.get_dep("wntr")
         except ImportError as e:
-            self.exception = (
-                f"Python package '{e.name}' is not installed. "
-                "Please install it using pip or the 'qpip' QGIS plugin."
-            )
+            msg = "Python package '{0}' is not installed. Please install it using pip or the 'qpip' QGIS plugin."
+            msg_params = (e.name,)
+            self.exception = tools_qt.tr(msg, list_params=msg_params)
             return False
 
         self._prepare_network()
 
         if self.isCanceled():
-            self._add_log("Task canceled!", add_line=True)
+            msg = "Task canceled!"
+            self._add_log(tools_qt.tr(msg), add_line=True)
             return False
 
         self._run_base_scenario()
 
         if self.isCanceled():
-            self._add_log("Task canceled!", add_line=True)
+            msg = "Task canceled!"
+            self._add_log(tools_qt.tr(msg), add_line=True)
             return False
 
         if not self._run_scenarios_simulations():
-            self._add_log("Task canceled!", add_line=True)
+            msg = "Task canceled!"
+            self._add_log(tools_qt.tr(msg), add_line=True)
             return False
 
         return True
@@ -88,7 +90,8 @@ class GwValveOperationCheck(GwTask):
         wntr_metrics_hydraulic = tools_os.get_dep("wntr.metrics.hydraulic")
         average_expected_demand = wntr_metrics_hydraulic.average_expected_demand
 
-        self._add_log("Preparing network...")
+        msg = "Preparing network..."
+        self._add_log(tools_qt.tr(msg))
         adjusted_demands = (
             average_expected_demand(self.input_network)
             * self.config.options["base_demand_multiplier"]
@@ -168,9 +171,10 @@ class GwValveOperationCheck(GwTask):
             closed_links = set(scenario["closed"])
             all_links = set(self.network.link_name_list)
             if open_links.isdisjoint(all_links) and closed_links.isdisjoint(all_links):
-                message = f"No link in common between network and scenario {scenario['name']}."
-                self._add_log(message)
-                results = {"error": message}
+                message = "No link in common between network and scenario {0}."
+                formatted = message.format(scenario['name'])
+                self._add_log(formatted)
+                results = {"error": formatted}
             else:
                 scenario_network = copy.deepcopy(self.network)
 
@@ -191,7 +195,8 @@ class GwValveOperationCheck(GwTask):
                     link.initial_status = LinkStatus.Closed
 
                 if len(not_found):
-                    message = "These links could not be located within the network: "
+                    msg = "These links could not be located within the network: "
+                    message = tools_qt.tr(msg)
                     message += ", ".join(not_found)
                     message += "."
                     self._add_log(message)

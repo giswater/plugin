@@ -27,6 +27,11 @@ BEGIN
 			UPDATE rpt_cat_result SET descript = NEW.descript WHERE result_id = NEW.result_id;
 		END IF;
 
+		-- update isvalidated
+		IF NEW.isvalidated IS DISTINCT FROM OLD.isvalidated THEN
+			UPDATE rpt_cat_result SET isvalidated = NEW.isvalidated WHERE result_id = NEW.result_id;
+		END IF;
+
         RETURN NEW;
 
     ELSIF TG_OP = 'DELETE' THEN

@@ -122,7 +122,7 @@ BEGIN
 		END IF;
 
 		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4104", "function":"2794", "fid":"'||v_fid||'",  "result_id":"null", "fcount":"0", 
-		"parameters":{"version":"'||(SELECT giswater())||'"}, "criticity":"4", "is_process":true, "tempTable":"t_"}}$$)';
+		"parameters":{"version":"'||(SELECT version())||'"}, "criticity":"4", "is_process":true, "tempTable":"t_"}}$$)';
 		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4106", "function":"2794", "fid":"'||v_fid||'",  "result_id":"null", "fcount":"0", 
 		"parameters":{"postgis_version":"'||(SELECT postgis_version())||'"}, "criticity":"4", "is_process":true, "tempTable":"t_"}}$$)';
 		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4108", "function":"2794", "fid":"'||v_fid||'",  "result_id":"null", "fcount":"0", 

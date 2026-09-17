@@ -39,7 +39,8 @@ SELECT columns_are(
         'sector_style', 'drainzone_style', 'dwfzone_style', 'omzone_style', 'lock_level', 'expl_visibility',
         'xcoord', 'ycoord', 'lat', 'long', 'created_at', 'created_by',
         'updated_at', 'updated_by', 'the_geom', 'diagonal', 'p_state', 'uuid',
-        'treatment_type', 'xyz_date', 'has_treatment', 'dataquality', 'dataquality_obs'
+        'treatment_type', 'xyz_date', 'has_treatment', 'dataquality', 'dataquality_obs', 'p_arc_id', 'p_pjoint_id',
+        'p_pjoint_type'
     ],
     'View ve_connec_vconnec should have the correct columns'
 );
@@ -156,6 +157,9 @@ SELECT col_type_is('ve_connec_vconnec', 'uuid', 'uuid', 'Column uuid should be u
 SELECT col_type_is('ve_connec_vconnec', 'treatment_type', 'int4', 'Column treatment_type should be int4');
 SELECT col_type_is('ve_connec_vconnec', 'xyz_date', 'date', 'Column xyz_date should be date');
 SELECT col_type_is('ve_connec_vconnec', 'has_treatment', 'bool', 'Column has_treatment should be bool');
+SELECT col_type_is('ve_connec_vconnec', 'p_arc_id', 'int4', 'Column p_arc_id should be int4');
+SELECT col_type_is('ve_connec_vconnec', 'p_pjoint_id', 'int4', 'Column p_pjoint_id should be int4');
+SELECT col_type_is('ve_connec_vconnec', 'p_pjoint_type', 'varchar(16)', 'Column p_pjoint_type should be varchar(16)');
 
 SELECT col_type_is('ve_connec_vconnec', 'dataquality', 'int4', 'Column dataquality should be int4');
 SELECT col_type_is('ve_connec_vconnec', 'dataquality_obs', 'text[]', 'Column dataquality_obs should be text[]');

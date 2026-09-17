@@ -34,8 +34,8 @@ HANDLES:
     - role_crm: Customer Relationship Management (standalone role)
 
   Permissions:
-    - Database: CONNECT, TEMPORARY (not CREATE via ALL)
-    - Schema: USAGE (not CREATE via ALL)
+  - Database: CONNECT, TEMPORARY (not CREATE via ALL). Database-level GRANT/REVOKE only when session is superuser or database owner
+  - Schema: USAGE (not CREATE via ALL)
     - Table/View SELECT for role_basic; per sys_table.sys_role grants below
     - Tables per sys_table.sys_role: SELECT/INSERT/UPDATE/DELETE to the specified role
     - Sequences: USAGE, SELECT, UPDATE
@@ -77,6 +77,7 @@ v_publishuser varchar;
 v_vpn_dbuser boolean;
 v_error_context text;
 rec_user record;
+v_can_grant_db boolean;
 
 BEGIN
 
@@ -92,6 +93,13 @@ BEGIN
 
 	v_vpn_dbuser = (SELECT value::boolean FROM config_param_system WHERE parameter='admin_vpn_permissions');
 
+	v_can_grant_db := COALESCE((SELECT rolsuper FROM pg_roles WHERE rolname = current_user), FALSE)
+		OR EXISTS (
+			SELECT 1 FROM pg_database
+			WHERE datname = current_database()
+			  AND datdba = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+		);
+
 	ALTER DEFAULT PRIVILEGES IN SCHEMA SCHEMA_NAME GRANT SELECT ON TABLES TO role_basic;
 
 	-- Revoke broad legacy grants before applying restrictive permissions
@@ -103,21 +111,25 @@ BEGIN
 	EXECUTE v_query_text;
 	v_query_text:= 'REVOKE ALL ON SCHEMA '||v_schemaname||' FROM "role_basic";';
 	EXECUTE v_query_text;
-	v_query_text:= 'REVOKE ALL ON DATABASE "'||v_dbnname||'" FROM "role_basic";';
-	EXECUTE v_query_text;
+	IF v_can_grant_db THEN
+		v_query_text:= 'REVOKE ALL ON DATABASE "'||v_dbnname||'" FROM "role_basic";';
+		EXECUTE v_query_text;
+	END IF;
 
 	-- Grant generic permissions
-	IF v_vpn_dbuser THEN
+	IF v_can_grant_db THEN
+		IF v_vpn_dbuser THEN
 
-		FOR rec_user IN (SELECT * FROM cat_users WHERE active IS TRUE) LOOP
-			v_query_text:= 'REVOKE ALL ON DATABASE "'||v_dbnname||'" FROM '||rec_user.id||';';
+			FOR rec_user IN (SELECT * FROM cat_users WHERE active IS TRUE) LOOP
+				v_query_text:= 'REVOKE ALL ON DATABASE "'||v_dbnname||'" FROM '||rec_user.id||';';
+				EXECUTE v_query_text;
+				v_query_text:= 'GRANT CONNECT ON DATABASE "'||v_dbnname||'" TO '||rec_user.id||';';
+				EXECUTE v_query_text;
+			END LOOP;
+		ELSE
+			v_query_text:= 'GRANT CONNECT, TEMPORARY ON DATABASE "'||v_dbnname||'" TO "role_basic";';
 			EXECUTE v_query_text;
-			v_query_text:= 'GRANT CONNECT ON DATABASE "'||v_dbnname||'" TO '||rec_user.id||';';
-			EXECUTE v_query_text;
-		END LOOP;
-	ELSE
-		v_query_text:= 'GRANT CONNECT, TEMPORARY ON DATABASE "'||v_dbnname||'" TO "role_basic";';
-		EXECUTE v_query_text;
+		END IF;
 	END IF;
 
 	v_query_text:= 'GRANT USAGE ON SCHEMA '||v_schemaname||' TO "role_basic";';
@@ -147,10 +159,12 @@ BEGIN
 	v_publishuser = (SELECT value FROM config_param_system WHERE parameter='admin_publish_user');
 	IF v_publishuser IS NOT NULL THEN
 
-		v_query_text:= 'REVOKE ALL ON DATABASE '||v_dbnname||' FROM '||v_publishuser;
-		EXECUTE v_query_text;
-		v_query_text:= 'GRANT CONNECT ON DATABASE '||v_dbnname||' TO '||v_publishuser;
-		EXECUTE v_query_text;
+		IF v_can_grant_db THEN
+			v_query_text:= 'REVOKE ALL ON DATABASE '||v_dbnname||' FROM '||v_publishuser;
+			EXECUTE v_query_text;
+			v_query_text:= 'GRANT CONNECT ON DATABASE '||v_dbnname||' TO '||v_publishuser;
+			EXECUTE v_query_text;
+		END IF;
 
 		v_query_text:= 'REVOKE ALL ON SCHEMA '||v_schemaname||' FROM '||v_publishuser;
 		EXECUTE v_query_text;

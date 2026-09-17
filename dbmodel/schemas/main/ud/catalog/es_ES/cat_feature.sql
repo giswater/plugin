@@ -34,8 +34,7 @@ ALTER TABLE cat_feature_gully DROP COLUMN IF EXISTS _type;
 
 ALTER TABLE cat_feature DISABLE TRIGGER gw_trg_cat_feature_after;
 
-INSERT INTO cat_material (id, descript) VALUES 
-('FE', 'Iron'),
+INSERT INTO cat_material (id, descript) VALUES
 ('FD', 'Fundición dúctil'),
 ('FG', 'Fundición gris'),
 ('PE', 'Polietileno'),
@@ -50,7 +49,8 @@ INSERT INTO cat_arc_shape (id, epa) VALUES
 ('CAJON', 'RECT_CLOSED'),
 ('FORZADA', 'FORCE_MAIN'),
 ('CIRCULAR', 'CIRCULAR'),
-('VIRTUAL', 'VIRTUAL')
+('VIRTUAL', 'VIRTUAL'),
+('PERSONALIZADO', 'CUSTOM')
 ON CONFLICT (id) DO UPDATE SET epa = EXCLUDED.epa;
 
 INSERT INTO cat_feature (id, feature_class, feature_type, active, parent_layer, child_layer) VALUES
@@ -140,13 +140,13 @@ ON CONFLICT (id) DO UPDATE SET node_type = EXCLUDED.node_type;
 
 INSERT INTO cat_arc (id, arc_type, shape, geom1, geom2) VALUES
 ('CC315', 'TRAMO', 'CIRCULAR', 0.315, NULL),
-('CC40', 'TRAMO', 'CIRCULAR', 0.4, NULL),
-('CC50', 'TRAMO', 'CIRCULAR', 0.5, NULL),
-('CC60', 'TRAMO', 'CIRCULAR', 0.6, NULL),
-('CC70', 'TRAMO', 'CIRCULAR', 0.7, NULL),
-('CC80', 'TRAMO', 'CIRCULAR', 0.8, NULL),
-('CC100', 'TRAMO', 'CIRCULAR', 1, NULL),
-('CC120', 'TRAMO', 'CIRCULAR', 1.2, NULL),
+('CC400', 'TRAMO', 'CIRCULAR', 0.4, NULL),
+('CC500', 'TRAMO', 'CIRCULAR', 0.5, NULL),
+('CC600', 'TRAMO', 'CIRCULAR', 0.6, NULL),
+('CC700', 'TRAMO', 'CIRCULAR', 0.7, NULL),
+('CC800', 'TRAMO', 'CIRCULAR', 0.8, NULL),
+('CC1000', 'TRAMO', 'CIRCULAR', 1, NULL),
+('CC1200', 'TRAMO', 'CIRCULAR', 1.2, NULL),
 ('RC150X200', 'TRAMO', 'CAJON', 1.5, 2),
 ('RC200X200', 'TRAMO', 'CAJON', 2, 2),
 ('IMPULSION200', 'IMPULSION', 'FORZADA', NULL, NULL),
@@ -171,7 +171,7 @@ INSERT INTO cat_link (id, link_type) VALUES
 ON CONFLICT (id) DO UPDATE SET link_type = EXCLUDED.link_type;
 
 INSERT INTO cat_gully (id, gully_type, matcat_id) VALUES
-('SU100X30', 'SUMIDERO', 'FE'),
+('SU100X30', 'SUMIDERO', 'FD'),
 ('REJA50', 'REJA', 'FD')
 ON CONFLICT (id) DO UPDATE SET gully_type = EXCLUDED.gully_type, matcat_id = EXCLUDED.matcat_id;
 

@@ -36,11 +36,10 @@ ALTER TABLE IF EXISTS ext_hydrometer_category RENAME TO ext_cat_hydrometer_categ
 
 DO $$
 BEGIN
-    BEGIN
-        ALTER TABLE ext_cat_hydrometer_category ALTER COLUMN id TYPE integer USING id::integer;
-    EXCEPTION WHEN OTHERS THEN
+    ALTER TABLE ext_cat_hydrometer_category ALTER COLUMN id TYPE integer USING id::integer;
+EXCEPTION
+    WHEN invalid_text_representation THEN
         RAISE EXCEPTION 'All ids on ext_hydrometer_category table must be integers';
-    END;
 END $$;
 
 

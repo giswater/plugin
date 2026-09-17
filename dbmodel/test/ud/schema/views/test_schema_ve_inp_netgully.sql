@@ -27,7 +27,7 @@ SELECT columns_are(
         'the_geom', 'units', 'units_placement', 'groove', 'groove_height', 'groove_length',
         'total_width', 'total_length', 'depth', 'annotation', 'y0', 'ysur',
         'apond', 'outlet_type', 'custom_width', 'custom_length', 'custom_depth', 'gully_method',
-        'weir_cd', 'orifice_cd', 'custom_a_param', 'custom_b_param', 'efficiency'
+        'weir_cd', 'orifice_cd', 'custom_a_param', 'custom_b_param', 'efficiency', 'p_state'
     ],
     'View ve_inp_netgully should have the correct columns'
 );
@@ -74,6 +74,7 @@ SELECT col_type_is('ve_inp_netgully', 'orifice_cd', 'float8', 'Column orifice_cd
 SELECT col_type_is('ve_inp_netgully', 'custom_a_param', 'float8', 'Column custom_a_param should be float8');
 SELECT col_type_is('ve_inp_netgully', 'custom_b_param', 'float8', 'Column custom_b_param should be float8');
 SELECT col_type_is('ve_inp_netgully', 'efficiency', 'float8', 'Column efficiency should be float8');
+SELECT col_type_is('ve_inp_netgully', 'p_state', 'int2', 'Column p_state should be int2');
 
 SELECT * FROM finish();
 

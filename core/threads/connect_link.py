@@ -5,6 +5,11 @@ General Public License as published by the Free Software Foundation, either vers
 or (at your option) any later version.
 """
 # -*- coding: utf-8 -*-
+import json
+
+from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtWidgets import QListWidget, QWidget
+
 from .task import GwTask
 from ..utils import tools_gw
 from ...libs import tools_log, tools_qt, tools_db, lib_vars
@@ -14,12 +19,21 @@ from ... import global_vars
 
 class GwConnectLink(GwTask):
 
-    def __init__(self, description, connect_link_class, element_type, selected_arcs=None):
+    def __init__(self, description, connect_link_class, element_type, selected_arcs=None, selected_nodes=None,
+                 extra_filters=None, force_reconnect=False, force_node=False,
+                 pipe_diameter=None, max_distance=None, linkcat_id=None):
 
         super().__init__(description)
         self.connect_link_class = connect_link_class
         self.element_type = element_type
         self.selected_arcs = selected_arcs or []
+        self.selected_nodes = selected_nodes or []
+        self.extra_filters = extra_filters or {}
+        self.force_reconnect = force_reconnect
+        self.force_node = force_node
+        self.pipe_diameter = pipe_diameter
+        self.max_distance = max_distance
+        self.linkcat_id = linkcat_id
         self.json_result = None
 
     def run(self):
@@ -28,9 +42,10 @@ class GwConnectLink(GwTask):
 
         try:
             msg = "Task 'Connect link' execute function '{0}' with parameters: '{1}', '{2}'"
-            msg_params = ("_link_selected_features", self.element_type, f"selected_arcs={self.selected_arcs}",)
+            msg_params = ("_link_selected_features", self.element_type,
+                          f"selected_arcs={self.selected_arcs}, selected_nodes={self.selected_nodes}",)
             tools_log.log_info(msg, msg_params=msg_params)
-            result = self._link_selected_features(self.element_type, self.selected_arcs)
+            result = self._link_selected_features(self.element_type, self.selected_arcs, self.selected_nodes)
             self.connect_link_class.cancel_map_tool()
             return result
         except KeyError as e:
@@ -47,7 +62,7 @@ class GwConnectLink(GwTask):
         # Refresh psector's relations tables
         tools_gw.execute_class_function(GwPsectorUi, '_refresh_tables_relations')
 
-    def _link_selected_features(self, feature_type, selected_arcs=None):
+    def _link_selected_features(self, feature_type, selected_arcs=None, selected_nodes=None):
         """ Link selected @feature_type to the pipe """
         # Use individual processing for multiple connecs in "Set user click" mode
         user_click_with_multiple = (
@@ -56,9 +71,9 @@ class GwConnectLink(GwTask):
         )
 
         if user_click_with_multiple:
-            return self._link_features_individually(feature_type, selected_arcs)
+            return self._link_features_individually(feature_type, selected_arcs, selected_nodes)
         else:
-            return self._link_features_batch(feature_type, selected_arcs)
+            return self._link_features_batch(feature_type, selected_arcs, selected_nodes)
 
     def _check_user_click_mode(self):
         """ Check if user click mode is active by looking for temp_table entry """
@@ -66,7 +81,65 @@ class GwConnectLink(GwTask):
         result = tools_db.get_row(sql, is_thread=True)
         return result and result[0] > 0
 
-    def _link_features_individually(self, feature_type, selected_arcs=None):
+    def _append_node_extras(self, extras, selected_nodes=None):
+        """ Append forceNode / forcedNodes to the procedure extras JSON """
+        force_node = 'true' if self.force_node else 'false'
+        extras += f', "forceNode":{force_node}'
+        if selected_nodes:
+            nodes_str_list = [f'"{str(node)}"' for node in selected_nodes]
+            nodes_json = ', '.join(nodes_str_list)
+            extras += f', "forcedNodes":[{nodes_json}]'
+        extras = self._append_extra_filters(extras)
+        return extras
+
+    def _append_extra_filters(self, extras):
+        """ Append extraFilters collected on the GUI thread """
+        if self.extra_filters:
+            extras += f', "extraFilters":{json.dumps(self.extra_filters)}'
+        return extras
+
+    @staticmethod
+    def collect_extra_filters(dlg, fields):
+        """ Read Extra filters widgets on the GUI thread; skip empty / null values """
+        filters = {}
+        fields = fields or []
+        empty = (None, '', 'null', 'NULL', -1, '-1')
+        for field in fields:
+            col = field.get('columnname')
+            wtype = field.get('widgettype')
+            widgetname = field.get('widgetname') or f"tab_none_{col}"
+            widget = dlg.findChild(QWidget, widgetname)
+            if not col or widget is None:
+                continue
+            if wtype == 'multiple_option':
+                list_widget = widget.findChild(QListWidget)
+                if not list_widget:
+                    continue
+                values = []
+                for i in range(list_widget.count()):
+                    v = list_widget.item(i).data(Qt.ItemDataRole.UserRole)
+                    if v not in empty:
+                        values.append(v)
+                if values:
+                    filters[col] = values
+            elif wtype == 'combo':
+                try:
+                    value = tools_qt.get_combo_value(dlg, widget, 0)
+                except (TypeError, IndexError):
+                    continue
+                if value in empty:
+                    continue
+                filters[col] = value
+            else:
+                value = tools_qt.get_text(dlg, widget, return_string_null=False)
+                if value not in empty:
+                    filters[col] = value
+        return filters
+
+    def _json_quoted_or_null(self, value):
+        return 'null' if not value else f'"{value}"'
+
+    def _link_features_individually(self, feature_type, selected_arcs=None, selected_nodes=None):
         """ 
         Process each feature individually (for user click mode)
         This method handles multiple connecs when "Set user click" is used.
@@ -92,12 +165,10 @@ class GwConnectLink(GwTask):
             # Process single connec
             feature_id = f'"id":[{connec_id}]'
 
-            pipe_diameter = 'null' if not self.connect_link_class.pipe_diameter.text() else f'"{self.connect_link_class.pipe_diameter.text()}"'
-            max_distance = 'null' if not self.connect_link_class.max_distance.text() else f'"{self.connect_link_class.max_distance.text()}"'
-            linkcat_id = tools_qt.get_combo_value(self.connect_link_class.dlg_connect_link, "tab_none_linkcat")
-            force_reconnect = 'true' if tools_qt.is_checked(
-                self.connect_link_class.dlg_connect_link, "tab_none_force_reconnect"
-            ) else 'false'
+            pipe_diameter = self._json_quoted_or_null(self.pipe_diameter)
+            max_distance = self._json_quoted_or_null(self.max_distance)
+            linkcat_id = self.linkcat_id if self.linkcat_id is not None else ''
+            force_reconnect = 'true' if self.force_reconnect else 'false'
 
             extras = (
                 f'"feature_type":"{feature_type.upper()}",'
@@ -106,6 +177,7 @@ class GwConnectLink(GwTask):
                 f'"linkcatId":"{linkcat_id}",'
                 f'"forceReconnect":{force_reconnect}'
             )
+            extras = self._append_node_extras(extras, selected_nodes)
 
             if selected_arcs:
                 # Convert list to proper JSON array format for forcedArcs
@@ -136,7 +208,7 @@ class GwConnectLink(GwTask):
 
         return success_count > 0
 
-    def _link_features_batch(self, feature_type, selected_arcs=None):
+    def _link_features_batch(self, feature_type, selected_arcs=None, selected_nodes=None):
         """ 
         Process all features in batch (normal mode)
         This is the standard processing mode - faster for multiple connecs
@@ -145,12 +217,10 @@ class GwConnectLink(GwTask):
         # Get selected features from layers of selected @feature_type
         feature_id = f'"id":{self.connect_link_class.ids}'
 
-        pipe_diameter = 'null' if not self.connect_link_class.pipe_diameter.text() else f'"{self.connect_link_class.pipe_diameter.text()}"'
-        max_distance = 'null' if not self.connect_link_class.max_distance.text() else f'"{self.connect_link_class.max_distance.text()}"'
-        linkcat_id = tools_qt.get_combo_value(self.connect_link_class.dlg_connect_link, "tab_none_linkcat")
-        force_reconnect = 'true' if tools_qt.is_checked(
-            self.connect_link_class.dlg_connect_link, "tab_none_force_reconnect"
-        ) else 'false'
+        pipe_diameter = self._json_quoted_or_null(self.pipe_diameter)
+        max_distance = self._json_quoted_or_null(self.max_distance)
+        linkcat_id = self.linkcat_id if self.linkcat_id is not None else ''
+        force_reconnect = 'true' if self.force_reconnect else 'false'
 
         extras = (
             f'"feature_type":"{feature_type.upper()}",'
@@ -159,6 +229,7 @@ class GwConnectLink(GwTask):
             f'"linkcatId":"{linkcat_id}",'
             f'"forceReconnect":{force_reconnect}'
         )
+        extras = self._append_node_extras(extras, selected_nodes)
 
         if selected_arcs:
             # Convert list to proper JSON array format for forcedArcs

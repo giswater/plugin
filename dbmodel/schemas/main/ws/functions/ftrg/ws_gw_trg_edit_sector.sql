@@ -77,9 +77,6 @@ BEGIN
 		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
 			NEW.code := gw_fct_generate_code('mapzone', 'SECTOR', json_strip_nulls(row_to_json(NEW)::json));
 		END IF;
-		IF NEW.code IS NULL THEN
-			NEW.code := NEW.sector_id::text;
-		END IF;
 
 		INSERT INTO sector (sector_id, code, name, descript, active, macrosector_id, sector_type, expl_id, muni_id, avg_press, pattern_id, graphconfig, stylesheet, lock_level, link, addparam)
 		VALUES (NEW.sector_id, NEW.code, NEW.name, NEW.descript, NEW.active, v_mapzone_id, NEW.sector_type, NEW.expl_id, NEW.muni_id,

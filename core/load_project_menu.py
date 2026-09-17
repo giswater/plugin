@@ -9,11 +9,14 @@ import configparser
 import os
 from functools import partial
 
+from qgis.PyQt.sip import isdeleted
 from qgis.PyQt.QtCore import QObject, Qt
 from qgis.PyQt.QtGui import QIcon, QKeySequence
-from qgis.PyQt.QtWidgets import QMenu, QPushButton, QTreeWidget, QTreeWidgetItem, QHeaderView
+from qgis.PyQt.QtWidgets import QAction, QMenu, QPushButton, QTreeWidget, QTreeWidgetItem, QHeaderView
 from qgis.core import QgsApplication
 
+from .admin.i18n.language_packages_dialog import GwI18NManageLanguagesDialog
+from .shared.about import GwAbout
 from .ui.ui_manager import GwLoadMenuUi
 from .utils import tools_gw
 from .. import global_vars
@@ -28,6 +31,7 @@ class GwMenuLoad(QObject):
 
         super().__init__()
         self.iface = global_vars.iface
+        self.about = GwAbout(self)
 
     def read_menu(self, project_loaded):
         """  """
@@ -37,6 +41,7 @@ class GwMenuLoad(QObject):
 
         self.main_menu = QMenu("&Giswater", self.iface.mainWindow().menuBar())
         self.main_menu.setObjectName("Giswater")
+        self._language_menu_added = False
 
         icon_folder = f"{lib_vars.plugin_dir}{os.sep}icons"
         icon_path = f"{icon_folder}{os.sep}toolbars{os.sep}utilities{os.sep}99.png"
@@ -80,8 +85,7 @@ class GwMenuLoad(QObject):
                 "init", prefix=False)
         action_set_log_sql.setShortcut(QKeySequence(f"{log_sql_shortcut}"))
         action_set_log_sql.triggered.connect(self._set_log_sql)
-
-            # endregion
+        # endregion
 
         # region Open plugin folder
         if lib_vars.plugin_dir:
@@ -100,6 +104,16 @@ class GwMenuLoad(QObject):
         action_manage_file.setIcon(folder_icon)
         # endregion
 
+        # region About
+        title = "About"
+        action_about = self.main_menu.addAction(tools_qt.tr(title))
+        # macOS: TextHeuristicRole steals "About" into the QGIS app menu.
+        action_about.setMenuRole(QAction.MenuRole.NoRole)
+        icon_path = f"{icon_folder}{os.sep}dialogs{os.sep}136.png"
+        action_about.setIcon(QIcon(icon_path))
+        action_about.triggered.connect(self.about.open)
+        # endregion
+
         # region Open user folder
         if lib_vars.user_folder_dir:
             log_folder = f"{lib_vars.user_folder_dir}{os.sep}core{os.sep}log"
@@ -111,6 +125,11 @@ class GwMenuLoad(QObject):
             action_open_path = self.main_menu.addAction(f"{open_user_folder} ({log_folder_volume})")
             action_open_path.setIcon(folder_icon)
             action_open_path.triggered.connect(self._open_config_path)
+        # endregion
+
+        # region Language
+        if project_loaded:
+            self._add_language_menu()
         # endregion
 
         self.iface.mainWindow().menuBar().insertMenu(last_action, self.main_menu)
@@ -125,6 +144,35 @@ class GwMenuLoad(QObject):
         return tools_qt.tr(message)
 
     # region private functions
+
+    def _open_language_dialog(self):
+        """Open language management dialog."""
+        dlg = getattr(self, 'dlg_i18n_languages', None)
+        if dlg is not None and not isdeleted(dlg) and dlg.isVisible():
+            tools_gw.focus_open_dialog(dlg)
+            return
+
+        dlg = GwI18NManageLanguagesDialog(self)
+        dlg.init_dialog()
+        self.dlg_i18n_languages = dlg
+
+    def _add_language_menu(self):
+        """Add language menu to main menu when a database connection is active."""
+        if getattr(self, '_language_menu_added', False):
+            return
+        if not getattr(self, 'main_menu', None):
+            return
+        if not tools_gw.check_db_connection():
+            return
+
+        icon_folder = f"{lib_vars.plugin_dir}{os.sep}icons"
+        icon_path = f"{icon_folder}{os.sep}dialogs{os.sep}184.png"
+        language_icon = QIcon(icon_path)
+        title = "Language"
+        action_language = self.main_menu.addAction(tools_qt.tr(title))
+        action_language.setIcon(language_icon)
+        action_language.triggered.connect(self._open_language_dialog)
+        self._language_menu_added = True
 
     def _open_config_path(self):
         """ Opens the OS-specific Config directory """
@@ -174,7 +222,7 @@ class GwMenuLoad(QObject):
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
         # Open dialog
-        tools_gw.open_dialog(self.dlg_manage_menu, dlg_name='load_menu', title="Advanced Menu")
+        tools_gw.open_dialog(self.dlg_manage_menu, dlg_name='load_menu', title="Advanced Menu", skip_db_check=True)
 
     def _reset_position_dialog(self):
         """ Reset position dialog x/y """

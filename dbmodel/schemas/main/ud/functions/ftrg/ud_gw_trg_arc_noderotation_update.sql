@@ -23,8 +23,8 @@ DECLARE
 	v_dist_ylab numeric;
 	v_sql text;
 	v_label_point public.geometry;
-	v_rot1 numeric;
-	v_rot2 numeric;
+	v_rot1 numeric = 0;
+	v_rot2 numeric = 0;
 	v_geom public.geometry;
 	v_cur_rotation numeric;
 	v_aux_rot numeric;
@@ -216,8 +216,10 @@ BEGIN
 						v_dist_ylab = v_dist_ylab * (-1);
 						
 					end if;
-				
-					
+
+					v_rot1=coalesce(v_rot1, 0);
+					v_rot2=coalesce(v_rot2, 0);
+
 				   	-- new label position
 					v_sql = '
 					with mec as (
@@ -237,8 +239,8 @@ BEGIN
 
 					update node set label_rotation = rotation  where node_id = rec_node.node_id;
 				
-					update node set label_x = st_x(v_label_point) where node_id = rec_node.node_id;
-					update node set label_y = st_y(v_label_point) where node_id = rec_node.node_id;
+					update node set label_x = st_x(v_label_point)::numeric(12,2) where node_id = rec_node.node_id;
+					update node set label_y = st_y(v_label_point)::numeric(12,2) where node_id = rec_node.node_id;
 					
 						
 				end if;

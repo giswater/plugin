@@ -22,7 +22,7 @@ SELECT columns_are(
     'v_om_visit',
     ARRAY[
         'visit_id', 'code', 'visitcat_id', 'name', 'visit_start', 'visit_end',
-        'user_name', 'is_done', 'feature_id', 'feature_type', 'the_geom'
+        'user_name', 'is_done', 'feature_id', 'feature_type', 'feature_class', 'featurecat_id', 'feature_state', 'the_geom'
     ],
     'View v_om_visit should have the correct columns'
 );
@@ -38,6 +38,9 @@ SELECT col_type_is('v_om_visit', 'user_name', 'varchar(50)', 'Column user_name s
 SELECT col_type_is('v_om_visit', 'is_done', 'bool', 'Column is_done should be bool');
 SELECT col_type_is('v_om_visit', 'feature_id', 'int4', 'Column feature_id should be int4');
 SELECT col_type_is('v_om_visit', 'feature_type', 'text', 'Column feature_type should be text');
+SELECT col_type_is('v_om_visit', 'feature_class', 'varchar(30)', 'Column feature_class should be varchar(30)');
+SELECT col_type_is('v_om_visit', 'featurecat_id', 'varchar(30)', 'Column featurecat_id should be varchar(30)');
+SELECT col_type_is('v_om_visit', 'feature_state', 'int2', 'Column feature_state should be int2');
 SELECT col_type_is('v_om_visit', 'the_geom', 'geometry(point, SRID_VALUE)', 'Column the_geom should be geometry(point, SRID_VALUE)');
 
 SELECT * FROM finish();

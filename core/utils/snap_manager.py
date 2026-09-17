@@ -60,13 +60,19 @@ class GwSnapManager(object):
         snapper = QgsMapCanvas.snappingUtils(self.canvas)
         return snapper
 
-    def snap_to_current_layer(self, event_point, vertex_marker=None):
+    def snap_to_current_layer(self, event_point, vertex_marker=None, layer=None, locator_type=None):
 
         self.is_valid = False
         if event_point is None:
             return None, None
 
-        result = self.snapper.snapToCurrentLayer(event_point, QgsPointLocator.Type.All)
+        if layer is not None:
+            self.iface.setActiveLayer(layer)
+            self.snapper.setCurrentLayer(layer)
+        if locator_type is None:
+            locator_type = QgsPointLocator.Type.All
+
+        result = self.snapper.snapToCurrentLayer(event_point, locator_type)
         if vertex_marker:
             if result.isValid():
                 # Get the point and add marker on it

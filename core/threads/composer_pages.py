@@ -16,7 +16,7 @@ from qgis.core import Qgis
 
 from .task import GwTask
 from ..utils import tools_gw
-from ...libs import tools_log, tools_os, tools_qgis
+from ...libs import tools_log, tools_os, tools_qgis, tools_qt
 
 
 class GwComposerPages(GwTask):
@@ -62,8 +62,9 @@ class GwComposerPages(GwTask):
                 if formtabs['tableName'] != 'selector_psector':
                     continue
                 if self.atlas.count() != len(formtabs['fields']):
-                    msg = f"The number of pages in your composition does not match the number of psectors. ({self.atlas.count()} != {len(formtabs['fields'])})"
-                    tools_qgis.show_warning(msg)
+                    msg = "The number of pages in your composition does not match the number of psectors. ({0} != {1})"
+                    msg_params = (self.atlas.count(), len(formtabs['fields']))
+                    tools_qgis.show_warning(msg, msg_params=msg_params)
                     return False
                 psectors_list = formtabs['fields']
 
@@ -135,9 +136,12 @@ class GwComposerPages(GwTask):
         if self.stop:
             cur_page = self.layout.atlas().currentFeatureNumber()
             total_pages = self.layout.atlas().count()
-            self.time_changed.emit(f"Cancelled ({cur_page}/{total_pages})")
+            msg = "Cancelled ({0}/{1})"
+            msg_params = (cur_page, total_pages)
+            self.time_changed.emit(tools_qt.tr(msg, list_params=msg_params))
         else:
-            self.time_changed.emit("Finished!")
+            msg = "Finished!"
+            self.time_changed.emit(tools_qt.tr(msg))
         self.change_btn_accept.emit(False)
         self.task_finished.emit()
 
@@ -209,7 +213,8 @@ class GwComposerPages(GwTask):
 
     def stop_task(self):
         self.stop = True
-        self.time_changed.emit("Cancelling...")
+        msg = "Cancelling..."
+        self.time_changed.emit(tools_qt.tr(msg))
 
     def _set_refreshed(self):
         self.refreshed = True

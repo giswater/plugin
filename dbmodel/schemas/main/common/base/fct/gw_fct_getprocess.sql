@@ -91,8 +91,8 @@ BEGIN
 	DROP TABLE IF EXISTS temp_sys_function;
 	DROP TABLE IF EXISTS temp_config_toolbox;
 
-	CREATE TEMP TABLE IF NOT EXISTS temp_sys_function AS SELECT*FROM sys_function;
-	CREATE TEMP TABLE IF NOT EXISTS temp_config_toolbox AS SELECT*FROM config_toolbox;
+	CREATE TEMP TABLE IF NOT EXISTS temp_sys_function AS SELECT * FROM v_sys_function;
+	CREATE TEMP TABLE IF NOT EXISTS temp_config_toolbox AS SELECT*FROM v_config_toolbox;
 
 	IF v_projectype = 'ws' then
 
@@ -205,7 +205,12 @@ BEGIN
 				END IF;
 			END IF;
 
-			IF v_selectedid IS NULL OR  v_selectedid = '' THEN v_selectedid = '{"selectedId":""}';END IF;
+			IF v_selectedid IS NULL OR v_selectedid = '' THEN
+				v_selectedid = '{"selectedId":""}';
+			ELSIF left(btrim(v_selectedid), 1) <> '{' THEN
+				-- Literal combo id (e.g. -901). Digits-only values above are 1-based indexes.
+				v_selectedid = concat('{"selectedId":"', replace(v_selectedid, '"', ''), '"}');
+			END IF;
 
 			v_rec_replace := ((rec.inputparams::jsonb) #- '{selectedId}') || (v_selectedid::jsonb);
 

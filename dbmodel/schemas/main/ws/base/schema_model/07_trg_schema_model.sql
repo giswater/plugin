@@ -16,13 +16,6 @@ CREATE TRIGGER gw_trg_arc_link_update AFTER UPDATE OF the_geom ON arc FOR EACH R
 
 
 --
--- Name: arc gw_trg_arc_node_values; Type: TRIGGER; Schema: Schema; Owner: -
---
-
-CREATE TRIGGER gw_trg_arc_node_values AFTER INSERT OR UPDATE OF node_1, node_2, the_geom ON arc FOR EACH ROW EXECUTE FUNCTION gw_trg_arc_node_values();
-
-
---
 -- Name: arc gw_trg_arc_noderotation_update; Type: TRIGGER; Schema: Schema; Owner: -
 --
 

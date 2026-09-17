@@ -17,9 +17,7 @@ from functools import partial
 from qgis.PyQt.QtCore import Qt, QDate, QStringListModel, QTime, QDateTime, QTimer
 from qgis.PyQt.QtWidgets import QAbstractItemView, QAction, QCompleter, QLineEdit, \
     QTableView, QTabWidget, QTextEdit, QLabel
-from qgis.PyQt.QtXml import QDomDocument
-from qgis.core import QgsApplication, QgsFeatureRequest, QgsPrintLayout, QgsProject, QgsReadWriteContext, \
-    QgsVectorLayer, Qgis, QgsPointXY
+from qgis.core import QgsApplication, QgsFeatureRequest, QgsVectorLayer, Qgis, QgsPointXY
 from qgis.gui import QgsMapToolEmitPoint
 
 from .mincut_tools import GwMincutTools
@@ -171,6 +169,7 @@ class GwMincut:
         message = tools_qt.fill_table(self.dlg_mincut.tbl_hydro, 'v_om_mincut_hydrometer', expr_filter=expr_filter)
         if message:
             tools_qgis.show_warning(message)
+        tools_gw.set_tablemodel_config(self.dlg_mincut, self.dlg_mincut.tbl_hydro, 'v_om_mincut_hydrometer')
 
         self._store_original_values()
         self._connect_change_signals()
@@ -398,7 +397,7 @@ class GwMincut:
 
         # Fill ComboBox cause
         sql = ("SELECT id, idval "
-               "FROM om_typevalue WHERE typevalue = 'mincut_cause' "
+               "FROM v_om_typevalue WHERE typevalue = 'mincut_cause' "
                "ORDER BY id")
         rows = tools_db.get_rows(sql)
         tools_qt.fill_combo_values(self.dlg_mincut.cause, rows)
@@ -551,7 +550,8 @@ class GwMincut:
 
         self._init_mincut_canvas()
 
-        tools_qgis.show_info("Select the arc to perform a visual execution")
+        msg = "Select the arc to perform a visual execution"
+        tools_qgis.show_info(msg)
 
         tools_gw.connect_signal(self.canvas.xyCoordinates, self._mouse_move_node_arc, 'mincut_offline',
                                 'offline_mincut_xyCoordinates_mouse_move_node_arc')
@@ -732,7 +732,7 @@ class GwMincut:
         """ Serialize data of mincut states """
 
         sql = ("SELECT id, idval "
-               "FROM om_typevalue WHERE typevalue = 'mincut_state' "
+               "FROM v_om_typevalue WHERE typevalue = 'mincut_state' "
                "ORDER BY id")
         rows = tools_db.get_rows(sql)
         if rows:
@@ -908,7 +908,8 @@ class GwMincut:
                     # Use the cleanup method to delete from DB
                     self._mincut_cleanup_only(result_mincut_id)
                     self._update_result_selector()
-                    tools_qgis.show_info(tools_qt.tr("Mincut canceled!"))
+                    msg = "Mincut canceled!"
+                    tools_qgis.show_info(msg)
 
             # Rollback transaction
             else:
@@ -1288,7 +1289,8 @@ class GwMincut:
                 self.mincut_aux_conn.commit()
 
             if not row or not row[0]:
-                tools_log.log_warning("Function error: gw_fct_setmincut")
+                msg = "Function error: gw_fct_setmincut"
+                tools_log.log_warning(msg)
                 tools_log.log_warning(sql)
                 return None
 
@@ -1296,7 +1298,8 @@ class GwMincut:
 
             # Log SQL if enabled
             if tools_gw.get_config_parser('log', 'log_sql', "user", "init", False) == "True":
-                tools_log.log_db(json_result, header="SERVER RESPONSE")
+                title = "SERVER RESPONSE"
+                tools_log.log_db(json_result, header=title)
 
             if 'status' not in json_result:
                 tools_gw.manage_json_exception(json_result, sql, is_thread=False)
@@ -1322,7 +1325,9 @@ class GwMincut:
             msg_params = (str(e),)
             tools_log.log_warning(msg, msg_params=msg_params)
             sql_error = sql if 'sql' in locals() else 'N/A'
-            tools_log.log_warning(f"SQL: {sql_error}")
+            msg = "SQL: {0}"
+            msg_params = (sql_error,)
+            tools_log.log_warning(msg, msg_params=msg_params)
             if commit:
                 try:
                     self.mincut_aux_conn.rollback()
@@ -1361,7 +1366,8 @@ class GwMincut:
                 tools_qgis.zoom_to_rectangle(x1, y1, x2, y2, margin=0)
 
         self.dlg_mincut.btn_accept.hide()
-        self.dlg_mincut.btn_cancel.setText('Close')
+        title = "Close"
+        self.dlg_mincut.btn_cancel.setText(tools_qt.tr(title))
         self.action_add_connec.setEnabled(False)
         self.action_add_hydrometer.setEnabled(False)
         self.dlg_mincut.btn_cancel.disconnect()
@@ -1472,7 +1478,8 @@ class GwMincut:
 
         # Set dialog add_connec
         self.dlg_connec = GwMincutConnecUi(self)
-        self.dlg_connec.setWindowTitle("Connec management")
+        title = "Connec management"
+        self.dlg_connec.setWindowTitle(tools_qt.tr(title))
         tools_gw.load_settings(self.dlg_connec)
         self.dlg_connec.tbl_om_mincut_connec.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         # Set icons
@@ -1637,7 +1644,8 @@ class GwMincut:
         # Set dialog MincutHydrometer
         self.dlg_hydro = GwMincutHydrometerUi(self)
         tools_gw.load_settings(self.dlg_hydro)
-        self.dlg_hydro.setWindowTitle("Hydrometer management")
+        title = "Hydrometer management"
+        self.dlg_hydro.setWindowTitle(tools_qt.tr(title))
         self.dlg_hydro.tbl_hydro.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
 
         # Set icons
@@ -2295,7 +2303,8 @@ class GwMincut:
         result = tools_gw.execute_procedure('gw_fct_getmincutminsector', body)
 
         if not result or result.get('status') == 'Failed':
-            tools_qgis.show_warning("Offline mincut failed (gw_fct_getmincutminsector)")
+            msg = "Offline mincut failed (gw_fct_getmincutminsector)"
+            tools_qgis.show_warning(msg)
             return None
 
         # Optional UX: show returned message text (if any).
@@ -2483,7 +2492,8 @@ class GwMincut:
             self.timer.timeout.connect(partial(self._calculate_elapsed_time, self.dlg_mincut))
             self.timer.start(1000)
 
-            self.mincut_task = GwAutoMincutTask("Mincut execute", self, element_id, action=action, timer=self.timer)
+            message = "Mincut execute"
+            self.mincut_task = GwAutoMincutTask(message, self, element_id, action=action, timer=self.timer)
             QgsApplication.taskManager().addTask(self.mincut_task)
             QgsApplication.taskManager().triggerTask(self.mincut_task)
             self.mincut_task.task_finished.connect(partial(self._refresh_mincut_finished, zoom))
@@ -2680,14 +2690,9 @@ class GwMincut:
         """ Open Composer """
 
         # Check if path exist
-        template_folder = ""
-        row = tools_gw.get_config_value('qgis_composers_folderpath')
-        if row:
-            template_folder = row[0]
-
-        try:
-            template_files = os.listdir(template_folder)
-        except FileNotFoundError:
+        template_folder = tools_gw.get_composers_folderpath() or ""
+        template_files = tools_gw.list_qpt_templates(template_folder)
+        if template_files is None:
             msg = "Your composer's path is bad configured. Please, modify it and try again."
             tools_qgis.show_message(msg, Qgis.MessageLevel.Warning)
             return
@@ -2697,7 +2702,7 @@ class GwMincut:
         tools_gw.load_settings(self.dlg_comp)
 
         # Fill ComboBox cbx_template with templates *.qpt
-        self.files_qpt = [i for i in template_files if i.endswith('.qpt')]
+        self.files_qpt = template_files
         self.dlg_comp.cbx_template.clear()
         self.dlg_comp.cbx_template.addItem('')
         for template in self.files_qpt:
@@ -2725,55 +2730,18 @@ class GwMincut:
             tools_qgis.show_warning(message, dialog=self.dlg_comp)
             return
 
-        # Check if template file exists
-        template_path = ""
-        row = tools_gw.get_config_value('qgis_composers_folderpath')
-        if row:
-            template_path = row[0] + f'{os.sep}{self.template}.qpt'
-
-        if not os.path.exists(template_path):
-            message = "File not found"
-            tools_qgis.show_warning(message, parameter=template_path, dialog=self.dlg_comp)
+        # Load .qpt from qgis_composers_folderpath if it is not already in the project
+        template_folder = tools_gw.get_composers_folderpath() or ""
+        template_path = os.path.join(template_folder, f"{self.template}.qpt")
+        comp_view = tools_gw.load_layout_from_qpt(self.template, folderpath=template_folder)
+        if comp_view is None:
+            if not os.path.exists(template_path):
+                message = "File not found"
+                tools_qgis.show_warning(message, parameter=template_path, dialog=self.dlg_comp)
+            else:
+                msg = "Failed to create layout from template"
+                tools_qgis.show_warning(msg, dialog=self.dlg_comp)
             return
-
-        # Check if composer exist
-        composers = tools_qgis.get_composers_list()
-        index = tools_qgis.get_composer_index(str(self.template))
-
-        # Composer not found
-        if index == len(composers):
-
-            # Create new composer with template selected in combobox(self.template)
-            template_file = open(template_path, 'rt')
-            template_content = template_file.read()
-            template_file.close()
-            document = QDomDocument()
-            document.setContent(template_content)
-            project = QgsProject.instance()
-            comp_view = QgsPrintLayout(project)
-            comp_view.loadFromTemplate(document, QgsReadWriteContext())
-            # Set name AFTER loading template (template may have its own name)
-            comp_view.setName(str(self.template))
-            layout_manager = project.layoutManager()
-            layout_manager.addLayout(comp_view)
-
-            # Get layout from manager to ensure correct ownership
-            comp_view = layout_manager.layoutByName(str(self.template))
-            if comp_view is None:
-                # Fallback: try to get the last added layout
-                layouts = layout_manager.layouts()
-                if layouts:
-                    comp_view = layouts[-1]
-                    # Update name if it's different
-                    if comp_view.name() != str(self.template):
-                        comp_view.setName(str(self.template))
-                else:
-                    msg = "Failed to create layout from template"
-                    tools_qgis.show_warning(msg, dialog=self.dlg_comp)
-                    return
-
-        else:
-            comp_view = composers[index]
 
         # Manage mincut layout
         self._manage_mincut_layout(comp_view)
@@ -2803,22 +2771,25 @@ class GwMincut:
             map_item.setMapRotation(rotation)
         else:
             missing_items.append("Mapa")
-            tools_log.log_warning("Map item 'Mapa' not found in template. Template may be empty or use different item IDs.")
+            msg = "Map item 'Mapa' not found in template. Template may be empty or use different item IDs."
+            tools_log.log_warning(msg)
 
         profile_title = layout.itemById('title')
         if profile_title is not None:
             profile_title.setText(str(title))
         else:
             missing_items.append("title")
-            tools_log.log_warning("Title item 'title' not found in template. Template may be empty or use different item IDs.")
+            msg = "Title item 'title' not found in template. Template may be empty or use different item IDs."
+            tools_log.log_warning(msg)
 
         # Show user-friendly message if items are missing
         if missing_items:
             items_list = ", ".join(missing_items)
-            msg = (f"The template '{self.template}' is missing some expected items: {items_list}. "
-                   f"The layout will open, but these features won't be automatically configured. "
-                   f"Make sure your template includes items with IDs: 'Mapa' (for the map) and 'title' (for the title).")
-            tools_qgis.show_info(msg)
+            msg = ("The template '{0}' is missing some expected items: {1}. "
+                   "The layout will open, but these features won't be automatically configured. "
+                   "Make sure your template includes items with IDs: 'Mapa' (for the map) and 'title' (for the title).")
+            msg_params = (self.template, items_list)
+            tools_qgis.show_info(msg, msg_params=msg_params)
 
         # Refresh items
         layout.refresh()
@@ -3013,7 +2984,9 @@ class GwMincut:
 
         tf = time()  # Final time
         td = tf - self.t0  # Delta time
-        self._update_time_elapsed(f"Exec. time: {timedelta(seconds=round(td))}", dialog)
+        message = "Exec. time: {0}"
+        msg_params = (timedelta(seconds=round(td)),)
+        self._update_time_elapsed(tools_qt.tr(message, list_params=msg_params), dialog)
 
     def _update_time_elapsed(self, text, dialog):
 
@@ -3047,13 +3020,15 @@ class GwMincut:
         """Mark that the form has changed and block accept"""
         self.form_has_changes = True
         self.dlg_mincut.btn_accept.setEnabled(False)
-        self.dlg_mincut.btn_accept.setToolTip("You need to reexecute the mincut")
+        msg = "You need to reexecute the mincut"
+        self.dlg_mincut.btn_accept.setToolTip(tools_qt.tr(msg))
 
     def _reset_form_has_changes(self):
         """Reset form has changes"""
         self.form_has_changes = False
         self.dlg_mincut.btn_accept.setEnabled(True)
         self.dlg_mincut.btn_accept.setStyleSheet("")
-        self.dlg_mincut.btn_accept.setToolTip("Accept")
+        msg = "Accept"
+        self.dlg_mincut.btn_accept.setToolTip(tools_qt.tr(msg))
 
     # endregion

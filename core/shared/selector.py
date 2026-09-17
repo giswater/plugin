@@ -63,7 +63,8 @@ class GwSelector:
         self.get_selector(dlg_selector, selector_type, current_tab=current_tab, show_lot_tab=show_lot_tab)
         tools_qt._translate_form('selector', dlg_selector)
         if lib_vars.session_vars['dialog_docker']:
-            tools_gw.docker_dialog(dlg_selector, dlg_name='selector', title='selector')
+            title = "selector"
+            tools_gw.docker_dialog(dlg_selector, dlg_name='selector', title=title)
             dlg_selector.btn_close.clicked.connect(partial(tools_gw.close_docker, option_name='position'))
 
             # Set shortcut keys
@@ -283,11 +284,12 @@ class GwSelector:
                     widget.setObjectName('chk_all_' + str(tab_name))
                     widget.toggled.connect(partial(self._manage_all, dialog, widget))
                     widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-                    chk_all_tooltip = tools_qt.tr("Shift+Click to uncheck all")
-                    widget.setToolTip(chk_all_tooltip)
+                    msg = "Shift+Click to uncheck all"
+                    widget.setToolTip(tools_qt.tr(msg))
                 else:
                     widget = tools_qt.get_widget(dialog, f"chk_all_{tab_name}")
-                widget.setText(tools_qt.tr('chk_all_', 'selector', default='Check all'))
+                title = "Check all"
+                widget.setText(tools_qt.tr('chk_all_', 'selector', default=title))
                 if self.checkall is not None:
                     widget.blockSignals(True)
                     widget.setChecked(self.checkall)
@@ -371,16 +373,36 @@ class GwSelector:
         tab_name = dialog.main_tab.widget(index).objectName()
         selection_mode = selection_modes[tab_name]
 
-        msg = f'''{tools_qt.tr('Clicking an item will check/uncheck it.')}'''
         if selection_mode == 'keepPrevious':
-            msg += f'''{tools_qt.tr('Checking any item will not uncheck any other item.')}\n'''
+            msg = (
+                "Clicking an item will check/uncheck it.\n"
+                "Checking any item will not uncheck any other item.\n"
+                "This behaviour can be configured in the table 'config_param_system' "
+                "(parameter = 'basic_selector_{0}')."
+            )
         elif selection_mode == 'keepPreviousUsingShift':
-            msg += f'''{tools_qt.tr('Checking any item will uncheck all other items unless Shift is pressed.')}\n'''
+            msg = (
+                "Clicking an item will check/uncheck it.\n"
+                "Checking any item will uncheck all other items unless Shift is pressed.\n"
+                "This behaviour can be configured in the table 'config_param_system' "
+                "(parameter = 'basic_selector_{0}')."
+            )
         elif selection_mode == 'removePrevious':
-            msg += f'''{tools_qt.tr('Checking any item will uncheck all other items.')}\n'''
-        msg += f'''{tools_qt.tr("This behaviour can be configured in the table 'config_param_system' (parameter = 'basic_selector")}_{tab_name}').'''
+            msg = (
+                "Clicking an item will check/uncheck it.\n"
+                "Checking any item will uncheck all other items.\n"
+                "This behaviour can be configured in the table 'config_param_system' "
+                "(parameter = 'basic_selector_{0}')."
+            )
+        else:
+            msg = (
+                "Clicking an item will check/uncheck it.\n"
+                "This behaviour can be configured in the table 'config_param_system' "
+                "(parameter = 'basic_selector_{0}')."
+            )
+        msg_params = (tab_name,)
         title = "Selector help"
-        tools_qt.show_info_box(msg, title)
+        tools_qt.show_info_box(msg, title, msg_params=msg_params)
 
     def _set_selection_mode(self, dialog, widget, selection_mode):
         """

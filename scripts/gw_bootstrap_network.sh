@@ -1,14 +1,31 @@
 #!/usr/bin/env bash
 # Bootstrap a full Giswater network from scratch:
-#   extensions → ws + ud → satellites → integrate → network show
+#   db init (superuser) → ws + ud → satellites → integrate → network show
 #
-# Usage:
-#   export CONN='postgresql://user:pass@host:port/dbname'
+# Two connections:
+#   CONN_SUPER  PostgreSQL superuser — db init only (extensions, roles,
+#               GRANT CREATE ON DATABASE … TO role_system)
+#   CONN        login in role_system — schema create / integrate / drop / show
+#
+# If CONN_SUPER is unset, db init uses CONN (CI / single superuser).
+#
+# Usage (split roles):
+#   export CONN_SUPER='postgresql://postgres:…@host:port/dbname'
+#   export CONN='postgresql://gis_system:…@host:port/dbname'
+#   ./scripts/gw_bootstrap_network.sh --init-only    # superuser
+#   ./scripts/gw_bootstrap_network.sh --skip-init    # role_system
+#   # or one shot with both env vars:
+#   ./scripts/gw_bootstrap_network.sh
+#
+# Usage (one superuser, same as before):
+#   export CONN='postgresql://postgres:…@host:port/dbname'
 #   ./scripts/gw_bootstrap_network.sh
 #
 # Options:
-#   --check   plan only (passes --check to gw)
-#   --drop    drop network + satellite schemas (demo cleanup)
+#   --check       plan only (passes --check to gw)
+#   --drop        drop network + satellite schemas (uses CONN)
+#   --init-only   only gw db init (CONN_SUPER)
+#   --skip-init   skip db init; schema phases only (CONN)
 #
 # Schema names (override via env):
 #   WS=ws UD=ud UTILS=utils CIBS=cibs CM=cm AM=am AUDIT=audit
@@ -22,7 +39,6 @@
 
 set -euo pipefail
 
-CONN="${CONN:?export CONN='postgresql://user:pass@host:port/dbname'}"
 WS="${WS:-ws}"
 UD="${UD:-ud}"
 UTILS="${UTILS:-utils}"
@@ -31,7 +47,8 @@ CM="${CM:-cm}"
 AM="${AM:-am}"
 AUDIT="${AUDIT:-audit}"
 PARENT_PROFILE="${PARENT_PROFILE:-empty}"
-SATELLITES="${SATELLITES:-utils,cibs}"
+# Set-but-empty means "no satellites" (i18n lane); only unset falls back to the default.
+SATELLITES="${SATELLITES-utils,cibs}"
 LANGUAGE="${LANGUAGE:-}"
 
 MAIN_LANG=()
@@ -41,18 +58,44 @@ fi
 
 CHECK=""
 DROP=""
+INIT_ONLY=""
+SKIP_INIT=""
 
 for arg in "$@"; do
   case "$arg" in
     --check) CHECK="--check" ;;
     --drop) DROP=1 ;;
+    --init-only) INIT_ONLY=1 ;;
+    --skip-init) SKIP_INIT=1 ;;
     -h|--help)
-      sed -n '2,22p' "$0"
+      sed -n '2,38p' "$0"
       exit 0
       ;;
     *) echo "Unknown arg: $arg (try --help)" >&2; exit 1 ;;
   esac
 done
+
+if [[ -n "$INIT_ONLY" && -n "$SKIP_INIT" ]]; then
+  echo "Cannot combine --init-only and --skip-init" >&2
+  exit 1
+fi
+if [[ -n "$INIT_ONLY" && -n "$DROP" ]]; then
+  echo "Cannot combine --init-only and --drop" >&2
+  exit 1
+fi
+
+CONN="${CONN:-}"
+CONN_SUPER="${CONN_SUPER:-}"
+
+if [[ -n "$INIT_ONLY" ]]; then
+  CONN_SUPER="${CONN_SUPER:-${CONN:?export CONN_SUPER (superuser) or CONN}}"
+elif [[ -n "$DROP" || -n "$SKIP_INIT" ]]; then
+  CONN="${CONN:?export CONN='postgresql://role_system_login@host:port/dbname'}"
+else
+  CONN="${CONN:?export CONN='postgresql://role_system_login@host:port/dbname'}"
+  CONN_SUPER="${CONN_SUPER:-$CONN}"
+fi
+export CONN CONN_SUPER
 
 IFS=',' read -ra SATELLITES_CREATE <<< "${SATELLITES}"
 
@@ -167,8 +210,18 @@ if [[ -n "$DROP" ]]; then
   exit 0
 fi
 
-echo "=== 1. PostgreSQL extensions ==="
-run db init --conn "$CONN"
+if [[ -z "$SKIP_INIT" ]]; then
+  echo "=== 1. PostgreSQL extensions (superuser) ==="
+  run db init --conn "$CONN_SUPER"
+  if [[ -n "$INIT_ONLY" ]]; then
+    echo ""
+    echo "db init done. Create schemas with CONN (role_system):"
+    echo "  CONN=… ./scripts/gw_bootstrap_network.sh --skip-init"
+    exit 0
+  fi
+else
+  echo "=== 1. PostgreSQL extensions === skipped (--skip-init)"
+fi
 
 echo "=== 2. Network schemas (ws + ud) profile=${PARENT_PROFILE} lang=${LANGUAGE:-en_US} ==="
 run schema main create --type ws --name "$WS" --profile "$PARENT_PROFILE" "${MAIN_LANG[@]}" --conn "$CONN"

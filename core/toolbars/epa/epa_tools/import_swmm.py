@@ -28,11 +28,16 @@ from ....ui.dialog import GwDialog
 from ....ui.ui_manager import GwInpConfigImportUi, GwInpParsingUi
 if sys.version_info >= (3, 10):
     from ....threads.import_inp.import_swmm_task import GwImportInpTask
-    from ....utils.import_inp import GwInpConfig, create_load_menu, load_config, save_config, save_config_to_file, fill_txt_info
+    from ....utils.import_inp import (
+        GwInpConfig, create_load_menu, load_config, save_config, save_config_to_file,
+        fill_txt_info, unescape_dialog_labels,
+    )
     from ....threads.import_inp import parse_swmm_task
 else:
     GwImportInpTask = None
-    GwInpConfig, create_load_menu, load_config, save_config, save_config_to_file, fill_txt_info = None, None, None, None, None, None
+    GwInpConfig, create_load_menu, load_config, save_config, save_config_to_file, fill_txt_info, unescape_dialog_labels = (
+        None, None, None, None, None, None, None
+    )
     parse_swmm_task = None
 from ....utils import tools_gw
 
@@ -110,8 +115,9 @@ class GwImportSwmm:
         tools_gw.open_dialog(self.dlg_inp_parsing, dlg_name="parse_inp")
 
         global GwParseInpTask  # noqa: F824
+        title = "Parse INP task"
         self.parse_inp_task = GwParseInpTask(
-            "Parse INP task", file_path, self.dlg_inp_parsing
+            tools_qt.tr(title), file_path, self.dlg_inp_parsing
         )
         QgsApplication.taskManager().addTask(self.parse_inp_task)
         QgsApplication.taskManager().triggerTask(self.parse_inp_task)
@@ -160,7 +166,9 @@ class GwImportSwmm:
 
         self._manage_widgets_visibility()
 
+        tools_gw.disable_tab_log(self.dlg_config)
         tools_gw.open_dialog(self.dlg_config, dlg_name="inp_config_import")
+        unescape_dialog_labels(self.dlg_config)
 
     def _manage_psector(self):
         """ Manage the psector checkbox and the workcat and exploitation combo """
@@ -352,11 +360,12 @@ class GwImportSwmm:
 
             # Show tab log
             self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
+            tools_gw.set_tabs_enabled(self.dlg_config, hide_btn_accept=True, change_btn_cancel=False)
 
             # Set background task 'Import INP'
-            description = "Import INP (TESTING MODE)"
+            msg = "Import INP (TESTING MODE)"
             self.import_inp_task = GwImportInpTask(
-                description,
+                tools_qt.tr(msg),
                 self.file_path,
                 self.parse_inp_task.network,
                 workcat,
@@ -399,7 +408,7 @@ class GwImportSwmm:
         sql: str = "SELECT id FROM cat_work WHERE id = %s"
         row = tools_db.get_row(sql, params=(workcat,))
         if row is not None and not psector:
-            msg = tools_qt.tr('The Workcat_id "{0}" is already in use. Please enter a different ID.')
+            msg = 'The Workcat_id "{0}" is already in use. Please enter a different ID.'
             msg_params = (workcat,)
             tools_qt.show_info_box(msg, msg_params=msg_params)
             return
@@ -456,7 +465,7 @@ class GwImportSwmm:
                     new_catalog = new_catalog_cell.text().strip()
 
                     if combo_value == CREATE_NEW and new_catalog == "":
-                        msg = tools_qt.tr('Please enter a new catalog name when the "{0}" option is selected.')
+                        msg = 'Please enter a new catalog name when the "{0}" option is selected.'
                         msg_params = (CREATE_NEW,)
                         tools_qt.show_info_box(msg, msg_params=msg_params)
                         return
@@ -470,6 +479,7 @@ class GwImportSwmm:
 
         # Show tab log
         self.dlg_config.mainTab.setCurrentIndex(self.dlg_config.mainTab.count() - 1)
+        tools_gw.set_tabs_enabled(self.dlg_config, hide_btn_accept=True, change_btn_cancel=False)
 
         # Set state and state_type
         if psector:
@@ -480,9 +490,9 @@ class GwImportSwmm:
             state_type = 2
 
         # Set background task 'Import INP'
-        description = "Import INP"
+        msg = "Import INP"
         self.import_inp_task = GwImportInpTask(
-            description,
+            tools_qt.tr(msg),
             self.file_path,
             self.parse_inp_task.network,
             workcat,
@@ -511,6 +521,19 @@ class GwImportSwmm:
         QgsApplication.taskManager().addTask(self.import_inp_task)
         QgsApplication.taskManager().triggerTask(self.import_inp_task)
 
+    def _arcs_column_titles(self) -> list[str]:
+        """Header labels for the arcs table. geom1..geom4 are EPA field names, left as is."""
+
+        msg = "EPA type"
+        epa_type = tools_qt.tr(msg)
+        msg = "SHAPE"
+        shape = tools_qt.tr(msg)
+        msg = "Arc catalog"
+        arc_catalog = tools_qt.tr(msg)
+        msg = "New catalog name"
+        new_catalog = tools_qt.tr(msg)
+        return [epa_type, shape, "geom1", "geom2", "geom3", "geom4", arc_catalog, new_catalog]
+
     def _fill_tables(self):
         # Fill nodes table
         tbl_nodes: QTableWidget = self.dlg_config.tbl_nodes
@@ -533,7 +556,7 @@ class GwImportSwmm:
                 first_column.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 tbl_nodes.setItem(row, 0, first_column)
 
-                combo_cat = QComboBox()
+                combo_cat = tools_gw.create_combo_box()
                 tbl_nodes.setCellWidget(row, 1, combo_cat)
 
                 new_cat_name = QTableWidgetItem("")
@@ -548,7 +571,7 @@ class GwImportSwmm:
         # Fill arcs table with the pipes
         tbl_arcs: QTableWidget = self.dlg_config.tbl_arcs
         tbl_arcs.setColumnCount(8)
-        tbl_arcs.setHorizontalHeaderLabels(["EPA type", "SHAPE", "geom1", "geom2", "geom3", "geom4", "Arc catalog", "New catalog name"])
+        tbl_arcs.setHorizontalHeaderLabels(self._arcs_column_titles())
 
         if self.catalogs.inp_conduits:
             self.tbl_elements["conduits"] = {}
@@ -567,7 +590,7 @@ class GwImportSwmm:
                     item.setFlags(Qt.ItemFlag.ItemIsEnabled)
                     tbl_arcs.setItem(row, idx + 1, item)
 
-                combo_cat = QComboBox()
+                combo_cat = tools_gw.create_combo_box()
                 tbl_arcs.setCellWidget(row, 6, combo_cat)
 
                 new_cat_name = QTableWidgetItem("")
@@ -597,7 +620,7 @@ class GwImportSwmm:
                 first_column.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 tbl_material.setItem(row, 0, first_column)
 
-                combo_mat = QComboBox()
+                combo_mat = tools_gw.create_combo_box()
                 tbl_material.setCellWidget(row, 1, combo_mat)
 
                 self.tbl_elements["materials"][roughness] = (combo_mat,)
@@ -633,7 +656,7 @@ class GwImportSwmm:
             first_column.setFlags(Qt.ItemFlag.ItemIsEnabled)
             tbl_feature.setItem(row, 0, first_column)
 
-            combo_feat = QComboBox()
+            combo_feat = tools_gw.create_combo_box()
             tbl_feature.setCellWidget(row, 1, combo_feat)
 
             self.tbl_elements["features"][tag.lower()] = (combo_feat,)
@@ -720,13 +743,15 @@ class GwImportSwmm:
             combo.addItems(["", CREATE_NEW])
             if len(element_catalog) > 0:
                 combo.insertSeparator(combo.count())
-                combo.addItem("Recommended catalogs:")
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                title = "Recommended catalogs:"
+                combo.addItem(tools_qt.tr(title))
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(element_catalog)
             if len(db_catalog) > len(element_catalog):
                 combo.insertSeparator(combo.count())
-                combo.addItem("Other catalogs:")
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                title = "Other catalogs:"
+                combo.addItem(tools_qt.tr(title))
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(cat for cat in db_catalog if cat not in element_catalog)
             combo.setCurrentText(old_value)
 
@@ -742,13 +767,15 @@ class GwImportSwmm:
                 combo.addItems(["", CREATE_NEW])
                 if len(pipe_catalog) > 0:
                     combo.insertSeparator(combo.count())
-                    combo.addItem("Recommended catalogs:")
-                    combo.model().item(combo.count() - 1).setEnabled(False)
+                    title = "Recommended catalogs:"
+                    combo.addItem(tools_qt.tr(title))
+                    tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                     combo.addItems(pipe_catalog)
                 if len(self.catalogs.db_arcs) > len(pipe_catalog):
                     combo.insertSeparator(combo.count())
-                    combo.addItem("Other catalogs:")
-                    combo.model().item(combo.count() - 1).setEnabled(False)
+                    title = "Other catalogs:"
+                    combo.addItem(tools_qt.tr(title))
+                    tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                     combo.addItems(
                         cat for cat in self.catalogs.db_arcs if cat not in pipe_catalog
                     )
@@ -767,13 +794,15 @@ class GwImportSwmm:
             combo.addItem("")
             if len(material_catalog) > 0:
                 combo.insertSeparator(combo.count())
-                combo.addItem("Recommended materials:")
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                title = "Recommended materials:"
+                combo.addItem(tools_qt.tr(title))   
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(material_catalog)
             if len(self.catalogs.db_materials) > len(material_catalog):
                 combo.insertSeparator(combo.count())
-                combo.addItem("Other materials:")
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                title = "Other materials:"
+                combo.addItem(tools_qt.tr(title))
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(
                     mat
                     for mat in self.catalogs.db_materials
@@ -781,46 +810,73 @@ class GwImportSwmm:
                 )
             combo.setCurrentText(old_value)
 
-        # Fill features
-        feature_types = {
-            "junctions": ("NODE", ("MANHOLE",)),
-            "outfalls": ("NODE", ("MANHOLE",)),
-            "dividers": ("NODE", ("MANHOLE",)),
-            "storage": ("NODE", ("STORAGE",)),
-            "conduits": ("ARC", ("CONDUIT",)),
-            "pumps": (("ARC"), ("ELEMENT", "FRELEM")),
-            "orifices": (("ARC"), ("ELEMENT", "FRELEM")),
-            "weirs": (("ARC"), ("ELEMENT", "FRELEM")),
-            "outlets": (("ARC"), ("ELEMENT", "FRELEM")),
+        # Recommended: feature_class for generic EPA types (JUNCTION/CONDUIT are catch-alls
+        # on cat_feature_*.epa_default). Specific types also match epa_default.
+        # geom, feature_class, epa_default
+        feature_recommend = {
+            "junctions": (("NODE",), ("JUNCTION", "MANHOLE"), ("JUNCTION",)),
+            "outfalls": (("NODE",), ("OUTFALL",), ("OUTFALL",)),
+            "dividers": (("NODE",), ("DIVIDER",), ("DIVIDER",)),
+            "storage": (("NODE",), ("STORAGE", "CHAMBER"), ("STORAGE",)),
+            "conduits": (("ARC",), ("CONDUIT",), ("CONDUIT",)),
+            "pumps": (("ARC", "ELEMENT"), (), ("FRPUMP",)),
+            "orifices": (("ARC", "ELEMENT"), (), ("FRORIFICE",)),
+            "weirs": (("ARC", "ELEMENT"), (), ("FRWEIR",)),
+            "outlets": (("ARC", "ELEMENT"), (), ("FROUTLET",)),
         }
+
+        db_features = dict(self.catalogs.db_features or {})
+        if not db_features:
+            db_features = self._load_db_features()
+
+        def _norm(value):
+            return "" if value is None else str(value).strip().upper()
+
         for element_type, (combo,) in self.tbl_elements["features"].items():
-            system_catalog = [
-                feat_id
-                for feat_id, (feature_class, _) in self.catalogs.db_features.items()
-                if feature_class in feature_types[element_type][0]
-            ]
+            geom_types, rec_classes, rec_epa = feature_recommend[element_type]
+            geom_types_u = tuple(_norm(g) for g in geom_types)
+            rec_classes_u = tuple(_norm(c) for c in rec_classes)
+            rec_epa_u = tuple(_norm(e) for e in rec_epa)
+
+            def _is_recommended(feat_class, epa_default, rec_c=rec_classes_u, rec_e=rec_epa_u):
+                return _norm(feat_class) in rec_c or (_norm(epa_default) in rec_e if rec_e else False)
+
             feat_catalog = [
                 feat_id
-                for feat_id, (_, feat_type) in self.catalogs.db_features.items()
-                if feat_type in feature_types[element_type][1]
+                for feat_id, (_feat_type, feat_class, epa_default) in db_features.items()
+                if _is_recommended(feat_class, epa_default)
             ]
+            system_catalog = [
+                feat_id
+                for feat_id, (feat_type, feat_class, epa_default) in db_features.items()
+                if _norm(feat_type) in geom_types_u and not _is_recommended(feat_class, epa_default)
+            ]
+            # Never leave the combo empty when the schema has catalogs.
+            if not feat_catalog and not system_catalog:
+                system_catalog = [
+                    feat_id
+                    for feat_id, (feat_type, _feat_class, _epa) in db_features.items()
+                    if _norm(feat_type) in geom_types_u
+                ]
+            if not feat_catalog and not system_catalog:
+                system_catalog = list(db_features.keys())
 
             combo.blockSignals(True)
             old_value: str = combo.currentText()
             combo.clear()
             combo.addItem("")
-            if len(feat_catalog) > 0:
+            if feat_catalog:
                 combo.insertSeparator(combo.count())
-                combo.addItem("Recommended feature ids:")
-                combo.model().item(combo.count() - 1).setEnabled(False)
+                title = "Recommended feature ids:"
+                combo.addItem(tools_qt.tr(title))
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
                 combo.addItems(feat_catalog)
-            if len(system_catalog) > len(feat_catalog):
+            if system_catalog:
                 combo.insertSeparator(combo.count())
-                combo.addItem("Other feature ids:")
-                combo.model().item(combo.count() - 1).setEnabled(False)
-                combo.addItems(
-                    feat for feat in system_catalog if feat not in feat_catalog
-                )
+                title = "Other feature ids:"
+                combo.addItem(tools_qt.tr(title))
+                tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
+                combo.addItems(fid for fid in system_catalog if fid not in feat_catalog)
             combo.setCurrentText(old_value)
             combo.blockSignals(False)
 
@@ -829,6 +885,31 @@ class GwImportSwmm:
                 tools_gw.connect_signal(combo.currentTextChanged,
                                         partial(self._update_table_based_on_feature_type, element_type, combo),
                                         'import_inp', f'cmb_{element_type.lower()}_update_table_based_on_feature_type')
+
+    def _load_db_features(self) -> dict:
+        """Reload cat_feature rows when the parse-task catalog came back empty."""
+        rows = tools_db.get_rows("""
+            SELECT cf.id, cf.feature_class, cf.feature_type,
+                   COALESCE(cfn.epa_default, cfa.epa_default, cfe.epa_default) AS epa_default
+            FROM cat_feature cf
+            LEFT JOIN cat_feature_node cfn ON cfn.id = cf.id
+            LEFT JOIN cat_feature_arc cfa ON cfa.id = cf.id
+            LEFT JOIN cat_feature_element cfe ON cfe.id = cf.id
+        """)
+        if not rows:
+            rows = tools_db.get_rows("""
+                SELECT id, feature_class, feature_type
+                FROM cat_feature
+            """)
+        db_features = {}
+        if rows:
+            for row in rows:
+                feat_id = str(row[0])
+                feature_class = row[1]
+                feature_type = row[2]
+                epa_default = row[3] if len(row) > 3 else None
+                db_features[feat_id] = (feature_type, feature_class, epa_default)
+        return db_features
 
     def _update_table_based_on_feature_type(self, element_type: str, combo: QComboBox):
         if element_type not in ("pumps", "orifices", "weirs", "outlets"):
@@ -900,7 +981,7 @@ class GwImportSwmm:
             tbl.setItem(row, 0, first_column)
 
             # Create the combo box and put it in the second or fourth column
-            combo_cat = QComboBox()
+            combo_cat = tools_gw.create_combo_box()
             combo_idx = 6 if feature_type == "ARC" else 1
             tbl.setCellWidget(row, combo_idx, combo_cat)
 
@@ -1006,7 +1087,9 @@ class GwImportSwmm:
     def _calculate_elapsed_time(self, dialog: GwDialog) -> None:
         tf: float = time()  # Final time
         td: float = tf - self.t0  # Delta time
-        self._update_time_elapsed(f"Exec. time: {timedelta(seconds=round(td))}", dialog)
+        msg = "Exec. time: {0}"
+        msg_params = (timedelta(seconds=round(td)),)
+        self._update_time_elapsed(tools_qt.tr(msg, list_params=msg_params), dialog)
 
     def _update_time_elapsed(self, text: str, dialog: GwDialog) -> None:
         lbl_time: QLabel = dialog.findChild(QLabel, "lbl_time")
@@ -1025,7 +1108,8 @@ class GwImportSwmm:
         # TextEdit log
         txt_infolog = self.dlg_config.findChild(QTextEdit, 'tab_log_txt_infolog')
         cur_text = tools_qt.get_text(self.dlg_config, txt_infolog, return_string_null=False)
-        if process and process not in (self.cur_process, "Generate INP algorithm"):
+        title = "Generate INP algorithm"
+        if process and process not in (self.cur_process, title, tools_qt.tr(title)):
             cur_text = f"{cur_text}\n" \
                        f"--------------------\n" \
                        f"{process}\n" \
@@ -1034,7 +1118,7 @@ class GwImportSwmm:
             self.cur_text = None
 
         # Generate INP log is cumulative, so it's saved until the process ends
-        if process == "Generate INP algorithm" and not self.cur_text:
+        if process in (title, tools_qt.tr(title)) and not self.cur_text:
             self.cur_text = cur_text
 
         if self.cur_text:

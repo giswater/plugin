@@ -67,11 +67,13 @@ class GwResultManagerButton(GwAction):
 
         # Fill results table
         self._fill_table()
-
+        tableview = "v_config_form_tableview"
+        if not tools_gw._relation_exists("am", tableview):
+            tableview = "config_form_tableview"
         rows = tools_db.get_rows(
-            """
+            f"""
             select columnname, alias
-            from am.config_form_tableview
+            from am.{tableview}
             where objectname = 'cat_result'
             """
         )
@@ -297,9 +299,8 @@ class GwResultManagerButton(GwAction):
             return
 
         if not result_type_i18n:
-            tools_qgis.show_warning(
-                tools_qt.tr("Please select a result with not empty type"), dialog=dlg
-            )
+            msg = "Please select a result with not empty type"
+            tools_qgis.show_warning(msg, dialog=dlg)
             return
         result_type = self._value_result_type[result_type_i18n]
 
@@ -322,9 +323,8 @@ class GwResultManagerButton(GwAction):
         result_type_i18n = self.tbl_results.model().record(row).value(2)
 
         if not result_type_i18n:
-            tools_qgis.show_warning(
-                tools_qt.tr("Please select a result with not empty type"), dialog=dlg
-            )
+            msg = "Please select a result with not empty type"
+            tools_qgis.show_warning(msg, dialog=dlg)
             return
 
         result_type = self._value_result_type[result_type_i18n]
@@ -358,7 +358,9 @@ class GwResultManagerButton(GwAction):
             widget.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
 
             if model.lastError().isValid():
-                print(f"ERROR -> {model.lastError().text()}")
+                msg = "ERROR -> {0}"
+                msg_params = (model.lastError().text(),)
+                print(tools_qt.tr(msg, list_params=msg_params))
 
             if expr:
                 widget.setModel(model)
@@ -366,7 +368,9 @@ class GwResultManagerButton(GwAction):
             else:
                 widget.setModel(model)
         except Exception as e:
-            print(f"EXCEPTION -> {e}")
+            msg = "EXCEPTION -> {0}"
+            msg_params = (e,)
+            print(tools_qt.tr(msg, list_params=msg_params))
 
     def _open_status_selector(self):
         """ Open dialog to change status of selected result """
@@ -509,13 +513,10 @@ class GwResultManagerButton(GwAction):
                     continue
                 target_layers.append((target_layer, row[1]))
 
-            if target_layers:
-                result = tools_qt.show_question(
-                    "Do you want to update the symbology of the layers currently "
-                    "loaded in the project?",
-                    "Update AM Layers Symbology",
-                    force_action=True,
-                )
+            if len(target_layers) > 0:
+                msg = "Do you want to update the symbology of the layers currently loaded in the project?"
+                title = "Update AM Layers Symbology"
+                result = tools_qt.show_question(msg, title, force_action=True)
                 if result:
                     for layer, addparam in target_layers:
                         tools_gw.refresh_categorized_layer_symbology_classes(
