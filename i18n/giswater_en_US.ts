@@ -13917,20 +13917,20 @@ or they were created by another user:</translation>
 			<translation>groupBox_2</translation>
 		</message>
 		<message>
-			<source>page</source>
+			<source>page_epa</source>
 			<translation>Data</translation>
 		</message>
 		<message>
-			<source>tooltip_page</source>
-			<translation>page</translation>
+			<source>tooltip_page_epa</source>
+			<translation>page_epa</translation>
 		</message>
 		<message>
-			<source>page_2</source>
+			<source>page_dscenario</source>
 			<translation>Dscenario</translation>
 		</message>
 		<message>
-			<source>tooltip_page_2</source>
-			<translation>page_2</translation>
+			<source>tooltip_page_dscenario</source>
+			<translation>page_dscenario</translation>
 		</message>
 		<message>
 			<source>page_add</source>

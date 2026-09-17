@@ -139,9 +139,7 @@ v_headertext text;
 v_formheader_value text;
 v_formheader_field text;
 v_formheader_new_text text;
-v_tabdata_lytname json;
-v_tabdata_lytname_result json;
-v_record record;
+v_toolbox_labels json;
 v_cur_user text;
 v_prev_cur_user text;
 v_table_child text;
@@ -931,13 +929,13 @@ BEGIN
     v_editable := COALESCE(v_editable, 'false');
 
 	v_forminfo := gw_fct_json_object_set_key(v_forminfo,'headerText',v_headertext);
-	v_tabdata_lytname = (SELECT value::json->>'custom_form_tab_labels' FROM config_param_system WHERE parameter='admin_customform_param')::text;
-
-	FOR v_record IN SELECT (a)->>'index' as index,(a)->>'text' as text  FROM json_array_elements(v_tabdata_lytname) a
-	LOOP
-		v_tabdata_lytname_result := gw_fct_json_object_set_key(v_tabdata_lytname_result,concat('index_', v_record.index), v_record.text);
-	END LOOP;
-	v_forminfo := gw_fct_json_object_set_key(v_forminfo,'tabDataLytNames', v_tabdata_lytname_result);
+	SELECT json_build_object(
+		'page_main', (SELECT idval FROM v_sys_label WHERE id = 4001),
+		'page_add', (SELECT idval FROM v_sys_label WHERE id = 4002),
+		'page_epa', (SELECT idval FROM v_sys_label WHERE id = 4003),
+		'page_dscenario', (SELECT idval FROM v_sys_label WHERE id = 4004)
+	) INTO v_toolbox_labels;
+	v_forminfo := gw_fct_json_object_set_key(v_forminfo, 'toolboxLabels', COALESCE(v_toolbox_labels, '{}'::json));
 
 
 	v_forminfo:= concat(left(v_forminfo::text, length(v_forminfo::text) - 1), ',', v_form_orientation, '}');

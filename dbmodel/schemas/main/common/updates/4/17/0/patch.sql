@@ -2010,3 +2010,8 @@ SELECT setval(
 );
 
 GRANT USAGE, SELECT, UPDATE ON SEQUENCE config_style_id_seq TO role_basic;
+
+INSERT INTO sys_label (id,idval,label_type) VALUES (4001,'Main Data','python') ON CONFLICT (id) DO NOTHING;
+INSERT INTO sys_label (id,idval,label_type) VALUES (4002,'Additional Data','python') ON CONFLICT (id) DO NOTHING;
+INSERT INTO sys_label (id,idval,label_type) VALUES (4003,'Data','python') ON CONFLICT (id) DO NOTHING;
+INSERT INTO sys_label (id,idval,label_type) VALUES (4004,'Dscenario','python') ON CONFLICT (id) DO NOTHING;

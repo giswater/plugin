@@ -160,7 +160,7 @@
           <property name="currentIndex">
            <number>0</number>
           </property>
-          <widget class="QWidget" name="page">
+          <widget class="QWidget" name="page_epa">
            <property name="geometry">
             <rect>
              <x>0</x>
@@ -199,7 +199,7 @@
             </item>
            </layout>
           </widget>
-          <widget class="QWidget" name="page_2">
+          <widget class="QWidget" name="page_dscenario">
            <property name="geometry">
             <rect>
              <x>0</x>

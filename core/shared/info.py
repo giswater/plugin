@@ -502,6 +502,21 @@ class GwInfo(QObject):
 
         return result, self.dlg_generic
 
+    def _apply_data_toolbox_labels(self, complet_result):
+        """Override QToolBox page titles from sys_label. Call after open_dialog/docker_dialog so .qm does not win."""
+        labels = complet_result.get("body", {}).get("form", {}).get("toolboxLabels") or {}
+        if not labels:
+            return
+        for toolbox_name in ("data_toolbox", "epa_toolbox"):
+            toolbox = self.dlg_cf.findChild(QToolBox, toolbox_name)
+            if toolbox is None:
+                continue
+            for i in range(toolbox.count()):
+                page = toolbox.widget(i)
+                text = labels.get(page.objectName()) if page is not None else None
+                if text:
+                    toolbox.setItemText(i, text)
+
     def _open_custom_form(self, feature_id, complet_result, tab_type=None, sub_tag=None, is_docker=True, new_feature=None, connect_signal=None,
                           linked_feature=None):
         """
@@ -630,6 +645,7 @@ class GwInfo(QObject):
                 del last_info
 
             tools_gw.docker_dialog(dlg_cf, dlg_name='info_feature', title='info_feature')
+            self._apply_data_toolbox_labels(complet_result)
             lib_vars.session_vars['dialog_docker'].widget().dlg_closed.connect(self._manage_docker_close)
             lib_vars.session_vars['dialog_docker'].setWindowTitle(title)
             btn_cancel.clicked.connect(self._manage_docker_close)
@@ -668,6 +684,7 @@ class GwInfo(QObject):
             partial(self._accept_from_btn, dlg_cf, self.action_edit, new_feature, self.my_json, complet_result, False, linked_feature=linked_feature))
             # Open dialog
             tools_gw.open_dialog(self.dlg_cf, dlg_name='info_feature')
+            self._apply_data_toolbox_labels(complet_result)
             self.dlg_cf.setWindowTitle(title)
 
         # Check if audit schema exists

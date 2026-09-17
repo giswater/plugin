@@ -11,8 +11,8 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 17 test
-SELECT plan(17);
+-- Plan for 18 test
+SELECT plan(18);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -36,6 +36,14 @@ SELECT is(
     "feature":{"tableName":"ve_node", "id":"89"}, "data":{"filterFields":{}, "pageInfo":{}, "addSchema":""}}$$)::JSON)->>'status',
     'Accepted',
     'Check if gw_fct_getinfofromid tableName --> ve_node returns status "Accepted"'
+);
+
+SELECT is(
+    (gw_fct_getinfofromid($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+    "feature":{"tableName":"ve_node", "id":"89"}, "data":{"filterFields":{}, "pageInfo":{}, "addSchema":""}}$$)::JSON)
+        ->'body'->'form'->'toolboxLabels'->>'page_main',
+    'Main Data',
+    'gw_fct_getinfofromid returns sys_label 4001 as toolboxLabels.page_main'
 );
 
 SELECT is(
