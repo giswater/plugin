@@ -84,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Overlapping labels on UD element forms (TAPA/COVER): `ve_element` CFF had duplicate `layoutorder` for brand/rotation and model/top_elev, and `expl_id` alone in `lyt_data_2`.
 - Add `addparam`, `is_templayer` and `active` to the Add category dialog (`config_style`).
 - Show next `config_style.id` from `config_style_id_seq` as a read-only preview; INSERT lets the column default assign it. Active defaults to true.
+- Network lockstep 4.16.1→4.17.0 with CIBS: recreate `v_hydrometer` from `cibs.hydrometer`, skip duplicate `config_form_tableview` doc rows, read `sys_version.language` with `LIMIT 1`.
 
 ## [4.16.1] - 2026-07-31
 

@@ -8,3 +8,4 @@
 - Set `isvalidated=true` when setting corporate in `gw_fct_epa2data`.
 - Drop denormalized node fields from `arc`; compute nodetype/elevation/depth/pressure in `ve_arc` via JOIN; remove `gw_trg_arc_node_values` and drop legacy `v_arc`/`vu_arc` views.
 - Fix NRW report filters (103/104): align date filter columns with `v_om_waterbalance` (`startdate`/`enddate`).
+- Skip `config_form_tableview` doc uuid/name rows when they already exist (`ON CONFLICT DO NOTHING`).

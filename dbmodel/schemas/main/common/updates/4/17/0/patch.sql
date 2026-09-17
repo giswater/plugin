@@ -1442,12 +1442,13 @@ BEGIN
 END
 $patch$;
 
-DO $$
+DO $patch$
 BEGIN
-    IF EXISTS (
-        SELECT 1 FROM pg_class WHERE relname = 'ext_hydrometer'
-    ) THEN
-
+    IF (SELECT value::boolean FROM config_param_system WHERE parameter = 'admin_cibs_schema') IS TRUE THEN
+        -- CIBS already owns hydrometers (ext_hydrometer renamed); refresh SELECT *
+        -- so brand_id/model_id added by cibs 4.17.0 are visible on the parent view.
+        CREATE OR REPLACE VIEW v_hydrometer AS SELECT * FROM cibs.hydrometer;
+    ELSIF to_regclass('ext_hydrometer') IS NOT NULL THEN
         IF NOT EXISTS (
             SELECT 1 FROM pg_attribute
             WHERE attrelid = 'ext_hydrometer'::regclass AND attname = 'brand_id' AND NOT attisdropped
@@ -1462,12 +1463,10 @@ BEGIN
             ALTER TABLE ext_hydrometer ADD COLUMN model_id varchar(50);
         END IF;
 
+        CREATE OR REPLACE VIEW v_hydrometer AS SELECT * FROM ext_hydrometer;
     END IF;
 END
-$$;
-
-CREATE OR REPLACE VIEW v_hydrometer AS
-SELECT * FROM ext_hydrometer;
+$patch$;
 
 
 ALTER TABLE om_scada_graph RENAME TO _om_scada_graph_;

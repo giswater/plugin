@@ -2007,24 +2007,32 @@ DELETE FROM config_form_tableview
 DELETE FROM config_form_tableview
 	WHERE objectname='tbl_visit_x_gully' AND columnname='sys_id';
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('node form','utils','tbl_doc_x_node','node_uuid',8,true,'Node Uuid');
+	VALUES ('node form','utils','tbl_doc_x_node','node_uuid',8,true,'Node Uuid')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('node form','utils','tbl_doc_x_node','doc_name',8,true,'Document Name');
+	VALUES ('node form','utils','tbl_doc_x_node','doc_name',8,true,'Document Name')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('connec form','utils','tbl_doc_x_connec','connec_uuid',8,true,'Node Uuid');
+	VALUES ('connec form','utils','tbl_doc_x_connec','connec_uuid',8,true,'Node Uuid')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('connec form','utils','tbl_doc_x_connec','doc_name',8,true,'Document Name');
+	VALUES ('connec form','utils','tbl_doc_x_connec','doc_name',8,true,'Document Name')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('arc form','utils','tbl_doc_x_arc','arc_uuid',8,true,'Node Uuid');
+	VALUES ('arc form','utils','tbl_doc_x_arc','arc_uuid',8,true,'Node Uuid')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('arc form','utils','tbl_doc_x_arc','doc_name',8,true,'Document Name');
+	VALUES ('arc form','utils','tbl_doc_x_arc','doc_name',8,true,'Document Name')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('gully form','utils','tbl_doc_x_gully','gully_uuid',8,true,'Node Uuid');
+	VALUES ('gully form','utils','tbl_doc_x_gully','gully_uuid',8,true,'Node Uuid')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('gully form','utils','tbl_doc_x_gully','doc_name',8,true,'Document Name');
+	VALUES ('gully form','utils','tbl_doc_x_gully','doc_name',8,true,'Document Name')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 
 UPDATE config_form_fields
 	SET widgetcontrols='{
@@ -2200,7 +2208,7 @@ ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 DO $patch$
 BEGIN
-  IF (SELECT lower("language") FROM sys_version) = 'en_us' THEN
+  IF (SELECT lower("language") FROM sys_version ORDER BY id DESC LIMIT 1) = 'en_us' THEN
     UPDATE sys_style SET stylevalue='<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
     <qgis styleCategories="Symbology" version="3.40.6-Bratislava">
       <renderer-v2 enableorderby="0" type="categorizedSymbol" referencescale="-1" attr="stream_type" forceraster="0" symbollevels="0">
