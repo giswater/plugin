@@ -1986,6 +1986,25 @@ CREATE SEQUENCE IF NOT EXISTS config_style_id_seq
   NO CYCLE;
 
 ALTER TABLE config_style ALTER COLUMN id SET DEFAULT nextval('config_style_id_seq'::regclass);
+
+-- OWNED BY requires the sequence and table to share an owner (fails on upgrade: table is role_system).
+DO $seq$
+DECLARE
+    v_owner name;
+BEGIN
+    SELECT pg_get_userbyid(c.relowner) INTO v_owner
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = current_schema()
+      AND c.relname = 'config_style'
+      AND c.relkind = 'r';
+
+    IF v_owner IS NOT NULL THEN
+        EXECUTE format('ALTER SEQUENCE config_style_id_seq OWNER TO %I', v_owner);
+    END IF;
+END
+$seq$;
+
 ALTER SEQUENCE config_style_id_seq OWNED BY config_style.id;
 
 SELECT setval(
