@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `gw dbmodel install X.Y.Z` falls back to the GitHub release ZIP, then the
+  `vX.Y.Z` source archive, when `download.giswater.org` 404s (tag exists
+  before the plugin ZIP is published).
+
 ## [0.4.3] - 2026-08-27
 
 ### Added
