@@ -1061,20 +1061,20 @@ class GwInfo(QObject):
         # Try with current locale
         png_path = os.path.join(png_folder, f"{project_type}_{feature_type}_{locale}.png")
         if os.path.exists(png_path):
-            os.system(png_path)
+            tools_os.open_file(png_path)
             return
 
         # If locale starts with 'es', try with es_ES
         if locale.startswith('es'):
             png_path = os.path.join(png_folder, f"{project_type}_{feature_type}_es_ES.png")
             if os.path.exists(png_path):
-                os.system(png_path)
+                tools_os.open_file(png_path)
                 return
 
         # Try with en_US as fallback
         png_path = os.path.join(png_folder, f"{project_type}_{feature_type}_en_US.png")
         if os.path.exists(png_path):
-            os.system(png_path)
+            tools_os.open_file(png_path)
             return
 
         # If no help file found, show warning
