@@ -12,6 +12,7 @@ from qgis.core import QgsProject, QgsApplication, QgsSnappingUtils, QgsVectorLay
                     QgsAttributeEditorField, QgsEditorWidgetSetup, Qgis
 from qgis.PyQt.QtCore import QObject, Qt, QEvent
 from qgis.PyQt.QtWidgets import QToolBar, QActionGroup, QDockWidget, QApplication, QDialog, QPushButton, QMenu, QAction
+from qgis.PyQt.sip import isdeleted
 
 from .models.plugin_toolbar import GwPluginToolbar
 from .toolbars import buttons
@@ -23,6 +24,8 @@ from .shared.psector import GwPsector
 from .shared.search import GwSearchLocatorFilter
 from .. import global_vars
 from ..libs import lib_vars, tools_qgis, tools_log, tools_db, tools_qt, tools_os
+
+_GW_OWN_TOOLBAR_IDS = ('basic', 'om', 'edit', 'epa', 'plan', 'utilities', 'am', 'cm')
 
 
 class GwLoadProject(QObject):
@@ -211,8 +214,13 @@ class GwLoadProject(QObject):
 
         # Get list with own QToolBars
         for w in widget_list:
-            if w.property('gw_name'):
-                own_toolbars.append(w)
+            try:
+                if isdeleted(w):
+                    continue
+                if w.property('gw_name'):
+                    own_toolbars.append(w)
+            except RuntimeError:
+                continue
 
         # Order list of toolbar in function of X position
         own_toolbars = sorted(own_toolbars, key=lambda k: k.x())
@@ -221,9 +229,20 @@ class GwLoadProject(QObject):
             return
 
         # Set 'toolbars_order' parameter on 'toolbars_position' section on init.config user file (found in user path)
-        sorted_toolbar_ids = [tb.property('gw_name') for tb in own_toolbars]
-        sorted_toolbar_ids = ",".join(sorted_toolbar_ids)
-        tools_gw.set_config_parser('toolbars_position', 'toolbars_order', str(sorted_toolbar_ids), "user", "init")
+        sorted_toolbar_ids = []
+        seen = set()
+        for tb in own_toolbars:
+            try:
+                if isdeleted(tb):
+                    continue
+            except RuntimeError:
+                continue
+            gw_name = tb.property('gw_name')
+            if not gw_name or gw_name in seen:
+                continue
+            seen.add(gw_name)
+            sorted_toolbar_ids.append(gw_name)
+        tools_gw.set_config_parser('toolbars_position', 'toolbars_order', ",".join(sorted_toolbar_ids), "user", "init")
 
     def _register_locator_filter(self):
         if self.gw_locator_filter is not None:
@@ -429,8 +448,9 @@ class GwLoadProject(QObject):
             return
 
         # Call each of the functions that configure the toolbars 'def toolbar_xxxxx(self, toolbar_id, x=0, y=0):'
-        toolbars_order_list = toolbars_order.replace(' ', '').split(',')
-        config_was_updated = False
+        raw_toolbars_order = [tb for tb in toolbars_order.replace(' ', '').split(',') if tb]
+        toolbars_order_list = list(dict.fromkeys(raw_toolbars_order))
+        config_was_updated = toolbars_order_list != raw_toolbars_order
 
         # Check for optional toolbars
         for toolbar_id in ('am', 'cm'):
@@ -514,6 +534,9 @@ class GwLoadProject(QObject):
     def _create_toolbar(self, toolbar_id):
         """Create and register a toolbar, with special CM/AM schema checks."""
 
+        if toolbar_id in self.plugin_toolbars:
+            return
+
         # Load toolbar actions from your config
         list_actions = tools_gw.get_config_parser(
             'toolbars', str(toolbar_id), "project", "giswater"
@@ -572,11 +595,11 @@ class GwLoadProject(QObject):
                 active = tools_os.set_boolean(flag, False)
 
                 if exists and active:
-                    plugin_toolbar.toolbar = self.iface.addToolBar(toolbar_name)
+                    plugin_toolbar.toolbar = self._get_or_create_toolbar(toolbar_name, toolbar_id)
 
         # All other toolbars just get created normally
         else:
-            plugin_toolbar.toolbar = self.iface.addToolBar(toolbar_name)
+            plugin_toolbar.toolbar = self._get_or_create_toolbar(toolbar_name, toolbar_id)
 
         # Finalize: register and optionally hide/disable immediately
         if getattr(plugin_toolbar, 'toolbar', None):
@@ -585,6 +608,74 @@ class GwLoadProject(QObject):
             plugin_toolbar.list_actions = list_actions
             self.plugin_toolbars[toolbar_id] = plugin_toolbar
             self._enable_toolbar(toolbar_id)
+
+    def _get_or_create_toolbar(self, toolbar_name, toolbar_id):
+        """Reuse an existing QToolBar with this id/name; drop duplicates; create if missing."""
+        main_window = self.iface.mainWindow()
+        untranslated = f'toolbar_{toolbar_id}_name'
+        matches = []
+        for toolbar in main_window.findChildren(QToolBar):
+            try:
+                if isdeleted(toolbar) or toolbar.property('gw_name') == 'toc':
+                    continue
+                if toolbar.objectName() in (toolbar_name, untranslated) or toolbar.property('gw_name') == toolbar_id:
+                    matches.append(toolbar)
+            except RuntimeError:
+                continue
+
+        toolbar = matches[0] if matches else None
+        for extra in matches[1:]:
+            self._discard_toolbar(extra)
+
+        if toolbar is None:
+            toolbar = self.iface.addToolBar(toolbar_name)
+
+        toolbar.setObjectName(toolbar_name)
+        toolbar.setProperty('gw_name', toolbar_id)
+        toolbar.clear()
+        return toolbar
+
+    def _discard_toolbar(self, toolbar):
+        """Remove a QToolBar from QGIS immediately so findChildren will not see it again."""
+        GwLoadProject._discard_toolbar_widget(self.iface, toolbar)
+
+    @staticmethod
+    def _discard_toolbar_widget(iface, toolbar):
+        """Remove a QToolBar from QGIS immediately so findChildren will not see it again."""
+        try:
+            if toolbar is None or isdeleted(toolbar):
+                return
+            iface.mainWindow().removeToolBar(toolbar)
+            toolbar.setParent(None)
+            toolbar.deleteLater()
+        except RuntimeError:
+            pass
+
+    @staticmethod
+    def destroy_plugin_toolbars(iface):
+        """Destroy every Giswater toolbar except ToC (Layers panel). Used on unload/refresh."""
+        main_window = iface.mainWindow()
+        toc_names = {tools_qt.tr('toolbar_toc_name'), 'toolbar_toc_name'}
+        known_names = set()
+        for toolbar_id in _GW_OWN_TOOLBAR_IDS:
+            known_names.add(tools_qt.tr(f'toolbar_{toolbar_id}_name'))
+            known_names.add(f'toolbar_{toolbar_id}_name')
+
+        layers_dock = main_window.findChild(QDockWidget, 'Layers')
+        for toolbar in list(main_window.findChildren(QToolBar)):
+            try:
+                if isdeleted(toolbar):
+                    continue
+                gw_name = toolbar.property('gw_name')
+                object_name = toolbar.objectName()
+                if gw_name == 'toc' or object_name in toc_names:
+                    continue
+                if layers_dock is not None and toolbar.parent() is layers_dock:
+                    continue
+                if gw_name in _GW_OWN_TOOLBAR_IDS or object_name in known_names:
+                    GwLoadProject._discard_toolbar_widget(iface, toolbar)
+            except RuntimeError:
+                continue
 
     def _create_psector_status_bar(self):
         """Create Psector status bar with play/pause button and psector combobox."""
@@ -874,8 +965,12 @@ class GwLoadProject(QObject):
         self._enable_all_buttons(visible)
         try:
             for plugin_toolbar in list(self.plugin_toolbars.values()):
-                if plugin_toolbar.enabled:
-                    plugin_toolbar.toolbar.setVisible(visible)
+                if not plugin_toolbar.enabled:
+                    continue
+                toolbar = plugin_toolbar.toolbar
+                if toolbar is None or isdeleted(toolbar):
+                    continue
+                toolbar.setVisible(visible)
         except Exception as e:
             tools_log.log_warning(str(e))
 
@@ -904,7 +999,13 @@ class GwLoadProject(QObject):
 
         if toolbar_id in self.plugin_toolbars:
             plugin_toolbar = self.plugin_toolbars[toolbar_id]
-            plugin_toolbar.toolbar.setVisible(enable)
+            toolbar = plugin_toolbar.toolbar
+            try:
+                if toolbar is None or isdeleted(toolbar):
+                    return
+                toolbar.setVisible(enable)
+            except RuntimeError:
+                return
             for index_action in plugin_toolbar.list_actions:
                 self._enable_button(index_action, enable)
 

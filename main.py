@@ -154,13 +154,10 @@ class Giswater(QObject):
             tools_log.log_info(msg, parameter=str(e), msg_params=msg_params)
 
         try:
-            # Check if project is current loaded and remove giswater toolbars from qgis
+            # Remove giswater toolbars from QGIS (must destroy, not hide)
+            GwLoadProject.destroy_plugin_toolbars(self.iface)
             if self.load_project:
-                if self.load_project.plugin_toolbars:
-                    for plugin_toolbar in list(self.load_project.plugin_toolbars.values()):
-                        if plugin_toolbar.enabled and plugin_toolbar.toolbar.objectName() != 'toolbar_toc_name':
-                            plugin_toolbar.toolbar.setVisible(False)
-                            del plugin_toolbar.toolbar
+                self.load_project.plugin_toolbars = {}
         except Exception as e:
             message = "Exception in unload when deleting {0}"
             msg_params = ("plugin_toolbar.toolbar",)
