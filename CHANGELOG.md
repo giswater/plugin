@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Bind Elements-tab context menus to the clicked table: elements keep insert/delete/open/link, dscenario tables only show Remove from dscenario.
 - Hide the feature-form Open Link action when the `link` widget is hidden in `config_form_fields`; warn if the widget is missing.
 - Persist `visit_type` on Add Visit and capture `om_visit.muni_id` (and `sector_id`) in `gw_trg_om_visit`.
 - Show `gw_fct_setfields` errors only on the info form, not also on the QGIS message bar.

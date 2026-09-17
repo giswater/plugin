@@ -9600,26 +9600,105 @@ def _force_button_click(dlg, obj, name, pos):
         dlg.findChild(obj, name).click()
 
 
-def _show_context_menu(self, qtableview):
-        """Show custom context menu"""
+def _widget_parent_names(widget):
+    """Return objectName of widget and all parent widgets."""
+    names = []
+    par = widget
+    while par is not None and hasattr(par, 'objectName'):
+        names.append(par.objectName())
+        par = par.parentWidget()
+    return names
 
-        menu = QMenu(qtableview)
 
-        buttons = qtableview.window().findChildren(QPushButton)
-        for btn in buttons:
-            if btn.property('widgetcontrols') is not None:
-                if btn.property('widgetcontrols').get('onContextMenu') is not None:
-                    parents = list()
-                    par = btn
-                    while hasattr(par, 'objectName'):
-                        parents.append(par.objectName())
-                        par = par.parentWidget()
-                    if qtableview.objectName() in parents:
-                        title = btn.property('widgetcontrols').get('onContextMenu')
-                        action = QAction(tools_qt.tr(title), qtableview)
-                        action.triggered.connect(partial(_force_button_click, qtableview.window(), QPushButton, btn.objectName()))
-                        menu.addAction(action)
+def _context_menu_functions(btn):
+    """Normalize widgetfunction property to a list of dicts."""
+    wf = btn.property('widgetfunction')
+    if isinstance(wf, list):
+        return [fn for fn in wf if isinstance(fn, dict)]
+    if isinstance(wf, dict):
+        return [wf]
+    return []
 
+
+def _table_name_matches_ref(table_name, ref):
+    """True if table_name equals ref or is a prefix match (ref_...)."""
+    if not table_name or not ref or not isinstance(ref, str):
+        return False
+    if table_name == ref:
+        return True
+    return table_name.startswith(ref) and (
+        len(table_name) == len(ref) or table_name[len(ref)] == '_'
+    )
+
+
+def _context_menu_bound_tables(btn, widgetcontrols):
+    """
+    Tables this action is bound to.
+
+    Explicit widgetcontrols.onContextMenuWidget wins; otherwise targetwidget /
+    sourcewidget from widgetfunction. None means tab-wide (legacy).
+    """
+    explicit = widgetcontrols.get('onContextMenuWidget') if widgetcontrols else None
+    if explicit:
+        return explicit if isinstance(explicit, list) else [explicit]
+
+    bound = []
+    for fn in _context_menu_functions(btn):
+        params = fn.get('parameters') or {}
+        for key in ('targetwidget', 'sourcewidget'):
+            ref = params.get(key)
+            if not ref:
+                continue
+            if isinstance(ref, list):
+                bound.extend(ref)
+            else:
+                bound.append(ref)
+    return bound or None
+
+
+def _context_action_applies(btn, table_name, bound_tables):
+    """Whether a context-menu button should appear on this table."""
+    fnames = [fn.get('functionName') for fn in _context_menu_functions(btn)]
+    is_dscenario_table = 'tbl_frelem_dsc' in (table_name or '')
+
+    # Remove-from-dscenario only makes sense on the dscenario subtables
+    if 'remove_frelem_from_dscenario' in fnames:
+        return is_dscenario_table
+
+    if bound_tables:
+        for ref in bound_tables:
+            if _table_name_matches_ref(table_name, ref):
+                return True
+        return False
+
+    # Unbound actions stay tab-wide, except on dscenario subtables
+    return not is_dscenario_table
+
+
+def _show_context_menu(table, container, pos=None):
+    """Show custom context menu for the table that was right-clicked."""
+    menu = QMenu(table)
+    container_name = container.objectName() if container is not None else None
+    table_name = table.objectName() if table is not None else ''
+
+    buttons = table.window().findChildren(QPushButton)
+    for btn in buttons:
+        widgetcontrols = btn.property('widgetcontrols')
+        if not widgetcontrols or not isinstance(widgetcontrols, dict):
+            continue
+        title = widgetcontrols.get('onContextMenu')
+        if not title:
+            continue
+        if container_name and container_name not in _widget_parent_names(btn):
+            continue
+        bound_tables = _context_menu_bound_tables(btn, widgetcontrols)
+        if not _context_action_applies(btn, table_name, bound_tables):
+            continue
+        action = QAction(tools_qt.tr(title), table)
+        action.triggered.connect(partial(_force_button_click, table.window(), QPushButton, btn.objectName()))
+        menu.addAction(action)
+
+    if menu.actions():
         menu.exec(QCursor.pos())
 
 # endregion
