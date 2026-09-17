@@ -56,12 +56,16 @@ class GwAmBreakageButton(GwAction):
         title = "Priority Calculation (Global)"
         self.txt_priority = tools_qt.tr(title)
 
+        # First add the menu before adding it to the toolbar
+        if toolbar is not None:
+            toolbar.removeAction(self.action)
+
         # Create a menu and add all the actions
         self.menu = QMenu()
         self.menu.setObjectName("AM_breakage_tools")
         self._fill_action_menu()
 
-        if toolbar and self.action:
+        if toolbar is not None:
             self.action.setMenu(self.menu)
             toolbar.addAction(self.action)
 
