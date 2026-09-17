@@ -3373,3 +3373,7 @@ UPDATE config_form_tabs SET tabactions='[
     "disabled": false
   }
 ]'::json WHERE formname='ve_epa_storage' AND tabname='tab_epa';
+
+UPDATE config_form_fields
+	SET dv_querytext='SELECT function_type AS id, function_type AS idval FROM man_type_function WHERE active AND (featurecat_id IS NULL AND ''GULLY''=ANY(feature_type))'
+	WHERE formname='ve_gully' AND formtype='form_feature' AND columnname='function_type' AND tabname='tab_data';
