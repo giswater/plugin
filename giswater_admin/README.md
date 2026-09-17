@@ -199,7 +199,7 @@ python3 -m giswater_admin --help
 | Command | Purpose |
 |---------|---------|
 | `gw dbmodel install latest` | Download plugin ZIP and cache `dbmodel/` |
-| `gw dbmodel install 4.9.0` | Install a specific release |
+| `gw dbmodel install 4.9.0` | Install a specific release (GitHub ZIP / tag archive if the download server 404s) |
 | `gw dbmodel list` | Cached versions + remote latest |
 | `gw dbmodel use latest` | Activate latest cached/remote version |
 | `gw dbmodel use dev --root PATH` | Use `PATH/dbmodel` from a checkout |
