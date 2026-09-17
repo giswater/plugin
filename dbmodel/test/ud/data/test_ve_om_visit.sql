@@ -21,7 +21,7 @@ INSERT INTO selector_municipality (muni_id, cur_user) VALUES (1, current_user) O
 INSERT INTO ve_om_visit (id, visitcat_id, ext_code, startdate, enddate, user_name, the_geom, webclient_id, expl_id)
 VALUES(-901, 1, NULL, '2024-03-27 08:43:51.527', '2024-03-27 08:43:51.527', 'postgres', NULL, NULL, 1);
 
--- trigger does not set muni_id/sector_id; view requires them to match selectors
+-- view filters by selector_municipality / selector_sector; native insert has no muni_id
 UPDATE om_visit SET muni_id = 1, sector_id = 1 WHERE id = -901;
 
 SELECT is((SELECT count(*)::integer FROM ve_om_visit WHERE id = -901), 1, 'INSERT: ve_om_visit -901 was inserted');

@@ -157,6 +157,7 @@ class GwVisit(QObject):
         self.user_name = self.dlg_add_visit.findChild(QLineEdit, "user_name")
         self.ext_code = self.dlg_add_visit.findChild(QLineEdit, "ext_code")
         self.visitcat_id = self.dlg_add_visit.findChild(QComboBox, "visitcat_id")
+        self.visit_type = self.dlg_add_visit.findChild(QComboBox, "visit_type")
         self.exploitation = self.dlg_add_visit.findChild(QComboBox, "expl_id")
 
         # tab 'Event'
@@ -757,6 +758,8 @@ class GwVisit(QObject):
         self.current_visit.visitcat_id = tools_qt.get_combo_value(self.dlg_add_visit, 'visitcat_id', 0)
         self.current_visit.descript = tools_qt.get_text(self.dlg_add_visit, 'descript', False, False)
         self.current_visit.status = tools_qt.get_combo_value(self.dlg_add_visit, 'status', 0)
+        visit_type = tools_qt.get_combo_value(self.dlg_add_visit, 'visit_type', 0)
+        self.current_visit.visit_type = None if visit_type in (None, -1, '', 'None') else visit_type
         if self.expl_id is None:
             self.expl_id = tools_qt.get_combo_value(self.dlg_add_visit, self.exploitation)
         if self.expl_id:
@@ -1205,6 +1208,18 @@ class GwVisit(QObject):
                        f"WHERE id = '{visit_id}'")
                 status = tools_db.get_row(sql)
                 tools_qt.set_combo_value(self.dlg_add_visit.status, str(status[0]), 0)
+
+        # Fill ComboBox visit_type (1-planned / 2-unexpected)
+        rows = tools_db.get_values_from_catalog('v_om_typevalue', 'visit_type')
+        if rows:
+            tools_qt.fill_combo_values(self.dlg_add_visit.visit_type, rows, sort_combo=True)
+            if visit_id is not None:
+                sql = (f"SELECT visit_type "
+                       f"FROM om_visit "
+                       f"WHERE id = '{visit_id}'")
+                visit_type = tools_db.get_row(sql)
+                if visit_type and visit_type[0] not in (None, 'None'):
+                    tools_qt.set_combo_value(self.dlg_add_visit.visit_type, str(visit_type[0]), 0)
 
         # Fill ComboBox exploitation
         sql = "SELECT exploitation.expl_id, name FROM selector_expl JOIN exploitation USING (expl_id) " \

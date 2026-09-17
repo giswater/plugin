@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add validated flag (`isvalidated`) to EPA results with toggle and filter in EPA result.
 - Add `direct_insert` to `config_visit_parameter`. When true, Accept on a new visit inserts a default event and skips the extra event form.
 - Add Config O&M checkbox `om_visit_direct_insert` (Visit direct insert) next to Visit parameter.
+- Add Visit type combo (planned / unexpected) to the Add Visit form.
 
 ### Changed
 
@@ -40,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Hide the feature-form Open Link action when the `link` widget is hidden in `config_form_fields`; warn if the widget is missing.
+- Persist `visit_type` on Add Visit and capture `om_visit.muni_id` (and `sector_id`) in `gw_trg_om_visit`.
 - Show `gw_fct_setfields` errors only on the info form, not also on the QGIS message bar.
 - Open Help from Create project (and other dialogs) via Qt instead of `webbrowser`/`subprocess`, which crashed QGIS on Python 3.12+ (ResourceWarning from `Popen.__del__`). Skip `config_param_system` lookup when no schema is loaded.
 - Hide Go2Epa option `inp_report_onlymaxmin_values` when `hydraulic_engine` is not installed (`find_spec` only; no package import).

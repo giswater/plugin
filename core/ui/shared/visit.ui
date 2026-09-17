@@ -287,6 +287,31 @@
           <item row="5" column="3">
            <widget class="QComboBox" name="feature_type"/>
           </item>
+          <item row="7" column="0">
+           <widget class="QLabel" name="lbl_visit_type">
+            <property name="font">
+             <font>
+              <pointsize>8</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Visit type:</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+            <property name="margin">
+             <number>3</number>
+            </property>
+           </widget>
+          </item>
+          <item row="7" column="3">
+           <widget class="QComboBox" name="visit_type">
+            <property name="editable">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
           <item row="8" column="3">
            <widget class="QComboBox" name="status">
             <property name="editable">
@@ -705,6 +730,7 @@
   <tabstop>ext_code</tabstop>
   <tabstop>feature_type</tabstop>
   <tabstop>visitcat_id</tabstop>
+  <tabstop>visit_type</tabstop>
   <tabstop>status</tabstop>
   <tabstop>expl_id</tabstop>
   <tabstop>descript</tabstop>

@@ -45,5 +45,7 @@
 - Replace deprecated mapzone fids 367/534 with explicit toArc/nodeParent checks for sector (714, 716) and dma (718, 720).
 - Add `direct_insert` to `config_visit_parameter` so a visit can be saved without opening the extra event form.
 - Add user config `om_visit_direct_insert` (O&M / Visit direct insert) to enable the same shortcut from Config.
+- Capture `om_visit.muni_id` / `sector_id` in `gw_trg_om_visit` from user default, geometry or related feature.
+- Keep `om_visit.visit_type` when provided (Add Visit); fill from `config_visit_class` only if NULL.
 - Add sequence `config_style_id_seq` on `config_style.id`, set to MAX(id) so the next insert is 111.
 - Load info-form QToolBox titles (Main Data / Additional Data / Data / Dscenario) from `sys_label` 4001-4004 via `gw_fct_infofromid`.

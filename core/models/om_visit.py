@@ -31,6 +31,7 @@ class GwOmVisit(GwTable):
     the_geom = GwGenericDescriptor(None)
     descript = GwGenericDescriptor(None)
     status = GwGenericDescriptor(None)
+    visit_type = GwGenericDescriptor(None)
 
     def __init__(self):
 
