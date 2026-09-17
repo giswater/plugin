@@ -1630,19 +1630,25 @@ UPDATE config_param_system
 	WHERE "parameter"='admin_crm_schema';
 
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('node form','utils','tbl_doc_x_node','node_uuid',8,true,'Node Uuid');
+	VALUES ('node form','utils','tbl_doc_x_node','node_uuid',8,true,'Node Uuid')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('node form','utils','tbl_doc_x_node','doc_name',8,true,'Document Name');
+	VALUES ('node form','utils','tbl_doc_x_node','doc_name',8,true,'Document Name')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('connec form','utils','tbl_doc_x_connec','connec_uuid',8,true,'Node Uuid');
+	VALUES ('connec form','utils','tbl_doc_x_connec','connec_uuid',8,true,'Node Uuid')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('connec form','utils','tbl_doc_x_connec','doc_name',8,true,'Document Name');
+	VALUES ('connec form','utils','tbl_doc_x_connec','doc_name',8,true,'Document Name')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('arc form','utils','tbl_doc_x_arc','arc_uuid',8,true,'Node Uuid');
+	VALUES ('arc form','utils','tbl_doc_x_arc','arc_uuid',8,true,'Node Uuid')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 INSERT INTO config_form_tableview (location_type,project_type,objectname,columnname,columnindex,visible,alias)
-	VALUES ('arc form','utils','tbl_doc_x_arc','doc_name',8,true,'Document Name');
+	VALUES ('arc form','utils','tbl_doc_x_arc','doc_name',8,true,'Document Name')
+	ON CONFLICT (objectname, columnname) DO NOTHING;
 
 
 DROP VIEW IF EXISTS ve_macroexploitation;
