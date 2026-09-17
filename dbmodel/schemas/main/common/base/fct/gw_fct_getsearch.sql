@@ -92,6 +92,20 @@ BEGIN
 					v_sql = concat('SELECT array_to_json(array_agg(a)) FROM (', v_sql::text, ' LIMIT ', v_limit, ')a');
 					EXECUTE v_sql INTO v_fields;
 
+					-- searchAdd queries may omit key. Copy value when missing.
+					IF v_fields IS NOT NULL AND json_typeof(v_fields) = 'array' AND json_array_length(v_fields) > 0 THEN
+						SELECT json_agg(
+							CASE
+								WHEN elem->>'key' IS NULL THEN
+									(elem::jsonb || jsonb_build_object('key', COALESCE(elem->>'value', '')))::json
+								ELSE elem
+							END
+							ORDER BY ord
+						)
+						INTO v_fields
+						FROM json_array_elements(v_fields) WITH ORDINALITY AS t(elem, ord);
+					END IF;
+
 					v_result = gw_fct_json_object_set_key (v_result, 'section', v_parameter);
 					v_result = gw_fct_json_object_set_key (v_result, 'alias', v_label);
 					v_result = gw_fct_json_object_set_key (v_result, 'execFunc', v_tab_params->>'sys_fct');
@@ -144,6 +158,20 @@ BEGIN
 
 			v_sql = concat('SELECT array_to_json(array_agg(a)) FROM (', v_sys_query_text::text, ' LIMIT ', v_limit, ')a ;');
 			EXECUTE v_sql INTO v_fields;
+
+			-- guarantee key on every hit. Existing key is left untouched.
+			IF v_fields IS NOT NULL AND json_typeof(v_fields) = 'array' AND json_array_length(v_fields) > 0 THEN
+				SELECT json_agg(
+					CASE
+						WHEN elem->>'key' IS NULL THEN
+							(elem::jsonb || jsonb_build_object('key', COALESCE(elem->>'value', '')))::json
+						ELSE elem
+					END
+					ORDER BY ord
+				)
+				INTO v_fields
+				FROM json_array_elements(v_fields) WITH ORDINALITY AS t(elem, ord);
+			END IF;
 
 			v_result = gw_fct_json_object_set_key (v_result, 'section', v_parameter);
 			v_result = gw_fct_json_object_set_key (v_result, 'alias', v_label);
