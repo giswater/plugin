@@ -1477,7 +1477,6 @@ CREATE TABLE om_scada_graph (
     node_1 int4 NOT NULL,
     node_2 int4 NOT NULL,
     group_id int4 NULL,
-    level_id int4 NULL,
     node_type_1 text NULL,
     node_type_2 text NULL,
     expl_id int4[] NULL,
@@ -1490,12 +1489,11 @@ CREATE TABLE om_scada_graph (
 CREATE INDEX om_scada_graph_node_1_idx ON om_scada_graph USING btree (node_1);
 CREATE INDEX om_scada_graph_node_2_idx ON om_scada_graph USING btree (node_2);
 
-INSERT INTO om_scada_graph (node_1, node_2, group_id, level_id, node_type_1, node_type_2, expl_id, attrib, active, the_geom)
+INSERT INTO om_scada_graph (node_1, node_2, group_id, node_type_1, node_type_2, expl_id, attrib, active, the_geom)
 SELECT
     object_1,
     object_2,
     NULL,
-    order_id,
     objecttype_1,
     objecttype_2,
     (
@@ -1527,7 +1525,6 @@ FOR EACH ROW EXECUTE FUNCTION gw_trg_scada_graph_builder();
 CREATE OR REPLACE VIEW v_om_scada_graph AS
 SELECT
     osg.group_id,
-    osg.level_id,
     osg.node_1,
     osg.node_type_1,
     n1.sys_code AS sys_code_1,
@@ -1818,15 +1815,14 @@ BEGIN
 END
 $scada_json_acl$;
 
--- om_scada_graph.order_id → level_id (same meaning as vertex level_id / JSON levelId)
+-- Drop om_scada_graph.level_id (layout lives on temp_om_scada_vertice / attrib.synopticGeometry)
 DROP TRIGGER IF EXISTS gw_trg_v_om_scada_graph_delete ON v_om_scada_graph;
 DROP VIEW IF EXISTS v_om_scada_graph;
-SELECT gw_fct_admin_manage_fields($${"data":{"action":"RENAME","table":"om_scada_graph","column":"order_id","newName":"level_id"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"DROP","table":"om_scada_graph","column":"level_id"}}$$);
 
 CREATE OR REPLACE VIEW v_om_scada_graph AS
 SELECT
     osg.group_id,
-    osg.level_id,
     osg.node_1,
     osg.node_type_1,
     n1.sys_code AS sys_code_1,

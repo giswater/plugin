@@ -37,15 +37,15 @@ CREATE TEMP TABLE temp_om_scada_vertice (
     is_real boolean DEFAULT true
 );
 
-INSERT INTO temp_om_scada_graph (node_1, node_2, group_id, level_id, expl_id, active, the_geom, is_real, is_multilevel)
+INSERT INTO temp_om_scada_graph (node_1, node_2, group_id, expl_id, active, the_geom, is_real, is_multilevel)
 VALUES
     (
-        -901, -902, 10, 1, ARRAY[1], true,
+        -901, -902, 10, ARRAY[1], true,
         ST_Multi(ST_GeomFromText('LINESTRING(0 0, 1 1)', SRID_VALUE)),
         true, false
     ),
     (
-        -903, -904, 20, 1, ARRAY[2], true,
+        -903, -904, 20, ARRAY[2], true,
         ST_Multi(ST_GeomFromText('LINESTRING(2 2, 3 3)', SRID_VALUE)),
         true, false
     );
@@ -60,10 +60,10 @@ VALUES
 -- Export deletes JSON rows whose group_id is gone from om_scada_graph.
 -- Skip builder (dijkstra + NULL layout) so phantom node ids keep group_id.
 ALTER TABLE om_scada_graph DISABLE TRIGGER USER;
-INSERT INTO om_scada_graph (node_1, node_2, group_id, level_id, expl_id, active)
+INSERT INTO om_scada_graph (node_1, node_2, group_id, expl_id, active)
 VALUES
-    (-901, -902, 10, 1, ARRAY[1], true),
-    (-903, -904, 20, 1, ARRAY[2], true);
+    (-901, -902, 10, ARRAY[1], true),
+    (-903, -904, 20, ARRAY[2], true);
 ALTER TABLE om_scada_graph ENABLE TRIGGER USER;
 
 TRUNCATE om_scada_graph_json;

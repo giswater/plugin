@@ -39,7 +39,7 @@ The function:
 
 	Links spanning multiple levels are split using virtual vertices, one for each intermediate level.
 	Virtual vertices use negative ids to clearly distinguish them from real vertices.
-	om_scada_graph.level_id is the level_id of node_1
+	Layout is stored on temp_om_scada_vertice and attrib.synopticGeometry, not on om_scada_graph.
 
 The features checked are:
 - node_1 and node_2 must not be orphan nodes
@@ -855,13 +855,14 @@ BEGIN
 				g.active,
 				g.the_geom
 			FROM temp_om_scada_graph g
+			LEFT JOIN temp_om_scada_vertice v ON v.node_id = g.node_1 AND v.is_real IS NOT FALSE
 			LEFT JOIN node n1 ON n1.node_id = g.node_1
 			LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
 			LEFT JOIN node n2 ON n2.node_id = g.node_2
 			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
 			WHERE g.error_message IS NULL -- the layer contains active = TRUE AND the_geom IS NOT NULL AND also active = FALSE
 			AND g.is_real = TRUE
-			ORDER BY g.group_id, g.level_id
+			ORDER BY g.group_id, v.level_id, v.position_id
 			) r
 		) f;
 
