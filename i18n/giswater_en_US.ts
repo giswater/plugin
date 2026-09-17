@@ -2671,10 +2671,6 @@ This operation cannot be undone.
 			<translation>Feature has not been updated because no catalog has been selected</translation>
 		</message>
 		<message>
-			<source>Feature ID and Idval cannot be empty.</source>
-			<translation>Feature ID and Idval cannot be empty.</translation>
-		</message>
-		<message>
 			<source>Feature_id is mandatory.</source>
 			<translation>Feature_id is mandatory.</translation>
 		</message>
@@ -19705,6 +19701,14 @@ or they were created by another user:</translation>
 		<message>
 			<source>tooltip_lbl_visitcat_id</source>
 			<translation>lbl_visitcat_id</translation>
+		</message>
+		<message>
+			<source>lbl_visit_type</source>
+			<translation>Visit type:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_visit_type</source>
+			<translation>lbl_visit_type</translation>
 		</message>
 		<message>
 			<source>startdate</source>
