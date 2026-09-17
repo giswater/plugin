@@ -785,6 +785,10 @@
 			<translation>Add document</translation>
 		</message>
 		<message>
+			<source>Addparam must be valid JSON.</source>
+			<translation>Addparam must be valid JSON.</translation>
+		</message>
+		<message>
 			<source>Add translator ({0})</source>
 			<translation>Add translator ({0})</translation>
 		</message>
@@ -3581,6 +3585,10 @@ uri={1}</translation>
 		<message>
 			<source>Linked</source>
 			<translation>Linked</translation>
+		</message>
+		<message>
+			<source>Link widget not found. Check config_form_fields.</source>
+			<translation>Link widget not found. Check config_form_fields.</translation>
 		</message>
 		<message>
 			<source>Locale</source>
@@ -13917,28 +13925,28 @@ or they were created by another user:</translation>
 			<translation>groupBox_2</translation>
 		</message>
 		<message>
-			<source>page</source>
-			<translation>Data</translation>
-		</message>
-		<message>
-			<source>tooltip_page</source>
-			<translation>page</translation>
-		</message>
-		<message>
-			<source>page_2</source>
-			<translation>Dscenario</translation>
-		</message>
-		<message>
-			<source>tooltip_page_2</source>
-			<translation>page_2</translation>
-		</message>
-		<message>
 			<source>page_add</source>
 			<translation>Additional data</translation>
 		</message>
 		<message>
 			<source>tooltip_page_add</source>
 			<translation>page_add</translation>
+		</message>
+		<message>
+			<source>page_dscenario</source>
+			<translation>Dscenario</translation>
+		</message>
+		<message>
+			<source>tooltip_page_dscenario</source>
+			<translation>page_dscenario</translation>
+		</message>
+		<message>
+			<source>page_epa</source>
+			<translation>Data</translation>
+		</message>
+		<message>
+			<source>tooltip_page_epa</source>
+			<translation>page_epa</translation>
 		</message>
 		<message>
 			<source>page_main</source>
@@ -18967,6 +18975,14 @@ or they were created by another user:</translation>
 			<translation>Add category</translation>
 		</message>
 		<message>
+			<source>addparam</source>
+			<translation>{&quot;orderBy&quot;:1}</translation>
+		</message>
+		<message>
+			<source>tooltip_addparam</source>
+			<translation>addparam</translation>
+		</message>
+		<message>
 			<source>btn_add</source>
 			<translation>Accept</translation>
 		</message>
@@ -18991,6 +19007,22 @@ or they were created by another user:</translation>
 			<translation>dlg_style</translation>
 		</message>
 		<message>
+			<source>lbl_active</source>
+			<translation>Active:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_active</source>
+			<translation>lbl_active</translation>
+		</message>
+		<message>
+			<source>lbl_addparam</source>
+			<translation>Addparam:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_addparam</source>
+			<translation>lbl_addparam</translation>
+		</message>
+		<message>
 			<source>lbl_cat_id</source>
 			<translation>Category ID: </translation>
 		</message>
@@ -19013,6 +19045,14 @@ or they were created by another user:</translation>
 		<message>
 			<source>tooltip_lbl_descript</source>
 			<translation>lbl_descript</translation>
+		</message>
+		<message>
+			<source>lbl_is_templayer</source>
+			<translation>Is templayer:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_is_templayer</source>
+			<translation>lbl_is_templayer</translation>
 		</message>
 		<message>
 			<source>lbl_role</source>
