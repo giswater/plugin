@@ -168,12 +168,21 @@ class Catalogs:
                 LEFT JOIN cat_feature_element cfe ON cfe.id = cf.id
                 WHERE COALESCE(cf.active, TRUE) IS TRUE
             """)
+        if not rows:
+            # JOIN/active filter can fail or hide everything; keep Import INP usable.
+            rows = _get_rows("""
+                    SELECT id, feature_class, feature_type
+                    FROM cat_feature
+                """)
         db_feat_cat: dict[str, tuple[str, str, Optional[str]]] = {}
         if rows:
-            unsorted_dict = {
-                _id: (feature_type, feature_class, epa_default)
-                for _id, feature_class, feature_type, epa_default in rows
-            }
+            unsorted_dict = {}
+            for row in rows:
+                feat_id = str(row[0])
+                feature_class = row[1]
+                feature_type = row[2]
+                epa_default = row[3] if len(row) > 3 else None
+                unsorted_dict[feat_id] = (feature_type, feature_class, epa_default)
             db_feat_cat = dict(sorted(unsorted_dict.items()))
 
         # Get possible catalogs of the network

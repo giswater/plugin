@@ -1387,8 +1387,11 @@ class GwAsyncComboBox(QComboBox):
         if isinstance(user_data, (list, tuple)) and len(user_data) >= 2:
             return ('' if user_data[0] is None else str(user_data[0]),
                     '' if user_data[1] is None else str(user_data[1]))
-        # Fall back to using `text` as the visible label only.
-        return ('' if user_data is None else str(user_data), '' if text is None else str(text))
+        # QComboBox.addItem(text) stores text as both id and label.
+        label = '' if text is None else str(text)
+        if user_data is None:
+            return (label, label)
+        return (str(user_data), label)
 
     def itemData(self, index: int, role: int = Qt.ItemDataRole.UserRole):  # noqa: N802 - Qt API
         """Expose ``UserRole`` row payload for ``tools_qt.get_combo_value``."""

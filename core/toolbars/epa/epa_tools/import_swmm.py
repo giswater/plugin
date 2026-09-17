@@ -814,32 +814,52 @@ class GwImportSwmm:
         # on cat_feature_*.epa_default). Specific types also match epa_default.
         # geom, feature_class, epa_default
         feature_recommend = {
-            "junctions": (("NODE",), ("JUNCTION", "MANHOLE"), ()),
+            "junctions": (("NODE",), ("JUNCTION", "MANHOLE"), ("JUNCTION",)),
             "outfalls": (("NODE",), ("OUTFALL",), ("OUTFALL",)),
             "dividers": (("NODE",), ("DIVIDER",), ("DIVIDER",)),
-            "storage": (("NODE",), ("STORAGE",), ("STORAGE",)),
-            "conduits": (("ARC",), ("CONDUIT",), ()),
+            "storage": (("NODE",), ("STORAGE", "CHAMBER"), ("STORAGE",)),
+            "conduits": (("ARC",), ("CONDUIT",), ("CONDUIT",)),
             "pumps": (("ARC", "ELEMENT"), (), ("FRPUMP",)),
             "orifices": (("ARC", "ELEMENT"), (), ("FRORIFICE",)),
             "weirs": (("ARC", "ELEMENT"), (), ("FRWEIR",)),
             "outlets": (("ARC", "ELEMENT"), (), ("FROUTLET",)),
         }
+
+        db_features = dict(self.catalogs.db_features or {})
+        if not db_features:
+            db_features = self._load_db_features()
+
+        def _norm(value):
+            return "" if value is None else str(value).strip().upper()
+
         for element_type, (combo,) in self.tbl_elements["features"].items():
             geom_types, rec_classes, rec_epa = feature_recommend[element_type]
+            geom_types_u = tuple(_norm(g) for g in geom_types)
+            rec_classes_u = tuple(_norm(c) for c in rec_classes)
+            rec_epa_u = tuple(_norm(e) for e in rec_epa)
 
-            def _is_recommended(feat_class, epa_default):
-                return feat_class in rec_classes or (epa_default in rec_epa if rec_epa else False)
+            def _is_recommended(feat_class, epa_default, rec_c=rec_classes_u, rec_e=rec_epa_u):
+                return _norm(feat_class) in rec_c or (_norm(epa_default) in rec_e if rec_e else False)
 
             feat_catalog = [
                 feat_id
-                for feat_id, (_feat_type, feat_class, epa_default) in self.catalogs.db_features.items()
+                for feat_id, (_feat_type, feat_class, epa_default) in db_features.items()
                 if _is_recommended(feat_class, epa_default)
             ]
             system_catalog = [
                 feat_id
-                for feat_id, (feat_type, feat_class, epa_default) in self.catalogs.db_features.items()
-                if feat_type in geom_types and not _is_recommended(feat_class, epa_default)
+                for feat_id, (feat_type, feat_class, epa_default) in db_features.items()
+                if _norm(feat_type) in geom_types_u and not _is_recommended(feat_class, epa_default)
             ]
+            # Never leave the combo empty when the schema has catalogs.
+            if not feat_catalog and not system_catalog:
+                system_catalog = [
+                    feat_id
+                    for feat_id, (feat_type, _feat_class, _epa) in db_features.items()
+                    if _norm(feat_type) in geom_types_u
+                ]
+            if not feat_catalog and not system_catalog:
+                system_catalog = list(db_features.keys())
 
             combo.blockSignals(True)
             old_value: str = combo.currentText()
@@ -856,7 +876,7 @@ class GwImportSwmm:
                 title = "Other feature ids:"
                 combo.addItem(tools_qt.tr(title))
                 tools_qt.set_combo_item_unselectable_by_id(combo, [combo.count() - 1])
-                combo.addItems(system_catalog)
+                combo.addItems(fid for fid in system_catalog if fid not in feat_catalog)
             combo.setCurrentText(old_value)
             combo.blockSignals(False)
 
@@ -865,6 +885,31 @@ class GwImportSwmm:
                 tools_gw.connect_signal(combo.currentTextChanged,
                                         partial(self._update_table_based_on_feature_type, element_type, combo),
                                         'import_inp', f'cmb_{element_type.lower()}_update_table_based_on_feature_type')
+
+    def _load_db_features(self) -> dict:
+        """Reload cat_feature rows when the parse-task catalog came back empty."""
+        rows = tools_db.get_rows("""
+            SELECT cf.id, cf.feature_class, cf.feature_type,
+                   COALESCE(cfn.epa_default, cfa.epa_default, cfe.epa_default) AS epa_default
+            FROM cat_feature cf
+            LEFT JOIN cat_feature_node cfn ON cfn.id = cf.id
+            LEFT JOIN cat_feature_arc cfa ON cfa.id = cf.id
+            LEFT JOIN cat_feature_element cfe ON cfe.id = cf.id
+        """)
+        if not rows:
+            rows = tools_db.get_rows("""
+                SELECT id, feature_class, feature_type
+                FROM cat_feature
+            """)
+        db_features = {}
+        if rows:
+            for row in rows:
+                feat_id = str(row[0])
+                feature_class = row[1]
+                feature_type = row[2]
+                epa_default = row[3] if len(row) > 3 else None
+                db_features[feat_id] = (feature_type, feature_class, epa_default)
+        return db_features
 
     def _update_table_based_on_feature_type(self, element_type: str, combo: QComboBox):
         if element_type not in ("pumps", "orifices", "weirs", "outlets"):
