@@ -675,7 +675,7 @@ class GwVisit(QObject):
             self._fill_widget_with_fields(self.dlg_add_visit, self.current_visit, self.current_visit.field_names())
             # Get parameter_id and feature_type from his event
             self.event_parameter_id, self.event_feature_type = self._get_data_from_event(self.visit_id_value)
-            tools_qt.set_combo_value(self.dlg_add_visit.parameter_id, self.event_parameter_id, 0)
+            self._select_parameter_id(self.event_parameter_id)
 
         # C) load all related events in the relative table
         self.filter = f"visit_id = '{text}'"
@@ -903,14 +903,13 @@ class GwVisit(QObject):
 
         self._fill_combo_parameter_id()
 
-        if self.event_parameter_id:
-            tools_qt.set_combo_value(self.dlg_add_visit.parameter_id, self.event_parameter_id, 0)
+        if self._select_parameter_id(self.event_parameter_id):
             self._manage_events_changed()
             return
 
         parameter_id = tools_gw.get_config_value('om_visit_parameter_vdefault')
         if parameter_id:
-            tools_qt.set_combo_value(self.dlg_add_visit.parameter_id, parameter_id[0], 0)
+            self._select_parameter_id(parameter_id[0])
         self._manage_events_changed()
 
     def _get_feature_type_of_parameter(self):
@@ -1053,8 +1052,7 @@ class GwVisit(QObject):
 
         self._fill_visitcat(self.visit_id.text())
 
-        if self.event_parameter_id:
-            tools_qt.set_combo_value(self.dlg_add_visit.parameter_id, self.event_parameter_id, 0)
+        self._select_parameter_id(self.event_parameter_id)
 
         if feature_type.lower() == 'all':
             return
@@ -1281,6 +1279,13 @@ class GwVisit(QObject):
         sql += "ORDER BY id"
         rows = tools_db.get_rows(sql)
         tools_qt.fill_combo_values(self.dlg_add_visit.parameter_id, rows)
+
+    def _select_parameter_id(self, parameter_id):
+        """ Select parameter_id only if it is in the current (filtered) combo. """
+
+        if parameter_id in (None, '', -1, '-1', 'None'):
+            return False
+        return tools_qt.set_combo_value(self.dlg_add_visit.parameter_id, parameter_id, 0, add_new=False)
 
     def _set_completers(self):
         """ Set autocompleters of the form """
