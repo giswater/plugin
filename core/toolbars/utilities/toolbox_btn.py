@@ -544,7 +544,7 @@ class GwToolBoxButton(GwAction):
                                                    "session")
                 if value in (None, '', 'NULL') and widget.property('selectedId') not in (None, '', 'NULL'):
                     value = widget.property('selectedId')
-                tools_qt.set_combo_value(widget, value, 0)
+                tools_qt.set_combo_value(widget, value, 0, False)
             elif isinstance(widget, QLineEdit) and (widget.property('value') is None or widget.property('value') == ''):
                 value = tools_gw.get_config_parser('btn_toolbox', f"{function_name}_{widget.objectName()}", "user",
                                                    "session")
