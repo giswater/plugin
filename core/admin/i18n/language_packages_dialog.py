@@ -14,10 +14,11 @@ import os
 import urllib.error
 
 from qgis.core import QgsApplication
+from qgis.PyQt.sip import isdeleted
 from qgis.PyQt.QtCore import QEvent, Qt, pyqtSignal
 from qgis.PyQt.QtGui import QStandardItem, QStandardItemModel
 from qgis.PyQt.QtWidgets import (
-    QHeaderView, QAbstractItemView,
+    QApplication, QDialog, QHeaderView, QAbstractItemView,
 )
 
 from ...ui.ui_manager import GwI18NManageLanguagesUi
@@ -347,6 +348,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
     def init_dialog(self):
         """Constructor."""
         tools_gw.load_settings(self)
+        tools_qt._add_translator(True)
         self._offline = False
         self._multilang_task = None
         self._setup_table()
@@ -355,7 +357,7 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
         self._apply_filter()
         self._set_signals()
         self._update_action_buttons()
-        tools_gw.open_dialog(self, dlg_name='admin_i18n_languages')
+        tools_gw.open_dialog(self, dlg_name='admin_i18n_languages', skip_db_check=True)
 
     def _set_signals(self) -> None:
         self._connect_common_signals()
@@ -392,20 +394,45 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
     def _is_dialog_offline(self) -> bool:
         return bool(getattr(self, "_offline", False))
 
+    def _language_combo_managers(self):
+        """Managers that own locale combos, including dialogs opened from the menu."""
+        found = []
+        seen = set()
+
+        def _add(obj):
+            if obj is None:
+                return
+            ident = id(obj)
+            if ident in seen:
+                return
+            seen.add(ident)
+            found.append(obj)
+            _add(getattr(obj, "admin", None))
+
+        _add(self._manager)
+        try:
+            for widget in QApplication.allWidgets():
+                try:
+                    if isdeleted(widget) or not isinstance(widget, QDialog):
+                        continue
+                    _add(widget.property("class_obj"))
+                except RuntimeError:
+                    continue
+        except Exception:
+            pass
+        return found
+
     def _refresh_manager_language_combos(self, locale: str | None = None) -> None:
-        populate = getattr(self._manager, "_populate_language_combo", None)
-        if callable(populate):
-            kwargs = {"mode": "hot_update"}
-            if locale:
-                kwargs["preferred_locale"] = locale
-            populate(**kwargs)
-        populate_create = getattr(self._manager, "_populate_language_combo_create_project", None)
-        if callable(populate_create):
-            populate_create()
-            if locale:
-                cmb = getattr(self._manager, "cmb_locale", None)
-                if cmb is not None:
-                    tools_qt.set_combo_value(cmb, locale, 0, add_new=False)
+        for manager in self._language_combo_managers():
+            populate = getattr(manager, "_populate_language_combo", None)
+            if callable(populate):
+                kwargs = {"mode": "hot_update"}
+                if locale:
+                    kwargs["preferred_locale"] = locale
+                populate(**kwargs)
+            populate_create = getattr(manager, "_populate_language_combo_create_project", None)
+            if callable(populate_create):
+                populate_create(preferred_locale=locale)
 
     def _resolve_admin(self):
         manager = self._manager
@@ -472,9 +499,10 @@ class GwI18NManageLanguagesDialog(GwI18NLocalesTableBase):
         if ok:
             msg = "Language files and multilang translations updated ({0})."
             tools_qt.show_info_box(msg, msg_params=(locale,))
-            populate = getattr(self._manager, "_populate_language_combo", None)
-            if callable(populate):
-                populate(mode="multilang", preferred_locale=locale)
+            for manager in self._language_combo_managers():
+                populate = getattr(manager, "_populate_language_combo", None)
+                if callable(populate):
+                    populate(mode="multilang", preferred_locale=locale)
         else:
             msg = "Language files updated ({0}), but multilang translations failed: {1}"
             tools_qt.show_warning_box(msg, msg_params=(locale, error or "unknown error"))
