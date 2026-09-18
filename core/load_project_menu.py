@@ -36,6 +36,7 @@ class GwMenuLoad(QObject):
     def read_menu(self, project_loaded):
         """  """
 
+        tools_qt._add_translator()
         actions = self.iface.mainWindow().menuBar().actions()
         last_action = actions[-1]
 
@@ -128,8 +129,7 @@ class GwMenuLoad(QObject):
         # endregion
 
         # region Language
-        if project_loaded:
-            self._add_language_menu()
+        self._add_language_menu()
         # endregion
 
         self.iface.mainWindow().menuBar().insertMenu(last_action, self.main_menu)
@@ -157,12 +157,10 @@ class GwMenuLoad(QObject):
         self.dlg_i18n_languages = dlg
 
     def _add_language_menu(self):
-        """Add language menu to main menu when a database connection is active."""
+        """Add Language entry. Plugin packages do not need a database connection."""
         if getattr(self, '_language_menu_added', False):
             return
         if not getattr(self, 'main_menu', None):
-            return
-        if not tools_gw.check_db_connection():
             return
 
         icon_folder = f"{lib_vars.plugin_dir}{os.sep}icons"
