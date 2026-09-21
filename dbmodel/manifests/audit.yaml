@@ -60,5 +60,9 @@ profiles:
     phases: [load_activate, register_version]
   update:
     phases: [load_updates, register_version]
+  update_step:
+    phases: [load_updates, register_version]
+  version_bump:
+    phases: [register_version]
   full:
     phases: [load_structure, load_updates, register_version]

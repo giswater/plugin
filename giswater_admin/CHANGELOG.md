@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gw dbmodel install X.Y.Z` falls back to the GitHub release ZIP, then the
   `vX.Y.Z` source archive, when `download.giswater.org` 404s (tag exists
   before the plugin ZIP is published).
+- Lockstep `network update` resolves `update_step` / `version_bump` through
+  `resolve_lockstep_profile`, matching QGIS, and falls back to `update` when
+  a kind has not declared those profiles.
 
 ## [0.4.3] - 2026-08-27
 

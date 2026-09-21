@@ -8,7 +8,7 @@ from typing import Literal
 
 from .builder import BuildParams, BuildResult, SchemaBuilder, _parse_version
 from .changelog import iter_semver_under
-from .manifest import load_manifest
+from .manifest import Manifest, load_manifest
 from .manifest_registry import infer_parents_on_update, kind_update_roots
 from .schema_catalog import (
     ClusterMember,
@@ -115,6 +115,16 @@ def _infer_parents_for_kind(kind: str) -> str:
     return "true" if infer_parents_on_update(kind) else "false"
 
 
+def resolve_lockstep_profile(manifest: Manifest, action: ActionKind) -> str:
+    """Profile for one lockstep step. Fall back to ``update`` if the kind
+    has not declared ``update_step`` / ``version_bump`` yet.
+    """
+    profile = "update_step" if action == "upgrade" else "version_bump"
+    if profile not in manifest.profiles:
+        return "update"
+    return profile
+
+
 def _run_step(
     conn: ConnectionLike,
     dbmodel_path: str,
@@ -124,9 +134,7 @@ def _run_step(
     db_user: str,
 ) -> BuildResult:
     manifest = load_manifest(os.path.join(dbmodel_path, "manifests", f"{step.kind}.yaml"))
-    profile = "update_step" if step.action == "upgrade" else "version_bump"
-    if profile not in manifest.profiles:
-        profile = "update"
+    profile = resolve_lockstep_profile(manifest, step.action)
 
     srid = "25831"
     try:
@@ -214,5 +222,6 @@ __all__ = [
     "NetworkUpdateResult",
     "has_patch_at_version",
     "plan_lockstep",
+    "resolve_lockstep_profile",
     "run_lockstep",
 ]

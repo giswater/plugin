@@ -55,3 +55,39 @@ def test_plan_produces_positive_file_count(manifests_path, dbmodel_path, kind, p
     # At minimum: every kind should resolve at least one phase with files.
     # (audit/structure should hit ~4 files; ws/empty hundreds; cm/empty dozens.)
     assert total > 0, f"plan for {kind}/{profile} was empty: {plan}"
+
+
+@pytest.mark.parametrize("kind", ["ws", "ud"])
+def test_update_step_reloads_fct_ftrg_before_patches(manifests_path, dbmodel_path, kind):
+    """Lockstep network update must reload base fct/ftrg until functions live in patches."""
+    manifest = _manifest(manifests_path, kind)
+    params = BuildParams(
+        schema_name=f"{kind}_demo",
+        srid="25831",
+        sql_root=dbmodel_path,
+        plugin_version="4.17.0",
+        project_version="4.16.0",
+        run_mode="upgrade_step",
+        profile="update_step",
+    )
+    plan = SchemaBuilder(_FakeConn(), manifest, params).plan()
+    ids = [phase.id for phase, _ in plan]
+    assert ids == ["reload_fct_ftrg", "updates", "register_version"]
+    reload_count = next(count for phase, count in plan if phase.id == "reload_fct_ftrg")
+    updates_count = next(count for phase, count in plan if phase.id == "updates")
+    assert reload_count > 0, "update_step must plan base fct/ftrg files"
+    assert updates_count > 0, "update_step must plan the 4.17.0 patches"
+
+
+@pytest.mark.parametrize("kind", [
+    "ws", "ud", "utils", "cibs", "am", "cm", "audit", "publi", "multilang",
+])
+def test_lockstep_profiles_declared(manifests_path, kind):
+    """Network lockstep needs update_step + version_bump on every updatable kind."""
+    manifest = _manifest(manifests_path, kind)
+    if "update" not in manifest.profiles:
+        pytest.skip(f"{kind} has no update profile")
+    assert "update_step" in manifest.profiles, f"{kind} missing update_step"
+    assert "version_bump" in manifest.profiles, f"{kind} missing version_bump"
+    assert manifest.profiles["version_bump"].phases == ("register_version",)
+
