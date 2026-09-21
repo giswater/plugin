@@ -850,13 +850,36 @@ def reconnect_signal(section, signal_name):
     return False
 
 
+def _to_jsonable(value):
+    """Convert Qt/QGIS values (QVariant, NULL, QDate) into json.dumps-safe Python types."""
+
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, QVariant) or type(value).__name__ == 'QVariant':
+        try:
+            if not value.isValid() or value.isNull():
+                return None
+            return _to_jsonable(value.value())
+        except Exception:
+            return None
+    if isinstance(value, dict):
+        return {str(k): _to_jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_to_jsonable(v) for v in value]
+    if isinstance(value, QDate):
+        return value.toString('yyyy-MM-dd') if value.isValid() else None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
 def create_body(form='', feature='', filter_fields='', extras=None, list_feature=None, body=None) -> str:
     """ Create and return parameters as body to functions"""
 
     info_types = {'full': 1}
     plugin_version, message = tools_qgis.get_plugin_version()
     info_type = info_types.get(lib_vars.project_vars['info_type'])
-    lang = QSettings().value("locale/userLocale")
+    lang = _to_jsonable(tools_qgis.get_locale()) or 'en_US'
 
     if body:
         body.setdefault('client', {"device": 4, "lang": lang, "version": f'"{plugin_version}"'})
@@ -871,7 +894,7 @@ def create_body(form='', feature='', filter_fields='', extras=None, list_feature
         body.setdefault('data', {})
         body["data"].setdefault("filterFields", {})
         body["data"].setdefault("pafeInfo", {})
-        str_body = f"$${json.dumps(body)}$$"
+        str_body = f"$${json.dumps(_to_jsonable(body))}$$"
     else:
         client = f'$${{"client":{{"device":4, "lang":"{lang}", "version":"{plugin_version}"'
         if info_type is not None:
