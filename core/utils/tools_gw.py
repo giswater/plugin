@@ -26,7 +26,7 @@ from functools import partial
 from datetime import datetime
 
 from qgis.PyQt.QtCore import Qt, QStringListModel, QVariant, QDate, QRegularExpression, \
-    QItemSelectionModel, QTimer, QSettings, QUrl
+    QItemSelectionModel, QTimer, QUrl
 from qgis.PyQt.QtGui import QCursor, QPixmap, QColor, QStandardItemModel, QIcon, QStandardItem, \
     QIntValidator, QDoubleValidator, QRegularExpressionValidator, QPalette, QFont, QDesktopServices
 from qgis.PyQt.QtSql import QSqlTableModel
