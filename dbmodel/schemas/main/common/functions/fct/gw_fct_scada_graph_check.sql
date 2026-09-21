@@ -63,13 +63,9 @@ v_srid INTEGER;
 v_project_type TEXT;
 v_expl_id TEXT;
 v_expl_id_array integer[];
-v_edge_filter TEXT;
 v_commit_changes BOOLEAN;
 
 -- Vars
-rec record;
-v_arcs JSON;
-v_fid int = 999;
 v_pgr_distance INTEGER;
 v_pgr_root_vids INTEGER	[];
 v_iterations INTEGER;
