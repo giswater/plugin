@@ -69,6 +69,12 @@ class GwConnectLinkButton(GwMaptool):
     def clicked_event(self):
         """ Event when button is clicked """
 
+        # WS has no dropdown (connec only). Do not touch self.menu.
+        if self.project_type == 'ws' or not getattr(self, 'menu', None):
+            self.feature_type = 'connec'
+            self.open_dlg()
+            return
+
         # If a last selection exists (persisted in config), open that dialog directly
         last_ft = tools_gw.get_config_parser('btn_connect_link', 'last_feature_type', "user", "session")
         if last_ft not in (None, 'None', ''):
@@ -85,9 +91,8 @@ class GwConnectLinkButton(GwMaptool):
             menu_point = button.mapToGlobal(QPoint(0, button.height()))
             self.menu.popup(menu_point)
         except Exception:
-            if self.project_type == 'ws':
-                self.feature_type = 'connec'
-                self.open_dlg()
+            self.feature_type = 'connec'
+            self.open_dlg()
 
     def open_dlg(self):
         """ Main function to open 'Connect to network' dialog """
