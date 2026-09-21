@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix `featuretype_change_btn` to handle empty values for fluid, location, category and function type.
+
 ## [4.17.0] - 2026-09-17
 
 ### Added
