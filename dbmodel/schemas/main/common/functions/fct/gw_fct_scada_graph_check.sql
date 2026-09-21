@@ -267,9 +267,7 @@ BEGIN
 					a.arc_id::int AS id,
 					a.node_1::int AS source,
 					a.node_2::int AS target,
-					COALESCE(a.custom_length, st_length(a.the_geom)) / (
-						COALESCE(NULLIF(ca.dint, 0), 1)::float ^ 2
-					) AS cost
+					st_length(a.the_geom) AS cost
 				FROM arc a
 				JOIN cat_arc ca ON ca.id = a.arccat_id
 				JOIN value_state_type s ON a.state_type = s.id
@@ -288,11 +286,7 @@ BEGIN
 					a.arc_id::int AS id,
 					a.node_1::int AS source,
 					a.node_2::int AS target,
-					COALESCE(a.custom_length, st_length(a.the_geom)) / COALESCE(
-						COALESCE(NULLIF(ca.geom1, 0), NULLIF(ca.geom2, 0)) 
-						* COALESCE(NULLIF(ca.geom2, 0), NULLIF(ca.geom1, 0)),
-						1
-					) AS cost, -- geom1*geom2 (geom1,geom2>0) or geom1*geom1(geom2=0) or geom2*geom2(geom1=0) or 1 (geom1=geom2=0)
+					st_length(a.the_geom) AS cost,
 					-1.0 AS reverse_cost
 				FROM arc a
 				JOIN cat_arc ca ON ca.id = a.arccat_id
