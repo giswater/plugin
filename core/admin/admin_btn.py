@@ -56,7 +56,7 @@ from ...giswater_admin.engine import (
     plan_lockstep,
     resolve_network_graph,
 )
-from ...giswater_admin.engine.network_update import LockstepStep
+from ...giswater_admin.engine.network_update import LockstepStep, resolve_lockstep_profile
 from ...giswater_admin.engine.version_guard import (
     assert_network_no_downgrade,
     assert_no_downgrade,
@@ -927,7 +927,8 @@ class GwAdminButton:
 
     def _run_lockstep_step(self, step: LockstepStep, on_done=None):
         """Run one lockstep network upgrade step via the engine."""
-        profile = "update_step" if step.action == "upgrade" else "version_bump"
+        manifest = load_kind_manifest(self.plugin_dir, step.kind)
+        profile = resolve_lockstep_profile(manifest, step.action)
         row = tools_db.get_row(
             f"SELECT giswater, language, epsg FROM {step.schema}.sys_version "
             "ORDER BY id DESC LIMIT 1"

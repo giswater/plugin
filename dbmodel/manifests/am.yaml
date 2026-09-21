@@ -86,3 +86,7 @@ profiles:
     phases: [integrate_am, load_sample_integrate, load_updates, load_i18n, register_version]
   update:
     phases: [load_updates, load_i18n, register_version]
+  update_step:
+    phases: [load_updates, register_version]
+  version_bump:
+    phases: [register_version]

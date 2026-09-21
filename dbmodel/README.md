@@ -101,6 +101,8 @@ Example **ws** pipeline ([`manifests/ws.yaml`](./manifests/ws.yaml)):
 
 **Upgrade profile** (`update`): `reload_fct_ftrg` → `updates` (only `project_version < v <= plugin_version`) → `lastprocess_upgrade`.
 
+**Lockstep profile** (`update_step`, used by `network update`): `reload_fct_ftrg` → `updates` (only the target version) → `register_version`. The reload is temporary until function bodies ship inside version patches. Versions with no patch folder use `version_bump` (`register_version` only).
+
 ### Phase types (engine)
 
 Defined in [`giswater_admin/engine/manifest.py`](../giswater_admin/engine/manifest.py):

@@ -146,6 +146,7 @@ profiles:
   update:
     phases: [reload_fct_ftrg, updates, lastprocess_upgrade]
   update_step:
-    phases: [updates, register_version]
+    # TODO: drop reload_fct_ftrg when function bodies ship inside version patches.
+    phases: [reload_fct_ftrg, updates, register_version]
   version_bump:
     phases: [register_version]

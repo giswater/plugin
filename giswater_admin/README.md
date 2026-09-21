@@ -743,6 +743,8 @@ gw network show --flat --conn "$CONN" --json | python3 -m json.tool
 | `sample_inv` | … → `load_sample` → `load_inv` → `final_pass` |
 | `dev` | … → `load_dev` → `final_pass` |
 | `update` | `reload_fct_ftrg` → `updates` → `lastprocess_upgrade` |
+| `update_step` | `reload_fct_ftrg` → `updates` → `register_version` (lockstep `network update`; reload until functions live in patches) |
+| `version_bump` | `register_version` (lockstep version with no patch folder) |
 
 Details and folder layout: [dbmodel README — Schema architecture](../dbmodel/README.md#schema-architecture).
 

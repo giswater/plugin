@@ -30,6 +30,7 @@ from .network_update import (
     NetworkUpdateResult,
     has_patch_at_version,
     plan_lockstep,
+    resolve_lockstep_profile,
     run_lockstep,
 )
 from .schema_catalog import (
@@ -82,6 +83,7 @@ __all__ = [
     "parse_changelog_file",
     "plan_lockstep",
     "read_version_sections",
+    "resolve_lockstep_profile",
     "resolve_network_graph",
     "run_lockstep",
 ]
