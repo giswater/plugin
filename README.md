@@ -301,6 +301,7 @@ Find answers to common questions in the [Giswater FAQs](https://github.com/giswa
 - **QGIS Plugin**: [QGIS Plugin repository](https://github.com/giswater/plugin)
 - **Database Model**: [Database Model repository](https://github.com/giswater/giswater_dbmodel) — in this repo: [dbmodel/](dbmodel/) ([schema layout](dbmodel/README.md#schema-architecture), [local tests](dbmodel/README.md#testing))
 - **Headless schema CLI**: [giswater_admin/](giswater_admin/) ([full reference](giswater_admin/README.md))
+- **Translations**: [Language packs and coverage](https://github.com/giswater/translations)
 
 Other repositories may exist but are either deprecated or inactive.
 
