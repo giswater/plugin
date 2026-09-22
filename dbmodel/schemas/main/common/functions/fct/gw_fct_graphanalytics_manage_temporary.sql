@@ -258,6 +258,38 @@ BEGIN
             CREATE INDEX IF NOT EXISTS temp_pgr_mapzone_graph_netscenario_id_idx ON temp_pgr_mapzone_graph USING btree (netscenario_id);
             CREATE INDEX IF NOT EXISTS temp_pgr_mapzone_graph_node_id_idx ON temp_pgr_mapzone_graph USING btree (node_id);
 
+            CREATE TEMP TABLE IF NOT EXISTS temp_pgr_mapzone_synoptic (
+                node_1 int4 NOT NULL,
+                node_2 int4 NOT NULL,
+                group_id int4 NULL,
+                node_type_1 text NULL,
+                node_type_2 text NULL,
+                attrib text NULL,
+                active boolean DEFAULT true,
+                error_message text,
+                is_real boolean DEFAULT true,
+                is_multilevel boolean DEFAULT false,
+                orig_node_1 int4,
+                orig_node_2 int4,
+                CONSTRAINT temp_pgr_mapzone_synoptic_pkey PRIMARY KEY (node_1, node_2)
+            );
+            CREATE INDEX IF NOT EXISTS idx_temp_pgr_mapzone_synoptic_orig_node_1 ON temp_pgr_mapzone_synoptic (orig_node_1);
+            CREATE INDEX IF NOT EXISTS idx_temp_pgr_mapzone_synoptic_orig_node_2 ON temp_pgr_mapzone_synoptic (orig_node_2);
+
+            CREATE TEMP TABLE IF NOT EXISTS temp_vertice (
+                node_id integer,
+                group_id integer,
+                level_id integer,
+                position_id integer,
+                position_aux double precision,
+                is_real boolean DEFAULT true,
+                orig_node_1 integer,
+                orig_node_2 integer
+            );
+
+            CREATE INDEX ON temp_vertice (node_id);
+            CREATE INDEX ON temp_vertice (orig_node_1, orig_node_2);
+
         END IF;
 
         IF v_project_type = 'WS' THEN
@@ -774,6 +806,8 @@ BEGIN
         DROP TABLE IF EXISTS temp_pgr_macroomunit;
 
         DROP TABLE IF EXISTS temp_pgr_mapzone_graph;
+        DROP TABLE IF EXISTS temp_pgr_mapzone_synoptic;
+        DROP TABLE IF EXISTS temp_vertice;
 
         v_return_message = 'The temporary tables/views have been dropped successfully';
     END IF;

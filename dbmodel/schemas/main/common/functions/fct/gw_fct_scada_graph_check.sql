@@ -39,7 +39,8 @@ The function:
 
 	Links spanning multiple levels are split using virtual vertices, one for each intermediate level.
 	Virtual vertices use negative ids to clearly distinguish them from real vertices.
-	Layout is stored on temp_om_scada_vertice and attrib.synopticGeometry, not on om_scada_graph.
+	level_id and position_id are stored in the attrib JSON column of the om_scada_graph table, specifically within its synopticGeometry
+key.
 
 The features checked are:
 - node_1 and node_2 must not be orphan nodes
@@ -75,6 +76,7 @@ v_query_text TEXT;
 v_query_combinations TEXT;
 v_error_context TEXT;
 v_message TEXT;
+v_data json;
 
 -- result variables
 v_version TEXT;
@@ -84,7 +86,6 @@ v_result_line_valid JSON;
 v_result_line_invalid JSON;
 v_result_line JSON;
 v_visible_layer TEXT;
-v_export_result JSON;
 v_msg_header TEXT;
 v_msg_edges TEXT;
 v_msg_valid TEXT;
@@ -103,6 +104,7 @@ v_msg_err_orphan_1 TEXT;
 v_msg_err_orphan_2 TEXT;
 v_msg_err_nopath TEXT;
 v_msg_separator TEXT;
+v_response JSON;
 
 BEGIN
 
@@ -153,7 +155,7 @@ BEGIN
 	DROP TABLE IF EXISTS temp_om_scada_graph;
 	DROP TABLE IF EXISTS temp_graph;
 	DROP TABLE IF EXISTS temp_audit_check_data;
-	DROP TABLE IF EXISTS temp_om_scada_vertice;
+	DROP TABLE IF EXISTS temp_vertice;
 
 	CREATE TEMP TABLE IF NOT EXISTS temp_om_scada_graph (LIKE SCHEMA_NAME.om_scada_graph INCLUDING ALL);
 	ALTER TABLE temp_om_scada_graph ADD COLUMN error_message TEXT;
@@ -166,9 +168,7 @@ BEGIN
 	CREATE INDEX ON temp_om_scada_graph (orig_node_1);
 	CREATE INDEX ON temp_om_scada_graph (orig_node_2);
 
-	CREATE TEMP TABLE IF NOT EXISTS temp_audit_check_data (LIKE SCHEMA_NAME.audit_check_data INCLUDING ALL);
-
-	CREATE TEMP TABLE IF NOT EXISTS temp_om_scada_vertice (
+	CREATE TEMP TABLE IF NOT EXISTS temp_vertice (
 		node_id integer,
 		group_id integer,
 		level_id integer,
@@ -179,8 +179,10 @@ BEGIN
 		orig_node_2 integer
 	);
 
-	CREATE INDEX ON temp_om_scada_vertice (node_id);
-	CREATE INDEX ON temp_om_scada_vertice (orig_node_1, orig_node_2);
+	CREATE INDEX ON temp_vertice (node_id);
+	CREATE INDEX ON temp_vertice (orig_node_1, orig_node_2);
+
+	CREATE TEMP TABLE IF NOT EXISTS temp_audit_check_data (LIKE SCHEMA_NAME.audit_check_data INCLUDING ALL);
 
 	-- Get exploitation ID array
 	v_expl_id_array := gw_fct_get_expl_id_array(v_expl_id);
@@ -420,322 +422,21 @@ BEGIN
 	AND t.is_real = TRUE;
 
 	-- update group_id, level_id, position_id
-	v_pgr_distance := (SELECT count(*)::int FROM temp_om_scada_graph);
-
-	v_query_text := '
-		SELECT
-			row_number() OVER () AS id,
-			g.node_1 AS source,
-			g.node_2 AS target,
-			1::float AS cost
-		FROM temp_om_scada_graph g
-		WHERE g.active = TRUE
-		AND g.error_message IS NULL
-	';
-
-	SELECT COALESCE(array_agg(DISTINCT g.node_1), '{}')::int[]
-    INTO v_pgr_root_vids
-    FROM temp_om_scada_graph g
-    WHERE g.active = TRUE
-		AND g.error_message IS NULL
-    AND NOT EXISTS (
-        SELECT 1 FROM temp_om_scada_graph g2
-        WHERE g2.active = TRUE
-		AND g2.error_message IS NULL
-        AND g2.node_2 = g.node_1
+	v_data :=
+    jsonb_build_object(
+        'data',
+        jsonb_build_object(
+            'fct_type', 'SCADA'
+        )
     );
 
-	-- group_id: for each connected component, assign the minimum root node id (from v_pgr_root_vids)
-	WITH
-		connectedcomponents AS (
-			SELECT component, node AS node_id
-			FROM pgr_connectedcomponents(v_query_text)
-		),
-		group_ids AS (
-			SELECT c.component, min(c.node_id) AS group_id
-			FROM connectedcomponents c
-			WHERE c.node_id = ANY (v_pgr_root_vids)
-			GROUP BY c.component
-		)
-	INSERT INTO temp_om_scada_vertice (node_id, group_id)
-	SELECT c.node_id, g.group_id
-	FROM connectedcomponents c
-	JOIN group_ids g ON c.component = g.component;
+	SELECT gw_fct_synoptic_core(v_data) INTO v_response;
 
-	UPDATE temp_om_scada_graph g
-	SET group_id = n.group_id
-	FROM temp_om_scada_vertice n
-	WHERE g.active = TRUE
-	AND g.error_message IS NULL
-	AND n.node_id = g.node_1;
-
-	-- level_id
-	UPDATE temp_om_scada_vertice n
-	SET level_id = g.level_id
-	FROM (
-		SELECT node as node_id, max(agg_cost+1) AS level_id
-		FROM pgr_drivingDistance(v_query_text, v_pgr_root_vids, v_pgr_distance, directed := true)
-		GROUP BY node
-	) g
-	WHERE n.node_id = g.node_id;
-
-	-- add not-real nodes and not_real arcs for multi-level links - used for complet Sugiyama method
-	UPDATE temp_om_scada_graph g
-	SET is_multilevel = TRUE
-	FROM temp_om_scada_vertice v1, temp_om_scada_vertice v2
-	WHERE v1.node_id = g.node_1
-	AND v2.node_id = g.node_2
-	AND g.active = TRUE
-	AND g.error_message IS NULL
-	AND v2.level_id > v1.level_id + 1;
-
-	WITH
-		edges_to_split AS (
-			SELECT
-				g.node_1,
-				g.node_2,
-				g.group_id,
-				v1.level_id AS level_1,
-				v2.level_id AS level_2
-			FROM temp_om_scada_graph g
-			JOIN temp_om_scada_vertice v1 ON v1.node_id = g.node_1
-			JOIN temp_om_scada_vertice v2 ON v2.node_id = g.node_2
-			WHERE g.is_multilevel = TRUE
-		),
-		vertices_levels AS (
-			SELECT
-				e.node_1,
-				e.node_2,
-				e.group_id,
-				e.level_1,
-				e.level_2, 
-				gs AS level_id
-			FROM edges_to_split e
-			CROSS JOIN LATERAL generate_series(
-				e.level_1+1,
-				e.level_2-1
-			) gs
-		)
-	INSERT INTO temp_om_scada_vertice (node_id, group_id, level_id, is_real, orig_node_1, orig_node_2)
-	SELECT -(row_number() OVER ()) AS node_id, group_id, level_id, FALSE AS is_real, node_1, node_2
-	FROM vertices_levels;
-
-	WITH
-		vertices_levels AS (
-			SELECT
-				g.node_1 AS node_id,
-				v.level_id,
-				g.node_1 AS orig_node_1,
-				g.node_2 AS orig_node_2
-			FROM temp_om_scada_graph g
-			JOIN temp_om_scada_vertice v ON v.node_id = g.node_1
-			WHERE g.is_multilevel = TRUE
-			UNION
-			SELECT
-				g.node_2 AS node_id,
-				v.level_id,
-				g.node_1 AS orig_node_1,
-				g.node_2 AS orig_node_2
-			FROM temp_om_scada_graph g
-			JOIN temp_om_scada_vertice v ON v.node_id = g.node_2
-			WHERE g.is_multilevel = TRUE
-			UNION
-			SELECT
-				v.node_id,
-				v.level_id,
-				v.orig_node_1,
-				v.orig_node_2
-			FROM temp_om_scada_vertice v
-			WHERE v.is_real = FALSE
-		),
-		new_edges AS (
-			SELECT
-				vl.orig_node_1,
-				vl.orig_node_2,
-				vl.node_id AS vertice_1,
-				lead(vl.node_id) OVER (PARTITION BY vl.orig_node_1, vl.orig_node_2 ORDER BY vl.level_id) AS vertice_2
-			FROM vertices_levels vl
-		) 
-	INSERT INTO temp_om_scada_graph (node_1, node_2, orig_node_1, orig_node_2, group_id, node_type_1, node_type_2, is_real, is_multilevel)
-	SELECT
-		e.vertice_1,
-		e.vertice_2,
-		e.orig_node_1,
-		e.orig_node_2,
-		g.group_id,
-		CASE WHEN e.vertice_1 = e.orig_node_1 THEN g.node_type_1
-			WHEN e.vertice_1 = e.orig_node_2 THEN g.node_type_2
-			ELSE 'VIRTUAL VERTICE'
-		END AS node_type_1,
-		CASE WHEN e.vertice_2 = e.orig_node_1 THEN g.node_type_1
-			WHEN e.vertice_2 = e.orig_node_2 THEN g.node_type_2
-			ELSE 'VIRTUAL VERTICE'
-		END AS node_type_2,
-		FALSE AS is_real,
-		FALSE AS is_multilevel
-	FROM new_edges e
-	JOIN temp_om_scada_graph g ON g.node_1 = e.orig_node_1 AND g.node_2 = e.orig_node_2
-	WHERE e.vertice_2 IS NOT NULL;
-
-	-- position_id 
-	-- order root nodes by their coordinates x and y coordinates so their position_id is assigned from left to right
-	SELECT COALESCE(array_agg(t.node_id ORDER BY t.x, t.y), '{}')::int[]
-	INTO v_pgr_root_vids
-	FROM (
-		SELECT DISTINCT g.node_1 AS node_id, st_x(n.the_geom) AS x, st_y(n.the_geom) AS y
-		FROM temp_om_scada_graph g
-		JOIN node n ON n.node_id = g.node_1
-		WHERE g.active = TRUE
-		AND g.error_message IS NULL
-		AND g.is_multilevel = FALSE
-		AND NOT EXISTS (
-			SELECT 1 FROM temp_om_scada_graph g2
-			WHERE g2.active = TRUE
-			AND g2.error_message IS NULL
-			AND g2.is_multilevel = FALSE
-			AND g2.node_2 = g.node_1
-		)
-	) t;
-
-	v_query_text := '
-		SELECT
-			row_number() OVER () AS id,
-			g.node_1 AS source,
-			g.node_2 AS target,
-			1::float AS cost
-		FROM temp_om_scada_graph g
-		WHERE g.group_id IS NOT NULL
-		AND g.is_multilevel = FALSE
-	';
-
-	-- 1. initial raw value for position_aux from DFS traversal order (pgr_depthFirstSearch)
-	UPDATE temp_om_scada_vertice n
-	SET position_aux = g.position_aux
-	FROM (
-		SELECT node as node_id, min(seq) AS position_aux
-		FROM pgr_depthFirstSearch(v_query_text, v_pgr_root_vids, directed := true)
-		GROUP BY node
-	) g
-	WHERE n.node_id = g.node_id;
-
-	-- 2. normalize position_aux to consecutive positions within each level
-	UPDATE temp_om_scada_vertice n
-	SET position_aux = g.position_aux
-	FROM (
-		SELECT node_id,
-			row_number() OVER (PARTITION BY group_id, level_id ORDER BY position_aux) AS position_aux
-		FROM temp_om_scada_vertice
-	) g
-	WHERE n.node_id = g.node_id;
-
-	-- 3. Sugiyama-style barycenter iterations for hierarchical graphs to reduce link crossings
-	v_iterations := 20;
-
-	FOR i IN 1..v_iterations LOOP
-
-		IF i % 2 = 1 THEN
-			-- downward pass: update position_aux of node_2 based on its predecessor node_1
-      		-- (only consider arcs connecting consecutive levels)
-			UPDATE temp_om_scada_vertice n
-			SET position_aux = bc.avg_pos
-			FROM (
-				SELECT g.node_2 AS node_id, avg(v1.position_aux) AS avg_pos
-				FROM temp_om_scada_graph g
-				JOIN temp_om_scada_vertice v1 ON v1.node_id = g.node_1
-				JOIN temp_om_scada_vertice v2 ON v2.node_id = g.node_2
-				WHERE g.active = TRUE
-				AND g.error_message IS NULL
-				AND v2.level_id = v1.level_id + 1
-				GROUP BY g.node_2
-			) bc
-			WHERE n.node_id = bc.node_id
-			AND n.position_aux IS DISTINCT FROM bc.avg_pos;
-		ELSE
-			-- upward pass: update position_aux of node_1 based on its successor node_2
-      		-- (only consider arcs connecting consecutive levels)
-			UPDATE temp_om_scada_vertice n
-			SET position_aux = bc.avg_pos
-			FROM (
-				SELECT g.node_1 AS node_id, avg(v2.position_aux) AS avg_pos
-				FROM temp_om_scada_graph g
-				JOIN temp_om_scada_vertice v1 ON v1.node_id = g.node_1
-				JOIN temp_om_scada_vertice v2 ON v2.node_id = g.node_2
-				WHERE g.active = TRUE
-				AND g.error_message IS NULL
-				AND v2.level_id = v1.level_id + 1
-				GROUP BY g.node_1
-			) bc
-			WHERE n.node_id = bc.node_id
-			AND n.position_aux IS DISTINCT FROM bc.avg_pos;
-		END IF;
-
-		-- re-rank nodes within each level based on the updated barycenter position
-		UPDATE temp_om_scada_vertice t
-		SET position_aux = g.position_aux
-		FROM (
-			SELECT v.node_id,
-				row_number() OVER (PARTITION BY v.group_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_aux
-			FROM temp_om_scada_vertice v
-			LEFT JOIN node n ON n.node_id = v.node_id
-		) g
-		WHERE t.node_id = g.node_id
-		AND t.position_aux IS DISTINCT FROM g.position_aux;
-
-		-- stop early if the ranking has already converged (no changes this iteration)
-		GET DIAGNOSTICS v_updated_rows = ROW_COUNT;
-		RAISE NOTICE 'Iteration %: % rows updated', i, v_updated_rows;
-		EXIT WHEN v_updated_rows = 0;
-
-	END LOOP;
-
-	-- 4. final position_id: position after all barycenter iterations
-	UPDATE temp_om_scada_vertice t
-	SET position_id = g.position_id
-	FROM (
-		SELECT v.node_id,
-			row_number() OVER (PARTITION BY v.group_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_id
-		FROM temp_om_scada_vertice v
-		LEFT JOIN node n ON n.node_id = v.node_id
-	) g
-	WHERE t.node_id = g.node_id;
-
-	-- 5. update "attrib" with synopticOrder
-	WITH
-		all_nodes AS (
-			SELECT t.orig_node_1, t.orig_node_2, t.node_1 AS node_id
-			FROM temp_om_scada_graph t
-			WHERE t.group_id IS NOT NULL
-			AND t.is_multilevel = FALSE
-			UNION
-			SELECT t.orig_node_1, t.orig_node_2, t.node_2 AS node_id
-			FROM temp_om_scada_graph t
-			WHERE t.group_id IS NOT NULL
-			AND t.is_multilevel = FALSE
-			AND t.node_2 = t.orig_node_2
-		),
-		synoptic AS (
-			SELECT
-				an.orig_node_1,
-				an.orig_node_2,
-				json_build_object(
-					'type', 'LineString',
-					'coordinates', json_agg(
-						json_build_array(v.position_id, v.level_id)
-						ORDER BY v.level_id
-					)
-				) AS synoptic_geometry
-			FROM all_nodes an
-			JOIN temp_om_scada_vertice v ON v.node_id = an.node_id
-			GROUP BY an.orig_node_1, an.orig_node_2
-		)
-	UPDATE temp_om_scada_graph g
-	SET attrib = json_build_object(
-		'synopticGeometry', s.synoptic_geometry,
-		'arcs', (g.attrib::jsonb -> 'arcs')
-	)
-	FROM synoptic s
-	WHERE g.node_1 = s.orig_node_1
-	AND g.node_2 = s.orig_node_2;
+	/* TODO 
+	IF v_response.... THEN
+        RETURN v_response;
+    END IF;
+	*/
 
 	-- Update om_scada_graph if v_commit_changes is TRUE
 	--================================================
@@ -805,12 +506,6 @@ BEGIN
 		WHERE g.node_1 = t.node_1 AND g.node_2 = t.node_2
 		AND t.is_real = TRUE;
 
-		-- Snapshot JSON from temp: one om_scada_graph_json row per group_id (export does not re-filter expl)
-		v_export_result := gw_fct_scada_graph_export(p_data);
-		IF v_export_result ->> 'status' IS DISTINCT FROM 'Accepted' THEN
-			RETURN v_export_result;
-		END IF;
-
 	END IF;
 
 	-- SECTION Creating temporal layers
@@ -854,14 +549,13 @@ BEGIN
 				g.active,
 				g.the_geom
 			FROM temp_om_scada_graph g
-			LEFT JOIN temp_om_scada_vertice v ON v.node_id = g.node_1 AND v.is_real IS NOT FALSE
 			LEFT JOIN node n1 ON n1.node_id = g.node_1
 			LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
 			LEFT JOIN node n2 ON n2.node_id = g.node_2
 			LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id
 			WHERE g.error_message IS NULL -- the layer contains active = TRUE AND the_geom IS NOT NULL AND also active = FALSE
 			AND g.is_real = TRUE
-			ORDER BY g.group_id, v.level_id, v.position_id
+			ORDER BY g.group_id
 			) r
 		) f;
 

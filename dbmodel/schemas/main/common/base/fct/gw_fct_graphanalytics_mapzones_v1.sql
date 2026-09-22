@@ -111,7 +111,6 @@ DECLARE
 	v_query_text text;
 	v_query_text_aux text;
 	v_data json;
-	rec_man record;
 
 	rec record;
 	-- result variables
@@ -3290,6 +3289,34 @@ BEGIN
 			JOIN temp_pgr_arc a ON n.pgr_node_id IN (a.pgr_node_1, a.pgr_node_2)
 			WHERE n.graph_delimiter = 'nodeParent'
 			AND a.mapzone_id > 0;
+
+			-- synoptic building section
+			INSERT INTO temp_pgr_mapzone_synoptic (node_1, node_2, node_type_1, node_type_2, orig_node_1, orig_node_2)
+			SELECT
+				CASE WHEN flow_sign = 1 THEN node_id ELSE mapzone_id END AS node_1,
+				CASE WHEN flow_sign = 1 THEN mapzone_id ELSE node_id END AS node_2,
+				CASE WHEN flow_sign = 1 THEN 'NODE' ELSE 'MAPZONE' END AS node_type_1,
+				CASE WHEN flow_sign = 1 THEN 'MAPZONE' ELSE 'NODE' END AS node_type_2,
+				CASE WHEN flow_sign = 1 THEN node_id ELSE mapzone_id END AS orig_node_1,
+				CASE WHEN flow_sign = 1 THEN mapzone_id ELSE node_id END AS orig_node_2
+			FROM temp_pgr_mapzone_graph;
+			
+			--update group_id, level_id, position_id
+			v_data :=
+			jsonb_build_object(
+				'data',
+				jsonb_build_object(
+					'fct_type', 'MAPZONE'
+				)
+			);
+			
+			SELECT gw_fct_synoptic_core(v_data) INTO v_response;
+
+			/* TODO 
+			IF v_response.... THEN
+				RETURN v_response;
+			END IF;
+			*/
 
 			EXECUTE format($sql$
 				WITH affected_mapzone AS (
