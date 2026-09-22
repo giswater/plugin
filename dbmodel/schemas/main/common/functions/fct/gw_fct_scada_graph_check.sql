@@ -351,6 +351,74 @@ BEGIN
 	LEFT JOIN cat_node cn2 ON n2.nodecat_id = cn2.id
 	WHERE t.node_2 = n2.node_id;
 
+	-- ERRORS
+	--==========================
+	UPDATE temp_om_scada_graph t
+	SET error_message =
+		CASE
+
+		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.node_1 = n.node_id)
+			AND NOT EXISTS (SELECT 1 FROM node n WHERE t.node_2 = n.node_id)
+		THEN v_msg_err_missing_both
+
+		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.node_1 = n.node_id)
+		THEN v_msg_err_missing_1
+
+		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.node_2 = n.node_id)
+		THEN v_msg_err_missing_2
+
+		WHEN EXISTS (
+			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
+			WHERE t.node_1 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
+		) AND EXISTS (
+			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
+			WHERE t.node_2 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
+		)
+		THEN v_msg_err_obsolete_both
+
+		WHEN EXISTS (
+			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
+			WHERE t.node_1 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
+		)
+		THEN v_msg_err_obsolete_1
+
+		WHEN EXISTS (
+			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
+			WHERE t.node_2 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
+		)
+		THEN v_msg_err_obsolete_2
+
+		WHEN NOT EXISTS (
+			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
+			WHERE a.state = 1 AND sa.is_operative = TRUE
+			AND (a.node_1 = t.node_1 OR a.node_2 = t.node_1)
+		) AND NOT EXISTS (
+			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
+			WHERE a.state = 1 AND sa.is_operative = TRUE
+			AND (a.node_1 = t.node_2 OR a.node_2 = t.node_2)
+		)
+		THEN v_msg_err_orphan_both
+
+		WHEN NOT EXISTS (
+			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
+			WHERE a.state = 1 AND sa.is_operative = TRUE
+			AND (a.node_1 = t.node_1 OR a.node_2 = t.node_1)
+		)
+		THEN v_msg_err_orphan_1
+
+		WHEN NOT EXISTS (
+			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
+			WHERE a.state = 1 AND sa.is_operative = TRUE
+			AND (a.node_1 = t.node_2 OR a.node_2 = t.node_2)
+		)
+		THEN v_msg_err_orphan_2
+
+		WHEN t.the_geom IS NULL
+		THEN v_msg_err_nopath
+	END
+	WHERE t.active = TRUE
+	AND t.is_real = TRUE;
+
 	-- update group_id, level_id, position_id
 	v_pgr_distance := (SELECT count(*)::int FROM temp_om_scada_graph);
 
@@ -361,16 +429,19 @@ BEGIN
 			g.node_2 AS target,
 			1::float AS cost
 		FROM temp_om_scada_graph g
-		WHERE g.the_geom IS NOT NULL
+		WHERE g.active = TRUE
+		AND g.error_message IS NULL
 	';
 
 	SELECT COALESCE(array_agg(DISTINCT g.node_1), '{}')::int[]
     INTO v_pgr_root_vids
     FROM temp_om_scada_graph g
-    WHERE  g.the_geom IS NOT NULL
+    WHERE g.active = TRUE
+		AND g.error_message IS NULL
     AND NOT EXISTS (
         SELECT 1 FROM temp_om_scada_graph g2
-        WHERE  g2.the_geom IS NOT NULL
+        WHERE g2.active = TRUE
+		AND g2.error_message IS NULL
         AND g2.node_2 = g.node_1
     );
 
@@ -394,7 +465,8 @@ BEGIN
 	UPDATE temp_om_scada_graph g
 	SET group_id = n.group_id
 	FROM temp_om_scada_vertice n
-	WHERE g.the_geom IS NOT NULL
+	WHERE g.active = TRUE
+	AND g.error_message IS NULL
 	AND n.node_id = g.node_1;
 
 	-- level_id
@@ -413,7 +485,8 @@ BEGIN
 	FROM temp_om_scada_vertice v1, temp_om_scada_vertice v2
 	WHERE v1.node_id = g.node_1
 	AND v2.node_id = g.node_2
-	AND g.the_geom IS NOT NULL
+	WHERE g.active = TRUE
+	AND g.error_message IS NULL
 	AND v2.level_id > v1.level_id + 1;
 
 	WITH
@@ -512,12 +585,14 @@ BEGIN
 		SELECT DISTINCT g.node_1 AS node_id, st_x(n.the_geom) AS x, st_y(n.the_geom) AS y
 		FROM temp_om_scada_graph g
 		JOIN node n ON n.node_id = g.node_1
-		WHERE g.the_geom IS NOT NULL
+		WHERE g.active = TRUE
+		AND g.error_message IS NULL
 		AND g.is_multilevel = FALSE
 		AND NOT EXISTS (
 			SELECT 1 FROM temp_om_scada_graph g2
-			WHERE g2.the_geom IS NOT NULL
-			AND g.is_multilevel = FALSE
+			WHERE g2.active = TRUE
+			AND g2.error_message IS NULL
+			AND g2.is_multilevel = FALSE
 			AND g2.node_2 = g.node_1
 		)
 	) t;
@@ -568,7 +643,8 @@ BEGIN
 				FROM temp_om_scada_graph g
 				JOIN temp_om_scada_vertice v1 ON v1.node_id = g.node_1
 				JOIN temp_om_scada_vertice v2 ON v2.node_id = g.node_2
-				WHERE g.the_geom IS NOT NULL
+				WHERE g.active = TRUE
+				AND g.error_message IS NULL
 				AND v2.level_id = v1.level_id + 1
 				GROUP BY g.node_2
 			) bc
@@ -584,7 +660,8 @@ BEGIN
 				FROM temp_om_scada_graph g
 				JOIN temp_om_scada_vertice v1 ON v1.node_id = g.node_1
 				JOIN temp_om_scada_vertice v2 ON v2.node_id = g.node_2
-				WHERE g.the_geom IS NOT NULL
+				WHERE g.active = TRUE
+				AND g.error_message IS NULL
 				AND v2.level_id = v1.level_id + 1
 				GROUP BY g.node_1
 			) bc
@@ -659,74 +736,6 @@ BEGIN
 	FROM synoptic s
 	WHERE g.node_1 = s.orig_node_1
 	AND g.node_2 = s.orig_node_2;
-
-	-- ERRORS
-	--==========================
-	UPDATE temp_om_scada_graph t
-	SET error_message =
-		CASE
-
-		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.node_1 = n.node_id)
-			AND NOT EXISTS (SELECT 1 FROM node n WHERE t.node_2 = n.node_id)
-		THEN v_msg_err_missing_both
-
-		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.node_1 = n.node_id)
-		THEN v_msg_err_missing_1
-
-		WHEN NOT EXISTS (SELECT 1 FROM node n WHERE t.node_2 = n.node_id)
-		THEN v_msg_err_missing_2
-
-		WHEN EXISTS (
-			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
-			WHERE t.node_1 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
-		) AND EXISTS (
-			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
-			WHERE t.node_2 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
-		)
-		THEN v_msg_err_obsolete_both
-
-		WHEN EXISTS (
-			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
-			WHERE t.node_1 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
-		)
-		THEN v_msg_err_obsolete_1
-
-		WHEN EXISTS (
-			SELECT 1 FROM node n JOIN value_state_type s ON n.state_type = s.id
-			WHERE t.node_2 = n.node_id AND (n.state <> 1 OR s.is_operative = false)
-		)
-		THEN v_msg_err_obsolete_2
-
-		WHEN NOT EXISTS (
-			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
-			WHERE a.state = 1 AND sa.is_operative = TRUE
-			AND (a.node_1 = t.node_1 OR a.node_2 = t.node_1)
-		) AND NOT EXISTS (
-			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
-			WHERE a.state = 1 AND sa.is_operative = TRUE
-			AND (a.node_1 = t.node_2 OR a.node_2 = t.node_2)
-		)
-		THEN v_msg_err_orphan_both
-
-		WHEN NOT EXISTS (
-			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
-			WHERE a.state = 1 AND sa.is_operative = TRUE
-			AND (a.node_1 = t.node_1 OR a.node_2 = t.node_1)
-		)
-		THEN v_msg_err_orphan_1
-
-		WHEN NOT EXISTS (
-			SELECT 1 FROM arc a JOIN value_state_type sa ON a.state_type = sa.id
-			WHERE a.state = 1 AND sa.is_operative = TRUE
-			AND (a.node_1 = t.node_2 OR a.node_2 = t.node_2)
-		)
-		THEN v_msg_err_orphan_2
-
-		WHEN t.the_geom IS NULL
-		THEN v_msg_err_nopath
-	END
-	WHERE t.active = TRUE
-	AND t.is_real = TRUE;
 
 	-- Update om_scada_graph if v_commit_changes is TRUE
 	--================================================
@@ -867,7 +876,7 @@ BEGIN
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
 	SELECT 1, null, 1, replace(v_msg_valid, '%v_count%', count(*)::text)
 	FROM temp_om_scada_graph
-	WHERE is_real = TRUE AND the_geom IS NOT NULL AND error_message IS NULL;
+	WHERE is_real = TRUE AND active = TRUE AND error_message IS NULL;
 	INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
 	SELECT 1, null, 1, replace(v_msg_inconsist, '%v_count%', count(*)::text)
 	FROM temp_om_scada_graph
