@@ -448,8 +448,11 @@ class GwNonVisual:
         cross_arccat = tools_qt.is_checked(self.dlg_print, 'chk_cross_arccat')
 
         if cross_arccat:
-            sql = f"select ic.id as curve_id, ca.id as arccat_id, geom1, geom2 from {self.schema_name}.ve_inp_curve ic join {self.schema_name}.cat_arc ca on ca.curve_id = ic.id " \
-                  f"WHERE ic.curve_type = 'SHAPE' and ca.shape = 'CUSTOM' and ic.id ILIKE '%{filter}%'"
+            sql = (f"SELECT ic.id AS curve_id, ca.id AS arccat_id, ca.geom1, ca.geom2 "
+                   f"FROM {self.schema_name}.ve_inp_curve ic "
+                   f"JOIN {self.schema_name}.cat_arc ca ON ca.curve_id = ic.id "
+                   f"JOIN {self.schema_name}.cat_arc_shape cas ON cas.id = ca.shape "
+                   f"WHERE ic.curve_type = 'SHAPE' AND cas.epa = 'CUSTOM' AND ic.id ILIKE '%{filter}%'")
             curve_results = tools_db.get_rows(sql)
             if curve_results is None:
                 msg = "There is no valid shape curve in the list"
