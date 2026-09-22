@@ -1,2 +1,3 @@
 - Added a user-facing message (id=4752) for duplicate psector name errors to sys_message, shown when trying to create a new psector with an existing name.
 - Updated sys_function entry (id=2734) to use the alias "DUPLICATE PSECTOR".
+- Allow a null owner on element insert when cat_owner is empty: blank ownercat_id is stored as NULL, and exploitation.owner_vdefault is copied only if that id exists in cat_owner. Element owner combos allow a null value.

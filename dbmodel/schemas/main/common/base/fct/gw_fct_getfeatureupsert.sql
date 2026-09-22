@@ -1081,7 +1081,14 @@ BEGIN
                             field_value = v_toarc;
                         END IF;
 				WHEN 'ownercat_id' THEN
-					field_value = (SELECT owner_vdefault FROM exploitation WHERE expl_id = v_expl_id LIMIT 1);
+					-- Do not preselect an owner that is not in cat_owner (empty schemas, stale owner_vdefault)
+					field_value = (
+						SELECT e.owner_vdefault
+						FROM exploitation e
+						JOIN cat_owner c ON c.id = e.owner_vdefault
+						WHERE e.expl_id = v_expl_id
+						LIMIT 1
+					);
 				WHEN 'node_id' THEN
 					IF upper(v_catfeature.feature_type) = 'ELEMENT' AND upper(v_catfeature.feature_class) = 'FRELEM' THEN
 						IF v_node_id IS NOT NULL THEN

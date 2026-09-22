@@ -11,8 +11,8 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 24 test
-SELECT plan(24);
+-- Plan for 29 test
+SELECT plan(29);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -265,8 +265,9 @@ SELECT ok(
     'GENELEM info from ve_element parent does not include actionSetToArc'
 );
 
--- ELEMENT INSERT: ownercat_id from exploitation.owner_vdefault (same as node/arc/connec)
-UPDATE exploitation SET owner_vdefault = 'owner1' WHERE expl_id = 1;
+-- ELEMENT INSERT: blank ownercat_id must not hit element_ownercat_id_fkey.
+-- Empty schemas have no cat_owner; '' is not a valid id.
+UPDATE exploitation SET owner_vdefault = NULL WHERE expl_id = 1;
 INSERT INTO config_param_user (parameter, value, cur_user)
 VALUES ('edit_exploitation_vdefault', '1', current_user)
 ON CONFLICT (parameter, cur_user) DO UPDATE SET value = '1';
@@ -278,8 +279,62 @@ SELECT is(
          "feature":{"tableName":"ve_element_ecover"}, "data":{"filterFields":{}, "pageInfo":{}}}$$)::json
      )->'body'->'data'->'fields') f
      WHERE f->>'columnname' = 'ownercat_id'),
+    '',
+    've_element_ecover INSERT ownercat_id is empty when exploitation has no owner'
+);
+
+SELECT lives_ok(
+    $q$
+        INSERT INTO ve_element_ecover (code, elementcat_id, state, state_type, expl_id, ownercat_id, the_geom)
+        SELECT 'blank-owner', ce.id, 1, 2, 1, '', ST_StartPoint(a.the_geom)
+        FROM cat_element ce
+        CROSS JOIN LATERAL (
+            SELECT the_geom FROM arc WHERE state = 1 AND the_geom IS NOT NULL LIMIT 1
+        ) a
+        WHERE ce.element_type = 'ECOVER'
+        LIMIT 1
+    $q$,
+    'blank ownercat_id insert does not violate element_ownercat_id_fkey'
+);
+
+SELECT is(
+    (SELECT ownercat_id FROM element WHERE code = 'blank-owner'),
+    NULL,
+    'blank ownercat_id is stored as NULL when exploitation has no owner'
+);
+
+-- ELEMENT INSERT: ownercat_id from exploitation.owner_vdefault (same as node/arc/connec)
+UPDATE exploitation SET owner_vdefault = 'owner1' WHERE expl_id = 1;
+
+SELECT is(
+    (SELECT f->>'selectedId'
+     FROM json_array_elements((
+         gw_fct_getinfofromid($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{},
+         "feature":{"tableName":"ve_element_ecover"}, "data":{"filterFields":{}, "pageInfo":{}}}$$)::json
+     )->'body'->'data'->'fields') f
+     WHERE f->>'columnname' = 'ownercat_id'),
     'owner1',
     've_element_ecover INSERT ownercat_id defaults from exploitation.owner_vdefault'
+);
+
+SELECT lives_ok(
+    $q$
+        INSERT INTO ve_element_ecover (code, elementcat_id, state, state_type, expl_id, the_geom)
+        SELECT 'default-owner', ce.id, 1, 2, 1, ST_StartPoint(a.the_geom)
+        FROM cat_element ce
+        CROSS JOIN LATERAL (
+            SELECT the_geom FROM arc WHERE state = 1 AND the_geom IS NOT NULL LIMIT 1
+        ) a
+        WHERE ce.element_type = 'ECOVER'
+        LIMIT 1
+    $q$,
+    'NULL ownercat_id insert copies a valid exploitation.owner_vdefault'
+);
+
+SELECT is(
+    (SELECT ownercat_id FROM element WHERE code = 'default-owner'),
+    'owner1',
+    'NULL ownercat_id is filled from exploitation.owner_vdefault'
 );
 
 -- Finish the test

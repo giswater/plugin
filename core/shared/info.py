@@ -1644,9 +1644,9 @@ class GwInfo(QObject):
     def _apply_from_btn(self, dialog, action_edit, fid, new_feature=None, generic=False, from_apply=False, linked_feature=None):
         """ Manage apply button from info dialog """
 
-        self._manage_edition(dialog, action_edit, fid, new_feature, generic, from_apply)
+        accepted = self._manage_edition(dialog, action_edit, fid, new_feature, generic, from_apply)
 
-        if linked_feature:
+        if linked_feature and accepted:
             self._manage_linked_feature(linked_feature)
 
     def _manage_edition(self, dialog, action_edit, fid, new_feature=None, generic=False, from_apply=False):
@@ -1654,6 +1654,7 @@ class GwInfo(QObject):
         # With the editing QAction we need to collect the last modified value (self.get_last_value()),
         # since the "editingFinished" signals of the widgets are not detected.
         # Therefore whenever the cursor enters a widget, it will ask if we want to save changes
+        accepted = False
         if not action_edit.isChecked() or from_apply:
             self._get_last_value(dialog, generic)
             geom_pending = self.point_xy.get('x') is not None
@@ -1663,9 +1664,8 @@ class GwInfo(QObject):
                 if self.epa_complet_result:
                     tools_gw.enable_widgets(dialog, self.epa_complet_result['body']['data'], False)
                 self._enable_actions(dialog, False)
-                return
+                return False
             save = self._ask_for_save(action_edit, fid)
-            accepted = False
             if save:
                 accepted = self._manage_accept(dialog, action_edit, new_feature, self.my_json, False, generic)
             elif self.new_feature_id is not None:
@@ -1690,6 +1690,7 @@ class GwInfo(QObject):
             if self.epa_complet_result:
                 tools_gw.enable_all(dialog, self.epa_complet_result['body']['data'])
             self._enable_actions(dialog, True)
+        return accepted
 
     def _accept_from_btn(self, dialog, action_edit, new_feature, my_json, last_json, generic=False, linked_feature=None):
         if not action_edit.isChecked():
@@ -1699,9 +1700,8 @@ class GwInfo(QObject):
         status = self._manage_accept(dialog, action_edit, new_feature, my_json, True, generic)
         if status:
             self._reset_my_json()
-
-        if linked_feature:
-            self._manage_linked_feature(linked_feature)
+            if linked_feature:
+                self._manage_linked_feature(linked_feature)
 
     def _manage_accept(self, dialog, action_edit, new_feature, my_json, close_dlg, generic=False):
 
