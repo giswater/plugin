@@ -3330,6 +3330,10 @@ def get_values(dialog, widget, _json=None, ignore_editability=False):
         if not widget.isEnabled() and not ignore_editability:
             return _json
         value = tools_qt.get_combo_value(dialog, widget, 0)
+        # No row selected: get_combo_value returns int -1, same as the real "Conflict"
+        # id on sector/dma/presszone/dqa. Only the unselected combo (index < 0) is empty.
+        if widget.currentIndex() < 0 or str(value) in ('', 'None', 'null'):
+            value = None
     elif type(widget) is QCheckBox:
         if not widget.isEnabled() and not ignore_editability:
             return _json

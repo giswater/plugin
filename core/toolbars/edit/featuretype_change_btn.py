@@ -292,16 +292,16 @@ def btn_accept_featuretype_change(**kwargs):
         tools_qgis.show_warning(msg)
         return
     fluid_type = tools_qt.get_combo_value(dialog, 'tab_none_fluid_type', 1)
-    if fluid_type is None or fluid_type == '' or fluid_type == '-1':
+    if fluid_type is None or str(fluid_type) in ('', '-1', 'None', 'null'):
         fluid_type = 'null'
     location_type = tools_qt.get_combo_value(dialog, 'tab_none_location_type', 1)
-    if location_type is None or location_type == '' or location_type == '-1':
+    if location_type is None or str(location_type) in ('', '-1', 'None', 'null'):
         location_type = 'null'
     category_type = tools_qt.get_combo_value(dialog, 'tab_none_category_type', 1)
-    if category_type is None or category_type == '' or category_type == '-1':
+    if category_type is None or str(category_type) in ('', '-1', 'None', 'null'):
         category_type = 'null'
     function_type = tools_qt.get_combo_value(dialog, 'tab_none_function_type', 1)
-    if function_type is None or function_type == '' or function_type == '-1':
+    if function_type is None or str(function_type) in ('', '-1', 'None', 'null'):
         function_type = 'null'
 
     if feature_type_new != "null":
