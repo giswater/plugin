@@ -13,5 +13,5 @@ SET function_alias = 'DUPLICATE PSECTOR'
 WHERE id = 2734;
 
 INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
-VALUES (4752, 'The new psector name already exists', 'Try using a different name', 2, true, 'utils', 'core', 'UI')
+VALUES (4752, 'The new psector name already exists(can be inactive)', 'Try using a different name', 2, true, 'utils', 'core', 'UI')
 ON CONFLICT (id) DO NOTHING;
