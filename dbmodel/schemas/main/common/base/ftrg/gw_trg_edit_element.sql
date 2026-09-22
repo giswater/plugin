@@ -193,9 +193,21 @@ BEGIN
 			END IF;
 		END IF;
 
-		-- Ownercat_id from exploitation.owner_vdefault (same as node/arc/connec form default)
+		-- Blank is not a cat_owner id; '' violates element_ownercat_id_fkey (views have no FK for setfields to null)
+		IF btrim(coalesce(NEW.ownercat_id, '')) = '' THEN
+			NEW.ownercat_id := NULL;
+		END IF;
+
+		-- Ownercat_id from exploitation.owner_vdefault (same as node/arc/connec form default).
+		-- Only when that id exists in cat_owner; empty schemas have no owners.
 		IF (NEW.ownercat_id IS NULL AND NEW.expl_id IS NOT NULL) THEN
-			NEW.ownercat_id := (SELECT owner_vdefault FROM exploitation WHERE expl_id = NEW.expl_id LIMIT 1);
+			NEW.ownercat_id := (
+				SELECT e.owner_vdefault
+				FROM exploitation e
+				JOIN cat_owner c ON c.id = e.owner_vdefault
+				WHERE e.expl_id = NEW.expl_id
+				LIMIT 1
+			);
 		END IF;
 
 		-- Sector
@@ -433,6 +445,10 @@ BEGIN
 	ELSIF TG_OP = 'UPDATE' THEN
 		IF btrim(coalesce(NEW.code, '')) = '' THEN
 			NEW.code := NULL;
+		END IF;
+
+		IF btrim(coalesce(NEW.ownercat_id, '')) = '' THEN
+			NEW.ownercat_id := NULL;
 		END IF;
 
 		v_featurecat := COALESCE(v_customfeature, v_element_type);
