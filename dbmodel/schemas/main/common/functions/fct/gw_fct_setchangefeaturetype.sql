@@ -74,10 +74,11 @@ BEGIN
 	v_fluid = ((p_data ->>'data')::json->>'fluid_type')::text;
 	v_location = ((p_data ->>'data')::json->>'location_type')::text;
 
-	IF v_category = '' THEN v_category = null; END IF;
-	IF v_function = '' THEN v_function = null; END IF;
-	IF v_fluid = '' THEN v_fluid = null; END IF;
-	IF v_location = '' THEN v_location = null; END IF;
+	-- Empty combos arrive as '', '-1' or the string 'null' (see featuretype_change_btn).
+	IF v_category IN ('', '-1', 'null', 'None') THEN v_category = null; END IF;
+	IF v_function IN ('', '-1', 'null', 'None') THEN v_function = null; END IF;
+	IF v_fluid IN ('', '-1', 'null', 'None') THEN v_fluid = null; END IF;
+	IF v_location IN ('', '-1', 'null', 'None') THEN v_location = null; END IF;
 
 	--define columns used for feature_cat
 	v_feature_layer = concat('ve_',v_feature_type);

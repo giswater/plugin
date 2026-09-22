@@ -73,6 +73,9 @@ idname text;
 v_pkeyfield text;
 v_keys_fields text;
 v_exists boolean;
+v_fktable text;
+v_fkatt text;
+v_fkhit boolean;
 
 BEGIN
 
@@ -234,6 +237,33 @@ BEGIN
 			SELECT v_text [i] into v_jsonfield;
 			v_field:= (SELECT (v_jsonfield ->> 'key')) ;
 			v_value := (SELECT (v_jsonfield ->> 'value')) ;
+
+			-- Unselected combos arrive as '', '-1' or 'null'. Integer mapzones
+			-- (sector, dma, presszone, dqa) really use -1, so drop the sentinel
+			-- only when this column is a foreign key and the target has no such row.
+			IF v_value IN ('', '-1', 'null', 'None') THEN
+				SELECT format('%I.%I', nr.nspname, rt.relname), ra.attname
+				INTO v_fktable, v_fkatt
+				FROM pg_constraint c
+				JOIN pg_class st ON st.oid = c.conrelid
+				JOIN pg_namespace ns ON ns.oid = st.relnamespace AND ns.nspname = v_schemaname
+				JOIN pg_attribute sa ON sa.attrelid = st.oid AND sa.attnum = c.conkey[1] AND sa.attname = v_field
+				JOIN pg_class rt ON rt.oid = c.confrelid
+				JOIN pg_namespace nr ON nr.oid = rt.relnamespace
+				JOIN pg_attribute ra ON ra.attrelid = rt.oid AND ra.attnum = c.confkey[1]
+				WHERE c.contype = 'f'
+				  AND cardinality(c.conkey) = 1
+				LIMIT 1;
+
+				IF v_fktable IS NOT NULL THEN
+					EXECUTE 'SELECT EXISTS (SELECT 1 FROM ' || v_fktable || ' WHERE ' || quote_ident(v_fkatt) || '::text = $1)'
+						INTO v_fkhit
+						USING v_value;
+					IF NOT COALESCE(v_fkhit, false) THEN
+						v_value := NULL;
+					END IF;
+				END IF;
+			END IF;
 
 			-- getting closed status if exists to work with graphanalytics functions in case of valves
 			IF v_field = 'closed' THEN
