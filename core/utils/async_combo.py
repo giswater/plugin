@@ -997,7 +997,9 @@ class _ComboPopupSearchController(QObject):
     def _popup_list_height(self, view, display_rows: int) -> int:
         if display_rows <= 0:
             return max(12, view.fontMetrics().height() // 2)
-        return self._popup_row_height(view) * display_rows
+        # The viewport sits inside the popup frame. An exact multiple of the
+        # row height clips the last row against that border.
+        return self._popup_row_height(view) * display_rows + 2
 
     def _popup_frame_pad(self, container) -> int:
         if container is None:
@@ -1077,7 +1079,16 @@ class _ComboPopupSearchController(QObject):
         if fitted < height:
             search_h = self._search_bar_height()
             frame = self._popup_frame_pad(container)
-            list_h = max(12, fitted - search_h - frame)
+            usable = max(12, fitted - search_h - frame)
+            row_h = self._popup_row_height(view)
+            # Snap down to whole rows. A leftover partial row is the sliced one.
+            if row_h > 0:
+                shown_cap = max(1, min(shown_cap, usable // row_h))
+                list_h = shown_cap * row_h
+                if list_h + 2 <= usable:
+                    list_h += 2
+            else:
+                list_h = usable
             try:
                 view.setMinimumHeight(0)
                 view.setMaximumHeight(_QWIDGETSIZE_MAX)
@@ -1085,10 +1096,7 @@ class _ComboPopupSearchController(QObject):
                 view.setMaximumHeight(list_h)
             except RuntimeError:
                 return
-            height = fitted
-            row_h = self._popup_row_height(view)
-            if row_h > 0:
-                shown_cap = max(1, min(shown_cap, list_h // row_h))
+            height = search_h + list_h + frame
         self._set_popup_height(width, height, upward)
         self._sync_popup_scrollbar(view, shown_cap if display_rows else 0)
         self._pin_popup(width, height, upward)
