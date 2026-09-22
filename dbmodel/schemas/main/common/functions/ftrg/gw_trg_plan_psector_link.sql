@@ -15,16 +15,10 @@ $BODY$
 DECLARE
 
 v_table_name text;
-v_point_aux public.geometry;
-v_channel text;
-v_schemaname text;
-v_arc_id text;
 v_projecttype text;
-v_exit_type text;
-v_connect text;
+v_connect integer;
 v_featuretype text;
-v_arc record;
-v_feature text;
+v_feature integer;
 v_id integer;
 
 BEGIN
@@ -32,9 +26,7 @@ BEGIN
 	EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 
 	v_table_name:= TG_ARGV[0];
-	v_schemaname='SCHEMA_NAME';
 	v_projecttype = (SELECT project_type FROM sys_version ORDER BY id DESC LIMIT 1);
-
 
 	-- setting variables
 	v_id = NEW.id;
@@ -49,20 +41,13 @@ BEGIN
 		v_feature = NEW.gully_id;
 	END IF;
 
-	SELECT * INTO v_arc FROM arc WHERE arc_id = NEW.arc_id;
-
 	-- executing options
 	IF TG_OP = 'INSERT' THEN
 
-		IF NEW.state = 0 THEN
+		IF NEW.state = 1 AND NEW.arc_id IS NOT NULL AND NEW.link_id IS NULL THEN
 
-		ELSIF NEW.state = 1 THEN
-
-			IF NEW.arc_id IS NOT NULL AND NEW.link_id IS NULL THEN
-
-				EXECUTE 'SELECT gw_fct_linktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},
-				"feature":{"id":["'|| v_feature ||'"]},"data":{"feature_type":"'|| v_featuretype ||'", "isPsector":"true", "forcedArcs":['||NEW.arc_id||']}}$$)';
-			END IF;
+			EXECUTE 'SELECT gw_fct_linktonetwork($${"client":{"device":4, "infoType":1, "lang":"ES"},
+			"feature":{"id":["'|| v_feature ||'"]},"data":{"feature_type":"'|| v_featuretype ||'", "isPsector":"true", "forcedArcs":['||NEW.arc_id||']}}$$)';
 		END IF;
 
 	ELSIF TG_OP = 'UPDATE' THEN
