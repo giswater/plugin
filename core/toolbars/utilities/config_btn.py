@@ -321,15 +321,11 @@ class GwConfigButton(GwAction):
                             self.chk.setChecked(True)
                         elif field['checked'] in ('false', 'False', 'FALSE', False):
                             self.chk.setChecked(False)
-                        # Lock the checkbox only when a value is already stored.
-                        # Forcing it on with no config_param_user row paints the
-                        # param as set; Accept then posts fields:[] because no
-                        # change signal fired (gw_fct_linktonetwork / 4432).
-                        if (
-                            self.chk.isChecked()
-                            and field.get('ismandatory') is True
-                            and field['widgettype'] not in ('check', 'checkbox')
-                        ):
+                        # Mandatory params always open checked. The value is not
+                        # in config_param_user until Accept; _commit_visible_checked_fields
+                        # writes the combo on screen so it does not stay a fake check.
+                        if field.get('ismandatory') is True and field['widgettype'] not in ('check', 'checkbox'):
+                            self.chk.setChecked(True)
                             self.chk.setEnabled(False)
                         self.chk.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
@@ -414,9 +410,6 @@ class GwConfigButton(GwAction):
                 msg = "{0}: {1}. widgetname='{2}' AND widgettype='{3}'"
                 msg_params = (type(e).__name__, e, field['widgetname'], field['widgettype'],)
                 tools_qgis.show_message(msg, Qgis.MessageLevel.Critical, dialog=self.dlg_config, msg_params=msg_params)
-
-        if self.tab == 'user':
-            self._validate_mandatory_parameters()
 
     def _commit_visible_checked_fields(self):
         """Append checked user params that never emitted a change signal.
