@@ -9,13 +9,23 @@ import threading
 from collections import OrderedDict
 
 from qgis.PyQt.QtCore import QObject, pyqtSignal
-from qgis.core import QgsTask
+from qgis.core import QgsProject, QgsTask, QgsVectorLayer
 
 from ...libs import tools_db, tools_log
 
 _COMBO_CACHE_LOCK = threading.Lock()
 _COMBO_QUERY_CACHE: "OrderedDict[str, list]" = OrderedDict()
 _COMBO_CACHE_MAX = 128
+_LAYER_WATCH_INSTALLED = False
+
+# Writes that can change rows a combo query would return. Reads (gw_fct_get*)
+# must not flush the cache or every info form misses and the cache is useless.
+_WRITE_FN_PREFIXES = (
+    'gw_fct_set',
+    'gw_fct_upsert',
+    'gw_fct_insert',
+    'gw_fct_delete',
+)
 
 _thread_local = threading.local()
 
@@ -32,10 +42,49 @@ def get_combo_rows_cached(query: str):
         return list(rows)
 
 
+def procedure_changes_combo_sources(function_name: str) -> bool:
+    """True for plugin writes that can insert/update/delete combo source rows."""
+    if not function_name:
+        return False
+    name = str(function_name).split('.')[-1].lower()
+    if name.startswith('gw_fct_get'):
+        return False
+    return name.startswith(_WRITE_FN_PREFIXES)
+
+
 def clear_combo_query_cache() -> None:
-    """Drop all cached combo query results (e.g. after project reload)."""
+    """Drop cached combo rows so the next form fill hits Postgres."""
     with _COMBO_CACHE_LOCK:
         _COMBO_QUERY_CACHE.clear()
+
+
+def install_combo_cache_invalidation() -> None:
+    """Drop the cache when a layer edit is committed (attribute table, digitizing).
+
+    Those writes never go through ``gw_fct_*``, so ``execute_procedure`` cannot
+    see them. One hook for the project singleton; each layer is connected once.
+    """
+    global _LAYER_WATCH_INSTALLED
+    project = QgsProject.instance()
+    if project is None:
+        return
+    if not _LAYER_WATCH_INSTALLED:
+        project.layersAdded.connect(_watch_combo_cache_layers)
+        _LAYER_WATCH_INSTALLED = True
+    _watch_combo_cache_layers(list(project.mapLayers().values()))
+
+
+def _watch_combo_cache_layers(layers) -> None:
+    for layer in layers or []:
+        if not isinstance(layer, QgsVectorLayer):
+            continue
+        try:
+            if layer.property('_gw_combo_cache_hook'):
+                continue
+            layer.setProperty('_gw_combo_cache_hook', True)
+            layer.afterCommitChanges.connect(clear_combo_query_cache)
+        except RuntimeError:
+            continue
 
 
 def _cache_put(query: str, rows: list) -> None:
@@ -123,7 +172,9 @@ class GwComboLoaderTask(QgsTask, QObject):
     coming from older tokens so stale rows can never overwrite fresh data.
 
     Connections are reused per worker thread and identical SQL is cached in memory
-    for the session so opening many features reuses the same combo payloads.
+    so opening many features reuses the same combo payloads. The cache is dropped
+    on project load and after a write. Opening the popup always queries again,
+    so a row inserted outside QGIS shows up on the next click.
     """
 
     # token, rows (list of psycopg2 DictRow / tuples), error (str, '' on success)

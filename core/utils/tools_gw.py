@@ -51,6 +51,7 @@ from ..ui.docker import GwDocker
 from ..ui.ui_manager import GwSelectorUi, GwPsectorManagerUi
 from . import tools_backend_calls
 from .async_combo import GwAsyncComboBox, attach_combo_popup_search
+from ..threads.combo_loader import clear_combo_query_cache, procedure_changes_combo_sources
 from ..load_project_menu import GwMenuLoad
 from ..utils.select_manager import GwSelectManager
 from ... import global_vars
@@ -5132,6 +5133,16 @@ def execute_procedure(function_name, parameters=None, schema_name=None, commit=T
         execute_procedure('gw_fct_epa2data', parameters)
     except KeyError:
         pass
+    if (
+        commit
+        and isinstance(json_result, dict)
+        and json_result.get('status') == 'Accepted'
+        and procedure_changes_combo_sources(function_name)
+    ):
+        # Combo SQL is cached for the session. A successful write (catalog
+        # insert, upsert, delete) does not change the query text, so drop the
+        # cache or the next form keeps the pre-write rows.
+        clear_combo_query_cache()
     return json_result
 
 
