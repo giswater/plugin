@@ -1098,7 +1098,11 @@ class GwNonVisual:
                     y_list[i] *= float(geom1)
 
             # Calcule el área
-            area = np.trapz(y_list, x_list) * 2
+            # np.trapezoid added in NumPy 2.0 (2024-06); np.trapz removed in NumPy 2.4 (2025-12).
+            try:
+                area = np.trapezoid(y_list, x_list) * 2  # NumPy >= 2.0
+            except AttributeError:
+                area = np.trapz(y_list, x_list) * 2  # NumPy < 2.0
 
             # Create inverted plot
             plot_widget.axes.plot(y_list, x_list, color="blue")
@@ -1606,10 +1610,10 @@ class GwNonVisual:
                 sql_columns.append(f"factor_{i + 1}")
                 sql_values.append(x)
             if dscenario_id is not None:
-                sql = f"""INSERT INTO inp_dscenario_pattern_value (dscenario_id, pattern_id, {','.join(sql_columns)}) 
+                sql = f"""INSERT INTO inp_dscenario_pattern_value (dscenario_id, pattern_id, {','.join(sql_columns)})
                             VALUES ({dscenario_id}, {pattern_id}, {','.join(map(str, sql_values))});"""
             else:
-                sql = f"""INSERT INTO ve_inp_pattern_value (pattern_id, {','.join(sql_columns)}) 
+                sql = f"""INSERT INTO ve_inp_pattern_value (pattern_id, {','.join(sql_columns)})
                             VALUES ({pattern_id}, {','.join(map(str, sql_values))});"""
             print(sql)
             result = tools_db.execute_sql(sql, commit=False)
@@ -2545,7 +2549,7 @@ class GwNonVisual:
             fname = fname.strip("'")
             addparam = addparam.strip("'")
 
-            fields = f"""{{"expl_id": {expl_id}, "active": "{active}", "timser_type": "{timser_type}", 
+            fields = f"""{{"expl_id": {expl_id}, "active": "{active}", "timser_type": "{timser_type}",
             "times_type": "{times_type}", "descript": "{descript}", "fname": "{fname}", "addparam": {json.dumps(addparam)}}}"""
 
             result = self._setfields(timeseries_id.strip("'"), table_name, fields)
