@@ -239,6 +239,7 @@ class GwAdminButton:
 
         # Check if srid value is valid
         if self.last_srids is None:
+            self._pending_rename = None
             msg = "This SRID value does not exist on Postgres Database. Please select a diferent one."
             title = "Info"
             tools_qt.show_info_box(msg, title)
@@ -248,6 +249,7 @@ class GwAdminButton:
         title = "Create example"
         answer = tools_qt.show_question(msg, title)
         if not answer:
+            self._pending_rename = None
             return
 
         msg = "Create schema of type '{0}': '{1}'"
@@ -274,16 +276,16 @@ class GwAdminButton:
                         self.folder_locale = os.path.join(self.folder_final_pass, 'i18n')
                         tools_qt.set_combo_value(self.cmb_locale, 'en_US', 0)
                 else:
+                    self._pending_rename = None
                     return
 
         params = {'is_test': is_test, 'project_type': project_type, 'exec_last_process': exec_last_process,
                   'project_name_schema': project_name_schema, 'project_locale': project_locale,
                   'project_srid': project_srid, 'example_data': example_data}
 
-        if hasattr(self, 'task_rename_schema') and not isdeleted(self.task_rename_schema):
-            self.task_rename_schema.task_finished.connect(partial(self.start_create_project_data_schema_task, project_name_schema, params, project_type))
-        else:
-            self.start_create_project_data_schema_task(project_name_schema, params, project_type)
+        self._start_create_or_rename_first(
+            partial(self.start_create_project_data_schema_task, project_name_schema, params, project_type)
+        )
 
     # ------------------------------------------------------------------
     # Engine bridges. Each of the following entry points builds a
@@ -774,12 +776,15 @@ class GwAdminButton:
         msg = "This process will take a few seconds. Are you sure to continue?"
         title = "Create base schema"
         if not tools_qt.show_question(msg, title):
+            self._pending_rename = None
             return
 
         self.cm_schema_name = name
         self.cm_schema_description = description
         self.base_schema_created = True
-        self._run_create_cm_task(['load_base_schema'], 'Create cm base schema')
+        self._start_create_or_rename_first(
+            partial(self._run_create_cm_task, ['load_base_schema'], 'Create cm base schema')
+        )
 
     def _integrate_cm(self, parent_schema=None, parent_type=None):
         """Link CM to the selected WS/UD parent schema."""
@@ -1723,6 +1728,10 @@ class GwAdminButton:
         QgsApplication.taskManager().addTask(task)
 
     def _build_admin_load_result_sync(self, connection_name) -> AdminLoadResult:
+        # A previous admin task can leave the shared session in an aborted
+        # transaction. Rollback is a no-op when nothing is open.
+        if tools_db.dao is not None:
+            tools_db.dao.rollback()
         result = AdminLoadResult(connection_name=connection_name)
         result.sys_version_schemas = admin_catalog.fetch_sys_version_schemas()
         result.aux_flags = admin_catalog.fetch_aux_schema_flags()
@@ -2492,6 +2501,7 @@ class GwAdminButton:
     def _check_project_name(self, project_name, project_descript):
         """ Check if @project_name and @project_descript are is valid """
 
+        self._pending_rename = None
         sql = "SELECT word FROM pg_get_keywords() ORDER BY 1;"
         pg_keywords = tools_db.get_rows(sql, commit=False)
 
@@ -2539,10 +2549,11 @@ class GwAdminButton:
         msg_params = (new_name,)
         result = tools_qt.show_question(msg, "Info", force_action=True, msg_params=msg_params)
         if result:
-            self._rename_project_data_schema(str(project_name), str(new_name))
+            # Queue the rename only after the caller confirms the rest of the flow,
+            # so task_finished is connected before the task starts.
+            self._pending_rename = (str(project_name), str(new_name))
             return True
-        else:
-            return False
+        return False
 
     def _bk_schema_name(self, list_schemas, project_name, i):
         """ Check for available bk schema name """
@@ -2552,7 +2563,36 @@ class GwAdminButton:
         else:
             return self._bk_schema_name(list_schemas, project_name, i + 1)
 
-    def _rename_project_data_schema(self, schema, create_project=None):
+    def _start_create_or_rename_first(self, start_create):
+        """Rename a colliding schema first, then run start_create. Otherwise create now."""
+        pending = getattr(self, '_pending_rename', None)
+        self._pending_rename = None
+        if not pending:
+            start_create()
+            return
+        self._rename_project_data_schema(
+            pending[0],
+            pending[1],
+            on_finished=partial(self._continue_after_successful_rename, start_create),
+        )
+
+    def _continue_after_successful_rename(self, start_create):
+        task = getattr(self, 'task_rename_schema', None)
+        if task is None or not getattr(task, 'status', False):
+            return
+        start_create()
+
+    def _rename_project_type(self, schema):
+        cache = getattr(self, '_admin_catalog_cache', None)
+        schemas = cache.sys_version_schemas if cache and cache.sys_version_schemas else None
+        if not schemas:
+            schemas = admin_catalog.fetch_sys_version_schemas()
+        project_type = admin_catalog.project_type_for_schema(schemas or [], schema)
+        if project_type:
+            return str(project_type).lower()
+        return self._get_selected_project_type()
+
+    def _rename_project_data_schema(self, schema, create_project=None, on_finished=None):
         """"""
         if create_project is None:
             self.schema = tools_qt.get_text(self.dlg_readsql_rename, self.dlg_readsql_rename.schema_rename_copy)
@@ -2578,8 +2618,20 @@ class GwAdminButton:
 
         # Set background task 'GwRenameSchemaTask'
         description = "Rename schema"
-        params = {'schema': schema, 'new_schema_name': self.schema}
+        project_version = str(getattr(self, 'project_version', None) or '')
+        if project_version in ('', '0', '0.0.0'):
+            project_version = str(self.plugin_version or '')
+        params = {
+            'schema': schema,
+            'new_schema_name': self.schema,
+            'project_type': self._rename_project_type(schema),
+            'project_version': project_version,
+            'project_epsg': str(self.project_epsg or '25831'),
+            'locale': str(getattr(self, 'locale', None) or 'en_US'),
+        }
         self.task_rename_schema = GwRenameSchemaTask(self, description, params, timer=self.timer)
+        if on_finished is not None:
+            self.task_rename_schema.task_finished.connect(on_finished)
         QgsApplication.taskManager().addTask(self.task_rename_schema)
         QgsApplication.taskManager().triggerTask(self.task_rename_schema)
 
