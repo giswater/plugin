@@ -19,7 +19,7 @@ from .toolbars import buttons
 from .utils import tools_gw
 from .threads.project_layers_config import GwProjectLayersConfig
 from .threads.project_check import GwProjectCheckTask
-from .threads.combo_loader import clear_combo_query_cache
+from .threads.combo_loader import clear_combo_query_cache, install_combo_cache_invalidation
 from .shared.psector import GwPsector
 from .shared.search import GwSearchLocatorFilter
 from .. import global_vars
@@ -161,6 +161,7 @@ class GwLoadProject(QObject):
             'load_project',
             'project_read_willRemoveChildren_protect_vr'
         )
+        install_combo_cache_invalidation()
         global_vars.project_loaded = True
 
         # Set indexing strategy for snapping so that it uses less memory if possible
