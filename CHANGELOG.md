@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Place `dataquality` and `dataquality_obs` on GENELEM element forms when `layoutorder` was null, so the info dialog no longer warns that the widgets are not configured.
 - Link a new element created from a feature's Elements tab into `element_x_*` on save. The Insert click had no parent form left, so the relation was never written.
+- Fix schema rename crashing after the name change (`cmb_project_type`) and leaving the database connection in an aborted transaction. Create-on-existing-name waits for that rename before running `init.sql`.
 - Fix `gw_trg_plan_psector_link` comparing integer `connec_id`/`gully_id` to text variables. `gw_fct_setarcdivide` failed with `integer = text` when reconnecting links inside a psector.
 - Restore `comboIds`/`comboNames` on info forms for qwc2 (`device` 5) in `gw_fct_getformfields` and `gw_fct_getchilds`. Desktop (`device` 4) still loads combos from `queryText`.
 - Fix `featuretype_change_btn` to handle empty values for fluid, location, category and function type.
