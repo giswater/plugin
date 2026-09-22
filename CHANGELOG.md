@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix `featuretype_change_btn` to handle empty values for fluid, location, category and function type.
 - Network update (`update_step`) reloads `base/fct` and `base/ftrg` before applying version patches, so new trigger functions such as `gw_trg_set_updated` exist. Workaround until function bodies ship inside patches.
 - Network update no longer crashes on `am`/`cm`/`audit` lockstep bumps: those manifests declare `update_step` and `version_bump`, and QGIS uses the same profile fallback as the CLI.
+- Fix curve plot area calculation for NumPy 2.4+ (`np.trapezoid`, with `np.trapz` fallback for 1.x).
 
 ## [4.17.0] - 2026-09-17
 
