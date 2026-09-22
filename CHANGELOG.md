@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Restore `comboIds`/`comboNames` on info forms for qwc2 (`device` 5) in `gw_fct_getformfields` and `gw_fct_getchilds`. Desktop (`device` 4) still loads combos from `queryText`.
 - Fix `featuretype_change_btn` to handle empty values for fluid, location, category and function type.
 - Network update (`update_step`) reloads `base/fct` and `base/ftrg` before applying version patches, so new trigger functions such as `gw_trg_set_updated` exist. Workaround until function bodies ship inside patches.
 - Network update no longer crashes on `am`/`cm`/`audit` lockstep bumps: those manifests declare `update_step` and `version_bump`, and QGIS uses the same profile fallback as the CLI.
