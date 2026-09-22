@@ -355,7 +355,7 @@ BEGIN
 		END IF;
 
 		IF NEW.sys_code IS NOT NULL AND v_sys_code_autofill NOT IN ('false', 'none') THEN
-			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4678", "function":"1202", "is_process":true}}$$);';
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4678", "function":"1202"}}$$);';
 		END IF;
 
 		--Sys_code (uuid | code | none)
