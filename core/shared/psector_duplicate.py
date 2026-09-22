@@ -8,11 +8,10 @@ or (at your option) any later version.
 from functools import partial
 
 from qgis.PyQt.QtCore import pyqtSignal, QObject
-from qgis.core import Qgis
 
 from ..ui.ui_manager import GwPsectorDuplicateUi
 from ..utils import tools_gw
-from ...libs import tools_qt, tools_db, tools_qgis
+from ...libs import tools_qt, tools_db
 
 
 class GwPsectorDuplicate(QObject):
