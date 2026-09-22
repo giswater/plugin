@@ -1508,12 +1508,15 @@ class GwAsyncComboBox(QComboBox):
             self._apply_pending_selection()
             # Plain QComboBox selects index 0 after addItem(); model reset leaves
             # currentIndex at -1 unless we restore it explicitly.
+            # Skip id -1 (sector/dma/presszone/dqa "Conflict"). That row sorts
+            # first and an implicit selection is stored as-is, so the feature
+            # never matches selector_* and disappears from ve_*.
             if (
                 self.currentIndex() < 0
                 and self.count() > 0
                 and self._pending_selected_id is None
             ):
-                self.setCurrentIndex(0)
+                self.setCurrentIndex(self._default_index())
         finally:
             self.blockSignals(False)
 
@@ -1567,6 +1570,18 @@ class GwAsyncComboBox(QComboBox):
                 pass
             return
         self.apply_rows(rows)
+
+    def _default_index(self) -> int:
+        """First row that is not the Conflict id -1. -1 if every row is."""
+        rows = self._list_model.get_rows()
+        for i, item in enumerate(rows):
+            try:
+                row_id = item[0]
+            except (IndexError, TypeError):
+                continue
+            if str(row_id) != '-1':
+                return i
+        return -1
 
     def _apply_pending_selection(self) -> None:
         if self._pending_selected_id is None:
