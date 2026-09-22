@@ -485,7 +485,7 @@ BEGIN
 	FROM temp_om_scada_vertice v1, temp_om_scada_vertice v2
 	WHERE v1.node_id = g.node_1
 	AND v2.node_id = g.node_2
-	WHERE g.active = TRUE
+	AND g.active = TRUE
 	AND g.error_message IS NULL
 	AND v2.level_id > v1.level_id + 1;
 
