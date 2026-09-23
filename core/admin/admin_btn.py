@@ -2630,8 +2630,14 @@ class GwAdminButton:
             'locale': str(getattr(self, 'locale', None) or 'en_US'),
         }
         self.task_rename_schema = GwRenameSchemaTask(self, description, params, timer=self.timer)
-        if on_finished is not None:
+        # btn_accept.clicked emits a bool; only wire a real callback.
+        if callable(on_finished):
             self.task_rename_schema.task_finished.connect(on_finished)
+        # Release the schema from the shared session so ALTER SCHEMA on the
+        # worker connection is not blocked by "being accessed by other users".
+        if tools_db.dao is not None:
+            tools_db.dao.rollback()
+            tools_db.execute_sql("SET search_path TO public", commit=True)
         QgsApplication.taskManager().addTask(self.task_rename_schema)
         QgsApplication.taskManager().triggerTask(self.task_rename_schema)
 
