@@ -38,7 +38,7 @@ ALTER TABLE cat_feature DISABLE TRIGGER gw_trg_cat_feature_after;
 INSERT INTO cat_material (id, descript) VALUES
 ('DI', 'Ductile iron'),
 ('GCI', 'Grey cast iron'),
-('PE', 'Polietilen'),
+('PE', 'Polyethylene'),
 ('PVC', 'PVC'),
 ('AC', 'Asbestos cement'),
 ('UNK', 'Unknown'),
