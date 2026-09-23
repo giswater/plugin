@@ -57,7 +57,9 @@ BEGIN
 		) INTO v_max;
 	END IF;
 
-return v_max;
+	-- setval() rejects 0: urn_id_seq starts at 1. Empty projects only have
+	-- mapzone rows with id 0, so GREATEST of those maxes is 0.
+	RETURN GREATEST(COALESCE(v_max, 1), 1);
 END;
 
 $BODY$
