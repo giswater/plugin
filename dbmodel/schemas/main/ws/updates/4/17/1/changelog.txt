@@ -1,0 +1,1 @@
+- Rename toolbox function 2768 to `Mapzones analysis` on en_US projects.
