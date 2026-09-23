@@ -1905,7 +1905,7 @@ BEGIN
 
 		IF v_project_type = 'WS' THEN
 			EXECUTE format($sql$
-				INSERT INTO temp_audit_check_data (fid, criticity, error_message)
+				INSERT INTO t_audit_check_data (fid, criticity, error_message)
 				SELECT %L, 0, concat(m.name,' with ', a.arcs,' Arcs, ', n.nodes,' Nodes and ', c.connecs,' Connecs')
 				FROM temp_pgr_mapzone m
 				LEFT JOIN LATERAL (
@@ -1927,7 +1927,7 @@ BEGIN
 			$sql$, v_fid);
 		ELSE
 			EXECUTE format($sql$
-				INSERT INTO temp_audit_check_data (fid, criticity, error_message)
+				INSERT INTO t_audit_check_data (fid, criticity, error_message)
 				SELECT %L, 0, concat(m.name,' with ',a.arcs,' Arcs, ',n.nodes,' Nodes, ',c.connecs,' Connecs and ',g.gully,' Gully')
 				FROM temp_pgr_mapzone m
 				LEFT JOIN LATERAL (
@@ -3391,7 +3391,8 @@ BEGIN
 	INSERT INTO temp_audit_check_data (fid,  criticity, error_message)
 	SELECT v_fid, criticity, error_message
 	FROM t_audit_check_data
-	where fid = v_fid or fid = v_checks_fid;
+	where fid = v_fid or fid = v_checks_fid
+	ORDER BY id;
 
 	-- insert spacer lines from sys_label separator
 	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"function":"3508","parameters":null, "tempTable":"", "criticity":"3", "fid": '||v_fid||', "separator_id":"2000"}}$$);';
