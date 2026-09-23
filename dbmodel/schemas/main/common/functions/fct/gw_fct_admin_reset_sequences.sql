@@ -32,7 +32,7 @@ BEGIN
     SELECT project_type, giswater INTO v_project_type, v_version FROM sys_version order by id desc limit 1;
 
     FOR rec IN (SELECT DISTINCT table_name ,column_name FROM INFORMATION_SCHEMA.key_column_usage
-        WHERE TABLE_SCHEMA IN ('SCHEMA_NAME') AND (table_name ilike 'anl%' OR table_name ilike 'audit%' OR table_name ilike 'temp_%') and table_name not ilike 'temp_link%'
+        WHERE table_name IN (SELECT id FROM sys_table) AND TABLE_SCHEMA IN ('SCHEMA_NAME') AND (table_name ilike 'anl%' OR table_name ilike 'audit%' OR table_name ilike 'temp_%') and table_name not ilike 'temp_link%'
         and constraint_name  ilike '%pkey' order by 1) LOOP 
 
         select pg_get_serial_sequence(rec.table_name, rec.column_name) INTO v_sequence;
