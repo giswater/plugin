@@ -6,7 +6,6 @@ or (at your option) any later version.
 """
 # -*- coding: utf-8 -*-
 import json
-import os
 import re
 
 from qgis.PyQt.QtCore import Qt, pyqtSignal
@@ -73,6 +72,7 @@ class GwRenameSchemaTask(GwTask):
         super().finished(result)
 
         try:
+            self._restore_main_search_path()
             if self.status:
                 self._refresh_after_rename()
         except Exception as exc:
@@ -83,13 +83,23 @@ class GwRenameSchemaTask(GwTask):
             self._restore_rename_dialog()
             if self.status:
                 self._close_rename_dialog()
+                self._show_rename_success()
             elif not self.isCanceled():
-                msg = "Rename schema failed"
-                tools_qgis.show_warning(msg)
+                self._show_rename_failed()
             if self.timer:
                 self.timer.stop()
             self.admin.error_count = 0
             self.setProgress(100)
+            # After renaming, select the new schema in the combo box of admin_btn, if available.
+            # This assumes admin_btn has dlg_readsql and a project_schema_name combo.
+            try:
+                tools_qt.set_combo_value(self.admin.dlg_readsql.project_schema_name, self.new_schema_name, 0, add_new=False)
+            except Exception as exc:
+                # Log but do not block rename completion
+                msg = "Could not set schema combo after rename: {0}"
+                msg_params = (exc,)
+                tools_log.log_warning(msg, msg_params=msg_params)
+ 
             self.task_finished.emit()
 
     def _rename_on_aux_conn(self, schema, new_schema_name):
@@ -104,17 +114,20 @@ class GwRenameSchemaTask(GwTask):
             return False
 
         conn = self.aux_conn
+        # get_aux_conn() inherits the shared search_path. ALTER SCHEMA fails
+        # while this session (or the QGIS dao) still has the schema there.
+        if not self._exec(conn, "SET search_path TO public"):
+            return False
         if not self._exec(conn, "SET ROLE role_system"):
             return False
         if not self._exec(conn, f'ALTER SCHEMA {schema} RENAME TO {new_schema_name}'):
             return False
         if self.isCanceled():
             return False
-        # Function bodies keep SET search_path = "<old name>". Recreate them in
-        # this transaction (base/fct, not the legacy common/fct tree) before
-        # fixviews and lastprocess. Do not call _reload_fct_ftrg: it commits
-        # the shared connection and opens a dialog from this worker.
-        if self._is_network_schema() and not self._reload_base_functions(conn, new_schema_name):
+        # Function bodies keep the old schema name: quoted identifiers,
+        # string literals, and unquoted names inside EXECUTE
+        # 'SET search_path = oldname, public'. Rewrite them in place.
+        if not self._rewrite_function_schema_names(conn, schema, new_schema_name):
             return False
         if self.isCanceled():
             return False
@@ -134,40 +147,53 @@ class GwRenameSchemaTask(GwTask):
         return str(self.params.get('project_type') or '').lower() in ('ws', 'ud')
 
     def _exec(self, conn, sql):
-        return tools_db.execute_sql(
+        ok = tools_db.execute_sql(
             sql, commit=False, is_thread=True, show_exception=False, aux_conn=conn,
         )
+        if ok:
+            return True
+        err = lib_vars.session_vars.get('last_error')
+        self.db_exception = (err, sql, None)
+        msg = "Rename schema SQL failed"
+        tools_log.log_warning(msg, parameter=str(err))
+        return False
 
-    def _reload_base_functions(self, conn, new_schema_name):
-        sql_dir = getattr(self.admin, 'sql_dir', '') or ''
-        project_type = str(self.params.get('project_type') or '').lower()
-        epsg = str(self.params.get('project_epsg') or '25831')
-        folders = [
-            os.path.join(sql_dir, 'schemas', 'main', 'common', 'base', 'fct'),
-            os.path.join(sql_dir, 'schemas', 'main', 'common', 'base', 'ftrg'),
-            os.path.join(sql_dir, 'schemas', 'main', project_type, 'base', 'fct'),
-            os.path.join(sql_dir, 'schemas', 'main', project_type, 'base', 'ftrg'),
-        ]
-        for folder in folders:
-            if not os.path.isdir(folder):
-                msg = "Rename schema folder not found"
-                tools_log.log_warning(msg, parameter=folder)
-                return False
-            for name in sorted(os.listdir(folder)):
-                if not name.endswith('.sql') or name.startswith('.'):
-                    continue
-                path = os.path.join(folder, name)
-                with open(path, 'r', encoding='utf8') as handle:
-                    sql = handle.read().replace('SCHEMA_NAME', new_schema_name).replace('SRID_VALUE', epsg)
-                if not self._exec(conn, sql):
-                    self.db_exception = (lib_vars.session_vars.get('last_error'), sql, path)
-                    msg = "Rename schema failed reloading {0}"
-                    msg_params = (path,)
-                    tools_log.log_warning(msg, msg_params=msg_params)
-                    return False
-                if self.isCanceled():
-                    return False
-        return True
+    def _rewrite_function_schema_names(self, conn, schema, new_schema_name):
+        """Replace the old schema name inside function sources after ALTER SCHEMA.
+
+        Covers "name", 'name', name.qual, and the unquoted name in
+        EXECUTE 'SET search_path = name, public'.
+        """
+        sql = f"""
+        DO $rename$
+        DECLARE
+        rec record;
+        src text;
+        funcdef text;
+        BEGIN
+        FOR rec IN
+            SELECT p.oid
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = '{new_schema_name}'
+            AND p.prokind IN ('f', 'p')
+        LOOP
+            src := pg_get_functiondef(rec.oid);
+            funcdef := regexp_replace(
+            src,
+            '(?<![[:alnum:]_]){schema}(?![[:alnum:]_])',
+            '{new_schema_name}',
+            'g'
+            );
+            IF funcdef = src THEN
+            CONTINUE;
+            END IF;
+            EXECUTE funcdef;
+        END LOOP;
+        END
+        $rename$;
+        """
+        return self._exec(conn, sql)
 
     def _fixviews_sql(self, schema, new_schema_name):
         payload = json.dumps({
@@ -198,6 +224,46 @@ class GwRenameSchemaTask(GwTask):
         if self.aux_conn is None or tools_db.dao is None:
             return
         tools_db.dao.rollback(aux_conn=self.aux_conn)
+
+    def _show_rename_success(self):
+        msg = "Process finished successfully"
+        tools_qgis.show_info(msg, parameter="Rename schema")
+
+    def _show_rename_failed(self):
+        err = None
+        if self.db_exception and self.db_exception[0]:
+            err = self.db_exception[0]
+        elif self.exception:
+            err = self.exception
+        if err:
+            err_text = str(err)
+            if 'being accessed' in err_text.lower():
+                msg = (
+                    "Rename schema failed: another session is using this schema. "
+                    "Close the QGIS project (and any other clients) and try again. {0}"
+                )
+            else:
+                msg = "Rename schema failed: {0}"
+            msg_params = (err,)
+            tools_qgis.show_warning(msg, msg_params=msg_params)
+            return
+        msg = "Rename schema failed"
+        tools_qgis.show_warning(msg)
+
+    def _restore_main_search_path(self):
+        """finished() runs on the main thread; restore or retarget the shared session."""
+        if tools_db.dao is None:
+            return
+        previous = getattr(tools_db.dao, 'set_search_path', None)
+        old = str(self.params.get('schema') or '')
+        if self.status and previous and old and old in previous:
+            tools_db.set_search_path(str(self.new_schema_name))
+            return
+        if self.status and not previous:
+            tools_db.set_search_path(str(self.new_schema_name))
+            return
+        if previous:
+            tools_db.execute_sql(previous, commit=True)
 
     def _refresh_after_rename(self):
         self.admin._refresh_admin_catalog_cache()
