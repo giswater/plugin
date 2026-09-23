@@ -20,7 +20,7 @@ UPDATE config_toolbox AS t SET alias = v.alias, observ = v.observ FROM (
     (2670, 'Check data for o&m process', NULL),
     (2706, 'Minsector analysis', NULL),
     (2760, 'Get values from raster DEM', NULL),
-    (2768, 'Análisis de Mapzones', NULL),
+    (2768, 'Mapzones analysis', NULL),
     (2772, 'Flow trace analytics', NULL),
     (2776, 'Check backend configuration', NULL),
     (2790, 'Check data for graphanalytics process', NULL),
