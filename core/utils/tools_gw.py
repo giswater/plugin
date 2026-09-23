@@ -693,8 +693,22 @@ def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, title_params=
     if title is not None:
         dlg.setWindowTitle(tools_qt.tr(title, list_params=title_params))
 
-    # Manage stay on top, maximize/minimize button and information button
-    flags = Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinMaxButtonsHint | Qt.WindowType.Window
+    # Manage stay on top, maximize/minimize button and information button.
+    # QXcbWindow::isTransient() sets WM_TRANSIENT_FOR only for Dialog/Tool/Sheet/Popup.
+    # Qt.Window deletes that property, so xfwm stacks the dialog as a normal window and
+    # raises QGIS over it when the canvas is clicked. Other WMs don't restack siblings.
+    app = QApplication.instance()
+    if app is not None and app.platformName() == "xcb":
+        window_type = Qt.WindowType.Dialog
+    else:
+        window_type = Qt.WindowType.Window
+    flags = (
+        window_type
+        | Qt.WindowType.WindowTitleHint
+        | Qt.WindowType.WindowSystemMenuHint
+        | Qt.WindowType.WindowCloseButtonHint
+        | Qt.WindowType.WindowMinMaxButtonsHint
+    )
 
     if stay_on_top:
         flags |= Qt.WindowType.WindowStaysOnTopHint
@@ -9749,7 +9763,6 @@ def _show_context_menu(table, container, pos=None):
 
 class CustomQComboBox(GwAsyncComboBox):
     """Backward-compatible alias for ``GwAsyncComboBox``."""
-    pass
 
 
 class CustomQgsDateTimeEdit(QgsDateTimeEdit):
