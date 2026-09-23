@@ -1,1 +1,2 @@
 - Sort the node type combo of toolbox 2118 (build nodes from arc start/end vertices) alphabetically.
+- Allow a null owner on element insert when cat_owner is empty: blank ownercat_id is stored as NULL, and exploitation.owner_vdefault is copied only if that id exists in cat_owner. Element owner combos allow a null value.

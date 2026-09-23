@@ -18,3 +18,8 @@ SET inputparams = replace(
 WHERE id = 2118
   AND inputparams::text ILIKE '%where cfn.id is not null%'
   AND inputparams::text NOT ILIKE '%order by cfn.id%';
+
+UPDATE config_form_fields
+SET dv_isnullvalue = true
+WHERE columnname = 'ownercat_id'
+  AND formname ILIKE 've_element%';
