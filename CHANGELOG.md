@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.1] - 2026-09-24
+
 ### Fixed
 
 - Fill the element catalog combo for types whose id contains an underscore (`EHYDRANT_PLATE`, `EPROTECT_BAND`, `EIOT_SENSOR`). The form query was truncated at the first underscore, so the dropdown was empty.
@@ -663,7 +665,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.17.0...main
+[unreleased]: https://github.com/giswater/plugin/compare/v4.17.1...release/4.17
+[4.17.1]: https://github.com/giswater/plugin/compare/v4.17.0...v4.17.1
 [4.17.0]: https://github.com/giswater/plugin/compare/v4.16.1...v4.17.0
 [4.16.1]: https://github.com/giswater/plugin/compare/v4.16.0...v4.16.1
 [4.16.0]: https://github.com/giswater/plugin/compare/v4.15.4...v4.16.0
