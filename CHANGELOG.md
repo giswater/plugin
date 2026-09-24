@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fill the element catalog combo for types whose id contains an underscore (`EHYDRANT_PLATE`, `EPROTECT_BAND`, `EIOT_SENSOR`). The form query was truncated at the first underscore, so the dropdown was empty.
 - Place `dataquality` and `dataquality_obs` on GENELEM element forms when `layoutorder` was null, so the info dialog no longer warns that the widgets are not configured.
 - Link a new element created from a feature's Elements tab into `element_x_*` on save. The Insert click had no parent form left, so the relation was never written.
 - Fix schema rename crashing after the name change (`cmb_project_type`) and leaving the database connection in an aborted transaction. Create-on-existing-name waits for that rename before running `init.sql`.

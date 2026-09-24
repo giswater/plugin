@@ -1,1 +1,2 @@
 - Rename toolbox function 2768 alias to `Mapzones analysis`.
+- Fill the element catalog combo for `EHYDRANT_PLATE` and `EPROTECT_BAND`. The form query was truncated at the first underscore.

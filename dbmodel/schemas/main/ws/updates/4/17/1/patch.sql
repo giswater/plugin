@@ -39,3 +39,13 @@ INSERT INTO sys_table (id, descript, sys_role, "source") VALUES
 ('ve_visit_connec_incident', 'View for connec incidents (events/visits).', 'role_basic', 'core'),
 ('ve_visit_link_incident', 'View for link incidents (events/visits).', 'role_basic', 'core')
 ON CONFLICT (id) DO NOTHING;
+
+-- Element catalog combos whose feature id contains an underscore were truncated
+-- by split_part(formname, '_', 3) (EHYDRANT, EPROTECT).
+UPDATE config_form_fields
+	SET dv_querytext='SELECT id, id as idval FROM cat_element WHERE active IS true AND element_type = ''EHYDRANT_PLATE'''
+	WHERE formname='ve_element_ehydrant_plate' AND formtype='form_feature' AND columnname='elementcat_id' AND tabname='tab_data';
+
+UPDATE config_form_fields
+	SET dv_querytext='SELECT id, id as idval FROM cat_element WHERE active IS true AND element_type = ''EPROTECT_BAND'''
+	WHERE formname='ve_element_eprotect_band' AND formtype='form_feature' AND columnname='elementcat_id' AND tabname='tab_data';
