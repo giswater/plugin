@@ -1983,4 +1983,174 @@ INSERT INTO am.config_engine_def (
     ('compliance_2', '0.25', 'WM', NULL, NULL, true, 'lyt_engine_2', 8, 'Compliance', 'float', 'text', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'NODE', 'UD')
 ON CONFLICT (parameter, method, asset_type, project_type) DO NOTHING;
 
+-- Stage 4: EN 13508-2 pathologies → cond/om + intervention cost
+CREATE OR REPLACE FUNCTION am.gw_fct_am_ud_extent_m(p_pk_start numeric, p_pk_end numeric, p_pk numeric)
+RETURNS numeric LANGUAGE sql IMMUTABLE AS $function$
+	SELECT CASE
+		WHEN p_pk_start IS NOT NULL AND p_pk_end IS NOT NULL THEN GREATEST(p_pk_end - p_pk_start, 0)
+		ELSE 0
+	END;
+$function$;
+
+CREATE OR REPLACE FUNCTION am.gw_fct_am_ud_extent_factor(p_extent_m numeric, p_arc_length numeric)
+RETURNS numeric LANGUAGE sql IMMUTABLE AS $function$
+	SELECT CASE
+		WHEN p_arc_length IS NULL OR p_arc_length <= 0 OR COALESCE(p_extent_m, 0) <= 0 THEN 1.0
+		WHEN (p_extent_m / p_arc_length) < 0.10 THEN 1.0
+		WHEN (p_extent_m / p_arc_length) <= 0.50 THEN 1.1
+		ELSE 1.2
+	END;
+$function$;
+
+CREATE OR REPLACE FUNCTION am.gw_fct_am_ud_observation_score(p_severity integer, p_extent_m numeric, p_arc_length numeric)
+RETURNS numeric LANGUAGE sql IMMUTABLE AS $function$
+	SELECT LEAST(5::numeric, COALESCE(p_severity, 1)::numeric * am.gw_fct_am_ud_extent_factor(p_extent_m, p_arc_length));
+$function$;
+
+CREATE OR REPLACE FUNCTION am.gw_fct_am_ud_intervention(p_severity integer, p_s1 varchar, p_s2 varchar, p_s3 varchar, p_s4 varchar, p_s5 varchar)
+RETURNS varchar LANGUAGE sql IMMUTABLE AS $function$
+	SELECT CASE COALESCE(p_severity, 1)
+		WHEN 1 THEN p_s1 WHEN 2 THEN p_s2 WHEN 3 THEN p_s3 WHEN 4 THEN p_s4 ELSE p_s5
+	END;
+$function$;
+
+CREATE OR REPLACE FUNCTION am.gw_fct_am_ud_defect_cost(
+	p_intervention varchar, p_extent_m numeric, p_cost_repmain numeric, p_cost_rehab numeric, p_cost_constr numeric
+)
+RETURNS numeric LANGUAGE sql IMMUTABLE AS $function$
+	SELECT CASE COALESCE(p_intervention, '')
+		WHEN 'MAINTENANCE' THEN 0::numeric
+		WHEN 'SPOT_REPAIR' THEN COALESCE(p_cost_repmain, 0) * GREATEST(COALESCE(p_extent_m, 0), 1)
+		WHEN 'REHABILITATION' THEN COALESCE(p_cost_rehab, p_cost_repmain, 0) * GREATEST(COALESCE(p_extent_m, 0), 1)
+		WHEN 'FULL_REPLACEMENT' THEN COALESCE(p_cost_constr, 0) * GREATEST(COALESCE(p_extent_m, 0), 1)
+		ELSE 0::numeric
+	END;
+$function$;
+
+ALTER TABLE am.config_catalog_def ADD COLUMN IF NOT EXISTS cost_rehab numeric(12,2);
+ALTER TABLE am.config_catalog ADD COLUMN IF NOT EXISTS cost_rehab numeric(12,2);
+ALTER TABLE am.config_nodecatalog_def ADD COLUMN IF NOT EXISTS cost_rehab numeric(12,2);
+ALTER TABLE am.config_nodecatalog ADD COLUMN IF NOT EXISTS cost_rehab numeric(12,2);
+ALTER TABLE am.ud_arc_input ADD COLUMN IF NOT EXISTS inspection_id bigint;
+ALTER TABLE am.ud_arc_input ADD COLUMN IF NOT EXISTS inspection_date date;
+
+INSERT INTO am.config_form_tableview VALUES ('priority_config', 'utils', 'config_catalog_def', 'cost_rehab', 2, true, NULL, 'Rehabilitation', '{"stretch": true}')
+ON CONFLICT (objectname, columnname) DO UPDATE SET alias = EXCLUDED.alias, visible = EXCLUDED.visible;
+INSERT INTO am.config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'cost_rehab', 2, true, NULL, 'Rehabilitation', '{"stretch": true}')
+ON CONFLICT (objectname, columnname) DO UPDATE SET alias = EXCLUDED.alias, visible = EXCLUDED.visible;
+
+CREATE TABLE IF NOT EXISTS am.ud_cat_pathology (
+    pathology_id serial PRIMARY KEY,
+    code varchar(20) UNIQUE NOT NULL,
+    name varchar(100) NOT NULL,
+    name_es varchar(100),
+    pathology_group varchar(2) NOT NULL,
+    intervention_s1 varchar(30) NOT NULL,
+    intervention_s2 varchar(30) NOT NULL,
+    intervention_s3 varchar(30) NOT NULL,
+    intervention_s4 varchar(30) NOT NULL,
+    intervention_s5 varchar(30) NOT NULL,
+    active boolean DEFAULT true,
+    CONSTRAINT ud_cat_pathology_group_check CHECK (pathology_group IN ('BA', 'BB'))
+);
+
+CREATE TABLE IF NOT EXISTS am.ud_arc_pathology (
+    rid bigserial PRIMARY KEY,
+    arc_id int4 NOT NULL,
+    pathology_id integer NOT NULL REFERENCES am.ud_cat_pathology (pathology_id),
+    inspection_id bigint,
+    pk_start numeric(10,2),
+    pk_end numeric(10,2),
+    pk numeric(10,2),
+    clock_start numeric(4,1),
+    clock_end numeric(4,1),
+    quantification_value numeric(12,3),
+    quantification_unit varchar(20),
+    severity integer NOT NULL CHECK (severity BETWEEN 1 AND 5),
+    observation text,
+    inspection_date date,
+    active boolean DEFAULT true
+);
+
+CREATE INDEX IF NOT EXISTS idx_ud_cat_pathology_group ON am.ud_cat_pathology (pathology_group);
+CREATE INDEX IF NOT EXISTS idx_ud_arc_pathology_arc ON am.ud_arc_pathology (arc_id);
+
+INSERT INTO am.ud_cat_pathology (
+    code, name, name_es, pathology_group,
+    intervention_s1, intervention_s2, intervention_s3, intervention_s4, intervention_s5, active
+) VALUES
+    ('BAA', 'Deformation', 'Deformación', 'BA', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', true),
+    ('BAB', 'Fissure / Crack', 'Fisura / Grieta', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAC', 'Break / Collapse', 'Rotura / Colapso', 'BA', 'SPOT_REPAIR', 'REHABILITATION', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', true),
+    ('BAD', 'Defective Masonry', 'Fábrica defectuosa', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAE', 'Defective Mortar', 'Mortero defectuoso', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAF', 'Surface Damage', 'Daño superficial', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAG', 'Intrusion / Protruding Connection', 'Intrusión / Acometida saliente', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAH', 'Lining Defect', 'Defecto de revestimiento', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAI', 'Repair Defect', 'Defecto de reparación', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', true),
+    ('BAJ', 'Weld Failure', 'Fallo de soldadura', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAK', 'Porous Pipe', 'Tubería porosa', 'BA', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAL', 'Soil Visible', 'Terreno visible', 'BA', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', true),
+    ('BAM', 'Void Visible', 'Hueco visible', 'BA', 'REHABILITATION', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', true),
+    ('BBA', 'Roots', 'Raíces', 'BB', 'MAINTENANCE', 'MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', true),
+    ('BBB', 'Attached Deposits', 'Depósitos adheridos', 'BB', 'MAINTENANCE', 'MAINTENANCE', 'MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', true),
+    ('BBC', 'Settled Deposits', 'Sedimentos', 'BB', 'MAINTENANCE', 'MAINTENANCE', 'MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', true),
+    ('BBD', 'Ingress / Infiltration', 'Infiltración', 'BB', 'MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BBE', 'Obstacle / Obstruction', 'Obstáculo', 'BB', 'MAINTENANCE', 'MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BBF', 'Vermin', 'Fauna', 'BB', 'MAINTENANCE', 'MAINTENANCE', 'MAINTENANCE', 'MAINTENANCE', 'MAINTENANCE', true)
+ON CONFLICT (code) DO UPDATE SET
+    name = EXCLUDED.name, name_es = EXCLUDED.name_es, pathology_group = EXCLUDED.pathology_group,
+    intervention_s1 = EXCLUDED.intervention_s1, intervention_s2 = EXCLUDED.intervention_s2,
+    intervention_s3 = EXCLUDED.intervention_s3, intervention_s4 = EXCLUDED.intervention_s4,
+    intervention_s5 = EXCLUDED.intervention_s5, active = EXCLUDED.active;
+
+GRANT ALL ON TABLE am.ud_cat_pathology TO role_basic;
+GRANT ALL ON TABLE am.ud_arc_pathology TO role_basic;
+
+-- Recreate UD overlay/pathology views when already integrated with a UD parent
+DO $$
+DECLARE
+	v_parent text;
+BEGIN
+	SELECT NULLIF(btrim(addparam->>'parentSchema'), '') INTO v_parent
+	FROM am.sys_version ORDER BY id DESC LIMIT 1;
+	IF v_parent IS NULL OR to_regclass(format('%I.drainzone', v_parent)) IS NULL THEN
+		RETURN;
+	END IF;
+
+	EXECUTE format($sql$
+		CREATE OR REPLACE VIEW am.v_ud_arc_pathology AS
+		SELECT p.rid, p.arc_id, p.pathology_id, c.code, c.name, c.name_es, c.pathology_group,
+			p.severity, p.pk_start, p.pk_end, p.pk, p.clock_start, p.clock_end,
+			p.inspection_id, p.inspection_date, p.observation, p.active,
+			am.gw_fct_am_ud_extent_m(p.pk_start, p.pk_end, p.pk) AS extent_m,
+			ST_Length(a.the_geom)::numeric AS arc_length,
+			am.gw_fct_am_ud_intervention(p.severity, c.intervention_s1, c.intervention_s2, c.intervention_s3, c.intervention_s4, c.intervention_s5) AS intervention,
+			CASE WHEN am.gw_fct_am_ud_intervention(p.severity, c.intervention_s1, c.intervention_s2, c.intervention_s3, c.intervention_s4, c.intervention_s5) = 'MAINTENANCE' THEN NULL
+			ELSE am.gw_fct_am_ud_observation_score(p.severity, am.gw_fct_am_ud_extent_m(p.pk_start, p.pk_end, p.pk), ST_Length(a.the_geom)::numeric) END AS aware_score,
+			am.gw_fct_am_ud_defect_cost(
+				am.gw_fct_am_ud_intervention(p.severity, c.intervention_s1, c.intervention_s2, c.intervention_s3, c.intervention_s4, c.intervention_s5),
+				am.gw_fct_am_ud_extent_m(p.pk_start, p.pk_end, p.pk), cat.cost_repmain, cat.cost_rehab, cat.cost_constr
+			) AS calculated_cost
+		FROM am.ud_arc_pathology p
+		JOIN am.ud_cat_pathology c ON c.pathology_id = p.pathology_id
+		JOIN %1$I.arc a ON a.arc_id = p.arc_id
+		LEFT JOIN am.config_catalog_def cat ON cat.arccat_id = a.arccat_id
+		WHERE COALESCE(p.active, true) IS TRUE AND COALESCE(c.active, true) IS TRUE
+	$sql$, v_parent);
+
+	CREATE OR REPLACE VIEW am.v_ud_inspection_score AS
+	SELECT 'ARC'::text AS asset_type, v.arc_id::text AS asset_id,
+		COALESCE(max(v.aware_score) FILTER (WHERE v.pathology_group = 'BA'), 1)::numeric AS max_structural_score,
+		COALESCE(max(v.aware_score) FILTER (WHERE v.pathology_group = 'BB'), 1)::numeric AS max_operational_score,
+		count(*)::integer AS observation_count,
+		count(*) FILTER (WHERE v.severity >= 4)::integer AS severe_observation_count,
+		COALESCE(sum(v.calculated_cost), 0)::numeric AS total_cost
+	FROM am.v_ud_arc_pathology v
+	GROUP BY v.arc_id;
+
+	GRANT ALL ON TABLE am.v_ud_arc_pathology TO role_basic;
+	GRANT ALL ON TABLE am.v_ud_inspection_score TO role_basic;
+END $$;
+
 

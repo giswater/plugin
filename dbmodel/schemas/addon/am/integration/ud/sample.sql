@@ -13,20 +13,22 @@ FROM PARENT_SCHEMA.cat_material
 WHERE active = true
 ON CONFLICT (material) DO NOTHING;
 
-INSERT INTO config_catalog_def (arccat_id, dnom, cost_constr, cost_repmain, compliance)
+INSERT INTO config_catalog_def (arccat_id, dnom, cost_constr, cost_repmain, cost_rehab, compliance)
 SELECT id AS arccat_id,
 	geom1 AS dnom,
 	100 AS cost_constr,
 	0 AS cost_repmain,
+	40 AS cost_rehab,
 	10 AS compliance
 FROM PARENT_SCHEMA.cat_arc
 ON CONFLICT (arccat_id) DO NOTHING;
 
-INSERT INTO config_nodecatalog_def (nodecat_id, dnom, cost_constr, cost_repmain, compliance)
+INSERT INTO config_nodecatalog_def (nodecat_id, dnom, cost_constr, cost_repmain, cost_rehab, compliance)
 SELECT id AS nodecat_id,
 	geom1 AS dnom,
 	100 AS cost_constr,
 	0 AS cost_repmain,
+	40 AS cost_rehab,
 	10 AS compliance
 FROM PARENT_SCHEMA.cat_node
 WHERE active IS DISTINCT FROM FALSE

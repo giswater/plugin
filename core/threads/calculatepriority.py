@@ -1173,7 +1173,8 @@ class GwCalculatePriority(GwTask):
                 coalesce(i.dwf_raw, a.dwf_raw_src, 0) AS dwf_raw,
                 coalesce(i.storm_raw, a.storm_raw_src, 0) AS storm_raw,
                 i.compliance,
-                coalesce(i.estimated_cost, a.estimated_cost, 0) AS estimated_cost
+                coalesce(i.estimated_cost, a.estimated_cost, 0) AS estimated_cost,
+                coalesce(a.observation_count, 0) AS observation_count
             from am.{names['ext']} a
             left join am.{names['input']} i using ({id_col})
             {filters}
@@ -1228,7 +1229,10 @@ class GwCalculatePriority(GwTask):
                     feat["age"] = today_year - int(default_year)
             catalog_cost = self.config_catalog.get_cost_constr(catalog_id)
             length = float(feat.get("length") or 0)
-            if catalog_cost is not None:
+            pathology_cost = feat.get("estimated_cost")
+            if is_arc and int(feat.get("observation_count") or 0) > 0:
+                feat["estimated_cost"] = max(float(pathology_cost or 0), 0)
+            elif catalog_cost is not None:
                 feat["estimated_cost"] = max(float(catalog_cost), 0) * (length if is_arc and length else 1)
             else:
                 feat["estimated_cost"] = max(float(feat.get("estimated_cost") or 0), 0)

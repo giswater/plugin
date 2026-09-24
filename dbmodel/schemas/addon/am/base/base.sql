@@ -103,6 +103,7 @@ CREATE TABLE config_catalog_def (
     dnom numeric(12,2),
     cost_constr numeric(12,2),
     cost_repmain numeric(12,2),
+    cost_rehab numeric(12,2),
     compliance integer,
     CONSTRAINT config_catalog_def_arccat_id_or_dnom
         CHECK (arccat_id IS NOT NULL OR dnom IS NOT NULL)
@@ -113,6 +114,7 @@ CREATE TABLE config_catalog (
     dnom numeric(12,2),
     cost_constr numeric(12,2),
     cost_repmain numeric(12,2),
+    cost_rehab numeric(12,2),
     compliance integer,
     result_id integer NOT NULL,
     CONSTRAINT config_catalog_arccat_id_or_dnom
@@ -125,6 +127,7 @@ CREATE TABLE config_nodecatalog_def (
     dnom numeric(12,2),
     cost_constr numeric(12,2),
     cost_repmain numeric(12,2),
+    cost_rehab numeric(12,2),
     compliance integer,
     CONSTRAINT config_nodecatalog_def_nodecat_id UNIQUE (nodecat_id)
 );
@@ -134,6 +137,7 @@ CREATE TABLE config_nodecatalog (
     dnom numeric(12,2),
     cost_constr numeric(12,2),
     cost_repmain numeric(12,2),
+    cost_rehab numeric(12,2),
     compliance integer,
     result_id integer NOT NULL,
     CONSTRAINT config_nodecatalog_pkey PRIMARY KEY (nodecat_id, result_id)
@@ -408,6 +412,8 @@ CREATE TABLE ud_arc_input (
     data_quality integer,
     data_quality_obs varchar[],
     estimated_cost numeric(12,2),
+    inspection_id bigint,
+    inspection_date date,
     CONSTRAINT ud_arc_input_pkey PRIMARY KEY (arc_id)
 );
 
@@ -536,6 +542,86 @@ CREATE TABLE ud_node_output (
     data_quality_class varchar(20),
     CONSTRAINT ud_node_output_pkey PRIMARY KEY (node_id, result_id)
 );
+
+-- Stage 4: EN 13508-2 pathology catalog (BA structural / BB operational)
+CREATE TABLE ud_cat_pathology (
+    pathology_id serial PRIMARY KEY,
+    code varchar(20) UNIQUE NOT NULL,
+    name varchar(100) NOT NULL,
+    name_es varchar(100),
+    pathology_group varchar(2) NOT NULL,
+    intervention_s1 varchar(30) NOT NULL,
+    intervention_s2 varchar(30) NOT NULL,
+    intervention_s3 varchar(30) NOT NULL,
+    intervention_s4 varchar(30) NOT NULL,
+    intervention_s5 varchar(30) NOT NULL,
+    active boolean DEFAULT true,
+    CONSTRAINT ud_cat_pathology_group_check CHECK (pathology_group IN ('BA', 'BB')),
+    CONSTRAINT ud_cat_pathology_s1_check CHECK (intervention_s1 IN ('MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', 'FULL_REPLACEMENT')),
+    CONSTRAINT ud_cat_pathology_s2_check CHECK (intervention_s2 IN ('MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', 'FULL_REPLACEMENT')),
+    CONSTRAINT ud_cat_pathology_s3_check CHECK (intervention_s3 IN ('MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', 'FULL_REPLACEMENT')),
+    CONSTRAINT ud_cat_pathology_s4_check CHECK (intervention_s4 IN ('MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', 'FULL_REPLACEMENT')),
+    CONSTRAINT ud_cat_pathology_s5_check CHECK (intervention_s5 IN ('MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', 'FULL_REPLACEMENT'))
+);
+
+CREATE INDEX idx_ud_cat_pathology_group ON ud_cat_pathology (pathology_group);
+CREATE INDEX idx_ud_cat_pathology_active ON ud_cat_pathology (code) WHERE active IS TRUE;
+
+INSERT INTO ud_cat_pathology (
+    code, name, name_es, pathology_group,
+    intervention_s1, intervention_s2, intervention_s3, intervention_s4, intervention_s5, active
+) VALUES
+    ('BAA', 'Deformation', 'Deformación', 'BA', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', true),
+    ('BAB', 'Fissure / Crack', 'Fisura / Grieta', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAC', 'Break / Collapse', 'Rotura / Colapso', 'BA', 'SPOT_REPAIR', 'REHABILITATION', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', true),
+    ('BAD', 'Defective Masonry', 'Fábrica defectuosa', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAE', 'Defective Mortar', 'Mortero defectuoso', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAF', 'Surface Damage', 'Daño superficial', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAG', 'Intrusion / Protruding Connection', 'Intrusión / Acometida saliente', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAH', 'Lining Defect', 'Defecto de revestimiento', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAI', 'Repair Defect', 'Defecto de reparación', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', true),
+    ('BAJ', 'Weld Failure', 'Fallo de soldadura', 'BA', 'SPOT_REPAIR', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAK', 'Porous Pipe', 'Tubería porosa', 'BA', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BAL', 'Soil Visible', 'Terreno visible', 'BA', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', true),
+    ('BAM', 'Void Visible', 'Hueco visible', 'BA', 'REHABILITATION', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', 'FULL_REPLACEMENT', true),
+    ('BBA', 'Roots', 'Raíces', 'BB', 'MAINTENANCE', 'MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', true),
+    ('BBB', 'Attached Deposits', 'Depósitos adheridos', 'BB', 'MAINTENANCE', 'MAINTENANCE', 'MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', true),
+    ('BBC', 'Settled Deposits', 'Sedimentos', 'BB', 'MAINTENANCE', 'MAINTENANCE', 'MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', true),
+    ('BBD', 'Ingress / Infiltration', 'Infiltración', 'BB', 'MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BBE', 'Obstacle / Obstruction', 'Obstáculo', 'BB', 'MAINTENANCE', 'MAINTENANCE', 'SPOT_REPAIR', 'REHABILITATION', 'FULL_REPLACEMENT', true),
+    ('BBF', 'Vermin', 'Fauna', 'BB', 'MAINTENANCE', 'MAINTENANCE', 'MAINTENANCE', 'MAINTENANCE', 'MAINTENANCE', true)
+ON CONFLICT (code) DO UPDATE SET
+    name = EXCLUDED.name,
+    name_es = EXCLUDED.name_es,
+    pathology_group = EXCLUDED.pathology_group,
+    intervention_s1 = EXCLUDED.intervention_s1,
+    intervention_s2 = EXCLUDED.intervention_s2,
+    intervention_s3 = EXCLUDED.intervention_s3,
+    intervention_s4 = EXCLUDED.intervention_s4,
+    intervention_s5 = EXCLUDED.intervention_s5,
+    active = EXCLUDED.active;
+
+CREATE TABLE ud_arc_pathology (
+    rid bigserial PRIMARY KEY,
+    arc_id int4 NOT NULL,
+    pathology_id integer NOT NULL REFERENCES ud_cat_pathology (pathology_id),
+    inspection_id bigint,
+    pk_start numeric(10,2),
+    pk_end numeric(10,2),
+    pk numeric(10,2),
+    clock_start numeric(4,1),
+    clock_end numeric(4,1),
+    quantification_value numeric(12,3),
+    quantification_unit varchar(20),
+    severity integer NOT NULL CHECK (severity BETWEEN 1 AND 5),
+    observation text,
+    inspection_date date,
+    active boolean DEFAULT true
+);
+
+CREATE INDEX idx_ud_arc_pathology_arc ON ud_arc_pathology (arc_id);
+CREATE INDEX idx_ud_arc_pathology_code ON ud_arc_pathology (pathology_id);
+CREATE INDEX idx_ud_arc_pathology_active ON ud_arc_pathology (arc_id) WHERE active IS TRUE;
 
 -- Stage 3: LINK Weighted Method tables (ODT ws_link_* → live AM names)
 CREATE TABLE ws_link_input (
@@ -1192,13 +1278,15 @@ INSERT INTO config_engine_def (
 --
 
 INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_catalog_def', 'dnom', 0, true, NULL, NULL, '{"stretch": true}');
-INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_catalog_def', 'cost_constr', 1, true, NULL, NULL, '{"stretch": true}');
-INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_catalog_def', 'cost_repmain', 2, true, NULL, NULL, '{"stretch": true}');
-INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_catalog_def', 'compliance', 3, true, NULL, NULL, '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_catalog_def', 'cost_repmain', 1, true, NULL, 'Repair', '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_catalog_def', 'cost_rehab', 2, true, NULL, 'Rehabilitation', '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_catalog_def', 'cost_constr', 3, true, NULL, 'Replacement', '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_catalog_def', 'compliance', 4, true, NULL, NULL, '{"stretch": true}');
 INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'dnom', 0, true, NULL, NULL, '{"stretch": true}');
-INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'cost_constr', 1, true, NULL, NULL, '{"stretch": true}');
-INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'cost_repmain', 2, true, NULL, NULL, '{"stretch": true}');
-INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'compliance', 3, true, NULL, NULL, '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'cost_repmain', 1, true, NULL, 'Repair', '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'cost_rehab', 2, true, NULL, 'Rehabilitation', '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'cost_constr', 3, true, NULL, 'Replacement', '{"stretch": true}');
+INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_nodecatalog_def', 'compliance', 4, true, NULL, NULL, '{"stretch": true}');
 INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_linkcatalog_def', 'dnom', 0, true, NULL, NULL, '{"stretch": true}');
 INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_linkcatalog_def', 'cost_constr', 1, true, NULL, 'Fixed cost', '{"stretch": true}');
 INSERT INTO config_form_tableview VALUES ('priority_config', 'utils', 'config_linkcatalog_def', 'cost_repmain', 2, true, NULL, 'Pipe cost (€/m)', '{"stretch": true}');
@@ -1311,6 +1399,8 @@ GRANT ALL ON TABLE ud_arc_output TO role_basic;
 GRANT ALL ON TABLE ud_node_input TO role_basic;
 GRANT ALL ON TABLE ud_node_engine_wm TO role_basic;
 GRANT ALL ON TABLE ud_node_output TO role_basic;
+GRANT ALL ON TABLE ud_cat_pathology TO role_basic;
+GRANT ALL ON TABLE ud_arc_pathology TO role_basic;
 GRANT ALL ON TABLE v_asset_ud_arc_output TO role_basic;
 GRANT ALL ON TABLE v_asset_ud_arc_output_compare TO role_basic;
 GRANT ALL ON TABLE v_asset_ud_arc_corporate TO role_basic;

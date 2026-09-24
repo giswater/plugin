@@ -140,6 +140,10 @@ class GwConfigCatalogButton:
         """ Return repair maintenance cost for the catalog key """
         return self._data[key]["cost_repmain"]
 
+    def get_cost_rehab(self, key):
+        """ Return rehabilitation cost (€/m) for the catalog key. """
+        return self._data[key].get("cost_rehab")
+
     def get_default_length(self, key):
         """ODT default_length when geometry length is null."""
         return self._data[key].get("default_length")
@@ -165,8 +169,11 @@ class GwConfigCatalogButton:
             )
             return
         extra_cols = ""
+        extra_rehab = self._key in ("arccat_id", "nodecat_id")
         if self._key == "linkcat_id":
             extra_cols = ", surface_type, default_length"
+        elif extra_rehab:
+            extra_cols = ", cost_rehab"
         sql = f"""
             delete from am.{self._save_table} where result_id = {result_id};
             insert into am.{self._save_table}
@@ -186,6 +193,11 @@ class GwConfigCatalogButton:
                 dlen = value.get("default_length")
                 dlen_sql = "NULL" if dlen in (None, "", "None", "NULL") else dlen
                 extra_vals = f", {surface_sql}, {dlen_sql}"
+            elif extra_rehab:
+                rehab = value.get("cost_rehab")
+                extra_vals = (
+                    ", NULL" if rehab in (None, "", "None", "NULL") else f", {rehab}"
+                )
             sql += f"""
                 ({result_id},
                 '{value[self._key]}',

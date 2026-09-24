@@ -61,68 +61,135 @@ class GwResultSelectorButton(GwAction):
         self.dlg_result_selector = GwResultSelectorUi(self)
         if not self._fill_combos():
             return
-        self._update_descriptions()
         self._set_signals()
         tools_gw.open_dialog(self.dlg_result_selector, dlg_name="result_selector")
 
-    def _fill_combos(self):
-        """ Fill main and compare result combos from cat_result """
+    def _asset_type(self):
+        """ Currently selected asset type in the selector dialog. """
         dlg = self.dlg_result_selector
-        # idval includes asset_type so ARC/NODE are distinguishable in one combo
-        project_type = get_am_project_type()
-        results = tools_db.get_rows(
+        return tools_qt.get_combo_value(dlg, dlg.cmb_asset_type, 0) or "ARC"
+
+    def _fill_asset_type_combo(self, project_type):
+        """ Fill asset-type combo with types that have results (LINK is WS-only). """
+        dlg = self.dlg_result_selector
+        rows = tools_db.get_rows(
             f"""
-            SELECT result_id AS id,
-                   result_name || ' [' || COALESCE(asset_type, 'ARC') || ']' AS idval,
-                   descript,
-                   COALESCE(asset_type, 'ARC') AS asset_type
+            SELECT DISTINCT COALESCE(asset_type, 'ARC')
             FROM am.cat_result
             WHERE COALESCE(project_type, 'WS') = '{project_type}'
-            ORDER BY asset_type, result_name
             """
-        )
-        if not results:
-            msg = "There are no results available to display."
-            tools_qt.show_info_box(msg)
+        ) or []
+        present = {r[0] for r in rows}
+        order = ["ARC", "NODE"]
+        if project_type == "WS":
+            order.append("LINK")
+        combo_rows = []
+        for asset_type in order:
+            if asset_type not in present:
+                continue
+            if asset_type == "ARC":
+                msg = "ARC"
+            elif asset_type == "NODE":
+                msg = "NODE"
+            else:
+                msg = "LINK"
+            combo_rows.append((asset_type, tools_qt.tr(msg)))
+        if not combo_rows:
             return False
-
-        # Combo result_main — prefer showing ARC if both features are active
-        tools_qt.fill_combo_values(dlg.cmb_result_main, results, 1, sort_by=1)
-        selected_main = tools_db.get_row(
+        tools_qt.fill_combo_values(dlg.cmb_asset_type, combo_rows, 1)
+        selected = tools_db.get_row(
             f"""
-            SELECT s.result_id
+            SELECT COALESCE(c.asset_type, 'ARC')
             FROM am.selector_result_main s
             JOIN am.cat_result c ON c.result_id = s.result_id
             WHERE s.cur_user = current_user
               AND COALESCE(c.project_type, 'WS') = '{project_type}'
-            ORDER BY c.asset_type
+            ORDER BY CASE COALESCE(c.asset_type, 'ARC')
+                WHEN 'ARC' THEN 0 WHEN 'NODE' THEN 1 ELSE 2 END
             LIMIT 1
             """
         )
-        if selected_main:
-            tools_qt.set_combo_value(
-                dlg.cmb_result_main, str(selected_main[0]), 0, add_new=False
-            )
-
-        # Combo result_compare
-        tools_qt.fill_combo_values(dlg.cmb_result_compare, results, 1, sort_by=1)
-        selected_compare = tools_db.get_row(
-            f"""
-            SELECT s.result_id
-            FROM am.selector_result_compare s
-            JOIN am.cat_result c ON c.result_id = s.result_id
-            WHERE s.cur_user = current_user
-              AND COALESCE(c.project_type, 'WS') = '{project_type}'
-            ORDER BY c.asset_type
-            LIMIT 1
-            """
-        )
-        if selected_compare:
-            tools_qt.set_combo_value(
-                dlg.cmb_result_compare, str(selected_compare[0]), 0, add_new=False
-            )
-
+        if selected and selected[0] in present:
+            tools_qt.set_combo_value(dlg.cmb_asset_type, selected[0], 0, add_new=False)
         return True
+
+    def _fill_combos(self):
+        """ Fill asset-type combo, then main/compare result combos for that type. """
+        project_type = get_am_project_type()
+        if not self._fill_asset_type_combo(project_type):
+            msg = "There are no results available to display."
+            tools_qt.show_info_box(msg)
+            return False
+        return self._fill_result_combos()
+
+    def _fill_result_combos(self):
+        """ Fill main and compare result combos for the selected asset type. """
+        dlg = self.dlg_result_selector
+        project_type = get_am_project_type()
+        asset_type = self._asset_type()
+        results = tools_db.get_rows(
+            f"""
+            SELECT result_id AS id,
+                   result_name AS idval,
+                   descript
+            FROM am.cat_result
+            WHERE COALESCE(project_type, 'WS') = '{project_type}'
+              AND COALESCE(asset_type, 'ARC') = '{asset_type}'
+            ORDER BY result_name
+            """
+        )
+        if not results:
+            tools_qt.fill_combo_values(dlg.cmb_result_main, None, 1, combo_clear=True)
+            tools_qt.fill_combo_values(dlg.cmb_result_compare, None, 1, combo_clear=True)
+            self._update_descriptions()
+            return False
+
+        dlg.cmb_result_main.blockSignals(True)
+        dlg.cmb_result_compare.blockSignals(True)
+        try:
+            tools_qt.fill_combo_values(dlg.cmb_result_main, results, 1, sort_by=1)
+            selected_main = tools_db.get_row(
+                f"""
+                SELECT s.result_id
+                FROM am.selector_result_main s
+                JOIN am.cat_result c ON c.result_id = s.result_id
+                WHERE s.cur_user = current_user
+                  AND COALESCE(c.project_type, 'WS') = '{project_type}'
+                  AND COALESCE(c.asset_type, 'ARC') = '{asset_type}'
+                LIMIT 1
+                """
+            )
+            if selected_main:
+                tools_qt.set_combo_value(
+                    dlg.cmb_result_main, str(selected_main[0]), 0, add_new=False
+                )
+
+            tools_qt.fill_combo_values(dlg.cmb_result_compare, results, 1, sort_by=1)
+            selected_compare = tools_db.get_row(
+                f"""
+                SELECT s.result_id
+                FROM am.selector_result_compare s
+                JOIN am.cat_result c ON c.result_id = s.result_id
+                WHERE s.cur_user = current_user
+                  AND COALESCE(c.project_type, 'WS') = '{project_type}'
+                  AND COALESCE(c.asset_type, 'ARC') = '{asset_type}'
+                LIMIT 1
+                """
+            )
+            if selected_compare:
+                tools_qt.set_combo_value(
+                    dlg.cmb_result_compare, str(selected_compare[0]), 0, add_new=False
+                )
+        finally:
+            dlg.cmb_result_main.blockSignals(False)
+            dlg.cmb_result_compare.blockSignals(False)
+
+        self._update_descriptions()
+        return True
+
+    def _on_asset_type_changed(self):
+        """ Reload result combos when the user switches ARC / NODE / LINK. """
+        self._fill_result_combos()
 
     def _save_selection(self):
         """ Persist user result selection and refresh layer symbology """
@@ -170,6 +237,7 @@ class GwResultSelectorButton(GwAction):
         dlg = self.dlg_result_selector
         dlg.btn_cancel.clicked.connect(dlg.reject)
         dlg.btn_accept.clicked.connect(self._save_selection)
+        dlg.cmb_asset_type.currentIndexChanged.connect(self._on_asset_type_changed)
         dlg.cmb_result_main.currentIndexChanged.connect(self._update_descriptions)
         dlg.cmb_result_compare.currentIndexChanged.connect(self._update_descriptions)
 
@@ -177,27 +245,24 @@ class GwResultSelectorButton(GwAction):
         """ Update description text fields from combo selection """
         dlg = self.dlg_result_selector
         desc_main = tools_qt.get_combo_value(dlg, dlg.cmb_result_main, 2)
-        asset_main = tools_qt.get_combo_value(dlg, dlg.cmb_result_main, 3)
-        active_main = tools_db.get_rows(
+        asset_type = self._asset_type()
+        project_type = get_am_project_type()
+        active_main = tools_db.get_row(
             f"""
-            SELECT c.result_name || ' [' || COALESCE(c.asset_type, 'ARC') || ']'
+            SELECT c.result_name
             FROM am.selector_result_main s
             JOIN am.cat_result c ON c.result_id = s.result_id
             WHERE s.cur_user = current_user
-              AND COALESCE(c.project_type, 'WS') = '{get_am_project_type()}'
-            ORDER BY c.asset_type
+              AND COALESCE(c.project_type, 'WS') = '{project_type}'
+              AND COALESCE(c.asset_type, 'ARC') = '{asset_type}'
+            LIMIT 1
             """
-        ) or []
-        active_txt = ", ".join(r[0] for r in active_main) if active_main else "-"
+        )
+        active_txt = active_main[0] if active_main else "-"
+        msg = "Active on map"
         main_txt = desc_main or ""
-        if asset_main:
-            main_txt = f"[{asset_main}] {main_txt}".strip()
-        main_txt = f"{main_txt}\n\n{tools_qt.tr('Active on map')}: {active_txt}".strip()
+        main_txt = f"{main_txt}\n\n{tools_qt.tr(msg)}: {active_txt}".strip()
         dlg.txt_result_main_desc.setText(main_txt)
 
         desc_compare = tools_qt.get_combo_value(dlg, dlg.cmb_result_compare, 2)
-        asset_compare = tools_qt.get_combo_value(dlg, dlg.cmb_result_compare, 3)
-        compare_txt = desc_compare or ""
-        if asset_compare:
-            compare_txt = f"[{asset_compare}] {compare_txt}".strip()
-        dlg.txt_result_compare_desc.setText(compare_txt)
+        dlg.txt_result_compare_desc.setText(desc_compare or "")

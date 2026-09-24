@@ -165,6 +165,14 @@ class GwAddChildLayerButton(GwAction):
         :param is_checked: This parameter is sent by the action itself with the trigger (Bool)
         """
 
+        # AM/CM contexts are ["AM", "ARC"|"NODE"|"LINK"]. Always create that TOC
+        # tree so Load all does not flatten every layer into GW Layers.
+        force_create_group = group in ("AM", "CM")
+        if sub_group:
+            sub_group = sub_group.capitalize()
+        if sub_sub_group:
+            sub_sub_group = sub_sub_group.capitalize()
+
         if state == 2:
             schema = None
             if group == "AM" or group == "CM":
@@ -183,9 +191,13 @@ class GwAddChildLayerButton(GwAction):
                 layer = None
             if layer is None:
                 if provider_config:
-                    new_layer = tools_gw.add_layer_provider(tablename, provider_config, group, sub_group, alias=alias, sub_sub_group=sub_sub_group, schema=schema)
+                    new_layer = tools_gw.add_layer_provider(
+                        tablename, provider_config, group, sub_group, alias=alias,
+                        sub_sub_group=sub_sub_group, schema=schema, force_create_group=force_create_group)
                 else:
-                    new_layer = tools_gw.add_layer_database(tablename, the_geom, field_id, group, sub_group, alias=alias, sub_sub_group=sub_sub_group, schema=schema)
+                    new_layer = tools_gw.add_layer_database(
+                        tablename, the_geom, field_id, group, sub_group, alias=alias,
+                        sub_sub_group=sub_sub_group, schema=schema, force_create_group=force_create_group)
                 if old_id and new_layer:
                     tools_qgis.rebind_value_relation_layer(old_id, new_layer)
         elif state == 0:
