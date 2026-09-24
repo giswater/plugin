@@ -1,3 +1,6 @@
 - Sort the node type combo of toolbox 2118 (build nodes from arc start/end vertices) alphabetically.
 - Allow a null owner on element insert when cat_owner is empty: blank ownercat_id is stored as NULL, and exploitation.owner_vdefault is copied only if that id exists in cat_owner. Element owner combos allow a null value.
 - Place dataquality and dataquality_obs on GENELEM element forms. Those rows were stored with a null layoutorder, so the info dialog warned that the widgets were not configured and the insert into the parent feature was aborted.
+- Added a user-facing message (id=4752) for duplicate psector name errors to sys_message, shown when trying to create a new psector with an existing name.
+- Updated sys_function entry (id=2734) to use the alias "DUPLICATE PSECTOR".
+- Register views missing from sys_table so gw_fct_setowner assigns them to role_system.
