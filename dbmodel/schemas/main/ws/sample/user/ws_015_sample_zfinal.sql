@@ -240,3 +240,5 @@ WHERE arc_id IN (20651, 20861, 20851);
 
 UPDATE node SET minsector_id = 0, sector_id = 0, dma_id = 0, presszone_id = 0, supplyzone_id = 0, dqa_id = 0, omzone_id = 0
 WHERE node_id IN (10761);
+
+SELECT setval('SCHEMA_NAME.urn_id_seq', gw_fct_setvalurn(), true);
