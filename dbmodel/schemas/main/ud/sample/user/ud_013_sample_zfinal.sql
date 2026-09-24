@@ -209,3 +209,5 @@ ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 UPDATE config_mapzones SET is_dynamic = TRUE
 WHERE id IN ('MACROSECTOR', 'MACRODMA', 'MACROOMZONE', 'SECTOR', 'DMA', 'OMZONE', 'DWFZONE');
+
+SELECT setval('SCHEMA_NAME.urn_id_seq', gw_fct_setvalurn(), true);
