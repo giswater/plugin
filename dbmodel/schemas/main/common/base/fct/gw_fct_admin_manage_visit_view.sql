@@ -64,13 +64,12 @@ BEGIN
 		INTO v_om_visit_x_feature_fields;
 
 		EXECUTE 'SELECT DISTINCT string_agg(concat(''om_visit.'',column_name)::text,'', '')
-		FROM information_schema.columns where table_name=''om_visit'' and table_schema='''||v_schemaname||''' and column_name!=''publish'' and column_name NOT IN (''id'', ''vehicle_id'', ''unit_id'', ''visit_type'', ''the_geom'')'
+		FROM information_schema.columns where table_name=''om_visit'' and table_schema='''||v_schemaname||''' and column_name!=''publish'' and column_name NOT IN (''id'', ''vehicle_id'', ''unit_id'', ''visit_type'')'
 		INTO v_om_visit_fields;
 
 		EXECUTE 'CREATE OR REPLACE VIEW '||v_schemaname||'.'||lower(v_viewname)||' AS
 			SELECT '||v_om_visit_x_feature_fields||',
             '||v_feature_class||'.code,
-            '||v_feature_class||'.the_geom,
 			'||v_om_visit_fields||',
 			'||v_new_parameters.a_param||'
 			FROM om_visit

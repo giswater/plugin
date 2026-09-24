@@ -279,8 +279,8 @@ BEGIN
 
 			IF v_viewname NOT IN (SELECT id FROM sys_table) AND v_ismultievent iS TRUE THEN
 				INSERT INTO sys_table (id, descript, sys_role,context, alias, orderby)
-				SELECT v_viewname, 'Editable view that saves visits', 'role_om', '["OM","VISIT"]', v_class_name, max(orderby)+1
-				FROM sys_table WHERE context = '["OM","VISIT"]';
+				SELECT v_viewname, concat('Editable view for ',v_viewname), 'role_om', '32', v_class_name, max(orderby)+1
+				FROM sys_table WHERE context = '32';
 
 				INSERT INTO audit_check_data (fid, result_id, criticity, error_message)
 				VALUES (219, null, 4, concat('Insert view name into sys_table.'));
@@ -456,8 +456,8 @@ BEGIN
 
 				IF v_viewname NOT IN (SELECT id FROM sys_table) AND v_ismultievent iS TRUE THEN
 					INSERT INTO sys_table (id, descript, sys_role,context, alias, orderby)
-					SELECT v_viewname, 'Editable view that saves visits', 'role_om', '["OM","VISIT"]', v_class_name, max(orderby)+1
-					FROM sys_table WHERE context = '["OM","VISIT"]';
+					SELECT v_viewname, concat('Editable view for ',v_viewname), 'role_om', '32', v_class_name, max(orderby)+1
+					FROM sys_table WHERE context = '32';
 				END IF;
 
 			ELSE
@@ -516,8 +516,8 @@ BEGIN
 				(SELECT class_id, parameter_id, data_type  FROM config_visit_class_x_parameter JOIN config_visit_parameter ON config_visit_parameter.id = config_visit_class_x_parameter.parameter_id
 				WHERE class_id = v_class_id ) LOOP
 
-					EXECUTE 'SELECT max(layout_order) + 1 FROM config_form_fields  WHERE formname='''||v_viewname||'''
-					AND layout_name = ''lyt_data_1'';'
+					EXECUTE 'SELECT max(layoutorder) + 1 FROM config_form_fields  WHERE formname='''||v_viewname||'''
+					AND layoutname = ''lyt_data_1'';'
 					INTO v_layout_order;
 
 					IF lower(rec.data_type) = 'text' THEN
@@ -530,9 +530,9 @@ BEGIN
 						v_widgettype = 'text';
 					END IF;
 
-					INSERT INTO config_form_fields  (formname, formtype, column_id, layout_id, layout_order, datatype, widgettype, label, layout_name,
+					INSERT INTO config_form_fields(tabname,formname, formtype, columnname, layoutorder, datatype, widgettype, label, layoutname,
 					iseditable, ismandatory)
-					VALUES (v_viewname, 'form_visit', rec.parameter_id,1,v_layout_order, v_data_type, v_widgettype, rec.parameter_id, 'lyt_data_1',
+					VALUES ('tab_none', v_viewname, 'form_visit', rec.parameter_id, v_layout_order, v_data_type, v_widgettype, rec.parameter_id, 'lyt_data_1',
 					true, false)
 					ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 				END LOOP;

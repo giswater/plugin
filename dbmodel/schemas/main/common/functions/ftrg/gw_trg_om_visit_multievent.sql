@@ -125,7 +125,7 @@ BEGIN
         LOOP
             IF v_col.column_name = 'id' THEN
                 v_cols := v_cols || CASE WHEN v_cols <> '' THEN ', ' ELSE '' END || quote_ident(v_col.column_name);
-                v_vals := v_vals || CASE WHEN v_vals <> '' THEN ', ' ELSE '' END || 'COALESCE(($1).visit_id, ($1).id)';
+                v_vals := v_vals || CASE WHEN v_vals <> '' THEN ', ' ELSE '' END || '($1).visit_id';
             ELSIF v_new_json ? v_col.column_name THEN
                 v_cols := v_cols || CASE WHEN v_cols <> '' THEN ', ' ELSE '' END || quote_ident(v_col.column_name);
 
