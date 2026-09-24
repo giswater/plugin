@@ -1,0 +1,1 @@
+- Write SWMM report keywords ALL and NONE as-is in the UD go2epa INP. Id lists stay text and are filtered to nodes and arcs in the export. LINKS uses inp_report_links (#958).

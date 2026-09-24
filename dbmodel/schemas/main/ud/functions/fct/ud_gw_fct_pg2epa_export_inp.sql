@@ -830,26 +830,71 @@ BEGIN
 
 
 	CREATE OR REPLACE TEMP VIEW vi_t_report AS
-	select * from (
+	SELECT parameter, value FROM (
 		SELECT a.idval AS parameter,
 		b.value
 		FROM sys_param_user a
 		JOIN config_param_user b ON a.id = b.parameter::text
-		WHERE (a.layoutname = ANY (ARRAY['lyt_reports_1'::text, 'lyt_reports_2'::text])) AND b.cur_user::name = "current_user"() AND b.value IS NOT null and parameter not in ('inp_report_nodes_2', 'inp_report_nodes', 'inp_report_links')
-		union
-		select 'NODES', replace(replace(replace(array_agg(a.node_id)::text,',',' '),'}',''),'{','')  from (select unnest(concat('{',replace(value,' ',','),'}')::integer[]) as node_id
-		from config_param_user where parameter = 'inp_report_nodes' and cur_user=current_user)a
-		join temp_t_node n on n.node_id = a.node_id::text
+		WHERE (a.layoutname = ANY (ARRAY['lyt_reports_1'::text, 'lyt_reports_2'::text]))
+			AND b.cur_user::name = "current_user"()
+			AND b.value IS NOT NULL
+			AND b.parameter NOT IN ('inp_report_nodes_2', 'inp_report_nodes', 'inp_report_links')
 		UNION
-		select 'NODES', replace(replace(replace(array_agg(a.node_id)::text,',',' '),'}',''),'{','')  from (select unnest(concat('{',replace(value,' ',','),'}')::integer[]) as node_id
-		from config_param_user where parameter = 'inp_report_nodes_2' and cur_user=current_user)a
-		join temp_t_node n on n.node_id = a.node_id::text
-		union
-		select 'LINKS', replace(replace(replace(array_agg(a.arc_id)::text,',',' '),'}',''),'{','')  from (select unnest(concat('{',replace(value,' ',','),'}')::integer[]) as arc_id
-		from config_param_user where parameter = 'inp_report_link' and cur_user=current_user)a
-		join temp_t_arc n on n.arc_id = a.arc_id::text)a
-		where value is not null
-		ORDER BY 1;
+		-- SWMM keywords. Not an id list; do not cast to integer.
+		SELECT 'NODES', upper(btrim(value))
+		FROM config_param_user
+		WHERE parameter IN ('inp_report_nodes', 'inp_report_nodes_2')
+			AND cur_user = current_user
+			AND upper(btrim(value)) IN ('ALL', 'NONE')
+		UNION
+		SELECT 'LINKS', upper(btrim(value))
+		FROM config_param_user
+		WHERE parameter = 'inp_report_links'
+			AND cur_user = current_user
+			AND upper(btrim(value)) IN ('ALL', 'NONE')
+		UNION
+		-- One NODES line per field so each stays under the SWMM token limit (~40).
+		SELECT 'NODES', string_agg(DISTINCT n.node_id, ' ' ORDER BY n.node_id)
+		FROM (
+			SELECT btrim(tok) AS node_id
+			FROM config_param_user,
+				regexp_split_to_table(replace(btrim(value), ',', ' '), '\s+') AS tok
+			WHERE parameter = 'inp_report_nodes'
+				AND cur_user = current_user
+				AND value IS NOT NULL
+				AND upper(btrim(value)) NOT IN ('ALL', 'NONE')
+		) a
+		JOIN temp_t_node n ON n.node_id = a.node_id
+		WHERE a.node_id <> ''
+		UNION
+		SELECT 'NODES', string_agg(DISTINCT n.node_id, ' ' ORDER BY n.node_id)
+		FROM (
+			SELECT btrim(tok) AS node_id
+			FROM config_param_user,
+				regexp_split_to_table(replace(btrim(value), ',', ' '), '\s+') AS tok
+			WHERE parameter = 'inp_report_nodes_2'
+				AND cur_user = current_user
+				AND value IS NOT NULL
+				AND upper(btrim(value)) NOT IN ('ALL', 'NONE')
+		) a
+		JOIN temp_t_node n ON n.node_id = a.node_id
+		WHERE a.node_id <> ''
+		UNION
+		SELECT 'LINKS', string_agg(DISTINCT n.arc_id, ' ' ORDER BY n.arc_id)
+		FROM (
+			SELECT btrim(tok) AS arc_id
+			FROM config_param_user,
+				regexp_split_to_table(replace(btrim(value), ',', ' '), '\s+') AS tok
+			WHERE parameter = 'inp_report_links'
+				AND cur_user = current_user
+				AND value IS NOT NULL
+				AND upper(btrim(value)) NOT IN ('ALL', 'NONE')
+		) a
+		JOIN temp_t_arc n ON n.arc_id = a.arc_id
+		WHERE a.arc_id <> ''
+	) a
+	WHERE value IS NOT NULL AND value <> ''
+	ORDER BY 1;
 
 
 	CREATE OR REPLACE TEMP VIEW vi_t_snowpacks AS
