@@ -263,8 +263,12 @@ class GwInfo(QObject):
                             global_vars.canvas.refresh()
 
                 feature_id = self.complet_result['body']['feature']['id']
+                self._linked_feature = None
                 if linked_feature:
                     linked_feature['element_id'] = str(feature_id)
+                    self._linked_feature = linked_feature
+                    # Keep the parent info form. Docker would replace it and the Insert click would have no target.
+                    is_docker = False
                 result, dialog = self._open_custom_form(feature_id, self.complet_result, tab_type, sub_tag, is_docker,
                     new_feature=new_feature, connect_signal=connect_signal, linked_feature=linked_feature)
                 if feature_cat is not None:
@@ -432,7 +436,8 @@ class GwInfo(QObject):
                     msg = "Widget {0} is not configured or have a bad config"
                     msg_params = (field['columnname'],)
                     tools_qgis.show_message(msg, dialog=dialog, msg_params=msg_params)
-            if str(value) not in ('', None, -1, "None") and widget.property('columnname'):
+                    continue
+            if widget is not None and str(value) not in ('', None, -1, "None") and widget.property('columnname'):
                 if str(widget.property('columnname')) != 'sector_id' and str(value) == '-1':
                     continue
                 if widget.property('saveValue') is None:
@@ -1739,19 +1744,31 @@ class GwInfo(QObject):
             return save
 
     def _manage_linked_feature(self, linked_feature):
-        """ Manage linked feature after accept action """
-        if linked_feature.get('table_name'):
-            sql = f"SELECT * FROM {linked_feature['table_name']} WHERE {linked_feature['columnname']} = '{linked_feature['element_id']}'"
-            linked = tools_db.get_row(sql)
-            if not linked:
-                element_widget = linked_feature['dialog'].tab_elements.findChild(QWidget, 'tab_elements_element_id')
-                insert_widget = linked_feature['dialog'].tab_elements.findChild(QPushButton, 'tab_elements_insert_element')
-                if element_widget and insert_widget:
-                    element_widget.setText(linked_feature.get('element_id', ''))
-                    insert_widget.click()
-                    element_widget.setText('')
-            else:
-                _reload_table(**linked_feature)
+        """ Link a new element to the feature it was created from. """
+        if not linked_feature.get('table_name'):
+            return
+        element_id = linked_feature.get('element_id')
+        if not element_id or str(element_id) in ('None', 'null', ''):
+            return
+
+        columnname = linked_feature['columnname']
+        sql = f"SELECT 1 FROM {linked_feature['table_name']} WHERE {columnname} = '{element_id}'"
+        already = tools_db.get_row(sql)
+        if not already:
+            feature = (linked_feature.get('complet_result') or {}).get('body', {}).get('feature', {})
+            parent_id = feature.get('id')
+            id_name = feature.get('idName')
+            feature_type = str(feature.get('featureType') or '').lower()
+            if parent_id and id_name and feature_type:
+                sql = (f"INSERT INTO element_x_{feature_type} (element_id, {id_name}) "
+                       f"VALUES ('{element_id}', '{parent_id}') "
+                       f"ON CONFLICT (element_id, {id_name}) DO NOTHING")
+                tools_db.execute_sql(sql, log_sql=True)
+
+        dialog = linked_feature.get('dialog')
+        if dialog is None or isdeleted(dialog):
+            return
+        _reload_table(**linked_feature)
 
     def _start_editing(self, dialog, action_edit, result, layer):
 
@@ -1946,6 +1963,10 @@ class GwInfo(QObject):
                 return False
 
             if "Accepted" in json_result['status']:
+                linked = getattr(self, '_linked_feature', None)
+                if linked:
+                    self._manage_linked_feature(linked)
+                    self._linked_feature = None
                 msg = json_result['message']['text']
                 if msg is None:
                     msg = 'Feature upserted'

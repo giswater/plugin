@@ -317,12 +317,97 @@ SET layoutorder=5
 WHERE formname ILIKE 've_element%' AND formtype='form_feature' AND columnname='observ' AND tabname='tab_data';
 
 INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder) 
-SELECT child_layer, 'form_feature', 'tab_data', 'dataquality', 'lyt_data_2', (SELECT max(layoutorder)+1 FROM config_form_fields WHERE formname = child_layer AND formtype='form_feature' AND tabname='tab_data' AND layoutname='lyt_data_2'), 'integer', 'text', 'Dataquality', 'Quality level of the utility infrastructure survey.', NULL, false, false, true, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, NULL 
+SELECT child_layer, 'form_feature', 'tab_data', 'dataquality',
+    CASE WHEN EXISTS (
+        SELECT 1 FROM config_form_fields o
+        WHERE o.formname = child_layer AND o.formtype = 'form_feature' AND o.tabname = 'tab_data'
+          AND o.layoutname = 'lyt_data_2' AND o.columnname NOT IN ('dataquality', 'dataquality_obs')
+    ) THEN 'lyt_data_2' ELSE 'lyt_data_1' END,
+    COALESCE((
+        SELECT max(o.layoutorder) FROM config_form_fields o
+        WHERE o.formname = child_layer AND o.formtype = 'form_feature' AND o.tabname = 'tab_data'
+          AND o.layoutname = CASE WHEN EXISTS (
+                SELECT 1 FROM config_form_fields o2
+                WHERE o2.formname = child_layer AND o2.formtype = 'form_feature' AND o2.tabname = 'tab_data'
+                  AND o2.layoutname = 'lyt_data_2' AND o2.columnname NOT IN ('dataquality', 'dataquality_obs')
+            ) THEN 'lyt_data_2' ELSE 'lyt_data_1' END
+          AND o.columnname NOT IN ('dataquality', 'dataquality_obs')
+    ), 0) + 1,
+    'integer', 'text', 'Dataquality', 'Quality level of the utility infrastructure survey.', NULL, false, false, true, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, NULL 
 FROM cat_feature ON CONFLICT DO NOTHING;
 
 INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder) 
-SELECT child_layer, 'form_feature', 'tab_data', 'dataquality_obs', 'lyt_data_2', (SELECT max(layoutorder)+1 FROM config_form_fields WHERE formname = child_layer AND formtype='form_feature' AND tabname='tab_data' AND layoutname='lyt_data_2'), 'text', 'text', 'Dataquality_obs', 'Observations supporting the assigned utility survey quality level.', NULL, false, false, true, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, NULL 
+SELECT child_layer, 'form_feature', 'tab_data', 'dataquality_obs',
+    CASE WHEN EXISTS (
+        SELECT 1 FROM config_form_fields o
+        WHERE o.formname = child_layer AND o.formtype = 'form_feature' AND o.tabname = 'tab_data'
+          AND o.layoutname = 'lyt_data_2' AND o.columnname NOT IN ('dataquality', 'dataquality_obs')
+    ) THEN 'lyt_data_2' ELSE 'lyt_data_1' END,
+    COALESCE((
+        SELECT max(o.layoutorder) FROM config_form_fields o
+        WHERE o.formname = child_layer AND o.formtype = 'form_feature' AND o.tabname = 'tab_data'
+          AND o.layoutname = CASE WHEN EXISTS (
+                SELECT 1 FROM config_form_fields o2
+                WHERE o2.formname = child_layer AND o2.formtype = 'form_feature' AND o2.tabname = 'tab_data'
+                  AND o2.layoutname = 'lyt_data_2' AND o2.columnname NOT IN ('dataquality', 'dataquality_obs')
+            ) THEN 'lyt_data_2' ELSE 'lyt_data_1' END
+          AND o.columnname NOT IN ('dataquality', 'dataquality_obs')
+    ), 0) + 2,
+    'text', 'text', 'Dataquality_obs', 'Observations supporting the assigned utility survey quality level.', NULL, false, false, true, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, NULL 
 FROM cat_feature ON CONFLICT DO NOTHING;
+
+-- Rows already inserted (4/13/0) keep a null layoutorder because of ON CONFLICT DO NOTHING.
+UPDATE config_form_fields AS c
+SET layoutname = chosen.layoutname,
+    layoutorder = chosen.layoutorder
+FROM (
+    SELECT
+        f.formname,
+        f.formtype,
+        f.tabname,
+        f.columnname,
+        CASE
+            WHEN EXISTS (
+                SELECT 1
+                FROM config_form_fields AS other
+                WHERE other.formname = f.formname
+                  AND other.formtype = f.formtype
+                  AND other.tabname = f.tabname
+                  AND other.layoutname = 'lyt_data_2'
+                  AND other.columnname NOT IN ('dataquality', 'dataquality_obs')
+            ) THEN 'lyt_data_2'
+            ELSE 'lyt_data_1'
+        END AS layoutname,
+        COALESCE((
+            SELECT max(other.layoutorder)
+            FROM config_form_fields AS other
+            WHERE other.formname = f.formname
+              AND other.formtype = f.formtype
+              AND other.tabname = f.tabname
+              AND other.layoutname = CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM config_form_fields AS has_lyt2
+                        WHERE has_lyt2.formname = f.formname
+                          AND has_lyt2.formtype = f.formtype
+                          AND has_lyt2.tabname = f.tabname
+                          AND has_lyt2.layoutname = 'lyt_data_2'
+                          AND has_lyt2.columnname NOT IN ('dataquality', 'dataquality_obs')
+                    ) THEN 'lyt_data_2'
+                    ELSE 'lyt_data_1'
+                END
+              AND other.columnname NOT IN ('dataquality', 'dataquality_obs')
+        ), 0) + CASE WHEN f.columnname = 'dataquality' THEN 1 ELSE 2 END AS layoutorder
+    FROM config_form_fields AS f
+    WHERE f.formtype = 'form_feature'
+      AND f.tabname = 'tab_data'
+      AND f.columnname IN ('dataquality', 'dataquality_obs')
+      AND f.layoutorder IS NULL
+) AS chosen
+WHERE c.formname = chosen.formname
+  AND c.formtype = chosen.formtype
+  AND c.tabname = chosen.tabname
+  AND c.columnname = chosen.columnname;
 
 INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder) 
 SELECT child_layer, 'form_feature', 'tab_data', 'turns_count', 'lyt_data_2', (SELECT max(layoutorder)+1 FROM config_form_fields WHERE formname = child_layer AND formtype='form_feature' AND tabname='tab_data' AND layoutname='lyt_data_2'), 'numeric', 'text', 'Turns count', 'To indicate the number of closing-opening turns when operating the valve.', NULL, false, false, true, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, NULL 
