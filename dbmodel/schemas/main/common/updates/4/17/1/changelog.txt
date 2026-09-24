@@ -4,3 +4,4 @@
 - Added a user-facing message (id=4752) for duplicate psector name errors to sys_message, shown when trying to create a new psector with an existing name.
 - Updated sys_function entry (id=2734) to use the alias "DUPLICATE PSECTOR".
 - Register views missing from sys_table so gw_fct_setowner assigns them to role_system.
+- Restore `edit_feature_auto_builtdate` (default false). When true, the feature form shows today's date and the insert stores it if builtdate is still empty.

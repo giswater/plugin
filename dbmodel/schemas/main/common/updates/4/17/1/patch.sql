@@ -86,6 +86,11 @@ INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, 
 VALUES (4752, 'The new psector name already exists(can be inactive)', 'Try using a different name', 2, true, 'utils', 'core', 'UI')
 ON CONFLICT (id) DO NOTHING;
 
+-- 4.17.0 removed edit_feature_auto_builtdate. Restore it off: the form shows today
+-- and the insert stores it only when the parameter is true.
+INSERT INTO config_param_system VALUES ('edit_feature_auto_builtdate', 'false', 'If true builtdate is set to the current date', 'Current date as builtdate', NULL, NULL, false, NULL, 'utils', false, false, 'boolean', 'check', false, true, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
+ON CONFLICT (parameter) DO NOTHING;
+
 INSERT INTO sys_table (id, descript, sys_role, "source") VALUES
 ('v_ui_om_visit_x_doc', 'Shows the documents related to visits. User Interface view.', 'role_om', 'core'),
 ('v_om_visit', 'Shows all the executed visits.', 'role_om', 'core'),
