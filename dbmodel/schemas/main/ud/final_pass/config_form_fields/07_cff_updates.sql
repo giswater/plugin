@@ -63,7 +63,7 @@ UPDATE config_form_fields SET dv_querytext = 'SELECT id, id as idval FROM cat_el
 WHERE formname = 've_element' AND columnname = 'elementcat_id';
 
 UPDATE config_form_fields t SET dv_querytext = a.dv_querytext FROM (
-    SELECT CONCAT('SELECT id, id as idval FROM cat_element WHERE active IS true AND element_type = ', quote_literal(upper(split_part(formname, '_', 3)))) AS dv_querytext, formname
+    SELECT CONCAT('SELECT id, id as idval FROM cat_element WHERE active IS true AND element_type = ', quote_literal(upper(substring(formname from '^ve_element_(.*)$')))) AS dv_querytext, formname
     FROM config_form_fields WHERE formname ilike 've_element_%' AND dv_querytext IS NOT NULL AND columnname = 'elementcat_id'
 )a WHERE t.formname = a.formname and t.columnname = 'elementcat_id';
 

@@ -24,3 +24,9 @@ INSERT INTO sys_table (id, descript, sys_role, "source") VALUES
 ('ve_link_gully', 'Custom editable view for gully links.', 'role_edit', 'core'),
 ('ve_review_audit_node', 'Editable review audit view for nodes.', 'role_edit', 'core')
 ON CONFLICT (id) DO NOTHING;
+
+-- Element catalog combos whose feature id contains an underscore were truncated
+-- by split_part(formname, '_', 3) (EIOT).
+UPDATE config_form_fields
+	SET dv_querytext='SELECT id, id as idval FROM cat_element WHERE active IS true AND element_type = ''EIOT_SENSOR'''
+	WHERE formname='ve_element_eiot_sensor' AND formtype='form_feature' AND columnname='elementcat_id' AND tabname='tab_data';
