@@ -263,7 +263,7 @@ class GwRenameSchemaTask(GwTask):
             tools_db.set_search_path(str(self.new_schema_name))
             return
         if previous:
-            tools_db.execute_sql(previous, commit=True)
+            tools_db.execute_sql(previous, commit=True, is_thread=True)
 
     def _refresh_after_rename(self):
         self.admin._refresh_admin_catalog_cache()
