@@ -534,13 +534,19 @@ def get_info_node(**kwargs):
 
     dialog = kwargs['dialog']
     widget = kwargs['widget']
+    parent_info = kwargs.get('class')
 
     feature_id = tools_qt.get_text(dialog, widget)
     if widget.property('value') not in (None, ''):
         feature_id = widget.property('value')
+    # Node elev/top_elev updates arc sys_elev*. Refresh the still-open parent when this form closes.
+    connect_signal = None
+    if parent_info is not None and hasattr(parent_info, 'refresh_from_db'):
+        connect_signal = [partial(parent_info.refresh_from_db)]
     custom_form = GwInfo('tab_data')
     complet_result, dialog = custom_form.open_form(table_name='ve_node', feature_id=feature_id,
-                                                       tab_type='tab_data', is_docker=False)
+                                                       tab_type='tab_data', is_docker=False,
+                                                       connect_signal=connect_signal)
     if not complet_result:
         msg = "FAIL {0}"
         msg_params = ("open_node",)

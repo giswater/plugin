@@ -2309,47 +2309,87 @@ class GwInfo(QObject):
 
         return widget
 
-    def _reload_fields(self, dialog, result, p_widget):
+    def refresh_from_db(self, *args):
+        """Re-read the open feature and show values the database changed underneath this dialog."""
+
+        dialog = getattr(self, 'dlg_cf', None)
+        if dialog is None or isdeleted(dialog) or not getattr(self, 'complet_result', None):
+            return
+
+        feature = self.complet_result.get('body', {}).get('feature') or {}
+        table_name = feature.get('tableName')
+        feature_id = feature.get('id')
+        if not table_name or feature_id is None:
+            return
+
+        body = tools_gw.create_body(feature=f'"tableName":"{table_name}", "id":"{feature_id}"')
+        result = tools_gw.execute_procedure('gw_fct_getinfofromid', body)
+        if not result or result.get('status') == 'Failed':
+            return
+
+        dirty = set((self.my_json or {}).keys())
+        fields = result.get('body', {}).get('data', {}).get('fields') or []
+        by_column = {field.get('columnname'): field.get('value') for field in fields}
+        for field in self.complet_result.get('body', {}).get('data', {}).get('fields') or []:
+            column = field.get('columnname')
+            if column in by_column and column not in dirty:
+                field['value'] = by_column[column]
+
+        self._reload_fields(dialog, result, True, skip_columns=dirty, restyle=False)
+
+    def _reload_fields(self, dialog, result, p_widget, skip_columns=None, restyle=True):
         """
         :param dialog: QDialog where find and set widgets
         :param result: row with info (json)
         :param p_widget: Widget that has changed
+        :param skip_columns: column names left untouched (unsaved edits on this dialog)
+        :param restyle: reapply readonly styles on every field. Off when refreshing a parent
+                        dialog, because sampling the widget palette darkens the gray each pass.
         """
 
         if not p_widget:
             return
+        skip_columns = skip_columns or set()
 
         changed_color = "#3ED396"
-        # Restore QLineEdit stylesheet
-        widget_list = dialog.tab_data.findChildren(QLineEdit)
-        for widget in widget_list:
-            if widget.isReadOnly():
-                tools_gw.ThemeManager.apply_readonly_style(widget, readonly=True)
-            else:
-                widget.setStyleSheet(None)
+        if restyle:
+            # Restore QLineEdit stylesheet
+            widget_list = dialog.tab_data.findChildren(QLineEdit)
+            for widget in widget_list:
+                if widget.isReadOnly():
+                    tools_gw.ThemeManager.apply_readonly_style(widget, readonly=True)
+                else:
+                    widget.setStyleSheet(None)
 
-        # Restore QPushButton stylesheet
-        widget_list = dialog.tab_data.findChildren(QPushButton)
-        for widget in widget_list:
-            widget.setStyleSheet(None)
+            # Restore QPushButton stylesheet
+            widget_list = dialog.tab_data.findChildren(QPushButton)
+            for widget in widget_list:
+                widget.setStyleSheet(None)
 
         # Restore widget stylesheet
         for field in result['body']['data']['fields']:
+            if field.get('columnname') in skip_columns:
+                continue
             widget = dialog.findChild(QLineEdit, f'{field["widgetname"]}')
             if widget is None:
                 widget = dialog.findChild(QPushButton, f'{field["widgetname"]}')
             if widget:
                 cur_value = tools_qt.get_text(dialog, widget, return_string_null=False)
                 value = field["value"]
+                if value is None:
+                    value = ''
                 if str(cur_value) != str(value):
-                    widget.setText(value)
-                    if not isinstance(widget, QPushButton):
-                        widget.setStyleSheet(tools_gw.ThemeManager.changed_field_style(widget, color=changed_color))
-                    else:
+                    widget.blockSignals(True)
+                    widget.setText(str(value))
+                    widget.blockSignals(False)
+                    readonly = widget.isReadOnly() if callable(getattr(widget, 'isReadOnly', None)) else False
+                    if isinstance(widget, QPushButton):
                         changed_color = "#EB9438"
-                    if getattr(widget, 'isReadOnly', False):
-                        widget.setStyleSheet(tools_gw.ThemeManager.changed_field_style(
-                            widget, color=changed_color, readonly=True))
+                    # Drop the current sheet first so the highlight is sampled from the
+                    # native palette, not from a gray that is already applied.
+                    widget.setStyleSheet(None)
+                    widget.setStyleSheet(tools_gw.ThemeManager.changed_field_style(
+                        widget, color=changed_color, readonly=readonly))
 
             elif "message" in field:
                 level = field['message']['level'] if 'level' in field['message'] else 0
