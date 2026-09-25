@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
 - Lower `wntr` requirement to `>=1.2.0` so QPIP can resolve under QGIS NumPy 1.x constraints (`wntr>=1.4` needs NumPy 2.2+).
 
 ## [4.17.1] - 2026-09-24
