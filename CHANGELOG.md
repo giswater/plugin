@@ -670,7 +670,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Large-scale flake8 and typing standardization.
 
 [unreleased]: https://github.com/giswater/plugin/compare/v4.17.1...main
-[4.17.0]: https://github.com/giswater/plugin/compare/v4.17.0...v4.17.1
+[4.17.1]: https://github.com/giswater/plugin/compare/v4.17.0...v4.17.1
 [4.17.0]: https://github.com/giswater/plugin/compare/v4.16.1...v4.17.0
 [4.16.1]: https://github.com/giswater/plugin/compare/v4.16.0...v4.16.1
 [4.16.0]: https://github.com/giswater/plugin/compare/v4.15.4...v4.16.0
