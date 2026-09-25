@@ -1,0 +1,1 @@
+- Point hydrometer tableview aliases at `vf_hydrometer` and drop the unused `tbl_hydrometer` / `v_ui_hydrometer` config rows. The info tab reads `vf_hydrometer`.
