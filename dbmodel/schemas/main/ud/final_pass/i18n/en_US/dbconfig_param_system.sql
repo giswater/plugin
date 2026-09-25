@@ -87,7 +87,6 @@ UPDATE config_param_system AS t SET label = v.label, descript = v.descript FROM 
     ('edit_connect_update_statetype', 'Connect update statetype:', 'If TRUE, when you connect an element to the network, its state_type will be updated to value of the json'),
     ('edit_custom_link', 'Custom link field:', 'Allow users to enable custom configurations to fill features ''link'' field'),
     ('edit_element_doublegeom', 'Element double geometry enabled:', 'Enable/disable inserting double geometry elements'),
-    ('edit_feature_auto_builtdate', 'Current date as builtdate:', 'If true builtdate is set to the current date'),
     ('edit_feature_buffer_on_mapzone', 'Buffer to set mapzone on insert:', 'Buffer to set mapzone on insert when feautre has no other feature connected and user has no default value'),
     ('edit_gully_proximity', 'Gully topology:', 'Enable/disable control of inserting duplicated gullies.Minimum accepted distance between two gullies'),
     ('edit_hydro_link_absolute_path', 'Hydrometer link absolute path:', 'The hyperlink in the hydrometer info to an url or a file is made up of two parts. A common part to all hydrometers, and a specific part for each hydrometer. The common part to all is the value of this variable'),

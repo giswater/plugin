@@ -1557,6 +1557,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 			<translation>Could not seed multilang translations ({0}): {1}</translation>
 		</message>
 		<message>
+			<source>Could not set schema combo after rename: {0}</source>
+			<translation>Could not set schema combo after rename: {0}</translation>
+		</message>
+		<message>
 			<source>Could not update locale metadata</source>
 			<translation>Could not update locale metadata</translation>
 		</message>
@@ -2857,10 +2861,6 @@ This operation cannot be undone.
 		<message>
 			<source>Function gw_fct_create_dscenario_empty returned no dscenario_id</source>
 			<translation>Function gw_fct_create_dscenario_empty returned no dscenario_id</translation>
-		</message>
-		<message>
-			<source>Function gw_fct_psector_duplicate executed with no result</source>
-			<translation>Function gw_fct_psector_duplicate executed with no result</translation>
 		</message>
 		<message>
 			<source>Function gw_fct_setfeaturedelete executed with no result </source>
@@ -4883,6 +4883,38 @@ Statistics file created on:
 		<message>
 			<source>Rename project - {0}</source>
 			<translation>Rename project - {0}</translation>
+		</message>
+		<message>
+			<source>Rename schema exception: {0}</source>
+			<translation>Rename schema exception: {0}</translation>
+		</message>
+		<message>
+			<source>Rename schema failed</source>
+			<translation>Rename schema failed</translation>
+		</message>
+		<message>
+			<source>Rename schema failed: {0}</source>
+			<translation>Rename schema failed: {0}</translation>
+		</message>
+		<message>
+			<source>Rename schema failed: another session is using this schema. Close the QGIS project (and any other clients) and try again. {0}</source>
+			<translation>Rename schema failed: another session is using this schema. Close the QGIS project (and any other clients) and try again. {0}</translation>
+		</message>
+		<message>
+			<source>Rename schema has no worker connection</source>
+			<translation>Rename schema has no worker connection</translation>
+		</message>
+		<message>
+			<source>Rename schema refresh failed: {0}</source>
+			<translation>Rename schema refresh failed: {0}</translation>
+		</message>
+		<message>
+			<source>Rename schema rejected invalid schema name</source>
+			<translation>Rename schema rejected invalid schema name</translation>
+		</message>
+		<message>
+			<source>Rename schema SQL failed</source>
+			<translation>Rename schema SQL failed</translation>
 		</message>
 		<message>
 			<source>Repair cost</source>
