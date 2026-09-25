@@ -50,4 +50,3 @@
 - Add sequence `config_style_id_seq` on `config_style.id`, set to MAX(id) so the next insert is 111.
 - Load info-form QToolBox titles (Main Data / Additional Data / Data / Dscenario) from `sys_label` 4001-4004 via `gw_fct_infofromid`.
 - Recreate `v_hydrometer` from `cibs.hydrometer` when CIBS is linked; otherwise add `brand_id`/`model_id` on local `ext_hydrometer` (CIBS already renamed that table).
-- `gw_fct_rpt2pg_log` DETAILED USER INPUT OPTIONS reads from `rpt_cat_result.inp_options` (fallback to `config_param_user`).
