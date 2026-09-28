@@ -46,6 +46,7 @@ v_arc_childtable_name text;
 v_arc_type text;
 v_node_replace_code boolean;
 v_node_topelev_autoupdate integer := 0;
+v_sys_top_elev numeric(12,3);
 
 BEGIN
 
@@ -386,6 +387,7 @@ BEGIN
 
 			-- looking for nodes
 			v_querytext:= 'SELECT * FROM "arc" WHERE node_1 = ' || quote_literal(NEW.node_id)||' OR node_2 = ' || quote_literal(NEW.node_id);
+			v_sys_top_elev := COALESCE(NEW.custom_top_elev, NEW.top_elev);
 
 			--updating arcs
 			FOR v_arcrecordtb IN EXECUTE v_querytext
@@ -406,6 +408,58 @@ BEGIN
 					EXECUTE 'UPDATE arc SET
 					the_geom = ST_SetPoint($1, ST_NumPoints($1) -1, $2)
 					WHERE arc_id = ' || quote_literal(v_arcrecordtb."arc_id") USING v_arcrecordtb.the_geom, NEW.the_geom;
+				END IF;
+
+				-- Recalculate y/elev from the new node top elevation (same rules as gw_trg_autoupdate_arc_topology)
+				IF OLD.top_elev IS DISTINCT FROM NEW.top_elev AND v_sys_top_elev IS NOT NULL THEN
+
+					IF v_arcrecordtb.node_1 = NEW.node_id THEN
+						IF v_node_topelev_autoupdate = 0 THEN
+							IF v_arcrecordtb.y1 IS NOT NULL THEN
+								UPDATE arc SET elev1 = v_sys_top_elev - y1
+								WHERE arc_id = v_arcrecordtb.arc_id
+								AND elev1 IS DISTINCT FROM (v_sys_top_elev - y1);
+							ELSIF v_arcrecordtb.elev1 IS NOT NULL THEN
+								UPDATE arc SET y1 = v_sys_top_elev - elev1
+								WHERE arc_id = v_arcrecordtb.arc_id
+								AND y1 IS DISTINCT FROM (v_sys_top_elev - elev1);
+							END IF;
+						ELSIF v_node_topelev_autoupdate = 1 THEN
+							IF v_arcrecordtb.elev1 IS NOT NULL THEN
+								UPDATE arc SET y1 = v_sys_top_elev - elev1
+								WHERE arc_id = v_arcrecordtb.arc_id
+								AND y1 IS DISTINCT FROM (v_sys_top_elev - elev1);
+							ELSIF v_arcrecordtb.y1 IS NOT NULL THEN
+								UPDATE arc SET elev1 = v_sys_top_elev - y1
+								WHERE arc_id = v_arcrecordtb.arc_id
+								AND elev1 IS DISTINCT FROM (v_sys_top_elev - y1);
+							END IF;
+						END IF;
+					END IF;
+
+					IF v_arcrecordtb.node_2 = NEW.node_id THEN
+						IF v_node_topelev_autoupdate = 0 THEN
+							IF v_arcrecordtb.y2 IS NOT NULL THEN
+								UPDATE arc SET elev2 = v_sys_top_elev - y2
+								WHERE arc_id = v_arcrecordtb.arc_id
+								AND elev2 IS DISTINCT FROM (v_sys_top_elev - y2);
+							ELSIF v_arcrecordtb.elev2 IS NOT NULL THEN
+								UPDATE arc SET y2 = v_sys_top_elev - elev2
+								WHERE arc_id = v_arcrecordtb.arc_id
+								AND y2 IS DISTINCT FROM (v_sys_top_elev - elev2);
+							END IF;
+						ELSIF v_node_topelev_autoupdate = 1 THEN
+							IF v_arcrecordtb.elev2 IS NOT NULL THEN
+								UPDATE arc SET y2 = v_sys_top_elev - elev2
+								WHERE arc_id = v_arcrecordtb.arc_id
+								AND y2 IS DISTINCT FROM (v_sys_top_elev - elev2);
+							ELSIF v_arcrecordtb.y2 IS NOT NULL THEN
+								UPDATE arc SET elev2 = v_sys_top_elev - y2
+								WHERE arc_id = v_arcrecordtb.arc_id
+								AND elev2 IS DISTINCT FROM (v_sys_top_elev - y2);
+							END IF;
+						END IF;
+					END IF;
 				END IF;
 
 				-- Force a simple update on arc in order to update direction if necessary
