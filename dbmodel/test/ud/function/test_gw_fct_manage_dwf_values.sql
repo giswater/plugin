@@ -31,65 +31,65 @@ GRANT role_basic to basic_user;
 
 -- Extract and test the "status" field from the function's JSON response
 SELECT is(
-    (gw_fct_manage_dwf_values($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
+    (gw_fct_manage_dwf_values(($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
     "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{}, "parameters":{"target":"1", 
-    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '2' AND sector_id > 0) || $$", "action":"INSERT-ONLY", "copyFrom":"1"}, "aux_params":null}}$$)::JSON)->>'status',
+    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '2' AND sector_id > 0) || $$", "action":"INSERT-ONLY", "copyFrom":"1"}, "aux_params":null}}$$)::json))->>'status',
     'Accepted',
     'Check if gw_fct_manage_dwf_values with sector > 2 and action > INSERT-ONLY returns status "Accepted"'
 );
 
 SELECT is(
-    (gw_fct_manage_dwf_values($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
+    (gw_fct_manage_dwf_values(($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
     "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{}, "parameters":{"target":"1", 
-    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '2' AND sector_id > 0) || $$", "action":"DELETE-COPY", "copyFrom":"1"}, "aux_params":null}}$$)::JSON)->>'status',
+    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '2' AND sector_id > 0) || $$", "action":"DELETE-COPY", "copyFrom":"1"}, "aux_params":null}}$$)::json))->>'status',
     'Accepted',
     'Check if gw_fct_manage_dwf_values with sector > 2 and action > DELETE-COPY returns status "Accepted"'
 );
 
 SELECT is(
-    (gw_fct_manage_dwf_values($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
+    (gw_fct_manage_dwf_values(($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
     "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{}, "parameters":{"target":"1", 
-    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '2' AND sector_id > 0) || $$", "action":"KEEP-COPY", "copyFrom":"1"}, "aux_params":null}}$$)::JSON)->>'status',
+    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '2' AND sector_id > 0) || $$", "action":"KEEP-COPY", "copyFrom":"1"}, "aux_params":null}}$$)::json))->>'status',
     'Accepted',
     'Check if gw_fct_manage_dwf_values with sector > 2 and action > KEEP-COPY returns status "Accepted"'
 );
 
 SELECT is(
-    (gw_fct_manage_dwf_values($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
+    (gw_fct_manage_dwf_values(($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
     "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{}, "parameters":{"target":"1", 
-    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '2' AND sector_id > 0) || $$", "action":"DELETE-ONLY", "copyFrom":"1"}, "aux_params":null}}$$)::JSON)->>'status',
+    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '2' AND sector_id > 0) || $$", "action":"DELETE-ONLY", "copyFrom":"1"}, "aux_params":null}}$$)::json))->>'status',
     'Accepted',
     'Check if gw_fct_manage_dwf_values with sector > 2 and action > DELETE-ONLY returns status "Accepted"'
 );
 
 SELECT is(
-    (gw_fct_manage_dwf_values($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
+    (gw_fct_manage_dwf_values(($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
     "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{}, "parameters":{"target":"1", 
-    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '1' AND sector_id > 0) || $$", "action":"INSERT-ONLY", "copyFrom":"1"}, "aux_params":null}}$$)::JSON)->>'status',
+    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '1' AND sector_id > 0) || $$", "action":"INSERT-ONLY", "copyFrom":"1"}, "aux_params":null}}$$)::json))->>'status',
     'Accepted',
     'Check if gw_fct_manage_dwf_values with sector > 1 and action > INSERT-ONLY returns status "Accepted"'
 );
 
 SELECT is(
-    (gw_fct_manage_dwf_values($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
+    (gw_fct_manage_dwf_values(($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
     "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{}, "parameters":{"target":"1", 
-    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '1' AND sector_id > 0) || $$", "action":"DELETE-COPY", "copyFrom":"1"}, "aux_params":null}}$$)::JSON)->>'status',
+    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '1' AND sector_id > 0) || $$", "action":"DELETE-COPY", "copyFrom":"1"}, "aux_params":null}}$$)::json))->>'status',
     'Accepted',
     'Check if gw_fct_manage_dwf_values with sector > 1 and action > DELETE-COPY returns status "Accepted"'
 );
 
 SELECT is(
-    (gw_fct_manage_dwf_values($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
+    (gw_fct_manage_dwf_values(($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
     "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{}, "parameters":{"target":"1", 
-    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '1' AND sector_id > 0) || $$", "action":"KEEP-COPY", "copyFrom":"1"}, "aux_params":null}}$$)::JSON)->>'status',
+    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '1' AND sector_id > 0) || $$", "action":"KEEP-COPY", "copyFrom":"1"}, "aux_params":null}}$$)::json))->>'status',
     'Accepted',
     'Check if gw_fct_manage_dwf_values with sector > 1 and action > KEEP-COPY returns status "Accepted"'
 );
 
 SELECT is(
-    (gw_fct_manage_dwf_values($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
+    (gw_fct_manage_dwf_values(($${"client":{"device":4, "lang":"nl_NL", "infoType":1, "epsg":25831}, 
     "form":{}, "feature":{}, "data":{"filterFields":{}, "pageInfo":{}, "parameters":{"target":"1", 
-    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '1' AND sector_id > 0) || $$", "action":"DELETE-ONLY", "copyFrom":"1"}, "aux_params":null}}$$)::JSON)->>'status',
+    "sector": "$$ || (SELECT sector_id::text FROM sector WHERE code = '1' AND sector_id > 0) || $$", "action":"DELETE-ONLY", "copyFrom":"1"}, "aux_params":null}}$$)::json))->>'status',
     'Accepted',
     'Check if gw_fct_manage_dwf_values with sector > 1 and action > DELETE-ONLY returns status "Accepted"'
 );
