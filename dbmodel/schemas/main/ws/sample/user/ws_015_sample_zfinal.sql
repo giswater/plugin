@@ -241,4 +241,69 @@ WHERE arc_id IN (20651, 20861, 20851);
 UPDATE node SET minsector_id = 0, sector_id = 0, dma_id = 0, presszone_id = 0, supplyzone_id = 0, dqa_id = 0, omzone_id = 0
 WHERE node_id IN (10761);
 
-SELECT setval('SCHEMA_NAME.urn_id_seq', gw_fct_setvalurn(), true);
+-- mapzone_graph PK is (node_id, mapzone_id), so sector 1 and dma 1 on the same node collide.
+-- Sample max feature id is 116152. Continue urn_id_seq from there. code/name and 0/-1 stay.
+ALTER TABLE sector DISABLE TRIGGER USER;
+ALTER TABLE dma DISABLE TRIGGER USER;
+ALTER TABLE dqa DISABLE TRIGGER USER;
+ALTER TABLE presszone DISABLE TRIGGER USER;
+ALTER TABLE node DISABLE TRIGGER USER;
+ALTER TABLE arc DISABLE TRIGGER USER;
+ALTER TABLE connec DISABLE TRIGGER USER;
+ALTER TABLE link DISABLE TRIGGER USER;
+ALTER TABLE element DISABLE TRIGGER USER;
+
+UPDATE sector SET sector_id = 116153 WHERE sector_id = 1;
+UPDATE sector SET sector_id = 116154 WHERE sector_id = 2;
+UPDATE sector SET sector_id = 116155 WHERE sector_id = 3;
+UPDATE sector SET sector_id = 116156 WHERE sector_id = 4;
+UPDATE sector SET sector_id = 116157 WHERE sector_id = 5;
+
+UPDATE dma SET dma_id = 116158 WHERE dma_id = 1;
+UPDATE dma SET dma_id = 116159 WHERE dma_id = 2;
+UPDATE dma SET dma_id = 116160 WHERE dma_id = 3;
+UPDATE dma SET dma_id = 116161 WHERE dma_id = 4;
+UPDATE dma SET dma_id = 116162 WHERE dma_id = 5;
+
+UPDATE dqa SET dqa_id = 116163 WHERE dqa_id = 1;
+UPDATE dqa SET dqa_id = 116164 WHERE dqa_id = 2;
+UPDATE dqa SET dqa_id = 116165 WHERE dqa_id = 3;
+UPDATE dqa SET dqa_id = 116166 WHERE dqa_id = 4;
+
+UPDATE presszone SET presszone_id = 116167 WHERE presszone_id = 1;
+UPDATE presszone SET presszone_id = 116168 WHERE presszone_id = 2;
+UPDATE presszone SET presszone_id = 116169 WHERE presszone_id = 3;
+UPDATE presszone SET presszone_id = 116170 WHERE presszone_id = 4;
+UPDATE presszone SET presszone_id = 116171 WHERE presszone_id = 5;
+UPDATE presszone SET presszone_id = 116172 WHERE presszone_id = 6;
+
+UPDATE link SET dma_id = 116158 WHERE dma_id = 1;
+UPDATE link SET dma_id = 116159 WHERE dma_id = 2;
+UPDATE link SET dma_id = 116160 WHERE dma_id = 3;
+UPDATE link SET dma_id = 116161 WHERE dma_id = 4;
+UPDATE link SET dma_id = 116162 WHERE dma_id = 5;
+
+UPDATE link SET dqa_id = 116163 WHERE dqa_id = 1;
+UPDATE link SET dqa_id = 116164 WHERE dqa_id = 2;
+UPDATE link SET dqa_id = 116165 WHERE dqa_id = 3;
+UPDATE link SET dqa_id = 116166 WHERE dqa_id = 4;
+
+UPDATE mapzone_graph SET mapzone_id = 116158 WHERE mapzone_type = 'DMA' AND mapzone_id = 1;
+UPDATE mapzone_graph SET mapzone_id = 116159 WHERE mapzone_type = 'DMA' AND mapzone_id = 2;
+UPDATE mapzone_graph SET mapzone_id = 116160 WHERE mapzone_type = 'DMA' AND mapzone_id = 3;
+UPDATE mapzone_graph SET mapzone_id = 116161 WHERE mapzone_type = 'DMA' AND mapzone_id = 4;
+UPDATE mapzone_graph SET mapzone_id = 116162 WHERE mapzone_type = 'DMA' AND mapzone_id = 5;
+
+UPDATE config_param_user SET value = '116169' WHERE parameter = 'edit_presszone_vdefault' AND value = '3';
+
+ALTER TABLE sector ENABLE TRIGGER USER;
+ALTER TABLE dma ENABLE TRIGGER USER;
+ALTER TABLE dqa ENABLE TRIGGER USER;
+ALTER TABLE presszone ENABLE TRIGGER USER;
+ALTER TABLE node ENABLE TRIGGER USER;
+ALTER TABLE arc ENABLE TRIGGER USER;
+ALTER TABLE connec ENABLE TRIGGER USER;
+ALTER TABLE link ENABLE TRIGGER USER;
+ALTER TABLE element ENABLE TRIGGER USER;
+
+SELECT setval('SCHEMA_NAME.urn_id_seq', 116172, true);

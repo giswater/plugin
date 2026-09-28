@@ -210,4 +210,48 @@ ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 UPDATE config_mapzones SET is_dynamic = TRUE
 WHERE id IN ('MACROSECTOR', 'MACRODMA', 'MACROOMZONE', 'SECTOR', 'DMA', 'OMZONE', 'DWFZONE');
 
-SELECT setval('SCHEMA_NAME.urn_id_seq', gw_fct_setvalurn(), true);
+-- mapzone_graph PK is (node_id, mapzone_id), so sector 1 and omzone 1 on the same node collide.
+-- Sample max feature id is 100021. Continue urn_id_seq from there. code/name and 0/-1 stay.
+ALTER TABLE sector DISABLE TRIGGER USER;
+ALTER TABLE omzone DISABLE TRIGGER USER;
+ALTER TABLE dwfzone DISABLE TRIGGER USER;
+ALTER TABLE drainzone DISABLE TRIGGER USER;
+ALTER TABLE node DISABLE TRIGGER USER;
+ALTER TABLE arc DISABLE TRIGGER USER;
+ALTER TABLE connec DISABLE TRIGGER USER;
+ALTER TABLE gully DISABLE TRIGGER USER;
+ALTER TABLE link DISABLE TRIGGER USER;
+ALTER TABLE element DISABLE TRIGGER USER;
+
+UPDATE sector SET sector_id = 100022 WHERE sector_id = 1;
+UPDATE sector SET sector_id = 100023 WHERE sector_id = 2;
+
+UPDATE omzone SET omzone_id = 100024 WHERE omzone_id = 1;
+UPDATE omzone SET omzone_id = 100025 WHERE omzone_id = 3;
+
+UPDATE dwfzone SET dwfzone_id = 100026 WHERE dwfzone_id = 1;
+UPDATE dwfzone SET dwfzone_id = 100027 WHERE dwfzone_id = 2;
+
+ALTER TABLE dwfzone DROP CONSTRAINT dwfzone_drainzone_fk;
+UPDATE drainzone SET drainzone_id = 100028 WHERE drainzone_id = 1;
+UPDATE dwfzone SET drainzone_id = 100028 WHERE drainzone_id = 1;
+ALTER TABLE dwfzone ADD CONSTRAINT dwfzone_drainzone_fk FOREIGN KEY (drainzone_id) REFERENCES drainzone(drainzone_id);
+
+UPDATE link SET omzone_id = 100024 WHERE omzone_id = 1;
+UPDATE link SET omzone_id = 100025 WHERE omzone_id = 3;
+
+UPDATE element SET omzone_id = 100024 WHERE omzone_id = 1;
+UPDATE element SET omzone_id = 100025 WHERE omzone_id = 3;
+
+ALTER TABLE sector ENABLE TRIGGER USER;
+ALTER TABLE omzone ENABLE TRIGGER USER;
+ALTER TABLE dwfzone ENABLE TRIGGER USER;
+ALTER TABLE drainzone ENABLE TRIGGER USER;
+ALTER TABLE node ENABLE TRIGGER USER;
+ALTER TABLE arc ENABLE TRIGGER USER;
+ALTER TABLE connec ENABLE TRIGGER USER;
+ALTER TABLE gully ENABLE TRIGGER USER;
+ALTER TABLE link ENABLE TRIGGER USER;
+ALTER TABLE element ENABLE TRIGGER USER;
+
+SELECT setval('SCHEMA_NAME.urn_id_seq', 100028, true);
