@@ -14,7 +14,7 @@ SET search_path = "SCHEMA_NAME", public, pg_catalog;
 SELECT plan(6);
 
 INSERT INTO ve_inp_rules (id, sector_id, "text", active)
-VALUES(-901, 3, '', false);
+VALUES(-901, (SELECT sector_id FROM sector WHERE code = '3' AND sector_id > 0), '', false);
 SELECT is((SELECT count(*)::integer FROM ve_inp_rules WHERE id = -901), 1, 'INSERT: ve_inp_rules -901 was inserted');
 SELECT is((SELECT count(*)::integer FROM inp_rules WHERE id = -901), 1, 'INSERT: inp_rules -901 was inserted');
 

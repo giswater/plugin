@@ -49,7 +49,7 @@ SELECT is (
 
 SELECT is (
     (gw_fct_setselectors($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{}, "feature":{},
-    "data":{"filterFields":{}, "pageInfo":{}, "selectorType":"selector_basic", "tabName":"tab_sector", "id":"1", "isAlone":"False",
+    "data":{"filterFields":{}, "pageInfo":{}, "selectorType":"selector_basic", "tabName":"tab_sector", "id":"$$ || (SELECT sector_id::text FROM sector WHERE code = '1' AND sector_id > 0) || $$", "isAlone":"False",
     "disableParent":"False", "value":"True", "addSchema":"NULL"}}$$)::JSON)->>'status',
     'Accepted',
     'Check if gw_fct_setselectors --> "tabName":"tab_sector" && "value":"True" returns status "Accepted"'
@@ -57,7 +57,7 @@ SELECT is (
 
 SELECT is (
     (gw_fct_setselectors($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
-    "feature":{}, "data":{"filterFields":{}, "pageInfo":{}, "selectorType":"selector_basic", "tabName":"tab_sector", "id":"1",
+    "feature":{}, "data":{"filterFields":{}, "pageInfo":{}, "selectorType":"selector_basic", "tabName":"tab_sector", "id":"$$ || (SELECT sector_id::text FROM sector WHERE code = '1' AND sector_id > 0) || $$",
     "isAlone":"False", "disableParent":"False", "value":"False", "addSchema":"NULL"}}$$)::JSON)->>'status',
     'Accepted',
     'Check if gw_fct_setselectors --> "tabName":"tab_sector" && "value":"False" returns status "Accepted"'

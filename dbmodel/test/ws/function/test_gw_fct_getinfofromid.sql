@@ -271,6 +271,10 @@ UPDATE exploitation SET owner_vdefault = NULL WHERE expl_id = 1;
 INSERT INTO config_param_user (parameter, value, cur_user)
 VALUES ('edit_exploitation_vdefault', '1', current_user)
 ON CONFLICT (parameter, cur_user) DO UPDATE SET value = '1';
+-- sector PK updates rewrite the arc heap, so LIMIT 1 no longer lands inside a municipality
+INSERT INTO config_param_user (parameter, value, cur_user)
+VALUES ('edit_municipality_vdefault', '1', current_user)
+ON CONFLICT (parameter, cur_user) DO UPDATE SET value = '1';
 
 SELECT is(
     (SELECT f->>'selectedId'
