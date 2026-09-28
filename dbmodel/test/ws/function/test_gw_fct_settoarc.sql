@@ -31,9 +31,9 @@ UPDATE presszone
 SET graphconfig = '{"use":[{"nodeParent":"1106", "toArc":[2095]}], "ignore":[], "forceClosed":[]}'::json
 WHERE presszone_id = (SELECT presszone_id FROM presszone WHERE code = '4' AND presszone_id > 0);
 
-SELECT gw_fct_settoarc($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+SELECT gw_fct_settoarc(($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
 "feature":{"featureType":"PR_REDUC_VALVE", "id":"1083"}, "data":{"filterFields":{}, "pageInfo":{},
-"arcId":"2089", "dmaId": "$$ || (SELECT dma_id::text FROM dma WHERE code = '2' AND dma_id > 0) || $$", "presszoneId": "$$ || (SELECT presszone_id::text FROM presszone WHERE code = '4' AND presszone_id > 0) || $$", "sectorId": "$$ || (SELECT sector_id::text FROM sector WHERE code = '3' AND sector_id > 0) || $$", "dqaId": "$$ || (SELECT dqa_id::text FROM dqa WHERE code = '1' AND dqa_id > 0) || $$"}}$$);
+"arcId":"2089", "dmaId": "$$ || (SELECT dma_id::text FROM dma WHERE code = '2' AND dma_id > 0) || $$", "presszoneId": "$$ || (SELECT presszone_id::text FROM presszone WHERE code = '4' AND presszone_id > 0) || $$", "sectorId": "$$ || (SELECT sector_id::text FROM sector WHERE code = '3' AND sector_id > 0) || $$", "dqaId": "$$ || (SELECT dqa_id::text FROM dqa WHERE code = '1' AND dqa_id > 0) || $$"}}$$)::json);
 
 SELECT ok(
     NOT EXISTS (
@@ -50,9 +50,9 @@ UPDATE presszone
 SET graphconfig = '{"use":[{"nodeParent":"1083", "toArc":[2095]}], "ignore":[], "forceClosed":[]}'::json
 WHERE presszone_id = (SELECT presszone_id FROM presszone WHERE code = '4' AND presszone_id > 0);
 
-SELECT gw_fct_settoarc($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
+SELECT gw_fct_settoarc(($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
 "feature":{"featureType":"PR_REDUC_VALVE", "id":"1083"}, "data":{"filterFields":{}, "pageInfo":{},
-"arcId":"2089", "dmaId": "$$ || (SELECT dma_id::text FROM dma WHERE code = '2' AND dma_id > 0) || $$", "presszoneId": "$$ || (SELECT presszone_id::text FROM presszone WHERE code = '4' AND presszone_id > 0) || $$", "sectorId": "$$ || (SELECT sector_id::text FROM sector WHERE code = '3' AND sector_id > 0) || $$", "dqaId": "$$ || (SELECT dqa_id::text FROM dqa WHERE code = '1' AND dqa_id > 0) || $$"}}$$);
+"arcId":"2089", "dmaId": "$$ || (SELECT dma_id::text FROM dma WHERE code = '2' AND dma_id > 0) || $$", "presszoneId": "$$ || (SELECT presszone_id::text FROM presszone WHERE code = '4' AND presszone_id > 0) || $$", "sectorId": "$$ || (SELECT sector_id::text FROM sector WHERE code = '3' AND sector_id > 0) || $$", "dqaId": "$$ || (SELECT dqa_id::text FROM dqa WHERE code = '1' AND dqa_id > 0) || $$"}}$$)::json);
 
 SELECT is (
     (SELECT json_array_elements_text((elem->>'toArc')::json)

@@ -46,12 +46,12 @@ WHERE "parameter" = 'plan_psector_current' AND cur_user = current_user;
 INSERT INTO selector_psector (psector_id, cur_user) VALUES ((SELECT psector_id FROM ve_plan_psector WHERE name = '-901'), current_user);
 
 SELECT is (
-    (gw_fct_setfields($${"client":{"device":4, "lang":"en_US", "version":"4.8.1", "infoType":1, "epsg":25831}, "form":{}, 
+    (gw_fct_setfields(($${"client":{"device":4, "lang":"en_US", "version":"4.8.1", "infoType":1, "epsg":25831}, "form":{}, 
     "feature":{"id":"100055", "tableName":"ve_node_junction", "featureType":"node" }, "data":{"filterFields":{}, "pageInfo":{}, 
     "fields":{"sector_id": "$$ || (SELECT sector_id::text FROM sector WHERE code = '1' AND sector_id > 0) || $$", "dwfzone_id": "$$ || (SELECT dwfzone_id::text FROM dwfzone WHERE code = '1' AND dwfzone_id > 0) || $$", "state": "2", "state_type": "3", "code": "100055", "workcat_id": "work1", 
     "builtdate": "2026/04/07", "unconnected": "False", "soilcat_id": "soil1", "expl_id": "1", "brand_id": "brand3", "model_id": "model4", 
     "muni_id": "1", "node_type": "JUNCTION", "epa_type": "JUNCTION", "nodecat_id": "JUNCTION-01",
-    "the_geom": "Point (419100.72600000002421439 4576521.49000000022351742)"}, "reload":""}}$$)::JSON)->>'status',
+    "the_geom": "Point (419100.72600000002421439 4576521.49000000022351742)"}, "reload":""}}$$)::json))->>'status',
     'Accepted',
     'Check if gw_fct_setfields --> "tableName":"ve_node_junction" (Active psector) returns status "Accepted"'
 );
@@ -67,12 +67,12 @@ WHERE "parameter" = 'plan_psector_current' AND cur_user = current_user;
 INSERT INTO selector_psector (psector_id, cur_user) VALUES ((SELECT psector_id FROM ve_plan_psector WHERE name = '-902'), current_user);
 
 SELECT is (
-    (gw_fct_setfields($${"client":{"device":4, "lang":"en_US", "version":"4.8.1", "infoType":1, "epsg":25831}, "form":{}, 
+    (gw_fct_setfields(($${"client":{"device":4, "lang":"en_US", "version":"4.8.1", "infoType":1, "epsg":25831}, "form":{}, 
     "feature":{"id":"100058", "tableName":"ve_node_junction", "featureType":"node" }, "data":{"filterFields":{}, "pageInfo":{}, 
     "fields":{"sector_id": "$$ || (SELECT sector_id::text FROM sector WHERE code = '1' AND sector_id > 0) || $$", "dwfzone_id": "$$ || (SELECT dwfzone_id::text FROM dwfzone WHERE code = '1' AND dwfzone_id > 0) || $$", "state": "2", "state_type": "3", "code": "100058", "workcat_id": "work1", 
     "builtdate": "2026/04/07", "unconnected": "False", "soilcat_id": "soil1", "expl_id": "1", "brand_id": "brand3", "model_id": "model4", 
     "muni_id": "1", "node_type": "JUNCTION", "epa_type": "JUNCTION", "nodecat_id": "JUNCTION-01", 
-    "the_geom": "Point (419105.49698512122267857 4576544.63723930902779102)"}, "reload":""}}$$)::JSON)->>'status',
+    "the_geom": "Point (419105.49698512122267857 4576544.63723930902779102)"}, "reload":""}}$$)::json))->>'status',
     'Accepted',
     'Check if gw_fct_setfields --> "tableName":"ve_node_junction" (Active psector) returns status "Accepted"'
 );
