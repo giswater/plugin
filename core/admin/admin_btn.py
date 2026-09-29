@@ -494,6 +494,62 @@ class GwAdminButton:
             on_done=self._on_builder_done_other,
         )
 
+    def _create_cmms_schema(self) -> None:
+        """Create the singleton cmms schema (no parent integration)."""
+        msg = "This process will take a few seconds. Are you sure to continue?"
+        title = "Create cmms schema"
+        if not tools_qt.show_question(msg, title):
+            return
+        bp = BuildParams(
+            schema_name="cmms",
+            srid=str(self.project_epsg or "25831"),
+            locale=self.locale,
+            plugin_version=str(self.plugin_version),
+            profile="empty",
+            register_is_new="true",
+            sql_root=self.sql_dir,
+        )
+        self._submit_builder(
+            "cmms",
+            bp,
+            description="Create cmms",
+            on_done=self._on_builder_done_other,
+        )
+
+    def _integrate_cmms_schema(self, parent_schema=None, parent_type=None) -> None:
+        """Register cmms on the selected WS/UD parent."""
+        parent_schema, parent_type = self._resolve_parent_context(parent_schema, parent_type)
+        if not parent_schema:
+            msg = "Select a WS or UD anchor in the network table."
+            tools_qt.show_info_box(msg)
+            return
+        msg = (
+            "You are about to integrate CMMS with the following schema: {0}\n\n"
+            "Are you sure you want to continue?"
+        )
+        msg_params = (parent_schema,)
+        title = "Integrate cmms"
+        if not tools_qt.show_question(msg, title, msg_params=msg_params):
+            return
+        bp = BuildParams(
+            schema_name="cmms",
+            srid=str(self.project_epsg or "25831"),
+            locale=self.locale,
+            plugin_version=str(self.plugin_version),
+            profile="integrate",
+            parent_schema=parent_schema,
+            parent_type=(parent_type or "ws").lower(),
+            register_parent_schema=parent_schema,
+            infer_parents_from_config="true",
+            sql_root=self.sql_dir,
+        )
+        self._submit_builder(
+            "cmms",
+            bp,
+            description="Integrate cmms",
+            on_done=self._on_builder_done_other,
+        )
+
     def _run_create_cm_task(
         self,
         steps,
@@ -1049,6 +1105,12 @@ class GwAdminButton:
                 parent_schema=parent_schema,
                 parent_type=parent_type,
                 cm_schema=schema_name,
+                on_done=on_done,
+            )
+        elif kind == "cmms":
+            self._update_cmms(
+                parent_schema=parent_schema,
+                parent_type=parent_type,
                 on_done=on_done,
             )
         elif kind == "audit":
@@ -5012,6 +5074,35 @@ class GwAdminButton:
         self._submit_builder('cm', bp,
                              description=tools_qt.tr(msg),
                              on_done=callback)
+
+    def _update_cmms(self, parent_schema=None, parent_type=None, on_done=None):
+        """Run the cmms 'update' profile in place (semver upgrade)."""
+        row = tools_db.get_row(
+            "SELECT giswater, language, epsg FROM cmms.sys_version "
+            "ORDER BY id DESC LIMIT 1"
+        )
+        current_version = row[0] if row and row[0] else "0.0.0"
+        parent_schema, parent_type = self._resolve_parent_context(parent_schema, parent_type)
+        bp = BuildParams(
+            schema_name="cmms",
+            srid=str(row[2] if row and row[2] else "0"),
+            locale=str(row[1] if row and row[1] else self.locale),
+            plugin_version=str(self.plugin_version),
+            project_version=str(current_version),
+            profile="update",
+            run_mode="upgrade",
+            parent_schema=parent_schema or "",
+            parent_type=parent_type,
+            sql_root=self.sql_dir,
+        )
+        callback = on_done if on_done is not None else self._on_builder_done_other
+        msg = "Update cmms schema"
+        self._submit_builder(
+            "cmms",
+            bp,
+            description=tools_qt.tr(msg),
+            on_done=callback,
+        )
 
     def _on_builder_done_other_update(self, schema_name, result):
         if not result.ok:

@@ -30,13 +30,14 @@ _COL_UPDATED = 6
 _MAX_VISIBLE_NETWORK_ROWS = 4
 _FIXED_WIDTH = 1120
 _SATELLITE_GROUPS = (
-    "grb_utils", "grb_cibs", "grb_am", "grb_cm", "grb_i18n", "grb_audit",
+    "grb_utils", "grb_cibs", "grb_am", "grb_cm", "grb_cmms", "grb_i18n", "grb_audit",
 )
 _SATELLITE_INFO_LABELS = (
     "lbl_utils_info",
     "lbl_cibs_info",
     "lbl_am_info",
     "lbl_cm_info",
+    "lbl_cmms_info",
     "lbl_audit_info",
     "lbl_i18n_info",
 )
@@ -130,6 +131,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self.layout_satellites.setRowStretch(0, 1)
         self.layout_satellites.setRowStretch(1, 1)
         self.layout_satellites.setRowStretch(2, 1)
+        self.layout_satellites.setRowStretch(3, 1)
         self.grb_connection.setSizePolicy(
             QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed,
         )
@@ -340,6 +342,10 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self.btn_cm_sample.clicked.connect(partial(self._load_cm_sample))
         self.btn_cm_qgis.clicked.connect(partial(self._create_cm_qgis))
         self.btn_delete_cm.clicked.connect(partial(self._delete_cm))
+        self.btn_cmms_create.clicked.connect(partial(self._create_cmms))
+        self.btn_cmms_integrate.clicked.connect(partial(self._integrate_cmms))
+        self.btn_cmms_update.clicked.connect(partial(self._update_cmms))
+        self.btn_cmms_delete.clicked.connect(partial(self._delete_cmms))
         self.btn_i18n_create.clicked.connect(partial(self.admin._create_i18n))
         self.btn_i18n_update.clicked.connect(partial(self.admin._update_i18n))
         self.btn_i18n_delete.clicked.connect(partial(self._delete_other_schema, 'multilang'))
@@ -547,6 +553,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         cibs_row = self._satellite_row(schema="cibs")
         am_row = self._satellite_row(kind="AM") or self._satellite_row(schema="am")
         cm_row = self._satellite_row(kind="CM")
+        cmms_row = self._satellite_row(kind="CMMS") or self._satellite_row(schema="cmms")
         audit_row = self._satellite_row(kind="AUDIT") or self._satellite_row(schema="audit")
         i18n_row = self._satellite_row(kind="MULTILANG") or self._satellite_row(schema="multilang")
 
@@ -554,6 +561,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self._update_satellite_panel("grb_cibs", "lbl_cibs_info", "Cibs", cibs_row, "cibs")
         self._update_satellite_panel("grb_am", "lbl_am_info", "AM", am_row, "am")
         self._update_satellite_panel("grb_cm", "lbl_cm_info", "CM", cm_row, "cm")
+        self._update_satellite_panel("grb_cmms", "lbl_cmms_info", "CMMS", cmms_row, "cmms")
         self._update_satellite_panel("grb_i18n", "lbl_i18n_info", "Multilang", i18n_row, "multilang")
         self._update_satellite_panel("grb_audit", "lbl_audit_info", "Audit", audit_row, "audit")
         self._update_network_label()
@@ -606,6 +614,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         cibs_row = self._satellite_row(schema="cibs")
         am_row = self._satellite_row(kind="AM") or self._satellite_row(schema="am")
         cm_row = self._satellite_row(kind="CM")
+        cmms_row = self._satellite_row(kind="CMMS") or self._satellite_row(schema="cmms")
         audit_row = self._satellite_row(kind="AUDIT") or self._satellite_row(schema="audit")
         i18n_row = self._satellite_row(kind="MULTILANG") or self._satellite_row(schema="multilang")
 
@@ -613,6 +622,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         cibs_exists = cibs_row is not None
         am_exists = am_row is not None
         cm_exists = cm_row is not None
+        cmms_exists = cmms_row is not None
         audit_namespace = audit_row is not None
         audit_full = admin_catalog.is_audit_fully_installed()
         i18n_exists = i18n_row is not None
@@ -679,6 +689,19 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         )
         self.btn_cm_qgis.setEnabled(cm_exists)
         self.btn_delete_cm.setEnabled(cm_exists)
+
+        self.btn_cmms_create.setEnabled(not cmms_exists)
+        self.btn_cmms_update.setEnabled(
+            cmms_exists and self._needs_update(str((cmms_row or {}).get("version") or ""))
+        )
+        self.btn_cmms_integrate.setEnabled(
+            has_network_parent
+            and cmms_exists
+            and not admin_catalog.parent_satellite_linked(
+                self._inventory_rows, parent, "cmms"
+            )
+        )
+        self.btn_cmms_delete.setEnabled(cmms_exists)
 
         self.btn_i18n_create.setEnabled(not i18n_exists)
         self.btn_i18n_delete.setEnabled(i18n_exists)
@@ -813,6 +836,30 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         cm_row = self._satellite_row(kind="CM")
         schema_name = str((cm_row or {}).get("schema") or admin_catalog.find_cm_schema() or "cm")
         self._delete_other_schema(schema_name)
+
+    def _create_cmms(self) -> None:
+        self.admin._create_cmms_schema()
+
+    def _integrate_cmms(self) -> None:
+        parent, parent_type = self._parent_context()
+        if not parent:
+            msg = "Select a WS or UD anchor in the network table."
+            tools_qt.show_info_box(msg)
+            return
+        self.admin._integrate_cmms_schema(
+            parent_schema=parent,
+            parent_type=parent_type.lower(),
+        )
+
+    def _update_cmms(self) -> None:
+        parent, parent_type = self._parent_context()
+        self.admin._update_cmms(
+            parent_schema=parent,
+            parent_type=parent_type.lower(),
+        )
+
+    def _delete_cmms(self) -> None:
+        self._delete_other_schema("cmms")
 
     def _activate_audit(self) -> None:
         parent, parent_type = self._parent_context()
