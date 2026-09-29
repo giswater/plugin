@@ -1119,6 +1119,62 @@ class GwCalculatePriority(GwTask):
         except (KeyError, TypeError, ValueError):
             return 0.0
 
+    def _sql_text(self, value):
+        if value is None:
+            return "NULL"
+        return "'" + str(value).replace("'", "''") + "'"
+
+    def _sql_array(self, values):
+        if not values:
+            return "NULL"
+        parts = ",".join(self._sql_text(item) for item in values)
+        return f"ARRAY[{parts}]::varchar[]"
+
+    def _ud_action(self, score):
+        if score is None:
+            return None
+        score = float(score)
+        if score >= 4.5:
+            return "FULL_REPLACEMENT"
+        if score >= 3.5:
+            return "REHABILITATION"
+        if score >= 2:
+            return "SPOT_REPAIR"
+        return "MAINTENANCE"
+
+    def _ud_plan(self, feat):
+        """Completeness, recommended action and inspection priority for one UD asset."""
+        criteria = (
+            "age", "incident_count", "structural_raw", "operational_raw",
+            "dwf_raw", "storm_raw", "strategic", "compliance",
+        )
+        missing = [name for name in criteria if feat.get(name) is None]
+        completeness = round((len(criteria) - len(missing)) / len(criteria), 2)
+        scores = [feat.get("structural_raw"), feat.get("operational_raw")]
+        present = [float(score) for score in scores if score is not None]
+        action = self._ud_action(max(present) if present else None)
+        observations = int(feat.get("observation_count") or 0)
+        reasons = list(missing)
+        if observations == 0:
+            reasons.append("No CCTV observations")
+        if observations == 0 and feat.get("structural_raw") is None:
+            priority = 5
+        elif completeness < 0.5:
+            priority = 4
+        elif completeness < 0.75:
+            priority = 2
+        else:
+            priority = 1
+        inspect_year = date.today().year + 1 if priority >= 4 else None
+        inspection_id = feat.get("inspection_id")
+        inspection_sql = "NULL" if inspection_id is None else str(int(inspection_id))
+        year_sql = "NULL" if inspect_year is None else str(inspect_year)
+        return (
+            f"{self._sql_text(action)}, {self._sql_text(action)}, {year_sql}, {priority}, "
+            f"{self._sql_array(reasons)}, {completeness}, {self._sql_array(missing)}, "
+            f"{inspection_sql}, now()"
+        )
+
     def _get_ud_rows(self):
         """Overlay + input for UD ARC or NODE."""
         names = am_names(self.project_type, self.asset_type)
@@ -1174,7 +1230,8 @@ class GwCalculatePriority(GwTask):
                 coalesce(i.storm_raw, a.storm_raw_src, 0) AS storm_raw,
                 i.compliance,
                 coalesce(i.estimated_cost, a.estimated_cost, 0) AS estimated_cost,
-                coalesce(a.observation_count, 0) AS observation_count
+                coalesce(a.observation_count, 0) AS observation_count,
+                i.inspection_id
             from am.{names['ext']} a
             left join am.{names['input']} i using ({id_col})
             {filters}
@@ -1359,6 +1416,7 @@ class GwCalculatePriority(GwTask):
             )
             length_sql = feat.get("length") if is_arc else None
             extra_out = f", {length_sql if length_sql is not None else 'NULL'}" if is_arc else ""
+            plan_sql = self._ud_plan(feat)
             values_out.append(
                 f"""({fid}, {self.result_id},
                     {feat['val_longevity']}, {feat['val_incident_history']},
@@ -1366,7 +1424,8 @@ class GwCalculatePriority(GwTask):
                     {feat['val_dwf_impact']}, {feat['val_storm_impact']},
                     {strategic_sql}, {feat.get('mandatory') and 'TRUE' or 'FALSE'}, {compliance_sql},
                     {feat['val_2']}, {index + 1}, {feat['replacement_year']},
-                    {self.result_budget}, {feat.get('cum_cost') or 0}, {feat['estimated_cost']}{extra_out})"""
+                    {self.result_budget}, {feat.get('cum_cost') or 0}, {feat['estimated_cost']}{extra_out},
+                    {plan_sql})"""
             )
 
         if values_engine:
@@ -1389,7 +1448,10 @@ class GwCalculatePriority(GwTask):
                     {id_col}, result_id, longevity, incident_history,
                     structural_condition, operational_condition,
                     dwf, storm, strategic, mandatory, compliance,
-                    val, orderby, replacement_year, budget, total, estimated_cost{extra_cols}
+                    val, orderby, replacement_year, budget, total, estimated_cost{extra_cols},
+                    recommended_action, intervention_type, recommended_inspection_year,
+                    inspection_priority, inspection_reason, calculation_completeness,
+                    missing_criteria, inspection_id, calculation_date
                 ) values {",".join(values_out)};
                 """,
                 is_thread=True,

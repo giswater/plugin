@@ -470,6 +470,15 @@ CREATE TABLE ud_arc_output (
     length numeric(12,3),
     comments text,
     data_quality_class varchar(20),
+    recommended_action varchar(30),
+    intervention_type varchar(30),
+    recommended_inspection_year integer,
+    inspection_priority integer,
+    inspection_reason varchar[],
+    calculation_completeness numeric(5,2),
+    missing_criteria varchar[],
+    inspection_id bigint,
+    calculation_date timestamp DEFAULT now(),
     CONSTRAINT ud_arc_output_pkey PRIMARY KEY (arc_id, result_id)
 );
 
@@ -487,6 +496,8 @@ CREATE TABLE ud_node_input (
     data_quality integer,
     data_quality_obs varchar[],
     estimated_cost numeric(12,2),
+    inspection_id bigint,
+    inspection_date date,
     CONSTRAINT ud_node_input_pkey PRIMARY KEY (node_id)
 );
 
@@ -540,6 +551,15 @@ CREATE TABLE ud_node_output (
     estimated_cost numeric(12,2),
     comments text,
     data_quality_class varchar(20),
+    recommended_action varchar(30),
+    intervention_type varchar(30),
+    recommended_inspection_year integer,
+    inspection_priority integer,
+    inspection_reason varchar[],
+    calculation_completeness numeric(5,2),
+    missing_criteria varchar[],
+    inspection_id bigint,
+    calculation_date timestamp DEFAULT now(),
     CONSTRAINT ud_node_output_pkey PRIMARY KEY (node_id, result_id)
 );
 
@@ -622,6 +642,39 @@ CREATE TABLE ud_arc_pathology (
 CREATE INDEX idx_ud_arc_pathology_arc ON ud_arc_pathology (arc_id);
 CREATE INDEX idx_ud_arc_pathology_code ON ud_arc_pathology (pathology_id);
 CREATE INDEX idx_ud_arc_pathology_active ON ud_arc_pathology (arc_id) WHERE active IS TRUE;
+
+CREATE TABLE ud_node_pathology (
+    rid bigserial PRIMARY KEY,
+    node_id int4 NOT NULL,
+    pathology_id integer NOT NULL REFERENCES ud_cat_pathology (pathology_id),
+    inspection_id bigint,
+    pk_start numeric(10,2),
+    pk_end numeric(10,2),
+    pk numeric(10,2),
+    clock_start numeric(4,1),
+    clock_end numeric(4,1),
+    quantification_value numeric(12,3),
+    quantification_unit varchar(20),
+    severity integer NOT NULL CHECK (severity BETWEEN 1 AND 5),
+    observation text,
+    inspection_date date,
+    active boolean DEFAULT true
+);
+
+CREATE INDEX idx_ud_node_pathology_node ON ud_node_pathology (node_id);
+CREATE INDEX idx_ud_node_pathology_active ON ud_node_pathology (node_id) WHERE active IS TRUE;
+
+-- UD breakdowns (same shape as WS leaks: feature pin + date + type + point).
+CREATE TABLE ud_breakdown (
+    id serial PRIMARY KEY,
+    feature_id int4,
+    feature_type varchar(16),
+    "date" date,
+    breakdown_type varchar(50),
+    the_geom public.geometry(Point, SCHEMA_SRID)
+);
+
+CREATE INDEX idx_ud_breakdown_feature ON ud_breakdown (feature_type, feature_id);
 
 -- Stage 3: LINK Weighted Method tables (ODT ws_link_* → live AM names)
 CREATE TABLE ws_link_input (
@@ -965,7 +1018,10 @@ CREATE VIEW v_asset_ud_arc_output AS
     o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
     o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
     o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
-    o.comments, o.data_quality_class, o.the_geom
+    o.comments, o.data_quality_class, o.the_geom,
+    o.recommended_action, o.intervention_type, o.recommended_inspection_year,
+    o.inspection_priority, o.inspection_reason, o.calculation_completeness,
+    o.missing_criteria, o.inspection_id, o.calculation_date
    FROM ud_arc_output o
      JOIN selector_result_main s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
@@ -976,7 +1032,10 @@ CREATE VIEW v_asset_ud_arc_output_compare AS
     o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
     o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
     o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
-    o.comments, o.data_quality_class, o.the_geom
+    o.comments, o.data_quality_class, o.the_geom,
+    o.recommended_action, o.intervention_type, o.recommended_inspection_year,
+    o.inspection_priority, o.inspection_reason, o.calculation_completeness,
+    o.missing_criteria, o.inspection_id, o.calculation_date
    FROM ud_arc_output o
      JOIN selector_result_compare s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
@@ -987,7 +1046,10 @@ CREATE OR REPLACE VIEW v_asset_ud_arc_corporate AS
     o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
     o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
     o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
-    o.comments, o.data_quality_class, o.the_geom
+    o.comments, o.data_quality_class, o.the_geom,
+    o.recommended_action, o.intervention_type, o.recommended_inspection_year,
+    o.inspection_priority, o.inspection_reason, o.calculation_completeness,
+    o.missing_criteria, o.inspection_id, o.calculation_date
    FROM ud_arc_output o
      JOIN cat_result r ON r.result_id = o.result_id
   WHERE r.iscorporate = TRUE;
@@ -998,7 +1060,10 @@ CREATE VIEW v_asset_ud_node_output AS
     o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
     o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
     o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
-    o.comments, o.data_quality_class, o.the_geom
+    o.comments, o.data_quality_class, o.the_geom,
+    o.recommended_action, o.intervention_type, o.recommended_inspection_year,
+    o.inspection_priority, o.inspection_reason, o.calculation_completeness,
+    o.missing_criteria, o.inspection_id, o.calculation_date
    FROM ud_node_output o
      JOIN selector_result_main s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
@@ -1009,7 +1074,10 @@ CREATE VIEW v_asset_ud_node_output_compare AS
     o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
     o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
     o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
-    o.comments, o.data_quality_class, o.the_geom
+    o.comments, o.data_quality_class, o.the_geom,
+    o.recommended_action, o.intervention_type, o.recommended_inspection_year,
+    o.inspection_priority, o.inspection_reason, o.calculation_completeness,
+    o.missing_criteria, o.inspection_id, o.calculation_date
    FROM ud_node_output o
      JOIN selector_result_compare s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
@@ -1020,7 +1088,10 @@ CREATE OR REPLACE VIEW v_asset_ud_node_corporate AS
     o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
     o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
     o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
-    o.comments, o.data_quality_class, o.the_geom
+    o.comments, o.data_quality_class, o.the_geom,
+    o.recommended_action, o.intervention_type, o.recommended_inspection_year,
+    o.inspection_priority, o.inspection_reason, o.calculation_completeness,
+    o.missing_criteria, o.inspection_id, o.calculation_date
    FROM ud_node_output o
      JOIN cat_result r ON r.result_id = o.result_id
   WHERE r.iscorporate = TRUE;
@@ -1401,6 +1472,10 @@ GRANT ALL ON TABLE ud_node_engine_wm TO role_basic;
 GRANT ALL ON TABLE ud_node_output TO role_basic;
 GRANT ALL ON TABLE ud_cat_pathology TO role_basic;
 GRANT ALL ON TABLE ud_arc_pathology TO role_basic;
+GRANT ALL ON TABLE ud_node_pathology TO role_basic;
+GRANT ALL ON TABLE ud_breakdown TO role_basic;
+GRANT ALL ON SEQUENCE ud_node_pathology_rid_seq TO role_basic;
+GRANT ALL ON SEQUENCE ud_breakdown_id_seq TO role_basic;
 GRANT ALL ON TABLE v_asset_ud_arc_output TO role_basic;
 GRANT ALL ON TABLE v_asset_ud_arc_output_compare TO role_basic;
 GRANT ALL ON TABLE v_asset_ud_arc_corporate TO role_basic;

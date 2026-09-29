@@ -128,6 +128,46 @@ LEFT JOIN am.config_catalog_def cat ON cat.arccat_id = a.arccat_id
 WHERE COALESCE(p.active, true) IS TRUE
   AND COALESCE(c.active, true) IS TRUE;
 
+-- Node CCTV. Extent is punctual (pk unused); prices come from the node catalog.
+CREATE OR REPLACE VIEW am.v_ud_node_pathology AS
+SELECT
+	p.rid,
+	p.node_id,
+	p.pathology_id,
+	c.code,
+	c.name,
+	c.name_es,
+	c.pathology_group,
+	p.severity,
+	p.inspection_id,
+	p.inspection_date,
+	p.observation,
+	p.active,
+	am.gw_fct_am_ud_intervention(
+		p.severity, c.intervention_s1, c.intervention_s2, c.intervention_s3, c.intervention_s4, c.intervention_s5
+	) AS intervention,
+	CASE
+		WHEN am.gw_fct_am_ud_intervention(
+			p.severity, c.intervention_s1, c.intervention_s2, c.intervention_s3, c.intervention_s4, c.intervention_s5
+		) = 'MAINTENANCE' THEN NULL
+		ELSE p.severity::numeric
+	END AS aware_score,
+	am.gw_fct_am_ud_defect_cost(
+		am.gw_fct_am_ud_intervention(
+			p.severity, c.intervention_s1, c.intervention_s2, c.intervention_s3, c.intervention_s4, c.intervention_s5
+		),
+		0,
+		cat.cost_repmain,
+		cat.cost_rehab,
+		cat.cost_constr
+	) AS calculated_cost
+FROM am.ud_node_pathology p
+JOIN am.ud_cat_pathology c ON c.pathology_id = p.pathology_id
+JOIN PARENT_SCHEMA.node n ON n.node_id = p.node_id
+LEFT JOIN am.config_nodecatalog_def cat ON cat.nodecat_id = n.nodecat_id
+WHERE COALESCE(p.active, true) IS TRUE
+  AND COALESCE(c.active, true) IS TRUE;
+
 -- Aggregated scores for AWARE input (cond_state = max BA, om_state = max BB).
 CREATE OR REPLACE VIEW am.v_ud_inspection_score AS
 SELECT
@@ -139,7 +179,18 @@ SELECT
 	count(*) FILTER (WHERE v.severity >= 4)::integer AS severe_observation_count,
 	COALESCE(sum(v.calculated_cost), 0)::numeric AS total_cost
 FROM am.v_ud_arc_pathology v
-GROUP BY v.arc_id;
+GROUP BY v.arc_id
+UNION ALL
+SELECT
+	'NODE'::text,
+	v.node_id::text,
+	COALESCE(max(v.aware_score) FILTER (WHERE v.pathology_group = 'BA'), 1)::numeric,
+	COALESCE(max(v.aware_score) FILTER (WHERE v.pathology_group = 'BB'), 1)::numeric,
+	count(*)::integer,
+	count(*) FILTER (WHERE v.severity >= 4)::integer,
+	COALESCE(sum(v.calculated_cost), 0)::numeric
+FROM am.v_ud_node_pathology v
+GROUP BY v.node_id;
 
 -- Overlay: parent inventory LEFT JOIN extras. presszone_id is drainzone (dialog filter).
 CREATE OR REPLACE VIEW am.ext_ud_arc_asset AS
@@ -170,7 +221,11 @@ SELECT
 		ps.max_operational_score,
 		CASE WHEN a.om_state::text ~ '^[1-5]$' THEN (6 - a.om_state::integer)::numeric ELSE NULL END
 	) AS operational_raw_src,
-	(SELECT count(*)::numeric FROM PARENT_SCHEMA.om_visit_x_arc v WHERE v.arc_id = a.arc_id) AS incident_count_src,
+	(
+		(SELECT count(*)::numeric FROM PARENT_SCHEMA.om_visit_x_arc v WHERE v.arc_id = a.arc_id)
+		+ (SELECT count(*)::numeric FROM am.ud_breakdown b
+			WHERE b.feature_id = a.arc_id AND upper(trim(b.feature_type)) = 'ARC')
+	) AS incident_count_src,
 	(SELECT count(*)::numeric FROM PARENT_SCHEMA.connec c WHERE c.arc_id = a.arc_id AND c.state = 1) AS dwf_raw_src,
 	COALESCE(arc_add.max_flow, 0)::numeric AS storm_raw_src
 FROM PARENT_SCHEMA.arc a
@@ -198,17 +253,28 @@ SELECT
 	n.the_geom,
 	CASE WHEN n.builtdate IS NULL THEN NULL
 		ELSE EXTRACT(YEAR FROM age(CURRENT_DATE, n.builtdate))::numeric END AS age,
-	0::numeric AS estimated_cost,
-	0::integer AS observation_count,
-	CASE WHEN n.conserv_state::text ~ '^[1-5]$' THEN (6 - n.conserv_state::integer)::numeric ELSE NULL END AS structural_raw_src,
-	CASE WHEN n.om_state::text ~ '^[1-5]$' THEN (6 - n.om_state::integer)::numeric ELSE NULL END AS operational_raw_src,
-	(SELECT count(*)::numeric FROM PARENT_SCHEMA.om_visit_x_node v WHERE v.node_id = n.node_id) AS incident_count_src,
+	COALESCE(ps.total_cost, 0)::numeric AS estimated_cost,
+	COALESCE(ps.observation_count, 0)::integer AS observation_count,
+	COALESCE(
+		ps.max_structural_score,
+		CASE WHEN n.conserv_state::text ~ '^[1-5]$' THEN (6 - n.conserv_state::integer)::numeric ELSE NULL END
+	) AS structural_raw_src,
+	COALESCE(
+		ps.max_operational_score,
+		CASE WHEN n.om_state::text ~ '^[1-5]$' THEN (6 - n.om_state::integer)::numeric ELSE NULL END
+	) AS operational_raw_src,
+	(
+		(SELECT count(*)::numeric FROM PARENT_SCHEMA.om_visit_x_node v WHERE v.node_id = n.node_id)
+		+ (SELECT count(*)::numeric FROM am.ud_breakdown b
+			WHERE b.feature_id = n.node_id AND upper(trim(b.feature_type)) = 'NODE')
+	) AS incident_count_src,
 	0::numeric AS dwf_raw_src,
 	0::numeric AS storm_raw_src
 FROM PARENT_SCHEMA.node n
 	JOIN PARENT_SCHEMA.vf_node ON vf_node.node_id = n.node_id
 	JOIN PARENT_SCHEMA.sector s ON s.sector_id = n.sector_id
 	LEFT JOIN PARENT_SCHEMA.cat_node cn ON cn.id::text = n.nodecat_id::text
+	LEFT JOIN am.v_ud_inspection_score ps ON ps.asset_type = 'NODE' AND ps.asset_id = n.node_id::text
 WHERE n.state = 1;
 
 SET search_path = am, public;
@@ -314,13 +380,19 @@ GRANT ALL ON TABLE am.ext_ud_node_asset TO role_basic;
 GRANT ALL ON TABLE am.v_asset_ud_arc_input TO role_basic;
 GRANT ALL ON TABLE am.v_asset_ud_node_input TO role_basic;
 GRANT ALL ON TABLE am.v_ud_arc_pathology TO role_basic;
+GRANT ALL ON TABLE am.v_ud_node_pathology TO role_basic;
 GRANT ALL ON TABLE am.v_ud_inspection_score TO role_basic;
+GRANT ALL ON TABLE am.v_ud_arc_am TO role_basic;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
 VALUES
 ('ud_cat_pathology', 'EN 13508-2 pathology catalog', 'role_om', NULL, '37', 5, 'UD pathology catalog', NULL, NULL, NULL, 'am', NULL),
 ('ud_arc_pathology', 'CCTV pathologies per UD arc', 'role_om', NULL, '35', 8, 'UD arc pathologies', NULL, NULL, NULL, 'am', NULL),
-('v_ud_arc_pathology', 'UD arc pathologies with cost and AWARE score', 'role_om', NULL, '35', 9, 'UD arc pathology calc', NULL, NULL, NULL, 'am', NULL)
+('v_ud_arc_pathology', 'UD arc pathologies with cost and AWARE score', 'role_om', NULL, '35', 9, 'UD arc pathology calc', NULL, NULL, NULL, 'am', NULL),
+('ud_node_pathology', 'CCTV pathologies per UD node', 'role_om', NULL, '36', 8, 'UD node pathologies', NULL, NULL, NULL, 'am', NULL),
+('v_ud_node_pathology', 'UD node pathologies with cost and AWARE score', 'role_om', NULL, '36', 9, 'UD node pathology calc', NULL, NULL, NULL, 'am', NULL),
+('v_ud_arc_am', 'UD arc condition, cost and observation summary', 'role_om', NULL, '35', 10, 'UD arc AM', NULL, NULL, NULL, 'am', NULL),
+('ud_breakdown', 'UD breakdowns by feature', 'role_om', NULL, '35', 11, 'UD breakdowns', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 
 -- Write BA/BB scores back to parent conserv_state / om_state (1=Critical … 5=Excellent).
@@ -366,6 +438,65 @@ DROP TRIGGER IF EXISTS gw_trg_am_ud_arc_pathology ON am.ud_arc_pathology;
 CREATE TRIGGER gw_trg_am_ud_arc_pathology
 AFTER INSERT OR UPDATE OR DELETE ON am.ud_arc_pathology
 FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_am_ud_arc_pathology();
+
+CREATE OR REPLACE FUNCTION PARENT_SCHEMA.gw_trg_am_ud_node_pathology()
+RETURNS trigger AS
+$BODY$
+DECLARE
+	v_node_id integer;
+	v_cond numeric;
+	v_om numeric;
+BEGIN
+	v_node_id := COALESCE(NEW.node_id, OLD.node_id);
+	SELECT
+		COALESCE(max_structural_score, 1),
+		COALESCE(max_operational_score, 1)
+	INTO v_cond, v_om
+	FROM am.v_ud_inspection_score
+	WHERE asset_type = 'NODE' AND asset_id = v_node_id::text;
+
+	IF v_cond IS NULL AND v_om IS NULL THEN
+		RETURN COALESCE(NEW, OLD);
+	END IF;
+
+	UPDATE PARENT_SCHEMA.node SET
+		conserv_state = GREATEST(1, LEAST(5, ROUND(6 - COALESCE(v_cond, 1)))),
+		om_state = GREATEST(1, LEAST(5, ROUND(6 - COALESCE(v_om, 1))))
+	WHERE node_id = v_node_id;
+
+	INSERT INTO am.ud_node_input (node_id, structural_raw, operational_raw, estimated_cost, inspection_id, inspection_date)
+	SELECT v_node_id, v_cond, v_om, s.total_cost, COALESCE(NEW.inspection_id, OLD.inspection_id), COALESCE(NEW.inspection_date, OLD.inspection_date)
+	FROM am.v_ud_inspection_score s
+	WHERE s.asset_type = 'NODE' AND s.asset_id = v_node_id::text
+	ON CONFLICT (node_id) DO UPDATE SET
+		structural_raw = EXCLUDED.structural_raw,
+		operational_raw = EXCLUDED.operational_raw,
+		estimated_cost = EXCLUDED.estimated_cost,
+		inspection_id = COALESCE(EXCLUDED.inspection_id, am.ud_node_input.inspection_id),
+		inspection_date = COALESCE(EXCLUDED.inspection_date, am.ud_node_input.inspection_date);
+
+	RETURN COALESCE(NEW, OLD);
+END;
+$BODY$ LANGUAGE plpgsql VOLATILE;
+
+DROP TRIGGER IF EXISTS gw_trg_am_ud_node_pathology ON am.ud_node_pathology;
+CREATE TRIGGER gw_trg_am_ud_node_pathology
+AFTER INSERT OR UPDATE OR DELETE ON am.ud_node_pathology
+FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_am_ud_node_pathology();
+
+-- One row per arc: condition, cost, observation counts. The AM tab of the arc.
+CREATE OR REPLACE VIEW am.v_ud_arc_am AS
+SELECT
+	a.arc_id,
+	s.max_structural_score AS cond_state,
+	s.max_operational_score AS om_state,
+	s.total_cost,
+	s.observation_count,
+	s.severe_observation_count,
+	a.the_geom
+FROM PARENT_SCHEMA.arc a
+LEFT JOIN am.v_ud_inspection_score s ON s.asset_type = 'ARC' AND s.asset_id = a.arc_id::text
+WHERE a.state = 1;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
 VALUES('v_asset_ud_arc_output_compare', 'id', 'role_om', NULL, '35', 7, 'UD Arc Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')

@@ -93,13 +93,24 @@ class GwAssignation(GwTask):
             return False
 
     def _assign_leaks(self):
-        interval = tools_db.get_row(
+        row = tools_db.get_row(
             "select max(date) - min(date) from am.leaks", is_admin=True, is_thread=True
-        )[0]
+        )
+        interval = row[0] if row else None
+        # date - date is days (int). timedelta if the column is a timestamp.
+        if hasattr(interval, "days"):
+            interval = interval.days
+        if interval is None:
+            msg = "No leak dates found. Fill the date of the leaks before running the assignation."
+            self._emit_report(tools_qt.tr(msg))
+            return False
+        # A single day (or all leaks on the same date) is 0 days. Floor at 1
+        # so years stays > 0 and `date > max(date) - interval` still includes that day.
+        span_years = max(interval, 1) / 365
         if self.years:
-            self.years = min(self.years, interval / 365)
+            self.years = min(self.years, span_years)
         else:
-            self.years = interval / 365
+            self.years = span_years
 
         if self.isCanceled():
             self._emit_report(self.msg_task_canceled)
