@@ -170,6 +170,7 @@ def run_addon_integrate(args: argparse.Namespace, out: Out) -> int:
         schema=name if schema_type != "utils" else "utils",
         profile=profile,
         parent_schema=parent_schema or parent,
+        parent_type=parent_type or None,
         ws_schema=ws_schema,
         ud_schema=ud_schema,
     )
