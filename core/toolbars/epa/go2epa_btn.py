@@ -466,6 +466,7 @@ class GwGo2EpaButton(GwAction):
         self._save_user_values()
 
         self.dlg_go2epa.tab_log_txt_infolog.clear()
+        self.dlg_go2epa.tab_log_txt_infolog.setToolTip("")
         self.dlg_go2epa.txt_file_rpt.setStyleSheet(None)
         status = self._check_fields()
         if status is False:
