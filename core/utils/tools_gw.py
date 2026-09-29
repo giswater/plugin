@@ -2461,6 +2461,7 @@ def fill_tab_log(dialog, data, force_tab=True, reset_text=True, tab_idx=1, call_
     if infolog_widget:
         infolog_widget.setReadOnly(True)
         infolog_widget.setStyleSheet(None)
+        infolog_widget.setToolTip(infolog_widget.toPlainText())
     qtabwidget = dialog.findChild(QTabWidget, 'mainTab')
     if qtabwidget is not None:
         qtabwidget.setTabEnabled(qtabwidget.count() - 1, True)
