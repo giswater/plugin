@@ -3118,12 +3118,18 @@ def add_widget(dialog, field, lbl, widget):
     layout = dialog.findChild(QGridLayout, field['layoutname'])
     if layout in (None, 'null', 'NULL', 'Null'):
         return
+    layoutorder = field.get('layoutorder')
+    if layoutorder is None:
+        msg = "The field layoutorder is not configured for"
+        param = f"columnname: {field.get('columnname')}, layoutname: {field.get('layoutname')}"
+        tools_qgis.show_message(msg, Qgis.MessageLevel.Warning, parameter=param, dialog=dialog)
+        return
     orientation = layout.property('lytOrientation')
     if orientation == 'horizontal':
         row = 0
-        col = int(field['layoutorder'])
+        col = int(layoutorder)
     else:  # default vertical
-        row = int(field['layoutorder'])
+        row = int(layoutorder)
         col = 0
     if lbl is None:
         col = row
@@ -3144,9 +3150,15 @@ def add_widget_combined(dialog, field, label, widget, pos_offset):
 
     layout = dialog.findChild(QGridLayout, field['layoutname'])
     if layout in (None, 'null', 'NULL', 'Null'):
-        return
+        return pos_offset
+    layoutorder = field.get('layoutorder')
+    if layoutorder is None:
+        msg = "The field layoutorder is not configured for"
+        param = f"columnname: {field.get('columnname')}, layoutname: {field.get('layoutname')}"
+        tools_qgis.show_message(msg, Qgis.MessageLevel.Warning, parameter=param, dialog=dialog)
+        return pos_offset
     orientation = layout.property('lytOrientation')
-    widget_pos = int(field.get('layoutorder', 0))
+    widget_pos = int(layoutorder)
     row, col = (0, widget_pos + pos_offset) if orientation == "horizontal" else (widget_pos + pos_offset, 0)
 
     label_pos = field['widgetcontrols']['labelPosition'] if (
