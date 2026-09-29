@@ -528,7 +528,7 @@ gw schema main update --name ws1 --version 4.16.0 --conn "$CONN"
 
 ### `schema addon`
 
-Shared satellite schemas (`utils`, `cibs`, `cm`, `am`, `audit`).
+Shared satellite schemas (`utils`, `cibs`, `cm`, `cmms`, `am`, `audit`).
 
 #### `schema addon create`
 
@@ -546,7 +546,7 @@ Wire an addon into one ws/ud parent. Run once per parent (e.g. integrate utils w
 
 | Option | Description |
 |--------|-------------|
-| `--type` | **Required.** `utils` \| `cibs` \| `cm` \| `am` \| `audit` |
+| `--type` | **Required.** `utils` \| `cibs` \| `cm` \| `cmms` \| `am` \| `audit` |
 | `--parent` | **Required.** Parent ws or ud schema name. |
 | `--name` | Addon schema name (default: same as `--type`). |
 
@@ -576,8 +576,8 @@ Read-only inventory of schemas with `sys_version`. No superuser / role_system re
 
 | Option | Description |
 |--------|-------------|
-| `--tier` | `all` (default), `main` (ws/ud), or `addon` (utils, cibs, am, cm, audit). |
-| `--type` | Repeatable filter: `ws`, `ud`, `utils`, `cibs`, `am`, `cm`, `audit`. |
+| `--tier` | `all` (default), `main` (ws/ud), or `addon` (utils, cibs, am, cm, cmms, audit). |
+| `--type` | Repeatable filter: `ws`, `ud`, `utils`, `cibs`, `am`, `cm`, `cmms`, `audit`. |
 | `--conn` / `--config` | Connection. |
 | `--json` | Machine-readable output. |
 
@@ -732,6 +732,7 @@ gw network show --flat --conn "$CONN" --json | python3 -m json.tool
 | **utils** | `empty`, `integrate_ws`, `integrate_ud`, `copy_data`, `update` | Standalone create; integrate ws/ud separately; version in `utils.sys_version`. |
 | **am** | `empty`, `sample`, `integrate`, `integrate_sample`, `update` | WS parent only; singleton; create then integrate |
 | **cm** | `bootstrap`, `integrate`, `update` | Bootstrap standalone, then `schema addon integrate --parent …` |
+| **cmms** | `empty`, `integrate`, `update` | Singleton. Create standalone, then `schema addon integrate --parent …` once per ws/ud parent. |
 | **audit** | `empty`, `integrate`, `update` | Same flow as other addons via `schema addon create|integrate`. |
 
 **ws/ud profiles** (from [manifests/ws.yaml](../dbmodel/manifests/ws.yaml)):

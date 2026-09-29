@@ -42,6 +42,8 @@ def run(args: argparse.Namespace, out: Out) -> int:  # noqa: C901
         out.warn("kind=cibs usually uses schema name 'cibs' (singleton satellite).")
     if args.kind == "audit" and args.schema != "audit":
         out.warn("kind=audit usually uses schema name 'audit'.")
+    if args.kind == "cmms" and args.schema != "cmms":
+        out.warn("kind=cmms usually uses schema name 'cmms' (singleton satellite).")
 
     target_repr = h.safe_target_repr(args)
     if target_repr:
