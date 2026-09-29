@@ -1,0 +1,64 @@
+# CMMS (satellite) schema manifest.
+#
+# Lifecycle: create cmms alone, then integrate each ws/ud parent.
+# Singleton: one cmms schema per database.
+
+kind: cmms
+engine_version: 1
+
+substitutions: {}
+
+phases:
+  - id: load_base_schema
+    type: sql_dir
+    description: "Bootstrap cmms schema DDL + functions."
+    steps:
+      - { source: "schemas/addon/cmms/base/init.sql", recursive: false }
+      - { source: "schemas/addon/cmms/base/fct", recursive: false }
+      - { source: "schemas/addon/cmms/base/ftrg", recursive: false }
+      - { source: "schemas/addon/cmms/base/base.sql", recursive: false }
+
+  - id: integrate_cmms
+    type: sql_dir
+    description: "Register cmms on a ws/ud parent."
+    steps:
+      - source: "schemas/addon/cmms/integration/common/integration.sql"
+        recursive: false
+      - source: "schemas/addon/cmms/integration/{{ parent_type }}/integration.sql"
+        recursive: false
+        schema_override: "{{ parent_schema }}"
+
+  - id: updates
+    type: version_walk
+    description: "Apply cmms-specific update patches."
+    root: "schemas/addon/cmms/updates"
+    range:
+      mode: "{{ run_mode }}"
+
+  - id: register_version
+    type: sql_function
+    description: "Append cmms.sys_version row."
+    function: "cmms.gw_fct_admin_sys_version_register"
+    payload:
+      client:
+        lang: "{{ locale }}"
+      data:
+        gwVersion: "{{ plugin_version }}"
+        projectType: "CMMS"
+        isNewProject: "{{ register_is_new }}"
+        inferParentsFromConfig: "{{ infer_parents_from_config }}"
+        parentSchema: "{{ register_parent_schema }}"
+        parentKind: "{{ parent_type }}"
+        mergeAddparam: {}
+
+profiles:
+  empty:
+    phases: [load_base_schema, updates, register_version]
+  integrate:
+    phases: [integrate_cmms, updates, register_version]
+  update:
+    phases: [updates, register_version]
+  update_step:
+    phases: [updates, register_version]
+  version_bump:
+    phases: [register_version]

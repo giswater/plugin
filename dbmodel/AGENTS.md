@@ -10,13 +10,13 @@ Authoritative companion docs, kept in sync with this one: [info.txt](info.txt) (
 
 ```
 dbmodel/
-  manifests/          YAML build pipelines: ws, ud, utils, am, cm, audit, cibs, multilang, publi
+  manifests/          YAML build pipelines: ws, ud, utils, am, cm, cmms, audit, cibs, multilang, publi
   schemas/
     main/             Network project schemas
       common/         SQL loaded into BOTH ws and ud. NOT a PG schema by itself
       ws/             Water supply specific
       ud/             Urban drainage specific
-    addon/            Satellite schemas: utils, am, cm, audit, cibs, multilang, publi
+    addon/            Satellite schemas: utils, am, cm, cmms, audit, cibs, multilang, publi
   test/               pgTAP suites + Docker harness
   docker/             Postgres and runner images used by the tests
   tools/              Admin utilities and one-off migrations
@@ -178,7 +178,7 @@ Adding a new SQL directory means adding a step to the manifest; a file that is n
 
 ## Tests
 
-pgTAP suites live in `test/<kind>/` (`ws`, `ud`, `utils`, `cibs`, `publi`, `network`), grouped into `schema/`, `function/`, `data/`, `security/`, `performance/`. `test/replace_vars.py` expands the placeholders into `test/.run/` before `pg_prove` runs.
+pgTAP suites live in `test/<kind>/` (`ws`, `ud`, `utils`, `cibs`, `cmms`, `publi`, `network`), grouped into `schema/`, `function/`, `data/`, `security/`, `performance/`. `test/replace_vars.py` expands the placeholders into `test/.run/` before `pg_prove` runs.
 
 ```bash
 ./dbmodel/test/run_tests.sh ws                     # PostgreSQL 16 by default
