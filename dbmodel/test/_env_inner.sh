@@ -5,11 +5,11 @@ set -euo pipefail
 PROJECT="${1:-${PROJECT:?set PROJECT or pass as first argument}}"
 case "${PROJECT}" in
   ws|ud) SCHEMA="${PROJECT}_40" ;;
-  utils|cibs) SCHEMA="${PROJECT}" ;;
+  utils|cibs|cmms) SCHEMA="${PROJECT}" ;;
   network_ws) SCHEMA="ws_40" ;;
   network_ud) SCHEMA="ud_40" ;;
   *)
-    echo "error: unknown PROJECT=${PROJECT} (ws|ud|utils|cibs|network_ws|network_ud)" >&2
+    echo "error: unknown PROJECT=${PROJECT} (ws|ud|utils|cibs|cmms|network_ws|network_ud)" >&2
     exit 1
     ;;
 esac

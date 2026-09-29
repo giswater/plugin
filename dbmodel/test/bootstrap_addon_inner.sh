@@ -5,7 +5,7 @@ set -euo pipefail
 
 # shellcheck source=_env_inner.sh
 _TEST_ROOT="${GW_TEST_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-source "${_TEST_ROOT}/_env_inner.sh" "${1:?Usage: bootstrap_addon_inner.sh utils|cibs}"
+source "${_TEST_ROOT}/_env_inner.sh" "${1:?Usage: bootstrap_addon_inner.sh utils|cibs|cmms}"
 
 export CONN="${GW_CONN}"
 

@@ -32,6 +32,7 @@ def _manifest(manifests_path: str, kind: str):
     ("utils", "empty"),
     ("am", "empty"),
     ("cm", "empty"),
+    ("cmms", "empty"),
     ("audit", "structure"),
 ])
 def test_plan_produces_positive_file_count(manifests_path, dbmodel_path, kind, profile):
@@ -80,7 +81,7 @@ def test_update_step_reloads_fct_ftrg_before_patches(manifests_path, dbmodel_pat
 
 
 @pytest.mark.parametrize("kind", [
-    "ws", "ud", "utils", "cibs", "am", "cm", "audit", "publi", "multilang",
+    "ws", "ud", "utils", "cibs", "am", "cm", "cmms", "audit", "publi", "multilang",
 ])
 def test_lockstep_profiles_declared(manifests_path, kind):
     """Network lockstep needs update_step + version_bump on every updatable kind."""
@@ -90,4 +91,40 @@ def test_lockstep_profiles_declared(manifests_path, kind):
     assert "update_step" in manifest.profiles, f"{kind} missing update_step"
     assert "version_bump" in manifest.profiles, f"{kind} missing version_bump"
     assert manifest.profiles["version_bump"].phases == ("register_version",)
+
+
+def test_cmms_empty_and_integrate_phase_ids(manifests_path, dbmodel_path):
+    manifest = _manifest(manifests_path, "cmms")
+    empty = BuildParams(
+        schema_name="cmms",
+        srid="25831",
+        sql_root=dbmodel_path,
+        plugin_version="4.18.0",
+        profile="empty",
+        run_mode="new_project",
+    )
+    assert [phase.id for phase, _ in SchemaBuilder(_FakeConn(), manifest, empty).plan()] == [
+        "load_base_schema",
+        "updates",
+        "register_version",
+    ]
+    integrate = BuildParams(
+        schema_name="cmms",
+        srid="25831",
+        sql_root=dbmodel_path,
+        plugin_version="4.18.0",
+        profile="integrate",
+        run_mode="new_project",
+        parent_schema="ws_demo",
+        parent_type="ws",
+        register_parent_schema="ws_demo",
+    )
+    planned = SchemaBuilder(_FakeConn(), manifest, integrate).plan()
+    assert [phase.id for phase, _ in planned] == [
+        "integrate_cmms",
+        "updates",
+        "register_version",
+    ]
+    counts = {phase.id: count for phase, count in planned}
+    assert counts["integrate_cmms"] >= 2
 
