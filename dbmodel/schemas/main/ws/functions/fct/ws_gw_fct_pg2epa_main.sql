@@ -320,6 +320,10 @@ BEGIN
 			SELECT DISTINCT (pattern_id) FROM temp_t_demand WHERE pattern_id IS NOT NULL
 			UNION
 			SELECT DISTINCT (pattern_id) FROM temp_t_node WHERE pattern_id IS NOT NULL
+			UNION
+			SELECT value FROM config_param_user
+			WHERE parameter = 'inp_options_pattern' AND cur_user = current_user
+			AND value IS NOT NULL AND value NOT IN ('', 'NULLVALUE')
 		)
 		ORDER BY pattern_id, id;
 
@@ -338,6 +342,10 @@ BEGIN
 			SELECT DISTINCT (pattern_id) FROM temp_t_demand WHERE pattern_id IS NOT NULL
 			UNION
 			SELECT DISTINCT (pattern_id) FROM temp_t_node WHERE pattern_id IS NOT NULL
+			UNION
+			SELECT value FROM config_param_user
+			WHERE parameter = 'inp_options_pattern' AND cur_user = current_user
+			AND value IS NOT NULL AND value NOT IN ('', 'NULLVALUE')
 		)
 		AND p.dscenario_id IN (SELECT unnest(v_userscenario))
 		ORDER BY pattern_id, id;
