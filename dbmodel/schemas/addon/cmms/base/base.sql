@@ -156,3 +156,8 @@ DROP TRIGGER IF EXISTS trg_asset_feature_map_set_updated_at ON cmms.asset_featur
 CREATE TRIGGER trg_asset_feature_map_set_updated_at
   BEFORE UPDATE ON cmms.asset_feature_map
   FOR EACH ROW EXECUTE PROCEDURE cmms.set_updated_at_column();
+
+GRANT SELECT ON ALL TABLES IN SCHEMA cmms TO role_basic;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA cmms TO role_cmms;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA cmms TO role_cmms;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA cmms TO role_cmms;

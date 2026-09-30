@@ -47,6 +47,11 @@ BEGIN
   GRANT role_plan TO role_admin;
   GRANT role_admin TO role_system;
 
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_cmms') THEN
+    CREATE ROLE role_cmms NOLOGIN NOINHERIT;
+  END IF;
+  GRANT role_basic TO role_cmms;
+
   IF NOT pg_has_role(current_user, 'role_system', 'member') THEN
     EXECUTE 'GRANT role_system TO ' || quote_ident(current_user);
   END IF;

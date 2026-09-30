@@ -22,11 +22,16 @@ phases:
     type: sql_dir
     description: "Register cmms on a ws/ud parent."
     steps:
-      - source: "schemas/addon/cmms/integration/common/integration.sql"
-        recursive: false
       - source: "schemas/addon/cmms/integration/{{ parent_type }}/integration.sql"
         recursive: false
         schema_override: "{{ parent_schema }}"
+
+  - id: reload_fct_ftrg
+    type: sql_dir
+    description: "Re-apply cmms functions and trigger functions."
+    steps:
+      - { source: "schemas/addon/cmms/base/fct", recursive: false }
+      - { source: "schemas/addon/cmms/base/ftrg", recursive: false }
 
   - id: updates
     type: version_walk
@@ -45,20 +50,86 @@ phases:
       data:
         gwVersion: "{{ plugin_version }}"
         projectType: "CMMS"
+        epsg: "{{ srid }}"
         isNewProject: "{{ register_is_new }}"
         inferParentsFromConfig: "{{ infer_parents_from_config }}"
         parentSchema: "{{ register_parent_schema }}"
         parentKind: "{{ parent_type }}"
         mergeAddparam: {}
 
+  - id: set_owner
+    type: sql_inline
+    description: "Own every cmms relation as role_system and re-apply role_cmms grants."
+    sql: |
+      DO $cmms_set_owner$
+      DECLARE
+        rec record;
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_system') THEN
+          RETURN;
+        END IF;
+
+        FOR rec IN
+          SELECT c.relname
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'cmms'
+            AND c.relkind = 'S'
+            AND c.relowner = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+            AND NOT EXISTS (
+              SELECT 1 FROM pg_depend d
+              WHERE d.objid = c.oid AND d.deptype = 'a' AND d.refobjsubid <> 0
+            )
+        LOOP
+          EXECUTE format('ALTER SEQUENCE cmms.%I OWNER TO role_system', rec.relname);
+        END LOOP;
+
+        FOR rec IN
+          SELECT c.relname, c.relkind
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'cmms'
+            AND c.relkind IN ('r', 'p', 'v', 'm')
+            AND c.relowner = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+        LOOP
+          IF rec.relkind IN ('r', 'p') THEN
+            EXECUTE format('ALTER TABLE cmms.%I OWNER TO role_system', rec.relname);
+          ELSIF rec.relkind = 'v' THEN
+            EXECUTE format('ALTER VIEW cmms.%I OWNER TO role_system', rec.relname);
+          ELSE
+            EXECUTE format('ALTER MATERIALIZED VIEW cmms.%I OWNER TO role_system', rec.relname);
+          END IF;
+        END LOOP;
+
+        FOR rec IN
+          SELECT p.oid::regprocedure::text AS func_sig
+          FROM pg_proc p
+          JOIN pg_namespace n ON n.oid = p.pronamespace
+          WHERE n.nspname = 'cmms'
+            AND p.proowner = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+        LOOP
+          EXECUTE format('ALTER FUNCTION %s OWNER TO role_system', rec.func_sig);
+        END LOOP;
+
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_cmms') THEN
+          EXECUTE 'SET ROLE role_system';
+          GRANT SELECT ON ALL TABLES IN SCHEMA cmms TO role_basic;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA cmms TO role_cmms;
+          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA cmms TO role_cmms;
+          GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA cmms TO role_cmms;
+          EXECUTE 'RESET ROLE';
+        END IF;
+      END
+      $cmms_set_owner$;
+
 profiles:
   empty:
-    phases: [load_base_schema, updates, register_version]
+    phases: [load_base_schema, updates, register_version, set_owner]
   integrate:
     phases: [integrate_cmms, updates, register_version]
   update:
-    phases: [updates, register_version]
+    phases: [reload_fct_ftrg, updates, register_version, set_owner]
   update_step:
-    phases: [updates, register_version]
+    phases: [reload_fct_ftrg, updates, register_version, set_owner]
   version_bump:
     phases: [register_version]

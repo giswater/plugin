@@ -107,7 +107,10 @@ def test_cmms_empty_and_integrate_phase_ids(manifests_path, dbmodel_path):
         "load_base_schema",
         "updates",
         "register_version",
+        "set_owner",
     ]
+    register = manifest.phase("register_version")
+    assert register.payload["data"]["epsg"] == "{{ srid }}"
     integrate = BuildParams(
         schema_name="cmms",
         srid="25831",
@@ -126,5 +129,19 @@ def test_cmms_empty_and_integrate_phase_ids(manifests_path, dbmodel_path):
         "register_version",
     ]
     counts = {phase.id: count for phase, count in planned}
-    assert counts["integrate_cmms"] >= 2
+    assert counts["integrate_cmms"] == 1
+    for profile in ("update", "update_step"):
+        params = BuildParams(
+            schema_name="cmms",
+            srid="25831",
+            sql_root=dbmodel_path,
+            plugin_version="4.18.0",
+            profile=profile,
+            run_mode="upgrade",
+            project_version="4.18.0",
+        )
+        phase_ids = [phase.id for phase, _ in SchemaBuilder(_FakeConn(), manifest, params).plan()]
+        assert phase_ids[0] == "reload_fct_ftrg"
+        assert phase_ids[-1] == "set_owner"
+        assert "set_owner" not in [phase.id for phase, _ in planned]
 

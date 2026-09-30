@@ -54,7 +54,9 @@ BEGIN
 	END IF;
 	IF v_isnew IS NOT TRUE AND v_prev IS NOT NULL THEN
 		v_language := COALESCE(v_prev.language, v_language);
-		v_epsg := COALESCE(v_epsg, v_prev.epsg);
+		-- Geometry typmod is fixed at create. Later registers must not
+		-- replace the stored EPSG with the CLI default.
+		v_epsg := COALESCE(v_prev.epsg, v_epsg);
 		v_projecttype := COALESCE(v_projecttype, v_prev.project_type);
 	ELSIF v_isnew IS TRUE AND v_epsg IS NULL THEN
 		v_epsg := 25831;

@@ -838,7 +838,8 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self._delete_other_schema(schema_name)
 
     def _create_cmms(self) -> None:
-        self.admin._create_cmms_schema()
+        parent = self._selected_network_parent or None
+        self.admin._create_cmms_schema(parent_schema=parent)
 
     def _integrate_cmms(self) -> None:
         parent, parent_type = self._parent_context()

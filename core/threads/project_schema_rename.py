@@ -138,6 +138,8 @@ class GwRenameSchemaTask(GwTask):
                 return False
             if not self._exec(conn, self._lastprocess_sql(new_schema_name)):
                 return False
+            if not self._sync_cmms_parent_name(conn, schema, new_schema_name):
+                return False
         if not self._exec(conn, "RESET ROLE"):
             return False
         tools_db.dao.commit(aux_conn=conn)
@@ -145,6 +147,47 @@ class GwRenameSchemaTask(GwTask):
 
     def _is_network_schema(self):
         return str(self.params.get('project_type') or '').lower() in ('ws', 'ud')
+
+    def _sync_cmms_parent_name(self, conn, schema, new_schema_name):
+        """Rewrite cmms parent_schemas and asset_feature_map.schema_name.
+
+        A failure here must not undo the rename. The DO block swallows
+        function errors; a statement abort rolls back only to the savepoint.
+        """
+        if not self._exec(conn, "SAVEPOINT cmms_rename_parent"):
+            return False
+        sql = (
+            "DO $cmms_rename$\n"
+            "BEGIN\n"
+            "  IF to_regprocedure('cmms.gw_fct_cmms_rename_parent(text, text)') IS NOT NULL THEN\n"
+            f"    PERFORM cmms.gw_fct_cmms_rename_parent('{schema}', '{new_schema_name}');\n"
+            "  END IF;\n"
+            "EXCEPTION WHEN OTHERS THEN\n"
+            "  RAISE WARNING 'cmms rename_parent failed: %', SQLERRM;\n"
+            "END\n"
+            "$cmms_rename$;"
+        )
+        ok = tools_db.execute_sql(
+            sql, commit=False, is_thread=True, show_exception=False, aux_conn=conn,
+        )
+        if not ok:
+            tools_db.execute_sql(
+                "ROLLBACK TO SAVEPOINT cmms_rename_parent",
+                commit=False, is_thread=True, show_exception=False, aux_conn=conn,
+            )
+            err = lib_vars.session_vars.get('last_error')
+            msg = "cmms parent rename sync failed: {0}"
+            tools_log.log_warning(msg, msg_params=(err,))
+        released = tools_db.execute_sql(
+            "RELEASE SAVEPOINT cmms_rename_parent",
+            commit=False, is_thread=True, show_exception=False, aux_conn=conn,
+        )
+        if not released:
+            err = lib_vars.session_vars.get('last_error')
+            msg = "cmms parent rename sync failed: {0}"
+            tools_log.log_warning(msg, msg_params=(err,))
+            return False
+        return True
 
     def _exec(self, conn, sql):
         ok = tools_db.execute_sql(

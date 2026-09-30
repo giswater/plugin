@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `cmms` satellite schema: `gw schema addon create|integrate|update|drop --type cmms`. Singleton, one schema per database, integrated with each ws/ud parent. Lockstep `network update` runs it after `am` and before `cm`.
+- `cmms` satellite schema: `gw schema addon create|integrate|update|drop --type cmms`. Singleton, one schema per database, integrated with each ws/ud parent. Lockstep `network update` runs it after `am` and before `cm`. `schema addon create --srid` sets `sys_version.epsg` and the geometry SRID.
 
 ### Fixed
 
+- Dropping `cmms` removes `satellites.cmms` from each linked ws/ud parent. Dropping a ws/ud parent unlinks its rows from `cmms`. Both are best-effort and do not fail the drop. `gw db init` creates `role_cmms` (NOLOGIN, writer grants on the cmms schema).
 - `gw dbmodel install X.Y.Z` falls back to the GitHub release ZIP, then the
   `vX.Y.Z` source archive, when `download.giswater.org` 404s (tag exists
   before the plugin ZIP is published).

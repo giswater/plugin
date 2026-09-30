@@ -66,6 +66,7 @@ def register(sub: argparse._SubParsersAction, parent: argparse.ArgumentParser) -
         help="Addon kind (any manifest under dbmodel/manifests/, e.g. utils, publi, cmms).",
     )
     sp_ac.add_argument("--name", default=None)
+    sp_ac.add_argument("--srid", default="25831", help="EPSG used for cmms geometries and sys_version.epsg.")
     sp_ac.add_argument(
         "--profile",
         default="empty",

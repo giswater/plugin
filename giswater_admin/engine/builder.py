@@ -665,6 +665,122 @@ def _parse_version(s: str) -> tuple[int, int, int]:
     return nums[0], nums[1], nums[2]
 
 
+def _sql_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _drop_pre_sql(schema: str) -> str:
+    """Remember project_type and unlink cmms rows before a ws/ud drop.
+
+    The DO block swallows unlink errors so a missing function cannot abort
+    the drop transaction.
+    """
+    literal = _sql_literal(schema)
+    return f"""
+DO $gw_drop_pre$
+DECLARE
+  v_schema text := {literal};
+  v_kind text;
+BEGIN
+  CREATE TEMP TABLE IF NOT EXISTS gw_drop_kind (kind text);
+  TRUNCATE gw_drop_kind;
+
+  IF to_regclass(format('%I.sys_version', v_schema)) IS NOT NULL THEN
+    EXECUTE format(
+      'SELECT lower(project_type) FROM %I.sys_version ORDER BY id DESC LIMIT 1',
+      v_schema
+    ) INTO v_kind;
+  END IF;
+  INSERT INTO gw_drop_kind VALUES (v_kind);
+
+  IF v_kind IN ('ws', 'ud')
+     AND to_regprocedure('cmms.gw_fct_cmms_unlink_parent(text)') IS NOT NULL THEN
+    BEGIN
+      PERFORM cmms.gw_fct_cmms_unlink_parent(v_schema);
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'cmms.gw_fct_cmms_unlink_parent(%) failed: %', v_schema, SQLERRM;
+    END;
+  END IF;
+END
+$gw_drop_pre$;
+"""
+
+
+def _drop_post_sql() -> str:
+    """Strip satellites.<kind> from parents after a satellite schema is gone.
+
+    Calls the parent register function when it understands removeSatellite.
+    Older functions get one new sys_version row with the key removed.
+    """
+    return """
+DO $gw_drop_post$
+DECLARE
+  v_kind text;
+  v_parent text;
+  v_has boolean;
+  v_fn regprocedure;
+  v_supports boolean;
+BEGIN
+  IF to_regclass('pg_temp.gw_drop_kind') IS NULL THEN
+    RETURN;
+  END IF;
+  SELECT kind INTO v_kind FROM gw_drop_kind LIMIT 1;
+  IF v_kind IS NULL OR v_kind IN ('ws', 'ud') THEN
+    RETURN;
+  END IF;
+
+  FOR v_parent IN
+    SELECT n.nspname
+    FROM pg_namespace n
+    JOIN pg_class c ON c.relnamespace = n.oid
+    WHERE c.relname = 'sys_version'
+      AND c.relkind = 'r'
+      AND n.nspname <> 'information_schema'
+      AND n.nspname NOT LIKE 'pg_%'
+  LOOP
+    BEGIN
+      EXECUTE format(
+        'SELECT COALESCE((addparam -> ''satellites'') ? %L, false) '
+        'FROM %I.sys_version ORDER BY id DESC LIMIT 1',
+        v_kind, v_parent
+      ) INTO v_has;
+      IF NOT COALESCE(v_has, false) THEN
+        CONTINUE;
+      END IF;
+
+      v_fn := to_regprocedure(format('%I.gw_fct_admin_sys_version_register(json)', v_parent));
+      v_supports := false;
+      IF v_fn IS NOT NULL THEN
+        SELECT strpos(prosrc, 'removeSatellite') > 0 INTO v_supports
+        FROM pg_proc WHERE oid = v_fn;
+      END IF;
+
+      IF v_supports THEN
+        EXECUTE format(
+          'SELECT %I.gw_fct_admin_sys_version_register(%L::json)',
+          v_parent,
+          json_build_object('data', json_build_object('removeSatellite', v_kind))::text
+        );
+      ELSE
+        EXECUTE format(
+          'INSERT INTO %1$I.sys_version '
+          '(giswater, project_type, postgres, postgis, language, epsg, addparam) '
+          'SELECT giswater, project_type, version(), postgis_version(), language, epsg, '
+          'jsonb_set(COALESCE(addparam, ''{}''::jsonb), ''{satellites}'', '
+          'COALESCE(addparam -> ''satellites'', ''{}''::jsonb) - %2$L, true) '
+          'FROM %1$I.sys_version ORDER BY id DESC LIMIT 1',
+          v_parent, v_kind
+        );
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'satellite unlink on parent % failed: %', v_parent, SQLERRM;
+    END;
+  END LOOP;
+END
+$gw_drop_post$;
+"""
+
+
 def drop_schema(
     conn: sql_runner.ConnectionLike,
     schema: str,
@@ -672,15 +788,51 @@ def drop_schema(
     cascade: bool = False,
     commit: bool = True,
 ) -> sql_runner.FileExec:
-    """Drop a schema. Used by both CLI ``drop`` and plugin delete handlers."""
-    safe = schema.replace('"', '').replace(';', '')
+    """Drop a schema. Used by both CLI ``drop`` and plugin delete handlers.
+
+    Best-effort link cleanup, never fails the drop:
+    - ws/ud: ``cmms.gw_fct_cmms_unlink_parent`` before the drop
+    - any other project type: strip ``satellites.<kind>`` from parents after
+    """
+    safe = schema.replace('"', '').replace(';', '').replace("'", "")
+    notes: list[str] = []
     cascade_kw = "CASCADE" if cascade else "RESTRICT"
-    sql = f'DROP SCHEMA IF EXISTS "{safe}" {cascade_kw};'
-    sql_runner.execute_inline(
-        conn, _ENSURE_ROLE_SYSTEM_SQL, label=f"drop:{safe}:set_role_system", commit=False
-    )
+    drop_sql = f'DROP SCHEMA IF EXISTS "{safe}" {cascade_kw};'
+    pre_sql = _drop_pre_sql(safe)
+    post_sql = _drop_post_sql()
+
+    def _role() -> None:
+        sql_runner.execute_inline(
+            conn, _ENSURE_ROLE_SYSTEM_SQL, label=f"drop:{safe}:set_role_system", commit=False
+        )
+
+    def _run(sql: str, label: str) -> sql_runner.FileExec:
+        return sql_runner.execute_inline(conn, sql, label=label, commit=False)
+
+    _role()
     try:
-        return sql_runner.execute_inline(conn, sql, label=f"drop:{safe}", commit=commit)
+        pre = _run(pre_sql, f"drop:{safe}:pre")
+        if not pre.ok:
+            notes.append(pre.error or "pre-drop cleanup failed")
+            conn.rollback()
+            _role()
+        fx = _run(drop_sql, f"drop:{safe}")
+        if fx.ok:
+            post = _run(post_sql, f"drop:{safe}:post")
+            if not post.ok:
+                notes.append(post.error or "post-drop cleanup failed")
+                conn.rollback()
+                _role()
+                pre_retry = _run(pre_sql, f"drop:{safe}:pre")
+                if not pre_retry.ok:
+                    notes.append(pre_retry.error or "pre-drop cleanup failed")
+                    conn.rollback()
+                    _role()
+                fx = _run(drop_sql, f"drop:{safe}")
+        if fx.ok and commit:
+            conn.commit()
+        fx.notes = "\n".join(note for note in notes if note)
+        return fx
     finally:
         sql_runner.execute_inline(
             conn, _RESET_ROLE_SQL, label=f"drop:{safe}:reset_role", commit=False

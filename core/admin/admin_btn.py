@@ -494,15 +494,28 @@ class GwAdminButton:
             on_done=self._on_builder_done_other,
         )
 
-    def _create_cmms_schema(self) -> None:
+    def _parent_epsg(self, schema: str) -> str:
+        """EPSG of the latest sys_version row. Never returns 0."""
+        safe = str(schema or "").replace('"', "").replace(";", "").replace("'", "")
+        if not safe:
+            return "25831"
+        row = tools_db.get_row(
+            f'SELECT epsg FROM "{safe}".sys_version ORDER BY id DESC LIMIT 1'
+        )
+        if not row or row[0] in (None, "", 0, "0"):
+            return "25831"
+        return str(row[0])
+
+    def _create_cmms_schema(self, parent_schema=None) -> None:
         """Create the singleton cmms schema (no parent integration)."""
         msg = "This process will take a few seconds. Are you sure to continue?"
         title = "Create cmms schema"
         if not tools_qt.show_question(msg, title):
             return
+        srid = self._parent_epsg(parent_schema) if parent_schema else "25831"
         bp = BuildParams(
             schema_name="cmms",
-            srid=str(self.project_epsg or "25831"),
+            srid=srid,
             locale=self.locale,
             plugin_version=str(self.plugin_version),
             profile="empty",
@@ -533,7 +546,7 @@ class GwAdminButton:
             return
         bp = BuildParams(
             schema_name="cmms",
-            srid=str(self.project_epsg or "25831"),
+            srid=self._parent_epsg(parent_schema),
             locale=self.locale,
             plugin_version=str(self.plugin_version),
             profile="integrate",
@@ -5085,7 +5098,7 @@ class GwAdminButton:
         parent_schema, parent_type = self._resolve_parent_context(parent_schema, parent_type)
         bp = BuildParams(
             schema_name="cmms",
-            srid=str(row[2] if row and row[2] else "0"),
+            srid=self._parent_epsg("cmms"),
             locale=str(row[1] if row and row[1] else self.locale),
             plugin_version=str(self.plugin_version),
             project_version=str(current_version),
