@@ -40,7 +40,7 @@ class GwUdInspectionImportButton(GwAction):
 
     def clicked_event(self):
         if self.action.menu():
-            self.action.menu().exec_(self.iface.mapCanvas().mapToGlobal(self.iface.mapCanvas().rect().center()))
+            self.action.menu().exec(self.iface.mapCanvas().mapToGlobal(self.iface.mapCanvas().rect().center()))
 
     def _import(self, kind):
         title = "Select inspection file"

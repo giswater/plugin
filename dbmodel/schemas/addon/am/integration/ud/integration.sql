@@ -49,25 +49,26 @@ DROP TRIGGER IF EXISTS gw_trg_asset_cat_arc ON PARENT_SCHEMA.cat_arc;
 CREATE TRIGGER gw_trg_asset_cat_arc AFTER INSERT OR UPDATE OF geom1 ON PARENT_SCHEMA.cat_arc
 FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_arc();
 
+-- Shared am catalog tables hold WS and UD rows. A FK can only point at one parent.
 ALTER TABLE am.config_catalog_def DROP CONSTRAINT IF EXISTS config_catalog_def_fk;
-ALTER TABLE am.config_catalog_def ADD CONSTRAINT config_catalog_def_fk FOREIGN KEY (arccat_id)
-REFERENCES PARENT_SCHEMA.cat_arc (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE;
 
 DROP TRIGGER IF EXISTS gw_trg_asset_cat_material ON PARENT_SCHEMA.cat_material;
 CREATE TRIGGER gw_trg_asset_cat_material AFTER INSERT ON PARENT_SCHEMA.cat_material
 FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_material();
 
 ALTER TABLE am.config_material_def DROP CONSTRAINT IF EXISTS config_material_def_fk;
-ALTER TABLE am.config_material_def ADD CONSTRAINT config_material_def_fk FOREIGN KEY (material)
-REFERENCES PARENT_SCHEMA.cat_material (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE;
 
 DROP TRIGGER IF EXISTS gw_trg_asset_cat_node ON PARENT_SCHEMA.cat_node;
 CREATE TRIGGER gw_trg_asset_cat_node AFTER INSERT OR UPDATE OF geom1 ON PARENT_SCHEMA.cat_node
 FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_node();
 
 ALTER TABLE am.config_nodecatalog_def DROP CONSTRAINT IF EXISTS config_nodecatalog_def_fk;
-ALTER TABLE am.config_nodecatalog_def ADD CONSTRAINT config_nodecatalog_def_fk FOREIGN KEY (nodecat_id)
-REFERENCES PARENT_SCHEMA.cat_node (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE;
+
+INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES
+('sys_table_context', '35', '["AM", "ARC"]', '{"orderBy": 35}'),
+('sys_table_context', '36', '["AM", "NODE"]', '{"orderBy": 36}'),
+('sys_table_context', '37', '["AM", "CONFIG"]', '{"orderBy": 38}')
+ON CONFLICT (typevalue, id) DO UPDATE SET idval = EXCLUDED.idval, addparam = EXCLUDED.addparam;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES
 ('config_catalog_def', 'Table to define the catalogs', 'role_om', NULL, '37', 4, 'Config catalog', NULL, NULL, NULL, 'am', NULL),
@@ -75,6 +76,42 @@ INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, c
 ('config_material_def', 'Table to define the materials', 'role_om', NULL, '37', 2, 'Config material', NULL, NULL, NULL, 'am', NULL),
 ('config_engine_def', 'Table to define engines configuration', 'role_om', NULL, '37', 1, 'Config engine', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+
+-- Integrate runs before updates. These tables land in 4.18; create them here if the schema is behind.
+CREATE TABLE IF NOT EXISTS am.ud_node_pathology (
+    rid bigserial PRIMARY KEY,
+    node_id int4 NOT NULL,
+    pathology_id integer NOT NULL REFERENCES am.ud_cat_pathology (pathology_id),
+    inspection_id bigint,
+    pk_start numeric(10,2),
+    pk_end numeric(10,2),
+    pk numeric(10,2),
+    clock_start numeric(4,1),
+    clock_end numeric(4,1),
+    quantification_value numeric(12,3),
+    quantification_unit varchar(20),
+    severity integer NOT NULL CHECK (severity BETWEEN 1 AND 5),
+    observation text,
+    inspection_date date,
+    active boolean DEFAULT true
+);
+CREATE INDEX IF NOT EXISTS idx_ud_node_pathology_node ON am.ud_node_pathology (node_id);
+
+CREATE TABLE IF NOT EXISTS am.ud_breakdown (
+    id serial PRIMARY KEY,
+    feature_id int4,
+    feature_type varchar(16),
+    "date" date,
+    breakdown_type varchar(50),
+    the_geom public.geometry(Point)
+);
+CREATE INDEX IF NOT EXISTS idx_ud_breakdown_feature ON am.ud_breakdown (feature_type, feature_id);
+
+GRANT ALL ON TABLE am.ud_node_pathology TO role_basic;
+GRANT ALL ON TABLE am.ud_breakdown TO role_basic;
+
+ALTER TABLE am.ud_node_input ADD COLUMN IF NOT EXISTS inspection_id bigint;
+ALTER TABLE am.ud_node_input ADD COLUMN IF NOT EXISTS inspection_date date;
 
 -- Per-observation CCTV row: intervention, extent, AWARE score, cost.
 -- MAINTENANCE is listed but score is NULL (does not enter AWARE).
@@ -192,14 +229,18 @@ SELECT
 FROM am.v_ud_node_pathology v
 GROUP BY v.node_id;
 
--- Overlay: parent inventory LEFT JOIN extras. presszone_id is drainzone (dialog filter).
+-- Overlay: parent inventory LEFT JOIN extras. presszone_id is the AM dialog filter.
+-- Upgraded UD stores the drain zone on omzone_id (4.2 renamed arc.drainzone_id to dma_id).
+-- Drop first: ST_Multi() without a typmod cast cannot be changed in place, and the input view depends on it.
+DROP VIEW IF EXISTS am.v_asset_ud_arc_input CASCADE;
+DROP VIEW IF EXISTS am.ext_ud_arc_asset CASCADE;
 CREATE OR REPLACE VIEW am.ext_ud_arc_asset AS
 SELECT
 	a.arc_id,
 	a.sector_id,
 	s.macrosector_id,
-	a.drainzone_id::varchar AS drainzone_id,
-	a.drainzone_id::varchar AS presszone_id,
+	a.omzone_id::varchar AS drainzone_id,
+	a.omzone_id::varchar AS presszone_id,
 	a.builtdate,
 	a.arccat_id,
 	cat.geom1 AS dnom,
@@ -208,7 +249,7 @@ SELECT
 	a.code,
 	a.expl_id,
 	a.dma_id,
-	ST_Multi(a.the_geom) AS the_geom,
+	ST_Multi(a.the_geom)::geometry(MultiLineString, SRID_VALUE) AS the_geom,
 	CASE WHEN a.builtdate IS NULL THEN NULL
 		ELSE EXTRACT(YEAR FROM age(CURRENT_DATE, a.builtdate))::numeric END AS age,
 	COALESCE(ps.total_cost, 0)::numeric AS estimated_cost,
@@ -241,8 +282,8 @@ SELECT
 	n.node_id,
 	n.sector_id,
 	s.macrosector_id,
-	n.drainzone_id::varchar AS drainzone_id,
-	n.drainzone_id::varchar AS presszone_id,
+	n.omzone_id::varchar AS drainzone_id,
+	n.omzone_id::varchar AS presszone_id,
 	n.builtdate,
 	n.nodecat_id,
 	cn.matcat_id,
@@ -307,7 +348,7 @@ SELECT
 	a.presszone_id,
 	a.dma_id,
 	a.code,
-	a.the_geom
+	a.the_geom::geometry(MultiLineString, SRID_VALUE) AS the_geom
 FROM ext_ud_arc_asset a
 	LEFT JOIN ud_arc_input i USING (arc_id);
 
@@ -382,7 +423,6 @@ GRANT ALL ON TABLE am.v_asset_ud_node_input TO role_basic;
 GRANT ALL ON TABLE am.v_ud_arc_pathology TO role_basic;
 GRANT ALL ON TABLE am.v_ud_node_pathology TO role_basic;
 GRANT ALL ON TABLE am.v_ud_inspection_score TO role_basic;
-GRANT ALL ON TABLE am.v_ud_arc_am TO role_basic;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
 VALUES
@@ -497,6 +537,8 @@ SELECT
 FROM PARENT_SCHEMA.arc a
 LEFT JOIN am.v_ud_inspection_score s ON s.asset_type = 'ARC' AND s.asset_id = a.arc_id::text
 WHERE a.state = 1;
+
+GRANT ALL ON TABLE am.v_ud_arc_am TO role_basic;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
 VALUES('v_asset_ud_arc_output_compare', 'id', 'role_om', NULL, '35', 7, 'UD Arc Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')

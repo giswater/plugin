@@ -1375,6 +1375,12 @@ class GwCalculatePriority(GwTask):
         self._emit_report(tools_qt.tr("Updating tables") + " (4/4)...")
         self.setProgress(40)
 
+        skipped = invalid_cat["qtd"] + invalid_material["qtd"]
+        self.statistics_report = tools_qt.tr(
+            "UD {0}: {1} assets scored ({2} skipped).",
+            list_params=(self.asset_type, len(second_iteration), skipped),
+        )
+
         self.result_id = self._save_result_info()
         if not self.result_id:
             return False
@@ -1474,13 +1480,7 @@ class GwCalculatePriority(GwTask):
             is_thread=True,
         )
 
-        skipped = invalid_cat["qtd"] + invalid_material["qtd"]
-        self._emit_report(
-            tools_qt.tr(
-                "UD {0}: {1} assets scored ({2} skipped).",
-                list_params=(self.asset_type, len(second_iteration), skipped),
-            )
-        )
+        self._emit_report(self.statistics_report)
         self._emit_report(tools_qt.tr("Task finished!"))
         self.setProgress(100)
         return True
@@ -2190,7 +2190,6 @@ class GwCalculatePriority(GwTask):
             loop += 1
             progress = (70 - 40) / len(second_iteration) * 1000 * loop + 40
             self.setProgress(progress)
-
 
     def _save_ws_node_output_wm(self, second_iteration):
         """ Batch-insert NODE WM output rows. """
@@ -2933,7 +2932,7 @@ class GwCalculatePriority(GwTask):
                 {str_node_type},
                 {self.result_budget or 'NULL'},
                 {self.target_year or 'NULL'},
-                '{self.statistics_report}',
+                '{(self.statistics_report or "").replace("'", "''")}',
                 current_user,
                 now(),
                 '{self.asset_type}',

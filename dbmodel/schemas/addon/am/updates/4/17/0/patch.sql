@@ -820,6 +820,13 @@ BEGIN
 	IF v_parent IS NULL OR to_regnamespace(v_parent) IS NULL THEN
 		RETURN;
 	END IF;
+	-- Last registered parent may be the UD schema. This block is WS-only.
+	IF NOT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = v_parent AND table_name = 'node' AND column_name = 'presszone_id'
+	) THEN
+		RETURN;
+	END IF;
 
 	EXECUTE format($view$
 		CREATE OR REPLACE VIEW am.ext_ws_node_asset AS
@@ -914,20 +921,19 @@ BEGIN
 	GRANT ALL ON TABLE am.ext_ws_node_asset TO role_basic;
 	GRANT ALL ON TABLE am.v_asset_ws_node_input TO role_basic;
 
-	-- Seed / sync NODE catalog from parent cat_node (mirrors cat_arc → config_catalog_def)
-	IF NOT EXISTS (SELECT 1 FROM am.config_nodecatalog_def LIMIT 1) THEN
-		EXECUTE format($seed$
-			INSERT INTO am.config_nodecatalog_def (nodecat_id, dnom, cost_constr, cost_repmain, compliance)
-			SELECT id,
-				NULLIF(regexp_replace(COALESCE(dnom, ''), '[^0-9\.]', '', 'g'), '')::NUMERIC,
-				100,
-				0,
-				10
-			FROM %1$I.cat_node
-			WHERE active IS DISTINCT FROM FALSE
-			ON CONFLICT (nodecat_id) DO NOTHING
-		$seed$, v_parent);
-	END IF;
+	-- Seed missing node catalogs. The table is shared by the WS and UD parents, so do not
+	-- skip when the other parent already inserted rows.
+	EXECUTE format($seed$
+		INSERT INTO am.config_nodecatalog_def (nodecat_id, dnom, cost_constr, cost_repmain, compliance)
+		SELECT id,
+			NULLIF(regexp_replace(COALESCE(dnom, ''), '[^0-9\.]', '', 'g'), '')::NUMERIC,
+			100,
+			0,
+			10
+		FROM %1$I.cat_node
+		WHERE active IS DISTINCT FROM FALSE
+		ON CONFLICT (nodecat_id) DO NOTHING
+	$seed$, v_parent);
 
 	EXECUTE format($trg$
 		CREATE OR REPLACE FUNCTION %1$I.gw_trg_asset_cat_node() RETURNS trigger AS $BODY$
@@ -956,13 +962,8 @@ BEGIN
 		FOR EACH ROW EXECUTE PROCEDURE %1$I.gw_trg_asset_cat_node();
 	$trg$, v_parent);
 
+	-- No FK: config_nodecatalog_def holds catalogs from both parents (CHAMBER-01 and WS nodes).
 	ALTER TABLE am.config_nodecatalog_def DROP CONSTRAINT IF EXISTS config_nodecatalog_def_fk;
-	EXECUTE format(
-		'ALTER TABLE am.config_nodecatalog_def ADD CONSTRAINT config_nodecatalog_def_fk
-		 FOREIGN KEY (nodecat_id) REFERENCES %I.cat_node (id)
-		 MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE',
-		v_parent
-	);
 
 	-- Register node layers in parent schema TOC (AM > NODE)
 	EXECUTE format($sys$
@@ -1100,6 +1101,12 @@ BEGIN
 	LIMIT 1;
 
 	IF v_parent IS NULL OR to_regnamespace(v_parent) IS NULL THEN
+		RETURN;
+	END IF;
+	IF NOT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = v_parent AND table_name = 'arc' AND column_name = 'presszone_id'
+	) THEN
 		RETURN;
 	END IF;
 
@@ -1523,6 +1530,12 @@ BEGIN
 	IF v_parent IS NULL OR to_regnamespace(v_parent) IS NULL THEN
 		RETURN;
 	END IF;
+	IF NOT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = v_parent AND table_name = 'node' AND column_name = 'presszone_id'
+	) THEN
+		RETURN;
+	END IF;
 
 	SELECT EXISTS (
 		SELECT 1 FROM information_schema.columns
@@ -1865,71 +1878,91 @@ CREATE TABLE IF NOT EXISTS am.ud_node_output (
     CONSTRAINT ud_node_output_pkey PRIMARY KEY (node_id, result_id)
 );
 
-CREATE OR REPLACE VIEW am.v_asset_ud_arc_output AS
- SELECT o.arc_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
-    o.builtdate, o.arccat_id, o.dnom, o.matcat_id, o.function_type, o.code, o.expl_id, o.dma_id,
-    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
-    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
-    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
-    o.comments, o.data_quality_class, o.the_geom
-   FROM am.ud_arc_output o
-     JOIN am.selector_result_main s ON (s.result_id = o.result_id)
-  WHERE (s.cur_user = (CURRENT_USER)::text);
+-- Current base already creates these views with the plan columns (recommended_action, ...).
+-- CREATE OR REPLACE cannot drop columns, so skip when that newer shape is already there.
+DO $ud_output_views$
+BEGIN
+	IF EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'am' AND table_name = 'v_asset_ud_arc_output' AND column_name = 'recommended_action'
+	) THEN
+		RETURN;
+	END IF;
 
-CREATE OR REPLACE VIEW am.v_asset_ud_arc_output_compare AS
- SELECT o.arc_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
-    o.builtdate, o.arccat_id, o.dnom, o.matcat_id, o.function_type, o.code, o.expl_id, o.dma_id,
-    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
-    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
-    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
-    o.comments, o.data_quality_class, o.the_geom
-   FROM am.ud_arc_output o
-     JOIN am.selector_result_compare s ON (s.result_id = o.result_id)
-  WHERE (s.cur_user = (CURRENT_USER)::text);
-
-CREATE OR REPLACE VIEW am.v_asset_ud_arc_corporate AS
- SELECT o.arc_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
-    o.builtdate, o.arccat_id, o.dnom, o.matcat_id, o.function_type, o.code, o.expl_id, o.dma_id,
-    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
-    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
-    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
-    o.comments, o.data_quality_class, o.the_geom
-   FROM am.ud_arc_output o
-     JOIN am.cat_result r ON r.result_id = o.result_id
-  WHERE r.iscorporate = TRUE;
-
-CREATE OR REPLACE VIEW am.v_asset_ud_node_output AS
- SELECT o.node_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
-    o.builtdate, o.nodecat_id, o.node_type, o.code, o.expl_id, o.dma_id,
-    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
-    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
-    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
-    o.comments, o.data_quality_class, o.the_geom
-   FROM am.ud_node_output o
-     JOIN am.selector_result_main s ON (s.result_id = o.result_id)
-  WHERE (s.cur_user = (CURRENT_USER)::text);
-
-CREATE OR REPLACE VIEW am.v_asset_ud_node_output_compare AS
- SELECT o.node_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
-    o.builtdate, o.nodecat_id, o.node_type, o.code, o.expl_id, o.dma_id,
-    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
-    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
-    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
-    o.comments, o.data_quality_class, o.the_geom
-   FROM am.ud_node_output o
-     JOIN am.selector_result_compare s ON (s.result_id = o.result_id)
-  WHERE (s.cur_user = (CURRENT_USER)::text);
-
-CREATE OR REPLACE VIEW am.v_asset_ud_node_corporate AS
- SELECT o.node_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
-    o.builtdate, o.nodecat_id, o.node_type, o.code, o.expl_id, o.dma_id,
-    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
-    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
-    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
-    o.comments, o.data_quality_class, o.the_geom
-   FROM am.ud_node_output o
-     JOIN am.cat_result r ON r.result_id = o.result_id
-  WHERE r.iscorporate = TRUE;
+	EXECUTE $v$
+		CREATE OR REPLACE VIEW am.v_asset_ud_arc_output AS
+		 SELECT o.arc_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+		    o.builtdate, o.arccat_id, o.dnom, o.matcat_id, o.function_type, o.code, o.expl_id, o.dma_id,
+		    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+		    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+		    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
+		    o.comments, o.data_quality_class, o.the_geom
+		   FROM am.ud_arc_output o
+		     JOIN am.selector_result_main s ON (s.result_id = o.result_id)
+		  WHERE (s.cur_user = (CURRENT_USER)::text)
+	$v$;
+	EXECUTE $v$
+		CREATE OR REPLACE VIEW am.v_asset_ud_arc_output_compare AS
+		 SELECT o.arc_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+		    o.builtdate, o.arccat_id, o.dnom, o.matcat_id, o.function_type, o.code, o.expl_id, o.dma_id,
+		    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+		    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+		    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
+		    o.comments, o.data_quality_class, o.the_geom
+		   FROM am.ud_arc_output o
+		     JOIN am.selector_result_compare s ON (s.result_id = o.result_id)
+		  WHERE (s.cur_user = (CURRENT_USER)::text)
+	$v$;
+	EXECUTE $v$
+		CREATE OR REPLACE VIEW am.v_asset_ud_arc_corporate AS
+		 SELECT o.arc_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+		    o.builtdate, o.arccat_id, o.dnom, o.matcat_id, o.function_type, o.code, o.expl_id, o.dma_id,
+		    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+		    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+		    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost, o.length,
+		    o.comments, o.data_quality_class, o.the_geom
+		   FROM am.ud_arc_output o
+		     JOIN am.cat_result r ON r.result_id = o.result_id
+		  WHERE r.iscorporate = TRUE
+	$v$;
+	EXECUTE $v$
+		CREATE OR REPLACE VIEW am.v_asset_ud_node_output AS
+		 SELECT o.node_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+		    o.builtdate, o.nodecat_id, o.node_type, o.code, o.expl_id, o.dma_id,
+		    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+		    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+		    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
+		    o.comments, o.data_quality_class, o.the_geom
+		   FROM am.ud_node_output o
+		     JOIN am.selector_result_main s ON (s.result_id = o.result_id)
+		  WHERE (s.cur_user = (CURRENT_USER)::text)
+	$v$;
+	EXECUTE $v$
+		CREATE OR REPLACE VIEW am.v_asset_ud_node_output_compare AS
+		 SELECT o.node_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+		    o.builtdate, o.nodecat_id, o.node_type, o.code, o.expl_id, o.dma_id,
+		    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+		    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+		    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
+		    o.comments, o.data_quality_class, o.the_geom
+		   FROM am.ud_node_output o
+		     JOIN am.selector_result_compare s ON (s.result_id = o.result_id)
+		  WHERE (s.cur_user = (CURRENT_USER)::text)
+	$v$;
+	EXECUTE $v$
+		CREATE OR REPLACE VIEW am.v_asset_ud_node_corporate AS
+		 SELECT o.node_id, o.result_id, o.sector_id, o.macrosector_id, o.drainzone_id, o.presszone_id,
+		    o.builtdate, o.nodecat_id, o.node_type, o.code, o.expl_id, o.dma_id,
+		    o.longevity, o.incident_history, o.structural_condition, o.operational_condition,
+		    o.dwf, o.storm, o.strategic, o.mandatory, o.compliance, o.val, o.orderby, o.selected,
+		    o.expected_year, o.replacement_year, o.budget, o.total, o.estimated_cost,
+		    o.comments, o.data_quality_class, o.the_geom
+		   FROM am.ud_node_output o
+		     JOIN am.cat_result r ON r.result_id = o.result_id
+		  WHERE r.iscorporate = TRUE
+	$v$;
+END
+$ud_output_views$;
 
 GRANT ALL ON TABLE am.ud_arc_input TO role_basic;
 GRANT ALL ON TABLE am.ud_arc_engine_wm TO role_basic;

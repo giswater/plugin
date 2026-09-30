@@ -23,9 +23,8 @@ DROP TRIGGER IF EXISTS gw_trg_asset_cat_arc ON PARENT_SCHEMA.cat_arc;
 CREATE TRIGGER gw_trg_asset_cat_arc AFTER INSERT OR UPDATE OF dnom ON PARENT_SCHEMA.cat_arc
 FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_arc();
 
+-- Shared am catalog tables hold WS and UD rows. A FK can only point at one parent.
 ALTER TABLE am.config_catalog_def DROP CONSTRAINT IF EXISTS config_catalog_def_fk;
-ALTER TABLE am.config_catalog_def ADD CONSTRAINT config_catalog_def_fk FOREIGN KEY (arccat_id)
-REFERENCES PARENT_SCHEMA.cat_arc (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 -- trigger
@@ -35,8 +34,6 @@ FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_material();
 
 -- fk
 ALTER TABLE am.config_material_def DROP CONSTRAINT IF EXISTS config_material_def_fk;
-ALTER TABLE am.config_material_def ADD CONSTRAINT config_material_def_fk FOREIGN KEY (material)
-REFERENCES PARENT_SCHEMA.cat_material (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 -- NODE catalog tables (idempotent: integrate may run before updates/base that define them)
@@ -69,8 +66,6 @@ CREATE TRIGGER gw_trg_asset_cat_node AFTER INSERT OR UPDATE OF dnom ON PARENT_SC
 FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_node();
 
 ALTER TABLE am.config_nodecatalog_def DROP CONSTRAINT IF EXISTS config_nodecatalog_def_fk;
-ALTER TABLE am.config_nodecatalog_def ADD CONSTRAINT config_nodecatalog_def_fk FOREIGN KEY (nodecat_id)
-REFERENCES PARENT_SCHEMA.cat_node (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE;
 
 -- LINK catalog (ODT cat_ws_link_cost)
 CREATE TABLE IF NOT EXISTS am.config_linkcatalog_def (
@@ -119,8 +114,6 @@ INSERT INTO am.config_linkmaterial_def (material, score, descript) VALUES
 ON CONFLICT (material) DO NOTHING;
 
 ALTER TABLE am.config_linkcatalog_def DROP CONSTRAINT IF EXISTS config_linkcatalog_def_fk;
-ALTER TABLE am.config_linkcatalog_def ADD CONSTRAINT config_linkcatalog_def_fk FOREIGN KEY (linkcat_id)
-REFERENCES PARENT_SCHEMA.cat_link (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE;
 
 DROP TRIGGER IF EXISTS gw_trg_asset_cat_link ON PARENT_SCHEMA.cat_link;
 CREATE TRIGGER gw_trg_asset_cat_link AFTER INSERT OR UPDATE OF dnom ON PARENT_SCHEMA.cat_link

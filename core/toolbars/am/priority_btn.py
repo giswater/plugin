@@ -1350,6 +1350,21 @@ class CalculatePriority:
         if material:
             filter_list.append(f"matcat_id = '{material}'")
         filters = f"where {' and '.join(filter_list)}" if filter_list else ""
+        # press1/press2 exist on WS arcs only. UD ext view has no node pressures.
+        if self.project_type == "WS":
+            pressure_cte = """
+            ,null_pressures as (
+                select 'null_pressures' as check,
+                    count(*) as qtd,
+                    null as list
+                from assets
+                where press1 is null and press2 is null)"""
+            pressure_union = """
+            union all
+            select * from null_pressures"""
+        else:
+            pressure_cte = ""
+            pressure_union = ""
 
         data_checks = tools_db.get_rows(
             f"""
@@ -1390,20 +1405,14 @@ class CalculatePriority:
                 order by matcat_id),
             invalid_materials as (
                 select 'invalid_materials', sum(count), string_agg(coalesce, ', ')
-                from list_invalid_materials),
-            null_pressures as (
-                select 'null_pressures' as check,
-                    count(*) as qtd,
-                    null as list
-                from assets
-                where press1 is null and press2 is null)
+                from list_invalid_materials)
+            {pressure_cte}
             select * from invalid_arccat_ids
             union all
             select * from invalid_diameters
             union all
             select * from invalid_materials
-            union all
-            select * from null_pressures
+            {pressure_union}
             """
         )
 
