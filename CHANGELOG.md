@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.2] - 2026-09-30
+
 ### Fixed
 
 - Open Check Project (and other dynamic dialogs) when a `config_form_fields` row has `layoutorder` null. The widget is skipped with a warning instead of crashing on `int(None)`.
@@ -670,7 +672,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.17.1...release/4.17
+[unreleased]: https://github.com/giswater/plugin/compare/v4.17.2...release/4.17
+[4.17.2]: https://github.com/giswater/plugin/compare/v4.17.1...v4.17.2
 [4.17.1]: https://github.com/giswater/plugin/compare/v4.17.0...v4.17.1
 [4.17.0]: https://github.com/giswater/plugin/compare/v4.16.1...v4.17.0
 [4.16.1]: https://github.com/giswater/plugin/compare/v4.16.0...v4.16.1
