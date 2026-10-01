@@ -202,7 +202,9 @@ class Workorder:
 
             # extract based on widget type
             if isinstance(widget, QComboBox):
-                val = widget.currentData()
+                val = tools_qt.get_combo_value(self.dialog, widget)
+                if val in (-1, '', None):
+                    val = None
             elif isinstance(widget, QDateEdit):
                 d = widget.date()
                 val = d.toString(self.date_format) if d.isValid() else None

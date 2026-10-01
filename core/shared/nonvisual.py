@@ -1404,7 +1404,7 @@ class GwNonVisual:
 
         # Restore headers
         if hasattr(self.dialog, 'cmb_pattern_type'):  # UD Dialog
-            if self.dialog.cmb_pattern_type.currentData() == 1:
+            if tools_qt.get_combo_value(self.dialog, self.dialog.cmb_pattern_type) == 1:
                 headers = ['Multiplier' for _ in range(tbl_pattern_value.rowCount())]
                 tbl_pattern_value.setVerticalHeaderLabels(headers)
         else:  # WS Dialog
