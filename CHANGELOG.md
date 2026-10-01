@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Keep user settings in `init.config` when moving to a new Giswater minor version by copying them from the previous Roaming folder.
+
 ### Fixed
 
 - Read form combo ids with `get_combo_value` instead of `currentData()` when enabling lot relations, saving lots and workorders, and checking UD pattern type. `currentData()` is the row `[id, idval]`, which produced SQL like `campaign_id = ['', '']`.
