@@ -618,8 +618,8 @@ class GwInfo(QObject):
         # Build and populate all the widgets
         self._manage_dlg_widgets(complet_result, result, new_feature)
         # Disable tab EPA if epa_type is undefined
-        self.epa_type = tools_qt.get_text(self.dlg_cf, 'tab_data_epa_type')
-        if tools_qt.get_text(self.dlg_cf, self.epa_type).lower() == 'undefined':
+        self.epa_type = self._epa_combo_id(self.dlg_cf)
+        if str(self.epa_type or '').lower() == 'undefined':
             tools_qt.enable_tab_by_tab_name(self.tab_main, 'tab_epa', False)
 
         # Connect actions' signals
@@ -1902,8 +1902,8 @@ class GwInfo(QObject):
                 if new_feature and new_feature.hasGeometry():
                     _json['the_geom'] = new_feature.geometry().asWkt()
 
-                epa_type = tools_qt.get_text(dialog, 'tab_data_epa_type')
-                if epa_type != 'null':
+                epa_type = self._epa_combo_id(dialog)
+                if epa_type:
                     _json['epa_type'] = epa_type
 
                 self.new_feature_id = None
@@ -2000,7 +2000,7 @@ class GwInfo(QObject):
         # Tab EPA
         if not generic and self.my_json_epa != '' and str(self.my_json_epa) != '{}':
             feature = f'"id":"{self.feature_id}", '
-            epa_type = tools_qt.get_text(dialog, 'tab_data_epa_type').lower()
+            epa_type = str(self._epa_combo_id(dialog) or '').lower()
             epa_table_id = 've_epa_' + epa_type
             if global_vars.project_type == 'ws' and self.feature_type == 'connec' and epa_type == 'junction':
                 epa_table_id = 've_epa_connec'
@@ -2232,7 +2232,7 @@ class GwInfo(QObject):
         widget_epatype = dialog.findChild(QComboBox, 'tab_data_epa_type')
         if widget_epatype:
             widget_epatype.blockSignals(True)
-            tools_qt.set_combo_value(widget_epatype, self.epa_type, 1)
+            tools_qt.set_combo_value(widget_epatype, self.epa_type, 0)
             widget_epatype.blockSignals(False)
         return False
 
@@ -2242,20 +2242,14 @@ class GwInfo(QObject):
         if 'epa_type' in my_json:
             return True
 
-        widget = dialog.findChild(QComboBox, 'tab_data_epa_type')
-        if widget is None:
-            return True
-
-        pending = {}
-        tools_gw.get_values(dialog, widget, pending, ignore_editability=True)
-        new_value = pending.get('epa_type')
-        if new_value in (None, '') or str(new_value).lower() == str(self.epa_type or '').lower():
+        new_value = self._epa_combo_id(dialog)
+        if not new_value or new_value.lower() == str(self.epa_type or '').lower():
             return True
 
         if not self._confirm_epa_type_change(dialog, new_feature):
             return False
 
-        my_json['epa_type'] = str(new_value)
+        my_json['epa_type'] = new_value
         return True
 
     def _accept_auto_update(self, dialog, complet_result, _json, p_widget=None, clear_json=False, close_dlg=True, new_feature=None, generic=False):
@@ -2399,8 +2393,19 @@ class GwInfo(QObject):
     def _enabled_accept(self, dialog):
         dialog.btn_accept.setEnabled(True)
 
+    def _epa_combo_id(self, dialog):
+        """epa_type id. Not currentText(): that is the label, or the loading placeholder."""
+        widget = dialog.findChild(QComboBox, 'tab_data_epa_type')
+        if widget is None:
+            return None
+        reader = getattr(widget, 'selected_id', None)
+        value = reader() if reader else tools_qt.get_combo_value(dialog, widget, 0)
+        if value in (None, '', -1, '-1'):
+            return None
+        return str(value)
+
     def _reload_epa_tab(self, dialog):
-        epa_type = tools_qt.get_text(dialog, 'tab_data_epa_type')
+        epa_type = self._epa_combo_id(dialog) or ''
         # call getinfofromid
         if not epa_type or epa_type.lower() in ('undefined') or (epa_type.lower() == 'null' and self.feature_type.lower() != 'link'):
             tools_qt.enable_tab_by_tab_name(self.tab_main, 'tab_epa', False)
@@ -3285,7 +3290,7 @@ class GwInfo(QObject):
                 tools_qgis.show_message(msg, level)
 
             # Refresh tab epa
-            epa_type = tools_qt.get_text(self.dlg_cf, 'tab_data_epa_type')
+            epa_type = self._epa_combo_id(self.dlg_cf)
             if epa_type and epa_type.lower() in ('valve', 'shortpipe', 'pump'):
                 self._reload_epa_tab(self.dlg_cf)
 

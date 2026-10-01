@@ -1411,6 +1411,15 @@ class GwAsyncComboBox(QComboBox):
         """Toggle whether an empty placeholder row is prepended to the data."""
         self._is_null_value = bool(is_null)
 
+    def selected_id(self):
+        """Row id. While the list is still loading, the selection queued by the form."""
+        if not self.property('rows_loaded'):
+            return self._pending_selected_id
+        data = self.itemData(self.currentIndex())
+        if isinstance(data, (list, tuple)):
+            return data[0] if data else None
+        return data
+
     def set_pending_selection(self, value, index: int = 0, apply_if_loaded: bool = True) -> None:
         """Defer selection until the items finish loading.
 
