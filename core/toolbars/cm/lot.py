@@ -225,9 +225,8 @@ class AddNewLot:
             org_assigned_widget.clear()
             org_assigned_widget.setEnabled(False)
 
-        campaign_id = campaign_combo.currentData()
-
-        if not campaign_id:
+        campaign_id = tools_qt.get_combo_value(self.dlg_lot, campaign_combo)
+        if campaign_id in (None, '', -1):
             return
 
         # Fetch all campaign-related data in one go
@@ -536,10 +535,10 @@ class AddNewLot:
         name_ok = bool(name_widget.text().strip()) if name_widget else False
 
         campaign_combo = self.dlg_lot.findChild(QComboBox, "tab_data_campaign_id")
-        campaign_id = campaign_combo.currentData() if campaign_combo else None
+        campaign_id = tools_qt.get_combo_value(self.dlg_lot, campaign_combo)
 
         has_relations = False
-        if campaign_id:
+        if campaign_id not in (None, '', -1):
             features = ["arc", "node", "connec", "link"]
             if tools_gw.get_project_type() == 'ud':
                 features.append("gully")
@@ -587,8 +586,8 @@ class AddNewLot:
         if not cmb_ot:
             return
 
-        workorder_id = cmb_ot.currentData()
-        if not workorder_id:
+        workorder_id = tools_qt.get_combo_value(self.dlg_lot, cmb_ot)
+        if workorder_id in (None, '', -1):
             return
 
         # Ejecutar SELECT
@@ -641,7 +640,9 @@ class AddNewLot:
 
             value = None
             if isinstance(widget, QComboBox):
-                value = widget.currentData()
+                value = tools_qt.get_combo_value(self.dlg_lot, widget)
+                if value in (-1, '', None):
+                    value = None
             elif isinstance(widget, QDateEdit):
                 value = widget.date().toString("yyyy-MM-dd") if widget.date().isValid() else None
             else:
@@ -652,15 +653,6 @@ class AddNewLot:
             if field.get("ismandatory", False) and not value:
                 widget.setStyleSheet("border: 1px solid red")
                 list_mandatory.append(field.get("widgetname"))
-
-        # Post-process fields to extract the integer ID from list values
-        expl_val = fields.get("expl_id")
-        if isinstance(expl_val, (list, tuple)) and expl_val:
-            fields['expl_id'] = expl_val[0]
-
-        sector_val = fields.get("sector_id")
-        if isinstance(sector_val, (list, tuple)) and sector_val:
-            fields['sector_id'] = sector_val[0]
 
         if list_mandatory:
             msg = "Some mandatory fields are missing. Please fill the required fields (marked in red)."
