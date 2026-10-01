@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Keep user settings in `init.config` when moving to a new Giswater minor version by copying them from the previous Roaming folder.
+
 ## [4.17.2] - 2026-09-30
 
 ### Fixed
