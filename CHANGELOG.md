@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stop treating an unchanged `epa_type` as a change on info-form Accept. The snapshot used the combo label (empty or "Loading..." while the async combo loads). Compare and restore the id via `GwAsyncComboBox.selected_id`.
 - Open Check Project (and other dynamic dialogs) when a `config_form_fields` row has `layoutorder` null. The widget is skipped with a warning instead of crashing on `int(None)`.
 - Lower `wntr` requirement to `>=1.2.0` so QPIP can resolve under QGIS NumPy 1.x constraints (`wntr>=1.4` needs NumPy 2.2+).
+- Fix mincut hydrometer list (`tbl_mincut_hydro`): `config_form_list` / `config_form_tableview` still used `hydrometer_customer_code` after the 4.12 rename to `hydro_customer_code`, so `gw_fct_getlist` failed with 42703.
 
 ## [4.17.1] - 2026-09-24
 
