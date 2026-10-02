@@ -38,6 +38,7 @@ AND COALESCE(cma.n, ic.custom_n, cm.n) IS NULL',
 ) ON CONFLICT (fid) DO NOTHING;
 
 
+DROP VIEW IF EXISTS v_om_visit;
 CREATE OR REPLACE VIEW v_om_visit
 AS SELECT DISTINCT ON (visit_id) visit_id,
     code,
