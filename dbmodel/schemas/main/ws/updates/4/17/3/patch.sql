@@ -23,6 +23,7 @@ SET addparam = CASE
 WHERE objectname = 'tbl_mincut_hydro'
   AND columnname = 'hydro_customer_code';
 
+DROP VIEW IF EXISTS v_om_visit;
 CREATE OR REPLACE VIEW v_om_visit
 AS SELECT DISTINCT ON (visit_id) visit_id,
     code,
