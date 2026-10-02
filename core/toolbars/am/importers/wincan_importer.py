@@ -38,7 +38,7 @@ class WincanImporter(InspectionImporter):
             if name in ("inspection", "section"):
                 inspection_id = self._int(self._child_text(element, ("inspectionid", "id"))) or inspection_id
                 inspection_date = self._blank(self._child_text(element, ("inspectiondate", "date"))) or inspection_date
-                asset_id = self._int(self._child_text(element, ("pipeid", "assetid", "sectionid"))) or asset_id
+                asset_id = self._blank(self._child_text(element, ("pipeid", "assetid", "sectionid"))) or asset_id
             if name != "observation":
                 continue
             code = self._blank(self._child_text(element, ("code", "opccode", "maincode")))
@@ -47,7 +47,7 @@ class WincanImporter(InspectionImporter):
                 continue
             distance = self._num(self._child_text(element, ("distance", "pk", "position")))
             rows.append({
-                "asset_id": self._int(self._child_text(element, ("pipeid", "assetid"))) or asset_id,
+                "asset_id": self._blank(self._child_text(element, ("pipeid", "assetid"))) or asset_id,
                 "feature_type": "ARC",
                 "code": code.upper(),
                 "severity": severity,

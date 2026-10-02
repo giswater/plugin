@@ -32,6 +32,25 @@ def parent_ws_for_am(adapter, temp_schema_name):
         drop_schema(adapter, ws, cascade=True, commit=True)
 
 
+@pytest.fixture()
+def parent_ud_for_am(adapter, temp_schema_name):
+    """UD parent for AM integration and dual-parent tests."""
+    ud = f"{temp_schema_name}_ud"
+    manifest = load_manifest(os.path.join(DBMODEL, "manifests", "ud.yaml"))
+    params = BuildParams(
+        schema_name=ud, srid="25831",
+        plugin_version="4.18.0", profile="empty",
+        sql_root=DBMODEL,
+    )
+    try:
+        result = SchemaBuilder(adapter, manifest, params).run()
+        assert result.ok, f"ud build: {result.first_failure()}"
+        adapter.commit()
+        yield ud
+    finally:
+        drop_schema(adapter, ud, cascade=True, commit=True)
+
+
 def test_am_empty(adapter, temp_schema_name, parent_ws_for_am):
     manifest = load_manifest(os.path.join(DBMODEL, "manifests", "am.yaml"))
     create_params = BuildParams(
@@ -52,6 +71,155 @@ def test_am_empty(adapter, temp_schema_name, parent_ws_for_am):
         r2 = SchemaBuilder(adapter, manifest, integrate_params).run()
         assert r2.ok, f"am integrate: {r2.first_failure()}"
         adapter.commit()
+    finally:
+        drop_schema(adapter, temp_schema_name, cascade=True, commit=True)
+
+
+def test_am_integrates_ws_and_ud_together(
+    adapter, temp_schema_name, parent_ws_for_am, parent_ud_for_am
+):
+    manifest = load_manifest(os.path.join(DBMODEL, "manifests", "am.yaml"))
+    create_params = BuildParams(
+        schema_name=temp_schema_name, srid="25831",
+        plugin_version="4.18.0", profile="empty",
+        sql_root=DBMODEL,
+    )
+    try:
+        result = SchemaBuilder(adapter, manifest, create_params).run()
+        assert result.ok, f"am create: {result.first_failure()}"
+        adapter.commit()
+        for parent_schema, parent_type in (
+            (parent_ws_for_am, "ws"),
+            (parent_ud_for_am, "ud"),
+        ):
+            params = BuildParams(
+                schema_name=temp_schema_name, srid="25831",
+                plugin_version="4.18.0", profile="integrate",
+                parent_schema=parent_schema, parent_type=parent_type,
+                sql_root=DBMODEL,
+            )
+            result = SchemaBuilder(adapter, manifest, params).run()
+            assert result.ok, f"am integrate {parent_type}: {result.first_failure()}"
+            adapter.commit()
+
+        with adapter.raw.cursor() as cur:
+            cur.execute(
+                "SELECT to_regclass(%s), to_regclass(%s), to_regclass(%s)",
+                (
+                    f"{temp_schema_name}.v_asset_ud_arc_input",
+                    f"{temp_schema_name}.v_asset_ud_node_input",
+                    f"{temp_schema_name}.v_ud_node_am",
+                ),
+            )
+            assert all(cur.fetchone())
+            cur.execute(
+                f'SELECT count(DISTINCT project_type) FROM "{temp_schema_name}".config_catalog_def'
+            )
+            assert cur.fetchone()[0] == 2
+    finally:
+        drop_schema(adapter, temp_schema_name, cascade=True, commit=True)
+
+
+def test_am_upgrade_migrates_legacy_ud_identifiers(adapter, temp_schema_name):
+    """The 4.18 update converts legacy integer IDs without losing dependent view metadata."""
+    manifest = load_manifest(os.path.join(DBMODEL, "manifests", "am.yaml"))
+    create_params = BuildParams(
+        schema_name=temp_schema_name, srid="25831",
+        plugin_version="4.17.0", profile="empty",
+        sql_root=DBMODEL,
+    )
+    identifier_columns = (
+        ("ud_arc_input", "arc_id"),
+        ("ud_arc_engine_wm", "arc_id"),
+        ("ud_arc_output", "arc_id"),
+        ("ud_arc_pathology", "arc_id"),
+        ("ud_node_input", "node_id"),
+        ("ud_node_engine_wm", "node_id"),
+        ("ud_node_output", "node_id"),
+        ("ud_node_pathology", "node_id"),
+        ("ud_breakdown", "feature_id"),
+    )
+    try:
+        result = SchemaBuilder(adapter, manifest, create_params).run()
+        assert result.ok, f"am create-at-4.17: {result.first_failure()}"
+        adapter.commit()
+
+        with adapter.raw.cursor() as cur:
+            for view_name in (
+                "v_asset_ud_arc_output", "v_asset_ud_arc_output_compare",
+                "v_asset_ud_arc_corporate", "v_asset_ud_node_output",
+                "v_asset_ud_node_output_compare", "v_asset_ud_node_corporate",
+            ):
+                cur.execute(f'DROP VIEW "{temp_schema_name}".{view_name}')
+            for table_name, column_name in identifier_columns:
+                cur.execute(
+                    f'ALTER TABLE "{temp_schema_name}".{table_name} '
+                    f'ALTER COLUMN {column_name} TYPE integer USING {column_name}::integer'
+                )
+            cur.execute(
+                f'CREATE VIEW "{temp_schema_name}".test_ud_id_migration AS '
+                f'SELECT arc_id, age FROM "{temp_schema_name}".ud_arc_input'
+            )
+            cur.execute(
+                f'CREATE RULE test_ud_id_migration_update AS '
+                f'ON UPDATE TO "{temp_schema_name}".test_ud_id_migration DO INSTEAD '
+                f'UPDATE "{temp_schema_name}".ud_arc_input '
+                f'SET age = NEW.age WHERE arc_id = OLD.arc_id'
+            )
+            cur.execute(
+                f'GRANT SELECT ON "{temp_schema_name}".test_ud_id_migration TO role_basic'
+            )
+        adapter.commit()
+
+        upgrade_params = BuildParams(
+            schema_name=temp_schema_name, srid="25831",
+            plugin_version="4.18.0", project_version="4.17.0",
+            run_mode="upgrade", profile="update",
+            sql_root=DBMODEL,
+        )
+        result = SchemaBuilder(adapter, manifest, upgrade_params).run()
+        assert result.ok, f"am upgrade-to-4.18: {result.first_failure()}"
+        adapter.commit()
+
+        with adapter.raw.cursor() as cur:
+            cur.execute(
+                """
+                SELECT count(*)
+                FROM information_schema.columns
+                WHERE table_schema = %s
+                  AND (table_name, column_name) IN (
+                    ('ud_arc_input', 'arc_id'),
+                    ('ud_arc_engine_wm', 'arc_id'),
+                    ('ud_arc_output', 'arc_id'),
+                    ('ud_arc_pathology', 'arc_id'),
+                    ('ud_node_input', 'node_id'),
+                    ('ud_node_engine_wm', 'node_id'),
+                    ('ud_node_output', 'node_id'),
+                    ('ud_node_pathology', 'node_id'),
+                    ('ud_breakdown', 'feature_id')
+                  )
+                  AND data_type = 'character varying'
+                  AND character_maximum_length = 16
+                """,
+                (temp_schema_name,),
+            )
+            assert cur.fetchone()[0] == len(identifier_columns)
+            cur.execute(
+                "SELECT to_regclass(%s), "
+                "EXISTS (SELECT 1 FROM pg_rules WHERE schemaname = %s "
+                "AND tablename = 'test_ud_id_migration' "
+                "AND rulename = 'test_ud_id_migration_update'), "
+                "has_table_privilege('role_basic', %s, 'SELECT')",
+                (
+                    f"{temp_schema_name}.test_ud_id_migration",
+                    temp_schema_name,
+                    f"{temp_schema_name}.test_ud_id_migration",
+                ),
+            )
+            view_regclass, has_rule, has_select = cur.fetchone()
+            assert view_regclass is not None
+            assert has_rule is True
+            assert has_select is True
     finally:
         drop_schema(adapter, temp_schema_name, cascade=True, commit=True)
 

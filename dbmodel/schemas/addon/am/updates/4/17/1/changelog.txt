@@ -1,0 +1,5 @@
+- Add UD inspection plan columns on ud_arc_output and ud_node_output (action, inspection priority, completeness). (#am-ud)
+- Add ud_node_pathology, ud_breakdown, and the UD inspection import path. (#am-ud)
+- Expose inspection/data-quality result fields and create the UD node AM summary view. (#am-ud)
+- Migrate legacy integer UD AM identifiers to varchar(16) while preserving dependent views and permissions. (#am-ud)
+- Rebuild UD pathology and inventory views on update so integer parent ids compare as text. (#am-ud)

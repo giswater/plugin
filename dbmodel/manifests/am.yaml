@@ -81,8 +81,8 @@ profiles:
   sample:
     phases: [load_base, load_sample_user, load_updates, load_i18n, register_version]
   integrate:
-    phases: [integrate_am, load_updates, load_i18n, register_version]
+    phases: [load_updates, integrate_am, load_i18n, register_version]
   integrate_sample:
-    phases: [integrate_am, load_sample_integrate, load_updates, load_i18n, register_version]
+    phases: [load_updates, integrate_am, load_sample_integrate, load_i18n, register_version]
   update:
     phases: [load_updates, load_i18n, register_version]

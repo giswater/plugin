@@ -23,12 +23,13 @@ BEGIN
 
 	IF TG_OP = 'INSERT' THEN
 
-		INSERT INTO am.config_nodecatalog_def (nodecat_id, dnom)
+		INSERT INTO am.config_nodecatalog_def (nodecat_id, project_type, dnom)
 		VALUES (
 			NEW.id,
+			'WS',
 			NULLIF(regexp_replace(COALESCE(NEW.dnom, ''), '[^0-9\.]', '', 'g'), '')::numeric
 		)
-		ON CONFLICT (nodecat_id) DO NOTHING;
+		ON CONFLICT (nodecat_id, project_type) DO NOTHING;
 
 		RETURN NEW;
 
@@ -36,7 +37,7 @@ BEGIN
 
 		UPDATE am.config_nodecatalog_def
 		SET dnom = NULLIF(regexp_replace(COALESCE(NEW.dnom, ''), '[^0-9\.]', '', 'g'), '')::numeric
-		WHERE nodecat_id = OLD.id;
+		WHERE nodecat_id = OLD.id AND project_type = 'WS';
 
 		RETURN NEW;
 	END IF;

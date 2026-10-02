@@ -1,2 +1,0 @@
-- Add UD inspection plan columns on ud_arc_output and ud_node_output (action, inspection priority, completeness). (#am-ud)
-- Add ud_node_pathology, ud_breakdown, and the UD inspection import path. (#am-ud)

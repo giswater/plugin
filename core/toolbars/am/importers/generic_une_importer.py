@@ -27,7 +27,7 @@ class GenericUneImporter(InspectionImporter):
             rows = []
             for raw in reader:
                 lowered = {(key or "").strip().lower(): value for key, value in raw.items()}
-                asset_id = self._int(lowered.get("asset_id") or lowered.get("arc_id") or lowered.get("node_id"))
+                asset_id = self._blank(lowered.get("asset_id") or lowered.get("arc_id") or lowered.get("node_id"))
                 code = self._blank(lowered.get("code"))
                 severity = self._int(lowered.get("severity"))
                 if asset_id is None or not code or severity is None:

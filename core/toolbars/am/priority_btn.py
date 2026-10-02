@@ -10,6 +10,7 @@ from functools import partial
 from pathlib import Path
 from time import time
 import configparser
+import math
 import os
 
 from qgis.core import QgsApplication
@@ -188,7 +189,7 @@ class GwConfigCatalogButton:
                 surface = value.get("surface_type")
                 surface_sql = (
                     "NULL" if not surface or surface in ("None", "NULL")
-                    else f"'{str(surface).replace(chr(39), chr(39)+chr(39))}'"
+                    else f"'{str(surface).replace(chr(39), chr(39) + chr(39))}'"
                 )
                 dlen = value.get("default_length")
                 dlen_sql = "NULL" if dlen in (None, "", "None", "NULL") else dlen
@@ -746,7 +747,8 @@ class CalculatePriority:
                 sql = (
                     "select d.*, cat_node.matcat_id "
                     "from am.config_nodecatalog_def d "
-                    f"JOIN {parent}.cat_node ON d.nodecat_id = cat_node.id"
+                    f"JOIN {parent}.cat_node ON d.nodecat_id = cat_node.id "
+                    f"WHERE d.project_type = '{self.project_type}'"
                 )
             else:
                 sql = (
@@ -777,7 +779,8 @@ class CalculatePriority:
             sql = (
                 "select d.*, cat_arc.matcat_id "
                 "from am.config_catalog_def d "
-                f"JOIN {parent}.cat_arc ON d.arccat_id = cat_arc.id"
+                f"JOIN {parent}.cat_arc ON d.arccat_id = cat_arc.id "
+                f"WHERE d.project_type = '{self.project_type}'"
             )
         else:
             sql = (
@@ -833,7 +836,8 @@ class CalculatePriority:
                 select d.*
                 from am.config_material_def d
                 join {parent}.cat_material m on m.id = d.material
-                where {feature_filter}
+                where d.project_type = '{self.project_type}'
+                  and ({feature_filter})
                 order by d.material
             """
         return f"""
@@ -1264,6 +1268,7 @@ class CalculatePriority:
             return
         show = (
             self.asset_type in ("NODE", "LINK")
+            and self.project_type == "WS"
             and (self.config.show_budget is True or bool(self.result.get("budget")))
             and getattr(dlg, "grb_global", None) is not None
             and dlg.grb_global.isVisible()
@@ -1989,6 +1994,10 @@ class CalculatePriority:
                 msg = "Please enter a valid number for the budget."
                 tools_qt.show_info_box(msg)
                 return
+        if self.config.method == "WM" and (not math.isfinite(budget) or budget <= 0):
+            msg = "The yearly budget must be greater than zero."
+            tools_qt.show_info_box(msg)
+            return
 
         target_year = dlg.txt_year.text() or None
         if self.config.method == "WM" and not target_year or not target_year.isdigit():

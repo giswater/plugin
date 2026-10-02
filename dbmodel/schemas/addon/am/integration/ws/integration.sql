@@ -40,11 +40,12 @@ ALTER TABLE am.config_material_def DROP CONSTRAINT IF EXISTS config_material_def
 CREATE TABLE IF NOT EXISTS am.config_nodecatalog_def (
     id serial PRIMARY KEY,
     nodecat_id varchar(30) NOT NULL,
+    project_type varchar(2) NOT NULL DEFAULT 'WS',
     dnom numeric(12,2),
     cost_constr numeric(12,2),
     cost_repmain numeric(12,2),
     compliance integer,
-    CONSTRAINT config_nodecatalog_def_nodecat_id UNIQUE (nodecat_id)
+    CONSTRAINT config_nodecatalog_def_nodecat_id UNIQUE (nodecat_id, project_type)
 );
 
 CREATE TABLE IF NOT EXISTS am.config_nodecatalog (
@@ -66,6 +67,36 @@ CREATE TRIGGER gw_trg_asset_cat_node AFTER INSERT OR UPDATE OF dnom ON PARENT_SC
 FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_node();
 
 ALTER TABLE am.config_nodecatalog_def DROP CONSTRAINT IF EXISTS config_nodecatalog_def_fk;
+
+INSERT INTO am.config_catalog_def (
+    arccat_id, project_type, dnom, cost_constr, cost_repmain, cost_rehab, compliance
+)
+SELECT id, 'WS', dnom::numeric,
+    round(dnom::numeric * 3 / 5 + 70),
+    round(dnom::numeric * 9 / 5 + 310),
+    NULL,
+    10
+FROM PARENT_SCHEMA.cat_arc
+WHERE dnom IS NOT NULL
+ON CONFLICT (arccat_id, project_type) DO NOTHING;
+
+INSERT INTO am.config_nodecatalog_def (
+    nodecat_id, project_type, dnom, cost_constr, cost_repmain, cost_rehab, compliance
+)
+SELECT id, 'WS',
+    NULLIF(regexp_replace(COALESCE(dnom, ''), '[^0-9\.]', '', 'g'), '')::numeric,
+    100, 0, NULL, 10
+FROM PARENT_SCHEMA.cat_node
+WHERE active IS DISTINCT FROM FALSE
+ON CONFLICT (nodecat_id, project_type) DO NOTHING;
+
+INSERT INTO am.config_material_def (
+    material, project_type, pleak, age_max, age_med, age_min, builtdate_vdef, compliance
+)
+SELECT id, 'WS', 0.16, 58, 50, 42, 1964, 10
+FROM PARENT_SCHEMA.cat_material
+WHERE active IS TRUE
+ON CONFLICT (material, project_type) DO NOTHING;
 
 -- LINK catalog (ODT cat_ws_link_cost)
 CREATE TABLE IF NOT EXISTS am.config_linkcatalog_def (

@@ -7,24 +7,26 @@ or (at your option) any later version.
 
 SET search_path = am, public;
 
-INSERT INTO config_material_def (material, pleak, age_max, age_med, age_min, builtdate_vdef, compliance)
-SELECT id, 0.16, 58, 50, 42, 1964, 10
+INSERT INTO config_material_def (material, project_type, pleak, age_max, age_med, age_min, builtdate_vdef, compliance)
+SELECT id, 'UD', 0.16, 58, 50, 42, 1964, 10
 FROM PARENT_SCHEMA.cat_material
 WHERE active = true
-ON CONFLICT (material) DO NOTHING;
+ON CONFLICT (material, project_type) DO NOTHING;
 
-INSERT INTO config_catalog_def (arccat_id, dnom, cost_constr, cost_repmain, cost_rehab, compliance)
+INSERT INTO config_catalog_def (arccat_id, project_type, dnom, cost_constr, cost_repmain, cost_rehab, compliance)
 SELECT id AS arccat_id,
+	'UD',
 	geom1 AS dnom,
 	100 AS cost_constr,
 	0 AS cost_repmain,
 	40 AS cost_rehab,
 	10 AS compliance
 FROM PARENT_SCHEMA.cat_arc
-ON CONFLICT (arccat_id) DO NOTHING;
+ON CONFLICT (arccat_id, project_type) DO NOTHING;
 
-INSERT INTO config_nodecatalog_def (nodecat_id, dnom, cost_constr, cost_repmain, cost_rehab, compliance)
+INSERT INTO config_nodecatalog_def (nodecat_id, project_type, dnom, cost_constr, cost_repmain, cost_rehab, compliance)
 SELECT id AS nodecat_id,
+	'UD',
 	geom1 AS dnom,
 	100 AS cost_constr,
 	0 AS cost_repmain,
@@ -32,4 +34,4 @@ SELECT id AS nodecat_id,
 	10 AS compliance
 FROM PARENT_SCHEMA.cat_node
 WHERE active IS DISTINCT FROM FALSE
-ON CONFLICT (nodecat_id) DO NOTHING;
+ON CONFLICT (nodecat_id, project_type) DO NOTHING;

@@ -1,3 +1,5 @@
 - Prefix WS work tables/views with `ws_` (`ws_arc_*`, `ws_node_*`, `ws_link_*`) and add UD `ud_arc_*` / `ud_node_*` plus integrate SQL so UD parents get clickable AM layers. (#am-ud)
 - Add EN 13508-2 `ud_cat_pathology` + `ud_arc_pathology`; BA/BB scores (extent-weighted, cap 5) feed AWARE; MAINTENANCE is catalog-only (cost 0). (#am-ud)
 - Add `cost_rehab` on AM catalogs (Repair / Rehabilitation / Replacement). Pathology cost = intervention × €/m (punctual billed as 1 m). (#am-ud)
+- Scope ARC, NODE and material catalog defaults by WS/UD parent and support varchar network identifiers. (#am-ud)
+- Compare UD pathology ids to the parent arc with ::text so an integer arc_id does not fail the view. (#am-ud)

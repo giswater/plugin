@@ -13,12 +13,13 @@ $BODY$
 BEGIN
 	EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 	IF TG_OP = 'INSERT' THEN
-		INSERT INTO am.config_catalog_def (arccat_id, dnom)
-		VALUES (NEW.id, NEW.geom1)
-		ON CONFLICT (arccat_id) DO NOTHING;
+		INSERT INTO am.config_catalog_def (arccat_id, project_type, dnom)
+		VALUES (NEW.id, 'UD', NEW.geom1)
+		ON CONFLICT (arccat_id, project_type) DO NOTHING;
 		RETURN NEW;
 	ELSIF TG_OP = 'UPDATE' THEN
-		UPDATE am.config_catalog_def SET dnom = NEW.geom1 WHERE arccat_id = OLD.id;
+		UPDATE am.config_catalog_def SET dnom = NEW.geom1
+		WHERE arccat_id = OLD.id AND project_type = 'UD';
 		RETURN NEW;
 	END IF;
 END;
@@ -29,12 +30,13 @@ $BODY$
 BEGIN
 	EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 	IF TG_OP = 'INSERT' THEN
-		INSERT INTO am.config_nodecatalog_def (nodecat_id, dnom)
-		VALUES (NEW.id, NEW.geom1)
-		ON CONFLICT (nodecat_id) DO NOTHING;
+		INSERT INTO am.config_nodecatalog_def (nodecat_id, project_type, dnom)
+		VALUES (NEW.id, 'UD', NEW.geom1)
+		ON CONFLICT (nodecat_id, project_type) DO NOTHING;
 		RETURN NEW;
 	ELSIF TG_OP = 'UPDATE' THEN
-		UPDATE am.config_nodecatalog_def SET dnom = NEW.geom1 WHERE nodecat_id = OLD.id;
+		UPDATE am.config_nodecatalog_def SET dnom = NEW.geom1
+		WHERE nodecat_id = OLD.id AND project_type = 'UD';
 		RETURN NEW;
 	END IF;
 END;
@@ -64,6 +66,29 @@ FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_node();
 
 ALTER TABLE am.config_nodecatalog_def DROP CONSTRAINT IF EXISTS config_nodecatalog_def_fk;
 
+INSERT INTO am.config_catalog_def (
+	arccat_id, project_type, dnom, cost_constr, cost_repmain, cost_rehab, compliance
+)
+SELECT id, 'UD', geom1, 0, 0, 0, 10
+FROM PARENT_SCHEMA.cat_arc
+ON CONFLICT (arccat_id, project_type) DO NOTHING;
+
+INSERT INTO am.config_nodecatalog_def (
+	nodecat_id, project_type, dnom, cost_constr, cost_repmain, cost_rehab, compliance
+)
+SELECT id, 'UD', geom1, 0, 0, 0, 10
+FROM PARENT_SCHEMA.cat_node
+WHERE active IS DISTINCT FROM FALSE
+ON CONFLICT (nodecat_id, project_type) DO NOTHING;
+
+INSERT INTO am.config_material_def (
+	material, project_type, pleak, age_max, age_med, age_min, builtdate_vdef, compliance
+)
+SELECT id, 'UD', 0.16, 58, 50, 42, 1964, 10
+FROM PARENT_SCHEMA.cat_material
+WHERE active IS TRUE
+ON CONFLICT (material, project_type) DO NOTHING;
+
 INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES
 ('sys_table_context', '35', '["AM", "ARC"]', '{"orderBy": 35}'),
 ('sys_table_context', '36', '["AM", "NODE"]', '{"orderBy": 36}'),
@@ -77,10 +102,10 @@ INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, c
 ('config_engine_def', 'Table to define engines configuration', 'role_om', NULL, '37', 1, 'Config engine', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 
--- Integrate runs before updates. These tables land in 4.18; create them here if the schema is behind.
+-- Keep integration idempotent when it is run against an AM schema created by an older client.
 CREATE TABLE IF NOT EXISTS am.ud_node_pathology (
     rid bigserial PRIMARY KEY,
-    node_id int4 NOT NULL,
+    node_id varchar(16) NOT NULL,
     pathology_id integer NOT NULL REFERENCES am.ud_cat_pathology (pathology_id),
     inspection_id bigint,
     pk_start numeric(10,2),
@@ -99,11 +124,11 @@ CREATE INDEX IF NOT EXISTS idx_ud_node_pathology_node ON am.ud_node_pathology (n
 
 CREATE TABLE IF NOT EXISTS am.ud_breakdown (
     id serial PRIMARY KEY,
-    feature_id int4,
+    feature_id varchar(16),
     feature_type varchar(16),
     "date" date,
     breakdown_type varchar(50),
-    the_geom public.geometry(Point)
+    the_geom public.geometry(Point, SRID_VALUE)
 );
 CREATE INDEX IF NOT EXISTS idx_ud_breakdown_feature ON am.ud_breakdown (feature_type, feature_id);
 
@@ -160,8 +185,8 @@ SELECT
 	) AS calculated_cost
 FROM am.ud_arc_pathology p
 JOIN am.ud_cat_pathology c ON c.pathology_id = p.pathology_id
-JOIN PARENT_SCHEMA.arc a ON a.arc_id = p.arc_id
-LEFT JOIN am.config_catalog_def cat ON cat.arccat_id = a.arccat_id
+JOIN PARENT_SCHEMA.arc a ON a.arc_id::text = p.arc_id::text
+LEFT JOIN am.config_catalog_def cat ON cat.arccat_id = a.arccat_id::text AND cat.project_type = 'UD'
 WHERE COALESCE(p.active, true) IS TRUE
   AND COALESCE(c.active, true) IS TRUE;
 
@@ -200,8 +225,8 @@ SELECT
 	) AS calculated_cost
 FROM am.ud_node_pathology p
 JOIN am.ud_cat_pathology c ON c.pathology_id = p.pathology_id
-JOIN PARENT_SCHEMA.node n ON n.node_id = p.node_id
-LEFT JOIN am.config_nodecatalog_def cat ON cat.nodecat_id = n.nodecat_id
+JOIN PARENT_SCHEMA.node n ON n.node_id::text = p.node_id::text
+LEFT JOIN am.config_nodecatalog_def cat ON cat.nodecat_id = n.nodecat_id::text AND cat.project_type = 'UD'
 WHERE COALESCE(p.active, true) IS TRUE
   AND COALESCE(c.active, true) IS TRUE;
 
@@ -236,7 +261,7 @@ DROP VIEW IF EXISTS am.v_asset_ud_arc_input CASCADE;
 DROP VIEW IF EXISTS am.ext_ud_arc_asset CASCADE;
 CREATE OR REPLACE VIEW am.ext_ud_arc_asset AS
 SELECT
-	a.arc_id,
+	a.arc_id::varchar(16) AS arc_id,
 	a.sector_id,
 	s.macrosector_id,
 	a.omzone_id::varchar AS drainzone_id,
@@ -254,6 +279,19 @@ SELECT
 		ELSE EXTRACT(YEAR FROM age(CURRENT_DATE, a.builtdate))::numeric END AS age,
 	COALESCE(ps.total_cost, 0)::numeric AS estimated_cost,
 	COALESCE(ps.observation_count, 0)::integer AS observation_count,
+	COALESCE(ps.severe_observation_count, 0)::integer AS severe_observation_count,
+	(
+		SELECT v.intervention
+		FROM am.v_ud_arc_pathology v
+		WHERE v.arc_id::text = a.arc_id::text
+		ORDER BY CASE v.intervention
+			WHEN 'FULL_REPLACEMENT' THEN 4
+			WHEN 'REHABILITATION' THEN 3
+			WHEN 'SPOT_REPAIR' THEN 2
+			ELSE 1
+		END DESC
+		LIMIT 1
+	) AS recommended_action_src,
 	COALESCE(
 		ps.max_structural_score,
 		CASE WHEN a.conserv_state::text ~ '^[1-5]$' THEN (6 - a.conserv_state::integer)::numeric ELSE NULL END
@@ -265,7 +303,7 @@ SELECT
 	(
 		(SELECT count(*)::numeric FROM PARENT_SCHEMA.om_visit_x_arc v WHERE v.arc_id = a.arc_id)
 		+ (SELECT count(*)::numeric FROM am.ud_breakdown b
-			WHERE b.feature_id = a.arc_id AND upper(trim(b.feature_type)) = 'ARC')
+			WHERE b.feature_id::text = a.arc_id::text AND upper(trim(b.feature_type)) = 'ARC')
 	) AS incident_count_src,
 	(SELECT count(*)::numeric FROM PARENT_SCHEMA.connec c WHERE c.arc_id = a.arc_id AND c.state = 1) AS dwf_raw_src,
 	COALESCE(arc_add.max_flow, 0)::numeric AS storm_raw_src
@@ -279,7 +317,7 @@ WHERE a.state = 1;
 
 CREATE OR REPLACE VIEW am.ext_ud_node_asset AS
 SELECT
-	n.node_id,
+	n.node_id::varchar(16) AS node_id,
 	n.sector_id,
 	s.macrosector_id,
 	n.omzone_id::varchar AS drainzone_id,
@@ -296,6 +334,19 @@ SELECT
 		ELSE EXTRACT(YEAR FROM age(CURRENT_DATE, n.builtdate))::numeric END AS age,
 	COALESCE(ps.total_cost, 0)::numeric AS estimated_cost,
 	COALESCE(ps.observation_count, 0)::integer AS observation_count,
+	COALESCE(ps.severe_observation_count, 0)::integer AS severe_observation_count,
+	(
+		SELECT v.intervention
+		FROM am.v_ud_node_pathology v
+		WHERE v.node_id::text = n.node_id::text
+		ORDER BY CASE v.intervention
+			WHEN 'FULL_REPLACEMENT' THEN 4
+			WHEN 'REHABILITATION' THEN 3
+			WHEN 'SPOT_REPAIR' THEN 2
+			ELSE 1
+		END DESC
+		LIMIT 1
+	) AS recommended_action_src,
 	COALESCE(
 		ps.max_structural_score,
 		CASE WHEN n.conserv_state::text ~ '^[1-5]$' THEN (6 - n.conserv_state::integer)::numeric ELSE NULL END
@@ -307,10 +358,10 @@ SELECT
 	(
 		(SELECT count(*)::numeric FROM PARENT_SCHEMA.om_visit_x_node v WHERE v.node_id = n.node_id)
 		+ (SELECT count(*)::numeric FROM am.ud_breakdown b
-			WHERE b.feature_id = n.node_id AND upper(trim(b.feature_type)) = 'NODE')
+			WHERE b.feature_id::text = n.node_id::text AND upper(trim(b.feature_type)) = 'NODE')
 	) AS incident_count_src,
-	0::numeric AS dwf_raw_src,
-	0::numeric AS storm_raw_src
+	NULL::numeric AS dwf_raw_src,
+	NULL::numeric AS storm_raw_src
 FROM PARENT_SCHEMA.node n
 	JOIN PARENT_SCHEMA.vf_node ON vf_node.node_id = n.node_id
 	JOIN PARENT_SCHEMA.sector s ON s.sector_id = n.sector_id
@@ -335,7 +386,12 @@ SELECT
 	COALESCE(i.mandatory, false) AS mandatory,
 	i.data_quality,
 	i.data_quality_obs,
+	i.inspection_id,
+	i.inspection_date,
 	COALESCE(i.estimated_cost, a.estimated_cost) AS estimated_cost,
+	a.observation_count,
+	a.severe_observation_count,
+	a.recommended_action_src,
 	a.arccat_id,
 	a.matcat_id,
 	a.dnom,
@@ -384,7 +440,12 @@ SELECT
 	COALESCE(i.mandatory, false) AS mandatory,
 	i.data_quality,
 	i.data_quality_obs,
+	i.inspection_id,
+	i.inspection_date,
 	COALESCE(i.estimated_cost, a.estimated_cost) AS estimated_cost,
+	a.observation_count,
+	a.severe_observation_count,
+	a.recommended_action_src,
 	a.nodecat_id,
 	a.node_type,
 	a.builtdate,
@@ -432,6 +493,7 @@ VALUES
 ('ud_node_pathology', 'CCTV pathologies per UD node', 'role_om', NULL, '36', 8, 'UD node pathologies', NULL, NULL, NULL, 'am', NULL),
 ('v_ud_node_pathology', 'UD node pathologies with cost and AWARE score', 'role_om', NULL, '36', 9, 'UD node pathology calc', NULL, NULL, NULL, 'am', NULL),
 ('v_ud_arc_am', 'UD arc condition, cost and observation summary', 'role_om', NULL, '35', 10, 'UD arc AM', NULL, NULL, NULL, 'am', NULL),
+('v_ud_node_am', 'UD node condition, cost and observation summary', 'role_om', NULL, '36', 10, 'UD node AM', NULL, NULL, NULL, 'am', NULL),
 ('ud_breakdown', 'UD breakdowns by feature', 'role_om', NULL, '35', 11, 'UD breakdowns', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 
@@ -440,35 +502,48 @@ CREATE OR REPLACE FUNCTION PARENT_SCHEMA.gw_trg_am_ud_arc_pathology()
 RETURNS trigger AS
 $BODY$
 DECLARE
-	v_arc_id integer;
+	v_arc_id varchar(16);
 	v_cond numeric;
 	v_om numeric;
+	v_total numeric;
+	v_inspection_id bigint;
+	v_inspection_date date;
 BEGIN
 	v_arc_id := COALESCE(NEW.arc_id, OLD.arc_id);
 	SELECT
 		COALESCE(max_structural_score, 1),
-		COALESCE(max_operational_score, 1)
-	INTO v_cond, v_om
+		COALESCE(max_operational_score, 1),
+		COALESCE(total_cost, 0)
+	INTO v_cond, v_om, v_total
 	FROM am.v_ud_inspection_score
 	WHERE asset_type = 'ARC' AND asset_id = v_arc_id::text;
 
 	IF v_cond IS NULL AND v_om IS NULL THEN
-		RETURN COALESCE(NEW, OLD);
+		v_cond := 1;
+		v_om := 1;
+		v_total := 0;
 	END IF;
+
+	SELECT inspection_id, inspection_date INTO v_inspection_id, v_inspection_date
+	FROM am.ud_arc_pathology
+	WHERE arc_id = v_arc_id AND COALESCE(active, true)
+	ORDER BY inspection_date DESC NULLS LAST, rid DESC LIMIT 1;
 
 	UPDATE PARENT_SCHEMA.arc SET
 		conserv_state = GREATEST(1, LEAST(5, ROUND(6 - COALESCE(v_cond, 1)))),
 		om_state = GREATEST(1, LEAST(5, ROUND(6 - COALESCE(v_om, 1))))
-	WHERE arc_id = v_arc_id;
+	WHERE arc_id::text = v_arc_id;
 
-	INSERT INTO am.ud_arc_input (arc_id, structural_raw, operational_raw, estimated_cost)
-	SELECT v_arc_id, v_cond, v_om, s.total_cost
-	FROM am.v_ud_inspection_score s
-	WHERE s.asset_type = 'ARC' AND s.asset_id = v_arc_id::text
+	INSERT INTO am.ud_arc_input (
+		arc_id, structural_raw, operational_raw, estimated_cost, inspection_id, inspection_date
+	)
+	VALUES (v_arc_id, v_cond, v_om, v_total, v_inspection_id, v_inspection_date)
 	ON CONFLICT (arc_id) DO UPDATE SET
 		structural_raw = EXCLUDED.structural_raw,
 		operational_raw = EXCLUDED.operational_raw,
-		estimated_cost = EXCLUDED.estimated_cost;
+		estimated_cost = EXCLUDED.estimated_cost,
+		inspection_id = EXCLUDED.inspection_id,
+		inspection_date = EXCLUDED.inspection_date;
 
 	RETURN COALESCE(NEW, OLD);
 END;
@@ -483,37 +558,46 @@ CREATE OR REPLACE FUNCTION PARENT_SCHEMA.gw_trg_am_ud_node_pathology()
 RETURNS trigger AS
 $BODY$
 DECLARE
-	v_node_id integer;
+	v_node_id varchar(16);
 	v_cond numeric;
 	v_om numeric;
+	v_total numeric;
+	v_inspection_id bigint;
+	v_inspection_date date;
 BEGIN
 	v_node_id := COALESCE(NEW.node_id, OLD.node_id);
 	SELECT
 		COALESCE(max_structural_score, 1),
-		COALESCE(max_operational_score, 1)
-	INTO v_cond, v_om
+		COALESCE(max_operational_score, 1),
+		COALESCE(total_cost, 0)
+	INTO v_cond, v_om, v_total
 	FROM am.v_ud_inspection_score
 	WHERE asset_type = 'NODE' AND asset_id = v_node_id::text;
 
 	IF v_cond IS NULL AND v_om IS NULL THEN
-		RETURN COALESCE(NEW, OLD);
+		v_cond := 1;
+		v_om := 1;
+		v_total := 0;
 	END IF;
+
+	SELECT inspection_id, inspection_date INTO v_inspection_id, v_inspection_date
+	FROM am.ud_node_pathology
+	WHERE node_id = v_node_id AND COALESCE(active, true)
+	ORDER BY inspection_date DESC NULLS LAST, rid DESC LIMIT 1;
 
 	UPDATE PARENT_SCHEMA.node SET
 		conserv_state = GREATEST(1, LEAST(5, ROUND(6 - COALESCE(v_cond, 1)))),
 		om_state = GREATEST(1, LEAST(5, ROUND(6 - COALESCE(v_om, 1))))
-	WHERE node_id = v_node_id;
+	WHERE node_id::text = v_node_id;
 
 	INSERT INTO am.ud_node_input (node_id, structural_raw, operational_raw, estimated_cost, inspection_id, inspection_date)
-	SELECT v_node_id, v_cond, v_om, s.total_cost, COALESCE(NEW.inspection_id, OLD.inspection_id), COALESCE(NEW.inspection_date, OLD.inspection_date)
-	FROM am.v_ud_inspection_score s
-	WHERE s.asset_type = 'NODE' AND s.asset_id = v_node_id::text
+	VALUES (v_node_id, v_cond, v_om, v_total, v_inspection_id, v_inspection_date)
 	ON CONFLICT (node_id) DO UPDATE SET
 		structural_raw = EXCLUDED.structural_raw,
 		operational_raw = EXCLUDED.operational_raw,
 		estimated_cost = EXCLUDED.estimated_cost,
-		inspection_id = COALESCE(EXCLUDED.inspection_id, am.ud_node_input.inspection_id),
-		inspection_date = COALESCE(EXCLUDED.inspection_date, am.ud_node_input.inspection_date);
+		inspection_id = EXCLUDED.inspection_id,
+		inspection_date = EXCLUDED.inspection_date;
 
 	RETURN COALESCE(NEW, OLD);
 END;
@@ -538,7 +622,21 @@ FROM PARENT_SCHEMA.arc a
 LEFT JOIN am.v_ud_inspection_score s ON s.asset_type = 'ARC' AND s.asset_id = a.arc_id::text
 WHERE a.state = 1;
 
+CREATE OR REPLACE VIEW am.v_ud_node_am AS
+SELECT
+	n.node_id,
+	s.max_structural_score AS cond_state,
+	s.max_operational_score AS om_state,
+	s.total_cost,
+	s.observation_count,
+	s.severe_observation_count,
+	n.the_geom
+FROM PARENT_SCHEMA.node n
+LEFT JOIN am.v_ud_inspection_score s ON s.asset_type = 'NODE' AND s.asset_id = n.node_id::text
+WHERE n.state = 1;
+
 GRANT ALL ON TABLE am.v_ud_arc_am TO role_basic;
+GRANT ALL ON TABLE am.v_ud_node_am TO role_basic;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
 VALUES('v_asset_ud_arc_output_compare', 'id', 'role_om', NULL, '35', 7, 'UD Arc Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')

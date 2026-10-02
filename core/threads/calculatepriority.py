@@ -19,6 +19,7 @@ from qgis.PyQt.QtCore import pyqtSignal
 from .task import GwTask
 from ...libs import lib_vars, tools_db, tools_os, tools_qt
 from ..toolbars.am.am_utils import am_names
+from ..toolbars.am.planning import assign_replacement_years
 
 
 def get_min_greater_than(iterable, value):
@@ -1152,7 +1153,7 @@ class GwCalculatePriority(GwTask):
         completeness = round((len(criteria) - len(missing)) / len(criteria), 2)
         scores = [feat.get("structural_raw"), feat.get("operational_raw")]
         present = [float(score) for score in scores if score is not None]
-        action = self._ud_action(max(present) if present else None)
+        action = feat.get("recommended_action_src") or self._ud_action(max(present) if present else None)
         observations = int(feat.get("observation_count") or 0)
         reasons = list(missing)
         if observations == 0:
@@ -1169,10 +1170,17 @@ class GwCalculatePriority(GwTask):
         inspection_id = feat.get("inspection_id")
         inspection_sql = "NULL" if inspection_id is None else str(int(inspection_id))
         year_sql = "NULL" if inspect_year is None else str(inspect_year)
+        inspection_date_sql = self._sql_text(feat.get("inspection_date"))
+        observation_count = int(feat.get("observation_count") or 0)
+        severe_observation_count = int(feat.get("severe_observation_count") or 0)
+        data_quality = feat.get("data_quality")
+        data_quality_sql = "NULL" if data_quality is None else str(int(data_quality))
         return (
             f"{self._sql_text(action)}, {self._sql_text(action)}, {year_sql}, {priority}, "
             f"{self._sql_array(reasons)}, {completeness}, {self._sql_array(missing)}, "
-            f"{inspection_sql}, now()"
+            f"{inspection_sql}, {inspection_date_sql}, {observation_count}, "
+            f"{severe_observation_count}, {data_quality_sql}, "
+            f"{self._sql_array(feat.get('data_quality_obs'))}, now()"
         )
 
     def _get_ud_rows(self):
@@ -1185,8 +1193,8 @@ class GwCalculatePriority(GwTask):
         type_col = "a.node_type," if not is_arc else "NULL::text AS node_type,"
         filter_list = []
         if self.features:
-            ids = "','".join(str(x) for x in self.features)
-            filter_list.append(f"a.{id_col} in ('{ids}')")
+            ids = ",".join(self._sql_text(value) for value in self.features)
+            filter_list.append(f"a.{id_col} in ({ids})")
         if self.exploitation:
             filter_list.append(f"a.expl_id = {self.exploitation}")
         if self.presszone:
@@ -1226,12 +1234,17 @@ class GwCalculatePriority(GwTask):
                 coalesce(i.incident_count, a.incident_count_src) AS incident_count,
                 coalesce(i.structural_raw, a.structural_raw_src) AS structural_raw,
                 coalesce(i.operational_raw, a.operational_raw_src) AS operational_raw,
-                coalesce(i.dwf_raw, a.dwf_raw_src, 0) AS dwf_raw,
-                coalesce(i.storm_raw, a.storm_raw_src, 0) AS storm_raw,
+                coalesce(i.dwf_raw, a.dwf_raw_src) AS dwf_raw,
+                coalesce(i.storm_raw, a.storm_raw_src) AS storm_raw,
                 i.compliance,
                 coalesce(i.estimated_cost, a.estimated_cost, 0) AS estimated_cost,
                 coalesce(a.observation_count, 0) AS observation_count,
-                i.inspection_id
+                i.inspection_id,
+                i.inspection_date,
+                coalesce(a.severe_observation_count, 0) AS severe_observation_count,
+                i.data_quality,
+                i.data_quality_obs,
+                a.recommended_action_src
             from am.{names['ext']} a
             left join am.{names['input']} i using ({id_col})
             {filters}
@@ -1286,13 +1299,13 @@ class GwCalculatePriority(GwTask):
                     feat["age"] = today_year - int(default_year)
             catalog_cost = self.config_catalog.get_cost_constr(catalog_id)
             length = float(feat.get("length") or 0)
-            pathology_cost = feat.get("estimated_cost")
-            if is_arc and int(feat.get("observation_count") or 0) > 0:
-                feat["estimated_cost"] = max(float(pathology_cost or 0), 0)
+            pathology_cost = max(float(feat.get("estimated_cost") or 0), 0)
+            if int(feat.get("observation_count") or 0) > 0 and pathology_cost > 0:
+                feat["estimated_cost"] = pathology_cost
             elif catalog_cost is not None:
                 feat["estimated_cost"] = max(float(catalog_cost), 0) * (length if is_arc and length else 1)
             else:
-                feat["estimated_cost"] = max(float(feat.get("estimated_cost") or 0), 0)
+                feat["estimated_cost"] = pathology_cost
             feat["catalog_compliance"] = self.config_catalog.get_compliance(catalog_id)
             feat["material_compliance"] = self.config_material.get_compliance(mat)
             feat["compliance_grade"] = min(
@@ -1334,7 +1347,9 @@ class GwCalculatePriority(GwTask):
             feat["val_strategic"] = self._scale_or_zero(
                 self._normalize_binary(feat.get("strategic"))
             )
-            feat["val_compliance"] = float(10 - feat["compliance_grade"])
+            feat["val_compliance"] = self._scale_or_zero(
+                self._normalize_binary(feat.get("compliance"))
+            )
             for suffix in ("1", "2"):
                 for score_name in score_names:
                     feat[f"w{suffix}_{score_name}"] = self._ud_engine_w(f"{score_name}_{suffix}")
@@ -1347,11 +1362,13 @@ class GwCalculatePriority(GwTask):
         features.sort(key=lambda x: x["mandatory"], reverse=True)
         cum_cost = 0
         second_iteration = []
+        horizon_budget = self.result_budget * (self.target_year - today_year)
         for feat in features:
-            second_iteration.append(feat)
-            cum_cost += feat["estimated_cost"]
-            if cum_cost > self.result_budget * (self.target_year - today_year):
+            next_cost = cum_cost + feat["estimated_cost"]
+            if second_iteration and next_cost > horizon_budget:
                 break
+            second_iteration.append(feat)
+            cum_cost = next_cost
         if not second_iteration:
             self._emit_report(
                 tools_qt.tr("Task canceled:"),
@@ -1361,15 +1378,12 @@ class GwCalculatePriority(GwTask):
 
         second_iteration.sort(key=lambda x: x["val_2"], reverse=True)
         second_iteration.sort(key=lambda x: x["mandatory"], reverse=True)
-        replacement_year = today_year + 1
-        cum_cost = 0
-        for feat in second_iteration:
-            cum_cost += feat["estimated_cost"]
-            feat["replacement_year"] = replacement_year
-            feat["cum_cost"] = cum_cost
-            if cum_cost > self.result_budget:
-                replacement_year += 1
-                cum_cost = 0
+        second_iteration = assign_replacement_years(
+            second_iteration,
+            self.result_budget,
+            today_year + 1,
+            self.target_year,
+        )
 
         self.df = pd.DataFrame(second_iteration).reset_index(drop=True)
         self._emit_report(tools_qt.tr("Updating tables") + " (4/4)...")
@@ -1404,6 +1418,7 @@ class GwCalculatePriority(GwTask):
             if feat["replacement_year"] > self.target_year:
                 break
             fid = feat["feature_id"]
+            fid_sql = self._sql_text(fid)
             strategic_sql = (
                 "TRUE" if feat.get("strategic") else
                 "FALSE" if feat.get("strategic") is not None else "NULL"
@@ -1413,7 +1428,7 @@ class GwCalculatePriority(GwTask):
                 "FALSE" if feat.get("compliance") is not None else "NULL"
             )
             values_engine.append(
-                f"""({fid}, {self.result_id},
+                f"""({fid_sql}, {self.result_id},
                     {feat['val_longevity']}, {feat['val_incident_history']},
                     {feat['val_structural_condition']}, {feat['val_operational_condition']},
                     {feat['val_dwf_impact']}, {feat['val_storm_impact']},
@@ -1424,7 +1439,7 @@ class GwCalculatePriority(GwTask):
             extra_out = f", {length_sql if length_sql is not None else 'NULL'}" if is_arc else ""
             plan_sql = self._ud_plan(feat)
             values_out.append(
-                f"""({fid}, {self.result_id},
+                f"""({fid_sql}, {self.result_id},
                     {feat['val_longevity']}, {feat['val_incident_history']},
                     {feat['val_structural_condition']}, {feat['val_operational_condition']},
                     {feat['val_dwf_impact']}, {feat['val_storm_impact']},
@@ -1457,7 +1472,8 @@ class GwCalculatePriority(GwTask):
                     val, orderby, replacement_year, budget, total, estimated_cost{extra_cols},
                     recommended_action, intervention_type, recommended_inspection_year,
                     inspection_priority, inspection_reason, calculation_completeness,
-                    missing_criteria, inspection_id, calculation_date
+                    missing_criteria, inspection_id, inspection_date, observation_count,
+                    severe_observation_count, data_quality, data_quality_obs, calculation_date
                 ) values {",".join(values_out)};
                 """,
                 is_thread=True,

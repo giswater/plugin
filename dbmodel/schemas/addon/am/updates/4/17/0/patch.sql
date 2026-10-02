@@ -120,6 +120,37 @@ ALTER TABLE am.cat_result
 
 -- config_engine_def: asset_type becomes part of the primary key so ARC and NODE
 -- parameters can share the same (parameter, method) name without clashing.
+-- Older AM schemas do not have the NODE catalog yet; create it before scoping
+-- shared catalog rows by parent project type.
+CREATE TABLE IF NOT EXISTS am.config_nodecatalog_def (
+	id serial PRIMARY KEY,
+	nodecat_id varchar(30) NOT NULL,
+	dnom numeric(12,2),
+	cost_constr numeric(12,2),
+	cost_repmain numeric(12,2),
+	compliance integer,
+	CONSTRAINT config_nodecatalog_def_nodecat_id UNIQUE (nodecat_id)
+);
+
+ALTER TABLE am.config_catalog_def ADD COLUMN IF NOT EXISTS project_type varchar(2) NOT NULL DEFAULT 'WS';
+ALTER TABLE am.config_nodecatalog_def ADD COLUMN IF NOT EXISTS project_type varchar(2) NOT NULL DEFAULT 'WS';
+ALTER TABLE am.config_material_def ADD COLUMN IF NOT EXISTS project_type varchar(2) NOT NULL DEFAULT 'WS';
+
+ALTER TABLE am.config_catalog_def DROP CONSTRAINT IF EXISTS config_catalog_def_fk;
+ALTER TABLE am.config_catalog_def DROP CONSTRAINT IF EXISTS config_catalog_def_arccat_id;
+ALTER TABLE am.config_catalog_def
+	ADD CONSTRAINT config_catalog_def_arccat_id UNIQUE (arccat_id, project_type);
+
+ALTER TABLE am.config_nodecatalog_def DROP CONSTRAINT IF EXISTS config_nodecatalog_def_fk;
+ALTER TABLE am.config_nodecatalog_def DROP CONSTRAINT IF EXISTS config_nodecatalog_def_nodecat_id;
+ALTER TABLE am.config_nodecatalog_def
+	ADD CONSTRAINT config_nodecatalog_def_nodecat_id UNIQUE (nodecat_id, project_type);
+
+ALTER TABLE am.config_material_def DROP CONSTRAINT IF EXISTS config_material_def_fk;
+ALTER TABLE am.config_material_def DROP CONSTRAINT IF EXISTS config_material_def_pkey;
+ALTER TABLE am.config_material_def
+	ADD CONSTRAINT config_material_def_pkey PRIMARY KEY (material, project_type);
+
 DO $$
 BEGIN
 	IF EXISTS (
@@ -924,15 +955,17 @@ BEGIN
 	-- Seed missing node catalogs. The table is shared by the WS and UD parents, so do not
 	-- skip when the other parent already inserted rows.
 	EXECUTE format($seed$
-		INSERT INTO am.config_nodecatalog_def (nodecat_id, dnom, cost_constr, cost_repmain, compliance)
-		SELECT id,
+		INSERT INTO am.config_nodecatalog_def (
+			nodecat_id, project_type, dnom, cost_constr, cost_repmain, compliance
+		)
+		SELECT id, 'WS',
 			NULLIF(regexp_replace(COALESCE(dnom, ''), '[^0-9\.]', '', 'g'), '')::NUMERIC,
 			100,
 			0,
 			10
 		FROM %1$I.cat_node
 		WHERE active IS DISTINCT FROM FALSE
-		ON CONFLICT (nodecat_id) DO NOTHING
+		ON CONFLICT (nodecat_id, project_type) DO NOTHING
 	$seed$, v_parent);
 
 	EXECUTE format($trg$
@@ -940,17 +973,18 @@ BEGIN
 		BEGIN
 			EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
 			IF TG_OP = 'INSERT' THEN
-				INSERT INTO am.config_nodecatalog_def (nodecat_id, dnom)
+				INSERT INTO am.config_nodecatalog_def (nodecat_id, project_type, dnom)
 				VALUES (
 					NEW.id,
+					'WS',
 					NULLIF(regexp_replace(COALESCE(NEW.dnom, ''), '[^0-9\.]', '', 'g'), '')::numeric
 				)
-				ON CONFLICT (nodecat_id) DO NOTHING;
+				ON CONFLICT (nodecat_id, project_type) DO NOTHING;
 				RETURN NEW;
 			ELSIF TG_OP = 'UPDATE' THEN
 				UPDATE am.config_nodecatalog_def
 				SET dnom = NULLIF(regexp_replace(COALESCE(NEW.dnom, ''), '[^0-9\.]', '', 'g'), '')::numeric
-				WHERE nodecat_id = OLD.id;
+				WHERE nodecat_id = OLD.id AND project_type = 'WS';
 				RETURN NEW;
 			END IF;
 			RETURN NEW;
@@ -1736,7 +1770,7 @@ INSERT INTO am.config_form_tableview VALUES (
 
 -- Stage 4: UD work tables (idempotent; fresh base.sql already has them)
 CREATE TABLE IF NOT EXISTS am.ud_arc_input (
-    arc_id int4 NOT NULL,
+    arc_id varchar(16) NOT NULL,
     age numeric(12,3),
     incident_count numeric(12,3),
     structural_raw numeric(12,3),
@@ -1753,7 +1787,7 @@ CREATE TABLE IF NOT EXISTS am.ud_arc_input (
 );
 
 CREATE TABLE IF NOT EXISTS am.ud_arc_engine_wm (
-    arc_id int4 NOT NULL,
+    arc_id varchar(16) NOT NULL,
     result_id integer NOT NULL,
     longevity numeric(5,2),
     incident_history numeric(5,2),
@@ -1770,7 +1804,7 @@ CREATE TABLE IF NOT EXISTS am.ud_arc_engine_wm (
 );
 
 CREATE TABLE IF NOT EXISTS am.ud_arc_output (
-    arc_id int4 NOT NULL,
+    arc_id varchar(16) NOT NULL,
     result_id integer NOT NULL,
     sector_id integer,
     macrosector_id integer,
@@ -1809,7 +1843,7 @@ CREATE TABLE IF NOT EXISTS am.ud_arc_output (
 );
 
 CREATE TABLE IF NOT EXISTS am.ud_node_input (
-    node_id int4 NOT NULL,
+    node_id varchar(16) NOT NULL,
     age numeric(12,3),
     incident_count numeric(12,3),
     structural_raw numeric(12,3),
@@ -1826,7 +1860,7 @@ CREATE TABLE IF NOT EXISTS am.ud_node_input (
 );
 
 CREATE TABLE IF NOT EXISTS am.ud_node_engine_wm (
-    node_id int4 NOT NULL,
+    node_id varchar(16) NOT NULL,
     result_id integer NOT NULL,
     longevity numeric(5,2),
     incident_history numeric(5,2),
@@ -1843,7 +1877,7 @@ CREATE TABLE IF NOT EXISTS am.ud_node_engine_wm (
 );
 
 CREATE TABLE IF NOT EXISTS am.ud_node_output (
-    node_id int4 NOT NULL,
+    node_id varchar(16) NOT NULL,
     result_id integer NOT NULL,
     sector_id integer,
     macrosector_id integer,
@@ -2089,7 +2123,7 @@ CREATE TABLE IF NOT EXISTS am.ud_cat_pathology (
 
 CREATE TABLE IF NOT EXISTS am.ud_arc_pathology (
     rid bigserial PRIMARY KEY,
-    arc_id int4 NOT NULL,
+    arc_id varchar(16) NOT NULL,
     pathology_id integer NOT NULL REFERENCES am.ud_cat_pathology (pathology_id),
     inspection_id bigint,
     pk_start numeric(10,2),
@@ -2167,8 +2201,9 @@ BEGIN
 			) AS calculated_cost
 		FROM am.ud_arc_pathology p
 		JOIN am.ud_cat_pathology c ON c.pathology_id = p.pathology_id
-		JOIN %1$I.arc a ON a.arc_id = p.arc_id
-		LEFT JOIN am.config_catalog_def cat ON cat.arccat_id = a.arccat_id
+		JOIN %1$I.arc a ON a.arc_id::text = p.arc_id::text
+		LEFT JOIN am.config_catalog_def cat
+			ON cat.arccat_id = a.arccat_id::text AND cat.project_type = 'UD'
 		WHERE COALESCE(p.active, true) IS TRUE AND COALESCE(c.active, true) IS TRUE
 	$sql$, v_parent);
 

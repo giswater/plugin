@@ -44,7 +44,8 @@ class GwUdInspectionImportButton(GwAction):
 
     def _import(self, kind):
         title = "Select inspection file"
-        path, _ = QFileDialog.getOpenFileName(None, tools_qt.tr(title), "", "Inspection (*.xml *.csv *.txt *.dat)")
+        msg = "Inspection files (*.xml *.csv *.txt *.dat)"
+        path, _ = QFileDialog.getOpenFileName(None, tools_qt.tr(title), "", tools_qt.tr(msg))
         if not path:
             return
         parsers = {"wincan": WincanImporter, "sewdef": SewdefImporter, "une": GenericUneImporter}
@@ -69,36 +70,54 @@ class GwUdInspectionImportButton(GwAction):
         return "'" + str(value).replace("'", "''") + "'"
 
     def _insert_rows(self, rows):
-        inserted = 0
+        values = {"ARC": [], "NODE": []}
         skipped = 0
         for row in rows:
             severity = row.get("severity")
             if severity is None or not 1 <= int(severity) <= 5 or row.get("asset_id") is None:
                 skipped += 1
                 continue
-            code = row["code"].replace("'", "''")
+            code = str(row.get("code") or "").upper().replace("'", "''")
+            if not code:
+                skipped += 1
+                continue
             found = tools_db.get_row(
                 f"SELECT pathology_id FROM am.ud_cat_pathology WHERE upper(code) = '{code}' AND active IS TRUE"
             )
             if not found:
                 skipped += 1
                 continue
-            table = "ud_node_pathology" if row["feature_type"] == "NODE" else "ud_arc_pathology"
-            id_col = "node_id" if row["feature_type"] == "NODE" else "arc_id"
-            sql = f"""
-                INSERT INTO am.{table} (
-                    {id_col}, pathology_id, inspection_id, pk_start, pk_end, pk,
-                    clock_start, clock_end, severity, observation, inspection_date
-                ) VALUES (
-                    {int(row['asset_id'])}, {int(found[0])}, {self._sql_num(row.get('inspection_id'))},
+            feature_type = "NODE" if row.get("feature_type") == "NODE" else "ARC"
+            parent_table = feature_type.lower()
+            id_col = f"{parent_table}_id"
+            asset_id = self._sql_text(row["asset_id"])
+            exists = tools_db.get_row(
+                f"SELECT 1 FROM {parent_table} WHERE {id_col} = {asset_id}",
+                log_info=False,
+            )
+            if not exists:
+                skipped += 1
+                continue
+            values[feature_type].append(
+                f"""({asset_id}, {int(found[0])}, {self._sql_num(row.get('inspection_id'))},
                     {self._sql_num(row.get('pk_start'))}, {self._sql_num(row.get('pk_end'))},
                     {self._sql_num(row.get('pk'))}, {self._sql_num(row.get('clock_start'))},
                     {self._sql_num(row.get('clock_end'))}, {int(severity)},
-                    {self._sql_text(row.get('observation'))}, {self._sql_text(row.get('inspection_date'))}
-                )
-            """
-            if tools_db.execute_sql(sql, show_exception=False) is False:
-                skipped += 1
-            else:
-                inserted += 1
+                    {self._sql_text(row.get('observation'))}, {self._sql_text(row.get('inspection_date'))})"""
+            )
+
+        statements = []
+        for feature_type, table in (("ARC", "ud_arc_pathology"), ("NODE", "ud_node_pathology")):
+            if not values[feature_type]:
+                continue
+            id_col = "arc_id" if feature_type == "ARC" else "node_id"
+            statements.append(
+                f"""INSERT INTO am.{table} (
+                    {id_col}, pathology_id, inspection_id, pk_start, pk_end, pk,
+                    clock_start, clock_end, severity, observation, inspection_date
+                ) VALUES {','.join(values[feature_type])}"""
+            )
+        inserted = sum(len(batch) for batch in values.values())
+        if statements and not tools_db.execute_sql(";\n".join(statements), show_exception=False):
+            return 0, skipped + inserted
         return inserted, skipped

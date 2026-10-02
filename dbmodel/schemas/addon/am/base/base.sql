@@ -100,6 +100,7 @@ CREATE TABLE value_status (
 CREATE TABLE config_catalog_def (
     id serial PRIMARY KEY,
     arccat_id varchar(30),
+    project_type varchar(2) NOT NULL DEFAULT 'WS',
     dnom numeric(12,2),
     cost_constr numeric(12,2),
     cost_repmain numeric(12,2),
@@ -124,12 +125,13 @@ CREATE TABLE config_catalog (
 CREATE TABLE config_nodecatalog_def (
     id serial PRIMARY KEY,
     nodecat_id varchar(30) NOT NULL,
+    project_type varchar(2) NOT NULL DEFAULT 'WS',
     dnom numeric(12,2),
     cost_constr numeric(12,2),
     cost_repmain numeric(12,2),
     cost_rehab numeric(12,2),
     compliance integer,
-    CONSTRAINT config_nodecatalog_def_nodecat_id UNIQUE (nodecat_id)
+    CONSTRAINT config_nodecatalog_def_nodecat_id UNIQUE (nodecat_id, project_type)
 );
 
 CREATE TABLE config_nodecatalog (
@@ -178,13 +180,14 @@ CREATE TABLE config_linkmaterial_def (
 
 CREATE TABLE config_material_def (
     material character varying(50) NOT NULL,
+    project_type varchar(2) NOT NULL DEFAULT 'WS',
     pleak numeric(12,2),
     age_max smallint,
     age_med smallint,
     age_min smallint,
     builtdate_vdef smallint,
     compliance integer,
-    CONSTRAINT config_material_def_pkey PRIMARY KEY (material)
+    CONSTRAINT config_material_def_pkey PRIMARY KEY (material, project_type)
 );
 
 CREATE TABLE config_material (
@@ -399,7 +402,7 @@ CREATE TABLE ws_node_output (
 
 -- UD work tables (clone NODE WS matrix: dwf/storm instead of nrw/users)
 CREATE TABLE ud_arc_input (
-    arc_id int4 NOT NULL,
+    arc_id varchar(16) NOT NULL,
     age numeric(12,3),
     incident_count numeric(12,3),
     structural_raw numeric(12,3),
@@ -418,7 +421,7 @@ CREATE TABLE ud_arc_input (
 );
 
 CREATE TABLE ud_arc_engine_wm (
-    arc_id int4 NOT NULL,
+    arc_id varchar(16) NOT NULL,
     result_id integer NOT NULL,
     longevity numeric(5,2),
     incident_history numeric(5,2),
@@ -435,7 +438,7 @@ CREATE TABLE ud_arc_engine_wm (
 );
 
 CREATE TABLE ud_arc_output (
-    arc_id int4 NOT NULL,
+    arc_id varchar(16) NOT NULL,
     result_id integer NOT NULL,
     sector_id integer,
     macrosector_id integer,
@@ -478,12 +481,17 @@ CREATE TABLE ud_arc_output (
     calculation_completeness numeric(5,2),
     missing_criteria varchar[],
     inspection_id bigint,
+    inspection_date date,
+    observation_count integer,
+    severe_observation_count integer,
+    data_quality integer,
+    data_quality_obs varchar[],
     calculation_date timestamp DEFAULT now(),
     CONSTRAINT ud_arc_output_pkey PRIMARY KEY (arc_id, result_id)
 );
 
 CREATE TABLE ud_node_input (
-    node_id int4 NOT NULL,
+    node_id varchar(16) NOT NULL,
     age numeric(12,3),
     incident_count numeric(12,3),
     structural_raw numeric(12,3),
@@ -502,7 +510,7 @@ CREATE TABLE ud_node_input (
 );
 
 CREATE TABLE ud_node_engine_wm (
-    node_id int4 NOT NULL,
+    node_id varchar(16) NOT NULL,
     result_id integer NOT NULL,
     longevity numeric(5,2),
     incident_history numeric(5,2),
@@ -519,7 +527,7 @@ CREATE TABLE ud_node_engine_wm (
 );
 
 CREATE TABLE ud_node_output (
-    node_id int4 NOT NULL,
+    node_id varchar(16) NOT NULL,
     result_id integer NOT NULL,
     sector_id integer,
     macrosector_id integer,
@@ -559,6 +567,11 @@ CREATE TABLE ud_node_output (
     calculation_completeness numeric(5,2),
     missing_criteria varchar[],
     inspection_id bigint,
+    inspection_date date,
+    observation_count integer,
+    severe_observation_count integer,
+    data_quality integer,
+    data_quality_obs varchar[],
     calculation_date timestamp DEFAULT now(),
     CONSTRAINT ud_node_output_pkey PRIMARY KEY (node_id, result_id)
 );
@@ -623,7 +636,7 @@ ON CONFLICT (code) DO UPDATE SET
 
 CREATE TABLE ud_arc_pathology (
     rid bigserial PRIMARY KEY,
-    arc_id int4 NOT NULL,
+    arc_id varchar(16) NOT NULL,
     pathology_id integer NOT NULL REFERENCES ud_cat_pathology (pathology_id),
     inspection_id bigint,
     pk_start numeric(10,2),
@@ -645,7 +658,7 @@ CREATE INDEX idx_ud_arc_pathology_active ON ud_arc_pathology (arc_id) WHERE acti
 
 CREATE TABLE ud_node_pathology (
     rid bigserial PRIMARY KEY,
-    node_id int4 NOT NULL,
+    node_id varchar(16) NOT NULL,
     pathology_id integer NOT NULL REFERENCES ud_cat_pathology (pathology_id),
     inspection_id bigint,
     pk_start numeric(10,2),
@@ -667,7 +680,7 @@ CREATE INDEX idx_ud_node_pathology_active ON ud_node_pathology (node_id) WHERE a
 -- UD breakdowns (same shape as WS leaks: feature pin + date + type + point).
 CREATE TABLE ud_breakdown (
     id serial PRIMARY KEY,
-    feature_id int4,
+    feature_id varchar(16),
     feature_type varchar(16),
     "date" date,
     breakdown_type varchar(50),
@@ -1021,7 +1034,8 @@ CREATE VIEW v_asset_ud_arc_output AS
     o.comments, o.data_quality_class, o.the_geom,
     o.recommended_action, o.intervention_type, o.recommended_inspection_year,
     o.inspection_priority, o.inspection_reason, o.calculation_completeness,
-    o.missing_criteria, o.inspection_id, o.calculation_date
+    o.missing_criteria, o.inspection_id, o.calculation_date, o.inspection_date,
+    o.observation_count, o.severe_observation_count, o.data_quality, o.data_quality_obs
    FROM ud_arc_output o
      JOIN selector_result_main s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
@@ -1035,7 +1049,8 @@ CREATE VIEW v_asset_ud_arc_output_compare AS
     o.comments, o.data_quality_class, o.the_geom,
     o.recommended_action, o.intervention_type, o.recommended_inspection_year,
     o.inspection_priority, o.inspection_reason, o.calculation_completeness,
-    o.missing_criteria, o.inspection_id, o.calculation_date
+    o.missing_criteria, o.inspection_id, o.calculation_date, o.inspection_date,
+    o.observation_count, o.severe_observation_count, o.data_quality, o.data_quality_obs
    FROM ud_arc_output o
      JOIN selector_result_compare s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
@@ -1049,7 +1064,8 @@ CREATE OR REPLACE VIEW v_asset_ud_arc_corporate AS
     o.comments, o.data_quality_class, o.the_geom,
     o.recommended_action, o.intervention_type, o.recommended_inspection_year,
     o.inspection_priority, o.inspection_reason, o.calculation_completeness,
-    o.missing_criteria, o.inspection_id, o.calculation_date
+    o.missing_criteria, o.inspection_id, o.calculation_date, o.inspection_date,
+    o.observation_count, o.severe_observation_count, o.data_quality, o.data_quality_obs
    FROM ud_arc_output o
      JOIN cat_result r ON r.result_id = o.result_id
   WHERE r.iscorporate = TRUE;
@@ -1063,7 +1079,8 @@ CREATE VIEW v_asset_ud_node_output AS
     o.comments, o.data_quality_class, o.the_geom,
     o.recommended_action, o.intervention_type, o.recommended_inspection_year,
     o.inspection_priority, o.inspection_reason, o.calculation_completeness,
-    o.missing_criteria, o.inspection_id, o.calculation_date
+    o.missing_criteria, o.inspection_id, o.calculation_date, o.inspection_date,
+    o.observation_count, o.severe_observation_count, o.data_quality, o.data_quality_obs
    FROM ud_node_output o
      JOIN selector_result_main s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
@@ -1077,7 +1094,8 @@ CREATE VIEW v_asset_ud_node_output_compare AS
     o.comments, o.data_quality_class, o.the_geom,
     o.recommended_action, o.intervention_type, o.recommended_inspection_year,
     o.inspection_priority, o.inspection_reason, o.calculation_completeness,
-    o.missing_criteria, o.inspection_id, o.calculation_date
+    o.missing_criteria, o.inspection_id, o.calculation_date, o.inspection_date,
+    o.observation_count, o.severe_observation_count, o.data_quality, o.data_quality_obs
    FROM ud_node_output o
      JOIN selector_result_compare s ON (s.result_id = o.result_id)
   WHERE (s.cur_user = (CURRENT_USER)::text);
@@ -1091,7 +1109,8 @@ CREATE OR REPLACE VIEW v_asset_ud_node_corporate AS
     o.comments, o.data_quality_class, o.the_geom,
     o.recommended_action, o.intervention_type, o.recommended_inspection_year,
     o.inspection_priority, o.inspection_reason, o.calculation_completeness,
-    o.missing_criteria, o.inspection_id, o.calculation_date
+    o.missing_criteria, o.inspection_id, o.calculation_date, o.inspection_date,
+    o.observation_count, o.severe_observation_count, o.data_quality, o.data_quality_obs
    FROM ud_node_output o
      JOIN cat_result r ON r.result_id = o.result_id
   WHERE r.iscorporate = TRUE;
@@ -1417,7 +1436,7 @@ INSERT INTO value_result_type VALUES ('SELECTION', 'SELECTION');
 INSERT INTO config_form_tableview VALUES ('priority_manager', 'utils', 'cat_result', 'iscorporate', 15, true, NULL, NULL, '{"stretch": true}');
 INSERT INTO config_form_tableview VALUES ('priority_manager', 'utils', 'cat_result', 'project_type', 16, true, NULL, 'Project', '{"stretch": true}');
 
-ALTER TABLE config_catalog_def ADD CONSTRAINT config_catalog_def_arccat_id UNIQUE (arccat_id);
+ALTER TABLE config_catalog_def ADD CONSTRAINT config_catalog_def_arccat_id UNIQUE (arccat_id, project_type);
 
 UPDATE config_form_tableview SET alias = 'Result Id' WHERE objectname = 'cat_result' AND columnname = 'result_id';
 UPDATE config_form_tableview SET alias = 'Result Name' WHERE objectname = 'cat_result' AND columnname = 'result_name';
