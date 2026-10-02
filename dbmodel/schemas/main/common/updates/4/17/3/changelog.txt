@@ -1,1 +1,2 @@
 - `gw_fct_rpt2pg_log` DETAILED USER INPUT OPTIONS reads from `rpt_cat_result.inp_options` (fallback to `config_param_user`).
+- `v_om_visit` set link the_geom as an interpolated point
