@@ -25,7 +25,7 @@ VALUES(
     'anl_arc',
     NULL,
     'SELECT a.arc_id, a.arccat_id, a.expl_id, a.the_geom
-FROM temp_t_arc a
+FROM t_arc a
 JOIN cat_arc ca ON ca.id = a.arccat_id
 LEFT JOIN cat_material cma ON cma.id = a.matcat_id
 LEFT JOIN cat_material cm ON cm.id = ca.matcat_id
