@@ -662,7 +662,7 @@ UPDATE config_form_tableview SET alias = 'The geom' WHERE columnname = 'the_geom
 UPDATE config_form_tableview SET alias = 'Valve type' WHERE columnname = 'valve_type' AND objectname = 'tbl_frelem_dsc_valve';
 UPDATE config_form_tableview SET alias = 'Connec code' WHERE columnname = 'connec_code' AND objectname = 'tbl_mincut_hydro';
 UPDATE config_form_tableview SET alias = 'Connec id' WHERE columnname = 'connec_id' AND objectname = 'tbl_mincut_hydro';
-UPDATE config_form_tableview SET alias = 'Hydrometer customer code' WHERE columnname = 'hydrometer_customer_code' AND objectname = 'tbl_mincut_hydro';
+UPDATE config_form_tableview SET alias = 'Hydro customer code' WHERE columnname = 'hydro_customer_code' AND objectname = 'tbl_mincut_hydro';
 UPDATE config_form_tableview SET alias = 'Hydrometer id' WHERE columnname = 'hydrometer_id' AND objectname = 'tbl_mincut_hydro';
 UPDATE config_form_tableview SET alias = 'Anl cause' WHERE columnname = 'anl_cause' AND objectname = 'tbl_mincut_manager';
 UPDATE config_form_tableview SET alias = 'Anl descript' WHERE columnname = 'anl_descript' AND objectname = 'tbl_mincut_manager';
@@ -708,7 +708,7 @@ UPDATE config_form_tableview SET alias = 'Text' WHERE columnname = 'text' AND ob
 UPDATE config_form_tableview SET alias = 'Arc state' WHERE columnname = 'arc_state' AND objectname = 'tbl_relations';
 UPDATE config_form_tableview SET alias = 'Connec code' WHERE columnname = 'connec_code' AND objectname = 'v_om_mincut_hydrometer';
 UPDATE config_form_tableview SET alias = 'Connec id' WHERE columnname = 'connec_id' AND objectname = 'v_om_mincut_hydrometer';
-UPDATE config_form_tableview SET alias = 'Hydrometer customer code' WHERE columnname = 'hydrometer_customer_code' AND objectname = 'v_om_mincut_hydrometer';
+UPDATE config_form_tableview SET alias = 'Hydro customer code' WHERE columnname = 'hydro_customer_code' AND objectname = 'v_om_mincut_hydrometer';
 UPDATE config_form_tableview SET alias = 'Hydrometer id' WHERE columnname = 'hydrometer_id' AND objectname = 'v_om_mincut_hydrometer';
 UPDATE config_form_tableview SET alias = 'Id' WHERE columnname = 'id' AND objectname = 'v_om_mincut_hydrometer';
 UPDATE config_form_tableview SET alias = 'Result id' WHERE columnname = 'result_id' AND objectname = 'v_om_mincut_hydrometer';
