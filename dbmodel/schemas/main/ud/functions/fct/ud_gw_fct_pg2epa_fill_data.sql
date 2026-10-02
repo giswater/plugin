@@ -62,7 +62,7 @@ BEGIN
 		a.state_type,
 		a.annotation,
 		COALESCE(a.custom_length, st_length2d(a.the_geom)) AS length,
-		COALESCE(ic.custom_n, cm.n) AS n,
+		COALESCE(ic.custom_n, cma.n, cm.n) AS n,
 		a.expl_id,
 		a.the_geom,
 		ic.q0,
@@ -83,8 +83,9 @@ BEGIN
 		LEFT JOIN node n1 ON n1.node_id = a.node_1
 		LEFT JOIN node n2 ON n2.node_id = a.node_2
 		JOIN vf_arc vf ON vf.arc_id = a.arc_id
-		LEFT JOIN value_state_type vst ON vst.id = a.state_type
-		LEFT JOIN cat_material cm ON a.matcat_id = cm.id
+		JOIN cat_arc ca ON a.arccat_id = ca.id
+		LEFT JOIN cat_material cm ON ca.matcat_id = cm.id
+		LEFT JOIN cat_material cma ON a.matcat_id = cma.id
 		LEFT JOIN inp_conduit ic ON a.arc_id = ic.arc_id;
 
 	-- Insert on node temp_t_node table
