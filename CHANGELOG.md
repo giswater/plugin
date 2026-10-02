@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Keep user settings in `init.config` when moving to a new Giswater minor version by copying them from the previous Roaming folder.
 
+### Fixed
+
+- UD Info Log warnings come from `rpt_warning_summary` as well as the classic `temp_csv` import. A warning does not fail the result.
+- `gw_fct_rpt2pg_log` DETAILED USER INPUT OPTIONS reads from `rpt_cat_result.inp_options` (fallback to `config_param_user`).
+
 ## [4.17.2] - 2026-09-30
 
 ### Fixed
