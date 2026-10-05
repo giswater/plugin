@@ -113,14 +113,12 @@ BEGIN
 		(now()::date - n.builtdate) / 30
 	FROM node n
 		JOIN vf_node vf ON vf.node_id = n.node_id
-		JOIN value_state_type vst ON vst.id = n.state_type
 	WHERE EXISTS (
 		SELECT 1
 		FROM temp_t_arc a
 		WHERE a.node_1 = n.node_id::text
 		   OR a.node_2 = n.node_id::text
-	)
-	AND vst.is_operative = TRUE;
+	);
 
 	UPDATE temp_t_node SET y0=i.y0, ysur=i.ysur, apond=i.apond FROM inp_junction i WHERE temp_t_node.node_id::int=i.node_id;
 

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `gw_fct_pg2epa_fill_data`: always require `value_state_type.is_operative = TRUE` so FICTICIO / non-operative features are not exported (regression from the psector/`vf_*` path).
+- `gw_fct_pg2epa_fill_data` WS: filter connecs by `is_operative` and nest link insert under `networkmode = 4`; UD: drop redundant node `is_operative` filter (arcs already gate nodes).
 - `gw_fct_pg2epa_nod2arc`: keep VALVE/SHORTPIPE nodarcs on the psector/operative boundary. Endpoint cleanup now uses `t_numarcs` (`temp_t_arc`) instead of `ve_inp_pipe`, so the `_n2a` arc is no longer dropped while its junctions remain.
 
 ## [4.17.3] - 2026-10-02

@@ -172,16 +172,16 @@ BEGIN
 				c.builtdate
 			FROM connec c
 				JOIN vf_connec vf ON c.connec_id = vf.connec_id
+				JOIN value_state_type vst ON vst.id = c.state_type
 			WHERE EXISTS (
 				SELECT 1
 				FROM temp_t_arc a
 				WHERE a.arc_id = c.arc_id::text
 			)
+			AND vst.is_operative = TRUE
 		;
-	END IF;
 
-	raise notice 'Inserting links on temp_t_arc table';
-	IF v_networkmode =  4 THEN
+		RAISE NOTICE 'Inserting links on temp_t_arc table';
 		-- TODO: check if pjoint filter is needed and check JOINS
 		-- this need to be solved here in spite of fill_data functions because some kind of incosnstency done on this function on previous lines
 		INSERT INTO temp_t_arc (arc_id, node_1, node_2, arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation, roughness, length, diameter, the_geom,
