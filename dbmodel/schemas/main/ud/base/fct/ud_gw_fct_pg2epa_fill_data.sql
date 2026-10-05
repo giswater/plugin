@@ -28,7 +28,6 @@ select * from temp_t_arc
 DECLARE
 
 v_rainfall text;
-v_statetype text;
 v_networkmode integer;
 v_timeseries record;
 v_query_arc text;
@@ -84,9 +83,11 @@ BEGIN
 		LEFT JOIN node n2 ON n2.node_id = a.node_2
 		JOIN vf_arc vf ON vf.arc_id = a.arc_id
 		JOIN cat_arc ca ON a.arccat_id = ca.id
+		JOIN value_state_type vst ON vst.id = a.state_type
 		LEFT JOIN cat_material cm ON ca.matcat_id = cm.id
 		LEFT JOIN cat_material cma ON a.matcat_id = cma.id
-		LEFT JOIN inp_conduit ic ON a.arc_id = ic.arc_id;
+		LEFT JOIN inp_conduit ic ON a.arc_id = ic.arc_id
+	WHERE vst.is_operative = TRUE;
 
 	-- Insert on node temp_t_node table
 	-- the strategy of selector_sector is not used for nodes. The reason is to enable the posibility to export the sector=-1. In addition using this it's impossible to export orphan nodes
@@ -112,12 +113,14 @@ BEGIN
 		(now()::date - n.builtdate) / 30
 	FROM node n
 		JOIN vf_node vf ON vf.node_id = n.node_id
+		JOIN value_state_type vst ON vst.id = n.state_type
 	WHERE EXISTS (
 		SELECT 1
 		FROM temp_t_arc a
 		WHERE a.node_1 = n.node_id::text
 		   OR a.node_2 = n.node_id::text
-	);
+	)
+	AND vst.is_operative = TRUE;
 
 	UPDATE temp_t_node SET y0=i.y0, ysur=i.ysur, apond=i.apond FROM inp_junction i WHERE temp_t_node.node_id::int=i.node_id;
 
