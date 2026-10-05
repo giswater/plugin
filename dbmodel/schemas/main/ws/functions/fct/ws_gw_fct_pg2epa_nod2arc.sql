@@ -64,10 +64,8 @@ BEGIN
 
 	delete from t_anl_node WHERE fid = 124;
 
-	-- check number of times each node appears in terms of identify nodearcs <> 2
-	v_query_number = 'SELECT count(*)as numarcs, n.node_id FROM node n JOIN 
-						      (SELECT node_1 as node_id FROM ve_arc 
-							UNION ALL SELECT node_2 FROM ve_arc) a ON n.node_id=a.node_id group by n.node_id';
+	-- degree from EPA temp model (t_numarcs / temp_t_arc), not ve_arc — psector-aware
+	v_query_number = 'SELECT numarcs, node_id FROM t_numarcs';
 
 	-- query text for mandatory node2arcs
 	v_querytext = 'SELECT a.*,
@@ -416,22 +414,19 @@ BEGIN
 	RAISE NOTICE ' Delete old node from node table and refactor endpoint shorpipe';
 	EXECUTE ' DELETE FROM temp_t_node WHERE epa_type =''TODELETE''';
 
-	-- get endpoint shorpipes and associated pipes and transform it in a simply node
+	-- get endpoint shortpipes/valves (degree 1 in the EPA temp model) and drop unused nodarcs
+	-- Use t_numarcs (built from temp_t_arc in fill_data), not ve_inp_pipe: under a psector a
+	-- boundary VALVE/SHORTPIPE can have degree 2 in temp_t_arc but degree 1 in the operative GIS view.
 	DROP TABLE IF EXISTS t_arc_endpoint;
 
 	CREATE TEMP TABLE t_arc_endpoint AS
-	WITH query as (SELECT node_id FROM node JOIN
-	(SELECT count(*)as numarcs, node_id FROM node n JOIN 
-	(SELECT node_1 as node_id, arc_id, 'n1' as position FROM ve_inp_pipe 
-	UNION 
-	ALL SELECT node_2, arc_id , 'n2' FROM ve_inp_pipe) a using (node_id) group by n.node_id) a 
-	USING (node_id) WHERE a.numarcs = 1 AND epa_type in ('SHORTPIPE', 'VALVE'))
-	SELECT arc_id,node_1 AS node_id FROM arc JOIN query ON query.node_id = node_1 
-	UNION
-	SELECT arc_id,node_2 FROM arc JOIN query ON query.node_id = node_2;
+	SELECT n.node_id
+	FROM node n
+	JOIN t_numarcs t ON t.node_id = n.node_id::text
+	WHERE t.numarcs = 1
+	AND n.epa_type IN ('SHORTPIPE', 'VALVE');
 
 	CREATE INDEX IF NOT EXISTS idx_t_arc_endpoint_node_id ON t_arc_endpoint(node_id);
-	CREATE INDEX IF NOT EXISTS idx_t_arc_endpoint_arc_id ON t_arc_endpoint(arc_id);
 	-- delete the nodarc not-used existing arcs
 	DELETE FROM temp_t_arc WHERE arc_id IN (SELECT concat(node_id,'_n2a') FROM t_arc_endpoint);
 
