@@ -16,6 +16,8 @@ SELECT * FROM no_plan();
 
 -- Check view ve_epa_shortpipe
 SELECT has_view('ve_epa_shortpipe'::name, 'View ve_epa_shortpipe should exist');
+SELECT has_trigger('ve_epa_shortpipe', 'gw_trg_edit_ve_epa_shortpipe',
+    'View ve_epa_shortpipe should have gw_trg_edit_ve_epa_shortpipe');
 
 -- Check view columns
 SELECT columns_are(

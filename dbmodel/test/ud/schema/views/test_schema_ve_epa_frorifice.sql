@@ -16,6 +16,8 @@ SELECT * FROM no_plan();
 
 -- Check view ve_epa_frorifice
 SELECT has_view('ve_epa_frorifice'::name, 'View ve_epa_frorifice should exist');
+SELECT has_trigger('ve_epa_frorifice', 'gw_trg_edit_ve_epa_frorifice',
+    'View ve_epa_frorifice should have gw_trg_edit_ve_epa_frorifice');
 
 -- Check view columns
 SELECT columns_are(

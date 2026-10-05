@@ -16,6 +16,8 @@ SELECT * FROM no_plan();
 
 -- Check view ve_epa_orifice
 SELECT has_view('ve_epa_orifice'::name, 'View ve_epa_orifice should exist');
+SELECT has_trigger('ve_epa_orifice', 'gw_trg_edit_ve_epa_orifice',
+    'View ve_epa_orifice should have gw_trg_edit_ve_epa_orifice');
 
 -- Check view columns
 SELECT columns_are(
