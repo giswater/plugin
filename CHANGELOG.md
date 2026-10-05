@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `gw_fct_pg2epa_fill_data`: always require `value_state_type.is_operative = TRUE` so FICTICIO / non-operative features are not exported (regression from the psector/`vf_*` path).
+- `gw_fct_pg2epa_fill_data` WS: filter connecs by `is_operative` and nest link insert under `networkmode = 4`; UD: drop redundant node `is_operative` filter (arcs already gate nodes).
 - `gw_fct_pg2epa_nod2arc`: keep VALVE/SHORTPIPE nodarcs on the psector/operative boundary. Endpoint cleanup now uses `t_numarcs` (`temp_t_arc`) instead of `ve_inp_pipe`, so the `_n2a` arc is no longer dropped while its junctions remain.
 - Read form combo ids with `get_combo_value` instead of `currentData()` when enabling lot relations, saving lots and workorders, and checking UD pattern type. `currentData()` is the row `[id, idval]`, which produced SQL like `campaign_id = ['', '']`.
 - Stop treating an unchanged `epa_type` as a change on info-form Accept. The snapshot used the combo label (empty or "Loading..." while the async combo loads). Compare and restore the id via `GwAsyncComboBox.selected_id`.

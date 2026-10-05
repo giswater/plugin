@@ -1,2 +1,3 @@
 - Always filter EPA fill_data (WS/UD) by `value_state_type.is_operative = TRUE`. After the psector/`vf_*` refactor, FICTICIO arcs visible via selector_state were exported again.
 - Fix `gw_fct_pg2epa_nod2arc` endpoint cleanup: use `t_numarcs` (from `temp_t_arc`) instead of `ve_inp_pipe` so boundary VALVE/SHORTPIPE nodarcs at a psector/operative frontier are kept in the EPANET export.
+- WS fill_data: also require `is_operative` on connecs and run the link insert inside the `networkmode = 4` block.
