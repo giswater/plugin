@@ -1,2 +1,3 @@
 - Always filter EPA fill_data by `value_state_type.is_operative = TRUE`. After the psector/`vf_*` refactor, non-operative features visible via selector_state were exported again.
 - UD fill_data: drop redundant `is_operative` filter on nodes; arcs already gate which nodes are inserted.
+- `ve_epa_conduit` add trigger for ve_epa_conduit view
