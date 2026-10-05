@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `gw_fct_pg2epa_fill_data`: always require `value_state_type.is_operative = TRUE` so FICTICIO / non-operative features are not exported (regression from the psector/`vf_*` path).
+
 ## [4.17.3] - 2026-10-02
 
 ### Added

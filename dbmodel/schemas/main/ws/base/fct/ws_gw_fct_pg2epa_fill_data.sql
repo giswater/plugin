@@ -19,7 +19,6 @@ DECLARE
 
 v_usedmapattern boolean;
 v_buildupmode integer;
-v_statetype text;
 v_networkmode integer;
 v_forcereservoirsoninlets boolean;
 v_forcetanksoninlets boolean;
@@ -73,6 +72,7 @@ BEGIN
 		FROM arc a
 			JOIN vf_arc vf ON vf.arc_id = a.arc_id 
 			JOIN cat_arc ca ON a.arccat_id = ca.id
+			JOIN value_state_type vst ON vst.id = a.state_type
 			LEFT JOIN cat_material cm ON ca.matcat_id = cm.id
 			LEFT JOIN inp_pipe i ON a.arc_id = i.arc_id
 			LEFT JOIN cat_mat_roughness cmr ON cmr.matcat_id = cm.id
@@ -85,7 +85,7 @@ BEGIN
 	v_querytext := v_querytext ||
 		' WHERE (now()::date - (CASE WHEN a.builtdate IS NULL THEN ''1900-01-01''::date ELSE a.builtdate END))/365 >= cmr.init_age
 		AND (now()::date - (CASE WHEN a.builtdate IS NULL THEN ''1900-01-01''::date ELSE a.builtdate END))/365 <= cmr.end_age
-	';
+		AND vst.is_operative = TRUE';
 
 	IF v_networkmode = 1 THEN
 		IF v_exporthybriddma THEN
@@ -218,6 +218,7 @@ BEGIN
 				JOIN vf_link vfl ON l.link_id = vfl.link_id
 				JOIN inp_connec i ON l.feature_id = i.connec_id
 				JOIN cat_link cl ON cl.id = l.linkcat_id
+				JOIN value_state_type vst ON vst.id = l.state_type
 				LEFT JOIN cat_material cm ON cm.id = cl.matcat_id
 				LEFT JOIN cat_mat_roughness cmr ON cmr.matcat_id = cl.matcat_id
 			WHERE
@@ -227,7 +228,8 @@ BEGIN
 				SELECT 1
 				FROM temp_t_node n
 				WHERE n.node_id = l.feature_id::text
-			);
+			)
+			AND vst.is_operative = TRUE;
 	END IF;
 
 	UPDATE temp_t_node t SET "family" = q."family"

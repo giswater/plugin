@@ -1,0 +1,1 @@
+- Always filter EPA fill_data (WS/UD) by `value_state_type.is_operative = TRUE`. After the psector/`vf_*` refactor, FICTICIO arcs visible via selector_state were exported again.
