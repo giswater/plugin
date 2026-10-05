@@ -28,6 +28,7 @@ UPDATE config_param_system AS t SET label = v.label, descript = v.descript FROM 
     ('admin_schema_cm', NULL, 'System parameter which identifies existing schema cm linked to a parent schemas'),
     ('admin_schema_info', 'Schema manager:', 'Basic information about schema'),
     ('admin_skip_audit', 'Skip audit:', 'System parameter to identify processes that need to avoid audit log because of the big amount of data updated. Example: mapzones or daily update crm'),
+    ('admin_skip_set_updated', 'Skip set updated:', 'System parameter to skip gw_trg_set_updated (updated_at/updated_by) during bulk or derived updates. Example: scada graph is_scadamap.'),
     ('admin_utils_schema', 'Ext utils schema:', 'System parameter which identifies existing schema in the database with common information for those organizations which share cartography in more than on production schema(ws/ud). In this case, information is propagated to both schemas using views'),
     ('admin_version', 'Version:', 'Search configuration parameteres'),
     ('admin_vpn_permissions', 'Sys vpn permissions:', 'Variable to check if vpn connexion with server is used in order to assign correct permissions to the database'),

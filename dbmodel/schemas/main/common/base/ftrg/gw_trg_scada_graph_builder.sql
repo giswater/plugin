@@ -34,6 +34,7 @@ v_project_type TEXT;
 
 -- Vars
 v_message TEXT;
+v_prev_skip_set_updated text;
 
 BEGIN
 
@@ -192,7 +193,9 @@ BEGIN
 			WHERE n2.node_id = NEW.node_2
 			AND g.node_2 = NEW.node_2;
 
-			-- is_scadamap = TRUE for arcs and nodes in the path
+			-- is_scadamap = TRUE for arcs and nodes in the path (derived flag: do not stamp updated_at)
+			v_prev_skip_set_updated := (SELECT value FROM config_param_system WHERE parameter = 'admin_skip_set_updated');
+			UPDATE config_param_system SET value = 'TRUE' WHERE parameter = 'admin_skip_set_updated';
 			UPDATE arc SET is_scadamap = TRUE
 			WHERE arc_id IN (SELECT arc_id FROM temp_graph);
 
@@ -200,6 +203,7 @@ BEGIN
 			WHERE node_id IN (
 				SELECT node_id FROM temp_graph
 			);
+			UPDATE config_param_system SET value = v_prev_skip_set_updated WHERE parameter = 'admin_skip_set_updated';
 
 			DROP TABLE IF EXISTS temp_graph;
 
@@ -220,6 +224,8 @@ BEGIN
 			FROM om_scada_graph g
 			WHERE g.attrib IS JSON;
 
+			v_prev_skip_set_updated := (SELECT value FROM config_param_system WHERE parameter = 'admin_skip_set_updated');
+			UPDATE config_param_system SET value = 'TRUE' WHERE parameter = 'admin_skip_set_updated';
 			UPDATE arc a
 			SET is_scadamap = FALSE
 			WHERE a.is_scadamap IS DISTINCT FROM FALSE
@@ -239,6 +245,7 @@ BEGIN
 				JOIN arc a ON a2.arc_id = a.arc_id
 				WHERE a.node_1 = n.node_id OR a.node_2 = n.node_id
 			);
+			UPDATE config_param_system SET value = v_prev_skip_set_updated WHERE parameter = 'admin_skip_set_updated';
 
 			DROP TABLE IF EXISTS temp_deleted_scada_arc;
 			DROP TABLE IF EXISTS temp_remaining_scada_arc;

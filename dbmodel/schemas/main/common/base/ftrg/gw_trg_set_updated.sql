@@ -12,6 +12,11 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $BODY$
 BEGIN
+	-- Opt-out for system writes (e.g. is_scadamap from scada graph) via config_param_system
+	IF (SELECT value::boolean FROM config_param_system WHERE parameter = 'admin_skip_set_updated') IS TRUE THEN
+		RETURN NEW;
+	END IF;
+
 	NEW.updated_at := clock_timestamp();
 	NEW.updated_by := current_user;
 	RETURN NEW;
