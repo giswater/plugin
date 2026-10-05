@@ -16,6 +16,8 @@ SELECT * FROM no_plan();
 
 -- Check view ve_epa_outfall
 SELECT has_view('ve_epa_outfall'::name, 'View ve_epa_outfall should exist');
+SELECT has_trigger('ve_epa_outfall', 'gw_trg_edit_ve_epa_outfall',
+    'View ve_epa_outfall should have gw_trg_edit_ve_epa_outfall');
 
 -- Check view columns
 SELECT columns_are(

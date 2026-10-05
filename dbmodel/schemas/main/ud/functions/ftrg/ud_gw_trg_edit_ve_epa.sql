@@ -91,9 +91,11 @@ BEGIN
 
         ELSIF v_epatype = 'gully' OR v_epatype = 'pgully' THEN
             UPDATE inp_gully
-            SET y0=NEW.y0, ysur=NEW.ysur, apond=NEW.apond, inlet_type=NEW.inlet_type, outlet_type=NEW.outlet_type, gully_method=NEW.gully_method, custom_top_elev=NEW.custom_top_elev, custom_depth=NEW.custom_depth,
-            inlet_length=NEW.inlet_length, inlet_width=NEW.inlet_width, cd1=NEW.cd1, cd2=NEW.cd2, efficiency=NEW.efficiency
-            WHERE node_id=OLD.node_id;
+            SET outlet_type=NEW.outlet_type, custom_top_elev=NEW.custom_top_elev, custom_width=NEW.custom_width,
+            custom_length=NEW.custom_length, custom_depth=NEW.custom_depth, gully_method=NEW.gully_method,
+            weir_cd=NEW.weir_cd, orifice_cd=NEW.orifice_cd, custom_a_param=NEW.custom_a_param,
+            custom_b_param=NEW.custom_b_param, efficiency=NEW.efficiency
+            WHERE gully_id=OLD.gully_id;
 
 		ELSIF v_epatype = 'frpump' THEN
             UPDATE inp_frpump SET curve_id=NEW.curve_id, status=NEW.status, startup=NEW.startup, shutoff=NEW.shutoff WHERE element_id=NEW.element_id;
