@@ -1105,7 +1105,7 @@ class GwCalculatePriority(GwTask):
         return True
 
     def _run_wm(self):
-        """Dispatch the Weighted Method calculation to the ARC or NODE implementation."""
+        """Dispatch Weighted Method. UD has its own matrix; WS goes to ARC, NODE or LINK."""
         if self.project_type == "UD":
             return self._run_ud_wm()
         if self.asset_type == "NODE":
@@ -1115,23 +1115,31 @@ class GwCalculatePriority(GwTask):
         return self._run_arc_wm()
 
     def _ud_engine_w(self, key):
+        """Weight from config_engine. A missing or non-numeric parameter counts as 0."""
         try:
             return float(self.config_engine[key])
         except (KeyError, TypeError, ValueError):
             return 0.0
 
     def _sql_text(self, value):
+        """SQL string literal, or NULL. Quotes are escaped."""
         if value is None:
             return "NULL"
         return "'" + str(value).replace("'", "''") + "'"
 
     def _sql_array(self, values):
+        """SQL varchar[]. An empty list is NULL, not an empty array."""
         if not values:
             return "NULL"
         parts = ",".join(self._sql_text(item) for item in values)
         return f"ARRAY[{parts}]::varchar[]"
 
     def _ud_action(self, score):
+        """Intervention from the 1-5 condition score when the asset has no CCTV catalog hit.
+
+        >= 4.5 FULL_REPLACEMENT, >= 3.5 REHABILITATION, >= 2 SPOT_REPAIR, else MAINTENANCE.
+        None stays None so the result column is left empty.
+        """
         if score is None:
             return None
         score = float(score)
@@ -1144,7 +1152,15 @@ class GwCalculatePriority(GwTask):
         return "MAINTENANCE"
 
     def _ud_plan(self, feat):
-        """Completeness, recommended action and inspection priority for one UD asset."""
+        """SQL fragment for the inspection columns of one UD result row.
+
+        Action is the worst CCTV intervention on the overlay. Without CCTV it falls
+        back to _ud_action. recommended_action and intervention_type both store that
+        value. Completeness is how many of the 8 criteria are filled. Priority is 5
+        when there is no CCTV and no structural score, 4 below 50% complete, 2 below
+        75%, otherwise 1. The inspection year is next year only for priority >= 4.
+        data_quality is copied from the parent survey; this method does not compute it.
+        """
         criteria = (
             "age", "incident_count", "structural_raw", "operational_raw",
             "dwf_raw", "storm_raw", "strategic", "compliance",
@@ -1184,7 +1200,12 @@ class GwCalculatePriority(GwTask):
         )
 
     def _get_ud_rows(self):
-        """Overlay + input for UD ARC or NODE."""
+        """UD assets for the current filters.
+
+        Reads the inventory view (ext_ud_*_asset) and lets ud_*_input override it.
+        Survey quality comes from the parent when the input row has none. Node
+        dwf_raw and storm_raw are NULL on that view: the parent has no node flow.
+        """
         names = am_names(self.project_type, self.asset_type)
         is_arc = self.asset_type == "ARC"
         id_col = "arc_id" if is_arc else "node_id"
@@ -1242,8 +1263,8 @@ class GwCalculatePriority(GwTask):
                 i.inspection_id,
                 i.inspection_date,
                 coalesce(a.severe_observation_count, 0) AS severe_observation_count,
-                i.data_quality,
-                i.data_quality_obs,
+                coalesce(i.data_quality, a.data_quality_src) AS data_quality,
+                coalesce(i.data_quality_obs, a.data_quality_obs_src) AS data_quality_obs,
                 a.recommended_action_src
             from am.{names['ext']} a
             left join am.{names['input']} i using ({id_col})
@@ -1252,7 +1273,14 @@ class GwCalculatePriority(GwTask):
         return tools_db.get_rows(sql, is_thread=True)
 
     def _run_ud_wm(self):
-        """UD ARC/NODE WM: NODE-like matrix with dwf/storm instead of nrw/users."""
+        """UD Weighted Method for ARC or NODE.
+
+        Iteration 1 ranks longevity, incidents, structural and operational condition.
+        Iteration 2 reorders the affordable set by DWF, storm, strategic and compliance.
+        On nodes those two flow criteria are empty, so they add 0 and only strategic
+        and compliance change the order. Cost is the CCTV total when the asset has
+        observations, otherwise catalog construction cost times length (1 for a node).
+        """
         pd = tools_os.get_dep("pandas")
         is_arc = self.asset_type == "ARC"
         names = am_names("UD", self.asset_type)

@@ -5,7 +5,13 @@ Pure planning helpers shared by Asset Manage calculation workers.
 
 
 def assign_replacement_years(assets, yearly_budget, start_year, target_year):
-    """Assign ordered assets to budget years without losing rollover cost."""
+    """Place already-sorted assets into budget years.
+
+    An asset that does not fit the remaining money of the current year starts the
+    next year. An asset more expensive than one year is placed alone and consumes
+    that year. Assets past target_year are left out. cum_cost is the spend inside
+    the assigned year, not the running total of the whole plan.
+    """
     selected = []
     current_year = start_year
     year_cost = 0.0

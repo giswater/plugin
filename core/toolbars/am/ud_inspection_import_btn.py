@@ -43,6 +43,7 @@ class GwUdInspectionImportButton(GwAction):
             self.action.menu().exec(self.iface.mapCanvas().mapToGlobal(self.iface.mapCanvas().rect().center()))
 
     def _import(self, kind):
+        """Parse one CCTV file and insert the observations. kind is wincan, sewdef or une."""
         title = "Select inspection file"
         msg = "Inspection files (*.xml *.csv *.txt *.dat)"
         path, _ = QFileDialog.getOpenFileName(None, tools_qt.tr(title), "", tools_qt.tr(msg))
@@ -70,6 +71,12 @@ class GwUdInspectionImportButton(GwAction):
         return "'" + str(value).replace("'", "''") + "'"
 
     def _insert_rows(self, rows):
+        """Insert observations whose code exists in ud_cat_pathology and whose asset exists.
+
+        Skips a row when severity is outside 1-5, the code is unknown or inactive, or
+        the arc/node id is not in the current project. WinCan rows are always ARC.
+        The insert fires gw_trg_am_ud_*_pathology, which writes the score back.
+        """
         values = {"ARC": [], "NODE": []}
         skipped = 0
         for row in rows:

@@ -306,7 +306,9 @@ SELECT
 			WHERE b.feature_id::text = a.arc_id::text AND upper(trim(b.feature_type)) = 'ARC')
 	) AS incident_count_src,
 	(SELECT count(*)::numeric FROM PARENT_SCHEMA.connec c WHERE c.arc_id = a.arc_id AND c.state = 1) AS dwf_raw_src,
-	COALESCE(arc_add.max_flow, 0)::numeric AS storm_raw_src
+	COALESCE(arc_add.max_flow, 0)::numeric AS storm_raw_src,
+	a.dataquality AS data_quality_src,
+	a.dataquality_obs::varchar[] AS data_quality_obs_src
 FROM PARENT_SCHEMA.arc a
 	JOIN PARENT_SCHEMA.vf_arc vf ON vf.arc_id = a.arc_id
 	JOIN PARENT_SCHEMA.sector s ON s.sector_id = a.sector_id
@@ -360,8 +362,11 @@ SELECT
 		+ (SELECT count(*)::numeric FROM am.ud_breakdown b
 			WHERE b.feature_id::text = n.node_id::text AND upper(trim(b.feature_type)) = 'NODE')
 	) AS incident_count_src,
+	-- No node flow column on the UD parent. Missing values score 0 and count as incomplete.
 	NULL::numeric AS dwf_raw_src,
-	NULL::numeric AS storm_raw_src
+	NULL::numeric AS storm_raw_src,
+	n.dataquality AS data_quality_src,
+	n.dataquality_obs::varchar[] AS data_quality_obs_src
 FROM PARENT_SCHEMA.node n
 	JOIN PARENT_SCHEMA.vf_node ON vf_node.node_id = n.node_id
 	JOIN PARENT_SCHEMA.sector s ON s.sector_id = n.sector_id
@@ -384,8 +389,8 @@ SELECT
 	i.strategic,
 	i.compliance,
 	COALESCE(i.mandatory, false) AS mandatory,
-	i.data_quality,
-	i.data_quality_obs,
+	COALESCE(i.data_quality, a.data_quality_src) AS data_quality,
+	COALESCE(i.data_quality_obs, a.data_quality_obs_src) AS data_quality_obs,
 	i.inspection_id,
 	i.inspection_date,
 	COALESCE(i.estimated_cost, a.estimated_cost) AS estimated_cost,
@@ -411,9 +416,11 @@ FROM ext_ud_arc_asset a
 CREATE RULE v_asset_ud_arc_input_update AS ON UPDATE TO v_asset_ud_arc_input
 DO INSTEAD
 INSERT INTO ud_arc_input (arc_id, mandatory, strategic, incident_count,
-	structural_raw, operational_raw, dwf_raw, storm_raw, compliance, estimated_cost)
+	structural_raw, operational_raw, dwf_raw, storm_raw, compliance, estimated_cost,
+	data_quality, data_quality_obs)
 VALUES (NEW.arc_id, NEW.mandatory, NEW.strategic, NEW.incident_count,
-	NEW.structural_raw, NEW.operational_raw, NEW.dwf_raw, NEW.storm_raw, NEW.compliance, NEW.estimated_cost)
+	NEW.structural_raw, NEW.operational_raw, NEW.dwf_raw, NEW.storm_raw, NEW.compliance, NEW.estimated_cost,
+	NEW.data_quality, NEW.data_quality_obs)
 ON CONFLICT(arc_id) DO
 UPDATE SET mandatory = EXCLUDED.mandatory,
 	strategic = EXCLUDED.strategic,
@@ -423,7 +430,9 @@ UPDATE SET mandatory = EXCLUDED.mandatory,
 	dwf_raw = EXCLUDED.dwf_raw,
 	storm_raw = EXCLUDED.storm_raw,
 	compliance = EXCLUDED.compliance,
-	estimated_cost = EXCLUDED.estimated_cost;
+	estimated_cost = EXCLUDED.estimated_cost,
+	data_quality = EXCLUDED.data_quality,
+	data_quality_obs = EXCLUDED.data_quality_obs;
 
 DROP VIEW IF EXISTS v_asset_ud_node_input CASCADE;
 CREATE VIEW v_asset_ud_node_input AS
@@ -438,8 +447,8 @@ SELECT
 	i.strategic,
 	i.compliance,
 	COALESCE(i.mandatory, false) AS mandatory,
-	i.data_quality,
-	i.data_quality_obs,
+	COALESCE(i.data_quality, a.data_quality_src) AS data_quality,
+	COALESCE(i.data_quality_obs, a.data_quality_obs_src) AS data_quality_obs,
 	i.inspection_id,
 	i.inspection_date,
 	COALESCE(i.estimated_cost, a.estimated_cost) AS estimated_cost,
@@ -463,9 +472,11 @@ FROM ext_ud_node_asset a
 CREATE RULE v_asset_ud_node_input_update AS ON UPDATE TO v_asset_ud_node_input
 DO INSTEAD
 INSERT INTO ud_node_input (node_id, mandatory, strategic, incident_count,
-	structural_raw, operational_raw, dwf_raw, storm_raw, compliance, estimated_cost)
+	structural_raw, operational_raw, dwf_raw, storm_raw, compliance, estimated_cost,
+	data_quality, data_quality_obs)
 VALUES (NEW.node_id, NEW.mandatory, NEW.strategic, NEW.incident_count,
-	NEW.structural_raw, NEW.operational_raw, NEW.dwf_raw, NEW.storm_raw, NEW.compliance, NEW.estimated_cost)
+	NEW.structural_raw, NEW.operational_raw, NEW.dwf_raw, NEW.storm_raw, NEW.compliance, NEW.estimated_cost,
+	NEW.data_quality, NEW.data_quality_obs)
 ON CONFLICT(node_id) DO
 UPDATE SET mandatory = EXCLUDED.mandatory,
 	strategic = EXCLUDED.strategic,
@@ -475,7 +486,9 @@ UPDATE SET mandatory = EXCLUDED.mandatory,
 	dwf_raw = EXCLUDED.dwf_raw,
 	storm_raw = EXCLUDED.storm_raw,
 	compliance = EXCLUDED.compliance,
-	estimated_cost = EXCLUDED.estimated_cost;
+	estimated_cost = EXCLUDED.estimated_cost,
+	data_quality = EXCLUDED.data_quality,
+	data_quality_obs = EXCLUDED.data_quality_obs;
 
 GRANT ALL ON TABLE am.ext_ud_arc_asset TO role_basic;
 GRANT ALL ON TABLE am.ext_ud_node_asset TO role_basic;
@@ -608,7 +621,7 @@ CREATE TRIGGER gw_trg_am_ud_node_pathology
 AFTER INSERT OR UPDATE OR DELETE ON am.ud_node_pathology
 FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_am_ud_node_pathology();
 
--- One row per arc: condition, cost, observation counts. The AM tab of the arc.
+-- One row per arc: condition, cost, observation counts. TOC layer, not an info-form tab.
 CREATE OR REPLACE VIEW am.v_ud_arc_am AS
 SELECT
 	a.arc_id,

@@ -3,3 +3,4 @@
 - Expose inspection/data-quality result fields and create the UD node AM summary view. (#am-ud)
 - Migrate legacy integer UD AM identifiers to varchar(16) while preserving dependent views and permissions. (#am-ud)
 - Rebuild UD pathology and inventory views on update so integer parent ids compare as text. (#am-ud)
+- Copy parent arc/node survey quality into the UD inventory and result. (#am-ud)

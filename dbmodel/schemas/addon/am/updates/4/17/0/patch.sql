@@ -2051,6 +2051,7 @@ INSERT INTO am.config_engine_def (
 ON CONFLICT (parameter, method, asset_type, project_type) DO NOTHING;
 
 -- Stage 4: EN 13508-2 pathologies → cond/om + intervention cost
+-- Metres of pipe covered by one observation. A single pk, with no start and end, is 0.
 CREATE OR REPLACE FUNCTION am.gw_fct_am_ud_extent_m(p_pk_start numeric, p_pk_end numeric, p_pk numeric)
 RETURNS numeric LANGUAGE sql IMMUTABLE AS $function$
 	SELECT CASE
@@ -2059,6 +2060,7 @@ RETURNS numeric LANGUAGE sql IMMUTABLE AS $function$
 	END;
 $function$;
 
+-- 1.0 under 10% of the arc, 1.1 up to 50%, 1.2 above that. No length or no extent stays 1.0.
 CREATE OR REPLACE FUNCTION am.gw_fct_am_ud_extent_factor(p_extent_m numeric, p_arc_length numeric)
 RETURNS numeric LANGUAGE sql IMMUTABLE AS $function$
 	SELECT CASE
@@ -2069,11 +2071,13 @@ RETURNS numeric LANGUAGE sql IMMUTABLE AS $function$
 	END;
 $function$;
 
+-- AWARE score: severity times the extent factor, capped at 5. MAINTENANCE never calls this.
 CREATE OR REPLACE FUNCTION am.gw_fct_am_ud_observation_score(p_severity integer, p_extent_m numeric, p_arc_length numeric)
 RETURNS numeric LANGUAGE sql IMMUTABLE AS $function$
 	SELECT LEAST(5::numeric, COALESCE(p_severity, 1)::numeric * am.gw_fct_am_ud_extent_factor(p_extent_m, p_arc_length));
 $function$;
 
+-- Catalog intervention for this severity: s1..s5 are intervention_s1..intervention_s5.
 CREATE OR REPLACE FUNCTION am.gw_fct_am_ud_intervention(p_severity integer, p_s1 varchar, p_s2 varchar, p_s3 varchar, p_s4 varchar, p_s5 varchar)
 RETURNS varchar LANGUAGE sql IMMUTABLE AS $function$
 	SELECT CASE COALESCE(p_severity, 1)
@@ -2081,6 +2085,7 @@ RETURNS varchar LANGUAGE sql IMMUTABLE AS $function$
 	END;
 $function$;
 
+-- Unit price times metres. MAINTENANCE is 0. A point defect (extent 0) is billed as 1 m.
 CREATE OR REPLACE FUNCTION am.gw_fct_am_ud_defect_cost(
 	p_intervention varchar, p_extent_m numeric, p_cost_repmain numeric, p_cost_rehab numeric, p_cost_constr numeric
 )

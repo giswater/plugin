@@ -660,7 +660,9 @@ BEGIN
 					WHERE b.feature_id::text = a.arc_id::text AND upper(trim(b.feature_type)) = 'ARC')
 			) AS incident_count_src,
 			(SELECT count(*)::numeric FROM %1$I.connec c WHERE c.arc_id = a.arc_id AND c.state = 1) AS dwf_raw_src,
-			COALESCE(arc_add.max_flow, 0)::numeric AS storm_raw_src
+			COALESCE(arc_add.max_flow, 0)::numeric AS storm_raw_src,
+			a.dataquality AS data_quality_src,
+			a.dataquality_obs::varchar[] AS data_quality_obs_src
 		FROM %1$I.arc a
 			JOIN %1$I.vf_arc vf ON vf.arc_id = a.arc_id
 			JOIN %1$I.sector s ON s.sector_id = a.sector_id
@@ -715,7 +717,9 @@ BEGIN
 					WHERE b.feature_id::text = n.node_id::text AND upper(trim(b.feature_type)) = 'NODE')
 			) AS incident_count_src,
 			NULL::numeric AS dwf_raw_src,
-			NULL::numeric AS storm_raw_src
+			NULL::numeric AS storm_raw_src,
+			n.dataquality AS data_quality_src,
+			n.dataquality_obs::varchar[] AS data_quality_obs_src
 		FROM %1$I.node n
 			JOIN %1$I.vf_node ON vf_node.node_id = n.node_id
 			JOIN %1$I.sector s ON s.sector_id = n.sector_id
@@ -735,8 +739,8 @@ BEGIN
 			i.strategic,
 			i.compliance,
 			COALESCE(i.mandatory, false) AS mandatory,
-			i.data_quality,
-			i.data_quality_obs,
+			COALESCE(i.data_quality, a.data_quality_src) AS data_quality,
+			COALESCE(i.data_quality_obs, a.data_quality_obs_src) AS data_quality_obs,
 			i.inspection_id,
 			i.inspection_date,
 			COALESCE(i.estimated_cost, a.estimated_cost) AS estimated_cost,
@@ -762,9 +766,11 @@ BEGIN
 		CREATE RULE v_asset_ud_arc_input_update AS ON UPDATE TO am.v_asset_ud_arc_input
 		DO INSTEAD
 		INSERT INTO am.ud_arc_input (arc_id, mandatory, strategic, incident_count,
-			structural_raw, operational_raw, dwf_raw, storm_raw, compliance, estimated_cost)
+			structural_raw, operational_raw, dwf_raw, storm_raw, compliance, estimated_cost,
+			data_quality, data_quality_obs)
 		VALUES (NEW.arc_id, NEW.mandatory, NEW.strategic, NEW.incident_count,
-			NEW.structural_raw, NEW.operational_raw, NEW.dwf_raw, NEW.storm_raw, NEW.compliance, NEW.estimated_cost)
+			NEW.structural_raw, NEW.operational_raw, NEW.dwf_raw, NEW.storm_raw, NEW.compliance, NEW.estimated_cost,
+			NEW.data_quality, NEW.data_quality_obs)
 		ON CONFLICT(arc_id) DO
 		UPDATE SET mandatory = EXCLUDED.mandatory,
 			strategic = EXCLUDED.strategic,
@@ -774,7 +780,9 @@ BEGIN
 			dwf_raw = EXCLUDED.dwf_raw,
 			storm_raw = EXCLUDED.storm_raw,
 			compliance = EXCLUDED.compliance,
-			estimated_cost = EXCLUDED.estimated_cost;
+			estimated_cost = EXCLUDED.estimated_cost,
+			data_quality = EXCLUDED.data_quality,
+			data_quality_obs = EXCLUDED.data_quality_obs;
 
 		CREATE VIEW am.v_asset_ud_node_input AS
 		SELECT
@@ -788,8 +796,8 @@ BEGIN
 			i.strategic,
 			i.compliance,
 			COALESCE(i.mandatory, false) AS mandatory,
-			i.data_quality,
-			i.data_quality_obs,
+			COALESCE(i.data_quality, a.data_quality_src) AS data_quality,
+			COALESCE(i.data_quality_obs, a.data_quality_obs_src) AS data_quality_obs,
 			i.inspection_id,
 			i.inspection_date,
 			COALESCE(i.estimated_cost, a.estimated_cost) AS estimated_cost,
@@ -813,9 +821,11 @@ BEGIN
 		CREATE RULE v_asset_ud_node_input_update AS ON UPDATE TO am.v_asset_ud_node_input
 		DO INSTEAD
 		INSERT INTO am.ud_node_input (node_id, mandatory, strategic, incident_count,
-			structural_raw, operational_raw, dwf_raw, storm_raw, compliance, estimated_cost)
+			structural_raw, operational_raw, dwf_raw, storm_raw, compliance, estimated_cost,
+			data_quality, data_quality_obs)
 		VALUES (NEW.node_id, NEW.mandatory, NEW.strategic, NEW.incident_count,
-			NEW.structural_raw, NEW.operational_raw, NEW.dwf_raw, NEW.storm_raw, NEW.compliance, NEW.estimated_cost)
+			NEW.structural_raw, NEW.operational_raw, NEW.dwf_raw, NEW.storm_raw, NEW.compliance, NEW.estimated_cost,
+			NEW.data_quality, NEW.data_quality_obs)
 		ON CONFLICT(node_id) DO
 		UPDATE SET mandatory = EXCLUDED.mandatory,
 			strategic = EXCLUDED.strategic,
@@ -825,7 +835,9 @@ BEGIN
 			dwf_raw = EXCLUDED.dwf_raw,
 			storm_raw = EXCLUDED.storm_raw,
 			compliance = EXCLUDED.compliance,
-			estimated_cost = EXCLUDED.estimated_cost;
+			estimated_cost = EXCLUDED.estimated_cost,
+			data_quality = EXCLUDED.data_quality,
+			data_quality_obs = EXCLUDED.data_quality_obs;
 	$sql$, v_parent, v_srid);
 
 	GRANT ALL ON TABLE am.ext_ud_arc_asset TO role_basic;
@@ -834,3 +846,14 @@ BEGIN
 	GRANT ALL ON TABLE am.v_asset_ud_node_input TO role_basic;
 	GRANT ALL ON TABLE am.v_ud_arc_pathology TO role_basic;
 END $$;
+
+COMMENT ON FUNCTION am.gw_fct_am_ud_extent_m(numeric, numeric, numeric) IS
+	'Metres covered by one CCTV observation. Both pk_start and pk_end are required; a single pk is 0.';
+COMMENT ON FUNCTION am.gw_fct_am_ud_extent_factor(numeric, numeric) IS
+	'1.0 under 10% of the arc, 1.1 up to 50%, 1.2 above that. Missing length or extent stays 1.0.';
+COMMENT ON FUNCTION am.gw_fct_am_ud_observation_score(integer, numeric, numeric) IS
+	'AWARE score: severity times the extent factor, capped at 5.';
+COMMENT ON FUNCTION am.gw_fct_am_ud_intervention(integer, varchar, varchar, varchar, varchar, varchar) IS
+	'Catalog intervention for this severity. Arguments are intervention_s1 to intervention_s5.';
+COMMENT ON FUNCTION am.gw_fct_am_ud_defect_cost(varchar, numeric, numeric, numeric, numeric) IS
+	'Intervention unit price times metres. MAINTENANCE is 0. Extent 0 is billed as 1 m.';
