@@ -103,6 +103,8 @@ v_msg_err_orphan_1 TEXT;
 v_msg_err_orphan_2 TEXT;
 v_msg_err_nopath TEXT;
 v_msg_separator TEXT;
+v_response JSON;
+v_prev_skip_set_updated text;
 
 BEGIN
 
@@ -733,6 +735,10 @@ BEGIN
 
 	IF v_commit_changes IS  TRUE THEN
 
+		-- Derived flag only: do not stamp updated_at/updated_by on inventory features
+		v_prev_skip_set_updated := (SELECT value FROM config_param_system WHERE parameter = 'admin_skip_set_updated');
+		UPDATE config_param_system SET value = 'TRUE' WHERE parameter = 'admin_skip_set_updated';
+
 		-- update is_scadamap = false for obsolete arcs
 		WITH old_arc AS (
 			SELECT DISTINCT json_array_elements_text(g.attrib::json -> 'arcs')::int AS arc_id
@@ -782,6 +788,8 @@ BEGIN
 		SET is_scadamap = TRUE
 		WHERE EXISTS (SELECT 1 FROM temp_graph g WHERE g.node_id = n.node_id)
 		AND n.is_scadamap = FALSE;
+
+		UPDATE config_param_system SET value = v_prev_skip_set_updated WHERE parameter = 'admin_skip_set_updated';
 
 		-- update om_scada_graph
 		-- expl_id, node_type_1 and node_type_2 keep their previous value if the new calculation doesn't provide one
@@ -976,6 +984,9 @@ BEGIN
 
 	-- Exception handling
 	EXCEPTION WHEN OTHERS THEN
+	IF v_prev_skip_set_updated IS NOT NULL THEN
+		UPDATE config_param_system SET value = v_prev_skip_set_updated WHERE parameter = 'admin_skip_set_updated';
+	END IF;
 	GET STACKED DIAGNOSTICS v_error_context = pg_exception_context;
 	RETURN gw_fct_exception_others('Failed', SQLERRM, SQLSTATE, SQLERRM, v_error_context);
 

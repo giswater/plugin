@@ -9,7 +9,7 @@ BEGIN;
 SET client_min_messages TO WARNING;
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(16);
+SELECT plan(18);
 
 INSERT INTO config_param_user (parameter, value, cur_user)
 VALUES ('edit_disable_editcontrols', 'true', current_user)
@@ -48,6 +48,17 @@ SELECT ok((SELECT updated_at FROM element WHERE element_id = (SELECT min(element
 	'UPDATE element stamps updated_at');
 SELECT is((SELECT updated_by::text FROM element WHERE element_id = (SELECT min(element_id) FROM element)), current_user::text,
 	'UPDATE element stamps updated_by');
+
+-- System writes can opt out via admin_skip_set_updated
+UPDATE config_param_system SET value = 'TRUE' WHERE parameter = 'admin_skip_set_updated';
+UPDATE arc SET updated_at = '2000-01-01 00:00:00+00', updated_by = 'nobody',
+	is_scadamap = COALESCE(is_scadamap, false)
+WHERE arc_id = (SELECT min(arc_id) FROM arc);
+UPDATE config_param_system SET value = 'FALSE' WHERE parameter = 'admin_skip_set_updated';
+SELECT is((SELECT updated_at FROM arc WHERE arc_id = (SELECT min(arc_id) FROM arc)),
+	'2000-01-01 00:00:00+00'::timestamptz, 'admin_skip_set_updated preserves updated_at');
+SELECT is((SELECT updated_by::text FROM arc WHERE arc_id = (SELECT min(arc_id) FROM arc)), 'nobody',
+	'admin_skip_set_updated preserves updated_by');
 
 SELECT * FROM finish();
 ROLLBACK;
