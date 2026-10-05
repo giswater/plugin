@@ -16,6 +16,7 @@ DECLARE
     v_result json;
    v_orgname TEXT;
    v_prev_search_path text;
+   v_empty_body json;
 BEGIN
 
     -- Extract campaign_id from the input JSON
@@ -72,12 +73,21 @@ BEGIN
 
      RAISE NOTICE 'v_result->: %', v_result->'body'->'data';
 
+    -- Keep organization_name even when the campaign has no matching teams
+    v_empty_body := json_build_object(
+        'status', 'Accepted',
+        'body', json_build_object(
+            'organization_name', v_orgname,
+            'data', json_build_array(json_build_object('id', '', 'idval', ''))
+        )
+    );
+
     IF v_result->'body'->>'data' IS NULL THEN
         PERFORM set_config('search_path', v_prev_search_path, true);
-    	RETURN '{"status": "Accepted", "body": {"data": [{"id": "", "idval": ""}]}}'::json;
+    	RETURN v_empty_body;
 	ELSE
         PERFORM set_config('search_path', v_prev_search_path, true);
-	    RETURN COALESCE(v_result, '{"status": "Accepted", "body": {"data": [{"id": "", "idval": ""}]}}'::json);
+	    RETURN COALESCE(v_result, v_empty_body);
 	END IF;
 
 
