@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.4] - 2026-10-05
+
 ### Fixed
 
 - `gw_fct_pg2epa_fill_data`: always require `value_state_type.is_operative = TRUE` so FICTICIO / non-operative features are not exported (regression from the psector/`vf_*` path).
@@ -692,7 +694,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.17.3...release/4.17
+[unreleased]: https://github.com/giswater/plugin/compare/v4.17.4...release/4.17
+[4.17.4]: https://github.com/giswater/plugin/compare/v4.17.3...v4.17.4
 [4.17.3]: https://github.com/giswater/plugin/compare/v4.17.2...v4.17.3
 [4.17.2]: https://github.com/giswater/plugin/compare/v4.17.1...v4.17.2
 [4.17.1]: https://github.com/giswater/plugin/compare/v4.17.0...v4.17.1
