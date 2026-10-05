@@ -130,6 +130,21 @@ def test_cmms_empty_and_integrate_phase_ids(manifests_path, dbmodel_path):
     ]
     counts = {phase.id: count for phase, count in planned}
     assert counts["integrate_cmms"] == 1
+    # register_version is the only cmms.sys_version insert. integration.sql
+    # must only stamp the parent satellite flag.
+    for parent_type in ("ws", "ud"):
+        sql_path = os.path.join(
+            dbmodel_path,
+            "schemas",
+            "addon",
+            "cmms",
+            "integration",
+            parent_type,
+            "integration.sql",
+        )
+        sql = open(sql_path, encoding="utf-8").read()
+        assert "cmms.gw_fct_admin_sys_version_register" not in sql
+        assert "gw_fct_admin_sys_version_register" in sql
     for profile in ("update", "update_step"):
         params = BuildParams(
             schema_name="cmms",

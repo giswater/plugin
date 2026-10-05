@@ -39,10 +39,11 @@ VALUES ('00000000-0000-0000-0000-000000000001', 'inspection', 'open');
 INSERT INTO attachment (id, name)
 VALUES ('00000000-0000-0000-0000-000000000002', 'photo');
 
-INSERT INTO asset_feature_map (id, ext_feature_id, feature_id, feature_type, schema_name)
+-- feature_deleted_at skips the parent-existence check. These schemas are not loaded.
+INSERT INTO asset_feature_map (id, ext_feature_id, feature_id, feature_type, schema_name, feature_deleted_at)
 VALUES
-    (91001, 'ext-old', 1, 'NODE', 'ws_old'),
-    (91002, 'ext-keep', 2, 'ARC', 'ud_keep');
+    (91001, 'ext-old', 1, 'NODE', 'ws_old', now()),
+    (91002, 'ext-keep', 2, 'ARC', 'ud_keep', now());
 
 INSERT INTO visit_x_feature (visit_id, asset_feature_map_id)
 VALUES ('00000000-0000-0000-0000-000000000001', 91001);

@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Link cmms visits and attachments to a ws/ud feature through `asset_feature_map`. A link to a missing feature is rejected. Deleting the feature keeps the visit and marks the link; changing the feature id follows the new id.
+
 ### Fixed
 
+- Integrating CMMS with a WS/UD parent appends one `cmms.sys_version` row. The integrate SQL no longer calls `cmms.gw_fct_admin_sys_version_register`; the profile's `register_version` phase already records `parentSchema`.
 - Open Check Project (and other dynamic dialogs) when a `config_form_fields` row has `layoutorder` null. The widget is skipped with a warning instead of crashing on `int(None)`.
 - Lower `wntr` requirement to `>=1.2.0` so QPIP can resolve under QGIS NumPy 1.x constraints (`wntr>=1.4` needs NumPy 2.2+).
 

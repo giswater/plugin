@@ -78,19 +78,22 @@ CREATE INDEX IF NOT EXISTS attachment_the_geom_gist ON cmms.attachment USING GIS
 -- =================================================================================
 -- TAULA asset_feature_map
 --  - Mapping proveïdor (ext_feature_id) <-> feature intern (feature_id) per schema.
---  - feature_type: ARC / NODE / CONNEC / LINK / GULLY
+--  - feature_type: ARC / NODE / CONNEC / LINK / GULLY / ELEMENT
+--  - feature_deleted_at: the parent feature was deleted; the row and its links stay.
+--    One live row per (schema_name, feature_type, feature_id).
 -- =================================================================================
 CREATE TABLE IF NOT EXISTS cmms.asset_feature_map (
   id BIGSERIAL PRIMARY KEY,
   ext_feature_id TEXT NOT NULL,
   feature_id INTEGER NOT NULL,
-  feature_type VARCHAR(30) NOT NULL CHECK (feature_type IN ('ARC','NODE','CONNEC','LINK','GULLY')),
+  feature_type VARCHAR(30) NOT NULL CHECK (feature_type IN ('ARC','NODE','CONNEC','LINK','GULLY','ELEMENT')),
   schema_name VARCHAR(63) NOT NULL,
   properties jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_by VARCHAR(255),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_by VARCHAR(255),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  feature_deleted_at TIMESTAMPTZ,
   CONSTRAINT asset_feature_unique UNIQUE (ext_feature_id, feature_id, feature_type, schema_name)
 );
 
@@ -98,6 +101,9 @@ CREATE INDEX IF NOT EXISTS asset_feature_map_ext_feature_id_idx ON cmms.asset_fe
 CREATE INDEX IF NOT EXISTS asset_feature_map_feature_id_idx ON cmms.asset_feature_map (feature_id);
 CREATE INDEX IF NOT EXISTS asset_feature_map_schema_feature_idx ON cmms.asset_feature_map (schema_name, feature_type);
 CREATE INDEX IF NOT EXISTS asset_feature_map_properties_gin ON cmms.asset_feature_map USING GIN (properties);
+CREATE UNIQUE INDEX IF NOT EXISTS asset_feature_map_live_feature_unique
+  ON cmms.asset_feature_map (schema_name, feature_type, feature_id)
+  WHERE feature_deleted_at IS NULL;
 
 -- =================================================================================
 -- TAULA attachment_x_feature
@@ -156,6 +162,12 @@ DROP TRIGGER IF EXISTS trg_asset_feature_map_set_updated_at ON cmms.asset_featur
 CREATE TRIGGER trg_asset_feature_map_set_updated_at
   BEFORE UPDATE ON cmms.asset_feature_map
   FOR EACH ROW EXECUTE PROCEDURE cmms.set_updated_at_column();
+
+DROP TRIGGER IF EXISTS trg_asset_feature_map_validate ON cmms.asset_feature_map;
+CREATE TRIGGER trg_asset_feature_map_validate
+  BEFORE INSERT OR UPDATE OF schema_name, feature_type, feature_id, feature_deleted_at
+  ON cmms.asset_feature_map
+  FOR EACH ROW EXECUTE PROCEDURE cmms.gw_trg_cmms_asset_feature_map_validate();
 
 GRANT SELECT ON ALL TABLES IN SCHEMA cmms TO role_basic;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA cmms TO role_cmms;

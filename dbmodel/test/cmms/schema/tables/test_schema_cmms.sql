@@ -27,6 +27,12 @@ SELECT has_pk('asset_feature_map', 'Table asset_feature_map should have a primar
 SELECT has_column('visit', 'the_geom', 'visit.the_geom should exist');
 SELECT has_column('asset_feature_map', 'schema_name', 'asset_feature_map.schema_name should exist');
 SELECT has_column('asset_feature_map', 'feature_id', 'asset_feature_map.feature_id should exist');
+SELECT has_column('asset_feature_map', 'feature_deleted_at', 'asset_feature_map.feature_deleted_at should exist');
+SELECT has_index(
+    'asset_feature_map',
+    'asset_feature_map_live_feature_unique',
+    'one live asset_feature_map row per feature'
+);
 
 SELECT has_function(
     'gw_fct_admin_sys_version_register',
@@ -34,12 +40,25 @@ SELECT has_function(
     'gw_fct_admin_sys_version_register(json) should exist'
 );
 SELECT has_function('set_updated_at_column', 'set_updated_at_column() should exist');
+SELECT has_function(
+    'gw_trg_cmms_asset_feature_map_validate',
+    'gw_trg_cmms_asset_feature_map_validate() should exist'
+);
+SELECT has_function(
+    'gw_trg_cmms_feature_sync',
+    'gw_trg_cmms_feature_sync() should exist'
+);
 
 SELECT has_trigger('visit', 'trg_visit_set_updated_at', 'visit should stamp updated_at');
 SELECT has_trigger(
     'asset_feature_map',
     'trg_asset_feature_map_set_updated_at',
     'asset_feature_map should stamp updated_at'
+);
+SELECT has_trigger(
+    'asset_feature_map',
+    'trg_asset_feature_map_validate',
+    'asset_feature_map should reject a missing parent feature'
 );
 
 SELECT col_is_pk('sys_version', 'id', 'sys_version primary key is id');

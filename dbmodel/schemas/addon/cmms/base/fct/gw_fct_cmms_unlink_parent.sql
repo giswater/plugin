@@ -13,6 +13,7 @@ DECLARE
 	v_attachment integer := 0;
 	v_map integer := 0;
 	v_id integer;
+	v_table text;
 BEGIN
 	IF p_parent IS NULL OR btrim(p_parent) = '' THEN
 		RETURN json_build_object(
@@ -38,6 +39,25 @@ BEGIN
 
 	DELETE FROM cmms.asset_feature_map WHERE schema_name = p_parent;
 	GET DIAGNOSTICS v_map = ROW_COUNT;
+
+	-- Triggers hang off the parent tables. A schema drop removes them;
+	-- an unlink that keeps the parent must drop them here.
+	IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = p_parent) THEN
+		FOREACH v_table IN ARRAY ARRAY['node', 'arc', 'connec', 'link', 'gully', 'element']
+		LOOP
+			IF to_regclass(format('%I.%I', p_parent, v_table)) IS NULL THEN
+				CONTINUE;
+			END IF;
+			EXECUTE format(
+				'DROP TRIGGER IF EXISTS gw_trg_cmms_feature_sync_delete ON %I.%I',
+				p_parent, v_table
+			);
+			EXECUTE format(
+				'DROP TRIGGER IF EXISTS gw_trg_cmms_feature_sync_id ON %I.%I',
+				p_parent, v_table
+			);
+		END LOOP;
+	END IF;
 
 	SELECT id INTO v_id FROM cmms.sys_version ORDER BY id DESC LIMIT 1;
 	IF v_id IS NOT NULL THEN
