@@ -10,3 +10,6 @@ SET search_path = SCHEMA_NAME, public, pg_catalog;
 
 CREATE TRIGGER gw_trg_edit_ve_epa_conduit INSTEAD OF INSERT OR DELETE OR UPDATE
 ON ve_epa_conduit FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_ve_epa('conduit');
+
+CREATE TRIGGER gw_trg_edit_ve_epa_pgully INSTEAD OF INSERT OR DELETE OR UPDATE
+ON ve_epa_pgully FOR EACH ROW EXECUTE FUNCTION gw_trg_edit_ve_epa('pgully');
