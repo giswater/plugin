@@ -461,7 +461,7 @@ Use `--version X.Y.Z` everywhere (replaces `--plugin-version` / `--to-version`).
 
 ### `db init`
 
-Creates extensions in order: `postgis` → `postgis_raster` → `tablefunc` → `pgrouting` → `unaccent` (optional `postgres_fdw` with `--with-fdw`). Also creates the Giswater role hierarchy if missing and `GRANT CREATE ON DATABASE` to `role_system` so a `role_system` member can create schemas afterwards. Requires a PostgreSQL **superuser**. Run **once per database** before the first schema create.
+Creates extensions in order: `postgis` → `postgis_topology` → `postgis_raster` → `tablefunc` → `pgrouting` → `unaccent` → `fuzzystrmatch` → `intarray` (optional `postgres_fdw` with `--with-fdw`). Also creates the Giswater role hierarchy if missing and `GRANT CREATE ON DATABASE` to `role_system` so a `role_system` member can create schemas afterwards. Requires a PostgreSQL **superuser**. Run **once per database** before the first schema create.
 
 | Option | Description |
 |--------|-------------|

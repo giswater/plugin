@@ -12,12 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gw schema addon create` and `gw schema addon integrate` accept `--srid`.
   When omitted, integrate reads `sys_version.epsg` from `--parent`; create
   uses the unique EPSG of existing ws/ud schemas (else `25831`).
+- `gw db init` also creates `fuzzystrmatch` and `intarray`.
 
 ### Fixed
 
 - `gw dbmodel install X.Y.Z` falls back to the GitHub release ZIP, then the
   `vX.Y.Z` source archive, when `download.giswater.org` 404s (tag exists
   before the plugin ZIP is published).
+- Addon create/update/integrate re-grants `SELECT` to `role_basic` and
+  reassigns installer-owned relations to `role_system` after `RESET ROLE`,
+  so `utils.sys_version` is readable when schemas are built by a non-superuser.
 - Lockstep `network update` resolves `update_step` / `version_bump` through
   `resolve_lockstep_profile`, matching QGIS, and falls back to `update` when
   a kind has not declared those profiles.

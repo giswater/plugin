@@ -16,6 +16,8 @@ _DEFAULT_EXTENSIONS = (
     "tablefunc",
     "pgrouting",
     "unaccent",
+    "fuzzystrmatch",
+    "intarray",
 )
 _OPTIONAL_EXTENSIONS = ("pgtap",)
 

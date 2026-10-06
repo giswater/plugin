@@ -90,6 +90,31 @@ def test_runs_all_phases_successfully(tmp_path: Path):
     assert len(conn.executed) == 7
 
 
+def test_addon_run_applies_privileges(tmp_path: Path):
+    _seed(tmp_path)
+    conn = _RecConn()
+    params = BuildParams(
+        schema_name="utils", srid="25831", sql_root=str(tmp_path),
+        plugin_version="4.9.0", profile="empty",
+    )
+    manifest = Manifest(
+        kind="utils",
+        engine_version=1,
+        substitutions={},
+        phases=(
+            Phase(id="load_base_schema", type="sql_dir", steps=(Step(source="init.sql"),)),
+        ),
+        profiles={"empty": Profile(name="empty", phases=("load_base_schema",))},
+    )
+    result = SchemaBuilder(conn, manifest, params).run()
+    assert result.ok
+    priv = next(pr for pr in result.phases if pr.phase_id == "addon_privileges")
+    assert priv.ok
+    sql = priv.files[0].sql
+    assert "GRANT SELECT ON ALL TABLES" in sql
+    assert "sch text := 'utils'" in sql
+
+
 def test_locale_fallback_used_when_locale_folder_missing(tmp_path: Path):
     _seed(tmp_path)
     conn = _RecConn()
