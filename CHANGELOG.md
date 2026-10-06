@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- UD `dma.the_geom` / `ve_dma.the_geom` follow the project SRID. The 4.7.0 patch recast them to EPSG:25831, so schemas created with `--srid` other than 25831 left DMA at 25831.
 - `gw_fct_pg2epa_fill_data`: always require `value_state_type.is_operative = TRUE` so FICTICIO / non-operative features are not exported (regression from the psector/`vf_*` path).
 - `gw_fct_pg2epa_fill_data` WS: filter connecs by `is_operative` and nest link insert under `networkmode = 4`; UD: drop redundant node `is_operative` filter (arcs already gate nodes).
 - `gw_fct_pg2epa_nod2arc`: keep VALVE/SHORTPIPE nodarcs on the psector/operative boundary. Endpoint cleanup now uses `t_numarcs` (`temp_t_arc`) instead of `ve_inp_pipe`, so the `_n2a` arc is no longer dropped while its junctions remain.

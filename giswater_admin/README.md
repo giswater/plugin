@@ -534,8 +534,15 @@ Shared satellite schemas (`utils`, `cibs`, `cm`, `am`, `audit`).
 
 Bootstrap a standalone addon (no parent wiring yet).
 
+| Option | Description |
+|--------|-------------|
+| `--type` | **Required.** Addon kind (`utils`, `cibs`, `am`, …). |
+| `--name` | Schema name (default: same as `--type`). |
+| `--srid` | EPSG for geometry columns. Default: unique `sys_version.epsg` of existing ws/ud schemas, else `25831`. |
+
 ```bash
 gw schema addon create --type utils --conn "$CONN"
+gw schema addon create --type utils --srid 32748 --conn "$CONN"
 gw schema addon create --type cibs --name cibs --conn "$CONN"
 gw schema addon create --type audit --conn "$CONN"
 ```
@@ -549,6 +556,7 @@ Wire an addon into one ws/ud parent. Run once per parent (e.g. integrate utils w
 | `--type` | **Required.** `utils` \| `cibs` \| `cm` \| `am` \| `audit` |
 | `--parent` | **Required.** Parent ws or ud schema name. |
 | `--name` | Addon schema name (default: same as `--type`). |
+| `--srid` | EPSG for geometry columns. Default: parent `sys_version.epsg`. |
 
 ```bash
 gw schema addon integrate --type utils --parent ws --conn "$CONN"

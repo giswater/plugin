@@ -33,6 +33,39 @@ def test_schema_main_create_parses() -> None:
     assert args.check is True
 
 
+def test_schema_addon_create_parses_srid() -> None:
+    args = build_parser().parse_args(
+        ["schema", "addon", "create", "--type", "utils", "--srid", "32748", "--check"]
+    )
+    assert args.srid == "32748"
+
+
+def test_schema_addon_create_srid_default_none() -> None:
+    args = build_parser().parse_args(
+        ["schema", "addon", "create", "--type", "utils", "--check"]
+    )
+    assert args.srid is None
+
+
+def test_schema_addon_integrate_parses_srid() -> None:
+    args = build_parser().parse_args(
+        [
+            "schema",
+            "addon",
+            "integrate",
+            "--type",
+            "utils",
+            "--parent",
+            "ws",
+            "--srid",
+            "32748",
+            "--check",
+        ]
+    )
+    assert args.srid == "32748"
+    assert args.parent == "ws"
+
+
 def test_schema_list_parses() -> None:
     args = build_parser().parse_args(
         ["schema", "list", "--tier", "main", "--type", "ws", "--type", "ud"]

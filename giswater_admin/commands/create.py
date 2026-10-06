@@ -54,9 +54,15 @@ def run(args: argparse.Namespace, out: Out) -> int:  # noqa: C901
     conn = None
 
     needs_parent_type = profile_needs_parent(args.profile) and args.kind not in ("utils",)
+    explicit_srid = getattr(args, "srid", None)
+    needs_srid_detect = (
+        str(explicit_srid or "").strip() in ("", "0")
+        and not is_main_kind(args.kind)
+    )
     needs_detect_in_check = args.check and h.needs_connection(args) and (
         (needs_parent_type and (args.parent_schema or args.ws_schema or args.ud_schema) and not parent_type)
         or (args.kind == "utils" and not args.main_version and (args.ws_schema or args.ud_schema))
+        or needs_srid_detect
     )
     if (h.needs_connection(args) and not args.check) or needs_detect_in_check:
         conn = h.open_conn(args, out)
@@ -114,7 +120,29 @@ def run(args: argparse.Namespace, out: Out) -> int:  # noqa: C901
                 return 1
 
     locale = args.locale
-    srid = args.srid
+    parent_for_srid = args.parent_schema or args.ws_schema or args.ud_schema or ""
+    parent_epsg = None
+    common_main_epsg = None
+    if conn is not None and needs_srid_detect:
+        if parent_for_srid:
+            parent_epsg = h.detect_project_epsg(conn, parent_for_srid, default="")
+            if parent_epsg:
+                out.info(f"srid lifted from {parent_for_srid}: {parent_epsg}")
+        if not parent_epsg:
+            mains = h.collect_main_epsgs(conn)
+            if len(mains) == 1:
+                common_main_epsg = next(iter(mains))
+                out.info(f"srid inferred from existing ws/ud schemas: {common_main_epsg}")
+            elif len(mains) > 1:
+                out.warn(
+                    "ws/ud schemas use mixed EPSG values "
+                    f"({', '.join(sorted(mains))}); pass --srid (default 25831)."
+                )
+    srid = h.resolve_build_srid(
+        None if str(explicit_srid or "").strip() in ("", "0") else str(explicit_srid),
+        parent_epsg=parent_epsg,
+        common_main_epsg=common_main_epsg,
+    )
     main_version = args.main_version or args.plugin_version
     if args.kind == "utils" and conn is not None and not args.main_version:
         ws_ver = h.detect_project_version(conn, args.ws_schema)
