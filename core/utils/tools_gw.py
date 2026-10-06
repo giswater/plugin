@@ -1167,10 +1167,14 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
         sub_sub_group = sub_sub_group.capitalize()
 
     if the_geom == "rast":
-        connString = f"PG: dbname={tools_db.dao_db_credentials['db']} host={tools_db.dao_db_credentials['host']} " \
-                     f"user={tools_db.dao_db_credentials['user']} password={tools_db.dao_db_credentials['password']} " \
-                     f"port={tools_db.dao_db_credentials['port']} mode=2 schema={tools_db.dao_db_credentials['schema']} " \
-                     f"column={the_geom} table={tablename}"
+        creds = tools_db.dao_db_credentials
+        q = tools_db._libpq_quote
+        connString = (
+            f"PG: dbname={q(creds['db'])} host={q(creds['host'])} "
+            f"user={q(creds['user'])} password={q(creds['password'])} "
+            f"port={creds['port']} mode=2 schema={q(creds['schema'])} "
+            f"column={q(the_geom)} table={q(tablename)}"
+        )
         if alias:
             tablename = alias
         layer = QgsRasterLayer(connString, tablename)
