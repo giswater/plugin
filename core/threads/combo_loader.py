@@ -5,7 +5,9 @@ General Public License as published by the Free Software Foundation, either vers
 or (at your option) any later version.
 """
 # -*- coding: utf-8 -*-
+import queue
 import threading
+import time
 from collections import OrderedDict
 
 from qgis.PyQt.QtCore import QObject, pyqtSignal
@@ -27,7 +29,17 @@ _WRITE_FN_PREFIXES = (
     'gw_fct_delete',
 )
 
-_thread_local = threading.local()
+# One aux connection for every combo query. Each info form used to start one
+# QgsTask per combo; the task pool put them on different threads and each
+# thread called get_aux_conn(). With pg_hba PAM that is one ROPC login per
+# combo, and Keycloak locks the user (user_temporarily_disabled).
+_JOB_QUEUE = queue.Queue()
+_WORKER_LOCK = threading.Lock()
+_WORKER_STARTED = False
+_CONN_EPOCH = 0
+_CONN_EPOCH_LOCK = threading.Lock()
+# After a failed connect, do not open again for every queued combo.
+_CONNECT_RETRY_SECONDS = 30
 
 
 def get_combo_rows_cached(query: str):
@@ -53,9 +65,16 @@ def procedure_changes_combo_sources(function_name: str) -> bool:
 
 
 def clear_combo_query_cache() -> None:
-    """Drop cached combo rows so the next form fill hits Postgres."""
+    """Drop cached combo rows so the next form fill hits Postgres.
+
+    Also retires the shared aux connection. A project switch changes
+    search_path; the next query opens one new connection, not one per combo.
+    """
+    global _CONN_EPOCH
     with _COMBO_CACHE_LOCK:
         _COMBO_QUERY_CACHE.clear()
+    with _CONN_EPOCH_LOCK:
+        _CONN_EPOCH += 1
 
 
 def install_combo_cache_invalidation() -> None:
@@ -97,54 +116,50 @@ def _cache_put(query: str, rows: list) -> None:
             _COMBO_QUERY_CACHE.popitem(last=False)
 
 
-def _borrow_thread_aux_conn():
-    """Reuse one aux PG connection per QgsTask worker thread."""
-    conn = getattr(_thread_local, "combo_aux_conn", None)
-    if conn is not None:
-        try:
-            if not conn.closed:
-                return conn, ""
-        except Exception:
-            pass
-        _thread_local.combo_aux_conn = None
-
-    try:
-        aux_result = tools_db.dao.get_aux_conn()
-    except Exception as exc:
-        return None, f"get_aux_conn failed: {exc}"
-
-    if aux_result is None or isinstance(aux_result, dict):
-        err = ""
-        if isinstance(aux_result, dict):
-            err = str(aux_result.get("last_error") or "")
-        return None, err or "Could not get auxiliary connection"
-
-    _thread_local.combo_aux_conn = aux_result
-    return aux_result, ""
-
-
-def _invalidate_thread_aux_conn() -> None:
-    conn = getattr(_thread_local, "combo_aux_conn", None)
+def _close_aux(conn) -> None:
     if conn is None:
         return
-    _thread_local.combo_aux_conn = None
     try:
         tools_db.dao.delete_aux_con(conn)
     except Exception:
         pass
 
 
-def _execute_combo_query(query: str, use_cache: bool = True):
-    """Run ``query`` and return ``(rows, error)``."""
-    if use_cache:
-        cached = get_combo_rows_cached(query)
-        if cached is not None:
-            return cached, ""
+def _ensure_combo_worker() -> None:
+    global _WORKER_STARTED
+    with _WORKER_LOCK:
+        if _WORKER_STARTED:
+            return
+        thread = threading.Thread(target=_combo_aux_worker, name="gw-combo-aux", daemon=True)
+        thread.start()
+        _WORKER_STARTED = True
 
-    conn, err = _borrow_thread_aux_conn()
-    if conn is None:
-        return [], err
 
+def _open_aux(last_fail):
+    """Open the shared aux connection. ``last_fail`` is ``(monotonic, error)``."""
+    when, err = last_fail
+    if err and (time.monotonic() - when) < _CONNECT_RETRY_SECONDS:
+        return None, err, last_fail
+    try:
+        aux_result = tools_db.dao.get_aux_conn()
+    except Exception as exc:
+        fail = (time.monotonic(), f"get_aux_conn failed: {exc}")
+        return None, fail[1], fail
+    if aux_result is None or isinstance(aux_result, dict):
+        message = ""
+        if isinstance(aux_result, dict):
+            message = str(aux_result.get("last_error") or "")
+        fail = (time.monotonic(), message or "Could not get auxiliary connection")
+        return None, fail[1], fail
+    return aux_result, "", (0.0, "")
+
+
+def _query_on_conn(conn, query: str):
+    """Run one combo query. Returns ``(rows, error, conn_or_none)``.
+
+    A bad SQL statement keeps the connection. A dead connection is closed so
+    the next job opens one new session, not one per remaining combo.
+    """
     try:
         cursor = tools_db.dao.get_cursor(conn)
         cursor.execute(query)
@@ -153,14 +168,84 @@ def _execute_combo_query(query: str, use_cache: bool = True):
         conn.commit()
         materialized = [(_safe_get(r, 0), _safe_get(r, 1)) for r in rows or []]
         _cache_put(query, materialized)
-        return materialized, ""
+        return materialized, "", conn
     except Exception as exc:
+        fatal = exc.__class__.__name__ in ("OperationalError", "InterfaceError")
+        if not fatal:
+            try:
+                conn.rollback()
+            except Exception:
+                fatal = True
+        if fatal:
+            _close_aux(conn)
+            return [], str(exc), None
+        return [], str(exc), conn
+
+
+def _combo_aux_worker() -> None:
+    """Own the only combo aux connection. Jobs from every info form share it."""
+    conn = None
+    epoch = -1
+    last_fail = (0.0, "")
+    while True:
+        job = _JOB_QUEUE.get()
+        if job is None:
+            _close_aux(conn)
+            return
+        query, use_cache, slot, event = job
         try:
-            conn.rollback()
-        except Exception:
-            pass
-        _invalidate_thread_aux_conn()
-        return [], str(exc)
+            if use_cache:
+                cached = get_combo_rows_cached(query)
+                if cached is not None:
+                    slot[0] = cached
+                    slot[1] = ""
+                    continue
+            with _CONN_EPOCH_LOCK:
+                current_epoch = _CONN_EPOCH
+            if conn is not None and epoch != current_epoch:
+                _close_aux(conn)
+                conn = None
+            epoch = current_epoch
+            closed = True
+            if conn is not None:
+                try:
+                    closed = bool(conn.closed)
+                except Exception:
+                    closed = True
+            if closed:
+                conn, err, last_fail = _open_aux(last_fail)
+                if conn is None:
+                    slot[0] = []
+                    slot[1] = err
+                    continue
+            rows, err, conn = _query_on_conn(conn, query)
+            slot[0] = rows
+            slot[1] = err
+        except Exception as exc:
+            slot[0] = []
+            slot[1] = str(exc)
+            _close_aux(conn)
+            conn = None
+            last_fail = (time.monotonic(), slot[1])
+        finally:
+            event.set()
+
+
+def _execute_combo_query(query: str, use_cache: bool = True, cancel_check=None):
+    """Run ``query`` on the shared aux connection. Returns ``(rows, error)``."""
+    if use_cache:
+        cached = get_combo_rows_cached(query)
+        if cached is not None:
+            return cached, ""
+
+    _ensure_combo_worker()
+    slot = [None, ""]
+    event = threading.Event()
+    _JOB_QUEUE.put((query, use_cache, slot, event))
+    while not event.wait(0.05):
+        if cancel_check is not None and cancel_check():
+            return [], "cancelled"
+    return slot[0] or [], slot[1]
 
 
 class GwComboLoaderTask(QgsTask, QObject):
@@ -171,10 +256,10 @@ class GwComboLoaderTask(QgsTask, QObject):
     and starts a new task. The signal handler in the widget ignores results
     coming from older tokens so stale rows can never overwrite fresh data.
 
-    Connections are reused per worker thread and identical SQL is cached in memory
-    so opening many features reuses the same combo payloads. The cache is dropped
-    on project load and after a write. Opening the popup always queries again,
-    so a row inserted outside QGIS shows up on the next click.
+    Every combo query runs on one background thread and one aux connection, so
+    opening an info form does not open one Postgres session per combo. Identical
+    SQL is cached for the session. The cache is dropped on project load and
+    after a write. Opening the popup always queries again.
     """
 
     # token, rows (list of psycopg2 DictRow / tuples), error (str, '' on success)
@@ -197,7 +282,9 @@ class GwComboLoaderTask(QgsTask, QObject):
         if self.isCanceled():
             return False
 
-        self._rows, self._error = _execute_combo_query(self._query, self._use_cache)
+        self._rows, self._error = _execute_combo_query(
+            self._query, self._use_cache, cancel_check=self.isCanceled
+        )
         return not self._error
 
     def finished(self, result: bool) -> None:
