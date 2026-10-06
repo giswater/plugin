@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## Fixed
 
-- Keep user settings in `init.config` when moving to a new Giswater minor version by copying them from the previous Roaming folder.
+- UD Info Log warnings come from `rpt_warning_summary` as well as the classic `temp_csv` import. A warning does not fail the result.
+- `gw_fct_rpt2pg_log` DETAILED USER INPUT OPTIONS reads from `rpt_cat_result.inp_options` (fallback to `config_param_user`).
+
+## [4.17.5] - 2026-10-06
 
 ### Fixed
 
@@ -18,16 +21,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gw_fct_admin_role_upsertuser` grants the tier and upserts `cat_users` when the PostgreSQL role already exists (NOLOGIN); delete deactivates the catalog row instead of removing it.
 - Admin dialog does not `CREATE EXTENSION` unless the session is a superuser (`intarray` / `fuzzystrmatch` belong in `gw db init`).
 - Utils/cibs 4.17.5 patches grant `SELECT` to `role_basic` and reassign installer-owned relations to `role_system`.
+
+## [4.17.4] - 2026-10-05
+
+### Fixed
+
 - `gw_fct_pg2epa_fill_data`: always require `value_state_type.is_operative = TRUE` so FICTICIO / non-operative features are not exported (regression from the psector/`vf_*` path).
 - `gw_fct_pg2epa_fill_data` WS: filter connecs by `is_operative` and nest link insert under `networkmode = 4`; UD: drop redundant node `is_operative` filter (arcs already gate nodes).
 - `gw_fct_pg2epa_nod2arc`: keep VALVE/SHORTPIPE nodarcs on the psector/operative boundary. Endpoint cleanup now uses `t_numarcs` (`temp_t_arc`) instead of `ve_inp_pipe`, so the `_n2a` arc is no longer dropped while its junctions remain.
+
+## [4.17.3] - 2026-10-02
+
+### Added
+
+- Keep user settings in `init.config` when moving to a new Giswater minor version by copying them from the previous Roaming folder.
+
+### Fixed
+
+- UD Info Log warnings come from `rpt_warning_summary` as well as the classic `temp_csv` import. A warning does not fail the result.
+- `gw_fct_rpt2pg_log` DETAILED USER INPUT OPTIONS reads from `rpt_cat_result.inp_options` (fallback to `config_param_user`).
+
+## [4.17.2] - 2026-09-30
+
+### Fixed
+
 - Read form combo ids with `get_combo_value` instead of `currentData()` when enabling lot relations, saving lots and workorders, and checking UD pattern type. `currentData()` is the row `[id, idval]`, which produced SQL like `campaign_id = ['', '']`.
 - Stop treating an unchanged `epa_type` as a change on info-form Accept. The snapshot used the combo label (empty or "Loading..." while the async combo loads). Compare and restore the id via `GwAsyncComboBox.selected_id`.
 - Open Check Project (and other dynamic dialogs) when a `config_form_fields` row has `layoutorder` null. The widget is skipped with a warning instead of crashing on `int(None)`.
 - Lower `wntr` requirement to `>=1.2.0` so QPIP can resolve under QGIS NumPy 1.x constraints (`wntr>=1.4` needs NumPy 2.2+).
 - Fix mincut hydrometer list (`tbl_mincut_hydro`): `config_form_list` / `config_form_tableview` still used `hydrometer_customer_code` after the 4.12 rename to `hydro_customer_code`, so `gw_fct_getlist` failed with 42703.
-- UD Info Log warnings come from `rpt_warning_summary` as well as the classic `temp_csv` import. A warning does not fail the result.
-- `gw_fct_rpt2pg_log` DETAILED USER INPUT OPTIONS reads from `rpt_cat_result.inp_options` (fallback to `config_param_user`).
 
 ## [4.17.1] - 2026-09-24
 
@@ -687,7 +709,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.17.1...main
+[unreleased]: https://github.com/giswater/plugin/compare/v4.17.5...main
+[4.17.5]: https://github.com/giswater/plugin/compare/v4.17.4...v4.17.5
+[4.17.4]: https://github.com/giswater/plugin/compare/v4.17.3...v4.17.4
+[4.17.3]: https://github.com/giswater/plugin/compare/v4.17.2...v4.17.3
+[4.17.2]: https://github.com/giswater/plugin/compare/v4.17.1...v4.17.2
 [4.17.1]: https://github.com/giswater/plugin/compare/v4.17.0...v4.17.1
 [4.17.0]: https://github.com/giswater/plugin/compare/v4.16.1...v4.17.0
 [4.16.1]: https://github.com/giswater/plugin/compare/v4.16.0...v4.16.1
