@@ -87,7 +87,15 @@ BEGIN
 	v_manager_x_schema = ((p_data->>'data')::json->>'manager_x_schema')::text;
 	
 	--change schema list into array
-	v_gw_schema_array = (SELECT array_agg(a.key) result FROM json_each(v_manager_x_schema) a);
+	IF v_manager_x_schema IS NOT NULL AND v_manager_x_schema::text NOT IN ('', 'null') THEN
+		v_gw_schema_array = (SELECT array_agg(a.key) result FROM json_each(v_manager_x_schema) a);
+	END IF;
+	IF v_gw_schema_array IS NULL THEN
+		v_gw_schema_array := ARRAY['SCHEMA_NAME']::text[];
+	END IF;
+	IF v_user_name IS NULL OR v_user_name = '' THEN
+		v_user_name := v_user_id;
+	END IF;
 
 	-- delete old values on result table
 	DELETE FROM audit_check_data WHERE fid = 207 AND cur_user=current_user;
@@ -100,29 +108,47 @@ BEGIN
 	IF v_action = 'insert' THEN
 
 		--create user in  a database, encrypt password and assign a role	
-		IF (SELECT 1 FROM pg_roles WHERE rolname=v_user_id) is null THEN
+		IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_user_id) THEN
 		
-			EXECUTE 'CREATE USER '||v_user_id||' WITH ENCRYPTED PASSWORD '''||v_password||''';';
+			EXECUTE 'CREATE USER '||quote_ident(v_user_id)||' WITH ENCRYPTED PASSWORD '||quote_literal(v_password)||';';
 
 			INSERT INTO audit_check_data (fid, result_id, criticity, error_message)
 			VALUES (207, null, 1, concat('INFO: User ',v_user_id,' created in a database'));
 	
 		ELSE
-			--EXECUTE 'SELECT (3040,2780, NULL)' INTO v_audit_result;
-			EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
-  			"data":{"message":"3040", "function":"2780","parameters":null, "is_process":true}}$$)'
-  			INTO v_audit_result;
+			-- 3040 is AUDIT/log_level 0: writes audit_check_data, does not RAISE / abort
+			EXECUTE format(
+				$sql$SELECT gw_fct_getmessage(%L)$sql$,
+				json_build_object(
+					'client', json_build_object('device', 4, 'infoType', 1, 'lang', 'ES'),
+					'feature', json_build_object(),
+					'data', json_build_object(
+						'message', '3040',
+						'function', '2780',
+						'fid', '207',
+						'criticity', '1',
+						'is_process', true,
+						'parameters', json_build_object('v_user_id', v_user_id)
+					)
+				)::text
+			);
 		END IF;
 
-		EXECUTE 'GRANT '||v_role||' TO '||v_user_id||';';
+		IF v_role IS NOT NULL AND v_role <> '' THEN
+			EXECUTE format('GRANT %I TO %I', v_role, v_user_id);
+		END IF;
 		
 		INSERT INTO audit_check_data (fid, result_id, criticity, error_message)
 		VALUES (207, null, 1, concat('INFO: Role ',v_role,' granted.'));
 	
 		FOREACH rec_schema IN ARRAY v_gw_schema_array LOOP
 			--insert user into user catalog
-			EXECUTE 'INSERT INTO '||rec_schema||'.cat_users (id,name,sys_role) 
-			VALUES ('''||v_user_id||''','''||v_user_name||''','''||v_role||''') ON CONFLICT (id) DO NOTHING;';
+			EXECUTE 'INSERT INTO '||quote_ident(rec_schema)||'.cat_users (id, name, sys_role, active)
+			VALUES ('||quote_literal(v_user_id)||','||quote_literal(v_user_name)||','||quote_literal(v_role)||', true)
+			ON CONFLICT (id) DO UPDATE SET
+				name = EXCLUDED.name,
+				sys_role = EXCLUDED.sys_role,
+				active = true;';
 
 			INSERT INTO audit_check_data (fid, result_id, criticity, error_message)
 			VALUES (207, null, 1, concat('INFO: User ',v_user_id,' inserted into cat_users of schema ',rec_schema,'.'));
@@ -292,11 +318,11 @@ BEGIN
 				VALUES (207, null, 1, concat('INFO: User ',v_user_id,' deleted from cat_manager.'));
 			END IF;
 
-			--remove user from users catalog
-			EXECUTE 'DELETE FROM '||rec_schema||'.cat_users WHERE id = '''||v_user_id||''';';
+			-- keep the catalog row so mincut/visit FKs stay valid
+			EXECUTE 'UPDATE '||quote_ident(rec_schema)||'.cat_users SET active = false WHERE id = '||quote_literal(v_user_id)||';';
 			
 			INSERT INTO audit_check_data (fid, result_id, criticity, error_message)
-			VALUES (207, null, 1, concat('INFO: User ',v_user_id,' deleted from cat_users.'));
+			VALUES (207, null, 1, concat('INFO: User ',v_user_id,' deactivated in cat_users.'));
 
 		END LOOP;
 		--drop user from the database
