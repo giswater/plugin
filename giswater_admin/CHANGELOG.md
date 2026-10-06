@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `gw schema addon create` and `gw schema addon integrate` accept `--srid`.
+  When omitted, integrate reads `sys_version.epsg` from `--parent`; create
+  uses the unique EPSG of existing ws/ud schemas (else `25831`).
+
 ### Fixed
 
 - `gw dbmodel install X.Y.Z` falls back to the GitHub release ZIP, then the
