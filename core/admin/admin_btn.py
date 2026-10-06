@@ -1973,8 +1973,12 @@ class GwAdminButton:
     def _ensure_extensions_checked(self):
         if self._extensions_checked:
             return
+        row = tools_db.get_row(
+            "SELECT COALESCE((SELECT rolsuper FROM pg_roles WHERE rolname = current_user), FALSE)"
+        )
+        can_create = bool(row and row[0])
         for ext in ('postgis', 'pgrouting', 'postgis_raster', 'tablefunc', 'unaccent', 'fuzzystrmatch', 'intarray'):
-            tools_db.check_pg_extension(ext)
+            tools_db.check_pg_extension(ext, form_enabled=can_create)
         self._extensions_checked = True
         if self._cached_pg_versions is not None:
             self._cached_pg_versions['postgis'] = tools_db.get_postgis_version()
@@ -3125,7 +3129,7 @@ class GwAdminButton:
                     'pgrouting': tools_db.get_pgrouting_version(),
                 }
                 for ext in ('postgis_raster', 'tablefunc', 'unaccent', 'fuzzystrmatch', 'intarray'):
-                    tools_db.check_pg_extension(ext)
+                    tools_db.check_pg_extension(ext, form_enabled=False)
 
         if self._cached_pg_versions is not None:
             self.postgresql_version = self._cached_pg_versions['pg']
