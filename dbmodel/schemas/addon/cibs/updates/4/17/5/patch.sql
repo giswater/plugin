@@ -8,6 +8,10 @@ or (at your option) any later version.
 
 SET search_path = SCHEMA_NAME, public, pg_catalog;
 
+-- Objects created by a non-superuser installer after RESET ROLE are not
+-- covered by role_system default privileges. Grant + reassign.
+-- Tables first so SERIAL/IDENTITY sequences follow; PG16 rejects ALTER
+-- SEQUENCE OWNER on sequences linked to a table.
 DO $priv$
 DECLARE
   r record;
@@ -27,18 +31,35 @@ BEGIN
     JOIN pg_namespace n ON n.oid = c.relnamespace
     JOIN pg_roles o ON o.oid = c.relowner
     WHERE n.nspname = sch
-      AND c.relkind IN ('r', 'p', 'v', 'm', 'S')
+      AND c.relkind IN ('r', 'p', 'v', 'm')
       AND o.rolname IS DISTINCT FROM 'role_system'
+    ORDER BY CASE c.relkind WHEN 'v' THEN 1 WHEN 'm' THEN 1 ELSE 0 END
   LOOP
-    IF r.relkind = 'S' THEN
-      EXECUTE format('ALTER SEQUENCE %I.%I OWNER TO role_system', sch, r.relname);
-    ELSIF r.relkind = 'v' THEN
+    IF r.relkind = 'v' THEN
       EXECUTE format('ALTER VIEW %I.%I OWNER TO role_system', sch, r.relname);
     ELSIF r.relkind = 'm' THEN
       EXECUTE format('ALTER MATERIALIZED VIEW %I.%I OWNER TO role_system', sch, r.relname);
     ELSE
       EXECUTE format('ALTER TABLE %I.%I OWNER TO role_system', sch, r.relname);
     END IF;
+  END LOOP;
+  FOR r IN
+    SELECT c.relname
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_roles o ON o.oid = c.relowner
+    WHERE n.nspname = sch
+      AND c.relkind = 'S'
+      AND o.rolname IS DISTINCT FROM 'role_system'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM pg_depend d
+        WHERE d.classid = 'pg_class'::regclass
+          AND d.objid = c.oid
+          AND d.deptype IN ('a', 'i')
+      )
+  LOOP
+    EXECUTE format('ALTER SEQUENCE %I.%I OWNER TO role_system', sch, r.relname);
   END LOOP;
   FOR r IN
     SELECT p.oid::regprocedure::text AS sig

@@ -113,6 +113,8 @@ def test_addon_run_applies_privileges(tmp_path: Path):
     sql = priv.files[0].sql
     assert "GRANT SELECT ON ALL TABLES" in sql
     assert "sch text := 'utils'" in sql
+    # PG16: skip SERIAL/IDENTITY sequences (owner follows the table).
+    assert "d.deptype IN ('a', 'i')" in sql
 
 
 def test_locale_fallback_used_when_locale_folder_missing(tmp_path: Path):
