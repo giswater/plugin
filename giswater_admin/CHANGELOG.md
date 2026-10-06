@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-10-06
+
 ### Added
 
 - `gw schema addon create` and `gw schema addon integrate` accept `--srid`.
@@ -121,7 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timing reports and structured log output for automation and CI.
 - Legacy command aliases (`create`, `update`, `drop`, `status`, `init-db`, `update-network`, `audit …`) with stderr deprecation warnings.
 
-[unreleased]: https://github.com/giswater/plugin/compare/cli-v0.4.3...main
+[unreleased]: https://github.com/giswater/plugin/compare/cli-v0.4.4...main
+[0.4.4]: https://github.com/giswater/plugin/compare/cli-v0.4.3...cli-v0.4.4
 [0.4.3]: https://github.com/giswater/plugin/compare/cli-v0.4.2...cli-v0.4.3
 [0.4.2]: https://github.com/giswater/plugin/compare/cli-v0.4.1...cli-v0.4.2
 [0.4.1]: https://github.com/giswater/plugin/compare/cli-v0.4.0...cli-v0.4.1
