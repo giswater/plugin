@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.5] - 2026-10-06
+
 ### Fixed
 
 - UD `dma.the_geom` / `ve_dma.the_geom` follow the project SRID. The 4.7.0 patch recast them to EPSG:25831, so schemas created with `--srid` other than 25831 left DMA at 25831.
@@ -702,7 +704,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.17.4...release/4.17
+[unreleased]: https://github.com/giswater/plugin/compare/v4.17.5...release/4.17
+[4.17.5]: https://github.com/giswater/plugin/compare/v4.17.4...v4.17.5
 [4.17.4]: https://github.com/giswater/plugin/compare/v4.17.3...v4.17.4
 [4.17.3]: https://github.com/giswater/plugin/compare/v4.17.2...v4.17.3
 [4.17.2]: https://github.com/giswater/plugin/compare/v4.17.1...v4.17.2
