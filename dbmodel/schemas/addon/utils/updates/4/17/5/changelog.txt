@@ -1,0 +1,1 @@
+- GRANT SELECT to role_basic and reassign installer-owned relations to role_system (sys_version created after RESET ROLE).
