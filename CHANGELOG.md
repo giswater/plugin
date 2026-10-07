@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [4.17.6] - Unreleased
-
 ### Fixed
 
 - Feature Replace no longer copies audit fields (`created_at`, `created_by`, `updated_at`, `updated_by`) to the new feature (#967).
