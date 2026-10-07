@@ -6349,27 +6349,25 @@ def _process_map_selection(class_object, selection_mode, field_id):
     # This ensures the map selection only highlights features that can actually be inserted
     filtered_fids = _filter_ids_by_context(class_object, selection_mode, class_object.rel_feature_type, selected_fids)
 
-    # Convert filtered string IDs back to QGIS feature IDs for map selection
-    if filtered_fids:
-        # Get the layer to work with
-        layer = class_object.rel_layers[class_object.rel_feature_type][0]
-
-        # Find QGIS feature IDs that correspond to the filtered database feature IDs
-        field_idx = layer.fields().indexOf(f"{class_object.rel_feature_type}_id")
-        if field_idx != -1:
-            # Get all features to find matching QGIS feature IDs
+    # Re-highlight only when a context filter actually dropped features.
+    # An unchanged set must keep the selection on every layer (element is ve_man_genelem + ve_man_frelem).
+    if filtered_fids and set(filtered_fids) != set(str(fid) for fid in selected_fids):
+        for layer in class_object.rel_layers[class_object.rel_feature_type]:
+            if not layer:
+                continue
+            field_idx = layer.fields().indexOf(f"{class_object.rel_feature_type}_id")
+            if field_idx == -1:
+                continue
             request = QgsFeatureRequest().setFlags(QgsFeatureRequest.Flag.NoGeometry).setSubsetOfAttributes([field_idx])
             matching_qgis_fids = []
-
             for feature in layer.getFeatures(request):
                 feature_id = str(feature.attribute(field_idx))
                 if feature_id in filtered_fids:
                     matching_qgis_fids.append(feature.id())
-
-            # Clear selection and re-select only the filtered features
             layer.removeSelection()
             if matching_qgis_fids:
                 layer.select(matching_qgis_fids)
+            layer.triggerRepaint()
 
     # Use original selected_fids for processing (filtering will be applied in SQL)
     # Get context-specific filter for SQL
@@ -7582,6 +7580,10 @@ def delete_records(class_object, dialog, table_object, selection_mode: GwSelecti
     # Select features with previous filter
     # Build a list of feature id's and select them
     tools_qgis.select_features_by_ids(feature_type, expr, layers=class_object.rel_layers)
+    for layer in class_object.rel_layers.get(feature_type) or []:
+        if layer:
+            layer.triggerRepaint()
+    global_vars.canvas.refresh()
 
     # Reset rubberband
     if selection_mode == GwSelectionMode.PSECTOR:
