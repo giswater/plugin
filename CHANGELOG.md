@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Return messages from `gw_fct_synoptic_core` via `gw_fct_getmessage`; same on Failed in scada graph check and mapzones v1.
 - `gw_fct_graphanalytics_omunit`: re-point / zero `omunit.macroomunit_id` before deleting orphaned `macroomunit` rows so `omunit_macroomunit_id_fkey` is not violated (#968).
 - UD `ve_cat_feature_node` exposes `graph_delimiter` (view, form field, edit trigger); it was present on WS only (#966).
+- UD `cat_link` recreated like UD `cat_arc` (`shape`/`geom1`..`geom8` instead of WS `pnom`/`dnom`/`dint`/`dext`); data migrated from `_cat_link_` (#969).
 
 ## [4.17.5] - 2026-10-06
 

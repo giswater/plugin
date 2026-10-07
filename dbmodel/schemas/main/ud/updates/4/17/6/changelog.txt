@@ -1,2 +1,3 @@
 - Expose `graph_delimiter` on UD `ve_cat_feature_node` (view + form field + edit trigger) (#966).
 - Fix `gw_fct_graphanalytics_omunit` macroomunit DELETE FK (`omunit_macroomunit_id_fkey`) by re-pointing omunits before parent delete (#968).
+- Recreate UD `cat_link` like UD `cat_arc` (`shape`/`geom1`..`geom8` instead of WS `pnom`/`dnom`/`dint`/`dext`); migrate matching columns from `_cat_link_` (#969).
