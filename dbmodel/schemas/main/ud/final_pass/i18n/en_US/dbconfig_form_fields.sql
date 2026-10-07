@@ -1873,6 +1873,7 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip, placeho
     ('descript', 've_cat_feature_node', 'form_feature', 'tab_none', 'Descript:', 'Descript', NULL),
     ('double_geom', 've_cat_feature_node', 'form_feature', 'tab_none', 'Double geom:', 'Double geom', NULL),
     ('epa_default', 've_cat_feature_node', 'form_feature', 'tab_none', 'Epa default:', 'Epa default', NULL),
+    ('graph_delimiter', 've_cat_feature_node', 'form_feature', 'tab_none', 'Graph delimiter:', 'Graph delimiter', NULL),
     ('id', 've_cat_feature_node', 'form_feature', 'tab_none', 'Id:', 'Id', NULL),
     ('isarcdivide', 've_cat_feature_node', 'form_feature', 'tab_none', 'Divides arc:', 'Divides arc', NULL),
     ('isexitupperintro', 've_cat_feature_node', 'form_feature', 'tab_none', 'Exit upper intro:', 'Exit upper intro', NULL),
