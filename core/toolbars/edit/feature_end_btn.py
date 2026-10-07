@@ -57,6 +57,7 @@ class GwFeatureEndButton(GwAction):
         self.rel_layers['connec'] = tools_gw.get_layers_from_feature_type('connec')
         self.rel_layers['element'] = [tools_qgis.get_layer_by_tablename('ve_man_genelem'), tools_qgis.get_layer_by_tablename('ve_man_frelem')]
         self.rel_layers['link'] = [tools_qgis.get_layer_by_tablename('ve_link')]
+        self._drop_missing_layers()
 
         self.rel_layers = tools_gw.remove_selection(True, layers=self.rel_layers)
 
@@ -136,8 +137,7 @@ class GwFeatureEndButton(GwAction):
                                                                          self.dlg_work_end.tbl_cat_work_x_element, "v_ui_element", "element_id", self.rubber_band, 10))
         self.dlg_work_end.tbl_cat_work_x_link.clicked.connect(partial(tools_qgis.highlight_feature_by_id,
                                                                          self.dlg_work_end.tbl_cat_work_x_link, "ve_link", "link_id", self.rubber_band, 10))
-        self.dlg_work_end.tab_feature.currentChanged.connect(
-            partial(lambda: setattr(self, 'rel_feature_type', tools_gw.get_signal_change_tab(self.dlg_work_end, excluded_layers))))
+        self.dlg_work_end.tab_feature.currentChanged.connect(self._on_feature_tab_changed)
 
         tools_gw.disable_tab_log(self.dlg_work_end)
 
@@ -161,6 +161,43 @@ class GwFeatureEndButton(GwAction):
         tools_gw.open_dialog(self.dlg_work_end, dlg_name='feature_end')
 
     # region private functions
+
+    def _drop_missing_layers(self):
+        """Keep the element and link layers this tool checks, and record any that are not loaded."""
+
+        required = {
+            'element': ('ve_man_genelem', 've_man_frelem'),
+            'link': ('ve_link',),
+        }
+        self._missing_layers = {}
+        for feature_type, names in required.items():
+            kept = []
+            missing = []
+            for name, layer in zip(names, self.rel_layers[feature_type]):
+                if layer:
+                    kept.append(layer)
+                else:
+                    missing.append(name)
+            self.rel_layers[feature_type] = kept
+            # One loaded layer is enough to select. Warn only when the tab has none.
+            self._missing_layers[feature_type] = missing if not kept else []
+
+    def _on_feature_tab_changed(self):
+
+        self.rel_feature_type = tools_gw.get_signal_change_tab(self.dlg_work_end, self.excluded_layers)
+        has_layers = bool(self.rel_layers.get(self.rel_feature_type))
+        self.dlg_work_end.btn_snapping.setEnabled(has_layers)
+        self.dlg_work_end.btn_expr_select.setEnabled(has_layers)
+        self._warn_missing_layers(self._missing_layers.get(self.rel_feature_type, []))
+
+    def _warn_missing_layers(self, missing_layers):
+
+        if not missing_layers:
+            return
+
+        msg = "Map selection is disabled on this tab because these layers are not loaded in the project: {0}."
+        msg_params = (", ".join(missing_layers),)
+        tools_qgis.show_warning(msg, msg_params=msg_params, dialog=self.dlg_work_end)
 
     def _set_edit_arc_downgrade_force(self, value):
 
