@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.6] - 2026-10-07
+
 ### Fixed
 
 - End feature warns on the element or link tab when none of its layers are loaded, and disables the map and expression selection buttons on that tab.
@@ -714,7 +716,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.17.5...release/4.17
+[unreleased]: https://github.com/giswater/plugin/compare/v4.17.6...release/4.17
+[4.17.6]: https://github.com/giswater/plugin/compare/v4.17.5...v4.17.6
 [4.17.5]: https://github.com/giswater/plugin/compare/v4.17.4...v4.17.5
 [4.17.4]: https://github.com/giswater/plugin/compare/v4.17.3...v4.17.4
 [4.17.3]: https://github.com/giswater/plugin/compare/v4.17.2...v4.17.3
