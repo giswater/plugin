@@ -291,7 +291,7 @@ BEGIN
 		IF (NEW.muni_id IS NULL) THEN
 
 			IF NEW.district_id IS NOT NULL THEN
-				NEW.muni_id := (SELECT muni_id FROM v_municipality WHERE district_id = NEW.district_id AND active IS TRUE LIMIT 1);
+				NEW.muni_id := (SELECT muni_id FROM v_district WHERE district_id = NEW.district_id AND active IS TRUE LIMIT 1);
 			END IF;
 
 			-- getting value default
