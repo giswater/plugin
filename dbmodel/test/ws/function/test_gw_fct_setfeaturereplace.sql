@@ -11,8 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 3 tests
-SELECT plan(3);
+SELECT plan(6);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -30,13 +29,41 @@ GRANT role_om to om_user;
 CREATE USER basic_user;
 GRANT role_basic to basic_user;
 
--- Extract and test the "status" field from the function's JSON response
-SELECT is(
-    (gw_fct_setfeaturereplace($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{}, "feature":{"type":"arc"},
+-- Stamp legacy audit on the source arc so replace must not copy them (#967)
+UPDATE arc
+SET created_at = '2020-01-01 12:00:00+00', created_by = 'legacy_user',
+	updated_at = '2020-06-15 12:00:00+00', updated_by = 'legacy_updater'
+WHERE arc_id = '113854';
+
+CREATE TEMP TABLE _replace_result AS
+SELECT gw_fct_setfeaturereplace($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{}, "feature":{"type":"arc"},
     "data":{"filterFields":{}, "pageInfo":{}, "old_feature_id":"113854", "feature_type_new":"PIPE", "featurecat_id":"FD150",
-    "workcat_id_end":"work1", "enddate":"2017-12-06", "keep_elements":"False", "keep_epa_values":"False"}}$$)::JSON)->>'status',
+    "workcat_id_end":"work1", "enddate":"2017-12-06", "keep_elements":"False", "keep_epa_values":"False"}}$$)::json AS result;
+
+SELECT is(
+    (SELECT result->>'status' FROM _replace_result),
     'Accepted',
     'Check if gw_fct_setfeaturereplace returns status "Accepted"'
+);
+
+SELECT is(
+    (SELECT created_by FROM arc WHERE arc_id = '113854'),
+    'legacy_user',
+    'Obsolete arc keeps original created_by after feature replace'
+);
+
+SELECT is(
+    (SELECT created_by::text FROM arc WHERE arc_id = (
+        SELECT (result->'body'->'data'->>'featureId')::int8 FROM _replace_result)),
+    current_user::text,
+    'New arc gets created_by from current user, not copied from old'
+);
+
+SELECT ok(
+    (SELECT created_at FROM arc WHERE arc_id = (
+        SELECT (result->'body'->'data'->>'featureId')::int8 FROM _replace_result))
+    IS DISTINCT FROM '2020-01-01 12:00:00+00'::timestamptz,
+    'New arc gets fresh created_at, not copied from old'
 );
 
 -- Column itself NULL (the real bug): disable/restore must not rewrite invalid JSON
