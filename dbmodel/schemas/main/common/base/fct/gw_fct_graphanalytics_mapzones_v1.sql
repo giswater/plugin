@@ -3291,6 +3291,36 @@ BEGIN
 			WHERE n.graph_delimiter = 'nodeParent'
 			AND a.mapzone_id > 0;
 
+			-- synoptic building section
+			INSERT INTO temp_pgr_mapzone_synoptic (node_1, node_2, node_type_1, node_type_2, orig_node_1, orig_node_2)
+			SELECT
+				CASE WHEN flow_sign = 1 THEN node_id ELSE mapzone_id END AS node_1,
+				CASE WHEN flow_sign = 1 THEN mapzone_id ELSE node_id END AS node_2,
+				CASE WHEN flow_sign = 1 THEN 'NODE' ELSE 'MAPZONE' END AS node_type_1,
+				CASE WHEN flow_sign = 1 THEN 'MAPZONE' ELSE 'NODE' END AS node_type_2,
+				CASE WHEN flow_sign = 1 THEN node_id ELSE mapzone_id END AS orig_node_1,
+				CASE WHEN flow_sign = 1 THEN mapzone_id ELSE node_id END AS orig_node_2
+			FROM temp_pgr_mapzone_graph;
+			
+			--update group_id, level_id, position_id
+			v_data :=
+			jsonb_build_object(
+				'data',
+				jsonb_build_object(
+					'fct_type', 'MAPZONE'
+				)
+			);
+			
+			SELECT gw_fct_synoptic_core(v_data) INTO v_response;
+
+			IF v_response->>'status' IS DISTINCT FROM 'Accepted' THEN
+				EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+				"data":{"message":"4758", "function":"3508","parameters":{"error":"'||
+				replace(COALESCE(v_response->'message'->>'text', 'unknown'), '"', '')||
+				'"}, "is_process":true}}$$);' INTO v_audit_result;
+				RETURN COALESCE(v_audit_result::json, v_response);
+			END IF;
+
 			EXECUTE format($sql$
 				WITH affected_mapzone AS (
 					SELECT DISTINCT mapzone_id FROM temp_pgr_mapzone_graph
