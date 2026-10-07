@@ -1,0 +1,1 @@
+- Add `synoptic_id` and `synoptic_geom` to `plan_netscenario_mapzone_graph` (same synoptic persist as `mapzone_graph`) (#965).

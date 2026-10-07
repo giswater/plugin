@@ -21,7 +21,7 @@ SELECT has_table('plan_netscenario_mapzone_graph'::name, 'Table plan_netscenario
 SELECT columns_are(
     'plan_netscenario_mapzone_graph',
     ARRAY[
-        'node_id', 'netscenario_id', 'mapzone_id', 'mapzone_type', 'flow_sign'
+        'node_id', 'netscenario_id', 'mapzone_id', 'mapzone_type', 'flow_sign', 'synoptic_id', 'synoptic_geom'
     ],
     'Table plan_netscenario_mapzone_graph should have the correct columns'
 );
@@ -32,6 +32,8 @@ SELECT col_type_is('plan_netscenario_mapzone_graph', 'netscenario_id', 'int4', '
 SELECT col_type_is('plan_netscenario_mapzone_graph', 'mapzone_id', 'int4', 'Column mapzone_id should be int4');
 SELECT col_type_is('plan_netscenario_mapzone_graph', 'mapzone_type', 'text', 'Column mapzone_type should be text');
 SELECT col_type_is('plan_netscenario_mapzone_graph', 'flow_sign', 'int2', 'Column flow_sign should be int2');
+SELECT col_type_is('plan_netscenario_mapzone_graph', 'synoptic_id', 'int4', 'Column synoptic_id should be int4');
+SELECT col_type_is('plan_netscenario_mapzone_graph', 'synoptic_geom', 'geometry(LineString)', 'Column synoptic_geom should be geometry(LineString)');
 
 -- Finish
 SELECT * FROM finish();

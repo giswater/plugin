@@ -1,0 +1,1 @@
+- Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` for mapzone synoptic layout (#965).

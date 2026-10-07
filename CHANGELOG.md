@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` / `plan_netscenario_mapzone_graph` for mapzone synoptic layout.
+
 ## Fixed
 
 - UD Info Log warnings come from `rpt_warning_summary` as well as the classic `temp_csv` import. A warning does not fail the result.
