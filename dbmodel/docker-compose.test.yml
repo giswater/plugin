@@ -16,6 +16,12 @@ services:
       interval: 2s
       timeout: 5s
       retries: 15
+    # Schema create holds one txn across hundreds of DDL files + child views
+    # (gw_fct_admin_manage_child_views). Default 64 OOMs profiles-smoke on UD inventory.
+    command:
+      - postgres
+      - -c
+      - max_locks_per_transaction=512
     # No host port by default (avoids clash with local Postgres on 55432).
     # Debug: docker compose -f docker-compose.test.yml -f docker-compose.debug.yml up -d
 
