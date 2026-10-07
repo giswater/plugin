@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - End feature warns on the element or link tab when none of its layers are loaded, and disables the map and expression selection buttons on that tab.
+- Selecting or removing features that sit on more than one layer (element: `ve_man_genelem` and `ve_man_frelem`) refreshes every layer. Previously only the first layer's highlight updated until the map was moved.
 - Feature Replace no longer copies audit fields (`created_at`, `created_by`, `updated_at`, `updated_by`) to the new feature (#967).
 - Return messages from `gw_fct_synoptic_core` via `gw_fct_getmessage`; same on Failed in scada graph check and mapzones v1.
 - `gw_fct_graphanalytics_omunit`: re-point / zero `omunit.macroomunit_id` before deleting orphaned `macroomunit` rows so `omunit_macroomunit_id_fkey` is not violated (#968).
