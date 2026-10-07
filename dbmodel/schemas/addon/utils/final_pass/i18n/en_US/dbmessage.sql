@@ -799,6 +799,9 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4748, 'No network path between node_1=%node_1% and node_2=%node_2%', NULL),
     (4750, 'It is not possible to have two operative links leaving from the same %feature_type% with id %feature_id%. Existing operative link: %link_id%', 'Set the existing operative link to planned or obsolete, or edit that link instead of creating a new one.'),
     (4752, 'The new psector name already exists(can be inactive)', 'Try using a different name'),
+    (4754, 'Unknown synoptic fct_type: %fct_type%. Use SCADA or MAPZONE.', 'Set data.fct_type to SCADA or MAPZONE.'),
+    (4756, 'Synoptic layout generated', NULL),
+    (4758, 'Failed to generate synoptic layout: %error%', 'Review the SCADA graph or mapzone synoptic input.'),
     (-1, 'Uncatched error', 'Open PotgreSQL log file to get more details'),
     (-2, 'There is ', NULL),
     (-3, 'There are ', NULL),
@@ -1614,6 +1617,9 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4746, 'Scada graph edge already exists for node_1=%node_1% and node_2=%node_2%', NULL),
     (4748, 'No network path between node_1=%node_1% and node_2=%node_2%', NULL),
     (4750, 'It is not possible to have two operative links leaving from the same %feature_type% with id %feature_id%. Existing operative link: %link_id%', 'Set the existing operative link to planned or obsolete, or edit that link instead of creating a new one.'),
-    (4752, 'The new psector name already exists(can be inactive)', 'Try using a different name')
+    (4752, 'The new psector name already exists(can be inactive)', 'Try using a different name'),
+    (4754, 'Unknown synoptic fct_type: %fct_type%. Use SCADA or MAPZONE.', 'Set data.fct_type to SCADA or MAPZONE.'),
+    (4756, 'Synoptic layout generated', NULL),
+    (4758, 'Failed to generate synoptic layout: %error%', 'Review the SCADA graph or mapzone synoptic input.')
 ) AS v(id, error_message, hint_message)
 WHERE t.id = v.id;

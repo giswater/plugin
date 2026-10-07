@@ -1,3 +1,5 @@
+--FUNCTION CODE: 3574
+
 DROP FUNCTION IF EXISTS "SCHEMA_NAME".gw_fct_synoptic_core();
 
 CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_synoptic_core(p_data json)
@@ -20,6 +22,9 @@ v_graph_table text;
 
 v_data json;
 v_error_context TEXT;
+v_message TEXT;
+v_version TEXT;
+v_audit_result json;
 
 -- result variables
 
@@ -27,6 +32,8 @@ BEGIN
 
     -- Search path
 	SET search_path = "SCHEMA_NAME", public;
+
+	SELECT giswater INTO v_version FROM sys_version ORDER BY id DESC LIMIT 1;
 
 	-- Get variables from input JSON
 	v_fct_type = (SELECT (p_data::json->>'data')::json->>'fct_type');
@@ -36,9 +43,10 @@ BEGIN
 	ELSIF v_fct_type = 'MAPZONE' THEN
 		v_graph_table := 'temp_pgr_mapzone_synoptic';
 	ELSE
-        -- TODO
-		--EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
-		--"data":{"message":"3090", "function":"3508","parameters":null, "is_process":true}}$$);' INTO v_audit_result;
+		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+		"data":{"message":"4754", "function":"3574","parameters":{"fct_type":"'||COALESCE(replace(v_fct_type, '"', ''), '')||'"}, "is_process":true}}$$);'
+		INTO v_audit_result;
+		RETURN v_audit_result;
 	END IF;
 
     -- update group_id, level_id, position_id
@@ -395,9 +403,19 @@ BEGIN
 		AND g.node_2 = s.orig_node_2
 	', v_graph_table, v_graph_table, v_graph_table);
 
-	-- TODO RETURN
-	RETURN NULL; 
-	
+	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+	"data":{"message":"4756", "function":"3574","parameters":null, "is_process":true}}$$);'
+	INTO v_audit_result;
+
+	v_message := COALESCE(v_audit_result->>'text', 'Synoptic layout generated');
+
+	RETURN gw_fct_json_create_return(json_build_object(
+		'status', 'Accepted',
+		'message', json_build_object('level', 1, 'text', v_message),
+		'version', COALESCE(v_version, ''),
+		'body', json_build_object('form', '{}'::json, 'data', '{}'::json)
+	)::json, 3574, null, null, null); 
+
 	-- Exception handling
 	EXCEPTION WHEN OTHERS THEN
 	GET STACKED DIAGNOSTICS v_error_context = pg_exception_context;

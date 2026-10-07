@@ -3312,11 +3312,13 @@ BEGIN
 			
 			SELECT gw_fct_synoptic_core(v_data) INTO v_response;
 
-			/* TODO 
-			IF v_response.... THEN
-				RETURN v_response;
+			IF v_response->>'status' IS DISTINCT FROM 'Accepted' THEN
+				EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+				"data":{"message":"4758", "function":"3508","parameters":{"error":"'||
+				replace(COALESCE(v_response->'message'->>'text', 'unknown'), '"', '')||
+				'"}, "is_process":true}}$$);' INTO v_audit_result;
+				RETURN COALESCE(v_audit_result::json, v_response);
 			END IF;
-			*/
 
 			EXECUTE format($sql$
 				WITH affected_mapzone AS (

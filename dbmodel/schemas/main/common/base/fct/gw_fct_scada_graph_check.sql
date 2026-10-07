@@ -105,6 +105,7 @@ v_msg_err_orphan_2 TEXT;
 v_msg_err_nopath TEXT;
 v_msg_separator TEXT;
 v_response JSON;
+v_audit_result json;
 v_prev_skip_set_updated text;
 
 BEGIN
@@ -433,11 +434,13 @@ BEGIN
 
 	SELECT gw_fct_synoptic_core(v_data) INTO v_response;
 
-	/* TODO 
-	IF v_response.... THEN
-        RETURN v_response;
-    END IF;
-	*/
+	IF v_response->>'status' IS DISTINCT FROM 'Accepted' THEN
+		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+		"data":{"message":"4758", "function":"3548","parameters":{"error":"'||
+		replace(COALESCE(v_response->'message'->>'text', 'unknown'), '"', '')||
+		'"}, "is_process":true}}$$);' INTO v_audit_result;
+		RETURN COALESCE(v_audit_result, v_response);
+	END IF;
 
 	-- Update om_scada_graph if v_commit_changes is TRUE
 	--================================================
