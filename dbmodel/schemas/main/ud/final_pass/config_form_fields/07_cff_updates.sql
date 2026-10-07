@@ -528,6 +528,9 @@ INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
 	VALUES ('ve_cat_feature_node','form_feature','tab_none','custom_code_autofill','string','text','Custom code autofill:','Custom code autofill',false,false,true,false,false)
   ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
+	VALUES ('ve_cat_feature_node','form_feature','tab_none','graph_delimiter','string','text','Graph delimiter:','Graph delimiter',false,false,true,false,false)
+  ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
 
 INSERT INTO config_form_fields (formname,formtype,tabname,columnname,"datatype",widgettype,"label",tooltip,ismandatory,isparent,iseditable,isautoupdate,hidden)
 	VALUES ('ve_cat_feature_connec','form_feature','tab_none','abbreviation','string','text','Abbreviation:','Abbreviation',false,false,true,false,false)

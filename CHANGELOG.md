@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.6] - Unreleased
+
+### Fixed
+
+- UD `ve_cat_feature_node` exposes `graph_delimiter` (view, form field, edit trigger); it was present on WS only (#966).
+
 ## [4.17.5] - 2026-10-06
 
 ### Fixed
