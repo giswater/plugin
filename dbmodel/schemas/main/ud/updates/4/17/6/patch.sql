@@ -36,3 +36,5 @@ INSERT INTO config_form_fields (formname, formtype, tabname, columnname, "dataty
 VALUES ('ve_cat_feature_node', 'form_feature', 'tab_none', 'graph_delimiter', 'string', 'text',
 	'Graph delimiter:', 'Graph delimiter', false, false, true, false, false)
 ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+-- gw_fct_graphanalytics_omunit (#968) lives in base/fct; applied via reload_fct_ftrg.

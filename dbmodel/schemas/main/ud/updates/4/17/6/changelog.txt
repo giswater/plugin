@@ -1,0 +1,2 @@
+- Expose `graph_delimiter` on UD `ve_cat_feature_node` (view + form field + edit trigger) (#966).
+- Fix `gw_fct_graphanalytics_omunit` macroomunit DELETE FK (`omunit_macroomunit_id_fkey`) by re-pointing omunits before parent delete (#968).

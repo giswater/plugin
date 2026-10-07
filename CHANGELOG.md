@@ -9,13 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` / `plan_netscenario_mapzone_graph` for mapzone synoptic layout.
+- Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` / `plan_netscenario_mapzone_graph` for mapzone synoptic layout (#965).
+
+## [4.17.6] - Unreleased
 
 ### Fixed
 
+- `gw_fct_graphanalytics_omunit`: re-point / zero `omunit.macroomunit_id` before deleting orphaned `macroomunit` rows so `omunit_macroomunit_id_fkey` is not violated (#968).
 - UD `ve_cat_feature_node` exposes `graph_delimiter` (view, form field, edit trigger); it was present on WS only (#966).
-- UD Info Log warnings come from `rpt_warning_summary` as well as the classic `temp_csv` import. A warning does not fail the result.
-- `gw_fct_rpt2pg_log` DETAILED USER INPUT OPTIONS reads from `rpt_cat_result.inp_options` (fallback to `config_param_user`).
 
 ## [4.17.5] - 2026-10-06
 
