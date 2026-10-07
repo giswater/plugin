@@ -63,7 +63,9 @@ cat_element   id, element_type -> cat_feature_element, matcat_id, geometry, geom
               isdoublegeom, brand, model, type, svg, code, active
 cat_gully     id, gully_type -> cat_feature_gully, matcat_id, length, width, ymax,
               efficiency, ...                                            (ud)
-cat_link      id, link_type -> cat_feature_link, matcat_id, pnom, dnom, dint, dext, cost, ...
+cat_link      id, link_type -> cat_feature_link, matcat_id, ...
+              (ws: pnom, dnom, dint, dext like ws cat_arc)
+              (ud: shape, geom1..geom8, tsect_id, curve_id like ud cat_arc)
 ```
 
 **This is where the two tiers connect, and it differs between project types.** Both now use `cat_node.node_type` / `cat_arc.arc_type` / `cat_connec.connec_type` (the old `nodetype_id` / `arctype_id` / `connectype_id` names are gone). Both trunks carry `feature_type` (NODE/ARC/...). The remaining difference:
