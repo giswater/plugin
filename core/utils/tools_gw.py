@@ -6331,6 +6331,33 @@ def selection_changed(class_object, dialog, table_object, selection_mode: GwSele
         class_object.highlight_features_method(class_object, dialog, table_object)
 
 
+def _rehighlight_filtered_selection(class_object, selected_fids, filtered_fids):
+    """Re-highlight only when a context filter actually dropped features.
+
+    An unchanged set must keep the selection on every layer (element is ve_man_genelem + ve_man_frelem).
+    """
+
+    if not filtered_fids or set(filtered_fids) == set(str(fid) for fid in selected_fids):
+        return
+
+    for layer in class_object.rel_layers[class_object.rel_feature_type]:
+        if not layer:
+            continue
+        field_idx = layer.fields().indexOf(f"{class_object.rel_feature_type}_id")
+        if field_idx == -1:
+            continue
+        request = QgsFeatureRequest().setFlags(QgsFeatureRequest.Flag.NoGeometry).setSubsetOfAttributes([field_idx])
+        matching_qgis_fids = []
+        for feature in layer.getFeatures(request):
+            feature_id = str(feature.attribute(field_idx))
+            if feature_id in filtered_fids:
+                matching_qgis_fids.append(feature.id())
+        layer.removeSelection()
+        if matching_qgis_fids:
+            layer.select(matching_qgis_fids)
+        layer.triggerRepaint()
+
+
 def _process_map_selection(class_object, selection_mode, field_id):
     """Process map selection with filtering logic and database queries"""
     if not class_object.rel_layers:
@@ -6348,26 +6375,7 @@ def _process_map_selection(class_object, selection_mode, field_id):
     # Apply filtering logic early to get only allowed features for highlighting
     # This ensures the map selection only highlights features that can actually be inserted
     filtered_fids = _filter_ids_by_context(class_object, selection_mode, class_object.rel_feature_type, selected_fids)
-
-    # Re-highlight only when a context filter actually dropped features.
-    # An unchanged set must keep the selection on every layer (element is ve_man_genelem + ve_man_frelem).
-    if filtered_fids and set(filtered_fids) != set(str(fid) for fid in selected_fids):
-        for layer in class_object.rel_layers[class_object.rel_feature_type]:
-            if not layer:
-                continue
-            field_idx = layer.fields().indexOf(f"{class_object.rel_feature_type}_id")
-            if field_idx == -1:
-                continue
-            request = QgsFeatureRequest().setFlags(QgsFeatureRequest.Flag.NoGeometry).setSubsetOfAttributes([field_idx])
-            matching_qgis_fids = []
-            for feature in layer.getFeatures(request):
-                feature_id = str(feature.attribute(field_idx))
-                if feature_id in filtered_fids:
-                    matching_qgis_fids.append(feature.id())
-            layer.removeSelection()
-            if matching_qgis_fids:
-                layer.select(matching_qgis_fids)
-            layer.triggerRepaint()
+    _rehighlight_filtered_selection(class_object, selected_fids, filtered_fids)
 
     # Use original selected_fids for processing (filtering will be applied in SQL)
     # Get context-specific filter for SQL
