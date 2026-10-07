@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `gw_fct_graphanalytics_omunit`: re-point / zero `omunit.macroomunit_id` before deleting orphaned `macroomunit` rows so `omunit_macroomunit_id_fkey` is not violated (#968).
 - UD `ve_cat_feature_node` exposes `graph_delimiter` (view, form field, edit trigger); it was present on WS only (#966).
 
 ## [4.17.5] - 2026-10-06

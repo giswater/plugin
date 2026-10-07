@@ -776,6 +776,36 @@ BEGIN
             WHERE m.omunit_id = tpo.omunit_id
         );
 
+        -- Insert new macroomunits before re-pointing / deleting parents
+        -- (omunit_macroomunit_id_fkey is ON DELETE RESTRICT)
+        INSERT INTO macroomunit (macroomunit_id)
+        SELECT tmm.macroomunit_id
+        FROM temp_pgr_macroomunit tmm
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM macroomunit m
+            WHERE tmm.macroomunit_id = m.macroomunit_id
+        );
+
+        -- Re-point surviving omunits to their new macroomunit before parent DELETE
+        UPDATE omunit o
+        SET macroomunit_id = tpo.macroomunit_id
+        FROM temp_pgr_omunit tpo
+        WHERE tpo.omunit_id = o.omunit_id
+        AND o.macroomunit_id IS DISTINCT FROM tpo.macroomunit_id;
+
+        -- Zero omunits still pointing at doomed macroomunits (incl. out-of-scope)
+        UPDATE omunit o
+        SET macroomunit_id = 0
+        WHERE EXISTS (
+            SELECT 1 FROM temp_pgr_old_mapzone mo
+            WHERE mo.macromapzone_id = o.macroomunit_id
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM temp_pgr_macroomunit tmm
+            WHERE o.macroomunit_id = tmm.macroomunit_id
+        );
+
         -- Third, delete the macroomunits that don't exist anymore;
         DELETE FROM macroomunit m
         WHERE EXISTS (
@@ -785,16 +815,10 @@ BEGIN
         AND NOT EXISTS (
             SELECT 1 FROM temp_pgr_macroomunit tmm
             WHERE m.macroomunit_id = tmm.macroomunit_id
-        );
-
-        -- Insert new macroomunits
-        INSERT INTO macroomunit (macroomunit_id)
-        SELECT tmm.macroomunit_id
-        FROM temp_pgr_macroomunit tmm
-        WHERE NOT EXISTS (
-            SELECT 1 
-            FROM macroomunit m 
-            WHERE tmm.macroomunit_id = m.macroomunit_id
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM omunit o
+            WHERE o.macroomunit_id = m.macroomunit_id
         );
 
         -- Update macroomunits
@@ -815,8 +839,8 @@ BEGIN
         SELECT tpo.omunit_id
         FROM temp_pgr_omunit tpo
         WHERE NOT EXISTS (
-            SELECT 1 
-            FROM omunit m 
+            SELECT 1
+            FROM omunit m
             WHERE tpo.omunit_id = m.omunit_id
         );
 
