@@ -716,7 +716,7 @@ BEGIN
 	 SELECT temp_t_node.node_id,
 	    temp_t_node.elev,
 	    temp_t_node.addparam::json ->> 'outfall_type'::text AS outfall_type,
-	    temp_t_node.addparam::json ->> 'state'::text AS other1,
+	    temp_t_node.addparam::json ->> 'stage'::text AS other1,
 	    temp_t_node.addparam::json ->> 'gate'::text AS other2
 	   FROM temp_t_node
 	  WHERE temp_t_node.epa_type::text = 'OUTFALL'::text AND (temp_t_node.addparam::json ->> 'outfall_type'::text) = 'FIXED'::text
