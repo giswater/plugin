@@ -16,3 +16,15 @@ SELECT gw_fct_admin_manage_fields($${"data":{"action":"ADD","table":"mapzone_gra
   "column":"synoptic_geom", "dataType":"geometry(LineString)"}}$$);
 
 CREATE INDEX IF NOT EXISTS mapzone_graph_synoptic_id_idx ON mapzone_graph USING btree (synoptic_id);
+
+INSERT INTO config_param_system (
+    parameter, value, descript, label, isenabled, layoutorder, project_type,
+    dv_isparent, isautoupdate, datatype, widgettype, ismandatory, iseditable, layoutname
+)
+VALUES (
+    'edit_element_geom_from_feature', 'false',
+    'If true, a new element without geometry takes a point from the associated feature, and an element that shares a node, connec or gully point follows that feature when it moves. Flow regulators (FRELEM) are excluded. Arcs and links use the midpoint of the line.',
+    'Copy element geometry from feature:',
+    true, 12, 'utils', false, false, 'boolean', 'check', false, true, 'lyt_topology'
+)
+ON CONFLICT (parameter) DO NOTHING;

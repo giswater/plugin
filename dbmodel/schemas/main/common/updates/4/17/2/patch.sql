@@ -43,15 +43,3 @@ WHERE config_form_tableview.alias IS NULL
 
 DELETE FROM config_form_tableview WHERE objectname = 'tbl_hydrometer';
 DELETE FROM config_form_list WHERE listname IN ('tbl_hydrometer', 'v_ui_hydrometer');
-
-INSERT INTO config_param_system (
-    parameter, value, descript, label, isenabled, layoutorder, project_type,
-    dv_isparent, isautoupdate, datatype, widgettype, ismandatory, iseditable, layoutname
-)
-VALUES (
-    'edit_element_geom_from_feature', 'false',
-    'If true, a new element without geometry takes a point from the associated feature, and an element that shares a node, connec or gully point follows that feature when it moves. Flow regulators (FRELEM) are excluded. Arcs and links use the midpoint of the line.',
-    'Copy element geometry from feature:',
-    true, 12, 'utils', false, false, 'boolean', 'check', false, true, 'lyt_topology'
-)
-ON CONFLICT (parameter) DO NOTHING;
