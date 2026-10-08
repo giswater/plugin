@@ -145,7 +145,7 @@ BEGIN
 	FROM inp_storage WHERE temp_t_node.node_id=inp_storage.node_id::text;
 
 	-- update child param for outfall
-	UPDATE temp_t_node SET addparam=concat('{"outfall_type":"',outfall_type,'", "stage":"',inp_outfall.stage,'", "curve_id":"',curve_id,'", "timser_id":"',timser_id,'", "gate":"',gate,'"}')
+	UPDATE temp_t_node SET addparam=concat('{"outfall_type":"',outfall_type,'", "stage":"',stage,'", "curve_id":"',curve_id,'", "timser_id":"',timser_id,'", "gate":"',gate,'"}')
 	FROM inp_outfall WHERE temp_t_node.node_id=inp_outfall.node_id::text;
 
 	-- update child param for outfall from node sink
