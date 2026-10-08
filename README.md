@@ -188,7 +188,7 @@ Go2Epa works **without** [`hydraulic_engine`](https://github.com/bgeo-gis/hydrau
 
 QPIP installs into the profile `python/dependencies` tree with an isolated prefix that does **not** see QGIS’s bundled site-packages. Pip then tends to pull its own latest stack (including SciPy). At runtime QGIS often still loads **NumPy from its own Python**, which can be incompatible with the SciPy sitting under dependencies. We hit that mismatch with `hydraulic_engine`, so the package stays **optional and manual** — users who want it install a pinned version themselves.
 
-Tested pin with Giswater 4.x: **`hydraulic_engine==0.9.0`**.
+Tested pin with Giswater 4.x: **`hydraulic_engine==0.12.0`**.
 
 ### Manual install
 
@@ -199,7 +199,7 @@ Use **QGIS’s Python** (not system Python) and install into the same dependenci
 ```powershell
 $py = "C:\Program Files\QGIS 3.40.0\bin\python-qgis.bat"
 $prefix = "$env:APPDATA\QGIS\QGIS3\profiles\default\python\dependencies"
-& $py -m pip install "hydraulic_engine==0.9.0" --prefix $prefix
+& $py -m pip install "hydraulic_engine==0.12.0" --prefix $prefix
 ```
 
 **macOS / Linux** (example; use the Python that ships with QGIS):
@@ -208,7 +208,7 @@ $prefix = "$env:APPDATA\QGIS\QGIS3\profiles\default\python\dependencies"
 # Set QGIS_PYTHON to your QGIS python binary, then:
 PREFIX="$HOME/Library/Application Support/QGIS/QGIS3/profiles/default/python/dependencies"  # macOS QGIS 3
 # Linux often: "$HOME/.local/share/QGIS/QGIS3/profiles/default/python/dependencies"
-"$QGIS_PYTHON" -m pip install "hydraulic_engine==0.9.0" --prefix "$PREFIX"
+"$QGIS_PYTHON" -m pip install "hydraulic_engine==0.12.0" --prefix "$PREFIX"
 ```
 
 Fully quit and reopen QGIS afterwards. In the log you should see that hydraulic engine was imported; otherwise Go2Epa falls back to classic EPA.
@@ -230,7 +230,7 @@ Fully quit and reopen QGIS afterwards. In the log you should see that hydraulic 
    "$QGIS_PYTHON" -m pip install "scipy==<version-from-step-1>" --prefix "$PREFIX"
    ```
 
-Example that fixed the NumPy/SciPy mismatch after `hydraulic_engine==0.9.0` on **QGIS 3.40.12 / Python 3.12.11 / Windows 11 / NumPy 1.26.4**: install `scipy==1.17.1`. Do **not** copy that SciPy pin blindly — use the version printed in step 1 for your QGIS.
+Example that fixed the NumPy/SciPy mismatch after `hydraulic_engine==0.12.0` on **QGIS 3.40.12 / Python 3.12.11 / Windows 11 / NumPy 1.26.4**: install `scipy==1.17.1`. Do **not** copy that SciPy pin blindly — use the version printed in step 1 for your QGIS.
 
 If imports still fail, check that QGIS NumPy is the one being used (`import numpy; print(numpy.__version__, numpy.__file__)`) and avoid leaving a different `numpy` under `python/dependencies`.
 
