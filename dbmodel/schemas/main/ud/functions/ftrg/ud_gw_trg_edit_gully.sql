@@ -64,7 +64,6 @@ v_connect2network boolean;
 v_auto_streetvalues_status boolean;
 v_auto_streetvalues_buffer integer;
 v_auto_streetvalues_field text;
-v_trace_featuregeom boolean;
 v_gully_id text;
 v_childtable_name text;
 v_schemaname text;
@@ -721,14 +720,23 @@ BEGIN
 							(SELECT id FROM v_raster_dem WHERE st_dwithin (envelope, NEW.the_geom, 1) LIMIT 1) LIMIT 1);
 			END IF;
 
-			--update associated geometry of element (if exists) and trace_featuregeom is true
-			v_trace_featuregeom:= (SELECT trace_featuregeom FROM element JOIN element_x_gully USING (element_id)
-                WHERE gully_id=NEW.gully_id AND the_geom IS NOT NULL LIMIT 1);
-			-- if trace_featuregeom is false, do nothing
-			IF v_trace_featuregeom IS TRUE THEN
-				UPDATE element SET the_geom = NEW.the_geom WHERE St_dwithin(OLD.the_geom, the_geom, 0.001)
-				AND element_id IN (SELECT element_id FROM element_x_gully WHERE gully_id = NEW.gully_id);
-			END IF;
+			-- update associated elements with same geometry, trace_featuregeom true and feature_class other than FRELEM
+			UPDATE element
+			SET the_geom = NEW.the_geom
+			WHERE St_dwithin(OLD.the_geom, the_geom, 0.001)
+			AND element.trace_featuregeom IS TRUE
+			AND element_id IN (
+				SELECT element_id
+				FROM element_x_gully
+				WHERE gully_id = NEW.gully_id
+			)
+			AND elementcat_id NOT IN (
+				SELECT cat_element.id
+				FROM cat_element
+				JOIN cat_feature_element ON cat_feature_element.id = cat_element.element_type
+				JOIN cat_feature ON cat_feature.id = cat_feature_element.id
+				WHERE cat_feature.feature_class = 'FRELEM'
+			);
 
 		END IF;
 
