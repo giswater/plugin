@@ -1,0 +1,1 @@
+- UD go2epa FIXED outfalls export `inp_outfall.stage`. The previous export wrote the node inventory state (#959).

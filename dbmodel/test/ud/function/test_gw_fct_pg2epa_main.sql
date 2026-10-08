@@ -11,8 +11,11 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 11 test
-SELECT plan(11);
+-- Plan for 12 tests
+SELECT plan(12);
+
+-- FIXED outfalls must export inp_outfall.stage, not the node inventory state (#959).
+UPDATE inp_outfall SET outfall_type = 'FIXED', stage = 15.2 WHERE node_id = '240';
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -97,6 +100,11 @@ SELECT ok(
 SELECT ok(
     (SELECT result #>> '{body,file}' FROM t_pg2epa_step6) ~ 'LINKS\s+ALL',
     'Check if step=6 INP writes LINKS ALL'
+);
+
+SELECT ok(
+    (SELECT result #>> '{body,file}' FROM t_pg2epa_step6) ~ '240\s+\S+\s+FIXED\s+15\.2',
+    'Check if step=6 INP writes FIXED outfall 240 with inp_outfall.stage 15.2 (#959)'
 );
 
 SELECT is(
