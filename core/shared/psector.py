@@ -2820,18 +2820,13 @@ class GwPsector:
     def _manage_btn_toggle(self, dialog):
         """ Fill btn_toggle QMenu """
 
-        # Functions
-        values = [[0, "Toggle doable"]]
-
-        # Create and populate QMenu
         toggle_menu = QMenu()
-        for value in values:
-            idx = value[0]
-            label = value[1]
-            action = toggle_menu.addAction(f"{label}")
-            action.triggered.connect(partial(self._toggle_feature_psector, dialog, idx))
-
+        title = "Toggle doable"
+        label = tools_qt.tr(title)
+        action = toggle_menu.addAction(label)
+        action.triggered.connect(partial(self._toggle_feature_psector, dialog, 0))
         dialog.btn_toggle.setMenu(toggle_menu)
+        dialog.btn_toggle.setToolTip(label)
 
     def _toggle_feature_psector(self, dialog, idx):
         """ Delete features_id to table plan_@feature_type_x_psector"""
