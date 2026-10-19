@@ -205,3 +205,6 @@ WHERE cfl.listname = 'epa_results'
 INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
 VALUES (4760, 'Copy from CRM date interval: %v_crm_name%', NULL, 1, true, 'utils', 'core', 'AUDIT')
 ON CONFLICT (id) DO NOTHING;
+
+-- Translate new-feature dialog header word via sys_label 4005
+INSERT INTO sys_label (id, idval, label_type) VALUES (4005, 'NEW', 'python') ON CONFLICT (id) DO NOTHING;

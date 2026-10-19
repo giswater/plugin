@@ -861,7 +861,12 @@ BEGIN
 	EXECUTE 'SELECT value::json->>'||quote_literal(v_sourcetable)||' FROM config_param_system WHERE parameter=''admin_formheader_field''' INTO v_formheader_field;
 
 	-- get text to use when insert new feature
-	EXECUTE 'SELECT value::json->>''newText'' FROM config_param_system WHERE parameter=''admin_formheader_field''' INTO v_formheader_new_text;
+	-- 4005 is the translatable word. A custom newText other than the default NEW still wins.
+	SELECT COALESCE(
+		(SELECT NULLIF(value::json->>'newText', 'NEW') FROM config_param_system WHERE parameter = 'admin_formheader_field'),
+		(SELECT idval FROM v_sys_label WHERE id = 4005),
+		'NEW'
+	) INTO v_formheader_new_text;
 
 	-- get value to use on header
 	IF v_sourcetable ='vf_hydrometer' THEN
