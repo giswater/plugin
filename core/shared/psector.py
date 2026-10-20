@@ -401,7 +401,8 @@ class GwPsector:
         self._manage_psector_editability(psector_id)
 
         # Open dialog
-        tools_gw.open_dialog(self.dlg_plan_psector, dlg_name='plan_psector')
+        # Context is the ui stem (psector.ui -> "psector"), not the dialog object name
+        tools_gw.open_dialog(self.dlg_plan_psector, dlg_name='psector')
 
     def load_psector(self, dialog, psector_id, list_coord=None, form_opened=False):
         """
