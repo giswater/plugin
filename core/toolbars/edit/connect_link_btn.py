@@ -225,13 +225,13 @@ class GwConnectLinkButton(GwMaptool):
         self.selected_arcs = []
 
         # Create dropdown menu (always available)
-        values = [[0, "Set closest point (multiple)"], [1, "Set user click (single)"]]
         set_to_arc_menu = QMenu()
-        for value in values:
-            idx = value[0]
-            label = value[1]
-            action = set_to_arc_menu.addAction(f"{label}")
-            action.triggered.connect(partial(self._set_to_arc, idx))
+        title = "Set closest point (multiple)"
+        action = set_to_arc_menu.addAction(tools_qt.tr(title))
+        action.triggered.connect(partial(self._set_to_arc, 0))
+        title = "Set user click (single)"
+        action = set_to_arc_menu.addAction(tools_qt.tr(title))
+        action.triggered.connect(partial(self._set_to_arc, 1))
 
         btn_set_to_arc.setMenu(set_to_arc_menu)
 
