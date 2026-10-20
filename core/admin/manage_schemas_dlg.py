@@ -373,6 +373,14 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self.tbl_network.viewport().installEventFilter(self)
         self._apply_network_table_height()
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        # open_dialog() translates the form after __init__. That pass keys off
+        # object names (lbl_am_info, grb_am, ...) and writes the static .ui
+        # strings ("Not installed") back over the inventory just loaded.
+        self._update_schema_labels()
+        self._update_action_state()
+
     def eventFilter(self, watched, event):
         if watched is self.tbl_network.viewport():
             if (
