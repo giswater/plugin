@@ -12,6 +12,7 @@ from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.sip import isdeleted
 
 from .task import GwTask
+from ...giswater_admin.engine import rename_parent_links_sql
 from ...libs import lib_vars, tools_db, tools_log, tools_qgis, tools_qt
 
 _SCHEMA_NAME_RE = re.compile(r'^[a-z0-9_]+$')
@@ -138,6 +139,8 @@ class GwRenameSchemaTask(GwTask):
                 return False
             if not self._exec(conn, self._lastprocess_sql(new_schema_name)):
                 return False
+            if not self._sync_parent_links(conn, schema, new_schema_name):
+                return False
         if not self._exec(conn, "RESET ROLE"):
             return False
         tools_db.dao.commit(aux_conn=conn)
@@ -145,6 +148,33 @@ class GwRenameSchemaTask(GwTask):
 
     def _is_network_schema(self):
         return str(self.params.get('project_type') or '').lower() in ('ws', 'ud')
+
+    def _sync_parent_links(self, conn, schema, new_schema_name):
+        """A failure here must not undo the rename."""
+        if not self._exec(conn, "SAVEPOINT rename_parent_links"):
+            return False
+        ok = tools_db.execute_sql(
+            rename_parent_links_sql(schema, new_schema_name),
+            commit=False, is_thread=True, show_exception=False, aux_conn=conn,
+        )
+        if not ok:
+            tools_db.execute_sql(
+                "ROLLBACK TO SAVEPOINT rename_parent_links",
+                commit=False, is_thread=True, show_exception=False, aux_conn=conn,
+            )
+            err = lib_vars.session_vars.get('last_error')
+            msg = "parent link rename sync failed: {0}"
+            tools_log.log_warning(msg, msg_params=(err,))
+        released = tools_db.execute_sql(
+            "RELEASE SAVEPOINT rename_parent_links",
+            commit=False, is_thread=True, show_exception=False, aux_conn=conn,
+        )
+        if not released:
+            err = lib_vars.session_vars.get('last_error')
+            msg = "parent link rename sync failed: {0}"
+            tools_log.log_warning(msg, msg_params=(err,))
+            return False
+        return True
 
     def _exec(self, conn, sql):
         ok = tools_db.execute_sql(

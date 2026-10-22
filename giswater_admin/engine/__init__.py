@@ -4,7 +4,14 @@ Engine public API. Importing this module must NOT pull in qgis/Qt.
 
 from __future__ import annotations
 
-from .builder import BuildParams, BuildResult, PhaseResult, SchemaBuilder, drop_schema
+from .builder import (
+    BuildParams,
+    BuildResult,
+    PhaseResult,
+    SchemaBuilder,
+    drop_schema,
+    rename_parent_links_sql,
+)
 from .cancel import CancelToken
 from .changelog import (
     VersionChangelog,
@@ -70,6 +77,7 @@ __all__ = [
     "collect_upgrade_changelogs",
     "discover_cluster",
     "drop_schema",
+    "rename_parent_links_sql",
     "format_network_tree",
     "format_upgrade_changelog",
     "graph_has_linked_dependents",

@@ -750,6 +750,106 @@ def _parse_version(s: str) -> tuple[int, int, int]:
     return nums[0], nums[1], nums[2]
 
 
+def _sql_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def rename_parent_links_sql(old: str, new: str) -> str:
+    """Point every satellite link at a renamed ws/ud parent.
+
+    Rewrites parent_schemas and network_parents.ws/ud in the latest
+    sys_version row of each schema, and the legacy utils current-schema
+    parameters. Per-schema errors only warn, so the rename never aborts.
+    """
+    old_lit = _sql_literal(old)
+    new_lit = _sql_literal(new)
+    return f"""
+DO $gw_rename_links$
+DECLARE
+  v_schema text;
+  v_id integer;
+  v_addparam jsonb;
+  v_names jsonb;
+  v_kind text;
+  v_old text := {old_lit};
+  v_new text := {new_lit};
+BEGIN
+  FOR v_schema IN
+    SELECT n.nspname
+    FROM pg_namespace n
+    JOIN pg_class c ON c.relnamespace = n.oid
+    WHERE c.relname = 'sys_version'
+      AND c.relkind = 'r'
+      AND n.nspname <> 'information_schema'
+      AND n.nspname NOT LIKE 'pg_%'
+  LOOP
+    BEGIN
+      EXECUTE format(
+        'SELECT id, COALESCE(addparam, ''{{}}''::jsonb) '
+        'FROM %I.sys_version ORDER BY id DESC LIMIT 1',
+        v_schema
+      ) INTO v_id, v_addparam;
+
+      IF v_id IS NULL
+         OR NOT (v_addparam ? 'parent_schemas' OR v_addparam ? 'network_parents') THEN
+        CONTINUE;
+      END IF;
+
+      IF v_addparam ? 'parent_schemas' THEN
+        SELECT COALESCE(
+          jsonb_agg(DISTINCT CASE WHEN elem = v_old THEN v_new ELSE elem END),
+          '[]'::jsonb
+        )
+        INTO v_names
+        FROM jsonb_array_elements_text(
+          COALESCE(v_addparam -> 'parent_schemas', '[]'::jsonb)
+        ) AS elem;
+        v_addparam := jsonb_set(v_addparam, '{{parent_schemas}}', v_names, true);
+      END IF;
+
+      IF v_addparam ? 'network_parents' THEN
+        FOREACH v_kind IN ARRAY ARRAY['ws', 'ud']
+        LOOP
+          IF COALESCE(v_addparam -> 'network_parents', '{{}}'::jsonb) ? v_kind THEN
+            SELECT COALESCE(
+              jsonb_agg(DISTINCT CASE WHEN elem = v_old THEN v_new ELSE elem END),
+              '[]'::jsonb
+            )
+            INTO v_names
+            FROM jsonb_array_elements_text(
+              COALESCE(v_addparam -> 'network_parents' -> v_kind, '[]'::jsonb)
+            ) AS elem;
+            v_addparam := jsonb_set(
+              v_addparam, ARRAY['network_parents', v_kind], v_names, true
+            );
+          END IF;
+        END LOOP;
+      END IF;
+
+      EXECUTE format(
+        'UPDATE %I.sys_version SET addparam = $1 WHERE id = $2',
+        v_schema
+      ) USING v_addparam, v_id;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'parent link rename on % failed: %', v_schema, SQLERRM;
+    END;
+  END LOOP;
+
+  IF to_regclass('utils.config_param_system') IS NOT NULL THEN
+    BEGIN
+      UPDATE utils.config_param_system
+      SET value = v_new
+      WHERE parameter IN ('ws_current_schema', 'ud_current_schema')
+        AND value = v_old;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'utils current schema rename failed: %', SQLERRM;
+    END;
+  END IF;
+END
+$gw_rename_links$;
+"""
+
+
 def drop_schema(
     conn: sql_runner.ConnectionLike,
     schema: str,
