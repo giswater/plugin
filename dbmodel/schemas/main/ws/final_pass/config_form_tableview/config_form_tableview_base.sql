@@ -538,6 +538,7 @@ UPDATE config_form_tableview SET alias = 'Iscorporate' WHERE columnname = 'iscor
 UPDATE config_form_tableview SET alias = 'Isvalidated' WHERE columnname = 'isvalidated' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Network stats' WHERE columnname = 'network_stats' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Network type' WHERE columnname = 'network_type' AND objectname = 'v_ui_rpt_cat_result';
+UPDATE config_form_tableview SET alias = 'Parent id' WHERE columnname = 'parent_id' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Result id' WHERE columnname = 'result_id' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Rpt stats' WHERE columnname = 'rpt_stats' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Sector id' WHERE columnname = 'sector_id' AND objectname = 'v_ui_rpt_cat_result';
