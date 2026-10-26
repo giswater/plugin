@@ -606,15 +606,14 @@ class GwCalculatePriority(GwTask):
         """ Build report text for pipes missing pressure data """
         if not null_pressures:
             return
-        msg = "\n".join(
-            [
-                tools_qt.tr("Pipes with invalid pressures: {qtd}."),
-                tools_qt.tr(
-                    "These pipes received the maximum longevity value for their material."
-                ),
-            ]
+        msg = "Pipes with invalid pressures: {0}."
+        header = tools_qt.tr(msg, list_params=(null_pressures,))
+        msg = (
+            "These pipes received the maximum longevity value for their material. "
+            "Run Go2Epa before this calculation so pipe pressures are available."
         )
-        return msg.format(qtd=null_pressures)
+        info = tools_qt.tr(msg)
+        return "\n".join((header, info))
 
     def _ivi_report(self, ivi, title=None):
         """ Format IVI values by year as report text """
@@ -2572,19 +2571,6 @@ class GwCalculatePriority(GwTask):
             """,
             is_thread=True
         )
-        tools_db.execute_sql(
-            f"""
-            UPDATE am.ws_link_output o
-            SET length = c.default_length
-            FROM am.config_linkcatalog c
-            WHERE o.result_id = {self.result_id}
-              AND c.result_id = o.result_id
-              AND c.linkcat_id = o.linkcat_id
-              AND (o.length IS NULL OR o.length = 0)
-              AND c.default_length IS NOT NULL
-            """,
-            is_thread=True
-        )
 
     def _compute_parent_arc_selected_raw(self, links):
         """ODT §6.8: parent_arc_selected_raw from linked ARC result selected flag."""
@@ -2618,14 +2604,6 @@ class GwCalculatePriority(GwTask):
             link = row.copy()
             linkcat_id = link.get("linkcat_id")
             length = float(link.get("length") or 0)
-            if (
-                not length
-                and self.config_catalog
-                and linkcat_id
-                and self.config_catalog.has_key(linkcat_id)
-            ):
-                length = float(self.config_catalog.get_default_length(linkcat_id) or 0)
-                link["length"] = length
 
             if link.get("age") is None and link.get("builtdate"):
                 link["age"] = today_year - link["builtdate"].year

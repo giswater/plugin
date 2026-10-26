@@ -111,9 +111,7 @@ class GwConfigCatalogButton:
         if self._key == "linkcat_id":
             msg = "Surface"
             surface = tools_qt.tr(msg)
-            msg = "Default length (m)"
-            default_length = tools_qt.tr(msg)
-            headers.extend([surface, default_length])
+            headers.append(surface)
         table_widget.setRowCount(0)
         table_widget.setColumnCount(len(headers))
         table_widget.setHorizontalHeaderLabels(headers)
@@ -127,7 +125,6 @@ class GwConfigCatalogButton:
             table_widget.setItem(r, 5, QTableWidgetItem(str(row.get("matcat_id") or "")))
             if self._key == "linkcat_id":
                 table_widget.setItem(r, 6, QTableWidgetItem(str(row.get("surface_type") or "")))
-                table_widget.setItem(r, 7, QTableWidgetItem(str(row.get("default_length") or "")))
 
     def get_compliance(self, key):
         """ Return compliance grade for the catalog key """
@@ -144,10 +141,6 @@ class GwConfigCatalogButton:
     def get_cost_rehab(self, key):
         """ Return rehabilitation cost (€/m) for the catalog key. """
         return self._data[key].get("cost_rehab")
-
-    def get_default_length(self, key):
-        """ODT default_length when geometry length is null."""
-        return self._data[key].get("default_length")
 
     def get_surface_type(self, key):
         """ODT surface_type catalog classifier."""
@@ -172,7 +165,7 @@ class GwConfigCatalogButton:
         extra_cols = ""
         extra_rehab = self._key in ("arccat_id", "nodecat_id")
         if self._key == "linkcat_id":
-            extra_cols = ", surface_type, default_length"
+            extra_cols = ", surface_type"
         elif extra_rehab:
             extra_cols = ", cost_rehab"
         sql = f"""
@@ -191,9 +184,7 @@ class GwConfigCatalogButton:
                     "NULL" if not surface or surface in ("None", "NULL")
                     else f"'{str(surface).replace(chr(39), chr(39) + chr(39))}'"
                 )
-                dlen = value.get("default_length")
-                dlen_sql = "NULL" if dlen in (None, "", "None", "NULL") else dlen
-                extra_vals = f", {surface_sql}, {dlen_sql}"
+                extra_vals = f", {surface_sql}"
             elif extra_rehab:
                 rehab = value.get("cost_rehab")
                 extra_vals = (
@@ -228,18 +219,9 @@ def configcatalog_from_tablewidget(table_widget, key="arccat_id", save_table="co
             "compliance": int(table_widget.item(r, 4).text()),
             "matcat_id": table_widget.item(r, 5).text(),
         }
-        if key == "linkcat_id" and table_widget.columnCount() > 7:
+        if key == "linkcat_id" and table_widget.columnCount() > 6:
             surf_item = table_widget.item(r, 6)
-            dlen_item = table_widget.item(r, 7)
             row["surface_type"] = surf_item.text() if surf_item and surf_item.text() not in ("", "None") else None
-            try:
-                row["default_length"] = (
-                    float(dlen_item.text())
-                    if dlen_item and dlen_item.text() not in ("", "None", "NULL")
-                    else None
-                )
-            except (ValueError, AttributeError):
-                row["default_length"] = None
         data.append(row)
     return GwConfigCatalogButton(data, key, save_table=save_table)
 
@@ -696,8 +678,13 @@ class CalculatePriority:
         else:
             tools_qt.set_widget_text(dlg, dlg.lbl_dnom, tools_qt.tr("Diameter:"))
             tools_qt.set_widget_text(dlg, dlg.lbl_material, tools_qt.tr("Material:"))
-        # Features tab (node types) only for NODE; hide single node_type combo in Selection
+        # Features tab (node types) only for NODE; hide single node_type combo in Selection.
+        # Node catalogs have no material, so that tab stays off.
         self._set_config_tab_visible("tab_features", is_node)
+        if is_node:
+            self._set_config_tab_visible("tab_material", False)
+        elif self.config.show_config is True and self.config.show_config_material is True:
+            self._set_config_tab_visible("tab_material", True)
         self._set_arc_result_combo_visible()
         if is_node:
             dlg.lbl_material.setVisible(False)
@@ -812,6 +799,10 @@ class CalculatePriority:
         else:
             self.qtbl_catalog.showColumn(1)
             self.qtbl_catalog.showColumn(3)
+        if self.asset_type == "NODE":
+            self.qtbl_catalog.hideColumn(5)
+        else:
+            self.qtbl_catalog.showColumn(5)
         return True
 
     def _material_config_sql(self):
