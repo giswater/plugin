@@ -1,2 +1,3 @@
 - UD go2epa FIXED outfalls export `inp_outfall.stage`. The previous export wrote the node inventory state (#959).
 - Restore UD views dropped by the 4.17.6 `cat_link` rebuild when that restore did not match `pg_get_viewdef` (`ve_link`, `ve_link_*`, `v_om_visit`). `cat_dnom`/`cat_dint` become `cat_geom1`/`cat_geom2` and the `cat_pnom` select item is removed (#969).
+- Recreate `v_ui_rpt_cat_result` including `parent_id` (hidden in the EPA result manager).

@@ -79,3 +79,16 @@ ALTER TABLE rpt_cat_result ADD CONSTRAINT rpt_cat_result_parent_id_fkey
 
 CREATE INDEX IF NOT EXISTS idx_rpt_cat_result_parent_id
   ON rpt_cat_result USING btree (parent_id);
+
+-- Hidden by default.
+INSERT INTO config_form_tableview (location_type, project_type, objectname, columnname, columnindex, visible, width, alias, "style", addparam)
+SELECT
+    'epa_toolbar', 'utils', 'v_ui_rpt_cat_result', 'parent_id',
+    (SELECT COALESCE(MAX(columnindex), 0) + 1 FROM config_form_tableview
+     WHERE location_type = 'epa_toolbar' AND project_type = 'utils' AND objectname = 'v_ui_rpt_cat_result'),
+    false, NULL, 'Parent id', NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM config_form_tableview
+    WHERE location_type = 'epa_toolbar' AND project_type = 'utils'
+      AND objectname = 'v_ui_rpt_cat_result' AND columnname = 'parent_id'
+);
