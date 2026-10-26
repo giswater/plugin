@@ -53,6 +53,16 @@ END $$;
 
 _RESET_ROLE_SQL = "RESET ROLE;"
 
+# Linking a second parent must not replay patches already applied to the satellite.
+# Those patches rename or rebuild objects that belong to the parent linked first.
+_INTEGRATE_PROFILES = frozenset({
+    "integrate",
+    "integrate_sample",
+    "integrate_ws",
+    "integrate_ud",
+    "activate",
+})
+
 
 @dataclass
 class BuildParams:
@@ -234,6 +244,7 @@ class SchemaBuilder:
         result = BuildResult(profile=self.params.profile)
 
         try:
+            self._keep_applied_updates()
             if self.params.run_mode in ("upgrade", "upgrade_step"):
                 err = assert_no_downgrade(
                     self.params.project_version,
@@ -288,7 +299,38 @@ class SchemaBuilder:
 
     def plan(self) -> list[tuple[Phase, int]]:
         """Public planning helper used by ``--check``."""
+        self._keep_applied_updates()
         return self._plan(self.manifest.profile(self.params.profile))
+
+    def _keep_applied_updates(self) -> None:
+        """Integrate an existing satellite from its current version, not from 0.0.0."""
+        if self.params.profile not in _INTEGRATE_PROFILES:
+            return
+        if self.params.run_mode != "new_project":
+            return
+        fetch = getattr(self.conn, "execute_scalar", None)
+        if not callable(fetch):
+            return
+        schema = (self.params.schema_name or "").replace('"', "").replace(";", "")
+        if not schema:
+            return
+        sql = (
+            f'SELECT giswater FROM "{schema}".sys_version '
+            "ORDER BY id DESC LIMIT 1"
+        )
+        value, ok = fetch(sql)
+        if not ok or value is None or not str(value).strip():
+            return
+        version = str(value).strip()
+        self.params.run_mode = "upgrade"
+        self.params.project_version = version
+        self._ctx["run_mode"] = "upgrade"
+        self._ctx["project_version"] = version
+        logger.info(
+            "integrate %s: schema is already %s; applying only newer updates",
+            schema,
+            version,
+        )
 
     def _plan(self, phase_ids: tuple[str, ...]) -> list[tuple[Phase, int]]:
         plan: list[tuple[Phase, int]] = []

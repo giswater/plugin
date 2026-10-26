@@ -671,7 +671,8 @@ class CalculatePriority:
             ("NODE", tools_qt.tr("NODE")),
         ]
         if self.project_type == "WS":
-            rows.append(("LINK", tools_qt.tr("LINK")))
+            msg = "Link"
+            rows.append(("LINK", tools_qt.tr(msg)))
         tools_qt.fill_combo_values(dlg.cmb_asset_type, rows, 1)
         if self.asset_type == "LINK" and self.project_type != "WS":
             self.asset_type = "ARC"

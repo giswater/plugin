@@ -14,6 +14,7 @@ from qgis.core import QgsTask
 from qgis.PyQt.QtCore import pyqtSignal
 
 from .task import GwTask
+from ..toolbars.am.am_utils import am_names
 from ...libs import tools_db, tools_qt, lib_vars
 
 
@@ -45,6 +46,10 @@ class GwAssignation(GwTask):
         config = configparser.ConfigParser()
         config.read(config_path)
         self.unknown_material = config.get("general", "unknown_material")
+
+        names = am_names("WS", "ARC")
+        self.ext_arc = names["ext"]
+        self.v_input = names["v_input"]
 
         self.msg_task_canceled = tools_qt.tr("Task canceled.")
 
@@ -131,7 +136,7 @@ class GwAssignation(GwTask):
                 a.matcat_id AS arc_material,
                 ST_LENGTH(a.the_geom) AS arc_length
             FROM am.leaks AS l
-            JOIN am.ext_ws_arc_asset AS a ON
+            JOIN am.{self.ext_arc} AS a ON
                 a.arc_id::text = l.feature_id::text
                 AND (l.date > a.builtdate OR a.builtdate IS NULL)
             WHERE l.feature_id IS NOT NULL
@@ -161,7 +166,7 @@ class GwAssignation(GwTask):
                     ST_INTERSECTION(ST_BUFFER(l.the_geom, {self.buffer}), a.the_geom)
                 ) AS length
             FROM am.leaks AS l
-            JOIN am.ext_ws_arc_asset AS a ON
+            JOIN am.{self.ext_arc} AS a ON
                 (l.date > a.builtdate OR a.builtdate IS NULL)
                 AND ST_DWITHIN(l.the_geom, a.the_geom, {self.buffer})
             WHERE l.date > (
@@ -177,6 +182,9 @@ class GwAssignation(GwTask):
             """,
             is_thread=True
         )
+
+        if self._db_failed():
+            return False
 
         if self.isCanceled():
             self._emit_report(self.msg_task_canceled)
@@ -318,7 +326,7 @@ class GwAssignation(GwTask):
                 f"""
                 WITH start_pipe AS (
                         SELECT arc_id, matcat_id, dnom, builtdate, the_geom
-                        FROM am.ext_ws_arc_asset
+                        FROM am.{self.ext_arc}
                         WHERE arc_id = '{arc["id"]}'),
                     ordered_list AS (
                         SELECT a.arc_id, 
@@ -327,7 +335,7 @@ class GwAssignation(GwTask):
                             a.dnom,
                             a.the_geom <-> (select the_geom from start_pipe LIMIT 1) AS dist,
                             ST_LENGTH(a.the_geom) AS length
-                        FROM am.ext_ws_arc_asset AS a
+                        FROM am.{self.ext_arc} AS a
                         {where_clause}
                         ORDER BY start DESC, dist ASC),
                     cum_list AS (
@@ -370,6 +378,13 @@ class GwAssignation(GwTask):
                 return False
         return arcs
 
+    def _db_failed(self):
+        err = lib_vars.session_vars.get("last_error")
+        if not err:
+            return False
+        self._emit_report(str(err))
+        return True
+
     def _emit_report(self, *args):
         self.report.emit({"info": {"values": [{"message": arg} for arg in args]}})
 
@@ -384,10 +399,10 @@ class GwAssignation(GwTask):
                 )::date),
             total_pipes as (
                 select count(*) as total_pipes
-                from am.ext_ws_arc_asset),
+                from am.{self.ext_arc}),
             orphan_pipes as (
                 select count(*) as orphan_pipes
-                from am.v_asset_ws_arc_input
+                from am.{self.v_input}
                 where rleak is null or rleak = 0),
             max_rleak as (
                 select max(rleak) as max_rleak

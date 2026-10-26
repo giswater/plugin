@@ -92,7 +92,7 @@ class GwResultSelectorButton(GwAction):
             elif asset_type == "NODE":
                 msg = "NODE"
             else:
-                msg = "LINK"
+                msg = "Link"
             combo_rows.append((asset_type, tools_qt.tr(msg)))
         if not combo_rows:
             return False

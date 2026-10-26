@@ -22,11 +22,46 @@ DECLARE
 BEGIN
 	SET search_path = am, public;
 
-	SELECT NULLIF(btrim(addparam->>'parentSchema'), ''), project_type, giswater
-	INTO v_parent_schema, v_project_type, v_version
+	SELECT project_type, giswater
+	INTO v_project_type, v_version
 	FROM am.sys_version
 	ORDER BY id DESC
 	LIMIT 1;
+
+	-- parentSchema is only the last linked parent. With WS and UD both attached,
+	-- mincut lives on the WS parent listed in parent_schemas.
+	SELECT btrim(parent_name)
+	INTO v_parent_schema
+	FROM (
+		SELECT addparam
+		FROM am.sys_version
+		ORDER BY id DESC
+		LIMIT 1
+	) latest
+	CROSS JOIN LATERAL (
+		SELECT jsonb_array_elements_text(COALESCE(latest.addparam->'parent_schemas', '[]'::jsonb)) AS parent_name
+		UNION ALL
+		SELECT latest.addparam->>'parentSchema'
+		UNION ALL
+		SELECT latest.addparam->>'parent_schema'
+	) parents
+	WHERE NULLIF(btrim(parent_name), '') IS NOT NULL
+		AND to_regnamespace(btrim(parent_name)) IS NOT NULL
+		AND EXISTS (
+			SELECT 1
+			FROM information_schema.tables t
+			WHERE t.table_schema = btrim(parent_name)
+				AND t.table_name = 'minsector_mincut'
+		)
+	LIMIT 1;
+
+	IF v_parent_schema IS NULL THEN
+		SELECT NULLIF(btrim(addparam->>'parentSchema'), '')
+		INTO v_parent_schema
+		FROM am.sys_version
+		ORDER BY id DESC
+		LIMIT 1;
+	END IF;
 
 	IF v_parent_schema IS NULL OR to_regnamespace(v_parent_schema) IS NULL THEN
 		RETURN jsonb_build_object(

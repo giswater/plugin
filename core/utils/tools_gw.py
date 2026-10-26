@@ -1086,11 +1086,11 @@ def _am_extent_table(schema_name):
     """WS or UD inventory view used for SRID and canvas extent. None if AM is not integrated."""
     project_type = (global_vars.project_type or "").lower()
     if project_type == "ud":
-        names = ("ext_ud_arc_asset", "ext_ud_node_asset")
+        names = ("v_ext_ud_arc_asset", "ext_ud_arc_asset", "v_ext_ud_node_asset", "ext_ud_node_asset")
     elif project_type == "ws":
-        names = ("ext_ws_arc_asset",)
+        names = ("v_ext_ws_arc_asset", "ext_ws_arc_asset")
     else:
-        names = ("ext_ws_arc_asset", "ext_ud_arc_asset")
+        names = ("v_ext_ws_arc_asset", "ext_ws_arc_asset", "v_ext_ud_arc_asset", "ext_ud_arc_asset")
     for name in names:
         if tools_db.check_view(name, schema_name):
             return name

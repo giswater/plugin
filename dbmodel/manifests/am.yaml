@@ -28,6 +28,13 @@ phases:
         recursive: false
         schema_override: "{{ parent_schema }}"
 
+  - id: refresh_am_functions
+    type: sql_dir
+    description: "Re-apply AM functions that must see every linked parent."
+    steps:
+      - source: "schemas/addon/am/base/fct/gw_fct_am_update_mincut_criticity.sql"
+        recursive: false
+
   - id: load_sample_user
     type: sql_dir
     optional: true
@@ -81,8 +88,8 @@ profiles:
   sample:
     phases: [load_base, load_sample_user, load_updates, load_i18n, register_version]
   integrate:
-    phases: [load_updates, integrate_am, load_i18n, register_version]
+    phases: [load_updates, integrate_am, refresh_am_functions, load_i18n, register_version]
   integrate_sample:
-    phases: [load_updates, integrate_am, load_sample_integrate, load_i18n, register_version]
+    phases: [load_updates, integrate_am, load_sample_integrate, refresh_am_functions, load_i18n, register_version]
   update:
-    phases: [load_updates, load_i18n, register_version]
+    phases: [load_updates, refresh_am_functions, load_i18n, register_version]

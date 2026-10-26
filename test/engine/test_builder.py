@@ -474,3 +474,61 @@ def test_empty_final_pass_runs_cff_clone_locale(dbmodel_path: str, kind: str):
     assert "00_cff_init.sql" in names
     assert "01_cff_base.sql" in names
     assert "01_cff_arc.sql" not in names
+
+
+class _VersionConn(_RecConn):
+    def __init__(self, version) -> None:
+        super().__init__()
+        self.version = version
+
+    def execute_scalar(self, sql: str, *, filepath: str | None = None):
+        if self.version is None:
+            return (None, True)
+        return (self.version, True)
+
+
+def test_integrate_keeps_updates_already_applied(dbmodel_path: str):
+    """A second parent link must not replay patches that rename the first parent's views."""
+    manifest = load_manifest(os.path.join(dbmodel_path, "manifests", "am.yaml"))
+    params = BuildParams(
+        schema_name="am",
+        plugin_version="4.18.0",
+        project_version="0.0.0",
+        run_mode="new_project",
+        profile="integrate",
+        parent_schema="ws_sample",
+        parent_type="ws",
+        sql_root=dbmodel_path,
+    )
+    builder = SchemaBuilder(_VersionConn("4.18.0"), manifest, params)
+    builder._keep_applied_updates()
+    assert builder.params.run_mode == "upgrade"
+    assert builder.params.project_version == "4.18.0"
+    assert builder._ctx["run_mode"] == "upgrade"
+    assert builder._walk_versions(manifest.phase("load_updates")) == []
+
+    behind = BuildParams(
+        schema_name="am",
+        plugin_version="4.18.0",
+        profile="integrate",
+        parent_schema="ud_sample",
+        parent_type="ud",
+        sql_root=dbmodel_path,
+    )
+    behind_builder = SchemaBuilder(_VersionConn("4.17.0"), manifest, behind)
+    behind_builder._keep_applied_updates()
+    versions = [v for v, _paths in behind_builder._walk_versions(manifest.phase("load_updates"))]
+    assert versions == [(4, 17, 1), (4, 18, 0)]
+
+    fresh = BuildParams(
+        schema_name="am",
+        plugin_version="4.18.0",
+        profile="integrate",
+        parent_schema="ws_sample",
+        parent_type="ws",
+        sql_root=dbmodel_path,
+    )
+    fresh_builder = SchemaBuilder(_VersionConn(None), manifest, fresh)
+    fresh_builder._keep_applied_updates()
+    assert fresh_builder.params.run_mode == "new_project"
+    assert fresh_builder._walk_versions(manifest.phase("load_updates"))

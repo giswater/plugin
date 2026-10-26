@@ -50,6 +50,26 @@ class QtDbAdapter:
 
     # --------------------------------------------------------- ConnectionLike
 
+    def execute_scalar(self, sql: str, *, filepath: str | None = None):
+        """Return ``(first_column, ok)``. Used to read the satellite version before integrate."""
+        self._statement_position = 0
+        row = tools_db.get_row(
+            sql,
+            log_info=False,
+            log_sql=False,
+            commit=self._dev_commit,
+            is_thread=True,
+        )
+        if row:
+            self._error = ""
+            return (row[0], True)
+        err = lib_vars.session_vars.get("last_error")
+        if err:
+            self._error = _format_db_error(err)
+            return (None, False)
+        self._error = ""
+        return (None, True)
+
     def execute(self, sql: str, *, filepath: str | None = None) -> bool:
         self._statement_position = 0
         ok = tools_db.execute_sql(

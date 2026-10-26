@@ -115,6 +115,9 @@ class GwCalculatePriority(GwTask):
         self.project_type = (project_type or "WS").upper()
         if self.project_type not in ("WS", "UD"):
             self.project_type = "WS"
+        self.ext_ws_arc = am_names("WS", "ARC")["ext"]
+        self.ext_ws_node = am_names("WS", "NODE")["ext"]
+        self.ext_ws_link = am_names("WS", "LINK")["ext"]
         self.node_type = node_type
         self.nodecat = nodecat
         self.linked_arc_result_id = linked_arc_result_id
@@ -225,7 +228,7 @@ class GwCalculatePriority(GwTask):
             update am.ws_arc_output o
             set (sector_id, macrosector_id, presszone_id, pavcat_id, function_type, the_geom, code, expl_id)
                 = (select sector_id, macrosector_id, presszone_id, pavcat_id, function_type, st_multi(the_geom), code, expl_id
-                    from am.ext_ws_arc_asset a
+                    from am.{self.ext_ws_arc} a
                     where a.arc_id = o.arc_id)
             where o.result_id = {self.result_id}
             """,
@@ -239,7 +242,7 @@ class GwCalculatePriority(GwTask):
             update am.ws_node_output o
             set (sector_id, macrosector_id, presszone_id, builtdate, nodecat_id, node_type, the_geom, code, expl_id, dma_id)
                 = (select sector_id, macrosector_id, presszone_id, builtdate, nodecat_id, node_type, the_geom, code, expl_id, dma_id
-                    from am.ext_ws_node_asset a
+                    from am.{self.ext_ws_node} a
                     where a.node_id = o.node_id)
             where o.result_id = {self.result_id}
             """,
@@ -397,7 +400,7 @@ class GwCalculatePriority(GwTask):
         if columns != "":
             sql = f"""
                 select {columns}
-                from am.ext_ws_arc_asset a
+                from am.{self.ext_ws_arc} a
                 left join am.ws_arc_input ai using (arc_id)
                 {filters}
             """
@@ -454,7 +457,7 @@ class GwCalculatePriority(GwTask):
 
         sql = f"""
             select {columns}
-            from am.ext_ws_node_asset a
+            from am.{self.ext_ws_node} a
             left join am.ws_node_input i using (node_id)
             {filters}
         """
@@ -507,7 +510,7 @@ class GwCalculatePriority(GwTask):
 
         sql = f"""
             select {columns}
-            from am.ext_ws_link_asset a
+            from am.{self.ext_ws_link} a
             left join am.ws_link_input i using (link_id)
             {filters}
         """
@@ -738,7 +741,7 @@ class GwCalculatePriority(GwTask):
                 a.builtdate,
                 a.press1,
                 a.press2
-            FROM am.ext_ws_arc_asset a
+            FROM am.{self.ext_ws_arc} a
             {filters}
             """,
             is_thread=True,
@@ -1078,7 +1081,7 @@ class GwCalculatePriority(GwTask):
                     10 - sh.compliance
                 from am.ws_arc_engine_sh sh
                 left join am.ws_arc_input i using (arc_id)
-                left join am.ext_ws_arc_asset a using (arc_id)
+                left join am.{self.ext_ws_arc} a using (arc_id)
                 where sh.result_id = {self.result_id}
                 order by total;
             """,
@@ -1577,10 +1580,10 @@ class GwCalculatePriority(GwTask):
         self._update_mincut_criticity()
 
         rows = tools_db.get_rows(
-            """
+            f"""
             with lengths AS (
                 select a.dma_id, sum(st_length(a.the_geom)) as length
-                from am.ext_ws_arc_asset a
+                from am.{self.ext_ws_arc} a
                 group by dma_id
             )
             select d.dma_id, (d.nrw / d.days / l.length * 1000) as nrw_m3kmd
@@ -2563,7 +2566,7 @@ class GwCalculatePriority(GwTask):
                  linkcat_id, matcat_id, the_geom, expl_id, dma_id, length)
                 = (select connec_id, arc_id, sector_id, macrosector_id, presszone_id, builtdate,
                           linkcat_id, matcat_id, the_geom, expl_id, dma_id, length
-                    from am.ext_ws_link_asset a
+                    from am.{self.ext_ws_link} a
                     where a.link_id = o.link_id)
             where o.result_id = {self.result_id}
             """,
