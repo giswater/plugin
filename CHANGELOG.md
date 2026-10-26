@@ -11,7 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Go2EPA stores the SHA-256 of the exported INP in `rpt_cat_result.addparam` (`inpSha256`), including recursive EPA runs. Existing `addparam` keys are kept.
 - EPA Result Manager warns before deleting a result that other results use as `parent_id`. Schema adds `rpt_cat_result.parent_id` → `result_id` (`ON DELETE SET NULL`); the plugin no longer clears `parent_id` itself.
-- Expose `parent_id` on `v_ui_rpt_cat_result`.
 - Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` / `plan_netscenario_mapzone_graph` for mapzone synoptic layout (#965).
 - Synoptic layers `v_synoptic_line_<type>` and `v_synoptic_point_<type>` for scada, dma, sector, and the project-specific mapzones (ws: dqa, presszone, supplyzone; ud: dwfzone). SCADA geometry is the schematic `synoptic_geom` (SRID 0). Mapzone lines join the border node to the zone polygon; `flow_sign` keeps the direction (`1` node→zone, `-1` zone→node) (#977).
 
@@ -25,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Expose `parent_id` on `v_ui_rpt_cat_result`.
 - Renaming a ws/ud schema updates the parent link stored by every satellite (utils, am, cm, cmms, cibs, publi, multilang), so utils updates and Manage Schemas keep pointing at the renamed parent.
 - End feature warns on the element or link tab when none of its layers are loaded, and disables the map and expression selection buttons on that tab.
 - Selecting or removing features that sit on more than one layer (element: `ve_man_genelem` and `ve_man_frelem`) refreshes every layer. Previously only the first layer's highlight updated until the map was moved.
