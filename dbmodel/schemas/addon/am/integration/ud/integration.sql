@@ -305,7 +305,8 @@ SELECT
 		+ (SELECT count(*)::numeric FROM am.ud_breakdown b
 			WHERE b.feature_id::text = a.arc_id::text AND upper(trim(b.feature_type)) = 'ARC')
 	) AS incident_count_src,
-	(SELECT count(*)::numeric FROM PARENT_SCHEMA.connec c WHERE c.arc_id = a.arc_id AND c.state = 1) AS dwf_raw_src,
+	-- DWF is filled by a dedicated function. Do not proxy it with the connec count.
+	NULL::numeric AS dwf_raw_src,
 	COALESCE(arc_add.max_flow, 0)::numeric AS storm_raw_src,
 	a.dataquality AS data_quality_src,
 	a.dataquality_obs::varchar[] AS data_quality_obs_src

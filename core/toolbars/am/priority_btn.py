@@ -84,7 +84,7 @@ class GwConfigCatalogButton:
             "linkcat_id": "Linkcat_id",
         }.get(self._key, "Arccat_id")
         if self._key == "linkcat_id":
-            msg = "Fixed cost"
+            msg = "Fixed cost (€/u)"
             fixed_cost = tools_qt.tr(msg)
             msg = "Pipe cost (€/m)"
             pipe_cost = tools_qt.tr(msg)

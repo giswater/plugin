@@ -100,8 +100,8 @@ WHERE c.id::text = a.arccat_id::text
 	AND (a.function_type IS NULL OR a.function_type = 'St. Function');
 
 -- CCTV, breakdowns and the input override, visible without the importer.
--- Inspection 9001 is replaced on re-integrate so the three pipes stay the three
--- largest trunk sewers (RC200), not whatever arc_id sorts first.
+-- Inspection 9001 is replaced on re-integrate. Every operative pipe gets at least
+-- one defect; code and severity rotate so the priority run is not one flat class.
 -- The delete trigger writes a dummy score of 1; clear that on the pipes that just lost the inspection.
 CREATE TEMP TABLE IF NOT EXISTS am_ud_sample_cctv_reset (arc_id varchar(16));
 TRUNCATE am_ud_sample_cctv_reset;
@@ -126,26 +126,31 @@ WHERE i.arc_id = r.arc_id
 INSERT INTO am.ud_arc_pathology (
 	arc_id, pathology_id, inspection_id, pk_start, pk_end, severity, observation, inspection_date
 )
-SELECT asset.arc_id, cat.pathology_id, 9001, obs.pk_start, obs.pk_end, obs.severity,
-	obs.observation, DATE '2024-06-01'
+SELECT asset.arc_id, cat.pathology_id, 9001,
+	0, 1 + (asset.n % 5),
+	1 + ((asset.n + extra.k) % 5),
+	'Sample CCTV', DATE '2024-06-01'
 FROM (
 	SELECT a.arc_id::varchar(16) AS arc_id,
-		row_number() OVER (ORDER BY c.geom1 DESC, a.arc_id::integer) AS n
+		(row_number() OVER (ORDER BY a.arc_id::integer) - 1)::integer AS n
 	FROM PARENT_SCHEMA.arc a
-	JOIN PARENT_SCHEMA.cat_arc c ON c.id::text = a.arccat_id::text
 	WHERE a.state = 1
-		AND a.arc_type = 'CONDUIT'
-		AND COALESCE(c.geom1, 0) >= 1
-	ORDER BY c.geom1 DESC, a.arc_id::integer
-	LIMIT 3
+		AND a.arc_type IN ('CONDUIT', 'SIPHON')
 ) asset
+CROSS JOIN LATERAL (
+	SELECT 0 AS k
+	UNION ALL
+	SELECT 3 WHERE asset.n % 4 = 0
+) extra
 JOIN (
 	VALUES
-		(1, 'BAC', 0::numeric, 8::numeric, 5, 'Sample collapse, full replacement'),
-		(1, 'BBA', 1::numeric, 2::numeric, 2, 'Sample roots, maintenance only'),
-		(2, 'BAB', 0::numeric, 3::numeric, 3, 'Sample crack, rehabilitation'),
-		(3, 'BBD', 2::numeric, 4::numeric, 4, 'Sample infiltration')
-) AS obs(n, code, pk_start, pk_end, severity, observation) ON obs.n = asset.n
+		(0, 'BAF'),
+		(1, 'BAB'),
+		(2, 'BBA'),
+		(3, 'BBD'),
+		(4, 'BAC'),
+		(5, 'BAL')
+) AS obs(slot, code) ON obs.slot = (asset.n + extra.k) % 6
 JOIN am.ud_cat_pathology cat ON cat.code = obs.code
 WHERE NOT EXISTS (
 	SELECT 1 FROM am.ud_arc_pathology p
@@ -171,6 +176,10 @@ WHERE NOT EXISTS (
 
 -- Pathology triggers update the parent schema and leave search_path there.
 SET search_path = am, public;
+
+-- Drop the connec-count proxy previously stored as DWF. A function will calculate it.
+UPDATE am.ud_arc_input SET dwf_raw = NULL WHERE dwf_raw IS NOT NULL;
+UPDATE am.ud_node_input SET dwf_raw = NULL WHERE dwf_raw IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS am.ud_breakdown (
 	id serial PRIMARY KEY,
