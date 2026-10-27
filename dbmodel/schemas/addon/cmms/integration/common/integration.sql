@@ -14,13 +14,15 @@ SELECT cmms.gw_fct_cmms_create_parent_views('SCHEMA_NAME');
 INSERT INTO sys_table (id, descript, sys_role, source)
 VALUES
 	('v_ui_cmms_visit', 'CMMS visits linked to a feature', 'role_basic', 'core'),
-	('v_ui_cmms_attachment', 'CMMS attachments linked to a feature', 'role_basic', 'core')
+	('v_ui_cmms_attachment', 'CMMS attachments linked to a feature', 'role_basic', 'core'),
+	('v_cmms_visit', 'CMMS visits linked to features of this schema', 'role_basic', 'core'),
+	('v_cmms_attachment', 'CMMS attachments linked to features of this schema', 'role_basic', 'core')
 ON CONFLICT (id) DO NOTHING;
 
 DO $cmms_grant_views$
 BEGIN
 	IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_basic') THEN
-		GRANT SELECT ON v_ui_cmms_visit, v_ui_cmms_attachment TO role_basic;
+		GRANT SELECT ON v_ui_cmms_visit, v_ui_cmms_attachment, v_cmms_visit, v_cmms_attachment TO role_basic;
 	END IF;
 END
 $cmms_grant_views$;

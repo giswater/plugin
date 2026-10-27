@@ -60,7 +60,8 @@ CREATE TABLE ws_old.sys_table (id text);
 INSERT INTO ws_old.config_form_tabs VALUES ('ve_node', 'tab_cmms'), ('ve_arc', 'tab_event');
 INSERT INTO ws_old.config_form_fields VALUES ('node', 'tab_cmms'), ('node', 'tab_data');
 INSERT INTO ws_old.config_form_tableview VALUES ('v_ui_cmms_visit'), ('v_ui_cmms_attachment'), ('keep_me');
-INSERT INTO ws_old.sys_table VALUES ('v_ui_cmms_visit'), ('v_ui_cmms_attachment'), ('node');
+INSERT INTO ws_old.sys_table VALUES
+    ('v_ui_cmms_visit'), ('v_ui_cmms_attachment'), ('v_cmms_visit'), ('v_cmms_attachment'), ('node');
 RESET ROLE;
 
 SELECT lives_ok(
@@ -76,6 +77,8 @@ SELECT is(
 
 SELECT hasnt_view('ws_old', 'v_ui_cmms_visit', 'unlink drops the visit view');
 SELECT hasnt_view('ws_old', 'v_ui_cmms_attachment', 'unlink drops the attachment view');
+SELECT hasnt_view('ws_old', 'v_cmms_visit', 'unlink drops the schema visit list');
+SELECT hasnt_view('ws_old', 'v_cmms_attachment', 'unlink drops the schema attachment list');
 
 SELECT is(
     (SELECT count(*)::int FROM ws_old.config_form_tabs WHERE tabname = 'tab_cmms'),
@@ -109,7 +112,8 @@ SELECT is(
     'unlink leaves the other tableview rows'
 );
 SELECT is(
-    (SELECT count(*)::int FROM ws_old.sys_table WHERE id IN ('v_ui_cmms_visit', 'v_ui_cmms_attachment')),
+    (SELECT count(*)::int FROM ws_old.sys_table
+     WHERE id IN ('v_ui_cmms_visit', 'v_ui_cmms_attachment', 'v_cmms_visit', 'v_cmms_attachment')),
     0,
     'unlink removes the cmms sys_table rows'
 );

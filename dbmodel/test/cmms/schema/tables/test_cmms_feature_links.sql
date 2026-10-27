@@ -78,6 +78,72 @@ SELECT ok(
     'a direct attachment has no visit_id'
 );
 
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_cmms_visit),
+    1,
+    'two features with the same sys_code are one visit'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_ui_cmms_visit),
+    2,
+    'the feature tab still has one row per feature'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_cmms_attachment),
+    2,
+    'direct and visit files are two attachments'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_ui_cmms_attachment),
+    4,
+    'the feature tab repeats each attachment per feature'
+);
+
+INSERT INTO attachment (id, name)
+VALUES ('00000000-0000-0000-0000-000000000023', 'both-photo');
+
+INSERT INTO attachment_x_feature (attachment_id, sys_code)
+VALUES ('00000000-0000-0000-0000-000000000023', 'SC-1');
+
+INSERT INTO attachment_x_visit (attachment_id, visit_id)
+VALUES ('00000000-0000-0000-0000-000000000023', '00000000-0000-0000-0000-000000000011');
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_cmms_attachment
+     WHERE id = '00000000-0000-0000-0000-000000000023'),
+    1,
+    'an attachment linked directly and through the visit is one row'
+);
+
+INSERT INTO visit (id, type, status)
+VALUES ('00000000-0000-0000-0000-000000000012', 'inspection', 'open');
+
+INSERT INTO visit_x_feature (visit_id, sys_code)
+VALUES ('00000000-0000-0000-0000-000000000012', 'SC-NONE');
+
+INSERT INTO attachment (id, name)
+VALUES ('00000000-0000-0000-0000-000000000024', 'orphan-photo');
+
+INSERT INTO attachment_x_feature (attachment_id, sys_code)
+VALUES ('00000000-0000-0000-0000-000000000024', 'SC-NONE');
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_cmms_visit
+     WHERE id = '00000000-0000-0000-0000-000000000012'),
+    0,
+    'a visit whose sys_code matches nothing is absent'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_cmms_attachment
+     WHERE id = '00000000-0000-0000-0000-000000000024'),
+    0,
+    'an attachment whose sys_code matches nothing is absent'
+);
+
 UPDATE ws_fake.node SET node_id = '20' WHERE node_id = '1';
 
 SELECT is(
@@ -101,6 +167,18 @@ SELECT is(
 );
 
 SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_cmms_visit),
+    0,
+    'deleting the features hides the schema visit list'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_cmms_attachment),
+    0,
+    'deleting the features hides the schema attachment list'
+);
+
+SELECT is(
     (SELECT count(*)::int FROM visit_x_feature WHERE sys_code = 'SC-1'),
     1,
     'deleting the features keeps the cmms link'
@@ -108,8 +186,8 @@ SELECT is(
 
 SELECT is(
     (SELECT count(*)::int FROM attachment_x_feature WHERE sys_code = 'SC-1'),
-    1,
-    'deleting the features keeps the attachment link'
+    2,
+    'deleting the features keeps the attachment links'
 );
 
 SELECT * FROM finish();

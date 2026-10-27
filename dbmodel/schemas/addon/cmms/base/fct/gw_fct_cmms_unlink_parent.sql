@@ -19,6 +19,8 @@ BEGIN
 	END IF;
 
 	IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = p_parent) THEN
+		EXECUTE format('DROP VIEW IF EXISTS %I.v_cmms_attachment', p_parent);
+		EXECUTE format('DROP VIEW IF EXISTS %I.v_cmms_visit', p_parent);
 		EXECUTE format('DROP VIEW IF EXISTS %I.v_ui_cmms_attachment', p_parent);
 		EXECUTE format('DROP VIEW IF EXISTS %I.v_ui_cmms_visit', p_parent);
 
@@ -36,8 +38,8 @@ BEGIN
 		END IF;
 		IF to_regclass(format('%I.sys_table', p_parent)) IS NOT NULL THEN
 			EXECUTE format(
-				'DELETE FROM %I.sys_table WHERE id IN (%L, %L)',
-				p_parent, 'v_ui_cmms_visit', 'v_ui_cmms_attachment'
+				'DELETE FROM %I.sys_table WHERE id IN (%L, %L, %L, %L)',
+				p_parent, 'v_ui_cmms_visit', 'v_ui_cmms_attachment', 'v_cmms_visit', 'v_cmms_attachment'
 			);
 		END IF;
 	END IF;

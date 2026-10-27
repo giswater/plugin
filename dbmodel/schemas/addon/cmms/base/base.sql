@@ -129,6 +129,21 @@ CREATE TRIGGER trg_visit_set_updated_at
   BEFORE UPDATE ON cmms.visit
   FOR EACH ROW EXECUTE PROCEDURE cmms.set_updated_at_column();
 
+DROP TRIGGER IF EXISTS trg_visit_x_feature_is_last ON cmms.visit_x_feature;
+CREATE TRIGGER trg_visit_x_feature_is_last
+  AFTER INSERT OR DELETE ON cmms.visit_x_feature
+  FOR EACH ROW EXECUTE PROCEDURE cmms.gw_trg_cmms_is_last();
+
+DROP TRIGGER IF EXISTS trg_attachment_x_feature_is_last ON cmms.attachment_x_feature;
+CREATE TRIGGER trg_attachment_x_feature_is_last
+  AFTER INSERT OR DELETE ON cmms.attachment_x_feature
+  FOR EACH ROW EXECUTE PROCEDURE cmms.gw_trg_cmms_is_last();
+
+DROP TRIGGER IF EXISTS trg_attachment_x_visit_is_last ON cmms.attachment_x_visit;
+CREATE TRIGGER trg_attachment_x_visit_is_last
+  AFTER INSERT OR DELETE ON cmms.attachment_x_visit
+  FOR EACH ROW EXECUTE PROCEDURE cmms.gw_trg_cmms_is_last();
+
 GRANT SELECT ON ALL TABLES IN SCHEMA cmms TO role_basic;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA cmms TO role_cmms;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA cmms TO role_cmms;
