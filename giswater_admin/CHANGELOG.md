@@ -9,12 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `cmms` satellite schema: `gw schema addon create|integrate|update|drop --type cmms`. Singleton, one schema per database, integrated with each ws/ud parent. Lockstep `network update` runs it after `am` and before `cm`. `schema addon create --srid` sets `sys_version.epsg` and the geometry SRID.
-
-### Fixed
-
-- Dropping `cmms` unlinks every parent in `parent_schemas` first, so the visit views and the info tab are removed before the schema goes.
-- Dropping `cmms` removes `satellites.cmms` from each linked ws/ud parent. Dropping a ws/ud parent unlinks its rows from `cmms`. Both are best-effort and do not fail the drop. `gw db init` creates `role_cmms` (NOLOGIN, writer grants on the cmms schema).
+- `cmms` satellite schema: `gw schema addon create|integrate|update|drop --type cmms`. Singleton, one schema per database, integrated with each ws/ud parent. Lockstep `network update` runs it after `am` and before `cm`. Drop unlinks every parent first (visit views, info tab, `satellites.cmms`) and keeps the cmms data. `gw db init` creates `role_cmms`.
 
 ## [0.4.4] - 2026-10-06
 

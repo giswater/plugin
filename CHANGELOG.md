@@ -9,8 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- CMMS visits tab on the feature info form. Integrating CMMS adds `tab_cmms` with the feature's visits and its attachments (direct ones and those from its visits). Unlinking or dropping CMMS removes the tab.
-- Link cmms visits and attachments to a ws/ud feature by `sys_code`. Deleting or renumbering a feature never changes cmms. Unlinking a parent drops the tab and the views and keeps the cmms data.
+- CMMS satellite integrated with each ws/ud parent. The feature info form gets `tab_cmms` (visits and attachments, linked by `sys_code`). Unlinking or dropping CMMS removes the tab and the views and keeps the cmms data.
 - Go2EPA stores the SHA-256 of the exported INP in `rpt_cat_result.addparam` (`inpSha256`), including recursive EPA runs. Existing `addparam` keys are kept.
 - EPA Result Manager warns before deleting a result that other results use as `parent_id`. Schema adds `rpt_cat_result.parent_id` → `result_id` (`ON DELETE SET NULL`); the plugin no longer clears `parent_id` itself.
 - Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` / `plan_netscenario_mapzone_graph` for mapzone synoptic layout (#965).
@@ -26,7 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Integrating CMMS with a WS/UD parent appends one `cmms.sys_version` row. The integrate SQL no longer calls `cmms.gw_fct_admin_sys_version_register`; the profile's `register_version` phase already records `parentSchema`.
 - Expose `parent_id` on `v_ui_rpt_cat_result`.
 - Renaming a ws/ud schema updates the parent link stored by every satellite (utils, am, cm, cmms, cibs, publi, multilang), so utils updates and Manage Schemas keep pointing at the renamed parent.
 - End feature warns on the element or link tab when none of its layers are loaded, and disables the map and expression selection buttons on that tab.
@@ -37,9 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UD `ve_cat_feature_node` exposes `graph_delimiter` (view, form field, edit trigger); it was present on WS only (#966).
 - UD `cat_link` recreated like UD `cat_arc` (`shape`/`geom1`..`geom8` instead of WS `pnom`/`dnom`/`dint`/`dext`); data migrated from `_cat_link_` (#969).
 - UD go2epa FIXED outfalls export `inp_outfall.stage`. The previous export wrote the node inventory state (#959).
-- Open Check Project (and other dynamic dialogs) when a `config_form_fields` row has `layoutorder` null. The widget is skipped with a warning instead of crashing on `int(None)`.
-- Lower `wntr` requirement to `>=1.2.0` so QPIP can resolve under QGIS NumPy 1.x constraints (`wntr>=1.4` needs NumPy 2.2+).
-- Fix mincut hydrometer list (`tbl_mincut_hydro`): `config_form_list` / `config_form_tableview` still used `hydrometer_customer_code` after the 4.12 rename to `hydro_customer_code`, so `gw_fct_getlist` failed with 42703.
 
 ## [4.17.5] - 2026-10-06
 
@@ -76,6 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Read form combo ids with `get_combo_value` instead of `currentData()` when enabling lot relations, saving lots and workorders, and checking UD pattern type. `currentData()` is the row `[id, idval]`, which produced SQL like `campaign_id = ['', '']`.
 - Stop treating an unchanged `epa_type` as a change on info-form Accept. The snapshot used the combo label (empty or "Loading..." while the async combo loads). Compare and restore the id via `GwAsyncComboBox.selected_id`.
+- Open Check Project (and other dynamic dialogs) when a `config_form_fields` row has `layoutorder` null. The widget is skipped with a warning instead of crashing on `int(None)`.
+- Lower `wntr` requirement to `>=1.2.0` so QPIP can resolve under QGIS NumPy 1.x constraints (`wntr>=1.4` needs NumPy 2.2+).
+- Fix mincut hydrometer list (`tbl_mincut_hydro`): `config_form_list` / `config_form_tableview` still used `hydrometer_customer_code` after the 4.12 rename to `hydro_customer_code`, so `gw_fct_getlist` failed with 42703.
 
 ## [4.17.1] - 2026-09-24
 
