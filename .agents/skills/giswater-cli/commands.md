@@ -59,7 +59,7 @@ Isolated `update` is **blocked** if the schema belongs to a network → `network
 
 ## schema addon
 
-Typical kinds: `utils`, `cibs`, `cm`, `am`, `audit`. Any manifest under `dbmodel/manifests/` except `ws`/`ud` (also `publi`, `multilang`). `am` is WS-parent only, singleton.
+Typical kinds: `utils`, `cibs`, `cm`, `cmms`, `am`, `audit`. Any manifest under `dbmodel/manifests/` except `ws`/`ud` (also `publi`, `multilang`). `am` is WS-parent only, singleton. `cmms` is a singleton integrated with each ws/ud parent.
 
 Flow: **create** (standalone) then **integrate** once per parent.
 

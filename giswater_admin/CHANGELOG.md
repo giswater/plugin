@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `cmms` satellite schema: `gw schema addon create|integrate|update|drop --type cmms`. Singleton, one schema per database, integrated with each ws/ud parent. Lockstep `network update` runs it after `am` and before `cm`. Drop unlinks every parent first (visit views, info tab, `satellites.cmms`) and keeps the cmms data. `gw db init` creates `role_cmms`.
+
 ## [0.4.4] - 2026-10-06
 
 ### Added

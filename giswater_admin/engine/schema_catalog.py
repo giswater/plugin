@@ -13,9 +13,9 @@ RowFetcher = Callable[[str, Optional[list]], Optional[list[tuple]]]
 _NETWORK_KINDS = ("ws", "ud")
 MAIN_KINDS = _NETWORK_KINDS
 # Backward-compatible defaults when dbmodel_path is unavailable (tests, legacy imports).
-_FALLBACK_ADDON_KINDS = ("utils", "cibs", "am", "cm", "audit")
+_FALLBACK_ADDON_KINDS = ("utils", "cibs", "am", "cmms", "cm", "audit")
 ADDON_KINDS = _FALLBACK_ADDON_KINDS
-_FALLBACK_UPDATE_KIND_ORDER = ("utils", "cibs", "ws", "ud", "am", "cm", "audit")
+_FALLBACK_UPDATE_KIND_ORDER = ("utils", "cibs", "ws", "ud", "am", "cmms", "cm", "audit")
 UPDATE_KIND_ORDER = _FALLBACK_UPDATE_KIND_ORDER
 
 

@@ -18,6 +18,7 @@ from qgis.core import QgsEditorWidgetSetup, QgsFieldConstraints, QgsLayerTreeLay
 from qgis.gui import QgsDateTimeEdit
 
 from ... import global_vars
+from ..shared import cmms
 from ..shared.document import GwDocument
 from ..shared.info import GwInfo
 from ..shared.visit import GwVisit
@@ -235,6 +236,29 @@ def open_visit(**kwargs):
 
     manage_visit = GwVisit()
     manage_visit.get_visit(visit_id, feature_type, feature_id)
+
+
+def open_cmms_visit(**kwargs):
+    """ Open the CMMS visit selected in the table. """
+
+    feature_id = kwargs['complet_result']['body']['feature']['id']
+    cmms.open_visit(kwargs['qtable'], feature_id)
+
+
+def open_cmms_attachment(**kwargs):
+    """ Open the CMMS attachment selected in the table. """
+
+    cmms.open_attachment(kwargs['qtable'])
+
+
+def open_cmms_attachment_file(**kwargs):
+    """ Open the path shown in the CMMS attachment dialog with the OS default program. """
+
+    dialog = kwargs['dialog']
+    path = tools_qt.get_text(dialog, 'tab_none_path', return_string_null=False)
+    status, message = tools_os.open_file(path)
+    if status is False and message is not None:
+        tools_qgis.show_warning(message, parameter=path, dialog=dialog)
 
 
 def manage_document(doc_id, **kwargs):

@@ -67,3 +67,15 @@ def test_integrate_profile_publi_style_when_present(dbmodel_path: str) -> None:
     manifest = load_kind_manifest(dbmodel_path, "publi")
     # integrate profiles are commented out in the manifest today
     assert integrate_profile(manifest, "ws") is None
+
+
+def test_cmms_kind_order_and_integrate(dbmodel_path: str) -> None:
+    assert "cmms" in all_kinds(dbmodel_path)
+    assert "cmms" in addon_kinds(dbmodel_path)
+    order = update_kind_order(dbmodel_path)
+    assert order.index("ud") < order.index("cmms") < order.index("cm")
+    roots = kind_update_roots(dbmodel_path, "cmms")
+    assert roots == [os.path.join(dbmodel_path, "schemas", "addon", "cmms", "updates")]
+    manifest = load_kind_manifest(dbmodel_path, "cmms")
+    assert integrate_profile(manifest, "ws") == "integrate"
+    assert integrate_profile(manifest, "ud") == "integrate"

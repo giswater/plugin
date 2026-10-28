@@ -63,7 +63,7 @@ def register(sub: argparse._SubParsersAction, parent: argparse.ArgumentParser) -
         "--type",
         required=True,
         metavar="KIND",
-        help="Addon kind (any manifest under dbmodel/manifests/, e.g. utils, publi).",
+        help="Addon kind (any manifest under dbmodel/manifests/, e.g. utils, publi, cmms).",
     )
     sp_ac.add_argument("--name", default=None)
     sp_ac.add_argument(

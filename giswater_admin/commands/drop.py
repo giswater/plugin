@@ -36,6 +36,7 @@ def run(args: argparse.Namespace, out: Out) -> int:
             "schema": safe,
             "cascade": cascade,
             "error": fx.error or None,
+            "cleanup": fx.notes or None,
         }
     )
     return 0 if fx.ok else 1

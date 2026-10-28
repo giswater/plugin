@@ -13,6 +13,7 @@ PROJECT_SCHEMA = {
     "ud": "ud_40",
     "utils": "utils",
     "cibs": "cibs",
+    "cmms": "cmms",
     "network_ws": "ws_40",
     "network_ud": "ud_40",
 }

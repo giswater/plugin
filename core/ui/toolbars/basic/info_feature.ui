@@ -109,8 +109,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1159</width>
-             <height>373</height>
+             <width>1167</width>
+             <height>327</height>
             </rect>
            </property>
            <attribute name="label">
@@ -130,8 +130,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1159</width>
-             <height>373</height>
+             <width>100</width>
+             <height>30</height>
             </rect>
            </property>
            <attribute name="label">
@@ -165,8 +165,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1159</width>
-             <height>365</height>
+             <width>1167</width>
+             <height>319</height>
             </rect>
            </property>
            <attribute name="label">
@@ -204,8 +204,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>98</width>
-             <height>36</height>
+             <width>100</width>
+             <height>30</height>
             </rect>
            </property>
            <attribute name="label">
@@ -237,10 +237,10 @@
           <property name="title">
            <string>Dscenario</string>
           </property>
-          <property name="collapsed">
+          <property name="collapsed" stdset="0">
            <bool>true</bool>
           </property>
-          <property name="saveCollapsedState">
+          <property name="saveCollapsedState" stdset="0">
            <bool>true</bool>
           </property>
           <layout class="QGridLayout" name="gridLayout_13">
@@ -301,7 +301,7 @@
                  </item>
                 </layout>
                </widget>
-			   <widget class="QWidget" name="tab_shortpipe">
+               <widget class="QWidget" name="tab_shortpipe">
                 <attribute name="title">
                  <string>Shortpipe</string>
                 </attribute>
@@ -502,6 +502,68 @@
         </item>
         <item row="2" column="0">
          <layout class="QGridLayout" name="lyt_event_3"/>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab_cmms">
+       <attribute name="title">
+        <string>CMMS visits</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_cmms">
+        <item row="0" column="0">
+         <widget class="QToolBox" name="cmms_toolbox">
+          <property name="currentIndex">
+           <number>0</number>
+          </property>
+          <widget class="QWidget" name="page_visits">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>1167</width>
+             <height>327</height>
+            </rect>
+           </property>
+           <attribute name="label">
+            <string>Visits</string>
+           </attribute>
+           <layout class="QGridLayout" name="gridLayout_30" rowstretch="0,0,1">
+            <item row="1" column="0">
+             <layout class="QGridLayout" name="lyt_cmms_v_2"/>
+            </item>
+            <item row="0" column="0">
+             <layout class="QGridLayout" name="lyt_cmms_v_1"/>
+            </item>
+            <item row="2" column="0">
+             <layout class="QGridLayout" name="lyt_cmms_v_3"/>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="page_attachments">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>1167</width>
+             <height>327</height>
+            </rect>
+           </property>
+           <attribute name="label">
+            <string>Attachments</string>
+           </attribute>
+           <layout class="QGridLayout" name="gridLayout_32" rowstretch="0,0,1">
+            <item row="0" column="0">
+             <layout class="QGridLayout" name="lyt_cmms_a_1"/>
+            </item>
+            <item row="1" column="0">
+             <layout class="QGridLayout" name="lyt_cmms_a_2"/>
+            </item>
+            <item row="2" column="0">
+             <layout class="QGridLayout" name="lyt_cmms_a_3"/>
+            </item>
+           </layout>
+          </widget>
+         </widget>
         </item>
        </layout>
       </widget>
