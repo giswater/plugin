@@ -15,8 +15,8 @@ AS $function$
 Documentation:
 Takes node_1 and node_2 and connects them with pgr_dijkstra (operative arcs).
 Writes the_geom, attrib.arcs and is_scadamap on the path.
-group_id stays NULL until gw_fct_scada_graph_check.
-Layout (level_id / position_id) is not stored on om_scada_graph.
+synoptic_id and synoptic_geom stay NULL until gw_fct_scada_graph_check.
+Layout (level_id / position_id) is stored later on synoptic_geom.
 
 INSTEAD OF DELETE on v_om_scada_graph deletes the om_scada_graph row.
 AFTER DELETE on om_scada_graph sets is_scadamap = FALSE on arcs/nodes no longer
@@ -63,7 +63,8 @@ BEGIN
 	    IF TG_OP IN ('INSERT', 'UPDATE') THEN
 
 			-- Layout is computed by gw_fct_scada_graph_check, not per-row on accept
-			NEW.group_id := NULL;
+			NEW.synoptic_id := NULL;
+			NEW.synoptic_geom := NULL;
 
 			IF EXISTS (
 				SELECT 1 FROM om_scada_graph g

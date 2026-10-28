@@ -517,6 +517,10 @@ class GwNetscenarioManagerButton(GwAction):
     def _manage_current_changed(self):
         """ Manages tab changes """
 
+        # Parent dialog may already be closed while mapzone config is still open
+        if isdeleted(self.dlg_netscenario):
+            return
+
         # Fill current table
         self._fill_netscenario_table()
 

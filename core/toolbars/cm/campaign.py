@@ -99,7 +99,6 @@ class Campaign:
         # Set filter events
         self.manager_dialog.btn_cancel.clicked.connect(self.manager_dialog.reject)
         self.manager_dialog.campaign_cmb_state.currentIndexChanged.connect(self.filter_campaigns)
-        self.manager_dialog.campaign_cmb_state.currentIndexChanged.connect(self.filter_campaigns)
         self.manager_dialog.date_event_from.dateChanged.connect(self.filter_campaigns)
         self.manager_dialog.date_event_to.dateChanged.connect(self.filter_campaigns)
         self.manager_dialog.campaign_cmb_date_filter_type.currentIndexChanged.connect(self.filter_campaigns)
@@ -1119,7 +1118,8 @@ class Campaign:
         # State
         status_row = self.manager_dialog.campaign_cmb_state.currentData()
         if status_row and status_row[0]:
-            filters.append(f"status = {status_row[0]}")
+            status_id = int(status_row[0])
+            filters.append(f"campaign_id IN (SELECT campaign_id FROM cm.om_campaign WHERE status = {status_id})")
 
         # Date
         date_type = tools_qt.get_combo_value(self.manager_dialog, self.manager_dialog.campaign_cmb_date_filter_type, 0)

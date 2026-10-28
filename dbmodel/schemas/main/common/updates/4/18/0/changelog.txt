@@ -1,3 +1,8 @@
 - Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` for mapzone synoptic layout (#965).
 - Add system parameter `edit_element_geom_from_feature` (default false). When true, the first link of an element with no geometry copies a point from the associated feature: the feature point for a node, connec or gully, and the midpoint of the line for an arc or link. Flow regulators (FRELEM) are excluded.
 - Translate the new-feature dialog header word via `sys_label` 4005. The default `admin_formheader_field` `newText` stays `NEW`; any other value still overrides the label.
+
+- `om_scada_graph.group_id` renamed to `synoptic_id`. Schematic layout moves from `attrib.synopticGeometry` to `synoptic_geom geometry(LineString, 0)` (x = position_id, y = level_id). `attrib` keeps `arcs`. `v_om_scada_graph` is dropped without CASCADE and recreated (#977).
+- `temp_pgr_mapzone_synoptic.group_id` renamed to `synoptic_id`. `mapzone_graph` has no `group_id` (#977).
+- Synoptic views `v_synoptic_line_scada`, `v_synoptic_point_scada`, `v_synoptic_line_dma`, `v_synoptic_point_dma`, `v_synoptic_line_sector`, `v_synoptic_point_sector`. SCADA geometry is the schematic `synoptic_geom` (SRID 0). DMA and sector lines are the border node joined to the zone polygon; the Sugiyama layout is not stored (#977).
+- Drop `gw_fct_scada_graph_export` and `om_scada_graph_json` (and the 4.17.0 leftover `_om_scada_graph_json_`). Nothing called the function. Plain DROP, no CASCADE (#977).

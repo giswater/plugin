@@ -2,3 +2,4 @@
 - Fid 377 D-W roughness range is 0.001 to 0.9 (#975).
 - Added config_form_tableview rows for EPA DWF dialog in UD: dwfscenario_id, node_id, value, pat1, pat2, pat3, pat4.
 - Widen `rpt_cat_result.parent_id` to `varchar(50)` and add FK to `result_id` with ON DELETE SET NULL.
+- Register `v_ui_rpt_cat_result.parent_id` in the EPA result manager tableview, hidden by default.

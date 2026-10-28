@@ -14,10 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Go2EPA stores the SHA-256 of the exported INP in `rpt_cat_result.addparam` (`inpSha256`), including recursive EPA runs. Existing `addparam` keys are kept.
 - EPA Result Manager warns before deleting a result that other results use as `parent_id`. Schema adds `rpt_cat_result.parent_id` → `result_id` (`ON DELETE SET NULL`); the plugin no longer clears `parent_id` itself.
 - Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` / `plan_netscenario_mapzone_graph` for mapzone synoptic layout (#965).
+- Synoptic layers `v_synoptic_line_<type>` and `v_synoptic_point_<type>` for scada, dma, sector, and the project-specific mapzones (ws: dqa, presszone, supplyzone; ud: dwfzone). SCADA geometry is the schematic `synoptic_geom` (SRID 0). Mapzone lines join the border node to the zone polygon; `flow_sign` keeps the direction (`1` node→zone, `-1` zone→node) (#977).
+
+### Removed
+
+- `gw_fct_scada_graph_export` and `om_scada_graph_json`. The check no longer reports a saved JSON (#977).
+
+### Changed
+
+- `om_scada_graph.group_id` renamed to `synoptic_id`. Schematic layout moves from `attrib.synopticGeometry` to `synoptic_geom geometry(LineString, 0)`. `v_om_scada_graph` is recreated. `temp_pgr_mapzone_synoptic.group_id` is also `synoptic_id`; `mapzone_graph` has no `group_id` (#977).
 
 ### Fixed
 
 - Integrating CMMS with a WS/UD parent appends one `cmms.sys_version` row. The integrate SQL no longer calls `cmms.gw_fct_admin_sys_version_register`; the profile's `register_version` phase already records `parentSchema`.
+- Expose `parent_id` on `v_ui_rpt_cat_result`.
 - Renaming a ws/ud schema updates the parent link stored by every satellite (utils, am, cm, cmms, cibs, publi, multilang), so utils updates and Manage Schemas keep pointing at the renamed parent.
 - End feature warns on the element or link tab when none of its layers are loaded, and disables the map and expression selection buttons on that tab.
 - Selecting or removing features that sit on more than one layer (element: `ve_man_genelem` and `ve_man_frelem`) refreshes every layer. Previously only the first layer's highlight updated until the map was moved.

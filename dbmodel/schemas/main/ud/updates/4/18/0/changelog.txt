@@ -1,0 +1,1 @@
+- Synoptic views `v_synoptic_line_dwfzone` and `v_synoptic_point_dwfzone`. Lines are the border node joined to the zone polygon; the Sugiyama layout is not stored (#977).

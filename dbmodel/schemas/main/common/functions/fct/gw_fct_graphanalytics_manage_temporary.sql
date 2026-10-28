@@ -261,7 +261,7 @@ BEGIN
             CREATE TEMP TABLE IF NOT EXISTS temp_pgr_mapzone_synoptic (
                 node_1 int4 NOT NULL,
                 node_2 int4 NOT NULL,
-                group_id int4 NULL,
+                synoptic_id int4 NULL,
                 node_type_1 text NULL,
                 node_type_2 text NULL,
                 attrib text NULL,

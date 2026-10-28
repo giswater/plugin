@@ -30,3 +30,294 @@ VALUES (
 ON CONFLICT (parameter) DO NOTHING;
 
 INSERT INTO sys_label (id, idval, label_type) VALUES (4005, 'NEW', 'python') ON CONFLICT (id) DO NOTHING;
+
+-- om_scada_graph.group_id is the synoptic id. Layout line leaves attrib (#977).
+-- v_om_scada_graph is dropped (no CASCADE) and recreated so synoptic_geom
+-- sits next to attrib. Grants are copied back; lastprocess also re-grants.
+
+DROP TABLE IF EXISTS pg_temp._v_om_scada_graph_acl;
+CREATE TEMP TABLE _v_om_scada_graph_acl AS
+SELECT DISTINCT grantee, privilege_type
+FROM information_schema.role_table_grants
+WHERE table_schema = current_schema()
+	AND table_name = 'v_om_scada_graph'
+	AND grantee <> 'PUBLIC';
+
+DROP TRIGGER IF EXISTS gw_trg_v_om_scada_graph_delete ON v_om_scada_graph;
+DROP VIEW IF EXISTS v_om_scada_graph;
+
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"RENAME","table":"om_scada_graph","column":"group_id","newName":"synoptic_id"}}$$);
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"ADD","table":"om_scada_graph","column":"synoptic_geom","dataType":"geometry(LineString, 0)"}}$$);
+
+-- Schematic line: x = position_id, y = level_id. Not the project SRID.
+UPDATE om_scada_graph
+SET synoptic_geom = ST_SetSRID(ST_GeomFromGeoJSON((attrib::json -> 'synopticGeometry')::text), 0)
+WHERE attrib IS JSON
+	AND json_typeof(attrib::json -> 'synopticGeometry') = 'object'
+	AND attrib::json -> 'synopticGeometry' ->> 'type' = 'LineString'
+	AND json_typeof(attrib::json -> 'synopticGeometry' -> 'coordinates') = 'array'
+	AND json_array_length(attrib::json -> 'synopticGeometry' -> 'coordinates') >= 2;
+
+UPDATE om_scada_graph
+SET attrib = NULLIF((attrib::jsonb - 'synopticGeometry')::text, '{}')
+WHERE synoptic_geom IS NOT NULL
+	AND attrib IS JSON
+	AND attrib::jsonb ? 'synopticGeometry';
+
+CREATE INDEX IF NOT EXISTS om_scada_graph_synoptic_id_idx ON om_scada_graph USING btree (synoptic_id);
+
+CREATE OR REPLACE VIEW v_om_scada_graph AS
+SELECT
+	osg.synoptic_id,
+	osg.node_1,
+	osg.node_type_1,
+	n1.sys_code AS sys_code_1,
+	n1.expl_id AS expl_id_1,
+	n1.dma_id AS dma_id_1,
+	d1.name AS dma_name_1,
+	osg.node_2,
+	osg.node_type_2,
+	n2.sys_code AS sys_code_2,
+	n2.expl_id AS expl_id_2,
+	n2.dma_id AS dma_id_2,
+	d2.name AS dma_name_2,
+	osg.expl_id,
+	osg.attrib,
+	osg.synoptic_geom,
+	osg.active,
+	osg.the_geom
+FROM om_scada_graph osg
+LEFT JOIN node n1 ON n1.node_id = osg.node_1
+LEFT JOIN dma d1 ON d1.dma_id = n1.dma_id
+LEFT JOIN node n2 ON n2.node_id = osg.node_2
+LEFT JOIN dma d2 ON d2.dma_id = n2.dma_id;
+
+CREATE TRIGGER gw_trg_v_om_scada_graph_delete
+INSTEAD OF DELETE ON v_om_scada_graph
+FOR EACH ROW EXECUTE FUNCTION gw_trg_scada_graph_builder();
+
+DO $scada_view_acl$
+DECLARE
+	r record;
+BEGIN
+	FOR r IN SELECT grantee, privilege_type FROM _v_om_scada_graph_acl
+	LOOP
+		EXECUTE format(
+			'GRANT %s ON TABLE v_om_scada_graph TO %I',
+			r.privilege_type,
+			r.grantee
+		);
+	END LOOP;
+END
+$scada_view_acl$;
+
+DROP TABLE IF EXISTS pg_temp._v_om_scada_graph_acl;
+
+UPDATE sys_function
+SET descript = 'Builds synoptic layout (level_id, position_id). Both graphs store synoptic_id. SCADA also stores synoptic_geom; MAPZONE keeps the layout line in attrib.synopticGeometry.'
+WHERE id = 3574;
+
+-- Synoptic layers (#977).
+-- SCADA: schematic geometry (SRID 0). x = position_id, y = level_id.
+-- Mapzone: mapzone_graph has no stored layout. Lines run from the border node
+-- to the zone polygon (flow_sign -1 is zone -> node). Point rows with
+-- is_zone use the zone id as node_id, same id space as the synoptic edges.
+
+CREATE OR REPLACE VIEW v_synoptic_line_scada AS
+SELECT
+	g.synoptic_id,
+	'SCADA'::text AS synoptic_type,
+	g.node_1,
+	g.node_type_1::text AS node_type_1,
+	n1.sys_code::text AS label_1,
+	g.node_2,
+	g.node_type_2::text AS node_type_2,
+	n2.sys_code::text AS label_2,
+	NULL::int2 AS flow_sign,
+	g.synoptic_geom::geometry(LineString, 0) AS the_geom
+FROM om_scada_graph g
+LEFT JOIN node n1 ON n1.node_id = g.node_1
+LEFT JOIN node n2 ON n2.node_id = g.node_2;
+
+CREATE OR REPLACE VIEW v_synoptic_point_scada AS
+SELECT DISTINCT ON (synoptic_id, node_id)
+	synoptic_id,
+	'SCADA'::text AS synoptic_type,
+	node_id,
+	node_type,
+	label,
+	NULL::int2 AS flow_sign,
+	false AS is_zone,
+	the_geom
+FROM (
+	SELECT
+		g.synoptic_id,
+		g.node_1 AS node_id,
+		g.node_type_1::text AS node_type,
+		n.sys_code::text AS label,
+		ST_StartPoint(g.synoptic_geom)::geometry(Point, 0) AS the_geom
+	FROM om_scada_graph g
+	LEFT JOIN node n ON n.node_id = g.node_1
+	WHERE g.synoptic_geom IS NOT NULL
+	UNION ALL
+	SELECT
+		g.synoptic_id,
+		g.node_2,
+		g.node_type_2::text,
+		n.sys_code::text,
+		ST_EndPoint(g.synoptic_geom)::geometry(Point, 0)
+	FROM om_scada_graph g
+	LEFT JOIN node n ON n.node_id = g.node_2
+	WHERE g.synoptic_geom IS NOT NULL
+) s
+ORDER BY synoptic_id, node_id, the_geom IS NULL;
+
+INSERT INTO sys_table (id, descript, sys_role, alias, "source", addparam)
+VALUES
+	('v_synoptic_line_scada', 'SCADA synoptic edges (schematic LineString, SRID 0)', 'role_om', 'Synoptic SCADA lines', 'core', '{"pkey": "node_1,node_2"}'::json),
+	('v_synoptic_point_scada', 'SCADA synoptic vertices (schematic Point, SRID 0)', 'role_om', 'Synoptic SCADA points', 'core', '{"pkey": "synoptic_id,node_id,is_zone"}'::json)
+ON CONFLICT (id) DO UPDATE SET
+	descript = EXCLUDED.descript,
+	sys_role = EXCLUDED.sys_role,
+	alias = EXCLUDED.alias,
+	addparam = EXCLUDED.addparam;
+
+-- dma and sector exist on ws and ud. presszone, dqa and supplyzone are in the
+-- ws 4.18.0 patch. dwfzone is in the ud 4.18.0 patch.
+
+CREATE OR REPLACE VIEW v_synoptic_line_dma AS
+SELECT
+	g.mapzone_id AS synoptic_id,
+	'DMA'::text AS synoptic_type,
+	g.node_id AS node_1,
+	cn.node_type::text AS node_type_1,
+	n.sys_code::text AS label_1,
+	g.mapzone_id AS node_2,
+	'MAPZONE'::text AS node_type_2,
+	z.name::text AS label_2,
+	g.flow_sign,
+	CASE
+		WHEN n.the_geom IS NULL OR z.the_geom IS NULL THEN NULL::geometry(LineString, SRID_VALUE)
+		WHEN g.flow_sign = -1 THEN ST_MakeLine(ST_PointOnSurface(z.the_geom), n.the_geom)::geometry(LineString, SRID_VALUE)
+		ELSE ST_MakeLine(n.the_geom, ST_PointOnSurface(z.the_geom))::geometry(LineString, SRID_VALUE)
+	END AS the_geom
+FROM mapzone_graph g
+JOIN node n ON n.node_id = g.node_id
+LEFT JOIN cat_node cn ON cn.id = n.nodecat_id
+LEFT JOIN dma z ON z.dma_id = g.mapzone_id
+WHERE g.mapzone_type = 'DMA';
+
+CREATE OR REPLACE VIEW v_synoptic_point_dma AS
+SELECT
+	g.mapzone_id AS synoptic_id,
+	'DMA'::text AS synoptic_type,
+	g.node_id,
+	cn.node_type::text AS node_type,
+	n.sys_code::text AS label,
+	g.flow_sign,
+	false AS is_zone,
+	n.the_geom::geometry(Point, SRID_VALUE) AS the_geom
+FROM mapzone_graph g
+JOIN node n ON n.node_id = g.node_id
+LEFT JOIN cat_node cn ON cn.id = n.nodecat_id
+WHERE g.mapzone_type = 'DMA'
+UNION ALL
+SELECT
+	g.mapzone_id,
+	'DMA'::text,
+	g.mapzone_id,
+	'MAPZONE'::text,
+	z.name::text,
+	NULL::int2,
+	true,
+	ST_PointOnSurface(z.the_geom)::geometry(Point, SRID_VALUE)
+FROM (
+	SELECT DISTINCT mapzone_id
+	FROM mapzone_graph
+	WHERE mapzone_type = 'DMA'
+) g
+LEFT JOIN dma z ON z.dma_id = g.mapzone_id;
+
+CREATE OR REPLACE VIEW v_synoptic_line_sector AS
+SELECT
+	g.mapzone_id AS synoptic_id,
+	'SECTOR'::text AS synoptic_type,
+	g.node_id AS node_1,
+	cn.node_type::text AS node_type_1,
+	n.sys_code::text AS label_1,
+	g.mapzone_id AS node_2,
+	'MAPZONE'::text AS node_type_2,
+	z.name::text AS label_2,
+	g.flow_sign,
+	CASE
+		WHEN n.the_geom IS NULL OR z.the_geom IS NULL THEN NULL::geometry(LineString, SRID_VALUE)
+		WHEN g.flow_sign = -1 THEN ST_MakeLine(ST_PointOnSurface(z.the_geom), n.the_geom)::geometry(LineString, SRID_VALUE)
+		ELSE ST_MakeLine(n.the_geom, ST_PointOnSurface(z.the_geom))::geometry(LineString, SRID_VALUE)
+	END AS the_geom
+FROM mapzone_graph g
+JOIN node n ON n.node_id = g.node_id
+LEFT JOIN cat_node cn ON cn.id = n.nodecat_id
+LEFT JOIN sector z ON z.sector_id = g.mapzone_id
+WHERE g.mapzone_type = 'SECTOR';
+
+CREATE OR REPLACE VIEW v_synoptic_point_sector AS
+SELECT
+	g.mapzone_id AS synoptic_id,
+	'SECTOR'::text AS synoptic_type,
+	g.node_id,
+	cn.node_type::text AS node_type,
+	n.sys_code::text AS label,
+	g.flow_sign,
+	false AS is_zone,
+	n.the_geom::geometry(Point, SRID_VALUE) AS the_geom
+FROM mapzone_graph g
+JOIN node n ON n.node_id = g.node_id
+LEFT JOIN cat_node cn ON cn.id = n.nodecat_id
+WHERE g.mapzone_type = 'SECTOR'
+UNION ALL
+SELECT
+	g.mapzone_id,
+	'SECTOR'::text,
+	g.mapzone_id,
+	'MAPZONE'::text,
+	z.name::text,
+	NULL::int2,
+	true,
+	ST_PointOnSurface(z.the_geom)::geometry(Point, SRID_VALUE)
+FROM (
+	SELECT DISTINCT mapzone_id
+	FROM mapzone_graph
+	WHERE mapzone_type = 'SECTOR'
+) g
+LEFT JOIN sector z ON z.sector_id = g.mapzone_id;
+
+INSERT INTO sys_table (id, descript, sys_role, alias, "source", addparam)
+VALUES
+	('v_synoptic_line_dma', 'Mapzone synoptic edges for DMA (node to zone geometry)', 'role_basic', 'Synoptic DMA lines', 'core', '{"pkey": "node_1,node_2"}'::json),
+	('v_synoptic_point_dma', 'Mapzone synoptic vertices for DMA', 'role_basic', 'Synoptic DMA points', 'core', '{"pkey": "synoptic_id,node_id,is_zone"}'::json),
+	('v_synoptic_line_sector', 'Mapzone synoptic edges for SECTOR (node to zone geometry)', 'role_basic', 'Synoptic SECTOR lines', 'core', '{"pkey": "node_1,node_2"}'::json),
+	('v_synoptic_point_sector', 'Mapzone synoptic vertices for SECTOR', 'role_basic', 'Synoptic SECTOR points', 'core', '{"pkey": "synoptic_id,node_id,is_zone"}'::json)
+ON CONFLICT (id) DO UPDATE SET
+	descript = EXCLUDED.descript,
+	sys_role = EXCLUDED.sys_role,
+	alias = EXCLUDED.alias,
+	addparam = EXCLUDED.addparam;
+
+-- gw_fct_scada_graph_export has no callers. om_scada_graph_json only existed
+-- as its output. _om_scada_graph_json_ is the 4.17.0 rename leftover (#977).
+DROP FUNCTION IF EXISTS gw_fct_scada_graph_export(json);
+DROP FUNCTION IF EXISTS gw_fct_scada_graph_export();
+DROP TABLE IF EXISTS om_scada_graph_json;
+DROP TABLE IF EXISTS _om_scada_graph_json_;
+
+DELETE FROM sys_function WHERE function_name = 'gw_fct_scada_graph_export';
+
+UPDATE sys_function
+SET descript = 'Checks or fixes om_scada_graph against the network (toolbox: Scada graph analysis).'
+WHERE id = 3548;
+
+UPDATE sys_function
+SET descript = 'Creates a scada graph edge (insert + trigger fill).'
+WHERE id = 3560;
+
+DELETE FROM sys_message WHERE id IN (4708, 4732, 4734, 4736);
