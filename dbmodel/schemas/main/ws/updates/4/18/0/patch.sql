@@ -193,3 +193,19 @@ ON CONFLICT (id) DO UPDATE SET
 	sys_role = EXCLUDED.sys_role,
 	alias = EXCLUDED.alias,
 	addparam = EXCLUDED.addparam;
+
+-- Reviews joined to the feature. ve_* keeps rows outside the exploitation selector out of the list.
+CREATE OR REPLACE VIEW v_ui_review_feature AS
+SELECT r.id, r.table_name, r.table_id,
+	COALESCE(n.code, a.code, c.code, l.code) AS feature_code,
+	COALESCE(n.node_type, a.arc_type, c.connec_type, l.link_type) AS feature_type,
+	COALESCE(n.expl_id, a.expl_id, c.expl_id, l.expl_id) AS expl_id,
+	r.field_user, r.field_date, r.field_annotation, r.field_changes,
+	r.review_user, r.review_date, r.review_annotation,
+	r.status, et.idval AS status_name
+FROM review_feature r
+LEFT JOIN ve_node n ON r.table_name = 'node' AND n.node_id = r.table_id
+LEFT JOIN ve_arc a ON r.table_name = 'arc' AND a.arc_id = r.table_id
+LEFT JOIN ve_connec c ON r.table_name = 'connec' AND c.connec_id = r.table_id
+LEFT JOIN ve_link l ON r.table_name = 'link' AND l.link_id = r.table_id
+LEFT JOIN edit_typevalue et ON et.typevalue = 'review_status' AND et.id = r.status::text;

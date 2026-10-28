@@ -1,3 +1,4 @@
 - Add `synoptic_id` and `synoptic_geom` to `plan_netscenario_mapzone_graph` (same synoptic persist as `mapzone_graph`) (#965).
 
 - Synoptic views `v_synoptic_line_dqa`, `v_synoptic_point_dqa`, `v_synoptic_line_presszone`, `v_synoptic_point_presszone`, `v_synoptic_line_supplyzone`, `v_synoptic_point_supplyzone`. Lines are the border node joined to the zone polygon; the Sugiyama layout is not stored. `presszone_id` is int4, same as `mapzone_id` (#977).
+- Add `v_ui_review_feature`, joining `review_feature` to `ve_node`, `ve_arc`, `ve_connec` and `ve_link` (#982).

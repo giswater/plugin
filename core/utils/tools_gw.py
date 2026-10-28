@@ -68,6 +68,7 @@ from ..toolbars.edit import featuretype_change_btn  # noqa: F401
 from ..toolbars.epa import go2epa_selector_btn  # noqa: F401
 from ..shared import psector  # noqa: F401
 from ..shared import audit  # noqa: F401
+from ..toolbars.utilities.utilities_manager import review_manager  # noqa: F401
 from ..toolbars.utilities import snapshot_view  # noqa: F401
 from ..shared import profile as profile_interpolation, scada_graph  # noqa: F401
 from ..toolbars.edit import connect_link_btn  # noqa: F401
@@ -9266,6 +9267,31 @@ def set_filter_listeners(complet_result, dialog, widget_list, columnname, widget
             data_loaded = last_function_name in FILL_TABLE_FUNCTIONS
 
     return data_loaded
+
+
+def load_tableviews(dialog, complet_result):
+    """Load every QTableView in @dialog. Filters load the rows, so the list is not queried twice."""
+
+    list_tables = dialog.findChildren(QTableView)
+    for table in list_tables:
+        widgetname = table.objectName()
+        columnname = table.property('columnname')
+        if columnname is None:
+            msg = "widget {0} has not columnname and cant be configured"
+            msg_params = (widgetname,)
+            tools_qgis.show_info(msg, 3, msg_params=msg_params)
+            continue
+        linkedobject = table.property('linkedobject')
+
+        _, widget_list = fill_tbl(complet_result, dialog, widgetname, linkedobject, '', fill_data=False)
+        if widget_list is False:
+            return False
+        data_loaded = set_filter_listeners(complet_result, dialog, widget_list, columnname, widgetname)
+        if not data_loaded:
+            complet_list, _ = fill_tbl(complet_result, dialog, widgetname, linkedobject, '')
+            if complet_list is False:
+                return False
+    return True
 
 
 def manage_dlg_widgets(class_object, dialog, complet_result):

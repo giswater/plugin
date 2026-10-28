@@ -798,6 +798,9 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4746, 'Scada graph edge already exists for node_1=%node_1% and node_2=%node_2%', NULL),
     (4748, 'No network path between node_1=%node_1% and node_2=%node_2%', NULL),
     (4750, 'It is not possible to have two operative links leaving from the same %feature_type% with id %feature_id%. Existing operative link: %link_id%', 'Set the existing operative link to planned or obsolete, or edit that link instead of creating a new one.'),
-    (4752, 'The new psector name already exists(can be inactive)', 'Try using a different name')
+    (4752, 'The new psector name already exists(can be inactive)', 'Try using a different name'),
+    (4760, 'This review does not exist.', 'Refresh the list and open it again.'),
+    (4762, 'This review is no longer pending.', 'It was already accepted or rejected.'),
+    (4764, 'The feature for this review was not found.', 'It may have been deleted or it is outside the exploitation selector.')
 ) AS v(id, error_message, hint_message)
 WHERE t.id = v.id;

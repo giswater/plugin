@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>dlg_review_manager</class>
+ <widget class="QDialog" name="dlg_review_manager">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>980</width>
+    <height>640</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Review manager</string>
+  </property>
+  <layout class="QGridLayout" name="lyt_review_manager">
+   <item row="0" column="0">
+    <layout class="QGridLayout" name="lyt_review_mng_1"/>
+   </item>
+   <item row="1" column="0">
+    <layout class="QGridLayout" name="lyt_review_mng_2"/>
+   </item>
+   <item row="2" column="0">
+    <layout class="QGridLayout" name="lyt_buttons"/>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

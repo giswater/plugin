@@ -12,6 +12,7 @@ from qgis.PyQt.QtCore import QPoint
 from qgis.PyQt.QtWidgets import QAction, QMenu, QWidget
 
 from .utilities_manager.style_manager import GwStyleManager
+from .utilities_manager.review_manager import GwReviewManager
 from .... import global_vars
 from ..dialog import GwAction
 from .utilities_manager.mapzone_manager import GwMapzoneManager
@@ -77,6 +78,9 @@ class GwUtilsManagerButton(GwAction):
         role = tools_gw.get_role_permissions(lib_vars.project_vars.get('project_role'))
         if role in ('role_plan', 'role_admin', 'role_system'):
             buttons.append(['Style manager', '_style_manager'])
+        title = "Review manager"
+        if role not in ('role_basic', 'role_om'):
+            buttons.append([title, '_review_manager'])
         for button in buttons:
             button_name = button[0]
             button_function = button[1]
@@ -113,5 +117,13 @@ class GwUtilsManagerButton(GwAction):
     def _style_manager(self):
         self.style = GwStyleManager()
         self.style.manage_styles()
+
+    # endregion
+
+    # region review manager functions
+
+    def _review_manager(self):
+        self.review = GwReviewManager()
+        self.review.manage_review()
 
     # endregion

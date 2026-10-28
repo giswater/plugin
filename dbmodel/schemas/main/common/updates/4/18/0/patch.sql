@@ -321,3 +321,122 @@ SET descript = 'Creates a scada graph edge (insert + trigger fill).'
 WHERE id = 3560;
 
 DELETE FROM sys_message WHERE id IN (4708, 4732, 4734, 4736);
+
+-- Feature reviews: proposed field changes waiting to be accepted or rejected.
+-- gw_fct_manage_review_feature lives in base/fct (code 3576).
+
+CREATE TABLE IF NOT EXISTS review_feature (
+	id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	table_name text NOT NULL CHECK (table_name IN ('node', 'arc', 'connec', 'link', 'gully')),
+	table_id int4 NOT NULL,
+	field_user text DEFAULT current_user,
+	field_date timestamptz DEFAULT now(),
+	field_annotation text,
+	field_changes jsonb NOT NULL,
+	review_annotation text,
+	review_user text,
+	review_date timestamptz,
+	status int2 NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS review_feature_feature_idx ON review_feature (table_name, table_id);
+CREATE INDEX IF NOT EXISTS review_feature_status_idx ON review_feature (status);
+
+INSERT INTO edit_typevalue (typevalue, id, idval, descript, addparam) VALUES
+	('review_status', '0', 'PENDING', NULL, NULL),
+	('review_status', '1', 'ACCEPTED', NULL, NULL),
+	('review_status', '2', 'REJECTED', NULL, NULL)
+ON CONFLICT (typevalue, id) DO NOTHING;
+
+INSERT INTO sys_table (id, descript, sys_role, alias, "source", addparam) VALUES
+	('review_feature', 'Proposed feature changes waiting for review', 'role_edit', 'Feature review', 'core', '{"pkey": "id"}'::json),
+	('v_ui_review_feature', 'Feature reviews with the feature code and type', 'role_edit', 'Feature reviews', 'core', '{"pkey": "id"}'::json)
+ON CONFLICT (id) DO UPDATE SET
+	descript = EXCLUDED.descript,
+	sys_role = EXCLUDED.sys_role,
+	alias = EXCLUDED.alias,
+	addparam = EXCLUDED.addparam;
+
+INSERT INTO sys_function (id, function_name, project_type, function_type, input_params, return_type, descript, sys_role, sample_query, "source", function_alias)
+VALUES (3576, 'gw_fct_manage_review_feature', 'utils', 'function', 'json', 'json',
+	'Gets a feature review and accepts or rejects its proposed changes',
+	'role_edit', NULL, 'core', 'Review feature')
+ON CONFLICT (id) DO UPDATE SET
+	function_name = EXCLUDED.function_name,
+	descript = EXCLUDED.descript,
+	sys_role = EXCLUDED.sys_role;
+
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type) VALUES
+	(4760, 'This review does not exist.', 'Refresh the list and open it again.', 2, true, 'utils', 'core', 'UI'),
+	(4762, 'This review is no longer pending.', 'It was already accepted or rejected.', 2, true, 'utils', 'core', 'UI'),
+	(4764, 'The feature for this review was not found.', 'It may have been deleted or it is outside the exploitation selector.', 2, true, 'utils', 'core', 'UI')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO config_typevalue (typevalue, id, idval, camelstyle, addparam) VALUES
+	('layout_name_typevalue', 'lyt_review_mng_1', 'lyt_review_mng_1', 'layoutReviewManager1', '{"lytOrientation":"horizontal"}'::json),
+	('layout_name_typevalue', 'lyt_review_mng_2', 'lyt_review_mng_2', 'layoutReviewManager2', '{"lytOrientation":"horizontal"}'::json),
+	('formtype_typevalue', 'form_review', 'form_review', 'formReview', NULL)
+ON CONFLICT (typevalue, id) DO NOTHING;
+
+INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder)
+VALUES
+	('review_manager', 'form_review', 'tab_none', 'status', 'lyt_review_mng_1', 1, 'string', 'combo', 'Status:', NULL, NULL, false, false, true, false, true,
+		'SELECT id, idval FROM edit_typevalue WHERE typevalue = ''review_status''', true, true, NULL, NULL, NULL,
+		'{"saveValue": false, "filterSign": "=", "vdefault_value": "0"}'::json,
+		'{"functionName": "filter_table", "parameters": {"columnfind": "status"}}'::json, 'v_ui_review_feature', false, NULL),
+	('review_manager', 'form_review', 'tab_none', 'table_name', 'lyt_review_mng_1', 2, 'string', 'combo', 'Table:', NULL, NULL, false, false, true, false, true,
+		'SELECT id, id AS idval FROM (VALUES (''node''), (''arc''), (''connec''), (''link''), (''gully'')) AS t(id)', true, true, NULL, NULL, NULL,
+		'{"saveValue": false, "filterSign": "="}'::json,
+		'{"functionName": "filter_table", "parameters": {"columnfind": "table_name"}}'::json, 'v_ui_review_feature', false, NULL),
+	('review_manager', 'form_review', 'tab_none', 'field_user', 'lyt_review_mng_1', 3, 'string', 'typeahead', 'Field user:', NULL, NULL, false, false, true, false, true,
+		'SELECT DISTINCT field_user AS id, field_user AS idval FROM review_feature WHERE field_user IS NOT NULL', NULL, NULL, NULL, NULL, NULL,
+		'{"saveValue": false, "filterSign": "ILIKE"}'::json,
+		'{"functionName": "filter_table", "parameters": {"columnfind": "field_user"}}'::json, 'v_ui_review_feature', false, NULL),
+	('review_manager', 'form_review', 'tab_none', 'date_from', 'lyt_review_mng_1', 4, 'date', 'datetime', 'From:', NULL, NULL, false, false, true, false, true,
+		NULL, NULL, NULL, NULL, NULL, NULL,
+		'{"saveValue": false, "filterSign": ">="}'::json,
+		'{"functionName": "filter_table", "parameters": {"columnfind": "date_from"}}'::json, 'v_ui_review_feature', false, NULL),
+	('review_manager', 'form_review', 'tab_none', 'date_to', 'lyt_review_mng_1', 5, 'date', 'datetime', 'To:', NULL, NULL, false, false, true, false, true,
+		NULL, NULL, NULL, NULL, NULL, NULL,
+		'{"saveValue": false, "filterSign": "<="}'::json,
+		'{"functionName": "filter_table", "parameters": {"columnfind": "date_to"}}'::json, 'v_ui_review_feature', false, NULL),
+	('review_manager', 'form_review', 'tab_none', 'hspacer_lyt_review_mng_1', 'lyt_review_mng_1', 6, NULL, 'hspacer', NULL, NULL, NULL, false, false, true, false, NULL,
+		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, NULL),
+	('review_manager', 'form_review', 'tab_none', 'tbl_review', 'lyt_review_mng_2', 1, NULL, 'tablewidget', NULL, NULL, NULL, false, false, false, false, false,
+		NULL, NULL, NULL, NULL, NULL, NULL,
+		'{"saveValue": false}'::json,
+		'{"functionName": "open_review", "module": "review_manager", "parameters": {"columnfind": "id"}}'::json, 'v_ui_review_feature', false, NULL),
+	('review_manager', 'form_review', 'tab_none', 'hspacer_lyt_buttons', 'lyt_buttons', 1, NULL, 'hspacer', NULL, NULL, NULL, false, false, true, false, NULL,
+		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, NULL),
+	('review_manager', 'form_review', 'tab_none', 'close', 'lyt_buttons', 2, NULL, 'button', NULL, 'Close', NULL, false, false, true, false, false,
+		NULL, NULL, NULL, NULL, NULL, NULL,
+		'{"saveValue": false, "text": "Close"}'::json,
+		'{"functionName": "close_manager", "parameters": {}}'::json, NULL, false, NULL)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+-- date_from / date_to are aliases of field_date so both ends of the range can filter.
+INSERT INTO config_form_list (listname, query_text, device, listtype, listclass, vdefault)
+VALUES (
+	'v_ui_review_feature',
+	'SELECT * FROM (SELECT id, table_name, table_id, feature_code, feature_type, expl_id, field_user, field_date, field_date::date AS date_from, field_date::date AS date_to, field_annotation, review_user, review_date, review_annotation, status, status_name FROM v_ui_review_feature) a WHERE id IS NOT NULL',
+	4, 'tab', 'list', '{"orderBy":"field_date", "orderType":"DESC"}'::json
+)
+ON CONFLICT (listname, device) DO NOTHING;
+
+INSERT INTO config_form_tableview (location_type, project_type, objectname, columnname, columnindex, visible, alias) VALUES
+	('review_manager', 'utils', 'v_ui_review_feature', 'status_name', 0, true, 'Status'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'table_name', 1, true, 'Table'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'table_id', 2, true, 'Feature id'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'feature_code', 3, true, 'Code'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'feature_type', 4, true, 'Type'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'expl_id', 5, true, 'Exploitation'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'field_user', 6, true, 'Field user'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'field_date', 7, true, 'Field date'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'field_annotation', 8, true, 'Annotation'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'review_user', 9, true, 'Review user'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'review_date', 10, true, 'Review date'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'review_annotation', 11, true, 'Review annotation'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'id', 12, false, 'Id'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'status', 13, false, 'Status id'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'date_from', 14, false, 'From'),
+	('review_manager', 'utils', 'v_ui_review_feature', 'date_to', 15, false, 'To')
+ON CONFLICT (objectname, columnname) DO NOTHING;

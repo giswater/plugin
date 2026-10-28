@@ -47,7 +47,7 @@ class GwElementManagerButton(GwAction):
 
         # Populate the dialog with fields
         self._populate_dynamic_widgets(self.dlg_mng, json_result)
-        self.load_tableviews(self.complet_result)
+        tools_gw.load_tableviews(self.dlg_mng, self.complet_result)
 
         # Open the dialog
         tools_gw.open_dialog(self.dlg_mng, dlg_name='element_manager')
@@ -120,28 +120,3 @@ class GwElementManagerButton(GwAction):
                 # Populate custom context menu
                 widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
                 widget.customContextMenuRequested.connect(partial(tools_gw._show_context_menu, widget, dialog))
-
-    def load_tableviews(self, complet_result):
-        list_tables = self.dlg_mng.findChildren(QTableView)
-        for table in list_tables:
-            widgetname = table.objectName()
-            columnname = table.property('columnname')
-            if columnname is None:
-                msg = "widget {0} has not columnname and cant be configured"
-                msg_params = (widgetname,)
-                tools_qgis.show_info(msg, 3, msg_params=msg_params)
-                continue
-            linkedobject = table.property('linkedobject')
-
-            # Configure the filters first: they load the list applying their own values, so getting and loading
-            # the whole list here too would only duplicate the work
-            _, widget_list = tools_gw.fill_tbl(complet_result, self.dlg_mng, widgetname, linkedobject, '',
-                                               fill_data=False)
-            if widget_list is False:
-                return False
-            data_loaded = tools_gw.set_filter_listeners(complet_result, self.dlg_mng, widget_list, columnname,
-                                                        widgetname)
-            if not data_loaded:
-                complet_list, _ = tools_gw.fill_tbl(complet_result, self.dlg_mng, widgetname, linkedobject, '')
-                if complet_list is False:
-                    return False

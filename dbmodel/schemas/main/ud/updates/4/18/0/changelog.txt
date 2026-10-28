@@ -1,1 +1,2 @@
 - Synoptic views `v_synoptic_line_dwfzone` and `v_synoptic_point_dwfzone`. Lines are the border node joined to the zone polygon; the Sugiyama layout is not stored (#977).
+- Add `v_ui_review_feature`, joining `review_feature` to `ve_node`, `ve_arc`, `ve_connec`, `ve_link` and `ve_gully` (#982).
