@@ -92,3 +92,11 @@ WHERE NOT EXISTS (
     WHERE location_type = 'epa_toolbar' AND project_type = 'utils'
       AND objectname = 'v_ui_rpt_cat_result' AND columnname = 'parent_id'
 );
+
+-- go2epa Close button: widgetfunction for web / dynamic clients
+UPDATE config_form_fields
+SET widgetfunction = '{"functionName": "closeDlg"}'::json
+WHERE formname = 'generic'
+  AND formtype = 'go2epa'
+  AND columnname = 'btn_close'
+  AND tabname = 'tab_none';
