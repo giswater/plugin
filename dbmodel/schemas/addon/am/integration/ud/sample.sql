@@ -101,7 +101,9 @@ WHERE c.id::text = a.arccat_id::text
 
 -- CCTV, breakdowns and the input override, visible without the importer.
 -- Inspection 9001 is replaced on re-integrate. Every operative pipe gets at least
--- one defect; code and severity rotate so the priority run is not one flat class.
+-- one defect. Chainage walks along the pipe: a short crack, a stretch, or both,
+-- and every fifth pipe has two defects on the same metres so the map draws both.
+-- Code and severity rotate so the priority run is not one flat class.
 -- The delete trigger writes a dummy score of 1; clear that on the pipes that just lost the inspection.
 CREATE TEMP TABLE IF NOT EXISTS am_ud_sample_cctv_reset (arc_id varchar(16));
 TRUNCATE am_ud_sample_cctv_reset;
@@ -127,30 +129,68 @@ INSERT INTO am.ud_arc_pathology (
 	arc_id, pathology_id, inspection_id, pk_start, pk_end, severity, observation, inspection_date
 )
 SELECT asset.arc_id, cat.pathology_id, 9001,
-	0, 1 + (asset.n % 5),
-	1 + ((asset.n + extra.k) % 5),
+	round(pos.pk0::numeric, 2),
+	round(pos.pk1::numeric, 2),
+	1 + ((asset.n * 3 + extra.k * 2) % 5),
 	'Sample CCTV', DATE '2024-06-01'
 FROM (
 	SELECT a.arc_id::varchar(16) AS arc_id,
-		(row_number() OVER (ORDER BY a.arc_id::integer) - 1)::integer AS n
+		(row_number() OVER (ORDER BY a.arc_id::integer) - 1)::integer AS n,
+		GREATEST(ST_Length(a.the_geom), 0.5) AS len
 	FROM PARENT_SCHEMA.arc a
 	WHERE a.state = 1
 		AND a.arc_type IN ('CONDUIT', 'SIPHON')
 ) asset
 CROSS JOIN LATERAL (
-	SELECT 0 AS k
-	UNION ALL
-	SELECT 3 WHERE asset.n % 4 = 0
+	SELECT slot.k
+	FROM (VALUES (0), (1), (2)) AS slot(k)
+	WHERE (asset.n % 5 = 0 AND slot.k = 0)
+		OR (asset.n % 5 = 1 AND slot.k IN (0, 2))
+		OR (asset.n % 5 = 2 AND slot.k IN (1, 2))
+		OR (asset.n % 5 = 3 AND slot.k IN (0, 1, 2))
+		OR (asset.n % 5 = 4 AND slot.k IN (0, 1))
 ) extra
+CROSS JOIN LATERAL (
+	SELECT
+		CASE
+			WHEN asset.n % 5 = 0 THEN ((asset.n % 7) + 1) / 10.0
+			WHEN asset.n % 5 = 4 AND extra.k = 0 THEN 0.30
+			WHEN asset.n % 5 = 4 AND extra.k = 1 THEN 0.38
+			WHEN extra.k = 0 THEN 0.06 + ((asset.n % 3) * 0.05)
+			WHEN extra.k = 1 THEN 0.36 + ((asset.n % 3) * 0.06)
+			ELSE 0.68 + ((asset.n % 3) * 0.05)
+		END AS start_frac,
+		CASE
+			WHEN asset.n % 5 = 4 THEN 0.18
+			WHEN extra.k = 1 OR asset.n % 3 = 0 THEN 0.14 + ((asset.n % 4) * 0.03)
+			ELSE 0
+		END AS span_frac,
+		CASE
+			WHEN asset.n % 5 = 4 THEN 2.5
+			WHEN extra.k = 1 OR asset.n % 3 = 0 THEN 1.5
+			ELSE 0.6 + (asset.n % 4) * 0.4
+		END AS span_m
+) placed
+CROSS JOIN LATERAL (
+	SELECT
+		LEAST(GREATEST(placed.start_frac, 0), 0.92) * asset.len AS pk0,
+		LEAST(
+			asset.len,
+			LEAST(GREATEST(placed.start_frac, 0), 0.92) * asset.len
+				+ GREATEST(placed.span_m, placed.span_frac * asset.len, 0.4)
+		) AS pk1
+) pos
 JOIN (
 	VALUES
-		(0, 'BAF'),
-		(1, 'BAB'),
+		(0, 'BAB'),
+		(1, 'BAF'),
 		(2, 'BBA'),
-		(3, 'BBD'),
-		(4, 'BAC'),
-		(5, 'BAL')
-) AS obs(slot, code) ON obs.slot = (asset.n + extra.k) % 6
+		(3, 'BAC'),
+		(4, 'BBD'),
+		(5, 'BAL'),
+		(6, 'BAH'),
+		(7, 'BAG')
+) AS obs(slot, code) ON obs.slot = (asset.n + extra.k * 3) % 8
 JOIN am.ud_cat_pathology cat ON cat.code = obs.code
 WHERE NOT EXISTS (
 	SELECT 1 FROM am.ud_arc_pathology p

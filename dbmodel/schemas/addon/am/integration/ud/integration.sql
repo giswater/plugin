@@ -230,6 +230,133 @@ LEFT JOIN am.config_nodecatalog_def cat ON cat.nodecat_id = n.nodecat_id::text A
 WHERE COALESCE(p.active, true) IS TRUE
   AND COALESCE(c.active, true) IS TRUE;
 
+-- Affected stretch of the pipe. pk is metres from the upstream end.
+-- A point defect (no start/end) is drawn as 1 m around pk, same as the cost.
+-- Two defects on the same chainage would be one line, and QGIS then draws only one
+-- of them: hiding that severity removes the only geometry. Shift the later one sideways.
+DROP VIEW IF EXISTS am.v_ud_arc_pathology_map;
+CREATE VIEW am.v_ud_arc_pathology_map AS
+WITH cut AS (
+	SELECT
+		p.rid,
+		p.arc_id,
+		c.code,
+		c.pathology_group,
+		p.severity,
+		v.extent_m,
+		v.intervention,
+		cat.geom1 AS dnom,
+		meters.m0,
+		meters.m1,
+		CASE
+			WHEN line.g IS NULL OR ST_Length(line.g) <= 0 THEN NULL::geometry(LineString, SRID_VALUE)
+			ELSE ST_LineSubstring(line.g, frac.f0, frac.f1)::geometry(LineString, SRID_VALUE)
+		END AS the_geom
+	FROM am.ud_arc_pathology p
+	JOIN am.ud_cat_pathology c ON c.pathology_id = p.pathology_id
+	JOIN am.v_ud_arc_pathology v ON v.rid = p.rid
+	JOIN PARENT_SCHEMA.arc a ON a.arc_id::text = p.arc_id::text
+	LEFT JOIN PARENT_SCHEMA.cat_arc cat ON cat.id::text = a.arccat_id::text
+	CROSS JOIN LATERAL (
+		SELECT CASE
+			WHEN a.the_geom IS NULL THEN NULL::geometry(LineString, SRID_VALUE)
+			WHEN ST_GeometryType(ST_LineMerge(a.the_geom)) = 'ST_LineString'
+				THEN ST_LineMerge(a.the_geom)::geometry(LineString, SRID_VALUE)
+			ELSE (
+				SELECT d.geom::geometry(LineString, SRID_VALUE)
+				FROM ST_Dump(a.the_geom) AS d
+				ORDER BY ST_Length(d.geom) DESC
+				LIMIT 1
+			)
+		END AS g
+	) line
+	CROSS JOIN LATERAL (
+		SELECT ST_Length(line.g) AS len,
+			CASE
+				WHEN p.pk_start IS NOT NULL AND p.pk_end IS NOT NULL THEN LEAST(p.pk_start, p.pk_end)
+				WHEN p.pk IS NOT NULL THEN p.pk - 0.5
+				ELSE 0
+			END AS m0,
+			CASE
+				WHEN p.pk_start IS NOT NULL AND p.pk_end IS NOT NULL THEN GREATEST(p.pk_start, p.pk_end)
+				WHEN p.pk IS NOT NULL THEN p.pk + 0.5
+				ELSE 1
+			END AS m1
+	) meters
+	CROSS JOIN LATERAL (
+		SELECT
+			LEAST(1 - 1e-6, GREATEST(0, meters.m0 / NULLIF(meters.len, 0))) AS f0,
+			LEAST(1, GREATEST(
+				meters.m1 / NULLIF(meters.len, 0),
+				meters.m0 / NULLIF(meters.len, 0) + 1e-6
+			)) AS f1
+	) frac
+	WHERE COALESCE(p.active, true) IS TRUE
+	  AND COALESCE(c.active, true) IS TRUE
+)
+SELECT
+	cut.rid,
+	cut.arc_id,
+	cut.code,
+	cut.pathology_group,
+	cut.severity,
+	cut.extent_m,
+	cut.intervention,
+	cut.dnom,
+	CASE
+		WHEN overlap.n = 0 THEN cut.the_geom
+		ELSE COALESCE(shifted.g, cut.the_geom)
+	END AS the_geom
+FROM cut
+CROSS JOIN LATERAL (
+	SELECT COUNT(*)::integer AS n
+	FROM cut older
+	WHERE older.arc_id = cut.arc_id
+		AND older.rid < cut.rid
+		AND older.m0 < cut.m1
+		AND older.m1 > cut.m0
+) overlap
+CROSS JOIN LATERAL (
+	SELECT CASE
+		WHEN overlap.n = 0 OR cut.the_geom IS NULL THEN NULL::geometry(LineString, SRID_VALUE)
+		WHEN ST_GeometryType(side.g) = 'ST_LineString' THEN side.g::geometry(LineString, SRID_VALUE)
+		ELSE (
+			SELECT d.geom::geometry(LineString, SRID_VALUE)
+			FROM ST_Dump(side.g) AS d
+			ORDER BY ST_Length(d.geom) DESC
+			LIMIT 1
+		)
+	END AS g
+	FROM (
+		SELECT ST_OffsetCurve(
+			cut.the_geom,
+			overlap.n * LEAST(2.0, GREATEST(COALESCE(cut.dnom, 0.6), 0.6))
+		) AS g
+	) side
+) shifted
+WHERE cut.the_geom IS NOT NULL;
+
+-- Node defect sits on the node. pk does not slice a point.
+DROP VIEW IF EXISTS am.v_ud_node_pathology_map;
+CREATE VIEW am.v_ud_node_pathology_map AS
+SELECT
+	p.rid,
+	p.node_id,
+	c.code,
+	c.pathology_group,
+	p.severity,
+	v.intervention,
+	cat.geom1 AS dnom,
+	n.the_geom::geometry(Point, SRID_VALUE) AS the_geom
+FROM am.ud_node_pathology p
+JOIN am.ud_cat_pathology c ON c.pathology_id = p.pathology_id
+JOIN am.v_ud_node_pathology v ON v.rid = p.rid
+JOIN PARENT_SCHEMA.node n ON n.node_id::text = p.node_id::text
+LEFT JOIN PARENT_SCHEMA.cat_node cat ON cat.id::text = n.nodecat_id::text
+WHERE COALESCE(p.active, true) IS TRUE
+  AND COALESCE(c.active, true) IS TRUE
+  AND n.the_geom IS NOT NULL;
+
 -- Aggregated scores for AWARE input (cond_state = max BA, om_state = max BB).
 CREATE OR REPLACE VIEW am.v_ud_inspection_score AS
 SELECT
@@ -497,6 +624,8 @@ GRANT ALL ON TABLE am.v_asset_ud_arc_input TO role_basic;
 GRANT ALL ON TABLE am.v_asset_ud_node_input TO role_basic;
 GRANT ALL ON TABLE am.v_ud_arc_pathology TO role_basic;
 GRANT ALL ON TABLE am.v_ud_node_pathology TO role_basic;
+GRANT ALL ON TABLE am.v_ud_arc_pathology_map TO role_basic;
+GRANT ALL ON TABLE am.v_ud_node_pathology_map TO role_basic;
 GRANT ALL ON TABLE am.v_ud_inspection_score TO role_basic;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
@@ -510,6 +639,12 @@ VALUES
 ('v_ud_node_am', 'UD node condition, cost and observation summary', 'role_om', NULL, '36', 10, 'UD node AM', NULL, NULL, NULL, 'am', NULL),
 ('ud_breakdown', 'UD breakdowns by feature', 'role_om', NULL, '35', 11, 'UD breakdowns', NULL, NULL, NULL, 'am', NULL)
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES
+('v_ud_arc_pathology_map', 'UD arc pathology drawn along the pipe', 'role_om', NULL, '35', 12, 'UD arc pathology map', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "severity", "pkey": "rid"}'),
+('v_ud_node_pathology_map', 'UD node pathology on the node', 'role_om', NULL, '36', 11, 'UD node pathology map', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "severity", "pkey": "rid"}')
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 
 -- Write BA/BB scores back to parent conserv_state / om_state (1=Critical … 5=Excellent).
 CREATE OR REPLACE FUNCTION PARENT_SCHEMA.gw_trg_am_ud_arc_pathology()

@@ -1184,9 +1184,7 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
             if row:
                 addparam = row[0]
                 if addparam and addparam.get('refreshSymbology'):
-                    renderer = layer.renderer()
-                    if isinstance(renderer, QgsCategorizedSymbolRenderer):
-                        refresh_categorized_layer_symbology_classes(layer, addparam)
+                    refresh_categorized_layer_symbology_classes(layer, addparam)
 
         if add_to_toc and not create_project:
             if tablename and schema != 'am' and schema != 'cm':
@@ -1293,9 +1291,7 @@ def add_layer_provider(gw_id: str, cfg, group="GW Layers", sub_group=None, alias
     if row:
         addparam = row[0]
         if addparam and addparam.get('refreshSymbology'):
-            renderer = layer.renderer()
-            if isinstance(renderer, QgsCategorizedSymbolRenderer):
-                refresh_categorized_layer_symbology_classes(layer, addparam)
+            refresh_categorized_layer_symbology_classes(layer, addparam)
 
     if visibility is not None:
         if visibility is False:
@@ -1513,6 +1509,8 @@ def refresh_categorized_layer_symbology_classes(layer, addparam=None):
         spectral = style.colorRamp('Spectral')
         renderer.setSourceColorRamp(spectral.clone())
 
+    if not hasattr(renderer, "classAttribute"):
+        return
     field_name = renderer.classAttribute()
     if not field_name:
         return

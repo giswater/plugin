@@ -69,7 +69,9 @@ BEGIN
 			('v_ext_ud_arc_asset', 'Existing Arc Inventory'),
 			('v_ext_ud_node_asset', 'Existing Node Inventory'),
 			('ve_asset_ud_arc_input', 'Arc Planning Inputs'),
-			('ve_asset_ud_node_input', 'Node Planning Inputs')
+			('ve_asset_ud_node_input', 'Node Planning Inputs'),
+			('v_ud_arc_pathology_map', 'UD arc pathology map'),
+			('v_ud_node_pathology_map', 'UD node pathology map')
 		) AS v(id, alias)
 		WHERE t.id = v.id
 	$sql$, v_parent);
