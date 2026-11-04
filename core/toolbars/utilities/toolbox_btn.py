@@ -747,6 +747,8 @@ class GwToolBoxButton(GwAction):
         sql = (f"SELECT tablename, type FROM "
                f"(SELECT DISTINCT(parent_layer) AS tablename, feature_type as type, 0 as c FROM cat_feature "
                f"UNION SELECT child_layer, feature_type, 2 as c FROM cat_feature "
+               f"UNION SELECT 've_man_genelem', 'ELEMENT', 1 "
+               f"UNION SELECT 've_man_frelem', 'ELEMENT', 1 "
                F" UNION "
                f"SELECT concat('ve_',epa_table), feature_type as type, 4 as c FROM sys_feature_epa_type "
                f"WHERE epa_table IS NOT NULL AND epa_table NOT IN ('inp_virtualvalve', 'inp_inlet')"

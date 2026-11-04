@@ -4,3 +4,4 @@
 - Widen `rpt_cat_result.parent_id` to `varchar(50)` and add FK to `result_id` with ON DELETE SET NULL.
 - Register `v_ui_rpt_cat_result.parent_id` in the EPA result manager tableview, hidden by default.
 - go2epa Close button (`btn_close`) gets `widgetfunction` `closeDlg` so web and other dynamic clients can close the dialog.
+- Hide `ve_element` from Add Layers and generated projects. `ve_man_genelem` and `ve_man_frelem` load in its place, unchecked, under INVENTORY / NETWORK / ELEMENT.

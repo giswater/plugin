@@ -238,12 +238,8 @@ class GwPsector:
             # Load existing psector data and populate form
             self.load_psector(self.dlg_plan_psector, psector_id, list_coord=None, form_opened=True)
 
-        # Exclude the layer ve_element for adding relations
-        self.excluded_layers = ['ve_element']
-
         # Set signals
-        self.excluded_layers_tab_feature = ["ve_arc", "ve_node", "ve_connec", "ve_element", "ve_gully",
-                           "ve_element"]
+        self.excluded_layers_tab_feature = ["ve_arc", "ve_node", "ve_connec", "ve_gully"]
         layers_visibility = tools_gw.get_parent_layers_visibility()
         self.dlg_plan_psector.rejected.connect(partial(tools_gw.restore_parent_layers_visibility, layers_visibility))
         kwargs = {"class": self}
