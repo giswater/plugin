@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - go2epa Close button (`btn_close`) gets `widgetfunction` `closeDlg` for web / dynamic clients.
+- EPA Result Manager web list (`epa_results`): add `isvalidated` to the query and tableview, plus `btn_toggle_validated` (`toggleValidated`) in the top toolbar.
 - Expose `parent_id` on `v_ui_rpt_cat_result`.
 - UD go2epa FIXED outfalls export `inp_outfall.stage`. The previous export wrote the node inventory state (#959).
 

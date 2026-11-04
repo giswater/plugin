@@ -123,3 +123,80 @@ SET project_template = '{"template": [1], "visibility": false, "levels_to_read":
         LIMIT 1
     )
 WHERE id IN ('ve_man_genelem', 've_man_frelem');
+
+-- epa_results (device 5): expose isvalidated and add Toggle validated toolbar action
+UPDATE config_form_list
+SET query_text = REPLACE(query_text, 'iscorporate::text', 'iscorporate::text, isvalidated::text')
+WHERE listname = 'epa_results'
+  AND device = 5
+  AND query_text ILIKE '%iscorporate::text%'
+  AND query_text NOT ILIKE '%isvalidated%';
+
+INSERT INTO config_form_tableview (location_type, project_type, objectname, columnname, columnindex, visible, width, alias, "style", addparam)
+SELECT
+	'epamanager_form', 'utils', 'epa_results', 'isvalidated',
+	(SELECT COALESCE(MAX(columnindex), 0) + 1 FROM config_form_tableview
+	 WHERE location_type = 'epamanager_form' AND project_type = 'utils' AND objectname = 'epa_results'),
+	true, NULL, 'Isvalidated', NULL, '{
+  "accessorKey": "isvalidated",
+  "header": "isvalidated",
+  "filterVariant": "text",
+  "enableSorting": true,
+  "enableColumnOrdering": true,
+  "enableColumnFilter": true,
+  "enableClickToCopy": false
+}'::json
+WHERE NOT EXISTS (
+	SELECT 1 FROM config_form_tableview
+	WHERE location_type = 'epamanager_form' AND project_type = 'utils'
+	  AND objectname = 'epa_results' AND columnname = 'isvalidated'
+);
+
+UPDATE config_form_list AS cfl
+SET addparam = jsonb_set(
+	cfl.addparam::jsonb,
+	'{renderTopToolbarCustomActions}',
+	(
+		SELECT COALESCE(jsonb_agg(elem ORDER BY ord), '[]'::jsonb)
+		FROM (
+			SELECT e AS elem, ord::numeric AS ord
+			FROM jsonb_array_elements(cfl.addparam::jsonb->'renderTopToolbarCustomActions')
+				WITH ORDINALITY AS t(e, ord)
+			UNION ALL
+			SELECT '{
+				"name": "btn_toggle_validated",
+				"widgetfunction": {
+					"functionName": "toggleValidated",
+					"params": {}
+				},
+				"color": "default",
+				"text": "Toggle validated",
+				"disableOnSelect": true,
+				"moreThanOneDisable": true
+			}'::jsonb,
+			COALESCE(
+				(
+					SELECT ord::numeric + 0.5
+					FROM jsonb_array_elements(cfl.addparam::jsonb->'renderTopToolbarCustomActions')
+						WITH ORDINALITY AS t(e, ord)
+					WHERE e->>'name' = 'btn_toggle_corporate'
+					LIMIT 1
+				),
+				(
+					SELECT ord::numeric - 0.5
+					FROM jsonb_array_elements(cfl.addparam::jsonb->'renderTopToolbarCustomActions')
+						WITH ORDINALITY AS t(e, ord)
+					WHERE e->>'name' = 'btn_delete'
+					LIMIT 1
+				),
+				999
+			)
+		) AS actions(elem, ord)
+	)
+)::json
+WHERE cfl.listname = 'epa_results'
+  AND cfl.device = 5
+  AND NOT (
+	COALESCE(cfl.addparam::jsonb->'renderTopToolbarCustomActions', '[]'::jsonb)
+	@> '[{"name": "btn_toggle_validated"}]'::jsonb
+  );
