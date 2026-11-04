@@ -100,3 +100,26 @@ WHERE formname = 'generic'
   AND formtype = 'go2epa'
   AND columnname = 'btn_close'
   AND tabname = 'tab_none';
+
+-- ve_element leaves Add Layers and the generated project.
+-- GenElement and FlowRegulator take its place: loaded, unchecked, same template as ve_element had.
+-- context is the numeric config_typevalue.id (since 4.5.0); FRELEMENT's id differs on ws and ud.
+UPDATE sys_table
+SET project_template = NULL,
+    context = (
+        SELECT id FROM config_typevalue
+        WHERE typevalue = 'sys_table_context'
+          AND idval = '["HIDDEN"]'
+        LIMIT 1
+    )
+WHERE id = 've_element';
+
+UPDATE sys_table
+SET project_template = '{"template": [1], "visibility": false, "levels_to_read": 2}'::jsonb,
+    context = (
+        SELECT id FROM config_typevalue
+        WHERE typevalue = 'sys_table_context'
+          AND idval = '["INVENTORY", "NETWORK", "ELEMENT"]'
+        LIMIT 1
+    )
+WHERE id IN ('ve_man_genelem', 've_man_frelem');

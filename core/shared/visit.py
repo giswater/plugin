@@ -946,8 +946,7 @@ class GwVisit(QObject):
     def _manage_tabs_enabled(self, enable_tabs=False):
         """ Enable/Disable tabs depending feature_type """
 
-        excluded_layers = ["ve_arc", "ve_node", "ve_connec", "ve_link", "ve_element", "ve_gully",
-                          "ve_element"]
+        excluded_layers = ["ve_arc", "ve_node", "ve_connec", "ve_link", "ve_gully"]
         self.excluded_layers = excluded_layers
         if self.feature_type is None:
             return
