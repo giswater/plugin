@@ -17,15 +17,15 @@ from qgis.core import QgsEditFormConfig
 
 from qgis.PyQt.sip import isdeleted
 
-from qgis.PyQt.QtCore import pyqtSignal, QDate, QObject, Qt, QRegularExpression, QDateTime
+from qgis.PyQt.QtCore import pyqtSignal, QDate, QObject, Qt, QRegularExpression, QDateTime, QTimer
 from qgis.PyQt.QtGui import QColor, QStandardItem, QStandardItemModel, QCursor
 from qgis.PyQt.QtWidgets import QAction, QCheckBox, QComboBox, QCompleter, QDoubleSpinBox, \
     QGridLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QSizePolicy, \
     QSpinBox, QSpacerItem, QTableView, QTabWidget, QWidget, QTextEdit, QRadioButton, QToolBox, \
     QMenu, QToolButton, QTableWidget, QDialog, QHeaderView
 from qgis.core import QgsApplication, QgsMapToPixel, QgsVectorLayer, QgsExpression, QgsFeatureRequest, \
-    QgsPointXY, QgsProject, QgsFeature, QgsGeometry, Qgis
-from qgis.gui import QgsDateTimeEdit, QgsMapToolEmitPoint, QgsCollapsibleGroupBox
+    QgsPointXY, QgsProject, QgsFeature, QgsGeometry, QgsPointLocator, Qgis
+from qgis.gui import QgsDateTimeEdit, QgsMapToolEmitPoint, QgsCollapsibleGroupBox, QgsMapToolDigitizeFeature, QgsMapToolCapture
 
 from ..shared.catalog import GwCatalog
 from .dimensioning import GwDimensioning
@@ -90,7 +90,7 @@ class GwInfo(QObject):
         if global_vars.project_type == 'ud':
             self.rel_layers['gully'] = tools_gw.get_layers_from_feature_type('gully')
         self.rel_feature_type = None
-        self.excluded_layers = ["ve_arc", "ve_node", "ve_connec", "ve_element", "ve_gully", "ve_link"]
+        self.excluded_layers = ["ve_arc", "ve_node", "ve_connec", "ve_gully", "ve_link"]
         self.point_xy = {"x": None, "y": None}
 
     def get_info_from_coordinates(self, point, tab_type):
@@ -324,10 +324,14 @@ class GwInfo(QObject):
             self.prev_action = None
         tools_gw.connect_signal(self.iface.actionAddFeature().toggled, self._action_is_checked,
                                 'info', 'add_feature_actionAddFeature_toggled_action_is_checked')
+        self._cancel_frelem_capture()
         self.feature_cat = feature_cat
         # self.info_layer must be global because apparently the disconnect signal is not disconnected correctly if
         # parameters are passed to it
-        self.info_layer = tools_qgis.get_layer_by_tablename(feature_cat.parent_layer)
+        layer_name = feature_cat.parent_layer
+        if (feature_cat.feature_type or '').upper() == 'ELEMENT':
+            layer_name = tools_gw.element_layer_name(feature_cat.feature_class) or layer_name
+        self.info_layer = tools_qgis.get_layer_by_tablename(layer_name)
 
         # Order liked_feature
         if self.info_layer and (feature_cat.feature_class == 'GENELEM' or linked_feature):
@@ -347,6 +351,11 @@ class GwInfo(QObject):
             feature = QgsFeature(self.info_layer.fields())
             self.info_layer.addFeature(feature)
 
+        elif self.info_layer and (feature_cat.feature_class or '').upper() == 'FRELEM' \
+                and self.info_layer.geometryType() != Qgis.GeometryType.Point:
+            # ve_man_frelem is the regulator line. Insert is still one point, same as ve_element was.
+            self._capture_frelem_point(connect_signal, linked_feature)
+
         elif self.info_layer:
             # The user selects a feature (for example junction) to insert, but before clicking on the canvas he
             # realizes that he has made a mistake and selects another feature, without this two features would
@@ -364,7 +373,7 @@ class GwInfo(QObject):
                                     'info', 'add_feature_featureAdded_open_new_feature')
         else:
             msg = "Layer not found"
-            tools_qgis.show_warning(msg, parameter=feature_cat.parent_layer)
+            tools_qgis.show_warning(msg, parameter=layer_name)
 
     """ FUNCTIONS RELATED WITH TAB PLAN """
 
@@ -732,6 +741,11 @@ class GwInfo(QObject):
         self.table_parent = str(complet_result['body']['feature']['tableParent'])
         schema_name = str(complet_result['body']['feature']['schemaName'])
         self.layer = tools_qgis.get_layer_by_tablename(self.table_parent, False, False, schema_name)
+        # Info still reports parent_layer ve_element. Digitizing and the form use the class layer.
+        if self.layer is None and self.table_parent == 've_element':
+            layer_name = tools_gw.element_layer_name(element_type=self.feature_type)
+            if layer_name:
+                self.layer = tools_qgis.get_layer_by_tablename(layer_name, False, False, schema_name)
 
     def _get_actions(self):
         """ Sets class variables for actions """
@@ -3244,6 +3258,8 @@ class GwInfo(QObject):
             tools_qgis.show_warning(msg, parameter=e)
         finally:
             self._cancel_snapping_tool(dialog, action)
+            if is_inserting:
+                QTimer.singleShot(0, self.iface.actionPan().trigger)
 
     def _set_to_arc(self, dialog, feat_id, child_type, widget_name, simple=False):
         """
@@ -3321,6 +3337,121 @@ class GwInfo(QObject):
 
         if not self.iface.actionAddFeature().isChecked():
             tools_gw.disconnect_signal('info', 'add_feature_actionAddFeature_toggled_action_is_checked')
+
+    def _cancel_frelem_capture(self, rollback=True):
+
+        tool = getattr(self, '_frelem_emit_point', None)
+        if tool is not None:
+            self._frelem_emit_point = None
+            self._frelem_tool_hold = tool
+            try:
+                self.canvas.unsetMapTool(tool)
+            except RuntimeError:
+                pass
+        tools_gw.disconnect_signal('info', 'add_feature_frelem_point')
+        tools_gw.disconnect_signal('info', 'add_feature_frelem_point_cancel')
+        layer = getattr(self, 'info_layer', None)
+        if layer is not None and getattr(self, '_frelem_started_edit', False):
+            self._frelem_started_edit = False
+            if rollback:
+                try:
+                    if layer.isEditable():
+                        layer.rollBack()
+                except RuntimeError:
+                    pass
+
+    def _frelem_pan(self):
+
+        self._frelem_tool_hold = None
+        try:
+            self.iface.actionPan().trigger()
+        except RuntimeError:
+            pass
+
+    def _frelem_capture_canceled(self):
+
+        self._cancel_frelem_capture()
+        self._frelem_pan()
+
+    def _capture_frelem_point(self, connect_signal, linked_feature):
+        """Same point digitizing as Add Feature: project snapping, one click. The line is not what you draw."""
+
+        self._frelem_connect_signal = connect_signal
+        self._frelem_linked_feature = linked_feature
+        self.iface.actionPan().trigger()
+        self.iface.setActiveLayer(self.info_layer)
+        self._frelem_started_edit = not self.info_layer.isEditable()
+        if self._frelem_started_edit:
+            self.info_layer.startEditing()
+        tool = QgsMapToolDigitizeFeature(
+            self.canvas, self.iface.cadDockWidget(), QgsMapToolCapture.CaptureMode.CapturePoint)
+        tool.setLayer(self.info_layer)
+        # ve_man_frelem is a line. The click is still a point, same as ve_element was.
+        tool.setCheckGeometryType(False)
+        self._frelem_emit_point = tool
+        self.canvas.setMapTool(tool)
+        tools_gw.connect_signal(tool.digitizingCompleted, self._frelem_digitized, 'info', 'add_feature_frelem_point')
+        tools_gw.connect_signal(
+            tool.digitizingCanceled, self._frelem_capture_canceled, 'info', 'add_feature_frelem_point_cancel')
+
+    def _snap_frelem_to_node(self, point):
+        """Project snapping, then the node under the cursor. The regulator is stored on that node."""
+
+        node_layer = tools_qgis.get_layer_by_tablename('ve_node')
+        event_point = self.snapper_manager.get_event_point(point=point)
+        if node_layer is None or event_point is None:
+            return point
+        snapper = self.snapper_manager.snapper
+        previous = snapper.currentLayer()
+        snapper.setCurrentLayer(node_layer)
+        result = snapper.snapToCurrentLayer(event_point, QgsPointLocator.Type.Vertex)
+        snapper.setCurrentLayer(previous)
+        snapped = self.snapper_manager.get_snapped_point(result)
+        if snapped is None:
+            return point
+        return snapped
+
+    def _frelem_digitized(self, feature):
+
+        connect_signal = self._frelem_connect_signal
+        linked_feature = self._frelem_linked_feature
+        geom = feature.geometry()
+        if geom is None or geom.isEmpty():
+            self._cancel_frelem_capture()
+            self.iface.actionPan().trigger()
+            return
+        point = geom.asPoint()
+        point = self._snap_frelem_to_node(point)
+        list_points = f'"x1":{point.x()}, "y1":{point.y()}'
+        # Keep the layer editable. new_feature_id is what stops the form from saving itself on open.
+        self._cancel_frelem_capture(rollback=False)
+        QTimer.singleShot(0, self._frelem_pan)
+        if not self.info_layer.isEditable():
+            self.info_layer.startEditing()
+        config = self.info_layer.editFormConfig()
+        self.conf_supp = config.suppress()
+        config.setSuppress(QgsEditFormConfig.FeatureFormSuppress.SuppressOn)
+        self.info_layer.setEditFormConfig(config)
+        tools_gw.disconnect_signal('info', 'add_feature_featureAdded_open_new_feature')
+        qgs_feature = QgsFeature(self.info_layer.fields())
+        self.info_layer.addFeature(qgs_feature)
+        tools_gw.init_docker()
+        global is_inserting  # noqa: F824
+        is_inserting = True
+        self.info_feature = GwInfo('data')
+        self.info_feature.prev_action = None
+        result, _dialog = self.info_feature._get_feature_insert(
+            point=list_points, feature_cat=self.feature_cat, new_feature_id=qgs_feature.id(),
+            layer_new_feature=self.info_layer, tab_type='data', new_feature=qgs_feature,
+            connect_signal=connect_signal, linked_feature=linked_feature)
+        if _dialog is not None:
+            _dialog.dlg_closed.connect(self._frelem_pan)
+        config.setSuppress(self.conf_supp)
+        self.info_layer.setEditFormConfig(config)
+        if not result:
+            self.info_layer.deleteFeature(qgs_feature.id())
+            self.iface.actionRollbackEdits().trigger()
+            is_inserting = False
 
     def _open_new_feature(self, feature_id, connect_signal=None, linked_feature=None):
         """

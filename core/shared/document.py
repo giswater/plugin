@@ -75,12 +75,6 @@ class GwDocument(QObject):
         self.rel_layers['link'] = tools_gw.get_layers_from_feature_type('link')
         self.rel_layers['element'] = tools_gw.get_layers_from_feature_type('element')
 
-        # Add manager element layers (ve_man_frelem, ve_man_genelem) if they exist
-        for layer_name in ['ve_man_frelem', 've_man_genelem']:
-            layer = tools_qgis.get_layer_by_tablename(layer_name)
-            if layer and layer not in self.rel_layers['element']:
-                self.rel_layers['element'].append(layer)
-
         if self.project_type == 'ud':
             self.rel_layers['gully'] = tools_gw.get_layers_from_feature_type('gully')
 
@@ -177,7 +171,7 @@ class GwDocument(QObject):
 
         # Set signals
         self.excluded_layers = ["ve_arc", "ve_node", "ve_connec", "ve_man_frelem", "ve_gully",
-                                "ve_man_genelem", "ve_link", "ve_element"]
+                                "ve_man_genelem", "ve_link"]
         layers_visibility = tools_gw.get_parent_layers_visibility()
 
         # Dialog
@@ -226,8 +220,7 @@ class GwDocument(QObject):
                                                                  self.dlg_add_doc.tbl_doc_x_gully, "ve_gully", "gully_id", self.rubber_band, 10))
         self.dlg_add_doc.tbl_doc_x_link.clicked.connect(partial(tools_qgis.highlight_feature_by_id,
                                                                  self.dlg_add_doc.tbl_doc_x_link, "ve_link", "link_id", self.rubber_band, 10))
-        self.dlg_add_doc.tbl_doc_x_element.clicked.connect(partial(tools_qgis.highlight_feature_by_id,
-                                                                 self.dlg_add_doc.tbl_doc_x_element, "ve_element", "element_id", self.rubber_band, 10))
+        self.dlg_add_doc.tbl_doc_x_element.clicked.connect(self._highlight_element)
         if feature:
             self.dlg_add_doc.tabWidget.currentChanged.connect(
                 partial(self._fill_table_doc, self.dlg_add_doc, feature_type, feature[feature_type + "_id"]))
@@ -241,6 +234,21 @@ class GwDocument(QObject):
         tools_gw.open_dialog(self.dlg_add_doc, dlg_name='doc')
 
         return self.dlg_add_doc
+
+    def _highlight_element(self, index):
+        """Paint the clicked element on the class layer that contains it."""
+
+        column_index = tools_qt.get_col_index_by_col_name(self.dlg_add_doc.tbl_doc_x_element, "element_id")
+        element_id = index.sibling(index.row(), column_index).data()
+        for layer_name in ("ve_man_genelem", "ve_man_frelem"):
+            layer = tools_qgis.get_layer_by_tablename(layer_name)
+            if not layer:
+                continue
+            if tools_qt.get_feature_by_id(layer, element_id, "element_id"):
+                tools_qgis.highlight_feature_by_id(
+                    self.dlg_add_doc.tbl_doc_x_element, layer_name, "element_id", self.rubber_band, 10, index)
+                return
+        self.rubber_band.reset()
 
     def _on_tab_changed(self):
         """ Update rel_feature_type when tab changes """

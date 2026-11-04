@@ -16,6 +16,7 @@ import shutil
 import sys
 import sqlite3
 import xml.etree.ElementTree as ET
+from contextlib import contextmanager
 
 from typing import Literal, Dict, Optional, Union, Any, List, Tuple
 from qgis.PyQt.sip import isdeleted
@@ -971,7 +972,7 @@ def hide_parent_layers(excluded_layers=[]):
     """ Hide generic layers """
 
     layers_changed = {}
-    list_layers = ["ve_arc", "ve_node", "ve_connec", "ve_man_frelem", "ve_man_genelem", "ve_link", "ve_element"]
+    list_layers = ["ve_arc", "ve_node", "ve_connec", "ve_man_frelem", "ve_man_genelem", "ve_link"]
     if global_vars.project_type == 'ud':
         list_layers.append("ve_gully")
 
@@ -1080,8 +1081,8 @@ def get_signal_change_tab(dialog, excluded_layers=[], feature_id_widget_name: Op
 
     field_id = feature_type
     if feature_type == "element":
-        viewname = ["ve_man_frelem", "ve_man_genelem", "ve_element"]
-        field_id = ["element", "element", "element"]
+        viewname = ["ve_man_frelem", "ve_man_genelem"]
+        field_id = ["element", "element"]
 
     # Adding auto-completion to a QLineEdit
     if isinstance(feature_id_widget_name, str):
@@ -5624,6 +5625,25 @@ def get_project_info(schemaname=None, order_direction="DESC"):
     return project_info_dict
 
 
+def element_layer_name(feature_class=None, element_type=None):
+    """Class layer for an element: ve_man_genelem or ve_man_frelem."""
+
+    if not feature_class and element_type:
+        element_type = str(element_type).replace("'", "''")
+        sql = (f"SELECT feature_class FROM {lib_vars.schema_name}.cat_feature "
+               f"WHERE id = '{element_type}'")
+        row = tools_db.get_row(sql)
+        feature_class = row[0] if row else None
+    if not feature_class:
+        return None
+    feature_class = feature_class.upper()
+    if feature_class == 'FRELEM':
+        return 've_man_frelem'
+    if feature_class == 'GENELEM':
+        return 've_man_genelem'
+    return None
+
+
 def get_layers_from_feature_type(feature_type):
     """ Get layers of the group @feature_type """
 
@@ -5637,8 +5657,16 @@ def get_layers_from_feature_type(feature_type):
     rows = tools_db.get_rows(sql)
     if rows:
         for row in rows:
+            if row[0] == 've_element':
+                continue
             layer = tools_qgis.get_layer_by_tablename(row[0])
             if layer:
+                list_items.append(layer)
+
+    if feature_type.upper() == 'ELEMENT':
+        for layer_name in ('ve_man_genelem', 've_man_frelem'):
+            layer = tools_qgis.get_layer_by_tablename(layer_name)
+            if layer and layer not in list_items:
                 list_items.append(layer)
 
     return list_items
@@ -7388,9 +7416,6 @@ def set_completer_object(dialog, tablename, field_id="id"):
     """
 
     widget_name = tablename + "_id"
-    if tablename == "ve_element":  # TODO: remove this when refactored
-        widget_name = "element_id"
-
     widget = tools_qt.get_widget(dialog, widget_name)
     if not widget:
         return
@@ -8066,8 +8091,30 @@ def manage_psector_change(cmb_psector, index):
     set_psector_mode_enabled(psector_id=psector_id)
 
 
+@contextmanager
+def sqlite_conn(file_name):
+    """Open ``resources/gis/<file_name>.sqlite`` and close it on exit.
+
+    Yields ``(status, cursor)``. ``status`` is False and ``cursor`` is None
+    when the file is missing or the connection fails. The caller commits;
+    close rolls back anything still pending.
+    """
+
+    status, cursor = create_sqlite_conn(file_name)
+    conn = cursor.connection if cursor is not None else None
+    try:
+        yield status, cursor
+    finally:
+        if conn is not None:
+            conn.close()
+
+
 def create_sqlite_conn(file_name):
-    """ Creates an sqlite connection to a file """
+    """Open ``resources/gis/<file_name>.sqlite`` and return ``(status, cursor)``.
+
+    The caller owns the connection and must close ``cursor.connection``.
+    Prefer ``sqlite_conn()``, which closes on exit.
+    """
 
     status = False
     cursor = None
