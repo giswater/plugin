@@ -3344,6 +3344,16 @@ def add_spinbox(**kwargs):
     return widget
 
 
+def _coerce_option_id(value):
+    """Keep integer ids, including 0 (Undefined). None stays None so callers can skip it."""
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return value
+
+
 def get_values(dialog, widget, _json=None, ignore_editability=False):
 
     value = None
@@ -3383,12 +3393,9 @@ def get_values(dialog, widget, _json=None, ignore_editability=False):
         value = []
         for i in range(widget.count()):
             if widget.item(i).checkState() == Qt.CheckState.Checked:
-                v = widget.item(i).data(Qt.ItemDataRole.UserRole)
-                try:
-                    v = int(v)
-                except ValueError:
-                    pass
-                value.append(v)
+                v = _coerce_option_id(widget.item(i).data(Qt.ItemDataRole.UserRole))
+                if v is not None:
+                    value.append(v)
     elif isinstance(widget, QWidget):
         # Handle filtered value relation widgets
         if widget.property('widgettype') == 'multiple_option':
@@ -3402,14 +3409,11 @@ def get_values(dialog, widget, _json=None, ignore_editability=False):
             # Build list of selected values
             value = []
             for i in range(widget.count()):
-                # Get the data stored in UserRole for each item
-                v = widget.item(i).data(Qt.ItemDataRole.UserRole)
-                # Try to convert to integer if possible
-                try:
-                    v = int(v)
-                except ValueError:
-                    pass
-                value.append(v)
+                # Get the data stored in UserRole for each item.
+                # None is an item added without an id (Undefined used to land here).
+                v = _coerce_option_id(widget.item(i).data(Qt.ItemDataRole.UserRole))
+                if v is not None:
+                    value.append(v)
 
     key = str(widget.property('columnname')) if widget.property('columnname') else widget.objectName()
     if key == '' or key is None:
@@ -4098,7 +4102,8 @@ def add_item_multiple_option(completer, widget, typeahead):
     if not already_added:
         item = QListWidgetItem()
         item.setText(value)
-        if _key:
+        # id 0 is Undefined (expl/sector/muni). `if _key` drops it, then get_values does int(None).
+        if _key is not None:
             item.setData(Qt.ItemDataRole.UserRole, _key)
         widget.addItem(item)
 
