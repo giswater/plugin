@@ -333,6 +333,7 @@ CREATE TABLE IF NOT EXISTS review_feature (
 	field_date timestamptz DEFAULT now(),
 	field_annotation text,
 	field_changes jsonb NOT NULL,
+	review_changes jsonb,
 	review_annotation text,
 	review_user text,
 	review_date timestamptz,
@@ -348,7 +349,7 @@ INSERT INTO edit_typevalue (typevalue, id, idval, descript, addparam) VALUES
 ON CONFLICT (typevalue, id) DO NOTHING;
 
 INSERT INTO sys_table (id, descript, sys_role, alias, "source", addparam) VALUES
-	('review_feature', 'Proposed feature changes waiting for review', 'role_edit', 'Feature review', 'core', '{"pkey": "id"}'::json),
+	('review_feature', 'Proposed feature changes waiting for review', 'role_om', 'Feature review', 'core', '{"pkey": "id"}'::json),
 	('v_ui_review_feature', 'Feature reviews with the feature code and type', 'role_edit', 'Feature reviews', 'core', '{"pkey": "id"}'::json)
 ON CONFLICT (id) DO UPDATE SET
 	descript = EXCLUDED.descript,
@@ -358,17 +359,42 @@ ON CONFLICT (id) DO UPDATE SET
 
 INSERT INTO sys_function (id, function_name, project_type, function_type, input_params, return_type, descript, sys_role, sample_query, "source", function_alias)
 VALUES (3576, 'gw_fct_manage_review_feature', 'utils', 'function', 'json', 'json',
-	'Gets a feature review and accepts or rejects its proposed changes',
+	'JSON wrapper: creates a feature review, returns its form and accepts or rejects the proposed changes',
 	'role_edit', NULL, 'core', 'Review feature')
 ON CONFLICT (id) DO UPDATE SET
 	function_name = EXCLUDED.function_name,
 	descript = EXCLUDED.descript,
 	sys_role = EXCLUDED.sys_role;
 
+INSERT INTO sys_function (id, function_name, project_type, function_type, input_params, return_type, descript, sys_role, sample_query, "source", function_alias)
+VALUES
+	(3578, 'gw_fct_core_review_feature_create', 'utils', 'function', 'text, integer, jsonb, text', 'bigint',
+		'Creates a feature review and returns its id', 'role_om', NULL, 'core', 'Create feature review'),
+	(3580, 'gw_fct_core_review_feature_get', 'utils', 'function', 'bigint',
+		'TABLE(id bigint, table_name text, table_id integer, child_layer text, feature_code text, feature_type text, expl_id integer, status smallint, status_name text, field_user text, field_date timestamptz, field_annotation text, review_user text, review_date timestamptz, review_annotation text)',
+		'Returns the metadata of one feature review', 'role_om', NULL, 'core', 'Get feature review'),
+	(3582, 'gw_fct_core_review_feature_get_changes', 'utils', 'function', 'bigint',
+		'TABLE(column_name text, current_value text, proposed_value text, applied_value text)',
+		'Returns one row per proposed column, with the live value and the applied value', 'role_om', NULL, 'core', 'Get feature review changes'),
+	(3584, 'gw_fct_core_review_feature_accept', 'utils', 'function', 'bigint, text, jsonb', 'boolean',
+		'Applies a pending feature review through the child view', 'role_edit', NULL, 'core', 'Accept feature review'),
+	(3586, 'gw_fct_core_review_feature_reject', 'utils', 'function', 'bigint, text', 'boolean',
+		'Rejects a pending feature review', 'role_edit', NULL, 'core', 'Reject feature review')
+ON CONFLICT (id) DO UPDATE SET
+	function_name = EXCLUDED.function_name,
+	input_params = EXCLUDED.input_params,
+	return_type = EXCLUDED.return_type,
+	descript = EXCLUDED.descript,
+	sys_role = EXCLUDED.sys_role;
+
 INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type) VALUES
 	(4760, 'This review does not exist.', 'Refresh the list and open it again.', 2, true, 'utils', 'core', 'UI'),
 	(4762, 'This review is no longer pending.', 'It was already accepted or rejected.', 2, true, 'utils', 'core', 'UI'),
-	(4764, 'The feature for this review was not found.', 'It may have been deleted or it is outside the exploitation selector.', 2, true, 'utils', 'core', 'UI')
+	(4764, 'The feature for this review was not found.', 'It may have been deleted or it is outside the exploitation selector.', 2, true, 'utils', 'core', 'UI'),
+	(4766, 'Column %column% is not a column of this feature.', 'Propose only columns that exist on the feature.', 2, true, 'utils', 'core', 'UI'),
+	(4768, 'The change set is empty.', 'Propose at least one column.', 2, true, 'utils', 'core', 'UI'),
+	(4770, 'Column %column% is not part of this proposal.', 'A review can only change columns the field user proposed.', 2, true, 'utils', 'core', 'UI'),
+	(4772, 'Accepting or rejecting a review requires the edit role.', 'Sign in as a user with role_edit.', 2, true, 'utils', 'core', 'UI')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO config_typevalue (typevalue, id, idval, camelstyle, addparam) VALUES

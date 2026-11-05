@@ -47,18 +47,18 @@ class GwReviewManager:
         data = result.get('body', {}).get('data', {})
         review = data.get('review') or {}
         fields = data.get('fields') or []
-        pending = review.get('status') in (0, '0', None)
+        status = _review_status(review)
 
         self.review_id = int(review_id)
         self._proposed = []
         self.dlg_feature = GwReviewFeatureUi(self)
         tools_gw.load_settings(self.dlg_feature)
         self._fill_header(review)
-        self._fill_fields(result, fields, pending)
+        self._fill_fields(result, fields, status)
 
         if review.get('review_annotation'):
             self.dlg_feature.txt_review_annotation.setPlainText(str(review.get('review_annotation')))
-        if not pending:
+        if status != 0:
             self.dlg_feature.btn_accept.setEnabled(False)
             self.dlg_feature.btn_reject.setEnabled(False)
             self.dlg_feature.txt_review_annotation.setReadOnly(True)
@@ -80,40 +80,44 @@ class GwReviewManager:
         self.dlg_feature.lbl_field_date.setText(str(review.get('field_date') or ''))
         self.dlg_feature.lbl_field_annotation.setText(str(review.get('field_annotation') or ''))
 
-    def _fill_fields(self, result, fields, pending):
+    def _fill_fields(self, result, fields, status):
         layout = self.dlg_feature.findChild(QGridLayout, 'lyt_review_fields')
-        title = "Current"
-        header_current = QLabel(tools_qt.tr(title))
-        header_current.setStyleSheet("font-weight: bold;")
-        title = "Proposed"
-        header_proposed = QLabel(tools_qt.tr(title))
-        header_proposed.setStyleSheet("font-weight: bold;")
-        layout.addWidget(header_current, 0, 1)
-        layout.addWidget(header_proposed, 0, 2)
+        if status == 1:
+            title = "Proposed"
+            header_left = QLabel(tools_qt.tr(title))
+            title = "Applied"
+            header_right = QLabel(tools_qt.tr(title))
+        else:
+            title = "Current"
+            header_left = QLabel(tools_qt.tr(title))
+            title = "Proposed"
+            header_right = QLabel(tools_qt.tr(title))
+        header_left.setStyleSheet("font-weight: bold;")
+        header_right.setStyleSheet("font-weight: bold;")
+        layout.addWidget(header_left, 0, 1)
+        layout.addWidget(header_right, 0, 2)
 
         for row, field in enumerate(fields, start=1):
             if not field or not field.get('columnname'):
                 continue
-            label, proposed = tools_gw.set_widgets(self.dlg_feature, result, field, None, self)
-            current_field = dict(field)
-            current_value = field.get('currentValue')
-            if current_value is None:
-                current_value = ''
-            current_field['value'] = current_value
-            current_field['selectedId'] = current_value
-            current_field['columnname'] = 'current_{0}'.format(field['columnname'])
-            current_field['widgetname'] = 'current_{0}'.format(field['columnname'])
-            _, current = tools_gw.set_widgets(self.dlg_feature, result, current_field, None, self)
-            _lock_widget(current)
-            if not pending:
-                _lock_widget(proposed)
+            if status == 1:
+                left_field = _value_field(field, field.get('value'), 'proposed_')
+                right_field = _value_field(field, field.get('appliedValue'), '')
+            else:
+                left_field = _value_field(field, field.get('currentValue'), 'current_')
+                right_field = field
+            label, right = tools_gw.set_widgets(self.dlg_feature, result, right_field, None, self)
+            _, left = tools_gw.set_widgets(self.dlg_feature, result, left_field, None, self)
+            _lock_widget(left)
+            if status != 0:
+                _lock_widget(right)
             if label is not None:
                 layout.addWidget(label, row, 0)
-            if current is not None:
-                layout.addWidget(current, row, 1)
-            if proposed is not None:
-                layout.addWidget(proposed, row, 2)
-                self._proposed.append(proposed)
+            if left is not None:
+                layout.addWidget(left, row, 1)
+            if right is not None:
+                layout.addWidget(right, row, 2)
+                self._proposed.append(right)
 
         layout.addItem(tools_qt.add_verticalspacer(), layout.rowCount(), 0)
 
@@ -179,6 +183,27 @@ def open_review(**kwargs):
         col_idx = 0
     review_id = qtable.model().index(selected[0].row(), col_idx).data()
     kwargs['class']._open_review(review_id)
+
+
+def _review_status(review):
+    try:
+        return int(review.get('status'))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _value_field(field, value, prefix):
+    """Copy of a form field showing @value. @prefix keeps the widget name off the editable column."""
+
+    cloned = dict(field)
+    if value is None:
+        value = ''
+    cloned['value'] = value
+    cloned['selectedId'] = value
+    if prefix:
+        cloned['columnname'] = '{0}{1}'.format(prefix, field['columnname'])
+        cloned['widgetname'] = '{0}{1}'.format(prefix, field['columnname'])
+    return cloned
 
 
 def _lock_widget(widget):

@@ -801,6 +801,10 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4752, 'The new psector name already exists(can be inactive)', 'Try using a different name'),
     (4760, 'This review does not exist.', 'Refresh the list and open it again.'),
     (4762, 'This review is no longer pending.', 'It was already accepted or rejected.'),
-    (4764, 'The feature for this review was not found.', 'It may have been deleted or it is outside the exploitation selector.')
+    (4764, 'The feature for this review was not found.', 'It may have been deleted or it is outside the exploitation selector.'),
+    (4766, 'Column %column% is not a column of this feature.', 'Propose only columns that exist on the feature.'),
+    (4768, 'The change set is empty.', 'Propose at least one column.'),
+    (4770, 'Column %column% is not part of this proposal.', 'A review can only change columns the field user proposed.'),
+    (4772, 'Accepting or rejecting a review requires the edit role.', 'Sign in as a user with role_edit.')
 ) AS v(id, error_message, hint_message)
 WHERE t.id = v.id;
