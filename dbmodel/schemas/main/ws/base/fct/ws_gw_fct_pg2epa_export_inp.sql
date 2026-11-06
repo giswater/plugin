@@ -130,7 +130,8 @@ BEGIN
 
 
 	CREATE OR REPLACE TEMP VIEW vi_t_emitters AS
-	SELECT node_id, addparam::json->>'emitter_coeff' as emitter_coeff FROM temp_t_node
+	SELECT node_id, round((addparam::json->>'emitter_coeff')::numeric, 12)::text AS emitter_coeff
+	FROM temp_t_node
 	WHERE (addparam::json->>'emitter_coeff')::numeric > 0;
 
 
