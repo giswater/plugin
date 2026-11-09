@@ -181,6 +181,12 @@ MAX_POPUP_VISIBLE_ROWS = 200
 # be reached by scrolling, anything past it by typing in the search box.
 MAX_POPUP_VISIBLE_HEIGHT_ITEMS = 15
 
+# Fewest rows kept on screen while the popup is still forced inside the
+# parent window. Below this the list is a hairline: a dialog shorter than
+# the list (Change Team) has no room above or below the combo, and the
+# popup is allowed to leave the window and use the screen.
+MIN_POPUP_VISIBLE_HEIGHT_ITEMS = 4
+
 # Closed-combo width is based on this many 'X' glyphs, not the longest item.
 # AdjustToContents makes catalog values (and long translations) freeze the
 # parent layout — info form two-column tab, Spanish lyt_bot_1, etc.
@@ -807,12 +813,15 @@ class _ComboPopupSearchController(QObject):
         except RuntimeError:
             return None
 
-    def _popup_clip_rect(self):
+    def _popup_clip_rect(self, min_height: int = 0):
         """Stay inside the combo's window and the screen work area.
 
         Pinning always-below used to clip the list at the bottom of Info
         forms. Intersect both rects so a field at the bottom of a dialog
         flips up even when there is canvas below the form.
+
+        A window that cannot hold ``min_height`` on either side is ignored.
+        The popup then uses the screen, the same as a stock ``QComboBox``.
         """
         screen = self._screen_available_geometry()
         try:
@@ -828,9 +837,20 @@ class _ComboPopupSearchController(QObject):
         if form is None:
             return screen
         if screen is None:
-            return form
-        clipped = form.intersected(screen)
-        return clipped if clipped.isValid() else form
+            clipped = form
+        else:
+            clipped = form.intersected(screen)
+            if not clipped.isValid():
+                clipped = form
+        if self._clip_cannot_hold(clipped, min_height) and screen is not None:
+            return screen
+        return clipped
+
+    def _clip_cannot_hold(self, clip, min_height: int) -> bool:
+        if min_height <= 0 or clip is None:
+            return False
+        space_below, space_above = self._popup_free_space(clip)
+        return space_below < min_height and space_above < min_height
 
     def _popup_free_space(self, clip):
         rect = self._combo.rect()
@@ -840,10 +860,10 @@ class _ComboPopupSearchController(QObject):
         space_above = max(0, above - clip.top())
         return space_below, space_above
 
-    def _popup_opens_upward(self, height: int) -> bool:
+    def _popup_opens_upward(self, height: int, floor: int = 0) -> bool:
         if getattr(self._combo, 'popup_opens_upward', False):
             return True
-        clip = self._popup_clip_rect()
+        clip = self._popup_clip_rect(floor)
         if clip is None:
             return False
         space_below, space_above = self._popup_free_space(clip)
@@ -851,8 +871,8 @@ class _ComboPopupSearchController(QObject):
             return False
         return space_above >= space_below
 
-    def _fit_popup_height(self, height: int, upward: bool) -> int:
-        clip = self._popup_clip_rect()
+    def _fit_popup_height(self, height: int, upward: bool, floor: int = 0) -> int:
+        clip = self._popup_clip_rect(floor)
         if clip is None:
             return height
         space_below, space_above = self._popup_free_space(clip)
@@ -861,6 +881,18 @@ class _ComboPopupSearchController(QObject):
         if room <= 0:
             return height
         return min(height, room)
+
+    def _popup_floor_height(self, view, container, display_rows: int) -> int:
+        """Smallest popup that still shows a usable list, search bar included."""
+        if display_rows <= 0:
+            rows = 1
+        else:
+            rows = min(display_rows, MIN_POPUP_VISIBLE_HEIGHT_ITEMS)
+        return (
+            self._search_bar_height()
+            + self._popup_list_height(view, rows)
+            + self._popup_frame_pad(container)
+        )
 
     def _popup_anchor(self, width: int, height: int, upward: Optional[bool] = None):
         rect = self._combo.rect()
@@ -1074,8 +1106,9 @@ class _ComboPopupSearchController(QObject):
         width = self._combo.width() or (container.width() if container is not None else 0)
         width = max(width, self._popup_content_width(view))
         height = self._search_bar_height() + list_h + self._popup_frame_pad(container)
-        upward = self._popup_opens_upward(height)
-        fitted = self._fit_popup_height(height, upward)
+        floor = self._popup_floor_height(view, container, shown_cap if display_rows > 0 else 0)
+        upward = self._popup_opens_upward(height, floor)
+        fitted = self._fit_popup_height(height, upward, floor)
         if fitted < height:
             search_h = self._search_bar_height()
             frame = self._popup_frame_pad(container)
