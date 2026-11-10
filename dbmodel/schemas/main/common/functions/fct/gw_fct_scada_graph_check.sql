@@ -165,7 +165,7 @@ BEGIN
 
 	CREATE TEMP TABLE IF NOT EXISTS temp_vertice (
 		node_id integer,
-		group_id integer,
+		synoptic_id integer,
 		level_id integer,
 		position_id integer,
 		position_aux double precision,

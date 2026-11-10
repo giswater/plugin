@@ -3368,7 +3368,7 @@ BEGIN
 			EXECUTE format($sql$
 				UPDATE %I m
 				SET synoptic_id   = t.synoptic_id,
-					synoptic_geom = ST_SetSRID(ST_GeomFromGeoJSON((t.attrib::json)->>'synopticGeometry'), 0)
+					synoptic_geom = t.synoptic_geom
 				FROM temp_pgr_mapzone_synoptic t
 				WHERE m.mapzone_type = %L
 				AND m.flow_sign    = 1
@@ -3387,7 +3387,7 @@ BEGIN
 			EXECUTE format($sql$
 				UPDATE %I m
 				SET synoptic_id   = t.synoptic_id,
-					synoptic_geom = ST_Reverse(ST_SetSRID(ST_GeomFromGeoJSON((t.attrib::json)->>'synopticGeometry'), 0))
+					synoptic_geom = ST_Reverse(t.synoptic_geom)
 				FROM temp_pgr_mapzone_synoptic t
 				WHERE m.mapzone_type = %L
 				AND m.flow_sign    = -1

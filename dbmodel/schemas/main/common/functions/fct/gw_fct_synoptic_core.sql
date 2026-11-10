@@ -53,7 +53,7 @@ BEGIN
 		RETURN v_audit_result;
 	END IF;
 
-    -- update group_id, level_id, position_id
+    -- update synoptic_id, level_id, position_id
 	EXECUTE format('SELECT count(*)::int FROM %I', v_graph_table) INTO v_pgr_distance;
 
 	v_query_text := format('
@@ -81,7 +81,7 @@ BEGIN
 	', v_graph_table, v_graph_table)
 	INTO v_pgr_root_vids;
 
-	-- temp_vertice.group_id: connected component id.
+	-- temp_vertice.synoptic_id: connected component id.
 	-- SCADA: minimum root node id. Copied to synoptic_id as-is.
 	-- MAPZONE: same seed, then rewritten to node_2 of that root edge, which is the mapzone_id.
 	-- Copied to temp_pgr_mapzone_synoptic.synoptic_id.
@@ -90,29 +90,29 @@ BEGIN
 			SELECT component, node AS node_id
 			FROM pgr_connectedcomponents(v_query_text)
 		),
-		group_ids AS (
-			SELECT c.component, min(c.node_id) AS group_id
+		synoptic_ids AS (
+			SELECT c.component, min(c.node_id) AS synoptic_id
 			FROM connectedcomponents c
 			WHERE c.node_id = ANY (v_pgr_root_vids)
 			GROUP BY c.component
 		)
-	INSERT INTO temp_vertice (node_id, group_id)
-	SELECT c.node_id, g.group_id
+	INSERT INTO temp_vertice (node_id, synoptic_id)
+	SELECT c.node_id, g.synoptic_id
 	FROM connectedcomponents c
-	JOIN group_ids g ON c.component = g.component;
+	JOIN synoptic_ids g ON c.component = g.component;
 
 	IF v_fct_type = 'MAPZONE' THEN
 		EXECUTE format('
 			UPDATE temp_vertice v
-			SET group_id = g.node_2
+			SET synoptic_id = g.node_2
 			FROM %I g
-			WHERE v.group_id = g.node_1
+			WHERE v.synoptic_id = g.node_1
 		', v_graph_table);
 	END IF;
 
 	EXECUTE format('
 		UPDATE %I g
-		SET %I = n.group_id
+		SET %I = n.synoptic_id
 		FROM temp_vertice n
 		WHERE g.active = TRUE
 		AND g.error_message IS NULL
@@ -147,7 +147,7 @@ BEGIN
 				SELECT
 					g.node_1,
 					g.node_2,
-					g.%I AS group_id,
+					g.%I AS synoptic_id,
 					v1.level_id AS level_1,
 					v2.level_id AS level_2
 				FROM %I g
@@ -159,7 +159,7 @@ BEGIN
 				SELECT
 					e.node_1,
 					e.node_2,
-					e.group_id,
+					e.synoptic_id,
 					e.level_1,
 					e.level_2,
 					gs AS level_id
@@ -169,8 +169,8 @@ BEGIN
 					e.level_2-1
 				) gs
 			)
-		INSERT INTO temp_vertice (node_id, group_id, level_id, is_real, orig_node_1, orig_node_2)
-		SELECT -(row_number() OVER ()) AS node_id, group_id, level_id, FALSE AS is_real, node_1, node_2
+		INSERT INTO temp_vertice (node_id, synoptic_id, level_id, is_real, orig_node_1, orig_node_2)
+		SELECT -(row_number() OVER ()) AS node_id, synoptic_id, level_id, FALSE AS is_real, node_1, node_2
 		FROM vertices_levels
 	', v_id_column, v_graph_table);
 
@@ -281,7 +281,7 @@ BEGIN
 	SET position_aux = g.position_aux
 	FROM (
 		SELECT node_id,
-			row_number() OVER (PARTITION BY group_id, level_id ORDER BY position_aux) AS position_aux
+			row_number() OVER (PARTITION BY synoptic_id, level_id ORDER BY position_aux) AS position_aux
 		FROM temp_vertice
 	) g
 	WHERE n.node_id = g.node_id;
@@ -336,7 +336,7 @@ BEGIN
 		SET position_aux = g.position_aux
 		FROM (
 			SELECT v.node_id,
-				row_number() OVER (PARTITION BY v.group_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_aux
+				row_number() OVER (PARTITION BY v.synoptic_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_aux
 			FROM temp_vertice v
 			LEFT JOIN node n ON n.node_id = v.node_id
 		) g
@@ -355,103 +355,50 @@ BEGIN
 	SET position_id = g.position_id
 	FROM (
 		SELECT v.node_id,
-			row_number() OVER (PARTITION BY v.group_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_id
+			row_number() OVER (PARTITION BY v.synoptic_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_id
 		FROM temp_vertice v
 		LEFT JOIN node n ON n.node_id = v.node_id
 	) g
 	WHERE t.node_id = g.node_id;
 
 	-- 5. persist the schematic line (position_id, level_id).
-	-- SCADA: om_scada_graph.synoptic_geom. MAPZONE: attrib.synopticGeometry.
-	IF v_fct_type = 'SCADA' THEN
-		EXECUTE format('
-			WITH
-				all_nodes AS (
-					SELECT t.orig_node_1, t.orig_node_2, t.node_1 AS node_id
-					FROM %I t
-					WHERE t.%I IS NOT NULL
-					AND t.is_multilevel = FALSE
-					UNION
-					SELECT t.orig_node_1, t.orig_node_2, t.node_2 AS node_id
-					FROM %I t
-					WHERE t.%I IS NOT NULL
-					AND t.is_multilevel = FALSE
-					AND t.node_2 = t.orig_node_2
-				),
-				synoptic AS (
-					SELECT
-						an.orig_node_1,
-						an.orig_node_2,
-						json_build_object(
-							''type'', ''LineString'',
-							''coordinates'', json_agg(
-								json_build_array(v.position_id, v.level_id)
-								ORDER BY v.level_id
-							)
-						) AS synoptic_geometry
-					FROM all_nodes an
-					JOIN temp_vertice v ON v.node_id = an.node_id
-					WHERE v.position_id IS NOT NULL
-					AND v.level_id IS NOT NULL
-					GROUP BY an.orig_node_1, an.orig_node_2
-					HAVING count(*) >= 2
-				)
-			UPDATE %I g
-			SET synoptic_geom = ST_SetSRID(ST_GeomFromGeoJSON(s.synoptic_geometry::text), 0)
-			FROM synoptic s
-			WHERE g.node_1 = s.orig_node_1
-			AND g.node_2 = s.orig_node_2
-		', v_graph_table, v_id_column, v_graph_table, v_id_column, v_graph_table);
-	ELSE
-		EXECUTE format('
-			WITH
-				all_nodes AS (
-					SELECT t.orig_node_1, t.orig_node_2, t.node_1 AS node_id
-					FROM %I t
-					WHERE t.%I IS NOT NULL
-					AND t.is_multilevel = FALSE
-					UNION
-					SELECT t.orig_node_1, t.orig_node_2, t.node_2 AS node_id
-					FROM %I t
-					WHERE t.%I IS NOT NULL
-					AND t.is_multilevel = FALSE
-					AND t.node_2 = t.orig_node_2
-				),
-				synoptic AS (
-					SELECT
-						an.orig_node_1,
-						an.orig_node_2,
-						json_build_object(
-							''type'', ''LineString'',
-							''coordinates'', json_agg(
-								json_build_array(v.position_id, v.level_id)
-								ORDER BY v.level_id
-							)
-						) AS synoptic_geometry
-					FROM all_nodes an
-					JOIN temp_vertice v ON v.node_id = an.node_id
-					WHERE v.position_id IS NOT NULL
-					AND v.level_id IS NOT NULL
-					GROUP BY an.orig_node_1, an.orig_node_2
-					HAVING count(*) >= 2
-				)
-			UPDATE %I g
-			SET attrib = CASE
-				WHEN g.attrib::jsonb -> ''arcs'' IS NOT NULL THEN
-					json_build_object(
-						''synopticGeometry'', s.synoptic_geometry,
-						''arcs'', (g.attrib::jsonb -> ''arcs'')
-					)
-				ELSE
-					json_build_object(
-						''synopticGeometry'', s.synoptic_geometry
-					)
-				END
-			FROM synoptic s
-			WHERE g.node_1 = s.orig_node_1
-			AND g.node_2 = s.orig_node_2
-		', v_graph_table, v_id_column, v_graph_table, v_id_column, v_graph_table);
-	END IF;
+	EXECUTE format('
+		WITH
+			all_nodes AS (
+				SELECT t.orig_node_1, t.orig_node_2, t.node_1 AS node_id
+				FROM %I t
+				WHERE t.%I IS NOT NULL
+				AND t.is_multilevel = FALSE
+				UNION
+				SELECT t.orig_node_1, t.orig_node_2, t.node_2 AS node_id
+				FROM %I t
+				WHERE t.%I IS NOT NULL
+				AND t.is_multilevel = FALSE
+				AND t.node_2 = t.orig_node_2
+			),
+			synoptic AS (
+				SELECT
+					an.orig_node_1,
+					an.orig_node_2,
+					ST_SetSRID(
+						ST_MakeLine(
+							ST_MakePoint(v.position_id, v.level_id)
+							ORDER BY v.level_id
+						), 0
+					) AS synoptic_geom
+				FROM all_nodes an
+				JOIN temp_vertice v ON v.node_id = an.node_id
+				WHERE v.position_id IS NOT NULL
+				AND v.level_id IS NOT NULL
+				GROUP BY an.orig_node_1, an.orig_node_2
+				HAVING count(*) >= 2
+			)
+		UPDATE %I g
+		SET synoptic_geom = s.synoptic_geom
+		FROM synoptic s
+		WHERE g.node_1 = s.orig_node_1
+		AND g.node_2 = s.orig_node_2
+	', v_graph_table, v_id_column, v_graph_table, v_id_column, v_graph_table);
 
 	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
 	"data":{"message":"4756", "function":"3574","parameters":null, "is_process":true}}$$);'

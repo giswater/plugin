@@ -264,7 +264,7 @@ BEGIN
                 synoptic_id int4 NULL,
                 node_type_1 text NULL,
                 node_type_2 text NULL,
-                attrib text NULL,
+                synoptic_geom public.geometry(linestring) NULL,
                 active boolean DEFAULT true,
                 error_message text,
                 is_real boolean DEFAULT true,
@@ -278,7 +278,7 @@ BEGIN
 
             CREATE TEMP TABLE IF NOT EXISTS temp_vertice (
                 node_id integer,
-                group_id integer,
+                synoptic_id integer,
                 level_id integer,
                 position_id integer,
                 position_aux double precision,
