@@ -7,19 +7,25 @@
     <x>0</x>
     <y>0</y>
     <width>1185</width>
-    <height>555</height>
+    <height>788</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Results Manager</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
+  <layout class="QGridLayout" name="verticalLayout_4">
    <item row="0" column="1">
     <widget class="QGroupBox" name="groupBox_2">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
      <property name="title">
       <string/>
      </property>
-     <layout class="QGridLayout" name="gridLayout_3">
+     <layout class="QGridLayout" name="gridLayout">
       <item row="0" column="0">
        <widget class="QLabel" name="lbl_info">
         <property name="text">
@@ -28,12 +34,21 @@
        </widget>
       </item>
       <item row="1" column="0">
-       <widget class="QTextEdit" name="txt_info">
+       <widget class="QTextEdit" name="tab_log_txt_infolog">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Maximum" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
         <property name="font">
          <font>
           <family>Courier New</family>
           <pointsize>10</pointsize>
          </font>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -42,67 +57,16 @@
    </item>
    <item row="0" column="0">
     <widget class="QGroupBox" name="groupBox">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
      <property name="title">
       <string/>
      </property>
-     <layout class="QGridLayout" name="gridLayout_2">
-      <item row="1" column="9">
-       <widget class="QPushButton" name="btn_status">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="text">
-         <string>Change status</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="4">
-       <widget class="QLabel" name="lbl_status">
-        <property name="text">
-         <string>Status:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="3">
-       <widget class="QComboBox" name="cmb_expl"/>
-      </item>
-      <item row="0" column="2">
-       <widget class="QLabel" name="lbl_type">
-        <property name="text">
-         <string>Type:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="8">
-       <widget class="QPushButton" name="btn_duplicate">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="text">
-         <string>Duplicate</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="3">
-       <widget class="QLabel" name="lbl_expl">
-        <property name="text">
-         <string>Exploitation:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="6">
-       <widget class="QPushButton" name="btn_corporate">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="text">
-         <string>Set Corporate</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0" colspan="11">
-       <widget class="QTableView" name="tbl_results"/>
-      </item>
+     <layout class="QGridLayout" name="verticalLayout_3">
       <item row="0" column="0">
        <widget class="QLabel" name="lbl_filter">
         <property name="text">
@@ -110,84 +74,192 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="10">
-       <widget class="QPushButton" name="btn_delete">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
+      <item row="0" column="1">
+       <widget class="QLabel" name="lbl_type">
         <property name="text">
-         <string>Delete</string>
+         <string>Type:</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="2">
+      <item row="0" column="2">
+       <widget class="QLabel" name="lbl_expl">
+        <property name="text">
+         <string>Exploitation:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="3">
+       <widget class="QLabel" name="lbl_status">
+        <property name="text">
+         <string>Status:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLineEdit" name="txt_name">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
        <widget class="QComboBox" name="cmb_type"/>
       </item>
-      <item row="1" column="7">
+      <item row="1" column="2">
+       <widget class="QComboBox" name="cmb_expl"/>
+      </item>
+      <item row="1" column="3">
+       <widget class="QComboBox" name="cmb_status"/>
+      </item>
+      <item row="1" column="4">
+       <spacer name="horizontalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>80</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item row="1" column="5">
+       <widget class="QPushButton" name="btn_corporate">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Set Corporate</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="6">
        <widget class="QPushButton" name="btn_edit">
         <property name="enabled">
          <bool>false</bool>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
         </property>
         <property name="text">
          <string>Edit</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="5">
-       <spacer name="horizontalSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
+      <item row="1" column="7">
+       <widget class="QPushButton" name="btn_duplicate">
+        <property name="enabled">
+         <bool>false</bool>
         </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
         </property>
-       </spacer>
-      </item>
-      <item row="1" column="4">
-       <widget class="QComboBox" name="cmb_status"/>
-      </item>
-      <item row="1" column="0">
-       <widget class="QComboBox" name="cmb_name">
-        <property name="editable">
-         <bool>true</bool>
+        <property name="text">
+         <string>Duplicate</string>
         </property>
        </widget>
+      </item>
+      <item row="1" column="8">
+       <widget class="QPushButton" name="btn_status">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Change status</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="9">
+       <widget class="QPushButton" name="btn_delete">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Delete</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0" colspan="10">
+       <widget class="QTableView" name="tbl_results">
+        <property name="selectionMode">
+         <enum>QAbstractItemView::SingleSelection</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0" colspan="10">
+       <layout class="QGridLayout" name="lyt_buttons">
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <item row="0" column="0">
+         <spacer name="horizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="0" column="1">
+         <widget class="QPushButton" name="btn_close">
+          <property name="text">
+           <string>Close</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>
    </item>
-   <item row="1" column="0" colspan="2">
-    <layout class="QGridLayout" name="lyt_buttons">
-     <property name="topMargin">
-      <number>0</number>
-     </property>
-     <item row="0" column="1">
-      <widget class="QPushButton" name="btn_close">
-       <property name="text">
-        <string>Close</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0">
-      <spacer name="horizontalSpacer_2">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-    </layout>
-   </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>txt_name</tabstop>
+  <tabstop>cmb_type</tabstop>
+  <tabstop>cmb_expl</tabstop>
+  <tabstop>cmb_status</tabstop>
+  <tabstop>btn_corporate</tabstop>
+  <tabstop>btn_edit</tabstop>
+  <tabstop>btn_duplicate</tabstop>
+  <tabstop>btn_status</tabstop>
+  <tabstop>btn_delete</tabstop>
+  <tabstop>tbl_results</tabstop>
+  <tabstop>tab_log_txt_infolog</tabstop>
+  <tabstop>btn_close</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

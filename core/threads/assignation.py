@@ -14,6 +14,7 @@ from qgis.core import QgsTask
 from qgis.PyQt.QtCore import pyqtSignal
 
 from .task import GwTask
+from ..toolbars.am.am_utils import am_names
 from ...libs import tools_db, tools_qt, lib_vars
 
 
@@ -46,6 +47,10 @@ class GwAssignation(GwTask):
         config.read(config_path)
         self.unknown_material = config.get("general", "unknown_material")
 
+        names = am_names("WS", "ARC")
+        self.ext_arc = names["ext"]
+        self.v_input = names["v_input"]
+
         self.msg_task_canceled = tools_qt.tr("Task canceled.")
 
     def run(self):
@@ -73,8 +78,8 @@ class GwAssignation(GwTask):
             self._emit_report(tools_qt.tr("Saving results to DB") + " (5/5)...")
             self.setProgress(90)
             sql = (
-                "UPDATE am.arc_input SET rleak = NULL; "
-                + "INSERT INTO am.arc_input (arc_id, rleak) VALUES "
+                "UPDATE am.ws_arc_input SET rleak = NULL; "
+                + "INSERT INTO am.ws_arc_input (arc_id, rleak) VALUES "
             )
             for arc in arcs.values():
                 # Convert rleak to leaks/km.year
@@ -93,13 +98,24 @@ class GwAssignation(GwTask):
             return False
 
     def _assign_leaks(self):
-        interval = tools_db.get_row(
+        row = tools_db.get_row(
             "select max(date) - min(date) from am.leaks", is_admin=True, is_thread=True
-        )[0]
+        )
+        interval = row[0] if row else None
+        # date - date is days (int). timedelta if the column is a timestamp.
+        if hasattr(interval, "days"):
+            interval = interval.days
+        if interval is None:
+            msg = "No leak dates found. Fill the date of the leaks before running the assignation."
+            self._emit_report(tools_qt.tr(msg))
+            return False
+        # A single day (or all leaks on the same date) is 0 days. Floor at 1
+        # so years stays > 0 and `date > max(date) - interval` still includes that day.
+        span_years = max(interval, 1) / 365
         if self.years:
-            self.years = min(self.years, interval / 365)
+            self.years = min(self.years, span_years)
         else:
-            self.years = interval / 365
+            self.years = span_years
 
         if self.isCanceled():
             self._emit_report(self.msg_task_canceled)
@@ -108,6 +124,31 @@ class GwAssignation(GwTask):
         self._emit_report(tools_qt.tr("Getting pipe data from DB") + " (2/5)...")
         self.setProgress(10)
 
+        # Pin: feature_type + feature_id set (ARC) → skip spatial buffer
+        pinned_rows = tools_db.get_rows(
+            f"""
+            WITH max_date AS (
+                SELECT max(date)
+                FROM am.leaks)
+            SELECT l.id AS leak_id,
+                a.arc_id AS arc_id,
+                a.dnom::integer AS arc_diameter,
+                a.matcat_id AS arc_material,
+                ST_LENGTH(a.the_geom) AS arc_length
+            FROM am.leaks AS l
+            JOIN am.{self.ext_arc} AS a ON
+                a.arc_id::text = l.feature_id::text
+                AND (l.date > a.builtdate OR a.builtdate IS NULL)
+            WHERE l.feature_id IS NOT NULL
+                AND l.feature_type IS NOT NULL
+                AND upper(trim(l.feature_type)) = 'ARC'
+                AND l.date > (
+                    (SELECT * FROM max_date) - INTERVAL '{self.years} year')::date
+            """,
+            is_thread=True
+        )
+
+        # Spatial: no ARC feature pin → buffer matching (current behaviour)
         rows = tools_db.get_rows(
             f"""
             WITH max_date AS (
@@ -125,17 +166,25 @@ class GwAssignation(GwTask):
                     ST_INTERSECTION(ST_BUFFER(l.the_geom, {self.buffer}), a.the_geom)
                 ) AS length
             FROM am.leaks AS l
-            JOIN am.ext_arc_asset AS a ON
+            JOIN am.{self.ext_arc} AS a ON
                 (l.date > a.builtdate OR a.builtdate IS NULL)
-                AND ST_DWITHIN(l.the_geom, a.the_geom, {self.buffer})     
+                AND ST_DWITHIN(l.the_geom, a.the_geom, {self.buffer})
             WHERE l.date > (
                 (SELECT * FROM max_date) - INTERVAL '{self.years} year')::date
+                AND NOT (
+                    l.feature_id IS NOT NULL
+                    AND l.feature_type IS NOT NULL
+                    AND upper(trim(l.feature_type)) = 'ARC'
+                )
                 AND ST_LENGTH(
                     ST_INTERSECTION(ST_BUFFER(l.the_geom, {self.buffer}), a.the_geom)
                 ) > 0
             """,
             is_thread=True
         )
+
+        if self._db_failed():
+            return False
 
         if self.isCanceled():
             self._emit_report(self.msg_task_canceled)
@@ -144,11 +193,34 @@ class GwAssignation(GwTask):
         self._emit_report(tools_qt.tr("Assigning leaks to pipes") + " (3/5)...")
         self.setProgress(40)
 
-        leaks = {}
-        if not rows:
+        if not pinned_rows and not rows:
             self._emit_report(tools_qt.tr("No pipes were found near any leak within the specified time period."))
             return False
-        for row in rows:
+
+        arcs = {}
+        assigned_leak_ids = set()
+        self.by_feature = 0
+        self.by_material_diameter = 0
+        self.by_material = 0
+        self.by_diameter = 0
+        self.any_pipe = 0
+
+        for row in pinned_rows or []:
+            leak_id, arc_id, arc_diameter, arc_material, arc_length = row
+            if arc_id not in arcs:
+                arcs[arc_id] = {
+                    "id": arc_id,
+                    "material": arc_material,
+                    "diameter": arc_diameter,
+                    "length": arc_length,
+                    "leaks": 0,
+                }
+            arcs[arc_id]["leaks"] += 1
+            assigned_leak_ids.add(leak_id)
+            self.by_feature += 1
+
+        leaks = {}
+        for row in rows or []:
             (
                 leak_id,
                 leak_diameter,
@@ -186,12 +258,7 @@ class GwAssignation(GwTask):
                     ),
                 }
             )
-        self.assigned_leaks = len(leaks)
-        self.by_material_diameter = 0
-        self.by_material = 0
-        self.by_diameter = 0
-        self.any_pipe = 0
-        arcs = {}
+
         for leak_id, leak_arcs in leaks.items():
             def is_arc_valid(x, validation_type):
                 if validation_type == "material_diameter":
@@ -222,6 +289,8 @@ class GwAssignation(GwTask):
                 )
             )
             sum_indexes = sum([a["index"] for a in valid_arcs])
+            if sum_indexes == 0:
+                continue
             for arc in valid_arcs:
                 arc_id = arc["arc_id"]
                 if arc_id not in arcs:
@@ -233,6 +302,9 @@ class GwAssignation(GwTask):
                         "leaks": 0,
                     }
                 arcs[arc_id]["leaks"] += arc["index"] / sum_indexes
+            assigned_leak_ids.add(leak_id)
+
+        self.assigned_leaks = len(assigned_leak_ids)
         return arcs
 
     def _calculate_rleak(self, arcs):
@@ -254,7 +326,7 @@ class GwAssignation(GwTask):
                 f"""
                 WITH start_pipe AS (
                         SELECT arc_id, matcat_id, dnom, builtdate, the_geom
-                        FROM am.ext_arc_asset
+                        FROM am.{self.ext_arc}
                         WHERE arc_id = '{arc["id"]}'),
                     ordered_list AS (
                         SELECT a.arc_id, 
@@ -263,7 +335,7 @@ class GwAssignation(GwTask):
                             a.dnom,
                             a.the_geom <-> (select the_geom from start_pipe LIMIT 1) AS dist,
                             ST_LENGTH(a.the_geom) AS length
-                        FROM am.ext_arc_asset AS a
+                        FROM am.{self.ext_arc} AS a
                         {where_clause}
                         ORDER BY start DESC, dist ASC),
                     cum_list AS (
@@ -306,6 +378,13 @@ class GwAssignation(GwTask):
                 return False
         return arcs
 
+    def _db_failed(self):
+        err = lib_vars.session_vars.get("last_error")
+        if not err:
+            return False
+        self._emit_report(str(err))
+        return True
+
     def _emit_report(self, *args):
         self.report.emit({"info": {"values": [{"message": arg} for arg in args]}})
 
@@ -320,17 +399,17 @@ class GwAssignation(GwTask):
                 )::date),
             total_pipes as (
                 select count(*) as total_pipes
-                from am.ext_arc_asset),
+                from am.{self.ext_arc}),
             orphan_pipes as (
                 select count(*) as orphan_pipes
-                from am.v_asset_arc_input
+                from am.{self.v_input}
                 where rleak is null or rleak = 0),
             max_rleak as (
                 select max(rleak) as max_rleak
-                from am.arc_input),
+                from am.ws_arc_input),
             min_rleak as (
                 select min(rleak) as min_rleak
-                from am.arc_input
+                from am.ws_arc_input
                 where rleak is not null and rleak <> 0)
             select *
             from total_leaks
@@ -352,6 +431,8 @@ class GwAssignation(GwTask):
             (tools_qt.tr('Leaks without pipes intersecting its buffer: '), f'{values["total_leaks"] - self.assigned_leaks}')
         ]
 
+        if self.by_feature:
+            final_report_values.append((tools_qt.tr('Leaks assigned by feature id: '), f'{self.by_feature}'))
         if self.by_material_diameter:
             final_report_values.append((tools_qt.tr('Leaks assigned by material and diameter: '), f'{self.by_material_diameter}'))
         if self.by_material:

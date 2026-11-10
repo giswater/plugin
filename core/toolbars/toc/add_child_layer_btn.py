@@ -122,7 +122,9 @@ class GwAddChildLayerButton(GwAction):
                     menu.addAction(widgetAction)
 
                 if f"{field['tableName']}" in layer_list:
+                    widget.blockSignals(True)
                     widget.setChecked(True)
+                    widget.blockSignals(False)
                 widget.setStyleSheet("margin: 5px 5px 5px 8px;")
 
                 layer_name = field['tableName']
@@ -163,8 +165,24 @@ class GwAddChildLayerButton(GwAction):
         :param is_checked: This parameter is sent by the action itself with the trigger (Bool)
         """
 
+        # AM/CM contexts are ["AM", "ARC"|"NODE"|"LINK"]. Always create that TOC
+        # tree so Load all does not flatten every layer into GW Layers.
+        force_create_group = group in ("AM", "CM")
+        if sub_group:
+            sub_group = sub_group.capitalize()
+        if sub_sub_group:
+            sub_sub_group = sub_sub_group.capitalize()
+
         if state == 2:
-            layer = tools_qgis.get_layer(custom_properties={"gw_id": tablename}, tablename=tablename)
+            schema = None
+            if group == "AM" or group == "CM":
+                schema = "am" if group == "AM" else "cm"
+            # Pass schema so AM/CM layers are found in am/cm, not only in parent WS schema
+            layer = tools_qgis.get_layer(
+                custom_properties={"gw_id": tablename},
+                tablename=tablename,
+                schema_name=schema,
+            )
             old_id = None
             if layer is not None and tools_qgis.is_layer_under_group(layer, "HIDDEN"):
                 # Autoload is a worker-built layer; drop it and add like the button, then retarget VRs
@@ -172,17 +190,25 @@ class GwAddChildLayerButton(GwAction):
                 tools_gw.remove_map_layer_allow_vr_target(layer)
                 layer = None
             if layer is None:
-                schema = None
-                if group == "AM" or group == "CM":
-                    schema = "am" if group == "AM" else "cm"
                 if provider_config:
-                    new_layer = tools_gw.add_layer_provider(tablename, provider_config, group, sub_group, alias=alias, sub_sub_group=sub_sub_group, schema=schema)
+                    new_layer = tools_gw.add_layer_provider(
+                        tablename, provider_config, group, sub_group, alias=alias,
+                        sub_sub_group=sub_sub_group, schema=schema, force_create_group=force_create_group)
                 else:
-                    new_layer = tools_gw.add_layer_database(tablename, the_geom, field_id, group, sub_group, alias=alias, sub_sub_group=sub_sub_group, schema=schema)
+                    new_layer = tools_gw.add_layer_database(
+                        tablename, the_geom, field_id, group, sub_group, alias=alias,
+                        sub_sub_group=sub_sub_group, schema=schema, force_create_group=force_create_group)
                 if old_id and new_layer:
                     tools_qgis.rebind_value_relation_layer(old_id, new_layer)
         elif state == 0:
-            layer = tools_qgis.get_layer(custom_properties={"gw_id": tablename}, tablename=tablename)
+            schema = None
+            if group == "AM" or group == "CM":
+                schema = "am" if group == "AM" else "cm"
+            layer = tools_qgis.get_layer(
+                custom_properties={"gw_id": tablename},
+                tablename=tablename,
+                schema_name=schema,
+            )
             if layer is None:
                 return
             if tools_qgis.layer_is_value_relation_target(layer):
@@ -197,6 +223,11 @@ class GwAddChildLayerButton(GwAction):
             title = "Warning"
             answer = tools_qt.show_question(msg, title, parameter=f"'{layer.name()}'", force_action=True)
             if answer:
-                tools_qgis.remove_layer(custom_properties={"gw_id": tablename}, tablename=tablename, group_name=group, sub_group=sub_group)
+                tools_qgis.remove_layer(
+                    custom_properties={"gw_id": tablename},
+                    tablename=tablename,
+                    group_name=group,
+                    sub_group=sub_group,
+                )
 
     # endregion

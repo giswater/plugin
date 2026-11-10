@@ -1,7 +1,7 @@
 # Asset-management schema manifest.
 #
-# AM is WS-only: integration SQL lives under integration/ws/.
-# Create (empty|sample) and integrate (integrate|integrate_sample) are separate steps.
+# AM attaches to at most one WS parent and one UD parent.
+# Integrate SQL is integration/{{ parent_type }}/. Create and integrate are separate steps.
 
 kind: am
 engine_version: 1
@@ -19,14 +19,21 @@ phases:
 
   - id: integrate_am
     type: sql_dir
-    description: "Wire am into the parent ws project schema."
+    description: "Wire am into the parent WS or UD project schema."
     steps:
       - source: "schemas/addon/am/integration/common/fct"
         recursive: false
         schema_override: "{{ parent_schema }}"
-      - source: "schemas/addon/am/integration/ws/integration.sql"
+      - source: "schemas/addon/am/integration/{{ parent_type }}/integration.sql"
         recursive: false
         schema_override: "{{ parent_schema }}"
+
+  - id: refresh_am_functions
+    type: sql_dir
+    description: "Re-apply AM functions that must see every linked parent."
+    steps:
+      - source: "schemas/addon/am/base/fct/gw_fct_am_update_mincut_criticity.sql"
+        recursive: false
 
   - id: load_sample_user
     type: sql_dir
@@ -41,7 +48,7 @@ phases:
     optional: true
     description: "Seed am config from parent ws catalogs."
     steps:
-      - source: "schemas/addon/am/integration/ws/sample.sql"
+      - source: "schemas/addon/am/integration/{{ parent_type }}/sample.sql"
         recursive: false
         schema_override: "{{ parent_schema }}"
 
@@ -81,11 +88,11 @@ profiles:
   sample:
     phases: [load_base, load_sample_user, load_updates, load_i18n, register_version]
   integrate:
-    phases: [integrate_am, load_updates, load_i18n, register_version]
+    phases: [load_updates, integrate_am, refresh_am_functions, load_i18n, register_version]
   integrate_sample:
-    phases: [integrate_am, load_sample_integrate, load_updates, load_i18n, register_version]
+    phases: [load_updates, integrate_am, load_sample_integrate, refresh_am_functions, load_i18n, register_version]
   update:
-    phases: [load_updates, load_i18n, register_version]
+    phases: [load_updates, refresh_am_functions, load_i18n, register_version]
   update_step:
     phases: [load_updates, register_version]
   version_bump:

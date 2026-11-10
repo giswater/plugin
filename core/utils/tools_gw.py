@@ -1121,6 +1121,21 @@ def set_completer_feature_id(widget, feature_type, viewname):
         completer.setModel(model)
 
 
+def _am_extent_table(schema_name):
+    """WS or UD inventory view used for SRID and canvas extent. None if AM is not integrated."""
+    project_type = (global_vars.project_type or "").lower()
+    if project_type == "ud":
+        names = ("v_ext_ud_arc_asset", "ext_ud_arc_asset", "v_ext_ud_node_asset", "ext_ud_node_asset")
+    elif project_type == "ws":
+        names = ("v_ext_ws_arc_asset", "ext_ws_arc_asset")
+    else:
+        names = ("v_ext_ws_arc_asset", "ext_ws_arc_asset", "v_ext_ud_arc_asset", "ext_ud_arc_asset")
+    for name in names:
+        if tools_db.check_view(name, schema_name):
+            return name
+    return None
+
+
 def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group="GW Layers", sub_group=None, alias=None, sub_sub_group=None, schema=None,
                         visibility=None, auth_id=None, extent=None, passwd=None, create_project=False, force_create_group=False, properties=None,
                         add_to_toc=True, aux_conn=None, is_thread=False):
@@ -1143,8 +1158,17 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
     tablename_og = tablename
     schema_name = tools_db.dao_db_credentials['schema'].replace('"', '') if schema is None else schema
 
-    auth_id = tools_db.get_srid("ext_arc_asset" if schema_name == "am" else "ve_node", schema_name) if auth_id is None else auth_id
-    extent = _get_extent_parameters(schema_name, "ext_arc_asset" if schema_name == "am" else "node") if extent is None else extent
+    if schema_name == "am":
+        am_table = _am_extent_table(schema_name)
+        if auth_id is None and am_table:
+            auth_id = tools_db.get_srid(am_table, schema_name)
+        if extent is None and am_table:
+            extent = _get_extent_parameters(schema_name, am_table)
+    else:
+        if auth_id is None:
+            auth_id = tools_db.get_srid("ve_node", schema_name)
+        if extent is None:
+            extent = _get_extent_parameters(schema_name, "node")
 
     field_id = (field_id or "id").replace(" ", "")
     uri, status = tools_db.get_uri(tablename, the_geom, schema_name)
@@ -1203,9 +1227,7 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
             if row:
                 addparam = row[0]
                 if addparam and addparam.get('refreshSymbology'):
-                    renderer = layer.renderer()
-                    if isinstance(renderer, QgsCategorizedSymbolRenderer):
-                        refresh_categorized_layer_symbology_classes(layer, addparam)
+                    refresh_categorized_layer_symbology_classes(layer, addparam)
 
         if add_to_toc and not create_project:
             if tablename and schema != 'am' and schema != 'cm':
@@ -1312,9 +1334,7 @@ def add_layer_provider(gw_id: str, cfg, group="GW Layers", sub_group=None, alias
     if row:
         addparam = row[0]
         if addparam and addparam.get('refreshSymbology'):
-            renderer = layer.renderer()
-            if isinstance(renderer, QgsCategorizedSymbolRenderer):
-                refresh_categorized_layer_symbology_classes(layer, addparam)
+            refresh_categorized_layer_symbology_classes(layer, addparam)
 
     if visibility is not None:
         if visibility is False:
@@ -1508,6 +1528,15 @@ def refresh_categorized_layer_symbology_classes(layer, addparam=None):
         :param layer: Layer to refresh (QgsVectorLayer)
         :param addparam: Addparams of the layer (dict)
     """
+    if addparam is None:
+        return
+    if isinstance(addparam, str):
+        try:
+            addparam = json.loads(addparam)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return
+    if not isinstance(addparam, dict):
+        return
 
     field_name = addparam.get('symbolField')
 
@@ -1523,6 +1552,8 @@ def refresh_categorized_layer_symbology_classes(layer, addparam=None):
         spectral = style.colorRamp('Spectral')
         renderer.setSourceColorRamp(spectral.clone())
 
+    if not hasattr(renderer, "classAttribute"):
+        return
     field_name = renderer.classAttribute()
     if not field_name:
         return
@@ -1563,7 +1594,15 @@ def refresh_categorized_layer_symbology_classes(layer, addparam=None):
         sl = src_symbol.symbolLayer(0)
         # Support only layers with width (line symbols)
         if sl and hasattr(sl, "setDataDefinedProperty"):
-            expression = f'case when {dnom_symbol} is not null then -4.862 + 0.977 * ln("{dnom_symbol}" + 159.243) else 0.25 end'
+            # Fitted on the WS band (~60–300 mm → ~0.4–1.1 mm stroke).
+            # UD geom1 is metres (0.2–2.0). *1000 draws a 2 m sewer at ~2.6 mm.
+            # Values under 10 are metres, mapped into that same band.
+            field = dnom_symbol.replace('"', '')
+            expression = (
+                f'with_variable(\'dmm\', if("{field}" is null, null, '
+                f'if("{field}" < 10, 40 + "{field}" * 130, "{field}")), '
+                f'if(@dmm is null, 0.25, -4.862 + 0.977 * ln(@dmm + 159.243)))'
+            )
             sl.setDataDefinedProperty(
                 QgsSymbolLayer.Property.PropertyStrokeWidth,
                 QgsProperty.fromExpression(expression)

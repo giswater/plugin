@@ -9,13 +9,13 @@ SET search_path = am, public;
 
 INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, camelstyle, addparam) VALUES('sys_table_context', '{"levels": ["AM", "LAYERS"]}', NULL, NULL, '{"orderBy":1}'::json) ON CONFLICT (typevalue,id) DO NOTHING;
 
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('arc_output', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Arc output', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('ext_arc_asset', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Extension arc asset', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('leaks', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Leaks', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_arc_corporate', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Asset arc corporate', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_arc_input', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Asset arc input', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_arc_output', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Asset arc output', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
-INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_arc_output_compare', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Asset arc output compare', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('ws_arc_output', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'All Arc Calculation Results', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('ext_ws_arc_asset', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Extension arc asset', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('leaks', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Leak History Points', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_ws_arc_corporate', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Corporate Arc Plan', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_ws_arc_input', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Arc Failure Rates and Inputs', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_ws_arc_output', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Selected Arc Result', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('v_asset_ws_arc_output_compare', 'id', 'role_om', NULL, '{"levels": ["AM", "LAYERS"]}', NULL, 'Comparison Arc Result', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
 
 
 -- trigger
@@ -23,9 +23,8 @@ DROP TRIGGER IF EXISTS gw_trg_asset_cat_arc ON PARENT_SCHEMA.cat_arc;
 CREATE TRIGGER gw_trg_asset_cat_arc AFTER INSERT OR UPDATE OF dnom ON PARENT_SCHEMA.cat_arc
 FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_arc();
 
+-- Shared am catalog tables hold WS and UD rows. A FK can only point at one parent.
 ALTER TABLE am.config_catalog_def DROP CONSTRAINT IF EXISTS config_catalog_def_fk;
-ALTER TABLE am.config_catalog_def ADD CONSTRAINT config_catalog_def_fk FOREIGN KEY (arccat_id)
-REFERENCES PARENT_SCHEMA.cat_arc (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 -- trigger
@@ -35,34 +34,170 @@ FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_material();
 
 -- fk
 ALTER TABLE am.config_material_def DROP CONSTRAINT IF EXISTS config_material_def_fk;
-ALTER TABLE am.config_material_def ADD CONSTRAINT config_material_def_fk FOREIGN KEY (material)
-REFERENCES PARENT_SCHEMA.cat_material (id) MATCH SIMPLE ON UPDATE CASCADE ON DELETE CASCADE;
 
 
+-- NODE catalog tables (idempotent: integrate may run before updates/base that define them)
+CREATE TABLE IF NOT EXISTS am.config_nodecatalog_def (
+    id serial PRIMARY KEY,
+    nodecat_id varchar(30) NOT NULL,
+    project_type varchar(2) NOT NULL DEFAULT 'WS',
+    dnom numeric(12,2),
+    cost_constr numeric(12,2),
+    cost_repmain numeric(12,2),
+    compliance integer,
+    CONSTRAINT config_nodecatalog_def_nodecat_id UNIQUE (nodecat_id, project_type)
+);
 
-DELETE FROM PARENT_SCHEMA.sys_table WHERE id IN ('arc_output', 'ext_arc_asset', 'leaks', 'v_asset_arc_input', 'v_asset_arc_corporate', 'v_asset_arc_output', 'v_asset_arc_output_compare') AND source = 'am';
+CREATE TABLE IF NOT EXISTS am.config_nodecatalog (
+    nodecat_id varchar(30) NOT NULL,
+    dnom numeric(12,2),
+    cost_constr numeric(12,2),
+    cost_repmain numeric(12,2),
+    compliance integer,
+    result_id integer NOT NULL,
+    CONSTRAINT config_nodecatalog_pkey PRIMARY KEY (nodecat_id, result_id)
+);
+
+GRANT ALL ON TABLE am.config_nodecatalog TO role_basic;
+GRANT ALL ON TABLE am.config_nodecatalog_def TO role_basic;
+
+-- trigger (NODE catalog ? mirrors cat_arc ? config_catalog_def)
+DROP TRIGGER IF EXISTS gw_trg_asset_cat_node ON PARENT_SCHEMA.cat_node;
+CREATE TRIGGER gw_trg_asset_cat_node AFTER INSERT OR UPDATE OF dnom ON PARENT_SCHEMA.cat_node
+FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_node();
+
+ALTER TABLE am.config_nodecatalog_def DROP CONSTRAINT IF EXISTS config_nodecatalog_def_fk;
+
+INSERT INTO am.config_catalog_def (
+    arccat_id, project_type, dnom, cost_constr, cost_repmain, cost_rehab, compliance
+)
+SELECT id, 'WS', dnom::numeric,
+    round(dnom::numeric * 3 / 5 + 70),
+    round(dnom::numeric * 9 / 5 + 310),
+    NULL,
+    10
+FROM PARENT_SCHEMA.cat_arc
+WHERE dnom IS NOT NULL
+ON CONFLICT (arccat_id, project_type) DO NOTHING;
+
+INSERT INTO am.config_nodecatalog_def (
+    nodecat_id, project_type, dnom, cost_constr, cost_repmain, cost_rehab, compliance
+)
+SELECT id, 'WS',
+    NULLIF(regexp_replace(COALESCE(dnom, ''), '[^0-9\.]', '', 'g'), '')::numeric,
+    100, 0, NULL, 10
+FROM PARENT_SCHEMA.cat_node
+WHERE active IS DISTINCT FROM FALSE
+ON CONFLICT (nodecat_id, project_type) DO NOTHING;
+
+INSERT INTO am.config_material_def (
+    material, project_type, pleak, age_max, age_med, age_min, builtdate_vdef, compliance
+)
+SELECT id, 'WS', 0.16, 58, 50, 42, 1964, 10
+FROM PARENT_SCHEMA.cat_material
+WHERE active IS TRUE
+ON CONFLICT (material, project_type) DO NOTHING;
+
+-- LINK catalog (ODT cat_ws_link_cost)
+CREATE TABLE IF NOT EXISTS am.config_linkcatalog_def (
+    id serial PRIMARY KEY,
+    linkcat_id varchar(30) NOT NULL,
+    dnom numeric(12,2),
+    cost_constr numeric(12,2),
+    cost_repmain numeric(12,2),
+    compliance integer,
+    CONSTRAINT config_linkcatalog_def_linkcat_id UNIQUE (linkcat_id)
+);
+
+CREATE TABLE IF NOT EXISTS am.config_linkcatalog (
+    linkcat_id varchar(30) NOT NULL,
+    dnom numeric(12,2),
+    cost_constr numeric(12,2),
+    cost_repmain numeric(12,2),
+    compliance integer,
+    result_id integer NOT NULL,
+    CONSTRAINT config_linkcatalog_pkey PRIMARY KEY (linkcat_id, result_id)
+);
+
+CREATE TABLE IF NOT EXISTS am.config_linkmaterial_def (
+    material character varying(50) NOT NULL,
+    score numeric(12,3) NOT NULL,
+    descript text,
+    CONSTRAINT config_linkmaterial_def_pkey PRIMARY KEY (material)
+);
+
+GRANT ALL ON TABLE am.config_linkcatalog TO role_basic;
+GRANT ALL ON TABLE am.config_linkcatalog_def TO role_basic;
+GRANT ALL ON TABLE am.config_linkmaterial_def TO role_basic;
+
+ALTER TABLE am.config_linkcatalog_def ADD COLUMN IF NOT EXISTS surface_type varchar(30);
+ALTER TABLE am.config_linkcatalog_def ADD COLUMN IF NOT EXISTS default_length numeric(12,3);
+ALTER TABLE am.config_linkcatalog ADD COLUMN IF NOT EXISTS surface_type varchar(30);
+ALTER TABLE am.config_linkcatalog ADD COLUMN IF NOT EXISTS default_length numeric(12,3);
+UPDATE am.config_linkcatalog_def SET default_length = 6 WHERE default_length IS NULL;
+
+INSERT INTO am.config_linkmaterial_def (material, score, descript) VALUES
+    ('PE', 2, 'Modern polyethylene'),
+    ('PVC', 3, 'PVC connection'),
+    ('GALVANIZED_STEEL', 7, 'Old galvanized steel'),
+    ('LEAD', 10, 'Lead connection'),
+    ('UNKNOWN', 5, 'Unknown material')
+ON CONFLICT (material) DO NOTHING;
+
+ALTER TABLE am.config_linkcatalog_def DROP CONSTRAINT IF EXISTS config_linkcatalog_def_fk;
+
+DROP TRIGGER IF EXISTS gw_trg_asset_cat_link ON PARENT_SCHEMA.cat_link;
+CREATE TRIGGER gw_trg_asset_cat_link AFTER INSERT OR UPDATE OF dnom ON PARENT_SCHEMA.cat_link
+FOR EACH ROW EXECUTE PROCEDURE PARENT_SCHEMA.gw_trg_asset_cat_link();
+
+INSERT INTO am.config_linkcatalog_def (linkcat_id, dnom, cost_constr, cost_repmain, compliance)
+SELECT id,
+	NULLIF(regexp_replace(COALESCE(dnom, ''), '[^0-9\.]', '', 'g'), '')::NUMERIC,
+	0,
+	0,
+	10
+FROM PARENT_SCHEMA.cat_link
+WHERE active IS DISTINCT FROM FALSE
+ON CONFLICT (linkcat_id) DO NOTHING;
+
+DELETE FROM PARENT_SCHEMA.sys_table WHERE id IN ('ws_arc_output', 'ext_ws_arc_asset', 'leaks', 'v_asset_ws_arc_input', 'v_asset_ws_arc_corporate', 'v_asset_ws_arc_output', 'v_asset_ws_arc_output_compare') AND source = 'am';
 DELETE FROM PARENT_SCHEMA.config_typevalue WHERE typevalue = 'sys_table_context' AND id = '{"levels": ["AM", "LAYERS"]}';
-DELETE FROM PARENT_SCHEMA.sys_style WHERE layername in ('arc_output', 'ext_arc_asset', 'leaks', 'v_asset_arc_input', 'v_asset_arc_corporate', 'v_asset_arc_output', 'v_asset_arc_output_compare');
+DELETE FROM PARENT_SCHEMA.sys_style WHERE layername in ('ws_arc_output', 'ext_ws_arc_asset', 'leaks', 'v_asset_ws_arc_input', 'v_asset_ws_arc_corporate', 'v_asset_ws_arc_output', 'v_asset_ws_arc_output_compare');
 
+-- Legacy flat group (kept for backward compatibility)
 INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES ('sys_table_context', '34', '["AM", "LAYERS"]', '{"orderBy": 34}') ON CONFLICT (typevalue,id) DO NOTHING;
+-- AM TOC subgroups: ARC / NODE / LINK / CONFIG
+INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES ('sys_table_context', '35', '["AM", "ARC"]', '{"orderBy": 35}') ON CONFLICT (typevalue,id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES ('sys_table_context', '36', '["AM", "NODE"]', '{"orderBy": 36}') ON CONFLICT (typevalue,id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES ('sys_table_context', '38', '["AM", "LINK"]', '{"orderBy": 37}')
+ON CONFLICT (typevalue,id) DO UPDATE SET idval = EXCLUDED.idval, addparam = EXCLUDED.addparam;
+INSERT INTO PARENT_SCHEMA.config_typevalue (typevalue, id, idval, addparam) VALUES ('sys_table_context', '37', '["AM", "CONFIG"]', '{"orderBy": 38}')
+ON CONFLICT (typevalue,id) DO UPDATE SET addparam = EXCLUDED.addparam;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('ext_arc_asset', 'id', 'role_om', NULL, '34', 7, 'Existing Assets', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+VALUES('v_asset_ws_arc_output_compare', 'id', 'role_om', NULL, '35', 7, 'Comparison Arc Result', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('leaks', 'id', 'role_om', NULL, '34', 6, 'Leaks', NULL, NULL, NULL, 'am', NULL) ON CONFLICT (id) DO NOTHING;
+VALUES('v_asset_ws_arc_output', 'id', 'role_om', NULL, '35', 6, 'Selected Arc Result', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_arc_input', 'id', 'role_om', NULL, '34', 5, 'Input Assets', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthersName": "No leak", "symbolField": "rleak"}') ON CONFLICT (id) DO NOTHING;
+VALUES('v_asset_ws_arc_corporate', 'id', 'role_om', NULL, '35', 5, 'Corporate Arc Plan', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('arc_output', 'id', 'role_om', NULL, '34', 4, 'Assets Result', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}') ON CONFLICT (id) DO NOTHING;
+VALUES('ws_arc_output', 'id', 'role_om', NULL, '35', 4, 'All Arc Calculation Results', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}')
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_arc_corporate', 'id', 'role_om', NULL, '34', 3, 'Corporate Assets', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}') ON CONFLICT (id) DO NOTHING;
+VALUES('v_asset_ws_arc_input', 'id', 'role_om', NULL, '35', 3, 'Arc Failure Rates and Inputs', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthersName": "No leak", "symbolField": "rleak"}')
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_arc_output', 'id', 'role_om', NULL, '34', 2, 'Result - Main', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}') ON CONFLICT (id) DO NOTHING;
+VALUES('leaks', 'id', 'role_om', NULL, '35', 2, 'Leak History Points', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
-VALUES('v_asset_arc_output_compare', 'id', 'role_om', NULL, '34', 1, 'Result - Compare', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "dnomSymbol": "dnom", "allOthers": false, "symbolField": "replacement_year"}') ON CONFLICT (id) DO NOTHING;
+VALUES('ext_ws_arc_asset', 'id', 'role_om', NULL, '35', 1, 'Existing Arc Inventory', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-VALUES ('ext_arc_asset', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+VALUES ('ext_ws_arc_asset', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
 <qgis styleCategories="Symbology|Temporal" version="3.40.11-Bratislava">
   <temporal accumulate="0" durationField="arc_id" durationUnit="min" enabled="0" endExpression="" endField="" fixedDuration="0" limitMode="0" mode="0" startExpression="" startField="builtdate">
     <fixedRange>
@@ -583,7 +718,7 @@ def my_form_open(dialog, layer, feature):
   <layerGeometryType>0</layerGeometryType>
 </qgis>', true) ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-VALUES ('v_asset_arc_input', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+VALUES ('v_asset_ws_arc_input', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
 <qgis symbologyReferenceScale="-1" version="3.40.7-Bratislava" readOnly="0" autoRefreshMode="Disabled" simplifyDrawingHints="1" simplifyAlgorithm="0" simplifyDrawingTol="1" autoRefreshTime="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" simplifyLocal="1" simplifyMaxScale="1" minScale="100000000" labelsEnabled="1" maxScale="0">
   <flags>
     <Identifiable>1</Identifiable>
@@ -8963,7 +9098,7 @@ def my_form_open(dialog, layer, feature):
   <layerGeometryType>1</layerGeometryType>
 </qgis>', true) ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-VALUES ('arc_output', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+VALUES ('ws_arc_output', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
 <qgis symbologyReferenceScale="-1" version="3.40.7-Bratislava" readOnly="0" autoRefreshMode="Disabled" simplifyDrawingHints="1" simplifyAlgorithm="0" simplifyDrawingTol="1" autoRefreshTime="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" simplifyLocal="1" simplifyMaxScale="1" minScale="100000000" labelsEnabled="1" maxScale="0">
   <flags>
     <Identifiable>1</Identifiable>
@@ -10383,12 +10518,12 @@ VALUES ('arc_output', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.
   <editforminitfilepath></editforminitfilepath>
   <editforminitcode><![CDATA[QGISQGIS# -*- coding: utf-8 -*-
 """
-Los formularios QGIS pueden tener una función de Python a la que se llama cuando el formulario es abierto.
+Los formularios QGIS pueden tener una funci?n de Python a la que se llama cuando el formulario es abierto.
 
-Utilice esta función para agregar lógica adicional a sus formularios.
+Utilice esta funci?n para agregar l?gica adicional a sus formularios.
 
-Ingrese el nombre de la función en el campo"Función de inicio de Python" .
-A continuación se muestra un ejemplo:
+Ingrese el nombre de la funci?n en el campo"Funci?n de inicio de Python" .
+A continuaci?n se muestra un ejemplo:
 """
 from qgis.PyQt.QtWidgets import QWidget
 
@@ -10504,7 +10639,7 @@ def my_form_open(dialog, layer, feature):
   <layerGeometryType>1</layerGeometryType>
 </qgis>', true) ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-VALUES ('v_asset_arc_corporate', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+VALUES ('v_asset_ws_arc_corporate', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
 <qgis symbologyReferenceScale="-1" version="3.40.7-Bratislava" readOnly="0" autoRefreshMode="Disabled" simplifyDrawingHints="1" simplifyAlgorithm="0" simplifyDrawingTol="1" autoRefreshTime="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" simplifyLocal="1" simplifyMaxScale="1" minScale="100000000" labelsEnabled="1" maxScale="0">
   <flags>
     <Identifiable>1</Identifiable>
@@ -11924,12 +12059,12 @@ VALUES ('v_asset_arc_corporate', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrc
   <editforminitfilepath></editforminitfilepath>
   <editforminitcode><![CDATA[QGISQGIS# -*- coding: utf-8 -*-
 """
-Los formularios QGIS pueden tener una función de Python a la que se llama cuando el formulario es abierto.
+Los formularios QGIS pueden tener una funci?n de Python a la que se llama cuando el formulario es abierto.
 
-Utilice esta función para agregar lógica adicional a sus formularios.
+Utilice esta funci?n para agregar l?gica adicional a sus formularios.
 
-Ingrese el nombre de la función en el campo"Función de inicio de Python" .
-A continuación se muestra un ejemplo:
+Ingrese el nombre de la funci?n en el campo"Funci?n de inicio de Python" .
+A continuaci?n se muestra un ejemplo:
 """
 from qgis.PyQt.QtWidgets import QWidget
 
@@ -12045,7 +12180,7 @@ def my_form_open(dialog, layer, feature):
   <layerGeometryType>1</layerGeometryType>
 </qgis>', true) ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-VALUES ('v_asset_arc_output', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+VALUES ('v_asset_ws_arc_output', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
 <qgis symbologyReferenceScale="-1" version="3.40.7-Bratislava" readOnly="0" autoRefreshMode="Disabled" simplifyDrawingHints="1" simplifyAlgorithm="0" simplifyDrawingTol="1" autoRefreshTime="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" simplifyLocal="1" simplifyMaxScale="1" minScale="100000000" labelsEnabled="1" maxScale="0">
   <flags>
     <Identifiable>1</Identifiable>
@@ -13465,12 +13600,12 @@ VALUES ('v_asset_arc_output', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.c
   <editforminitfilepath></editforminitfilepath>
   <editforminitcode><![CDATA[QGISQGIS# -*- coding: utf-8 -*-
 """
-Los formularios QGIS pueden tener una función de Python a la que se llama cuando el formulario es abierto.
+Los formularios QGIS pueden tener una funci?n de Python a la que se llama cuando el formulario es abierto.
 
-Utilice esta función para agregar lógica adicional a sus formularios.
+Utilice esta funci?n para agregar l?gica adicional a sus formularios.
 
-Ingrese el nombre de la función en el campo"Función de inicio de Python" .
-A continuación se muestra un ejemplo:
+Ingrese el nombre de la funci?n en el campo"Funci?n de inicio de Python" .
+A continuaci?n se muestra un ejemplo:
 """
 from qgis.PyQt.QtWidgets import QWidget
 
@@ -13586,7 +13721,7 @@ def my_form_open(dialog, layer, feature):
   <layerGeometryType>1</layerGeometryType>
 </qgis>', true) ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
-VALUES ('v_asset_arc_output_compare', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
+VALUES ('v_asset_ws_arc_output_compare', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http://mrcc.com/qgis.dtd'' ''SYSTEM''>
 <qgis symbologyReferenceScale="-1" version="3.40.7-Bratislava" readOnly="0" autoRefreshMode="Disabled" simplifyDrawingHints="1" simplifyAlgorithm="0" simplifyDrawingTol="1" autoRefreshTime="0" styleCategories="AllStyleCategories" hasScaleBasedVisibilityFlag="0" simplifyLocal="1" simplifyMaxScale="1" minScale="100000000" labelsEnabled="1" maxScale="0">
   <flags>
     <Identifiable>1</Identifiable>
@@ -15006,12 +15141,12 @@ VALUES ('v_asset_arc_output_compare', 101, 'qml', '<!DOCTYPE qgis PUBLIC ''http:
   <editforminitfilepath></editforminitfilepath>
   <editforminitcode><![CDATA[QGISQGIS# -*- coding: utf-8 -*-
 """
-Los formularios QGIS pueden tener una función de Python a la que se llama cuando el formulario es abierto.
+Los formularios QGIS pueden tener una funci?n de Python a la que se llama cuando el formulario es abierto.
 
-Utilice esta función para agregar lógica adicional a sus formularios.
+Utilice esta funci?n para agregar l?gica adicional a sus formularios.
 
-Ingrese el nombre de la función en el campo"Función de inicio de Python" .
-A continuación se muestra un ejemplo:
+Ingrese el nombre de la funci?n en el campo"Funci?n de inicio de Python" .
+A continuaci?n se muestra un ejemplo:
 """
 from qgis.PyQt.QtWidgets import QWidget
 
@@ -15128,12 +15263,12 @@ def my_form_open(dialog, layer, feature):
 </qgis>', true) ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 
 
-CREATE OR REPLACE VIEW am.ext_arc_asset
+CREATE OR REPLACE VIEW am.ext_ws_arc_asset
 AS WITH nodes AS MATERIALIZED (
          SELECT node.node_id,
             node_add.press_avg
            FROM PARENT_SCHEMA.node
-             JOIN PARENT_SCHEMA.node_add ON node.node_id = node_add.node_id
+             LEFT JOIN PARENT_SCHEMA.node_add ON node.node_id = node_add.node_id
              JOIN PARENT_SCHEMA.vf_node ON vf_node.node_id = node.node_id
         ), arcs AS MATERIALIZED (
          SELECT a_1.arc_id,
@@ -15151,7 +15286,7 @@ AS WITH nodes AS MATERIALIZED (
             n1.press_avg AS press1,
             a_1.state
            FROM PARENT_SCHEMA.arc a_1
-             JOIN nodes n1 ON n1.node_id = a_1.node_1
+             LEFT JOIN nodes n1 ON n1.node_id = a_1.node_1
         )
  SELECT a.arc_id,
     a.sector_id,
@@ -15163,34 +15298,37 @@ AS WITH nodes AS MATERIALIZED (
     cat.matcat_id,
     a.pavcat_id,
     a.function_type,
-    a.the_geom,
     a.code,
     a.expl_id,
     a.dma_id,
     a.press1,
     n2.press_avg AS press2,
-    arc_add.flow_avg
+    arc_add.flow_avg,
+    a.the_geom
    FROM arcs a
-     JOIN nodes n2 ON n2.node_id = a.node_2
+     LEFT JOIN nodes n2 ON n2.node_id = a.node_2
      JOIN PARENT_SCHEMA.vf_arc vf ON vf.arc_id = a.arc_id
      JOIN PARENT_SCHEMA.sector s ON s.sector_id = a.sector_id
      JOIN PARENT_SCHEMA.cat_arc cat ON cat.id::text = a.arccat_id::text
-     JOIN PARENT_SCHEMA.arc_add ON arc_add.arc_id = a.arc_id
+     LEFT JOIN PARENT_SCHEMA.arc_add ON arc_add.arc_id = a.arc_id
   WHERE a.state = 1;
 
 INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES
-('config_catalog_def', 'Table to define the catalogs', 'role_om', NULL, '34', NULL, 'Config catalog', NULL, NULL, NULL, 'am', NULL),
-('config_engine_def', 'Table to define engines configuration', 'role_om', NULL, '34', NULL, 'Config engine', NULL, NULL, NULL, 'am', NULL),
-('config_material_def', 'Table to define the materials', 'role_om', NULL, '34', NULL, 'Config material', NULL, NULL, NULL, 'am', NULL)
-ON CONFLICT (id) DO NOTHING;
+('config_catalog_def', 'Table to define the catalogs', 'role_om', NULL, '37', 4, 'Config catalog', NULL, NULL, NULL, 'am', NULL),
+('config_nodecatalog_def', 'Table to define the node catalogs', 'role_om', NULL, '37', 3, 'Config node catalog', NULL, NULL, NULL, 'am', NULL),
+('config_material_def', 'Table to define the materials', 'role_om', NULL, '37', 2, 'Config material', NULL, NULL, NULL, 'am', NULL),
+('config_engine_def', 'Table to define engines configuration', 'role_om', NULL, '37', 1, 'Config engine', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
 
 SET search_path = am, public;
 
-CREATE VIEW v_asset_arc_input AS
+CREATE VIEW v_asset_ws_arc_input AS
  SELECT a.arc_id,
     i.mandatory,
     i.strategic,
     i.rleak,
+    i.mincut_customers,
+    i.mincut_criticity,
     a.arccat_id,
     a.matcat_id,
     a.dnom,
@@ -15207,17 +15345,242 @@ CREATE VIEW v_asset_arc_input AS
     a.dma_id,
     a.code,
     a.the_geom
-   FROM (ext_arc_asset a
-     LEFT JOIN arc_input i USING (arc_id));
+   FROM (ext_ws_arc_asset a
+     LEFT JOIN ws_arc_input i USING (arc_id));
 
-CREATE RULE v_asset_arc_input_update AS ON UPDATE TO v_asset_arc_input
+CREATE RULE v_asset_ws_arc_input_update AS ON UPDATE TO v_asset_ws_arc_input
  DO INSTEAD
- INSERT INTO arc_input (arc_id, mandatory, strategic, rleak)
+ INSERT INTO ws_arc_input (arc_id, mandatory, strategic, rleak)
  VALUES (NEW.arc_id, NEW.mandatory, NEW.strategic, NEW.rleak)
  ON CONFLICT(arc_id) DO
  UPDATE SET mandatory = EXCLUDED.mandatory,
     strategic = EXCLUDED.strategic,
     rleak = EXCLUDED.rleak;
+
+--
+-- Stage 2: NODE Weighted Method
+--
+
+CREATE OR REPLACE VIEW am.ext_ws_node_asset
+AS SELECT n.node_id,
+    n.sector_id,
+    s.macrosector_id,
+    n.presszone_id,
+    n.builtdate,
+    n.nodecat_id,
+    cn.matcat_id,
+    COALESCE(cn.node_type, n.epa_type) AS node_type,
+    n.code,
+    n.expl_id,
+    n.dma_id,
+    CASE
+        WHEN n.builtdate IS NULL THEN NULL
+        ELSE EXTRACT(YEAR FROM age(CURRENT_DATE, n.builtdate))::numeric
+    END AS age,
+    0::numeric AS estimated_cost,
+    -- AM polarity: higher raw = higher priority; grade 1=Critical → invert as (6 - grade)
+    CASE
+        WHEN n.conserv_state ~ '^[1-5]$' THEN (6 - n.conserv_state::integer)::numeric
+        ELSE NULL
+    END AS structural_raw_src,
+    CASE
+        WHEN n.om_state ~ '^[1-5]$' THEN (6 - n.om_state::integer)::numeric
+        ELSE NULL
+    END AS operational_raw_src,
+    n.the_geom
+   FROM PARENT_SCHEMA.node n
+     JOIN PARENT_SCHEMA.vf_node ON vf_node.node_id = n.node_id
+     JOIN PARENT_SCHEMA.sector s ON s.sector_id = n.sector_id
+     LEFT JOIN PARENT_SCHEMA.cat_node cn ON cn.id::text = n.nodecat_id::text
+  WHERE n.state = 1;
+
+SET search_path = am, public;
+
+CREATE VIEW v_asset_ws_node_input AS
+ SELECT a.node_id,
+    COALESCE(i.age, a.age) AS age,
+    i.incident_count,
+    COALESCE(i.structural_raw, a.structural_raw_src) AS structural_raw,
+    COALESCE(i.operational_raw, a.operational_raw_src) AS operational_raw,
+    i.nrw_raw,
+    i.affected_users_raw,
+    i.strategic,
+    i.compliance,
+    COALESCE(i.mandatory, false) AS mandatory,
+    i.data_quality,
+    i.data_quality_obs,
+    COALESCE(i.estimated_cost, a.estimated_cost) AS estimated_cost,
+    a.nodecat_id,
+    a.node_type,
+    a.builtdate,
+    a.expl_id,
+    a.macrosector_id,
+    a.sector_id,
+    a.presszone_id,
+    a.dma_id,
+    a.code,
+    a.the_geom
+   FROM (ext_ws_node_asset a
+     LEFT JOIN ws_node_input i USING (node_id));
+
+CREATE RULE v_asset_ws_node_input_update AS ON UPDATE TO v_asset_ws_node_input
+ DO INSTEAD
+ INSERT INTO ws_node_input (node_id, mandatory, strategic, incident_count,
+    structural_raw, operational_raw, nrw_raw,
+    affected_users_raw, compliance, estimated_cost)
+ VALUES (NEW.node_id, NEW.mandatory, NEW.strategic, NEW.incident_count,
+    NEW.structural_raw, NEW.operational_raw, NEW.nrw_raw,
+    NEW.affected_users_raw, NEW.compliance, NEW.estimated_cost)
+ ON CONFLICT(node_id) DO
+ UPDATE SET mandatory = EXCLUDED.mandatory,
+    strategic = EXCLUDED.strategic,
+    incident_count = EXCLUDED.incident_count,
+    structural_raw = EXCLUDED.structural_raw,
+    operational_raw = EXCLUDED.operational_raw,
+    nrw_raw = EXCLUDED.nrw_raw,
+    affected_users_raw = EXCLUDED.affected_users_raw,
+    compliance = EXCLUDED.compliance,
+    estimated_cost = EXCLUDED.estimated_cost;
+
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('v_asset_ws_node_output_compare', 'id', 'role_om', NULL, '36', 5, 'Comparison Node Result', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('v_asset_ws_node_output', 'id', 'role_om', NULL, '36', 4, 'Selected Node Result', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('v_asset_ws_node_corporate', 'id', 'role_om', NULL, '36', 3, 'Corporate Node Plan', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('v_asset_ws_node_input', 'id', 'role_om', NULL, '36', 2, 'Node Planning Inputs', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('ext_ws_node_asset', 'id', 'role_om', NULL, '36', 1, 'Existing Node Inventory', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+
+--
+-- Stage 3: LINK Weighted Method
+--
+
+CREATE OR REPLACE VIEW am.ext_ws_link_asset
+AS SELECT
+    l.link_id,
+    CASE WHEN upper(trim(l.feature_type)) = 'CONNEC' AND l.feature_id::text ~ '^[0-9]+$'
+        THEN l.feature_id::text::integer END AS connec_id,
+    CASE WHEN upper(trim(l.exit_type)) = 'ARC' AND l.exit_id::text ~ '^[0-9]+$'
+        THEN l.exit_id::text::integer END AS arc_id,
+    l.linkcat_id,
+    cat.matcat_id,
+    cat.dnom,
+    l.state,
+    l.expl_id,
+    l.sector_id,
+    s.macrosector_id,
+    l.dma_id,
+    l.presszone_id,
+    l.builtdate,
+    ST_Length(l.the_geom)::numeric AS length,
+    CASE
+        WHEN l.builtdate IS NULL THEN NULL
+        ELSE EXTRACT(YEAR FROM age(CURRENT_DATE, l.builtdate))::numeric
+    END AS age,
+    mat.score AS material_raw_src,
+    COALESCE(NULLIF(c.n_hydrometer, 0), NULLIF(c.n_inhabitants, 0), 1)::numeric AS affected_users_raw_src,
+    (SELECT count(*)::numeric FROM PARENT_SCHEMA.om_visit_x_link v WHERE v.link_id = l.link_id) AS incident_count_src,
+    c.conneccat_id AS connecat_id,
+    c.dataquality AS data_quality_src,
+    c.dataquality_obs AS data_quality_obs_src,
+    l.the_geom
+   FROM PARENT_SCHEMA.link l
+     JOIN PARENT_SCHEMA.sector s ON s.sector_id = l.sector_id
+     LEFT JOIN PARENT_SCHEMA.cat_link cat ON cat.id::text = l.linkcat_id::text
+     LEFT JOIN am.config_linkmaterial_def mat ON mat.material = cat.matcat_id
+     LEFT JOIN PARENT_SCHEMA.connec c ON upper(trim(l.feature_type)) = 'CONNEC'
+         AND l.feature_id::text = c.connec_id::text
+  WHERE l.state = 1;
+
+SET search_path = am, public;
+
+DROP VIEW IF EXISTS v_asset_ws_link_input CASCADE;
+CREATE VIEW v_asset_ws_link_input AS
+ SELECT a.link_id,
+    a.connec_id,
+    a.arc_id,
+    COALESCE(i.age, a.age) AS age,
+    COALESCE(i.incident_count, a.incident_count_src) AS incident_count,
+    COALESCE(i.material_raw, a.material_raw_src) AS material_raw,
+    COALESCE(i.affected_users_raw, a.affected_users_raw_src) AS affected_users_raw,
+    i.parent_arc_selected_raw,
+    i.strategic,
+    i.compliance,
+    COALESCE(i.mandatory, false) AS mandatory,
+    COALESCE(i.data_quality, a.data_quality_src) AS data_quality,
+    COALESCE(i.data_quality_obs, a.data_quality_obs_src) AS data_quality_obs,
+    i.estimated_cost,
+    a.linkcat_id,
+    a.matcat_id,
+    a.dnom,
+    a.connecat_id,
+    a.state,
+    a.builtdate,
+    a.length,
+    a.expl_id,
+    a.macrosector_id,
+    a.sector_id,
+    a.presszone_id,
+    a.dma_id,
+    a.the_geom
+   FROM (ext_ws_link_asset a
+     LEFT JOIN ws_link_input i USING (link_id));
+
+CREATE RULE v_asset_ws_link_input_update AS ON UPDATE TO v_asset_ws_link_input
+ DO INSTEAD
+ INSERT INTO ws_link_input (link_id, connec_id, arc_id, mandatory, strategic,
+    incident_count, material_raw, affected_users_raw, compliance, estimated_cost)
+ VALUES (NEW.link_id, NEW.connec_id, NEW.arc_id, NEW.mandatory, NEW.strategic,
+    NEW.incident_count, NEW.material_raw, NEW.affected_users_raw,
+    NEW.compliance, NEW.estimated_cost)
+ ON CONFLICT(link_id) DO
+ UPDATE SET mandatory = EXCLUDED.mandatory,
+    strategic = EXCLUDED.strategic,
+    incident_count = EXCLUDED.incident_count,
+    material_raw = EXCLUDED.material_raw,
+    affected_users_raw = EXCLUDED.affected_users_raw,
+    compliance = EXCLUDED.compliance,
+    estimated_cost = EXCLUDED.estimated_cost;
+
+GRANT ALL ON TABLE am.ext_ws_link_asset TO role_basic;
+GRANT ALL ON TABLE am.v_asset_ws_link_input TO role_basic;
+
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('v_asset_ws_link_output_compare', 'id', 'role_om', NULL, '38', 5, 'Comparison Link Result', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('v_asset_ws_link_output', 'id', 'role_om', NULL, '38', 4, 'Selected Link Result', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "replacement_year"}')
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('v_asset_ws_link_corporate', 'id', 'role_om', NULL, '38', 3, 'Corporate Link Plan', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('v_asset_ws_link_input', 'id', 'role_om', NULL, '38', 2, 'Link Planning Inputs', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('ext_ws_link_asset', 'id', 'role_om', NULL, '38', 1, 'Existing Link Inventory', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+INSERT INTO PARENT_SCHEMA.sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam)
+VALUES('config_linkcatalog_def', 'Table to define the link catalogs', 'role_om', NULL, '37', 5, 'Config link catalog', NULL, NULL, NULL, 'am', NULL)
+ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, "source" = EXCLUDED.source;
+
+INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
+SELECT 'v_asset_ws_link_output', styleconfig_id, styletype, stylevalue, active
+FROM PARENT_SCHEMA.sys_style
+WHERE layername = 'v_asset_ws_arc_output' AND styleconfig_id = 101
+ON CONFLICT (layername, styleconfig_id) DO NOTHING;
+INSERT INTO PARENT_SCHEMA.sys_style (layername, styleconfig_id, styletype, stylevalue, active)
+SELECT 'v_asset_ws_link_output_compare', styleconfig_id, styletype, stylevalue, active
+FROM PARENT_SCHEMA.sys_style
+WHERE layername = 'v_asset_ws_arc_output_compare' AND styleconfig_id = 101
+ON CONFLICT (layername, styleconfig_id) DO NOTHING;
 
 SELECT "SCHEMA_NAME".gw_fct_admin_sys_version_register(json_build_object(
 	'data', json_build_object(

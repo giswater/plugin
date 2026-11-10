@@ -15,16 +15,20 @@ CREATE OR REPLACE FUNCTION PARENT_SCHEMA.gw_trg_asset_cat_material()  RETURNS tr
 $BODY$
 
 DECLARE
+	v_project_type varchar(2);
 
 BEGIN
 
 	EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
+	SELECT upper(project_type) INTO v_project_type FROM sys_version ORDER BY id DESC LIMIT 1;
 
 	IF TG_OP = 'INSERT' THEN
 
-		INSERT INTO am.config_material_def (material, pleak, age_max, age_med, age_min, builtdate_vdef, compliance)
-		VALUES (NEW.id, 0.16, 58, 50, 42, 1964, 10)
-		ON CONFLICT (material) DO NOTHING;
+		INSERT INTO am.config_material_def (
+			material, project_type, pleak, age_max, age_med, age_min, builtdate_vdef, compliance
+		)
+		VALUES (NEW.id, v_project_type, 0.16, 58, 50, 42, 1964, 10)
+		ON CONFLICT (material, project_type) DO NOTHING;
 
 		RETURN NEW;
 	END IF;

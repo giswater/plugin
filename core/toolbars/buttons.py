@@ -72,6 +72,7 @@ from .am.breakage_btn import GwAmBreakageButton  # noqa: F401
 from .am.priority_btn import GwAmPriorityButton  # noqa: F401
 from .am.result_manager_btn import GwResultManagerButton  # noqa: F401
 from .am.result_selector_btn import GwResultSelectorButton  # noqa: F401
+from .am.ud_inspection_import_btn import GwUdInspectionImportButton  # noqa: F401
 
 # cm 84, 85, 86, 87, 88, 89
 from .cm.add_campaign_btn import GwAddCampaignButton  # noqa: F401

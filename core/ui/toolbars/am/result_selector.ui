@@ -59,26 +59,33 @@
       </attribute>
       <layout class="QGridLayout" name="gridLayout_4">
        <item row="0" column="0">
+        <widget class="QLabel" name="lbl_asset_type">
+         <property name="text">
+          <string>Asset type:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QComboBox" name="cmb_asset_type"/>
+       </item>
+       <item row="2" column="0">
         <widget class="QLabel" name="lbl_result_main">
          <property name="text">
           <string>Result to show:</string>
          </property>
         </widget>
        </item>
+       <item row="3" column="0">
+        <widget class="QComboBox" name="cmb_result_main"/>
+       </item>
        <item row="4" column="0">
-        <widget class="QLabel" name="lbl_result_compare">
+        <widget class="QLabel" name="lbl_descript">
          <property name="text">
-          <string>Result to compare:</string>
+          <string>Description:</string>
          </property>
         </widget>
        </item>
        <item row="5" column="0">
-        <widget class="QComboBox" name="cmb_result_compare"/>
-       </item>
-       <item row="1" column="0">
-        <widget class="QComboBox" name="cmb_result_main"/>
-       </item>
-       <item row="3" column="0">
         <widget class="QTextEdit" name="txt_result_main_desc">
          <property name="sizeAdjustPolicy">
           <enum>QAbstractScrollArea::AdjustToContents</enum>
@@ -88,20 +95,24 @@
          </property>
         </widget>
        </item>
-       <item row="8" column="0">
-        <spacer name="verticalSpacer">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
+       <item row="6" column="0">
+        <widget class="QLabel" name="lbl_result_compare">
+         <property name="text">
+          <string>Result to compare:</string>
          </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
+        </widget>
        </item>
        <item row="7" column="0">
+        <widget class="QComboBox" name="cmb_result_compare"/>
+       </item>
+       <item row="8" column="0">
+        <widget class="QLabel" name="lbl_descript_compare">
+         <property name="text">
+          <string>Description:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="9" column="0">
         <widget class="QTextEdit" name="txt_result_compare_desc">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -117,19 +128,18 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="lbl_descript">
-         <property name="text">
-          <string>Description:</string>
+       <item row="10" column="0">
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
          </property>
-        </widget>
-       </item>
-       <item row="6" column="0">
-        <widget class="QLabel" name="lbl_descript_compare">
-         <property name="text">
-          <string>Description:</string>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
          </property>
-        </widget>
+        </spacer>
        </item>
       </layout>
      </widget>
@@ -138,6 +148,7 @@
   </layout>
  </widget>
  <tabstops>
+  <tabstop>cmb_asset_type</tabstop>
   <tabstop>cmb_result_main</tabstop>
   <tabstop>cmb_result_compare</tabstop>
   <tabstop>tab_widget</tabstop>

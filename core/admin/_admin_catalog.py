@@ -5,6 +5,7 @@ Fast pg_catalog queries for the admin dialog (avoid information_schema + N+1).
 from __future__ import annotations
 
 import json
+import os
 from datetime import date, datetime
 from typing import Any, Callable, Iterable, Optional
 
@@ -673,6 +674,56 @@ def parent_satellite_linked(
         if p == sat_l or p.startswith(f"{sat_l}:"):
             return True
     return False
+
+
+def am_parent_kind_supported(sql_dir: str, parent_kind: str) -> bool:
+    """True when AM integration SQL exists for this parent kind (ws|ud)."""
+    kind = str(parent_kind or "").strip().lower()
+    if not kind or not sql_dir:
+        return False
+    return os.path.isfile(
+        os.path.join(
+            sql_dir, "schemas", "addon", "am", "integration", kind, "integration.sql"
+        )
+    )
+
+
+def am_linked_parent_kinds(
+    am_row: Optional[dict[str, Any]],
+    inventory: list[dict[str, Any]],
+) -> set[str]:
+    """WS/UD kinds already attached to the singleton am schema (at most one each)."""
+    kinds: set[str] = set()
+    names: list[str] = []
+    addparam = (am_row or {}).get("addparam") or {}
+    if isinstance(addparam, dict):
+        for key in ("parentSchema", "parent_schema"):
+            val = addparam.get(key)
+            if val:
+                names.append(str(val))
+        parents = addparam.get("parent_schemas") or []
+        if isinstance(parents, list):
+            names.extend(str(p) for p in parents if p)
+    by_schema = {str(row.get("schema") or ""): row for row in inventory or []}
+    for name in names:
+        kind = str((by_schema.get(name) or {}).get("kind") or "").upper()
+        if kind in ("WS", "UD"):
+            kinds.add(kind)
+    for row in inventory or []:
+        kind = str(row.get("kind") or "").upper()
+        schema = str(row.get("schema") or "")
+        if kind in ("WS", "UD") and schema and parent_satellite_linked(inventory, schema, "am"):
+            kinds.add(kind)
+    return kinds
+
+
+def am_kind_is_linked(
+    am_row: Optional[dict[str, Any]],
+    inventory: list[dict[str, Any]],
+    kind: str,
+) -> bool:
+    """True when am is already linked to a parent of this WS|UD kind."""
+    return str(kind or "").upper() in am_linked_parent_kinds(am_row, inventory)
 
 
 def am_is_integrated(
