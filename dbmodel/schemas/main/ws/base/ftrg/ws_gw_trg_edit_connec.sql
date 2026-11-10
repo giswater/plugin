@@ -591,6 +591,9 @@ BEGIN
 		ELSIF v_man_table='man_samplepoint' THEN
 			INSERT INTO man_samplepoint (connec_id, lab_code, place_name, cabinet)
 			VALUES (NEW.connec_id, NEW.lab_code, NEW.place_name, NEW.cabinet);
+			
+		ELSIF v_man_table='man_vconnec' THEN
+			INSERT INTO man_vconnec (connec_id) VALUES (NEW.connec_id);
 
 		END IF;
 
