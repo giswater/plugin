@@ -15,7 +15,7 @@ RETURNS json AS
 $BODY$
 
 /*example
-SELECT SCHEMA_NAME.gw_fct_pg2epa_main($${"client":{"device":4, "infoType":1, "lang":"ES", "epsg":SRID_VALUE}, "data":{"resultId":"test1", "dumpSubcatch":"true","step":"1"}}$$); -- PRE-PROCESS
+SELECT SCHEMA_NAME.gw_fct_pg2epa_main($${"client":{"device":4, "infoType":1, "lang":"ES", "epsg":SRID_VALUE}, "data":{"resultId":"test1", "descript":"optional description", "dumpSubcatch":"true","step":"1"}}$$); -- PRE-PROCESS
 SELECT SCHEMA_NAME.gw_fct_pg2epa_main($${"client":{"device":4, "infoType":1, "lang":"ES", "epsg":SRID_VALUE}, "data":{"resultId":"test1", "dumpSubcatch":"true","step":"2"}}$$); -- AUTOREPAIR
 SELECT SCHEMA_NAME.gw_fct_pg2epa_main($${"client":{"device":4, "infoType":1, "lang":"ES", "epsg":SRID_VALUE}, "data":{"resultId":"test1", "dumpSubcatch":"true","step":"3"}}$$); -- CHECK DATA
 SELECT SCHEMA_NAME.gw_fct_pg2epa_main($${"client":{"device":4, "infoType":1, "lang":"ES", "epsg":SRID_VALUE}, "data":{"resultId":"test1", "dumpSubcatch":"true","step":"4"}}$$); -- STRUCTURE DATA
@@ -48,6 +48,7 @@ v_expl_id integer[];
 v_sector_id integer[];
 v_network_type integer;
 v_client_epsg integer;
+v_descript text;
 
 
 
@@ -58,6 +59,7 @@ BEGIN
 
 	-- get input data
 	v_result =  (p_data->>'data')::json->>'resultId';
+	v_descript = NULLIF((p_data->>'data')::json->>'descript', '');
 	v_dumpsubcatch = NULLIF((p_data->>'data')::json->>'dumpSubcatch', '')::boolean;
 	v_step = (p_data->>'data')::json->>'step';
 	v_input = concat('{"data":{"parameters":{"isEmbebed":true, "verifiedExceptions":true, "resultId":"',v_result,'", "dumpSubcatch":"',v_dumpsubcatch,'", "fid":227}}}')::json;
@@ -123,8 +125,8 @@ BEGIN
 
 		-- setting selectors
 		DELETE FROM rpt_cat_result WHERE result_id=v_result;
-		INSERT INTO rpt_cat_result (result_id, inp_options, status, expl_id, sector_id, network_type)
-			VALUES (v_result, v_inpoptions, 1, v_expl_id, v_sector_id, v_network_type);
+		INSERT INTO rpt_cat_result (result_id, descript, inp_options, status, expl_id, sector_id, network_type)
+			VALUES (v_result, v_descript, v_inpoptions, 1, v_expl_id, v_sector_id, v_network_type);
 		DELETE FROM selector_inp_result WHERE cur_user=current_user;
 		INSERT INTO selector_inp_result (result_id, cur_user) VALUES (v_result, current_user);
 
