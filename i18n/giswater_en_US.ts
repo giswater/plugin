@@ -1745,6 +1745,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 			<translation>Current Result</translation>
 		</message>
 		<message>
+			<source>Custom order by</source>
+			<translation>Custom order by</translation>
+		</message>
+		<message>
 			<source>Database connection error: {0}</source>
 			<translation>Database connection error: {0}</translation>
 		</message>
@@ -4177,6 +4181,10 @@ uri={1}</translation>
 		<message>
 			<source>Open Manage Schemas to create and integrate am</source>
 			<translation>Open Manage Schemas to create and integrate am</translation>
+		</message>
+		<message>
+			<source>Open psector</source>
+			<translation>Open psector</translation>
 		</message>
 		<message>
 			<source>Option &apos;{0}&apos; in scenario {1} must have 2 values.</source>
@@ -6914,6 +6922,10 @@ or they were created by another user:</translation>
 		<message>
 			<source>You should select an output folder!</source>
 			<translation>You should select an output folder!</translation>
+		</message>
+		<message>
+			<source>Zoom to psector</source>
+			<translation>Zoom to psector</translation>
 		</message>
 		<message>
 			<source>Zoom to selection</source>
