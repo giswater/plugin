@@ -751,8 +751,10 @@ class GwLoadProject(QObject):
     def _show_psector_menu(self, global_pos):
         """Composes and shows the psector context menu at the given global position."""
         menu = QMenu(self.cmb_psector)
-        act_zoom = QAction("Zoom to psector", self.cmb_psector)
-        act_open = QAction("Open psector", self.cmb_psector)
+        title = "Zoom to psector"
+        act_zoom = QAction(tools_qt.tr(title), self.cmb_psector)
+        title = "Open psector"
+        act_open = QAction(tools_qt.tr(title), self.cmb_psector)
         act_zoom.triggered.connect(lambda: self._execute_menu_action("zoom"))
         act_open.triggered.connect(lambda: self._execute_menu_action("open"))
         menu.addAction(act_zoom)
