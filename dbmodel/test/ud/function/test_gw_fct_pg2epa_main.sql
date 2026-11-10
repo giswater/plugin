@@ -11,8 +11,11 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
--- Plan for 8 test
-SELECT plan(8);
+-- Plan for 12 tests
+SELECT plan(12);
+
+-- FIXED outfalls must export inp_outfall.stage, not the node inventory state (#959).
+UPDATE inp_outfall SET outfall_type = 'FIXED', stage = 15.2 WHERE node_id = '240';
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -66,11 +69,42 @@ SELECT is(
     'Check if gw_fct_pg2epa_main: dumpSubcatch=False | step=5 returns status "Accepted"'
 );
 
+-- ALL/NONE are SWMM keywords. They must not be cast to integer (#958).
+INSERT INTO config_param_user (parameter, value, cur_user) VALUES
+    ('inp_report_subcatchments', 'ALL', current_user),
+    ('inp_report_nodes', 'ALL', current_user),
+    ('inp_report_nodes_2', 'ALL', current_user),
+    ('inp_report_links', 'ALL', current_user)
+ON CONFLICT (parameter, cur_user) DO UPDATE SET value = EXCLUDED.value;
+
+CREATE TEMP TABLE t_pg2epa_step6 AS
+SELECT gw_fct_pg2epa_main($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{}, "feature":{},
+    "data":{"filterFields":{}, "pageInfo":{}, "resultId":"testing", "dumpSubcatch":"False", "step": 6}}$$)::JSON AS result;
+
 SELECT is(
-    (gw_fct_pg2epa_main($${"client":{"device":4, "lang":"", "infoType":1, "epsg":25831}, "form":{}, "feature":{},
-    "data":{"filterFields":{}, "pageInfo":{}, "resultId":"testing", "dumpSubcatch":"False", "step": 6}}$$)::JSON)->>'status',
+    (SELECT result->>'status' FROM t_pg2epa_step6),
     'Accepted',
-    'Check if gw_fct_pg2epa_main: dumpSubcatch=False | step=6 returns status "Accepted"'
+    'Check if gw_fct_pg2epa_main: dumpSubcatch=False | step=6 returns status "Accepted" with report ALL'
+);
+
+SELECT ok(
+    (SELECT result #>> '{body,file}' FROM t_pg2epa_step6) ~ 'SUBCATCHMENTS\s+ALL',
+    'Check if step=6 INP writes SUBCATCHMENTS ALL'
+);
+
+SELECT ok(
+    (SELECT result #>> '{body,file}' FROM t_pg2epa_step6) ~ 'NODES\s+ALL',
+    'Check if step=6 INP writes NODES ALL'
+);
+
+SELECT ok(
+    (SELECT result #>> '{body,file}' FROM t_pg2epa_step6) ~ 'LINKS\s+ALL',
+    'Check if step=6 INP writes LINKS ALL'
+);
+
+SELECT ok(
+    (SELECT result #>> '{body,file}' FROM t_pg2epa_step6) ~ '240\s+\S+\s+FIXED\s+15\.2',
+    'Check if step=6 INP writes FIXED outfall 240 with inp_outfall.stage 15.2 (#959)'
 );
 
 SELECT is(

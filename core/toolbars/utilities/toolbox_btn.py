@@ -544,7 +544,7 @@ class GwToolBoxButton(GwAction):
                                                    "session")
                 if value in (None, '', 'NULL') and widget.property('selectedId') not in (None, '', 'NULL'):
                     value = widget.property('selectedId')
-                tools_qt.set_combo_value(widget, value, 0)
+                tools_qt.set_combo_value(widget, value, 0, False)
             elif isinstance(widget, QLineEdit) and (widget.property('value') is None or widget.property('value') == ''):
                 value = tools_gw.get_config_parser('btn_toolbox', f"{function_name}_{widget.objectName()}", "user",
                                                    "session")
@@ -705,21 +705,31 @@ class GwToolBoxButton(GwAction):
     def _filter_combo_values(self, dialog, combo):
         parent_name = combo.property('parentname')
         parent_combo = dialog.findChild(QComboBox, parent_name)
-        if parent_combo:
-            parent_data = parent_combo.currentData()
-            parent_value = parent_data[0] if parent_data else parent_combo.currentText()
-            filter_query = combo.property('filterquery')
-            if filter_query:
-                filter_query = filter_query.replace('{parent_value}', parent_value)
-            result = tools_db.get_rows(filter_query)
-            combo.setCurrentIndex(0)
+        if not parent_combo:
+            return
+        parent_data = parent_combo.currentData()
+        if isinstance(parent_data, (list, tuple)):
+            parent_value = parent_data[0] if parent_data else None
+        else:
+            parent_value = parent_data
+        if parent_value in (None, '', 'None', -1):
+            return
+        filter_query = combo.property('filterquery')
+        if not filter_query:
+            return
+        filter_query = filter_query.replace('{parent_value}', str(parent_value))
+        # Popup open reloads `_gw_combo_query`. Keep that on the filtered SQL,
+        # otherwise it fetches dvQueryText and brings a second empty lot row.
+        if hasattr(combo, 'set_reload_query'):
+            combo.set_reload_query(filter_query)
+        result = tools_db.get_rows(filter_query)
+        if not result:
             combo.clear()
-            if result:
-                combolist = []
-                for i in range(0, len(result)):
-                    elem = [result[i][0], result[i][1]]
-                    combolist.append(elem)
-                tools_qt.fill_combo_values(combo, combolist)
+            return
+        combolist = []
+        for i in range(0, len(result)):
+            combolist.append([result[i][0], result[i][1]])
+        tools_qt.fill_combo_values(combo, combolist)
 
     def _populate_cmb_type(self, feature_types):
 
@@ -737,6 +747,8 @@ class GwToolBoxButton(GwAction):
         sql = (f"SELECT tablename, type FROM "
                f"(SELECT DISTINCT(parent_layer) AS tablename, feature_type as type, 0 as c FROM cat_feature "
                f"UNION SELECT child_layer, feature_type, 2 as c FROM cat_feature "
+               f"UNION SELECT 've_man_genelem', 'ELEMENT', 1 "
+               f"UNION SELECT 've_man_frelem', 'ELEMENT', 1 "
                F" UNION "
                f"SELECT concat('ve_',epa_table), feature_type as type, 4 as c FROM sys_feature_epa_type "
                f"WHERE epa_table IS NOT NULL AND epa_table NOT IN ('inp_virtualvalve', 'inp_inlet')"

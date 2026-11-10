@@ -49,6 +49,8 @@ NOT SUPPORTED (manual intervention required)
     - GRANTs, COMMENTs, indexes on materialized views, and REFRESH ... CONCURRENTLY setup.
     - Replacements that change SQL semantics or reference incompatible columns; replacements
       are textual substitutions applied to saved definitions and trigger DDL.
+      "regex":true treats "from" as a POSIX regex (no word-boundary wrapping). "to" may be
+      empty to delete the match, so a select-list item can be removed.
 
 MATERIALIZED VIEWS
     Included in dependency discovery (relkind = m). On RESTORE they are recreated with
@@ -438,9 +440,17 @@ BEGIN
 
             IF v_replacements_json IS NOT NULL AND btrim(v_replacements_json) <> '' THEN
                 FOR rec_repl IN
-                    SELECT x."from" AS from_pat, x."to" AS to_pat
-                    FROM json_to_recordset(v_replacements_json::json) AS x("from" text, "to" text)
+                    SELECT x."from" AS from_pat, x."to" AS to_pat, COALESCE(x.regex, false) AS is_regex
+                    FROM json_to_recordset(v_replacements_json::json) AS x("from" text, "to" text, regex boolean)
                 LOOP
+                    IF rec_repl.is_regex THEN
+                        v_def := regexp_replace(v_def, rec_repl.from_pat, COALESCE(rec_repl.to_pat, ''), 'g');
+                        IF v_trg_def IS NOT NULL THEN
+                            v_trg_def := regexp_replace(v_trg_def, rec_repl.from_pat, COALESCE(rec_repl.to_pat, ''), 'g');
+                        END IF;
+                        CONTINUE;
+                    END IF;
+
                     v_from_esc := regexp_replace(rec_repl.from_pat, '([\[\](){}.*+?|^$\\])', '\\\1', 'g');
                     v_def := regexp_replace(v_def, '\m' || v_from_esc || '\M', rec_repl.to_pat, 'g');
                     IF position('.' IN rec_repl.from_pat) = 0 THEN

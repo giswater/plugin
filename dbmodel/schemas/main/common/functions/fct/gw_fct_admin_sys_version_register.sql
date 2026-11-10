@@ -29,6 +29,7 @@ DECLARE
 	v_ws text;
 	v_ud text;
 	v_satellites jsonb;
+	v_remove_satellite text;
 
 BEGIN
 	SET search_path = "SCHEMA_NAME", public;
@@ -101,6 +102,12 @@ BEGIN
 			v_merge := v_merge - 'satellites';
 		END IF;
 		v_addparam := v_addparam || v_merge;
+	END IF;
+
+	v_remove_satellite := NULLIF((p_data -> 'data') ->> 'removeSatellite', '');
+	IF v_remove_satellite IS NOT NULL THEN
+		v_satellites := COALESCE(v_addparam -> 'satellites', '{}'::jsonb) - v_remove_satellite;
+		v_addparam := jsonb_set(v_addparam, '{satellites}', v_satellites, true);
 	END IF;
 
 	IF v_infer_parents AND to_regnamespace('utils') IS NOT NULL THEN

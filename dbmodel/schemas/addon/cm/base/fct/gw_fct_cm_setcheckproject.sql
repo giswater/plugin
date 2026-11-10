@@ -1383,7 +1383,19 @@ BEGIN
 	
 	BEGIN
 		        RAISE NOTICE 'Calling gw_fct_cm_check_catalogs function...';
-        EXECUTE 'SELECT cm.gw_fct_cm_check_catalogs($${"data":{"projectType":"' || v_project_type || '","version":"' || v_version || '","fromProduction":false,"campaign_id":"' || v_campaign_id || '","lot_id":"' || v_lot_id || '"}}$$)' INTO v_check_result;
+        -- json_build_object keeps lot_id null. Concat with || NULL makes the whole query NULL.
+        EXECUTE format(
+            'SELECT cm.gw_fct_cm_check_catalogs(%L::json)',
+            json_build_object(
+                'data', json_build_object(
+                    'projectType', v_project_type,
+                    'version', v_version,
+                    'fromProduction', false,
+                    'campaign_id', v_campaign_id,
+                    'lot_id', v_lot_id
+                )
+            )::text
+        ) INTO v_check_result;
 		RAISE NOTICE 'Catalog check result status: %', v_check_result->>'status';
 		
 		-- Parse the catalog check result and insert into audit

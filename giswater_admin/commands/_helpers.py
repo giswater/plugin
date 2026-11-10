@@ -215,6 +215,42 @@ def detect_project_epsg(conn: Any, schema: str, default: str = "25831") -> str:
     return default
 
 
+def collect_main_epsgs(conn: Any) -> set[str]:
+    """Distinct ``sys_version.epsg`` values from ws/ud schemas in this database."""
+    from ..engine.schema_catalog import fetch_schema_names_with_sys_version, make_conn_fetcher
+
+    found: set[str] = set()
+    try:
+        fetcher = make_conn_fetcher(conn)
+        for name in fetch_schema_names_with_sys_version(fetcher):
+            ptype = detect_project_type(conn, name)
+            if ptype not in ("ws", "ud"):
+                continue
+            epsg = detect_project_epsg(conn, name, default="")
+            if epsg:
+                found.add(epsg)
+    except Exception:  # noqa: BLE001
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+    return found
+
+
+def resolve_build_srid(
+    explicit: str | None,
+    *,
+    parent_epsg: str | None = None,
+    common_main_epsg: str | None = None,
+    default: str = "25831",
+) -> str:
+    """Pick SRID: ``--srid``, then parent, then unique main-schema EPSG, then default."""
+    for candidate in (explicit, parent_epsg, common_main_epsg):
+        if candidate is not None and str(candidate).strip() not in ("", "0"):
+            return str(candidate).strip()
+    return default
+
+
 def report_result(
     args: argparse.Namespace,
     out: Out,

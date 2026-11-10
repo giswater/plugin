@@ -16,6 +16,8 @@ SELECT * FROM no_plan();
 
 -- Check view ve_epa_froutlet
 SELECT has_view('ve_epa_froutlet'::name, 'View ve_epa_froutlet should exist');
+SELECT has_trigger('ve_epa_froutlet', 'gw_trg_edit_ve_epa_froutlet',
+    'View ve_epa_froutlet should have gw_trg_edit_ve_epa_froutlet');
 
 -- Check view columns
 SELECT columns_are(

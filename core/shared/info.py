@@ -17,15 +17,15 @@ from qgis.core import QgsEditFormConfig
 
 from qgis.PyQt.sip import isdeleted
 
-from qgis.PyQt.QtCore import pyqtSignal, QDate, QObject, Qt, QRegularExpression, QDateTime
+from qgis.PyQt.QtCore import pyqtSignal, QDate, QObject, Qt, QRegularExpression, QDateTime, QTimer
 from qgis.PyQt.QtGui import QColor, QStandardItem, QStandardItemModel, QCursor
 from qgis.PyQt.QtWidgets import QAction, QCheckBox, QComboBox, QCompleter, QDoubleSpinBox, \
     QGridLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QSizePolicy, \
     QSpinBox, QSpacerItem, QTableView, QTabWidget, QWidget, QTextEdit, QRadioButton, QToolBox, \
     QMenu, QToolButton, QTableWidget, QDialog, QHeaderView
 from qgis.core import QgsApplication, QgsMapToPixel, QgsVectorLayer, QgsExpression, QgsFeatureRequest, \
-    QgsPointXY, QgsProject, QgsFeature, QgsGeometry, Qgis
-from qgis.gui import QgsDateTimeEdit, QgsMapToolEmitPoint, QgsCollapsibleGroupBox
+    QgsPointXY, QgsProject, QgsFeature, QgsGeometry, QgsPointLocator, Qgis
+from qgis.gui import QgsDateTimeEdit, QgsMapToolEmitPoint, QgsCollapsibleGroupBox, QgsMapToolDigitizeFeature, QgsMapToolCapture
 
 from ..shared.catalog import GwCatalog
 from .dimensioning import GwDimensioning
@@ -90,7 +90,7 @@ class GwInfo(QObject):
         if global_vars.project_type == 'ud':
             self.rel_layers['gully'] = tools_gw.get_layers_from_feature_type('gully')
         self.rel_feature_type = None
-        self.excluded_layers = ["ve_arc", "ve_node", "ve_connec", "ve_element", "ve_gully", "ve_link"]
+        self.excluded_layers = ["ve_arc", "ve_node", "ve_connec", "ve_gully", "ve_link"]
         self.point_xy = {"x": None, "y": None}
 
     def get_info_from_coordinates(self, point, tab_type):
@@ -116,6 +116,7 @@ class GwInfo(QObject):
             self.tab_connections_loaded = False
             self.tab_hydrometer_loaded = False
             self.tab_hydrometer_val_loaded = False
+            self.tab_cmms_loaded = False
             self.tab_visit_loaded = False
             self.tab_event_loaded = False
             self.tab_document_loaded = False
@@ -263,8 +264,12 @@ class GwInfo(QObject):
                             global_vars.canvas.refresh()
 
                 feature_id = self.complet_result['body']['feature']['id']
+                self._linked_feature = None
                 if linked_feature:
                     linked_feature['element_id'] = str(feature_id)
+                    self._linked_feature = linked_feature
+                    # Keep the parent info form. Docker would replace it and the Insert click would have no target.
+                    is_docker = False
                 result, dialog = self._open_custom_form(feature_id, self.complet_result, tab_type, sub_tag, is_docker,
                     new_feature=new_feature, connect_signal=connect_signal, linked_feature=linked_feature)
                 if feature_cat is not None:
@@ -320,10 +325,14 @@ class GwInfo(QObject):
             self.prev_action = None
         tools_gw.connect_signal(self.iface.actionAddFeature().toggled, self._action_is_checked,
                                 'info', 'add_feature_actionAddFeature_toggled_action_is_checked')
+        self._cancel_frelem_capture()
         self.feature_cat = feature_cat
         # self.info_layer must be global because apparently the disconnect signal is not disconnected correctly if
         # parameters are passed to it
-        self.info_layer = tools_qgis.get_layer_by_tablename(feature_cat.parent_layer)
+        layer_name = feature_cat.parent_layer
+        if (feature_cat.feature_type or '').upper() == 'ELEMENT':
+            layer_name = tools_gw.element_layer_name(feature_cat.feature_class) or layer_name
+        self.info_layer = tools_qgis.get_layer_by_tablename(layer_name)
 
         # Order liked_feature
         if self.info_layer and (feature_cat.feature_class == 'GENELEM' or linked_feature):
@@ -343,6 +352,11 @@ class GwInfo(QObject):
             feature = QgsFeature(self.info_layer.fields())
             self.info_layer.addFeature(feature)
 
+        elif self.info_layer and (feature_cat.feature_class or '').upper() == 'FRELEM' \
+                and self.info_layer.geometryType() != Qgis.GeometryType.Point:
+            # ve_man_frelem is the regulator line. Insert is still one point, same as ve_element was.
+            self._capture_frelem_point(connect_signal, linked_feature)
+
         elif self.info_layer:
             # The user selects a feature (for example junction) to insert, but before clicking on the canvas he
             # realizes that he has made a mistake and selects another feature, without this two features would
@@ -360,7 +374,7 @@ class GwInfo(QObject):
                                     'info', 'add_feature_featureAdded_open_new_feature')
         else:
             msg = "Layer not found"
-            tools_qgis.show_warning(msg, parameter=feature_cat.parent_layer)
+            tools_qgis.show_warning(msg, parameter=layer_name)
 
     """ FUNCTIONS RELATED WITH TAB PLAN """
 
@@ -432,7 +446,8 @@ class GwInfo(QObject):
                     msg = "Widget {0} is not configured or have a bad config"
                     msg_params = (field['columnname'],)
                     tools_qgis.show_message(msg, dialog=dialog, msg_params=msg_params)
-            if str(value) not in ('', None, -1, "None") and widget.property('columnname'):
+                    continue
+            if widget is not None and str(value) not in ('', None, -1, "None") and widget.property('columnname'):
                 if str(widget.property('columnname')) != 'sector_id' and str(value) == '-1':
                     continue
                 if widget.property('saveValue') is None:
@@ -613,8 +628,8 @@ class GwInfo(QObject):
         # Build and populate all the widgets
         self._manage_dlg_widgets(complet_result, result, new_feature)
         # Disable tab EPA if epa_type is undefined
-        self.epa_type = tools_qt.get_text(self.dlg_cf, 'tab_data_epa_type')
-        if tools_qt.get_text(self.dlg_cf, self.epa_type).lower() == 'undefined':
+        self.epa_type = self._epa_combo_id(self.dlg_cf)
+        if str(self.epa_type or '').lower() == 'undefined':
             tools_qt.enable_tab_by_tab_name(self.tab_main, 'tab_epa', False)
 
         # Connect actions' signals
@@ -727,6 +742,11 @@ class GwInfo(QObject):
         self.table_parent = str(complet_result['body']['feature']['tableParent'])
         schema_name = str(complet_result['body']['feature']['schemaName'])
         self.layer = tools_qgis.get_layer_by_tablename(self.table_parent, False, False, schema_name)
+        # Info still reports parent_layer ve_element. Digitizing and the form use the class layer.
+        if self.layer is None and self.table_parent == 've_element':
+            layer_name = tools_gw.element_layer_name(element_type=self.feature_type)
+            if layer_name:
+                self.layer = tools_qgis.get_layer_by_tablename(layer_name, False, False, schema_name)
 
     def _get_actions(self):
         """ Sets class variables for actions """
@@ -1644,9 +1664,9 @@ class GwInfo(QObject):
     def _apply_from_btn(self, dialog, action_edit, fid, new_feature=None, generic=False, from_apply=False, linked_feature=None):
         """ Manage apply button from info dialog """
 
-        self._manage_edition(dialog, action_edit, fid, new_feature, generic, from_apply)
+        accepted = self._manage_edition(dialog, action_edit, fid, new_feature, generic, from_apply)
 
-        if linked_feature:
+        if linked_feature and accepted:
             self._manage_linked_feature(linked_feature)
 
     def _manage_edition(self, dialog, action_edit, fid, new_feature=None, generic=False, from_apply=False):
@@ -1654,6 +1674,7 @@ class GwInfo(QObject):
         # With the editing QAction we need to collect the last modified value (self.get_last_value()),
         # since the "editingFinished" signals of the widgets are not detected.
         # Therefore whenever the cursor enters a widget, it will ask if we want to save changes
+        accepted = False
         if not action_edit.isChecked() or from_apply:
             self._get_last_value(dialog, generic)
             geom_pending = self.point_xy.get('x') is not None
@@ -1663,9 +1684,8 @@ class GwInfo(QObject):
                 if self.epa_complet_result:
                     tools_gw.enable_widgets(dialog, self.epa_complet_result['body']['data'], False)
                 self._enable_actions(dialog, False)
-                return
+                return False
             save = self._ask_for_save(action_edit, fid)
-            accepted = False
             if save:
                 accepted = self._manage_accept(dialog, action_edit, new_feature, self.my_json, False, generic)
             elif self.new_feature_id is not None:
@@ -1690,6 +1710,7 @@ class GwInfo(QObject):
             if self.epa_complet_result:
                 tools_gw.enable_all(dialog, self.epa_complet_result['body']['data'])
             self._enable_actions(dialog, True)
+        return accepted
 
     def _accept_from_btn(self, dialog, action_edit, new_feature, my_json, last_json, generic=False, linked_feature=None):
         if not action_edit.isChecked():
@@ -1699,9 +1720,8 @@ class GwInfo(QObject):
         status = self._manage_accept(dialog, action_edit, new_feature, my_json, True, generic)
         if status:
             self._reset_my_json()
-
-        if linked_feature:
-            self._manage_linked_feature(linked_feature)
+            if linked_feature:
+                self._manage_linked_feature(linked_feature)
 
     def _manage_accept(self, dialog, action_edit, new_feature, my_json, close_dlg, generic=False):
 
@@ -1739,19 +1759,31 @@ class GwInfo(QObject):
             return save
 
     def _manage_linked_feature(self, linked_feature):
-        """ Manage linked feature after accept action """
-        if linked_feature.get('table_name'):
-            sql = f"SELECT * FROM {linked_feature['table_name']} WHERE {linked_feature['columnname']} = '{linked_feature['element_id']}'"
-            linked = tools_db.get_row(sql)
-            if not linked:
-                element_widget = linked_feature['dialog'].tab_elements.findChild(QWidget, 'tab_elements_element_id')
-                insert_widget = linked_feature['dialog'].tab_elements.findChild(QPushButton, 'tab_elements_insert_element')
-                if element_widget and insert_widget:
-                    element_widget.setText(linked_feature.get('element_id', ''))
-                    insert_widget.click()
-                    element_widget.setText('')
-            else:
-                _reload_table(**linked_feature)
+        """ Link a new element to the feature it was created from. """
+        if not linked_feature.get('table_name'):
+            return
+        element_id = linked_feature.get('element_id')
+        if not element_id or str(element_id) in ('None', 'null', ''):
+            return
+
+        columnname = linked_feature['columnname']
+        sql = f"SELECT 1 FROM {linked_feature['table_name']} WHERE {columnname} = '{element_id}'"
+        already = tools_db.get_row(sql)
+        if not already:
+            feature = (linked_feature.get('complet_result') or {}).get('body', {}).get('feature', {})
+            parent_id = feature.get('id')
+            id_name = feature.get('idName')
+            feature_type = str(feature.get('featureType') or '').lower()
+            if parent_id and id_name and feature_type:
+                sql = (f"INSERT INTO element_x_{feature_type} (element_id, {id_name}) "
+                       f"VALUES ('{element_id}', '{parent_id}') "
+                       f"ON CONFLICT (element_id, {id_name}) DO NOTHING")
+                tools_db.execute_sql(sql, log_sql=True)
+
+        dialog = linked_feature.get('dialog')
+        if dialog is None or isdeleted(dialog):
+            return
+        _reload_table(**linked_feature)
 
     def _start_editing(self, dialog, action_edit, result, layer):
 
@@ -1885,8 +1917,8 @@ class GwInfo(QObject):
                 if new_feature and new_feature.hasGeometry():
                     _json['the_geom'] = new_feature.geometry().asWkt()
 
-                epa_type = tools_qt.get_text(dialog, 'tab_data_epa_type')
-                if epa_type != 'null':
+                epa_type = self._epa_combo_id(dialog)
+                if epa_type:
                     _json['epa_type'] = epa_type
 
                 self.new_feature_id = None
@@ -1946,6 +1978,10 @@ class GwInfo(QObject):
                 return False
 
             if "Accepted" in json_result['status']:
+                linked = getattr(self, '_linked_feature', None)
+                if linked:
+                    self._manage_linked_feature(linked)
+                    self._linked_feature = None
                 msg = json_result['message']['text']
                 if msg is None:
                     msg = 'Feature upserted'
@@ -1979,7 +2015,7 @@ class GwInfo(QObject):
         # Tab EPA
         if not generic and self.my_json_epa != '' and str(self.my_json_epa) != '{}':
             feature = f'"id":"{self.feature_id}", '
-            epa_type = tools_qt.get_text(dialog, 'tab_data_epa_type').lower()
+            epa_type = str(self._epa_combo_id(dialog) or '').lower()
             epa_table_id = 've_epa_' + epa_type
             if global_vars.project_type == 'ws' and self.feature_type == 'connec' and epa_type == 'junction':
                 epa_table_id = 've_epa_connec'
@@ -2211,7 +2247,7 @@ class GwInfo(QObject):
         widget_epatype = dialog.findChild(QComboBox, 'tab_data_epa_type')
         if widget_epatype:
             widget_epatype.blockSignals(True)
-            tools_qt.set_combo_value(widget_epatype, self.epa_type, 1)
+            tools_qt.set_combo_value(widget_epatype, self.epa_type, 0)
             widget_epatype.blockSignals(False)
         return False
 
@@ -2221,20 +2257,14 @@ class GwInfo(QObject):
         if 'epa_type' in my_json:
             return True
 
-        widget = dialog.findChild(QComboBox, 'tab_data_epa_type')
-        if widget is None:
-            return True
-
-        pending = {}
-        tools_gw.get_values(dialog, widget, pending, ignore_editability=True)
-        new_value = pending.get('epa_type')
-        if new_value in (None, '') or str(new_value).lower() == str(self.epa_type or '').lower():
+        new_value = self._epa_combo_id(dialog)
+        if not new_value or new_value.lower() == str(self.epa_type or '').lower():
             return True
 
         if not self._confirm_epa_type_change(dialog, new_feature):
             return False
 
-        my_json['epa_type'] = str(new_value)
+        my_json['epa_type'] = new_value
         return True
 
     def _accept_auto_update(self, dialog, complet_result, _json, p_widget=None, clear_json=False, close_dlg=True, new_feature=None, generic=False):
@@ -2288,47 +2318,87 @@ class GwInfo(QObject):
 
         return widget
 
-    def _reload_fields(self, dialog, result, p_widget):
+    def refresh_from_db(self, *args):
+        """Re-read the open feature and show values the database changed underneath this dialog."""
+
+        dialog = getattr(self, 'dlg_cf', None)
+        if dialog is None or isdeleted(dialog) or not getattr(self, 'complet_result', None):
+            return
+
+        feature = self.complet_result.get('body', {}).get('feature') or {}
+        table_name = feature.get('tableName')
+        feature_id = feature.get('id')
+        if not table_name or feature_id is None:
+            return
+
+        body = tools_gw.create_body(feature=f'"tableName":"{table_name}", "id":"{feature_id}"')
+        result = tools_gw.execute_procedure('gw_fct_getinfofromid', body)
+        if not result or result.get('status') == 'Failed':
+            return
+
+        dirty = set((self.my_json or {}).keys())
+        fields = result.get('body', {}).get('data', {}).get('fields') or []
+        by_column = {field.get('columnname'): field.get('value') for field in fields}
+        for field in self.complet_result.get('body', {}).get('data', {}).get('fields') or []:
+            column = field.get('columnname')
+            if column in by_column and column not in dirty:
+                field['value'] = by_column[column]
+
+        self._reload_fields(dialog, result, True, skip_columns=dirty, restyle=False)
+
+    def _reload_fields(self, dialog, result, p_widget, skip_columns=None, restyle=True):
         """
         :param dialog: QDialog where find and set widgets
         :param result: row with info (json)
         :param p_widget: Widget that has changed
+        :param skip_columns: column names left untouched (unsaved edits on this dialog)
+        :param restyle: reapply readonly styles on every field. Off when refreshing a parent
+                        dialog, because sampling the widget palette darkens the gray each pass.
         """
 
         if not p_widget:
             return
+        skip_columns = skip_columns or set()
 
         changed_color = "#3ED396"
-        # Restore QLineEdit stylesheet
-        widget_list = dialog.tab_data.findChildren(QLineEdit)
-        for widget in widget_list:
-            if widget.isReadOnly():
-                tools_gw.ThemeManager.apply_readonly_style(widget, readonly=True)
-            else:
-                widget.setStyleSheet(None)
+        if restyle:
+            # Restore QLineEdit stylesheet
+            widget_list = dialog.tab_data.findChildren(QLineEdit)
+            for widget in widget_list:
+                if widget.isReadOnly():
+                    tools_gw.ThemeManager.apply_readonly_style(widget, readonly=True)
+                else:
+                    widget.setStyleSheet(None)
 
-        # Restore QPushButton stylesheet
-        widget_list = dialog.tab_data.findChildren(QPushButton)
-        for widget in widget_list:
-            widget.setStyleSheet(None)
+            # Restore QPushButton stylesheet
+            widget_list = dialog.tab_data.findChildren(QPushButton)
+            for widget in widget_list:
+                widget.setStyleSheet(None)
 
         # Restore widget stylesheet
         for field in result['body']['data']['fields']:
+            if field.get('columnname') in skip_columns:
+                continue
             widget = dialog.findChild(QLineEdit, f'{field["widgetname"]}')
             if widget is None:
                 widget = dialog.findChild(QPushButton, f'{field["widgetname"]}')
             if widget:
                 cur_value = tools_qt.get_text(dialog, widget, return_string_null=False)
                 value = field["value"]
+                if value is None:
+                    value = ''
                 if str(cur_value) != str(value):
-                    widget.setText(value)
-                    if not isinstance(widget, QPushButton):
-                        widget.setStyleSheet(tools_gw.ThemeManager.changed_field_style(widget, color=changed_color))
-                    else:
+                    widget.blockSignals(True)
+                    widget.setText(str(value))
+                    widget.blockSignals(False)
+                    readonly = widget.isReadOnly() if callable(getattr(widget, 'isReadOnly', None)) else False
+                    if isinstance(widget, QPushButton):
                         changed_color = "#EB9438"
-                    if getattr(widget, 'isReadOnly', False):
-                        widget.setStyleSheet(tools_gw.ThemeManager.changed_field_style(
-                            widget, color=changed_color, readonly=True))
+                    # Drop the current sheet first so the highlight is sampled from the
+                    # native palette, not from a gray that is already applied.
+                    widget.setStyleSheet(None)
+                    widget.setStyleSheet(tools_gw.ThemeManager.changed_field_style(
+                        widget, color=changed_color, readonly=readonly))
 
             elif "message" in field:
                 level = field['message']['level'] if 'level' in field['message'] else 0
@@ -2338,8 +2408,19 @@ class GwInfo(QObject):
     def _enabled_accept(self, dialog):
         dialog.btn_accept.setEnabled(True)
 
+    def _epa_combo_id(self, dialog):
+        """epa_type id. Not currentText(): that is the label, or the loading placeholder."""
+        widget = dialog.findChild(QComboBox, 'tab_data_epa_type')
+        if widget is None:
+            return None
+        reader = getattr(widget, 'selected_id', None)
+        value = reader() if reader else tools_qt.get_combo_value(dialog, widget, 0)
+        if value in (None, '', -1, '-1'):
+            return None
+        return str(value)
+
     def _reload_epa_tab(self, dialog):
-        epa_type = tools_qt.get_text(dialog, 'tab_data_epa_type')
+        epa_type = self._epa_combo_id(dialog) or ''
         # call getinfofromid
         if not epa_type or epa_type.lower() in ('undefined') or (epa_type.lower() == 'null' and self.feature_type.lower() != 'link'):
             tools_qt.enable_tab_by_tab_name(self.tab_main, 'tab_epa', False)
@@ -2667,6 +2748,12 @@ class GwInfo(QObject):
             filter_fields = f'"feature_id":{{"value":"{self.feature_id}","filterSign":"="}}'
             self._init_tab(self.complet_result, filter_fields, id_name="feature_id")
             self.tab_hydrometer_val_loaded = True
+        # Tab 'CMMS visits'
+        elif self.tab_main.widget(index_tab).objectName() == 'tab_cmms' and not self.tab_cmms_loaded:
+            self._manage_dlg_widgets(self.complet_result, self.complet_result['body']['data'], False, tab='tab_cmms')
+            filter_fields = f'"feature_id":{{"value":"{self.feature_id}","filterSign":"="}}'
+            self._init_tab(self.complet_result, filter_fields, id_name="feature_id")
+            self.tab_cmms_loaded = True
         # Tab 'Visit'
         elif self.tab_main.widget(index_tab).objectName() == 'tab_visit' and not self.tab_visit_loaded:
             self._manage_dlg_widgets(self.complet_result, self.complet_result['body']['data'], False, tab='tab_visit')
@@ -2860,7 +2947,11 @@ class GwInfo(QObject):
             return False, False
         widget = tools_gw.add_tableview_header(widget, fields, headers)
         widget = tools_gw.fill_tableview_rows(widget, fields)
-        tools_qt.set_tableview_config(widget, edit_triggers=QTableView.EditTrigger.DoubleClicked, section_resize_mode=QHeaderView.ResizeMode.Interactive)
+        # EPA tables are edited in place. A double click on the CMMS tables opens a dialog.
+        edit_triggers = QTableView.EditTrigger.DoubleClicked
+        if 'tab_cmms' in widgetname:
+            edit_triggers = QTableView.EditTrigger.NoEditTriggers
+        tools_qt.set_tableview_config(widget, edit_triggers=edit_triggers, section_resize_mode=QHeaderView.ResizeMode.Interactive)
         widget: QWidget = tools_gw.set_tablemodel_config(dialog, widget, linkedobject, Qt.SortOrder.DescendingOrder)
         if 'tab_epa' in widgetname:
             widget.doubleClicked.connect(partial(epa_tbl_doubleClicked, widget, self.dlg_cf))
@@ -3178,6 +3269,8 @@ class GwInfo(QObject):
             tools_qgis.show_warning(msg, parameter=e)
         finally:
             self._cancel_snapping_tool(dialog, action)
+            if is_inserting:
+                QTimer.singleShot(0, self.iface.actionPan().trigger)
 
     def _set_to_arc(self, dialog, feat_id, child_type, widget_name, simple=False):
         """
@@ -3224,7 +3317,7 @@ class GwInfo(QObject):
                 tools_qgis.show_message(msg, level)
 
             # Refresh tab epa
-            epa_type = tools_qt.get_text(self.dlg_cf, 'tab_data_epa_type')
+            epa_type = self._epa_combo_id(self.dlg_cf)
             if epa_type and epa_type.lower() in ('valve', 'shortpipe', 'pump'):
                 self._reload_epa_tab(self.dlg_cf)
 
@@ -3255,6 +3348,121 @@ class GwInfo(QObject):
 
         if not self.iface.actionAddFeature().isChecked():
             tools_gw.disconnect_signal('info', 'add_feature_actionAddFeature_toggled_action_is_checked')
+
+    def _cancel_frelem_capture(self, rollback=True):
+
+        tool = getattr(self, '_frelem_emit_point', None)
+        if tool is not None:
+            self._frelem_emit_point = None
+            self._frelem_tool_hold = tool
+            try:
+                self.canvas.unsetMapTool(tool)
+            except RuntimeError:
+                pass
+        tools_gw.disconnect_signal('info', 'add_feature_frelem_point')
+        tools_gw.disconnect_signal('info', 'add_feature_frelem_point_cancel')
+        layer = getattr(self, 'info_layer', None)
+        if layer is not None and getattr(self, '_frelem_started_edit', False):
+            self._frelem_started_edit = False
+            if rollback:
+                try:
+                    if layer.isEditable():
+                        layer.rollBack()
+                except RuntimeError:
+                    pass
+
+    def _frelem_pan(self):
+
+        self._frelem_tool_hold = None
+        try:
+            self.iface.actionPan().trigger()
+        except RuntimeError:
+            pass
+
+    def _frelem_capture_canceled(self):
+
+        self._cancel_frelem_capture()
+        self._frelem_pan()
+
+    def _capture_frelem_point(self, connect_signal, linked_feature):
+        """Same point digitizing as Add Feature: project snapping, one click. The line is not what you draw."""
+
+        self._frelem_connect_signal = connect_signal
+        self._frelem_linked_feature = linked_feature
+        self.iface.actionPan().trigger()
+        self.iface.setActiveLayer(self.info_layer)
+        self._frelem_started_edit = not self.info_layer.isEditable()
+        if self._frelem_started_edit:
+            self.info_layer.startEditing()
+        tool = QgsMapToolDigitizeFeature(
+            self.canvas, self.iface.cadDockWidget(), QgsMapToolCapture.CaptureMode.CapturePoint)
+        tool.setLayer(self.info_layer)
+        # ve_man_frelem is a line. The click is still a point, same as ve_element was.
+        tool.setCheckGeometryType(False)
+        self._frelem_emit_point = tool
+        self.canvas.setMapTool(tool)
+        tools_gw.connect_signal(tool.digitizingCompleted, self._frelem_digitized, 'info', 'add_feature_frelem_point')
+        tools_gw.connect_signal(
+            tool.digitizingCanceled, self._frelem_capture_canceled, 'info', 'add_feature_frelem_point_cancel')
+
+    def _snap_frelem_to_node(self, point):
+        """Project snapping, then the node under the cursor. The regulator is stored on that node."""
+
+        node_layer = tools_qgis.get_layer_by_tablename('ve_node')
+        event_point = self.snapper_manager.get_event_point(point=point)
+        if node_layer is None or event_point is None:
+            return point
+        snapper = self.snapper_manager.snapper
+        previous = snapper.currentLayer()
+        snapper.setCurrentLayer(node_layer)
+        result = snapper.snapToCurrentLayer(event_point, QgsPointLocator.Type.Vertex)
+        snapper.setCurrentLayer(previous)
+        snapped = self.snapper_manager.get_snapped_point(result)
+        if snapped is None:
+            return point
+        return snapped
+
+    def _frelem_digitized(self, feature):
+
+        connect_signal = self._frelem_connect_signal
+        linked_feature = self._frelem_linked_feature
+        geom = feature.geometry()
+        if geom is None or geom.isEmpty():
+            self._cancel_frelem_capture()
+            self.iface.actionPan().trigger()
+            return
+        point = geom.asPoint()
+        point = self._snap_frelem_to_node(point)
+        list_points = f'"x1":{point.x()}, "y1":{point.y()}'
+        # Keep the layer editable. new_feature_id is what stops the form from saving itself on open.
+        self._cancel_frelem_capture(rollback=False)
+        QTimer.singleShot(0, self._frelem_pan)
+        if not self.info_layer.isEditable():
+            self.info_layer.startEditing()
+        config = self.info_layer.editFormConfig()
+        self.conf_supp = config.suppress()
+        config.setSuppress(QgsEditFormConfig.FeatureFormSuppress.SuppressOn)
+        self.info_layer.setEditFormConfig(config)
+        tools_gw.disconnect_signal('info', 'add_feature_featureAdded_open_new_feature')
+        qgs_feature = QgsFeature(self.info_layer.fields())
+        self.info_layer.addFeature(qgs_feature)
+        tools_gw.init_docker()
+        global is_inserting  # noqa: F824
+        is_inserting = True
+        self.info_feature = GwInfo('data')
+        self.info_feature.prev_action = None
+        result, _dialog = self.info_feature._get_feature_insert(
+            point=list_points, feature_cat=self.feature_cat, new_feature_id=qgs_feature.id(),
+            layer_new_feature=self.info_layer, tab_type='data', new_feature=qgs_feature,
+            connect_signal=connect_signal, linked_feature=linked_feature)
+        if _dialog is not None:
+            _dialog.dlg_closed.connect(self._frelem_pan)
+        config.setSuppress(self.conf_supp)
+        self.info_layer.setEditFormConfig(config)
+        if not result:
+            self.info_layer.deleteFeature(qgs_feature.id())
+            self.iface.actionRollbackEdits().trigger()
+            is_inserting = False
 
     def _open_new_feature(self, feature_id, connect_signal=None, linked_feature=None):
         """

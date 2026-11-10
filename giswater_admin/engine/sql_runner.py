@@ -49,6 +49,7 @@ class FileExec:
     sql: str = ""
     statement_position: int = 0
     duration_ms: int = 0
+    notes: str = ""
 
 
 class ConnectionLike(Protocol):

@@ -1,0 +1,1 @@
+- Recast `dma.the_geom` / `ve_dma.the_geom` to project SRID (`SRID_VALUE`). The 4.7.0 patch hardcoded EPSG:25831, so UD schemas created with another SRID kept DMA at 25831. Drops and recreates `ve_dma` (no CASCADE).

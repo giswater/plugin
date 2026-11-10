@@ -1,0 +1,1 @@
+- Fix mincut hydrometer list (`tbl_mincut_hydro`): replace stale `hydrometer_customer_code` with `hydro_customer_code` in `config_form_list` / `config_form_tableview` so `gw_fct_getlist` no longer fails with 42703.

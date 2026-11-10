@@ -249,7 +249,7 @@ BEGIN
 		IF (NEW.muni_id IS NULL) THEN
 
 			IF NEW.district_id IS NOT NULL THEN
-				NEW.muni_id := (SELECT muni_id FROM v_municipality WHERE district_id = NEW.district_id AND active IS TRUE LIMIT 1);
+				NEW.muni_id := (SELECT muni_id FROM v_district WHERE district_id = NEW.district_id AND active IS TRUE LIMIT 1);
 			END IF;
 
 			-- getting value default
@@ -335,6 +335,9 @@ BEGIN
 		--Builtdate
 		IF (NEW.builtdate IS NULL) THEN
 			NEW.builtdate:=(SELECT "value" FROM config_param_user WHERE "parameter"='edit_builtdate_vdefault' AND "cur_user"="current_user"() LIMIT 1);
+			IF (NEW.builtdate IS NULL) AND (SELECT value::boolean FROM config_param_system WHERE parameter='edit_feature_auto_builtdate') IS TRUE THEN
+				NEW.builtdate :=date(now());
+			END IF;
 		END IF;
 
 		-- Code
@@ -355,7 +358,7 @@ BEGIN
 		END IF;
 
 		IF NEW.sys_code IS NOT NULL AND v_sys_code_autofill NOT IN ('false', 'none') THEN
-			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4678", "function":"1202", "is_process":true}}$$);';
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4678", "function":"1202"}}$$);';
 		END IF;
 
 		--Sys_code (uuid | code | none)

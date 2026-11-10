@@ -13,7 +13,8 @@ SELECT gw_fct_admin_manage_fields($${"data":{"action":"ADD","table":"link", "col
 
 
 DROP VIEW IF EXISTS ve_dma;
-ALTER TABLE dma ALTER COLUMN the_geom TYPE public.geometry(multipolygon, 25831) USING the_geom::public.geometry::public.geometry(multipolygon, 25831);
+ALTER TABLE dma ALTER COLUMN the_geom TYPE public.geometry(multipolygon, SRID_VALUE)
+    USING the_geom::public.geometry::public.geometry(multipolygon, SRID_VALUE);
 ALTER TABLE dma ALTER COLUMN graphconfig SET DEFAULT '{"use":[{"nodeParent":"", "toArc":[]}], "ignore":[], "forceClosed":[]}'::json;
 
 

@@ -19,7 +19,6 @@ DECLARE
 
 v_usedmapattern boolean;
 v_buildupmode integer;
-v_statetype text;
 v_networkmode integer;
 v_forcereservoirsoninlets boolean;
 v_forcetanksoninlets boolean;
@@ -73,6 +72,7 @@ BEGIN
 		FROM arc a
 			JOIN vf_arc vf ON vf.arc_id = a.arc_id 
 			JOIN cat_arc ca ON a.arccat_id = ca.id
+			JOIN value_state_type vst ON vst.id = a.state_type
 			LEFT JOIN cat_material cm ON ca.matcat_id = cm.id
 			LEFT JOIN inp_pipe i ON a.arc_id = i.arc_id
 			LEFT JOIN cat_mat_roughness cmr ON cmr.matcat_id = cm.id
@@ -85,7 +85,8 @@ BEGIN
 	v_querytext := v_querytext ||
 		' WHERE (now()::date - (CASE WHEN a.builtdate IS NULL THEN ''1900-01-01''::date ELSE a.builtdate END))/365 >= cmr.init_age
 		AND (now()::date - (CASE WHEN a.builtdate IS NULL THEN ''1900-01-01''::date ELSE a.builtdate END))/365 <= cmr.end_age
-	';
+		AND a.epa_type <> ''UNDEFINED''
+		AND vst.is_operative = TRUE';
 
 	IF v_networkmode = 1 THEN
 		IF v_exporthybriddma THEN
@@ -172,16 +173,17 @@ BEGIN
 				c.builtdate
 			FROM connec c
 				JOIN vf_connec vf ON c.connec_id = vf.connec_id
+				JOIN value_state_type vst ON vst.id = c.state_type
 			WHERE EXISTS (
 				SELECT 1
 				FROM temp_t_arc a
 				WHERE a.arc_id = c.arc_id::text
 			)
+			AND vst.is_operative = TRUE
+			AND c.epa_type <> 'UNDEFINED'
 		;
-	END IF;
 
-	raise notice 'Inserting links on temp_t_arc table';
-	IF v_networkmode =  4 THEN
+		RAISE NOTICE 'Inserting links on temp_t_arc table';
 		-- TODO: check if pjoint filter is needed and check JOINS
 		-- this need to be solved here in spite of fill_data functions because some kind of incosnstency done on this function on previous lines
 		INSERT INTO temp_t_arc (arc_id, node_1, node_2, arc_type, arccat_id, epa_type, sector_id, state, state_type, annotation, roughness, length, diameter, the_geom,
@@ -218,6 +220,7 @@ BEGIN
 				JOIN vf_link vfl ON l.link_id = vfl.link_id
 				JOIN inp_connec i ON l.feature_id = i.connec_id
 				JOIN cat_link cl ON cl.id = l.linkcat_id
+				JOIN value_state_type vst ON vst.id = l.state_type
 				LEFT JOIN cat_material cm ON cm.id = cl.matcat_id
 				LEFT JOIN cat_mat_roughness cmr ON cmr.matcat_id = cl.matcat_id
 			WHERE
@@ -227,7 +230,8 @@ BEGIN
 				SELECT 1
 				FROM temp_t_node n
 				WHERE n.node_id = l.feature_id::text
-			);
+			)
+			AND vst.is_operative = TRUE;
 	END IF;
 
 	UPDATE temp_t_node t SET "family" = q."family"

@@ -16,6 +16,8 @@ SELECT * FROM no_plan();
 
 -- Check view ve_epa_frpump
 SELECT has_view('ve_epa_frpump'::name, 'View ve_epa_frpump should exist');
+SELECT has_trigger('ve_epa_frpump', 'gw_trg_edit_ve_epa_frpump',
+    'View ve_epa_frpump should have gw_trg_edit_ve_epa_frpump');
 
 -- Check view columns
 SELECT columns_are(

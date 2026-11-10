@@ -225,45 +225,50 @@ class AddNewLot:
             org_assigned_widget.clear()
             org_assigned_widget.setEnabled(False)
 
-        campaign_id = campaign_combo.currentData()
-
-        if not campaign_id:
+        campaign_id = tools_qt.get_combo_value(self.dlg_lot, campaign_combo)
+        if campaign_id in (None, '', -1):
             return
 
-        # Fetch all campaign-related data in one go
+        # Teams/org from getteam are best-effort; never block expl/sector fill on failure
+        response_body = {}
         body = {"p_campaign_id": campaign_id}
         response = tools_gw.execute_procedure("gw_fct_cm_getteam", body, schema_name="cm", check_function=False)
 
         if isinstance(response, str):
-            response = json.loads(response)
+            try:
+                response = json.loads(response)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                response = None
 
-        if not response or response.get("status") != "Accepted":
+        if response and response.get("status") == "Accepted":
+            response_body = response.get("body", {}) or {}
+            teams = response_body.get("data", [])
+            if teams:
+                team_combo.blockSignals(True)
+                for team in teams:
+                    team_combo.addItem(str(team['idval']), team['id'])
+                if self.initial_lot_data.get("team_id"):
+                    self.set_widget_value(team_combo, self.initial_lot_data["team_id"])
+                team_combo.blockSignals(False)
+
+        # Campaign details + org name (independent of getteam)
+        campaign_details_sql = (
+            f"SELECT oc.organization_id, oc.expl_id, oc.sector_id, co.orgname "
+            f"FROM cm.om_campaign oc "
+            f"LEFT JOIN cm.cat_organization co ON co.organization_id = oc.organization_id "
+            f"WHERE oc.campaign_id = {campaign_id}"
+        )
+        campaign_data = tools_db.get_row(campaign_details_sql)
+
+        if not campaign_data:
             return
 
-        response_body = response.get("body", {})
-
-        # Populate Organization
         if org_assigned_widget:
-            org_name = response_body.get("organization_name")
+            org_name = response_body.get("organization_name") or campaign_data.get('orgname')
             if org_name:
                 org_assigned_widget.setText(org_name)
 
-        # Populate Teams
-        teams = response_body.get("data", [])
-        if teams:
-            team_combo.blockSignals(True)
-            for team in teams:
-                team_combo.addItem(str(team['idval']), team['id'])
-            # Restore the lot's original team_id if it exists
-            if self.initial_lot_data.get("team_id"):
-                self.set_widget_value(team_combo, self.initial_lot_data["team_id"])
-            team_combo.blockSignals(False)
-
-        # Get campaign details for expl and sector
-        campaign_details_sql = f"SELECT organization_id, expl_id, sector_id FROM cm.om_campaign WHERE campaign_id = {campaign_id}"
-        campaign_data = tools_db.get_row(campaign_details_sql)
-
-        if not campaign_data or campaign_data.get('organization_id') is None:
+        if campaign_data.get('organization_id') is None:
             return
 
         org_id = campaign_data['organization_id']
@@ -346,7 +351,7 @@ class AddNewLot:
                     self.initial_lot_data[field.get("columnname")] = field.get("selectedId")
 
         for field in form_fields:
-            widget = self.create_widget_from_field(field)
+            widget = self.create_widget_from_field(field, response)
             if not widget:
                 continue
 
@@ -363,7 +368,7 @@ class AddNewLot:
             label = QLabel(field["label"]) if field.get("label") else None
             tools_gw.add_widget(self.dlg_lot, field, label, widget)
 
-    def create_widget_from_field(self, field: Dict[str, Any]) -> Optional[QWidget]:
+    def create_widget_from_field(self, field: Dict[str, Any], response: Dict[str, Any]) -> Optional[QWidget]:
         """Create a Qt widget based on field metadata"""
         wtype = field.get("widgettype", "text")
         iseditable = field.get("iseditable", True)
@@ -398,20 +403,12 @@ class AddNewLot:
             return widget
 
         def create_combo_box():
-            widget = tools_gw.create_combo_box()
-            ids = field.get("comboIds", []) or []
-            names = field.get("comboNames", []) or []
-            if ids:
-                for i, name in enumerate(names):
-                    widget.addItem(name, ids[i] if i < len(ids) else name)
-            else:
-                # Plain combos no longer ship comboIds/comboNames; fall back
-                # to executing dv_querytext synchronously so this dialog works.
-                for name, _id in tools_gw.resolve_combo_valuemap(field).items():
-                    widget.addItem(name, _id)
-            if not iseditable:
-                widget.setEnabled(False)
-            return widget
+            return tools_gw.add_combo(
+                field=field,
+                dialog=self.dlg_lot,
+                complet_result=response,
+                class_info=self,
+            )
 
         widget_map = {
             "text": create_line_edit,
@@ -536,10 +533,10 @@ class AddNewLot:
         name_ok = bool(name_widget.text().strip()) if name_widget else False
 
         campaign_combo = self.dlg_lot.findChild(QComboBox, "tab_data_campaign_id")
-        campaign_id = campaign_combo.currentData() if campaign_combo else None
+        campaign_id = tools_qt.get_combo_value(self.dlg_lot, campaign_combo)
 
         has_relations = False
-        if campaign_id:
+        if campaign_id not in (None, '', -1):
             features = ["arc", "node", "connec", "link"]
             if tools_gw.get_project_type() == 'ud':
                 features.append("gully")
@@ -587,8 +584,8 @@ class AddNewLot:
         if not cmb_ot:
             return
 
-        workorder_id = cmb_ot.currentData()
-        if not workorder_id:
+        workorder_id = tools_qt.get_combo_value(self.dlg_lot, cmb_ot)
+        if workorder_id in (None, '', -1):
             return
 
         # Ejecutar SELECT
@@ -641,7 +638,9 @@ class AddNewLot:
 
             value = None
             if isinstance(widget, QComboBox):
-                value = widget.currentData()
+                value = tools_qt.get_combo_value(self.dlg_lot, widget)
+                if value in (-1, '', None):
+                    value = None
             elif isinstance(widget, QDateEdit):
                 value = widget.date().toString("yyyy-MM-dd") if widget.date().isValid() else None
             else:
@@ -652,15 +651,6 @@ class AddNewLot:
             if field.get("ismandatory", False) and not value:
                 widget.setStyleSheet("border: 1px solid red")
                 list_mandatory.append(field.get("widgetname"))
-
-        # Post-process fields to extract the integer ID from list values
-        expl_val = fields.get("expl_id")
-        if isinstance(expl_val, (list, tuple)) and expl_val:
-            fields['expl_id'] = expl_val[0]
-
-        sector_val = fields.get("sector_id")
-        if isinstance(sector_val, (list, tuple)) and sector_val:
-            fields['sector_id'] = sector_val[0]
 
         if list_mandatory:
             msg = "Some mandatory fields are missing. Please fill the required fields (marked in red)."

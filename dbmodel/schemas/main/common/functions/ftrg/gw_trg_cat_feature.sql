@@ -261,7 +261,17 @@ BEGIN
 					--replace the existing view
 					EXECUTE 'CREATE OR REPLACE VIEW '||v_schemaname||'.'||v_viewname||' AS '||v_definition||';';
 					EXECUTE 'DROP VIEW IF EXISTS '||v_schemaname||'.'||v_old_child_layer||';';
-					EXECUTE 'ALTER TABLE man_' ||lower(OLD.feature_type)||'_'||lower(OLD.id)||' RENAME TO man_'||lower(NEW.feature_type)||'_'||lower(NEW.id)||';';
+					-- addfields table man_<feature_type>_<id> exists only when that feature type has custom fields
+					IF (SELECT EXISTS (
+						SELECT 1
+						FROM pg_catalog.pg_class c
+						JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+						WHERE n.nspname = v_schemaname
+						  AND c.relname = 'man_' || lower(OLD.feature_type) || '_' || lower(OLD.id)
+						  AND c.relkind IN ('r', 'p')
+					)) IS TRUE THEN
+						EXECUTE 'ALTER TABLE man_' ||lower(OLD.feature_type)||'_'||lower(OLD.id)||' RENAME TO man_'||lower(NEW.feature_type)||'_'||lower(NEW.id)||';';
+					END IF;
 					EXECUTE 'DROP TRIGGER IF EXISTS gw_trg_edit_'||lower(NEW.feature_type)||'_'||lower(OLD.id)||' ON '||v_viewname||';';
 
 					EXECUTE 'CREATE TRIGGER gw_trg_edit_'||lower(NEW.feature_type)||'_'||lower(NEW.id)||'

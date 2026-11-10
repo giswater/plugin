@@ -18,6 +18,7 @@ from . import global_vars
 from .core.admin.admin_btn import GwAdminButton
 from .core.load_project import GwLoadProject
 from .core.utils import tools_gw
+from .core.utils.user_config_import import import_previous_init
 from .core.utils.signal_manager import GwSignalManager
 from .libs import lib_vars, tools_qgis, tools_os, tools_log, tools_db
 from .core.ui.dialog import GwDialog
@@ -221,6 +222,18 @@ class Giswater(QObject):
         # Set plugin and QGIS settings: stored in the registry (on Windows) or .ini file (on Unix)
         global_vars.init_giswater_settings(setting_file)
         global_vars.init_qgis_settings(self.plugin_name)
+
+        # Copy init.config from the newest older version when this folder is still empty.
+        # Must run before _manage_user_config_folder, which creates a zero-byte init.config.
+        try:
+            copied_from = import_previous_init(lib_vars.user_folder_dir)
+        except Exception as e:
+            copied_from = None
+            msg = "Exception while importing init.config from a previous version"
+            tools_log.log_warning(msg, parameter=e)
+        if copied_from:
+            msg = "Imported init.config from previous version"
+            tools_log.log_info(msg, parameter=copied_from)
 
         # Check if user config folder exists
         self._manage_user_config_folder(f"{lib_vars.user_folder_dir}{os.sep}core")

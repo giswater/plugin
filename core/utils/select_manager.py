@@ -551,10 +551,16 @@ class GwSelectManager(QgsMapTool):
             finally:
                 # Unblock signals after all layers are selected
                 for layer in layer_groups:
-                    layer.blockSignals(False)
-                # Manually trigger selectionChanged after all layers are done
-                if layer_groups:
+                    if layer:
+                        layer.blockSignals(False)
+                # One signal is enough for the table. blockSignals also swallowed
+                # repaintRequested, so every layer still has to be drawn.
+                if layer_groups and layer_groups[0]:
                     layer_groups[0].selectionChanged.emit([], [], False)
+                for layer in layer_groups:
+                    if layer:
+                        layer.triggerRepaint()
+                self.canvas.refresh()
         elif isinstance(geometry, QgsPointXY) and event:
             # Point selection
             selection_success = self._perform_point_selection(event)
@@ -609,7 +615,11 @@ class GwSelectManager(QgsMapTool):
             layer_groups = self.class_object.rel_layers[self.class_object.rel_feature_type]
 
         for layer in layer_groups:
+            if not layer:
+                continue
             layer.selectByExpression(f"intersects($geometry, geom_from_wkt('{wkt}'))", behavior)
+            layer.triggerRepaint()
+        self.canvas.refresh()
 
         self._check_keep_drawing()
 

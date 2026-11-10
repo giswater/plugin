@@ -199,7 +199,7 @@ python3 -m giswater_admin --help
 | Command | Purpose |
 |---------|---------|
 | `gw dbmodel install latest` | Download plugin ZIP and cache `dbmodel/` |
-| `gw dbmodel install 4.9.0` | Install a specific release |
+| `gw dbmodel install 4.9.0` | Install a specific release (GitHub ZIP / tag archive if the download server 404s) |
 | `gw dbmodel list` | Cached versions + remote latest |
 | `gw dbmodel use latest` | Activate latest cached/remote version |
 | `gw dbmodel use dev --root PATH` | Use `PATH/dbmodel` from a checkout |
@@ -461,7 +461,7 @@ Use `--version X.Y.Z` everywhere (replaces `--plugin-version` / `--to-version`).
 
 ### `db init`
 
-Creates extensions in order: `postgis` → `postgis_raster` → `tablefunc` → `pgrouting` → `unaccent` (optional `postgres_fdw` with `--with-fdw`). Also creates the Giswater role hierarchy if missing and `GRANT CREATE ON DATABASE` to `role_system` so a `role_system` member can create schemas afterwards. Requires a PostgreSQL **superuser**. Run **once per database** before the first schema create.
+Creates extensions in order: `postgis` → `postgis_topology` → `postgis_raster` → `tablefunc` → `pgrouting` → `unaccent` → `fuzzystrmatch` → `intarray` (optional `postgres_fdw` with `--with-fdw`). Also creates the Giswater role hierarchy if missing and `GRANT CREATE ON DATABASE` to `role_system` so a `role_system` member can create schemas afterwards. Requires a PostgreSQL **superuser**. Run **once per database** before the first schema create.
 
 | Option | Description |
 |--------|-------------|
@@ -528,14 +528,21 @@ gw schema main update --name ws1 --version 4.16.0 --conn "$CONN"
 
 ### `schema addon`
 
-Shared satellite schemas (`utils`, `cibs`, `cm`, `am`, `audit`).
+Shared satellite schemas (`utils`, `cibs`, `cm`, `cmms`, `am`, `audit`).
 
 #### `schema addon create`
 
 Bootstrap a standalone addon (no parent wiring yet).
 
+| Option | Description |
+|--------|-------------|
+| `--type` | **Required.** Addon kind (`utils`, `cibs`, `am`, …). |
+| `--name` | Schema name (default: same as `--type`). |
+| `--srid` | EPSG for geometry columns. Default: unique `sys_version.epsg` of existing ws/ud schemas, else `25831`. |
+
 ```bash
 gw schema addon create --type utils --conn "$CONN"
+gw schema addon create --type utils --srid 32748 --conn "$CONN"
 gw schema addon create --type cibs --name cibs --conn "$CONN"
 gw schema addon create --type audit --conn "$CONN"
 ```
@@ -546,9 +553,10 @@ Wire an addon into one ws/ud parent. Run once per parent (e.g. integrate utils w
 
 | Option | Description |
 |--------|-------------|
-| `--type` | **Required.** `utils` \| `cibs` \| `cm` \| `am` \| `audit` |
+| `--type` | **Required.** `utils` \| `cibs` \| `cm` \| `cmms` \| `am` \| `audit` |
 | `--parent` | **Required.** Parent ws or ud schema name. |
 | `--name` | Addon schema name (default: same as `--type`). |
+| `--srid` | EPSG for geometry columns. Default: parent `sys_version.epsg`. |
 
 ```bash
 gw schema addon integrate --type utils --parent ws --conn "$CONN"
@@ -576,8 +584,8 @@ Read-only inventory of schemas with `sys_version`. No superuser / role_system re
 
 | Option | Description |
 |--------|-------------|
-| `--tier` | `all` (default), `main` (ws/ud), or `addon` (utils, cibs, am, cm, audit). |
-| `--type` | Repeatable filter: `ws`, `ud`, `utils`, `cibs`, `am`, `cm`, `audit`. |
+| `--tier` | `all` (default), `main` (ws/ud), or `addon` (utils, cibs, am, cm, cmms, audit). |
+| `--type` | Repeatable filter: `ws`, `ud`, `utils`, `cibs`, `am`, `cm`, `cmms`, `audit`. |
 | `--conn` / `--config` | Connection. |
 | `--json` | Machine-readable output. |
 
@@ -732,6 +740,7 @@ gw network show --flat --conn "$CONN" --json | python3 -m json.tool
 | **utils** | `empty`, `integrate_ws`, `integrate_ud`, `copy_data`, `update` | Standalone create; integrate ws/ud separately; version in `utils.sys_version`. |
 | **am** | `empty`, `sample`, `integrate`, `integrate_sample`, `update` | WS parent only; singleton; create then integrate |
 | **cm** | `bootstrap`, `integrate`, `update` | Bootstrap standalone, then `schema addon integrate --parent …` |
+| **cmms** | `empty`, `integrate`, `update` | Singleton. Create standalone, then `schema addon integrate --parent …` once per ws/ud parent. |
 | **audit** | `empty`, `integrate`, `update` | Same flow as other addons via `schema addon create|integrate`. |
 
 **ws/ud profiles** (from [manifests/ws.yaml](../dbmodel/manifests/ws.yaml)):
@@ -743,6 +752,8 @@ gw network show --flat --conn "$CONN" --json | python3 -m json.tool
 | `sample_inv` | … → `load_sample` → `load_inv` → `final_pass` |
 | `dev` | … → `load_dev` → `final_pass` |
 | `update` | `reload_fct_ftrg` → `updates` → `lastprocess_upgrade` |
+| `update_step` | `reload_fct_ftrg` → `updates` → `register_version` (lockstep `network update`; reload until functions live in patches) |
+| `version_bump` | `register_version` (lockstep version with no patch folder) |
 
 Details and folder layout: [dbmodel README — Schema architecture](../dbmodel/README.md#schema-architecture).
 

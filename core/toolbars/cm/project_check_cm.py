@@ -51,27 +51,24 @@ class GwProjectCheckCMTask(GwTask):
             # Always perform data-related checks
             check_data_related = self.params.get("check_data_related", True)
 
-            # Extract the actual ID values if they are lists [id, name]
-            if isinstance(campaign_id, list) and len(campaign_id) > 0:
-                campaign_id = campaign_id[0]
-            if isinstance(lot_id, list) and len(lot_id) > 0:
-                lot_id = lot_id[0]
+            # Async combos store [id, idval]. An unselected lot is ['', ''], not None.
+            campaign_id = self._json_id(campaign_id)
+            lot_id = self._json_id(lot_id)
 
             extras = (
                 f'"parameters": {{'
                 f'"functionFid": {function_fid}, "project_type": "{project_type}", '
-                f'"campaignId": {campaign_id if campaign_id is not None else "null"}, '
-                f'"lotId": {lot_id if lot_id is not None else "null"}, '
+                f'"campaignId": {campaign_id}, '
+                f'"lotId": {lot_id}, '
                 f'"checkManagementConfigs": {str(check_management_configs).lower()}, '
                 f'"checkDataRelated": {str(check_data_related).lower()}'
                 f'}}'
             )
             body = tools_gw.create_body(extras=extras)
             self.result_data = tools_gw.execute_procedure('gw_fct_cm_setcheckproject', body, schema_name='cm', is_thread=True, aux_conn=self.aux_conn)
-            if self.result_data['status'] == 'Accepted':
+            if self.result_data and self.result_data.get('status') == 'Accepted':
                 return True
-            else:
-                return False
+            return False
         except Exception as e:
             msg = "EXCEPTION: {0}, {1}"
             msg_params = (type(e).__name__, str(e),)
@@ -101,6 +98,11 @@ class GwProjectCheckCMTask(GwTask):
             return
 
         # Show dialog with audit check project result
+        if not self.result_data:
+            msg = "Check project did not return a result"
+            tools_qgis.show_warning(msg, dialog=self.dialog, context_name="cm")
+            self.setProgress(100)
+            return
         self._show_check_project_result(self.result_data)
 
         self.setProgress(100)
@@ -200,10 +202,23 @@ class GwProjectCheckCMTask(GwTask):
 
         return result
 
+    @staticmethod
+    def _json_id(value):
+        """JSON scalar for a combo id. Blank async-combo rows become null."""
+        if isinstance(value, (list, tuple)):
+            value = value[0] if value else None
+        if value is None:
+            return "null"
+        if isinstance(value, str) and value.strip().lower() in ("", "none", "null"):
+            return "null"
+        return value
+
     def _show_check_project_result(self, result):
         """ Show dialog with audit check project results """
 
         # Handle failed results
+        if not result:
+            return False
         if result.get('status') == 'Failed':
             tools_gw.manage_json_exception(result)
             return False

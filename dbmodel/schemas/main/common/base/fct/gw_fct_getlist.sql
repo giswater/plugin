@@ -102,6 +102,10 @@ v_headers_json json;
 v_columnname text;
 v_addparam json;
 v_table_headers text[];
+
+v_cur_user text;
+v_prev_cur_user text;
+
 BEGIN
 
 	-- Set search path to local schema
@@ -121,6 +125,7 @@ BEGIN
 
 	-- Get input parameters:
 	v_device := (p_data ->> 'client')::json->> 'device';
+	v_cur_user = ((p_data ->>'client')::json->>'cur_user');
 	v_tablename := (p_data ->> 'data')::json->> 'tableName';
 	v_canvasextend := (p_data ->> 'data')::json->> 'canvasExtend';
 	v_orderby := ((p_data ->> 'data')::json->> 'pageInfo')::json->>'orderBy';
@@ -128,6 +133,11 @@ BEGIN
 	v_ordertype := ((p_data ->> 'data')::json->> 'pageInfo')::json->>'orderType';
 	v_page := ((p_data ->> 'data')::json->> 'pageInfo')::json->>'page';
 	v_limit := ((p_data ->> 'data')::json->> 'pageInfo')::json->>'limit';
+
+	v_prev_cur_user = current_user;
+	IF v_cur_user IS NOT NULL AND v_cur_user != '' THEN
+		EXECUTE 'SET ROLE '||quote_ident(v_cur_user);
+	END IF;
 
 	-- control nulls
 	IF v_tablename IS NULL THEN
@@ -288,6 +298,8 @@ BEGIN
         SELECT ((((v_audit_result::json ->> 'body')::json ->> 'data')::json ->> 'info')::json ->> 'message')::text INTO v_message;
 
     END IF;
+
+	EXECUTE 'SET ROLE '||quote_ident(v_prev_cur_user);
 
 	-- Return
     RETURN jsonb_build_object(

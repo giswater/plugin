@@ -100,6 +100,11 @@ BEGIN
 	INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 4, concat('WORKSPACE MANAGER'));
 	INSERT INTO audit_check_data (fid, result_id, criticity, error_message) VALUES (v_fid, null, 4, '-----------------------------');
 
+	IF v_action <> 'CHECK' THEN
+		-- sector 0 (Undefined) is forced by gw_fct_setselectors; never snapshot or restore it
+		DELETE FROM selector_sector WHERE sector_id = 0 AND cur_user = current_user;
+	END IF;
+
 	IF v_action = 'CREATE' OR v_action = 'CHECK' OR v_action = 'UPDATE' THEN
 
 		IF v_action = 'CREATE' AND v_workspace_name IN (SELECT name FROM cat_workspace) THEN
@@ -322,7 +327,7 @@ BEGIN
 							INTO v_deleted_sector;
 
 							EXECUTE 'INSERT INTO selector_sector
-							SELECT value::integer, current_user FROM json_array_elements_text('''||v_selector_value||''') WHERE value::integer IN (SELECT sector_id FROM sector WHERE active is true);';
+							SELECT value::integer, current_user FROM json_array_elements_text('''||v_selector_value||''') WHERE value::integer <> 0 AND value::integer IN (SELECT sector_id FROM sector WHERE active is true);';
 
 					ELSIF v_selector_name = 'selector_municipality' THEN
 

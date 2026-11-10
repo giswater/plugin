@@ -16,6 +16,8 @@ SELECT * FROM no_plan();
 
 -- Check view ve_epa_netgully
 SELECT has_view('ve_epa_netgully'::name, 'View ve_epa_netgully should exist');
+SELECT has_trigger('ve_epa_netgully', 'gw_trg_edit_ve_epa_netgully',
+    'View ve_epa_netgully should have gw_trg_edit_ve_epa_netgully');
 
 -- Check view columns
 SELECT columns_are(

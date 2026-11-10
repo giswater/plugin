@@ -383,7 +383,8 @@ BEGIN
 
 		-- updating values on feature parent table from values of old feature
 		v_excluded_columns := ''''||v_id_column||''',''the_geom'',''state'',''code'',''epa_type'',''state_type'','''||v_cat_column||''',
-			''sector_id'',''dma_id'',''expl_id'',''category_type'',''function_type'',''fluid_type'',''location_type'',''link''';
+			''sector_id'',''dma_id'',''expl_id'',''category_type'',''function_type'',''fluid_type'',''location_type'',''link'',
+			''created_at'',''created_by'',''updated_at'',''updated_by''';
 		IF v_keep_sys_code IS NOT TRUE THEN
 			v_excluded_columns := v_excluded_columns || ',''sys_code''';
 		END IF;

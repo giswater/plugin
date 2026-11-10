@@ -66,10 +66,18 @@ BEGIN
 
 	SELECT project_type, giswater  INTO v_project_type, v_version FROM sys_version ORDER BY id DESC LIMIT 1;
 
+	--capture input values
+ 	v_old_psector_id = ((p_data ->>'data')::json->>'psector_id')::text;
+	v_new_psector_name = ((p_data ->>'data')::json->>'new_psector_name')::text;
+
+	IF v_new_psector_name IN (SELECT name FROM plan_psector) THEN
+		SELECT gw_fct_getmessage($${"data":{"message":"4752", "function":"2734", "is_process":true}}$$);
+	END IF;
+
 	-- manage log (fid: 153)
 	DELETE FROM audit_check_data WHERE fid=153 AND cur_user=current_user;
-	INSERT INTO audit_check_data (fid, result_id, error_message) VALUES (153, v_result_id, concat('DUPLICATE PSECTOR'));
-	INSERT INTO audit_check_data (fid, result_id, error_message) VALUES (153, v_result_id, concat('------------------------------'));
+
+	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"function":"2734", "fid":"153", "result_id":"'||v_result_id||'", "is_process":true, "is_header":true}}$$)';
 
     -- insert connec2network variable for user in case it doesn't exist
     INSERT INTO config_param_user VALUES('edit_connec_automatic_link', 'false', current_user) ON CONFLICT (parameter, cur_user) DO NOTHING;
@@ -88,10 +96,6 @@ BEGIN
 
 	-- disable arc divide temporary
 	UPDATE config_param_user SET value = 'TRUE'  WHERE "parameter"='edit_disable_arc_divide' AND cur_user=current_user;
-
-	--capture input values
- 	v_old_psector_id = ((p_data ->>'data')::json->>'psector_id')::text;
-	v_new_psector_name = ((p_data ->>'data')::json->>'new_psector_name')::text;
 
 	--copy psector definition, update plan selector and psector vdefault
  	INSERT INTO plan_psector (name, psector_type, descript, expl_id, priority, text1, text2, observ, rotation, scale,  atlas_id, gexpenses,

@@ -230,13 +230,13 @@ UPDATE config_form_tableview SET alias = 'Element id' WHERE columnname = 'elemen
 UPDATE config_form_tableview SET alias = 'Node id' WHERE columnname = 'node_id' AND objectname = 'tbl_frelem_dsc_pump';
 UPDATE config_form_tableview SET alias = 'Status' WHERE columnname = 'status' AND objectname = 'tbl_frelem_dsc_pump';
 UPDATE config_form_tableview SET alias = 'The geom' WHERE columnname = 'the_geom' AND objectname = 'tbl_frelem_dsc_pump';
-UPDATE config_form_tableview SET alias = 'Connec ccode' WHERE columnname = 'connec_customer_code' AND objectname = 'tbl_hydrometer';
-UPDATE config_form_tableview SET alias = 'Sys connec id' WHERE columnname = 'connec_id' AND objectname = 'tbl_hydrometer';
-UPDATE config_form_tableview SET alias = 'Exploitation' WHERE columnname = 'expl_id' AND objectname = 'tbl_hydrometer';
-UPDATE config_form_tableview SET alias = 'Hydro ccode' WHERE columnname = 'hydrometer_customer_code' AND objectname = 'tbl_hydrometer';
-UPDATE config_form_tableview SET alias = 'Sys hydrometer id' WHERE columnname = 'hydrometer_id' AND objectname = 'tbl_hydrometer';
-UPDATE config_form_tableview SET alias = 'Link' WHERE columnname = 'hydrometer_link' AND objectname = 'tbl_hydrometer';
-UPDATE config_form_tableview SET alias = 'State' WHERE columnname = 'state' AND objectname = 'tbl_hydrometer';
+UPDATE config_form_tableview SET alias = 'Connec ccode' WHERE columnname = 'feature_customer_code' AND objectname = 'vf_hydrometer';
+UPDATE config_form_tableview SET alias = 'Sys connec id' WHERE columnname = 'feature_id' AND objectname = 'vf_hydrometer';
+UPDATE config_form_tableview SET alias = 'Exploitation' WHERE columnname = 'expl_id' AND objectname = 'vf_hydrometer';
+UPDATE config_form_tableview SET alias = 'Hydro ccode' WHERE columnname = 'hydro_customer_code' AND objectname = 'vf_hydrometer';
+UPDATE config_form_tableview SET alias = 'Sys hydrometer id' WHERE columnname = 'hydrometer_id' AND objectname = 'vf_hydrometer';
+UPDATE config_form_tableview SET alias = 'Link' WHERE columnname = 'hydrometer_link' AND objectname = 'vf_hydrometer';
+UPDATE config_form_tableview SET alias = 'State' WHERE columnname = 'state' AND objectname = 'vf_hydrometer';
 UPDATE config_form_tableview SET alias = 'Active' WHERE columnname = 'active' AND objectname = 'tbl_nvo_mng_controls';
 UPDATE config_form_tableview SET alias = 'Id' WHERE columnname = 'id' AND objectname = 'tbl_nvo_mng_controls';
 UPDATE config_form_tableview SET alias = 'Sector id' WHERE columnname = 'sector_id' AND objectname = 'tbl_nvo_mng_controls';
@@ -538,6 +538,7 @@ UPDATE config_form_tableview SET alias = 'Iscorporate' WHERE columnname = 'iscor
 UPDATE config_form_tableview SET alias = 'Isvalidated' WHERE columnname = 'isvalidated' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Network stats' WHERE columnname = 'network_stats' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Network type' WHERE columnname = 'network_type' AND objectname = 'v_ui_rpt_cat_result';
+UPDATE config_form_tableview SET alias = 'Parent id' WHERE columnname = 'parent_id' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Result id' WHERE columnname = 'result_id' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Rpt stats' WHERE columnname = 'rpt_stats' AND objectname = 'v_ui_rpt_cat_result';
 UPDATE config_form_tableview SET alias = 'Sector id' WHERE columnname = 'sector_id' AND objectname = 'v_ui_rpt_cat_result';
@@ -662,7 +663,7 @@ UPDATE config_form_tableview SET alias = 'The geom' WHERE columnname = 'the_geom
 UPDATE config_form_tableview SET alias = 'Valve type' WHERE columnname = 'valve_type' AND objectname = 'tbl_frelem_dsc_valve';
 UPDATE config_form_tableview SET alias = 'Connec code' WHERE columnname = 'connec_code' AND objectname = 'tbl_mincut_hydro';
 UPDATE config_form_tableview SET alias = 'Connec id' WHERE columnname = 'connec_id' AND objectname = 'tbl_mincut_hydro';
-UPDATE config_form_tableview SET alias = 'Hydrometer customer code' WHERE columnname = 'hydrometer_customer_code' AND objectname = 'tbl_mincut_hydro';
+UPDATE config_form_tableview SET alias = 'Hydro customer code' WHERE columnname = 'hydro_customer_code' AND objectname = 'tbl_mincut_hydro';
 UPDATE config_form_tableview SET alias = 'Hydrometer id' WHERE columnname = 'hydrometer_id' AND objectname = 'tbl_mincut_hydro';
 UPDATE config_form_tableview SET alias = 'Anl cause' WHERE columnname = 'anl_cause' AND objectname = 'tbl_mincut_manager';
 UPDATE config_form_tableview SET alias = 'Anl descript' WHERE columnname = 'anl_descript' AND objectname = 'tbl_mincut_manager';
@@ -708,7 +709,7 @@ UPDATE config_form_tableview SET alias = 'Text' WHERE columnname = 'text' AND ob
 UPDATE config_form_tableview SET alias = 'Arc state' WHERE columnname = 'arc_state' AND objectname = 'tbl_relations';
 UPDATE config_form_tableview SET alias = 'Connec code' WHERE columnname = 'connec_code' AND objectname = 'v_om_mincut_hydrometer';
 UPDATE config_form_tableview SET alias = 'Connec id' WHERE columnname = 'connec_id' AND objectname = 'v_om_mincut_hydrometer';
-UPDATE config_form_tableview SET alias = 'Hydrometer customer code' WHERE columnname = 'hydrometer_customer_code' AND objectname = 'v_om_mincut_hydrometer';
+UPDATE config_form_tableview SET alias = 'Hydro customer code' WHERE columnname = 'hydro_customer_code' AND objectname = 'v_om_mincut_hydrometer';
 UPDATE config_form_tableview SET alias = 'Hydrometer id' WHERE columnname = 'hydrometer_id' AND objectname = 'v_om_mincut_hydrometer';
 UPDATE config_form_tableview SET alias = 'Id' WHERE columnname = 'id' AND objectname = 'v_om_mincut_hydrometer';
 UPDATE config_form_tableview SET alias = 'Result id' WHERE columnname = 'result_id' AND objectname = 'v_om_mincut_hydrometer';

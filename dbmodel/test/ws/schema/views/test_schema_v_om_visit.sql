@@ -41,7 +41,7 @@ SELECT col_type_is('v_om_visit', 'feature_type', 'text', 'Column feature_type sh
 SELECT col_type_is('v_om_visit', 'feature_class', 'varchar(30)', 'Column feature_class should be varchar(30)');
 SELECT col_type_is('v_om_visit', 'featurecat_id', 'varchar(30)', 'Column featurecat_id should be varchar(30)');
 SELECT col_type_is('v_om_visit', 'feature_state', 'int2', 'Column feature_state should be int2');
-SELECT col_type_is('v_om_visit', 'the_geom', 'geometry', 'Column the_geom should be geometry');
+SELECT col_type_is('v_om_visit', 'the_geom', 'geometry(Point, SRID_VALUE)', 'Column the_geom should be geometry(Point, SRID_VALUE)');
 
 SELECT * FROM finish();
 

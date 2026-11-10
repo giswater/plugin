@@ -16,6 +16,8 @@ SELECT * FROM no_plan();
 
 -- Check view ve_epa_inlet
 SELECT has_view('ve_epa_inlet'::name, 'View ve_epa_inlet should exist');
+SELECT has_trigger('ve_epa_inlet', 'gw_trg_edit_ve_epa_inlet',
+    'View ve_epa_inlet should have gw_trg_edit_ve_epa_inlet');
 
 -- Check view columns
 SELECT columns_are(

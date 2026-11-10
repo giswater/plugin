@@ -1,0 +1,3 @@
+- Fix `gw_fct_setinitproject` `format()` so new users with an empty exploitation selector get Accepted and are inserted into `cat_users`. Applied via `reload_fct_ftrg` from `base/fct`.
+- `gw_fct_admin_role_upsertuser`: grant and upsert `cat_users` for an existing NOLOGIN role; deactivate the catalog row on delete instead of removing it. Applied via `reload_fct_ftrg`.
+- `sys_message` 3040 is AUDIT / log_level 0 so getmessage logs the translated “user already exists” without raising.

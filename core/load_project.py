@@ -19,7 +19,7 @@ from .toolbars import buttons
 from .utils import tools_gw
 from .threads.project_layers_config import GwProjectLayersConfig
 from .threads.project_check import GwProjectCheckTask
-from .threads.combo_loader import clear_combo_query_cache
+from .threads.combo_loader import clear_combo_query_cache, install_combo_cache_invalidation
 from .shared.psector import GwPsector
 from .shared.search import GwSearchLocatorFilter
 from .. import global_vars
@@ -161,6 +161,7 @@ class GwLoadProject(QObject):
             'load_project',
             'project_read_willRemoveChildren_protect_vr'
         )
+        install_combo_cache_invalidation()
         global_vars.project_loaded = True
 
         # Set indexing strategy for snapping so that it uses less memory if possible
@@ -750,8 +751,10 @@ class GwLoadProject(QObject):
     def _show_psector_menu(self, global_pos):
         """Composes and shows the psector context menu at the given global position."""
         menu = QMenu(self.cmb_psector)
-        act_zoom = QAction("Zoom to psector", self.cmb_psector)
-        act_open = QAction("Open psector", self.cmb_psector)
+        title = "Zoom to psector"
+        act_zoom = QAction(tools_qt.tr(title), self.cmb_psector)
+        title = "Open psector"
+        act_open = QAction(tools_qt.tr(title), self.cmb_psector)
         act_zoom.triggered.connect(lambda: self._execute_menu_action("zoom"))
         act_open.triggered.connect(lambda: self._execute_menu_action("open"))
         menu.addAction(act_zoom)

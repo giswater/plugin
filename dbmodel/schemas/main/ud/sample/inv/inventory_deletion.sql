@@ -10,18 +10,18 @@ SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
 UPDATE config_param_user SET value = true where parameter = 'plan_psector_force_delete';
 
-UPDATE arc SET sector_id = expl_id;
-UPDATE node SET sector_id = expl_id;
-UPDATE connec SET sector_id = expl_id;
-UPDATE gully SET sector_id = expl_id;
-UPDATE link SET sector_id = expl_id;
-UPDATE element SET sector_id = expl_id;
+UPDATE arc a SET sector_id = s.sector_id FROM sector s WHERE s.code = a.expl_id::text AND s.sector_id > 0;
+UPDATE node n SET sector_id = s.sector_id FROM sector s WHERE s.code = n.expl_id::text AND s.sector_id > 0;
+UPDATE connec c SET sector_id = s.sector_id FROM sector s WHERE s.code = c.expl_id::text AND s.sector_id > 0;
+UPDATE gully g SET sector_id = s.sector_id FROM sector s WHERE s.code = g.expl_id::text AND s.sector_id > 0;
+UPDATE link l SET sector_id = s.sector_id FROM sector s WHERE s.code = l.expl_id::text AND s.sector_id > 0;
+UPDATE element e SET sector_id = s.sector_id FROM sector s WHERE s.code = e.expl_id::text AND s.sector_id > 0;
 
 DELETE FROM inp_controls;
 
-DELETE FROM sector WHERE sector_id > 2;
+DELETE FROM sector WHERE sector_id > 0 AND code NOT IN ('1', '2');
 
-UPDATE sector s SET the_geom = e.the_geom FROM exploitation e WHERE s.sector_id = e.expl_id;
+UPDATE sector s SET the_geom = e.the_geom FROM exploitation e WHERE s.code = e.expl_id::text AND s.sector_id > 0;
 
 UPDATE inp_junction SET y0=null, ysur=null, apond=null, outfallparam=null;
 UPDATE inp_conduit SET q0=null, qmax=null;

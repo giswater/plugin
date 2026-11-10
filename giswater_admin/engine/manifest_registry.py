@@ -25,6 +25,7 @@ _DEFAULT_UPDATE_ORDER: dict[str, int] = {
     "ws": 30,
     "ud": 40,
     "am": 50,
+    "cmms": 55,
     "cm": 60,
     "audit": 70,
 }
@@ -126,6 +127,7 @@ def update_kind_order(dbmodel_path: str) -> tuple[str, ...]:
             "ws",
             "ud",
             "am",
+            "cmms",
             "cm",
             "audit",
         )

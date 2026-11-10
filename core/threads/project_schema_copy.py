@@ -84,7 +84,7 @@ class GwCopySchemaTask(GwTask):
             self.timer.stop()
 
         if self.status:
-            self.admin._populate_data_schema_name(self.admin.cmb_project_type)
+            self.admin._populate_data_schema_name()
             tools_qt.set_widget_text(self.admin.dlg_readsql, self.admin.dlg_readsql.project_schema_name, str(self.new_schema_name))
             # Set info project
             self.admin._set_info_project()

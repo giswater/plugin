@@ -56,7 +56,7 @@ from ...giswater_admin.engine import (
     plan_lockstep,
     resolve_network_graph,
 )
-from ...giswater_admin.engine.network_update import LockstepStep
+from ...giswater_admin.engine.network_update import LockstepStep, resolve_lockstep_profile
 from ...giswater_admin.engine.version_guard import (
     assert_network_no_downgrade,
     assert_no_downgrade,
@@ -239,6 +239,7 @@ class GwAdminButton:
 
         # Check if srid value is valid
         if self.last_srids is None:
+            self._pending_rename = None
             msg = "This SRID value does not exist on Postgres Database. Please select a diferent one."
             title = "Info"
             tools_qt.show_info_box(msg, title)
@@ -248,6 +249,7 @@ class GwAdminButton:
         title = "Create example"
         answer = tools_qt.show_question(msg, title)
         if not answer:
+            self._pending_rename = None
             return
 
         msg = "Create schema of type '{0}': '{1}'"
@@ -274,16 +276,16 @@ class GwAdminButton:
                         self.folder_locale = os.path.join(self.folder_final_pass, 'i18n')
                         tools_qt.set_combo_value(self.cmb_locale, 'en_US', 0)
                 else:
+                    self._pending_rename = None
                     return
 
         params = {'is_test': is_test, 'project_type': project_type, 'exec_last_process': exec_last_process,
                   'project_name_schema': project_name_schema, 'project_locale': project_locale,
                   'project_srid': project_srid, 'example_data': example_data}
 
-        if hasattr(self, 'task_rename_schema') and not isdeleted(self.task_rename_schema):
-            self.task_rename_schema.task_finished.connect(partial(self.start_create_project_data_schema_task, project_name_schema, params, project_type))
-        else:
-            self.start_create_project_data_schema_task(project_name_schema, params, project_type)
+        self._start_create_or_rename_first(
+            partial(self.start_create_project_data_schema_task, project_name_schema, params, project_type)
+        )
 
     # ------------------------------------------------------------------
     # Engine bridges. Each of the following entry points builds a
@@ -490,6 +492,75 @@ class GwAdminButton:
             "am",
             bp,
             description=f"Integrate am ({profile})",
+            on_done=self._on_builder_done_other,
+        )
+
+    def _parent_epsg(self, schema: str) -> str:
+        """EPSG of the latest sys_version row. Never returns 0."""
+        safe = str(schema or "").replace('"', "").replace(";", "").replace("'", "")
+        if not safe:
+            return "25831"
+        row = tools_db.get_row(
+            f'SELECT epsg FROM "{safe}".sys_version ORDER BY id DESC LIMIT 1'
+        )
+        if not row or row[0] in (None, "", 0, "0"):
+            return "25831"
+        return str(row[0])
+
+    def _create_cmms_schema(self, parent_schema=None) -> None:
+        """Create the singleton cmms schema (no parent integration)."""
+        msg = "This process will take a few seconds. Are you sure to continue?"
+        title = "Create cmms schema"
+        if not tools_qt.show_question(msg, title):
+            return
+        srid = self._parent_epsg(parent_schema) if parent_schema else "25831"
+        bp = BuildParams(
+            schema_name="cmms",
+            srid=srid,
+            locale=self.locale,
+            plugin_version=str(self.plugin_version),
+            profile="empty",
+            register_is_new="true",
+            sql_root=self.sql_dir,
+        )
+        self._submit_builder(
+            "cmms",
+            bp,
+            description="Create cmms",
+            on_done=self._on_builder_done_other,
+        )
+
+    def _integrate_cmms_schema(self, parent_schema=None, parent_type=None) -> None:
+        """Register cmms on the selected WS/UD parent."""
+        parent_schema, parent_type = self._resolve_parent_context(parent_schema, parent_type)
+        if not parent_schema:
+            msg = "Select a WS or UD anchor in the network table."
+            tools_qt.show_info_box(msg)
+            return
+        msg = (
+            "You are about to integrate CMMS with the following schema: {0}\n\n"
+            "Are you sure you want to continue?"
+        )
+        msg_params = (parent_schema,)
+        title = "Integrate cmms"
+        if not tools_qt.show_question(msg, title, msg_params=msg_params):
+            return
+        bp = BuildParams(
+            schema_name="cmms",
+            srid=self._parent_epsg(parent_schema),
+            locale=self.locale,
+            plugin_version=str(self.plugin_version),
+            profile="integrate",
+            parent_schema=parent_schema,
+            parent_type=(parent_type or "ws").lower(),
+            register_parent_schema=parent_schema,
+            infer_parents_from_config="true",
+            sql_root=self.sql_dir,
+        )
+        self._submit_builder(
+            "cmms",
+            bp,
+            description="Integrate cmms",
             on_done=self._on_builder_done_other,
         )
 
@@ -775,12 +846,15 @@ class GwAdminButton:
         msg = "This process will take a few seconds. Are you sure to continue?"
         title = "Create base schema"
         if not tools_qt.show_question(msg, title):
+            self._pending_rename = None
             return
 
         self.cm_schema_name = name
         self.cm_schema_description = description
         self.base_schema_created = True
-        self._run_create_cm_task(['load_base_schema'], 'Create cm base schema')
+        self._start_create_or_rename_first(
+            partial(self._run_create_cm_task, ['load_base_schema'], 'Create cm base schema')
+        )
 
     def _integrate_cm(self, parent_schema=None, parent_type=None):
         """Link CM to the selected WS/UD parent schema."""
@@ -928,7 +1002,8 @@ class GwAdminButton:
 
     def _run_lockstep_step(self, step: LockstepStep, on_done=None):
         """Run one lockstep network upgrade step via the engine."""
-        profile = "update_step" if step.action == "upgrade" else "version_bump"
+        manifest = load_kind_manifest(self.plugin_dir, step.kind)
+        profile = resolve_lockstep_profile(manifest, step.action)
         row = tools_db.get_row(
             f"SELECT giswater, language, epsg FROM {step.schema}.sys_version "
             "ORDER BY id DESC LIMIT 1"
@@ -1044,6 +1119,12 @@ class GwAdminButton:
                 parent_schema=parent_schema,
                 parent_type=parent_type,
                 cm_schema=schema_name,
+                on_done=on_done,
+            )
+        elif kind == "cmms":
+            self._update_cmms(
+                parent_schema=parent_schema,
+                parent_type=parent_type,
                 on_done=on_done,
             )
         elif kind == "audit":
@@ -1352,12 +1433,7 @@ class GwAdminButton:
         msg = "Manage languages"
         self.dlg_readsql_create_project.btn_language.setToolTip(tools_qt.tr(msg))
 
-        # Populate combo with all locales
-        list_locale = self._select_active_locales()
-        if global_vars.gw_dev_mode is True:
-            list_locale.append(["no_TR", "Hardcoded (No translation)"])
-        tools_qt.fill_combo_values(self.cmb_locale, list_locale)
-
+        self._populate_language_combo_create_project()
         self._load_create_project_user_values()
         self._apply_dev_project_name()
 
@@ -1728,6 +1804,10 @@ class GwAdminButton:
         QgsApplication.taskManager().addTask(task)
 
     def _build_admin_load_result_sync(self, connection_name) -> AdminLoadResult:
+        # A previous admin task can leave the shared session in an aborted
+        # transaction. Rollback is a no-op when nothing is open.
+        if tools_db.dao is not None:
+            tools_db.dao.rollback()
         result = AdminLoadResult(connection_name=connection_name)
         result.sys_version_schemas = admin_catalog.fetch_sys_version_schemas()
         result.aux_flags = admin_catalog.fetch_aux_schema_flags()
@@ -1969,8 +2049,12 @@ class GwAdminButton:
     def _ensure_extensions_checked(self):
         if self._extensions_checked:
             return
+        row = tools_db.get_row(
+            "SELECT COALESCE((SELECT rolsuper FROM pg_roles WHERE rolname = current_user), FALSE)"
+        )
+        can_create = bool(row and row[0])
         for ext in ('postgis', 'pgrouting', 'postgis_raster', 'tablefunc', 'unaccent', 'fuzzystrmatch', 'intarray'):
-            tools_db.check_pg_extension(ext)
+            tools_db.check_pg_extension(ext, form_enabled=can_create)
         self._extensions_checked = True
         if self._cached_pg_versions is not None:
             self._cached_pg_versions['postgis'] = tools_db.get_postgis_version()
@@ -2497,6 +2581,7 @@ class GwAdminButton:
     def _check_project_name(self, project_name, project_descript):
         """ Check if @project_name and @project_descript are is valid """
 
+        self._pending_rename = None
         sql = "SELECT word FROM pg_get_keywords() ORDER BY 1;"
         pg_keywords = tools_db.get_rows(sql, commit=False)
 
@@ -2544,10 +2629,11 @@ class GwAdminButton:
         msg_params = (new_name,)
         result = tools_qt.show_question(msg, "Info", force_action=True, msg_params=msg_params)
         if result:
-            self._rename_project_data_schema(str(project_name), str(new_name))
+            # Queue the rename only after the caller confirms the rest of the flow,
+            # so task_finished is connected before the task starts.
+            self._pending_rename = (str(project_name), str(new_name))
             return True
-        else:
-            return False
+        return False
 
     def _bk_schema_name(self, list_schemas, project_name, i):
         """ Check for available bk schema name """
@@ -2557,7 +2643,36 @@ class GwAdminButton:
         else:
             return self._bk_schema_name(list_schemas, project_name, i + 1)
 
-    def _rename_project_data_schema(self, schema, create_project=None):
+    def _start_create_or_rename_first(self, start_create):
+        """Rename a colliding schema first, then run start_create. Otherwise create now."""
+        pending = getattr(self, '_pending_rename', None)
+        self._pending_rename = None
+        if not pending:
+            start_create()
+            return
+        self._rename_project_data_schema(
+            pending[0],
+            pending[1],
+            on_finished=partial(self._continue_after_successful_rename, start_create),
+        )
+
+    def _continue_after_successful_rename(self, start_create):
+        task = getattr(self, 'task_rename_schema', None)
+        if task is None or not getattr(task, 'status', False):
+            return
+        start_create()
+
+    def _rename_project_type(self, schema):
+        cache = getattr(self, '_admin_catalog_cache', None)
+        schemas = cache.sys_version_schemas if cache and cache.sys_version_schemas else None
+        if not schemas:
+            schemas = admin_catalog.fetch_sys_version_schemas()
+        project_type = admin_catalog.project_type_for_schema(schemas or [], schema)
+        if project_type:
+            return str(project_type).lower()
+        return self._get_selected_project_type()
+
+    def _rename_project_data_schema(self, schema, create_project=None, on_finished=None):
         """"""
         if create_project is None:
             self.schema = tools_qt.get_text(self.dlg_readsql_rename, self.dlg_readsql_rename.schema_rename_copy)
@@ -2583,8 +2698,26 @@ class GwAdminButton:
 
         # Set background task 'GwRenameSchemaTask'
         description = "Rename schema"
-        params = {'schema': schema, 'new_schema_name': self.schema}
+        project_version = str(getattr(self, 'project_version', None) or '')
+        if project_version in ('', '0', '0.0.0'):
+            project_version = str(self.plugin_version or '')
+        params = {
+            'schema': schema,
+            'new_schema_name': self.schema,
+            'project_type': self._rename_project_type(schema),
+            'project_version': project_version,
+            'project_epsg': str(self.project_epsg or '25831'),
+            'locale': str(getattr(self, 'locale', None) or 'en_US'),
+        }
         self.task_rename_schema = GwRenameSchemaTask(self, description, params, timer=self.timer)
+        # btn_accept.clicked emits a bool; only wire a real callback.
+        if callable(on_finished):
+            self.task_rename_schema.task_finished.connect(on_finished)
+        # Release the schema from the shared session so ALTER SCHEMA on the
+        # worker connection is not blocked by "being accessed by other users".
+        if tools_db.dao is not None:
+            tools_db.dao.rollback()
+            tools_db.execute_sql("SET search_path TO public", commit=True)
         QgsApplication.taskManager().addTask(self.task_rename_schema)
         QgsApplication.taskManager().triggerTask(self.task_rename_schema)
 
@@ -2937,27 +3070,43 @@ class GwAdminButton:
         dlg.init_dialog()
         self.dlg_i18n_languages = dlg
 
-    def _populate_language_combo_create_project(self):
-        """Populate language combo for create project"""
-        self.cmb_locale.clear()
+    def _populate_language_combo_create_project(self, preferred_locale=None):
+        """Populate language combo for create project from current active locales."""
+        dlg = getattr(self, "dlg_readsql_create_project", None)
+        cmb = getattr(self, "cmb_locale", None)
+        if dlg is None or cmb is None:
+            return
+        try:
+            if isdeleted(dlg) or isdeleted(cmb):
+                return
+        except RuntimeError:
+            return
+
+        previous = tools_qt.get_combo_value(dlg, cmb, 0)
         rows_raw = i18n_service.list_locales_for_combo(flag="active")
         if rows_raw is None:
             msg = "Config database file not found"
-            tools_qgis.show_warning(self.dlg_readsql_create_project, msg)
+            tools_qgis.show_warning(dlg, msg)
             return
         rows = [[locale, name] for locale, name in rows_raw]
         if not rows:
             msg = "No active locales configured"
-            tools_qgis.show_warning(self.dlg_readsql_create_project, msg)
+            tools_qgis.show_warning(dlg, msg)
+            cmb.clear()
             return
         if global_vars.gw_dev_mode is True:
             rows.append(["no_TR", "Harcoded (No translation)"])
-        tools_qt.fill_combo_values(self.cmb_locale, rows)
-        language = tools_gw.get_config_parser(
-            'i18n_generator', 'qm_lang_language', "user", "session", False,
+        tools_qt.fill_combo_values(cmb, rows)
+
+        session_locale = tools_gw.get_config_parser(
+            'btn_admin', 'project_locale', 'user', 'session', False, force_reload=True,
         )
-        if language:
-            tools_qt.set_combo_value(self.cmb_locale, language, 0, add_new=False)
+        for candidate in (preferred_locale, previous, session_locale):
+            if not candidate or candidate in (-1, "", "null"):
+                continue
+            tools_qt.set_combo_value(cmb, candidate, 0, add_new=False)
+            if tools_qt.get_combo_value(dlg, cmb, 0) == candidate:
+                break
 
     def _populate_data_schema_name(self, widget=None):
         """Fill project schema combo from cached catalog or pg_catalog."""
@@ -3056,7 +3205,7 @@ class GwAdminButton:
                     'pgrouting': tools_db.get_pgrouting_version(),
                 }
                 for ext in ('postgis_raster', 'tablefunc', 'unaccent', 'fuzzystrmatch', 'intarray'):
-                    tools_db.check_pg_extension(ext)
+                    tools_db.check_pg_extension(ext, form_enabled=False)
 
         if self._cached_pg_versions is not None:
             self.postgresql_version = self._cached_pg_versions['pg']
@@ -3240,6 +3389,7 @@ class GwAdminButton:
         if self.dlg_readsql_create_project is None:
             self.init_dialog_create_project()
 
+        self._populate_language_combo_create_project()
         self._load_create_project_user_values()
         self._filter_srid_changed()
 
@@ -4942,6 +5092,35 @@ class GwAdminButton:
         self._submit_builder('cm', bp,
                              description=tools_qt.tr(msg),
                              on_done=callback)
+
+    def _update_cmms(self, parent_schema=None, parent_type=None, on_done=None):
+        """Run the cmms 'update' profile in place (semver upgrade)."""
+        row = tools_db.get_row(
+            "SELECT giswater, language, epsg FROM cmms.sys_version "
+            "ORDER BY id DESC LIMIT 1"
+        )
+        current_version = row[0] if row and row[0] else "0.0.0"
+        parent_schema, parent_type = self._resolve_parent_context(parent_schema, parent_type)
+        bp = BuildParams(
+            schema_name="cmms",
+            srid=self._parent_epsg("cmms"),
+            locale=str(row[1] if row and row[1] else self.locale),
+            plugin_version=str(self.plugin_version),
+            project_version=str(current_version),
+            profile="update",
+            run_mode="upgrade",
+            parent_schema=parent_schema or "",
+            parent_type=parent_type,
+            sql_root=self.sql_dir,
+        )
+        callback = on_done if on_done is not None else self._on_builder_done_other
+        msg = "Update cmms schema"
+        self._submit_builder(
+            "cmms",
+            bp,
+            description=tools_qt.tr(msg),
+            on_done=callback,
+        )
 
     def _on_builder_done_other_update(self, schema_name, result):
         if not result.ok:

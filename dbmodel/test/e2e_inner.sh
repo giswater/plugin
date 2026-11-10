@@ -53,7 +53,7 @@ case "${SCENARIO}" in
     ;;
   pgtap_addon)
     bash "${_TEST_ROOT}/bootstrap_parents_inner.sh"
-    bash "${_TEST_ROOT}/bootstrap_addon_inner.sh" "${2:?utils|cibs}"
+    bash "${_TEST_ROOT}/bootstrap_addon_inner.sh" "${2:?utils|cibs|cmms}"
     bash "${_TEST_ROOT}/prove_inner.sh" "${2}"
     ;;
   pgtap_network)

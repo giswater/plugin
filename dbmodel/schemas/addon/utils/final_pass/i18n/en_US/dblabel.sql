@@ -36,6 +36,7 @@ UPDATE sys_label AS t SET idval = v.idval FROM (
     (4002, 'Additional Data'),
     (4003, 'Data'),
     (4004, 'Dscenario'),
+    (4005, 'NEW'),
     (1001, 'INFO'),
     (1002, 'WARNING'),
     (1003, 'ERROR'),
@@ -64,6 +65,7 @@ UPDATE sys_label AS t SET idval = v.idval FROM (
     (4001, 'Main Data'),
     (4002, 'Additional Data'),
     (4003, 'Data'),
-    (4004, 'Dscenario')
+    (4004, 'Dscenario'),
+    (4005, 'NEW')
 ) AS v(id, idval)
 WHERE t.id = v.id;

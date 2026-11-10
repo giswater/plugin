@@ -183,6 +183,10 @@ BEGIN
 			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
 			SELECT 114, p_result, 1, concat(csv1,' ',csv2, ' ',csv3, ' ',csv4, ' ',csv5, ' ',csv6, ' ',csv7, ' ',csv8, ' ',csv9, ' ',csv10, ' ',csv11, ' ',csv12) from temp_csv
 			where fid = 11 and source='rpt_warning_summary' and cur_user=current_user;
+			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+			SELECT 114, p_result, 2, concat(warning_number, ' ', text)
+			FROM rpt_warning_summary
+			WHERE result_id = p_result;
 			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 2, '');
 		END IF;
 	END IF;
@@ -198,13 +202,26 @@ BEGIN
 		where fid = 11 and source='rpt_cat_result' and cur_user=current_user;
 
 
-		-- detalied user inp options
+		-- detailed user inp options (prefer result snapshot; fallback to session config)
 		INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 1, '');
 		INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 1, 'DETAILED USER INPUT OPTIONS');
 		INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message) VALUES (114, p_result, 1, '----------------------------------------');
-		INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
-		SELECT 114, p_result, 1, concat (label, ' : ', value) FROM config_param_user
-		JOIN sys_param_user a ON a.id=parameter WHERE cur_user=current_user AND formname='epaoptions' AND value is not null;
+
+		IF (SELECT inp_options FROM rpt_cat_result WHERE result_id = p_result) IS NOT NULL THEN
+			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+			SELECT 114, p_result, 1, concat(a.label, ' : ', kv.value)
+			FROM rpt_cat_result r
+			CROSS JOIN LATERAL json_each_text(r.inp_options::json) AS kv(key, value)
+			JOIN sys_param_user a ON a.id = kv.key
+			WHERE r.result_id = p_result
+			  AND a.formname = 'epaoptions'
+			  AND kv.value IS NOT NULL
+			  AND kv.value NOT IN ('', 'null');
+		ELSE
+			INSERT INTO temp_audit_check_data (fid, result_id, criticity, error_message)
+			SELECT 114, p_result, 1, concat (label, ' : ', value) FROM config_param_user
+			JOIN sys_param_user a ON a.id=parameter WHERE cur_user=current_user AND formname='epaoptions' AND value is not null;
+		END IF;
 
 	END IF;
 

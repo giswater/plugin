@@ -61,6 +61,7 @@ v_querystring text;
 v_debug_vars json;
 v_debug json;
 v_msgerr json;
+v_device integer;
 
 BEGIN
 
@@ -80,6 +81,7 @@ BEGIN
 	v_idname = ((p_data ->>'feature')::json->>'idName')::text;
 	v_comboparent = ((p_data ->>'data')::json->>'comboParent')::text;
 	v_combovalue = ((p_data ->>'data')::json->>'comboId')::text;
+	v_device = ((p_data ->>'client')::json->>'device')::integer;
 
 			
 	-- get column type of idname
@@ -158,14 +160,14 @@ BEGIN
 			v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'iseditable', false);
 		END IF;
 
-		-- NOTE: dv_querytext is NOT executed here for feature dialogs anymore.
+		-- NOTE: dv_querytext is NOT executed here for feature dialogs anymore,
+		-- except device 5 (qwc2), which still receives comboIds/comboNames.
 		-- The Python widget (`GwAsyncComboBox`) loads the items asynchronously
 		-- using the parent value passed in from manage_combo_child. We still
 		-- compute selectedId from sys_param_user so the new value can be
 		-- restored once the items are loaded client-side.
-		IF v_formtype != 'feature' THEN
-			-- Legacy path for catalog/config-style flows that still expect a
-			-- pre-filtered list. (No known active caller, but kept for safety.)
+		IF v_formtype != 'feature' OR v_device = 5 THEN
+			-- Legacy path for catalog/config-style flows and qwc2 feature forms.
 			IF (v_aux_json_child->>'dv_querytext_filterc') IS NOT NULL AND v_combovalue IS NOT NULL THEN
 				query_text = concat('SELECT array_to_json(array_agg(id)) FROM (',((v_aux_json_child->>'dv_querytext')),((v_aux_json_child->>'dv_querytext_filterc')),'::text = ',(quote_literal(v_combovalue)),' ORDER BY ',v_orderby,') a');
 				EXECUTE query_text INTO combo_json_child;
@@ -186,8 +188,12 @@ BEGIN
 			combo_json_child := COALESCE(combo_json_child, '[]');
 			v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'comboNames', combo_json_child);
 
-			v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'selectedId', combo_json_child->0);
-		ELSE
+			IF v_formtype != 'feature' THEN
+				v_combo_rows_child[(v_aux_json_child->>'orderby')::INT] := gw_fct_json_object_set_key(v_combo_rows_child[(v_aux_json_child->>'orderby')::INT], 'selectedId', combo_json_child->0);
+			END IF;
+		END IF;
+
+		IF v_formtype = 'feature' THEN
 			-- Compute current value from sys_param_user / config_param_user.
 			FOR v_config_param_user IN SELECT * FROM sys_param_user WHERE feature_field_id = (v_aux_json_child->>'columnname')
 			LOOP

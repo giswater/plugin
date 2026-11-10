@@ -69,7 +69,7 @@ BEGIN
 		arccat_id AS feature_catalog,
 		CASE
 			WHEN epa_type IN ('VALVE', 'VIRTUALVALVE') THEN addparam::json->>'valve_type'
-			WHEN epa_type IN ('PUMP', 'VIRTUALPUMP') THEN addparam::json->>'pump_type'
+			WHEN epa_type IN ('PUMP', 'VIRTUALPUMP') THEN 'PUMP'
 			ELSE family
 		END AS family,
 		builtdate,

@@ -470,11 +470,18 @@ BEGIN
 			END LOOP;
 			p_data := jsonb_set(p_data::jsonb, '{data,mincutId}', to_jsonb(v_mincut_id))::json;
 
+			IF v_point IS NULL THEN
+				SELECT ST_LineInterpolatePoint(the_geom, 0.5)
+				INTO v_point
+				FROM v_temp_arc
+				WHERE arc_id = v_arc_id;
+			END IF;
+
 			-- Build dynamic UPDATE with only passed parameters
 			v_query_text := format(
 				'UPDATE om_mincut SET mincut_class = %s, anl_the_geom = %L, anl_user = %L, anl_feature_type = %L, anl_feature_id = %s',
 				v_mincut_network_class,
-				ST_SetSRID(ST_Point(v_xcoord, v_ycoord), v_client_epsg),
+				v_point,
 				v_cur_user,
 				'ARC',
 				v_arc_id

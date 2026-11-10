@@ -18,6 +18,7 @@ from qgis.core import QgsEditorWidgetSetup, QgsFieldConstraints, QgsLayerTreeLay
 from qgis.gui import QgsDateTimeEdit
 
 from ... import global_vars
+from ..shared import cmms
 from ..shared.document import GwDocument
 from ..shared.info import GwInfo
 from ..shared.visit import GwVisit
@@ -235,6 +236,29 @@ def open_visit(**kwargs):
 
     manage_visit = GwVisit()
     manage_visit.get_visit(visit_id, feature_type, feature_id)
+
+
+def open_cmms_visit(**kwargs):
+    """ Open the CMMS visit selected in the table. """
+
+    feature_id = kwargs['complet_result']['body']['feature']['id']
+    cmms.open_visit(kwargs['qtable'], feature_id)
+
+
+def open_cmms_attachment(**kwargs):
+    """ Open the CMMS attachment selected in the table. """
+
+    cmms.open_attachment(kwargs['qtable'])
+
+
+def open_cmms_attachment_file(**kwargs):
+    """ Open the path shown in the CMMS attachment dialog with the OS default program. """
+
+    dialog = kwargs['dialog']
+    path = tools_qt.get_text(dialog, 'tab_none_path', return_string_null=False)
+    status, message = tools_os.open_file(path)
+    if status is False and message is not None:
+        tools_qgis.show_warning(message, parameter=path, dialog=dialog)
 
 
 def manage_document(doc_id, **kwargs):
@@ -534,13 +558,19 @@ def get_info_node(**kwargs):
 
     dialog = kwargs['dialog']
     widget = kwargs['widget']
+    parent_info = kwargs.get('class')
 
     feature_id = tools_qt.get_text(dialog, widget)
     if widget.property('value') not in (None, ''):
         feature_id = widget.property('value')
+    # Node elev/top_elev updates arc sys_elev*. Refresh the still-open parent when this form closes.
+    connect_signal = None
+    if parent_info is not None and hasattr(parent_info, 'refresh_from_db'):
+        connect_signal = [partial(parent_info.refresh_from_db)]
     custom_form = GwInfo('tab_data')
     complet_result, dialog = custom_form.open_form(table_name='ve_node', feature_id=feature_id,
-                                                       tab_type='tab_data', is_docker=False)
+                                                       tab_type='tab_data', is_docker=False,
+                                                       connect_signal=connect_signal)
     if not complet_result:
         msg = "FAIL {0}"
         msg_params = ("open_node",)

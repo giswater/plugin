@@ -716,7 +716,7 @@ BEGIN
 	 SELECT temp_t_node.node_id,
 	    temp_t_node.elev,
 	    temp_t_node.addparam::json ->> 'outfall_type'::text AS outfall_type,
-	    temp_t_node.addparam::json ->> 'state'::text AS other1,
+	    temp_t_node.addparam::json ->> 'stage'::text AS other1,
 	    temp_t_node.addparam::json ->> 'gate'::text AS other2
 	   FROM temp_t_node
 	  WHERE temp_t_node.epa_type::text = 'OUTFALL'::text AND (temp_t_node.addparam::json ->> 'outfall_type'::text) = 'FIXED'::text
@@ -830,26 +830,71 @@ BEGIN
 
 
 	CREATE OR REPLACE TEMP VIEW vi_t_report AS
-	select * from (
+	SELECT parameter, value FROM (
 		SELECT a.idval AS parameter,
 		b.value
 		FROM sys_param_user a
 		JOIN config_param_user b ON a.id = b.parameter::text
-		WHERE (a.layoutname = ANY (ARRAY['lyt_reports_1'::text, 'lyt_reports_2'::text])) AND b.cur_user::name = "current_user"() AND b.value IS NOT null and parameter not in ('inp_report_nodes_2', 'inp_report_nodes', 'inp_report_links')
-		union
-		select 'NODES', replace(replace(replace(array_agg(a.node_id)::text,',',' '),'}',''),'{','')  from (select unnest(concat('{',replace(value,' ',','),'}')::integer[]) as node_id
-		from config_param_user where parameter = 'inp_report_nodes' and cur_user=current_user)a
-		join temp_t_node n on n.node_id = a.node_id::text
+		WHERE (a.layoutname = ANY (ARRAY['lyt_reports_1'::text, 'lyt_reports_2'::text]))
+			AND b.cur_user::name = "current_user"()
+			AND b.value IS NOT NULL
+			AND b.parameter NOT IN ('inp_report_nodes_2', 'inp_report_nodes', 'inp_report_links')
 		UNION
-		select 'NODES', replace(replace(replace(array_agg(a.node_id)::text,',',' '),'}',''),'{','')  from (select unnest(concat('{',replace(value,' ',','),'}')::integer[]) as node_id
-		from config_param_user where parameter = 'inp_report_nodes_2' and cur_user=current_user)a
-		join temp_t_node n on n.node_id = a.node_id::text
-		union
-		select 'LINKS', replace(replace(replace(array_agg(a.arc_id)::text,',',' '),'}',''),'{','')  from (select unnest(concat('{',replace(value,' ',','),'}')::integer[]) as arc_id
-		from config_param_user where parameter = 'inp_report_link' and cur_user=current_user)a
-		join temp_t_arc n on n.arc_id = a.arc_id::text)a
-		where value is not null
-		ORDER BY 1;
+		-- SWMM keywords. Not an id list; do not cast to integer.
+		SELECT 'NODES', upper(btrim(value))
+		FROM config_param_user
+		WHERE parameter IN ('inp_report_nodes', 'inp_report_nodes_2')
+			AND cur_user = current_user
+			AND upper(btrim(value)) IN ('ALL', 'NONE')
+		UNION
+		SELECT 'LINKS', upper(btrim(value))
+		FROM config_param_user
+		WHERE parameter = 'inp_report_links'
+			AND cur_user = current_user
+			AND upper(btrim(value)) IN ('ALL', 'NONE')
+		UNION
+		-- One NODES line per field so each stays under the SWMM token limit (~40).
+		SELECT 'NODES', string_agg(DISTINCT n.node_id, ' ' ORDER BY n.node_id)
+		FROM (
+			SELECT btrim(tok) AS node_id
+			FROM config_param_user,
+				regexp_split_to_table(replace(btrim(value), ',', ' '), '\s+') AS tok
+			WHERE parameter = 'inp_report_nodes'
+				AND cur_user = current_user
+				AND value IS NOT NULL
+				AND upper(btrim(value)) NOT IN ('ALL', 'NONE')
+		) a
+		JOIN temp_t_node n ON n.node_id = a.node_id
+		WHERE a.node_id <> ''
+		UNION
+		SELECT 'NODES', string_agg(DISTINCT n.node_id, ' ' ORDER BY n.node_id)
+		FROM (
+			SELECT btrim(tok) AS node_id
+			FROM config_param_user,
+				regexp_split_to_table(replace(btrim(value), ',', ' '), '\s+') AS tok
+			WHERE parameter = 'inp_report_nodes_2'
+				AND cur_user = current_user
+				AND value IS NOT NULL
+				AND upper(btrim(value)) NOT IN ('ALL', 'NONE')
+		) a
+		JOIN temp_t_node n ON n.node_id = a.node_id
+		WHERE a.node_id <> ''
+		UNION
+		SELECT 'LINKS', string_agg(DISTINCT n.arc_id, ' ' ORDER BY n.arc_id)
+		FROM (
+			SELECT btrim(tok) AS arc_id
+			FROM config_param_user,
+				regexp_split_to_table(replace(btrim(value), ',', ' '), '\s+') AS tok
+			WHERE parameter = 'inp_report_links'
+				AND cur_user = current_user
+				AND value IS NOT NULL
+				AND upper(btrim(value)) NOT IN ('ALL', 'NONE')
+		) a
+		JOIN temp_t_arc n ON n.arc_id = a.arc_id
+		WHERE a.arc_id <> ''
+	) a
+	WHERE value IS NOT NULL AND value <> ''
+	ORDER BY 1;
 
 
 	CREATE OR REPLACE TEMP VIEW vi_t_snowpacks AS
@@ -1324,7 +1369,7 @@ BEGIN
 			SELECT v_fid,rpad(concat(';;',c1),20),rpad(c2,20),rpad(c3,20),rpad(c4,20),rpad(c5,20),rpad(c6,20),rpad(c7,20),rpad(c8,20),rpad(c9,20),rpad(c10,20),rpad(c11,20),rpad(c12,20)
 			,rpad(c13,20),rpad(c14,20),rpad(c15,20),rpad(c16,20),rpad(c17,20),rpad(c18,20),rpad(c19,20),rpad(c20,20),rpad(c21,20),rpad(c22,20),rpad(c23,20),rpad(c24,20),rpad(c25,20),rpad(c26,20)
 			,rpad(c27,20),rpad(c28,20),rpad(c29,20),rpad(c30,20)
-			FROM crosstab('SELECT table_name::text,  data_type::text, column_name::text FROM information_schema.columns WHERE table_name='''||rec_table.tablename||'''::text AND column_name <> ''other''')
+			FROM crosstab('SELECT table_name::text,  data_type::text, column_name::text FROM information_schema.columns WHERE table_name='''||rec_table.tablename||'''::text AND column_name <> ''other'' ORDER BY ordinal_position')
 			AS rpt(table_name text, c1 text, c2 text, c3 text, c4 text, c5 text, c6 text, c7 text, c8 text, c9 text, c10 text, c11 text, c12 text, c13 text, c14 text, c15 text,
 			c16 text, c17 text, c18 text, c19 text, c20 text, c21 text, c22 text, c23 text, c24 text, c25 text, c26 text, c27 text, c28 text, c29 text, c30 text);
 

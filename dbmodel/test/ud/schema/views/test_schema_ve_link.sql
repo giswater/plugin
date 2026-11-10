@@ -23,8 +23,8 @@ SELECT columns_are(
     ARRAY[
         'link_id', 'code', 'sys_code', 'top_elev1', 'y1', 'elevation1',
         'exit_id', 'exit_type', 'top_elev2', 'y2', 'elevation2', 'feature_type',
-        'feature_id', 'link_type', 'sys_type', 'linkcat_id', 'matcat_id', 'cat_dnom',
-        'cat_dint', 'cat_pnom', 'state', 'state_type', 'expl_id', 'macroexpl_id',
+        'feature_id', 'link_type', 'sys_type', 'linkcat_id', 'matcat_id', 'cat_geom1',
+        'cat_geom2', 'state', 'state_type', 'expl_id', 'macroexpl_id',
         'muni_id', 'sector_id', 'macrosector_id', 'sector_type', 'drainzone_id', 'drainzone_type',
         'drainzone_outfall', 'dwfzone_id', 'dwfzone_type', 'dwfzone_outfall', 'omzone_id', 'macroomzone_id',
         'dma_id', 'location_type', 'fluid_type', 'custom_length', 'gis_length', 'sys_slope',
@@ -55,10 +55,9 @@ SELECT col_type_is('ve_link', 'feature_id', 'int4', 'Column feature_id should be
 SELECT col_type_is('ve_link', 'link_type', 'varchar(30)', 'Column link_type should be varchar(30)');
 SELECT col_type_is('ve_link', 'sys_type', 'varchar(30)', 'Column sys_type should be varchar(30)');
 SELECT col_type_is('ve_link', 'linkcat_id', 'varchar(30)', 'Column linkcat_id should be varchar(30)');
-SELECT col_type_is('ve_link', 'matcat_id', 'varchar(30)', 'Column matcat_id should be varchar(30)');
-SELECT col_type_is('ve_link', 'cat_dnom', 'varchar(16)', 'Column cat_dnom should be varchar(16)');
-SELECT col_type_is('ve_link', 'cat_dint', 'numeric(12,5)', 'Column cat_dint should be numeric(12,5)');
-SELECT col_type_is('ve_link', 'cat_pnom', 'varchar(16)', 'Column cat_pnom should be varchar(16)');
+SELECT col_type_is('ve_link', 'matcat_id', 'varchar(16)', 'Column matcat_id should be varchar(16)');
+SELECT col_type_is('ve_link', 'cat_geom1', 'numeric(12,4)', 'Column cat_geom1 should be numeric(12,4)');
+SELECT col_type_is('ve_link', 'cat_geom2', 'numeric(12,4)', 'Column cat_geom2 should be numeric(12,4)');
 SELECT col_type_is('ve_link', 'state', 'int2', 'Column state should be int2');
 SELECT col_type_is('ve_link', 'state_type', 'int2', 'Column state_type should be int2');
 SELECT col_type_is('ve_link', 'expl_id', 'int4', 'Column expl_id should be int4');

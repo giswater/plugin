@@ -8,11 +8,10 @@ or (at your option) any later version.
 from functools import partial
 
 from qgis.PyQt.QtCore import pyqtSignal, QObject
-from qgis.core import Qgis
 
 from ..ui.ui_manager import GwPsectorDuplicateUi
 from ..utils import tools_gw
-from ...libs import tools_qt, tools_db, tools_qgis
+from ...libs import tools_qt, tools_db
 
 
 class GwPsectorDuplicate(QObject):
@@ -73,8 +72,6 @@ class GwPsectorDuplicate(QObject):
         tools_db.execute_sql(sql)
 
         if not complet_result or complet_result['status'] == 'Failed':
-            msg = 'Function gw_fct_psector_duplicate executed with no result'
-            tools_qgis.show_message(msg, Qgis.MessageLevel.Success, dialog=self.dlg_duplicate_psector)
             return
 
         # Populate tab info

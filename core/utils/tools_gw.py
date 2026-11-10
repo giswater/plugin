@@ -16,6 +16,7 @@ import shutil
 import sys
 import sqlite3
 import xml.etree.ElementTree as ET
+from contextlib import contextmanager
 
 from typing import Literal, Dict, Optional, Union, Any, List, Tuple
 from qgis.PyQt.sip import isdeleted
@@ -26,7 +27,7 @@ from functools import partial
 from datetime import datetime
 
 from qgis.PyQt.QtCore import Qt, QStringListModel, QVariant, QDate, QRegularExpression, \
-    QItemSelectionModel, QTimer, QSettings, QUrl
+    QItemSelectionModel, QTimer, QUrl
 from qgis.PyQt.QtGui import QCursor, QPixmap, QColor, QStandardItemModel, QIcon, QStandardItem, \
     QIntValidator, QDoubleValidator, QRegularExpressionValidator, QPalette, QFont, QDesktopServices
 from qgis.PyQt.QtSql import QSqlTableModel
@@ -51,6 +52,7 @@ from ..ui.docker import GwDocker
 from ..ui.ui_manager import GwSelectorUi, GwPsectorManagerUi
 from . import tools_backend_calls
 from .async_combo import GwAsyncComboBox, attach_combo_popup_search
+from ..threads.combo_loader import clear_combo_query_cache, procedure_changes_combo_sources
 from ..load_project_menu import GwMenuLoad
 from ..utils.select_manager import GwSelectManager
 from ... import global_vars
@@ -692,8 +694,22 @@ def open_dialog(dlg, dlg_name=None, stay_on_top=False, title=None, title_params=
     if title is not None:
         dlg.setWindowTitle(tools_qt.tr(title, list_params=title_params))
 
-    # Manage stay on top, maximize/minimize button and information button
-    flags = Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMinMaxButtonsHint | Qt.WindowType.Window
+    # Manage stay on top, maximize/minimize button and information button.
+    # QXcbWindow::isTransient() sets WM_TRANSIENT_FOR only for Dialog/Tool/Sheet/Popup.
+    # Qt.Window deletes that property, so xfwm stacks the dialog as a normal window and
+    # raises QGIS over it when the canvas is clicked. Other WMs don't restack siblings.
+    app = QApplication.instance()
+    if app is not None and app.platformName() == "xcb":
+        window_type = Qt.WindowType.Dialog
+    else:
+        window_type = Qt.WindowType.Window
+    flags = (
+        window_type
+        | Qt.WindowType.WindowTitleHint
+        | Qt.WindowType.WindowSystemMenuHint
+        | Qt.WindowType.WindowCloseButtonHint
+        | Qt.WindowType.WindowMinMaxButtonsHint
+    )
 
     if stay_on_top:
         flags |= Qt.WindowType.WindowStaysOnTopHint
@@ -850,13 +866,36 @@ def reconnect_signal(section, signal_name):
     return False
 
 
+def _to_jsonable(value):
+    """Convert Qt/QGIS values (QVariant, NULL, QDate) into json.dumps-safe Python types."""
+
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, QVariant) or type(value).__name__ == 'QVariant':
+        try:
+            if not value.isValid() or value.isNull():
+                return None
+            return _to_jsonable(value.value())
+        except Exception:
+            return None
+    if isinstance(value, dict):
+        return {str(k): _to_jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_to_jsonable(v) for v in value]
+    if isinstance(value, QDate):
+        return value.toString('yyyy-MM-dd') if value.isValid() else None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
 def create_body(form='', feature='', filter_fields='', extras=None, list_feature=None, body=None) -> str:
     """ Create and return parameters as body to functions"""
 
     info_types = {'full': 1}
     plugin_version, message = tools_qgis.get_plugin_version()
     info_type = info_types.get(lib_vars.project_vars['info_type'])
-    lang = QSettings().value("locale/userLocale")
+    lang = _to_jsonable(tools_qgis.get_locale()) or 'en_US'
 
     if body:
         body.setdefault('client', {"device": 4, "lang": lang, "version": f'"{plugin_version}"'})
@@ -871,7 +910,7 @@ def create_body(form='', feature='', filter_fields='', extras=None, list_feature
         body.setdefault('data', {})
         body["data"].setdefault("filterFields", {})
         body["data"].setdefault("pafeInfo", {})
-        str_body = f"$${json.dumps(body)}$$"
+        str_body = f"$${json.dumps(_to_jsonable(body))}$$"
     else:
         client = f'$${{"client":{{"device":4, "lang":"{lang}", "version":"{plugin_version}"'
         if info_type is not None:
@@ -933,7 +972,7 @@ def hide_parent_layers(excluded_layers=[]):
     """ Hide generic layers """
 
     layers_changed = {}
-    list_layers = ["ve_arc", "ve_node", "ve_connec", "ve_man_frelem", "ve_man_genelem", "ve_link", "ve_element"]
+    list_layers = ["ve_arc", "ve_node", "ve_connec", "ve_man_frelem", "ve_man_genelem", "ve_link"]
     if global_vars.project_type == 'ud':
         list_layers.append("ve_gully")
 
@@ -1042,8 +1081,8 @@ def get_signal_change_tab(dialog, excluded_layers=[], feature_id_widget_name: Op
 
     field_id = feature_type
     if feature_type == "element":
-        viewname = ["ve_man_frelem", "ve_man_genelem", "ve_element"]
-        field_id = ["element", "element", "element"]
+        viewname = ["ve_man_frelem", "ve_man_genelem"]
+        field_id = ["element", "element"]
 
     # Adding auto-completion to a QLineEdit
     if isinstance(feature_id_widget_name, str):
@@ -1153,10 +1192,14 @@ def add_layer_database(tablename=None, the_geom="the_geom", field_id="id", group
         sub_sub_group = sub_sub_group.capitalize()
 
     if the_geom == "rast":
-        connString = f"PG: dbname={tools_db.dao_db_credentials['db']} host={tools_db.dao_db_credentials['host']} " \
-                     f"user={tools_db.dao_db_credentials['user']} password={tools_db.dao_db_credentials['password']} " \
-                     f"port={tools_db.dao_db_credentials['port']} mode=2 schema={tools_db.dao_db_credentials['schema']} " \
-                     f"column={the_geom} table={tablename}"
+        creds = tools_db.dao_db_credentials
+        q = tools_db._libpq_quote
+        connString = (
+            f"PG: dbname={q(creds['db'])} host={q(creds['host'])} "
+            f"user={q(creds['user'])} password={q(creds['password'])} "
+            f"port={creds['port']} mode=2 schema={q(creds['schema'])} "
+            f"column={q(the_geom)} table={q(tablename)}"
+        )
         if alias:
             tablename = alias
         layer = QgsRasterLayer(connString, tablename)
@@ -2462,6 +2505,7 @@ def fill_tab_log(dialog, data, force_tab=True, reset_text=True, tab_idx=1, call_
     if infolog_widget:
         infolog_widget.setReadOnly(True)
         infolog_widget.setStyleSheet(None)
+        infolog_widget.setToolTip(infolog_widget.toPlainText())
     qtabwidget = dialog.findChild(QTabWidget, 'mainTab')
     if qtabwidget is not None:
         qtabwidget.setTabEnabled(qtabwidget.count() - 1, True)
@@ -3119,12 +3163,18 @@ def add_widget(dialog, field, lbl, widget):
     layout = dialog.findChild(QGridLayout, field['layoutname'])
     if layout in (None, 'null', 'NULL', 'Null'):
         return
+    layoutorder = field.get('layoutorder')
+    if layoutorder is None:
+        msg = "The field layoutorder is not configured for"
+        param = f"columnname: {field.get('columnname')}, layoutname: {field.get('layoutname')}"
+        tools_qgis.show_message(msg, Qgis.MessageLevel.Warning, parameter=param, dialog=dialog)
+        return
     orientation = layout.property('lytOrientation')
     if orientation == 'horizontal':
         row = 0
-        col = int(field['layoutorder'])
+        col = int(layoutorder)
     else:  # default vertical
-        row = int(field['layoutorder'])
+        row = int(layoutorder)
         col = 0
     if lbl is None:
         col = row
@@ -3145,9 +3195,15 @@ def add_widget_combined(dialog, field, label, widget, pos_offset):
 
     layout = dialog.findChild(QGridLayout, field['layoutname'])
     if layout in (None, 'null', 'NULL', 'Null'):
-        return
+        return pos_offset
+    layoutorder = field.get('layoutorder')
+    if layoutorder is None:
+        msg = "The field layoutorder is not configured for"
+        param = f"columnname: {field.get('columnname')}, layoutname: {field.get('layoutname')}"
+        tools_qgis.show_message(msg, Qgis.MessageLevel.Warning, parameter=param, dialog=dialog)
+        return pos_offset
     orientation = layout.property('lytOrientation')
-    widget_pos = int(field.get('layoutorder', 0))
+    widget_pos = int(layoutorder)
     row, col = (0, widget_pos + pos_offset) if orientation == "horizontal" else (widget_pos + pos_offset, 0)
 
     label_pos = field['widgetcontrols']['labelPosition'] if (
@@ -3327,6 +3383,16 @@ def add_spinbox(**kwargs):
     return widget
 
 
+def _coerce_option_id(value):
+    """Keep integer ids, including 0 (Undefined). None stays None so callers can skip it."""
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return value
+
+
 def get_values(dialog, widget, _json=None, ignore_editability=False):
 
     value = None
@@ -3346,6 +3412,10 @@ def get_values(dialog, widget, _json=None, ignore_editability=False):
         if not widget.isEnabled() and not ignore_editability:
             return _json
         value = tools_qt.get_combo_value(dialog, widget, 0)
+        # No row selected: get_combo_value returns int -1, same as the real "Conflict"
+        # id on sector/dma/presszone/dqa. Only the unselected combo (index < 0) is empty.
+        if widget.currentIndex() < 0 or str(value) in ('', 'None', 'null'):
+            value = None
     elif type(widget) is QCheckBox:
         if not widget.isEnabled() and not ignore_editability:
             return _json
@@ -3362,12 +3432,9 @@ def get_values(dialog, widget, _json=None, ignore_editability=False):
         value = []
         for i in range(widget.count()):
             if widget.item(i).checkState() == Qt.CheckState.Checked:
-                v = widget.item(i).data(Qt.ItemDataRole.UserRole)
-                try:
-                    v = int(v)
-                except ValueError:
-                    pass
-                value.append(v)
+                v = _coerce_option_id(widget.item(i).data(Qt.ItemDataRole.UserRole))
+                if v is not None:
+                    value.append(v)
     elif isinstance(widget, QWidget):
         # Handle filtered value relation widgets
         if widget.property('widgettype') == 'multiple_option':
@@ -3381,14 +3448,11 @@ def get_values(dialog, widget, _json=None, ignore_editability=False):
             # Build list of selected values
             value = []
             for i in range(widget.count()):
-                # Get the data stored in UserRole for each item
-                v = widget.item(i).data(Qt.ItemDataRole.UserRole)
-                # Try to convert to integer if possible
-                try:
-                    v = int(v)
-                except ValueError:
-                    pass
-                value.append(v)
+                # Get the data stored in UserRole for each item.
+                # None is an item added without an id (Undefined used to land here).
+                v = _coerce_option_id(widget.item(i).data(Qt.ItemDataRole.UserRole))
+                if v is not None:
+                    value.append(v)
 
     key = str(widget.property('columnname')) if widget.property('columnname') else widget.objectName()
     if key == '' or key is None:
@@ -4077,7 +4141,8 @@ def add_item_multiple_option(completer, widget, typeahead):
     if not already_added:
         item = QListWidgetItem()
         item.setText(value)
-        if _key:
+        # id 0 is Undefined (expl/sector/muni). `if _key` drops it, then get_values does int(None).
+        if _key is not None:
             item.setData(Qt.ItemDataRole.UserRole, _key)
         widget.addItem(item)
 
@@ -4744,7 +4809,11 @@ def _fill_async_combo(widget, field, index_to_compare=0, dialog=None):
     widget.set_null_value_enabled(_get_async_combo_is_null_value(field))
 
     selected_id = _resolve_combo_selected_id(field)
-    if _should_defer_filtered_child_load(field, dialog):
+    # Toolbox children (parentname + filterquery) are filled by
+    # toolbox_btn._filter_combo_values. Loading dvQueryText here as well
+    # repeats the leading `select null` and the popup later refetches it.
+    waits_for_parent = bool(field.get('filterquery') and field.get('parentname'))
+    if _should_defer_filtered_child_load(field, dialog) or waits_for_parent:
         widget.start_loading('')
     else:
         query = _build_async_combo_query(widget, field, dialog)
@@ -5144,6 +5213,16 @@ def execute_procedure(function_name, parameters=None, schema_name=None, commit=T
         execute_procedure('gw_fct_epa2data', parameters)
     except KeyError:
         pass
+    if (
+        commit
+        and isinstance(json_result, dict)
+        and json_result.get('status') == 'Accepted'
+        and procedure_changes_combo_sources(function_name)
+    ):
+        # Combo SQL is cached for the session. A successful write (catalog
+        # insert, upsert, delete) does not change the query text, so drop the
+        # cache or the next form keeps the pre-write rows.
+        clear_combo_query_cache()
     return json_result
 
 
@@ -5590,6 +5669,25 @@ def get_project_info(schemaname=None, order_direction="DESC"):
     return project_info_dict
 
 
+def element_layer_name(feature_class=None, element_type=None):
+    """Class layer for an element: ve_man_genelem or ve_man_frelem."""
+
+    if not feature_class and element_type:
+        element_type = str(element_type).replace("'", "''")
+        sql = (f"SELECT feature_class FROM {lib_vars.schema_name}.cat_feature "
+               f"WHERE id = '{element_type}'")
+        row = tools_db.get_row(sql)
+        feature_class = row[0] if row else None
+    if not feature_class:
+        return None
+    feature_class = feature_class.upper()
+    if feature_class == 'FRELEM':
+        return 've_man_frelem'
+    if feature_class == 'GENELEM':
+        return 've_man_genelem'
+    return None
+
+
 def get_layers_from_feature_type(feature_type):
     """ Get layers of the group @feature_type """
 
@@ -5603,8 +5701,16 @@ def get_layers_from_feature_type(feature_type):
     rows = tools_db.get_rows(sql)
     if rows:
         for row in rows:
+            if row[0] == 've_element':
+                continue
             layer = tools_qgis.get_layer_by_tablename(row[0])
             if layer:
+                list_items.append(layer)
+
+    if feature_type.upper() == 'ELEMENT':
+        for layer_name in ('ve_man_genelem', 've_man_frelem'):
+            layer = tools_qgis.get_layer_by_tablename(layer_name)
+            if layer and layer not in list_items:
                 list_items.append(layer)
 
     return list_items
@@ -6301,6 +6407,33 @@ def selection_changed(class_object, dialog, table_object, selection_mode: GwSele
         class_object.highlight_features_method(class_object, dialog, table_object)
 
 
+def _rehighlight_filtered_selection(class_object, selected_fids, filtered_fids):
+    """Re-highlight only when a context filter actually dropped features.
+
+    An unchanged set must keep the selection on every layer (element is ve_man_genelem + ve_man_frelem).
+    """
+
+    if not filtered_fids or set(filtered_fids) == set(str(fid) for fid in selected_fids):
+        return
+
+    for layer in class_object.rel_layers[class_object.rel_feature_type]:
+        if not layer:
+            continue
+        field_idx = layer.fields().indexOf(f"{class_object.rel_feature_type}_id")
+        if field_idx == -1:
+            continue
+        request = QgsFeatureRequest().setFlags(QgsFeatureRequest.Flag.NoGeometry).setSubsetOfAttributes([field_idx])
+        matching_qgis_fids = []
+        for feature in layer.getFeatures(request):
+            feature_id = str(feature.attribute(field_idx))
+            if feature_id in filtered_fids:
+                matching_qgis_fids.append(feature.id())
+        layer.removeSelection()
+        if matching_qgis_fids:
+            layer.select(matching_qgis_fids)
+        layer.triggerRepaint()
+
+
 def _process_map_selection(class_object, selection_mode, field_id):
     """Process map selection with filtering logic and database queries"""
     if not class_object.rel_layers:
@@ -6318,28 +6451,7 @@ def _process_map_selection(class_object, selection_mode, field_id):
     # Apply filtering logic early to get only allowed features for highlighting
     # This ensures the map selection only highlights features that can actually be inserted
     filtered_fids = _filter_ids_by_context(class_object, selection_mode, class_object.rel_feature_type, selected_fids)
-
-    # Convert filtered string IDs back to QGIS feature IDs for map selection
-    if filtered_fids:
-        # Get the layer to work with
-        layer = class_object.rel_layers[class_object.rel_feature_type][0]
-
-        # Find QGIS feature IDs that correspond to the filtered database feature IDs
-        field_idx = layer.fields().indexOf(f"{class_object.rel_feature_type}_id")
-        if field_idx != -1:
-            # Get all features to find matching QGIS feature IDs
-            request = QgsFeatureRequest().setFlags(QgsFeatureRequest.Flag.NoGeometry).setSubsetOfAttributes([field_idx])
-            matching_qgis_fids = []
-
-            for feature in layer.getFeatures(request):
-                feature_id = str(feature.attribute(field_idx))
-                if feature_id in filtered_fids:
-                    matching_qgis_fids.append(feature.id())
-
-            # Clear selection and re-select only the filtered features
-            layer.removeSelection()
-            if matching_qgis_fids:
-                layer.select(matching_qgis_fids)
+    _rehighlight_filtered_selection(class_object, selected_fids, filtered_fids)
 
     # Use original selected_fids for processing (filtering will be applied in SQL)
     # Get context-specific filter for SQL
@@ -7348,9 +7460,6 @@ def set_completer_object(dialog, tablename, field_id="id"):
     """
 
     widget_name = tablename + "_id"
-    if tablename == "ve_element":  # TODO: remove this when refactored
-        widget_name = "element_id"
-
     widget = tools_qt.get_widget(dialog, widget_name)
     if not widget:
         return
@@ -7552,6 +7661,10 @@ def delete_records(class_object, dialog, table_object, selection_mode: GwSelecti
     # Select features with previous filter
     # Build a list of feature id's and select them
     tools_qgis.select_features_by_ids(feature_type, expr, layers=class_object.rel_layers)
+    for layer in class_object.rel_layers.get(feature_type) or []:
+        if layer:
+            layer.triggerRepaint()
+    global_vars.canvas.refresh()
 
     # Reset rubberband
     if selection_mode == GwSelectionMode.PSECTOR:
@@ -8022,8 +8135,30 @@ def manage_psector_change(cmb_psector, index):
     set_psector_mode_enabled(psector_id=psector_id)
 
 
+@contextmanager
+def sqlite_conn(file_name):
+    """Open ``resources/gis/<file_name>.sqlite`` and close it on exit.
+
+    Yields ``(status, cursor)``. ``status`` is False and ``cursor`` is None
+    when the file is missing or the connection fails. The caller commits;
+    close rolls back anything still pending.
+    """
+
+    status, cursor = create_sqlite_conn(file_name)
+    conn = cursor.connection if cursor is not None else None
+    try:
+        yield status, cursor
+    finally:
+        if conn is not None:
+            conn.close()
+
+
 def create_sqlite_conn(file_name):
-    """ Creates an sqlite connection to a file """
+    """Open ``resources/gis/<file_name>.sqlite`` and return ``(status, cursor)``.
+
+    The caller owns the connection and must close ``cursor.connection``.
+    Prefer ``sqlite_conn()``, which closes on exit.
+    """
 
     status = False
     cursor = None
@@ -9750,7 +9885,6 @@ def _show_context_menu(table, container, pos=None):
 
 class CustomQComboBox(GwAsyncComboBox):
     """Backward-compatible alias for ``GwAsyncComboBox``."""
-    pass
 
 
 class CustomQgsDateTimeEdit(QgsDateTimeEdit):

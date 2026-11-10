@@ -1042,6 +1042,10 @@ BEGIN
 				-- builtdate
 				WHEN 'builtdate' THEN
 					SELECT (a->>'vdef') INTO field_value FROM json_array_elements(v_values_array) AS a WHERE (a->>'param') = (aux_json->>'columnname');
+					--if using automatic current builtdate and vdefault is null, set value to now
+					IF (SELECT value::boolean FROM config_param_system WHERE parameter='edit_feature_auto_builtdate') IS TRUE AND field_value IS NULL  THEN
+						EXECUTE 'SELECT date(now())' INTO field_value;
+					END IF;
 
 				WHEN 'inventory' THEN
 					field_value = v_catfeature.inventory_vdefault;
@@ -1081,7 +1085,14 @@ BEGIN
                             field_value = v_toarc;
                         END IF;
 				WHEN 'ownercat_id' THEN
-					field_value = (SELECT owner_vdefault FROM exploitation WHERE expl_id = v_expl_id LIMIT 1);
+					-- Do not preselect an owner that is not in cat_owner (empty schemas, stale owner_vdefault)
+					field_value = (
+						SELECT e.owner_vdefault
+						FROM exploitation e
+						JOIN cat_owner c ON c.id = e.owner_vdefault
+						WHERE e.expl_id = v_expl_id
+						LIMIT 1
+					);
 				WHEN 'node_id' THEN
 					IF upper(v_catfeature.feature_type) = 'ELEMENT' AND upper(v_catfeature.feature_class) = 'FRELEM' THEN
 						IF v_node_id IS NOT NULL THEN

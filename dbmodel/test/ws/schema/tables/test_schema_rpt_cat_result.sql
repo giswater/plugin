@@ -51,7 +51,7 @@ SELECT col_type_is('rpt_cat_result', 'dma_id', 'int4[]', 'Column dma_id should b
 SELECT col_type_is('rpt_cat_result', 'flow_units', 'text', 'Column flow_units should be text');
 SELECT col_type_is('rpt_cat_result', 'quality_units', 'text', 'Column quality_units should be text');
 SELECT col_type_is('rpt_cat_result', 'is_twin', 'bool', 'Column is_twin should be bool');
-SELECT col_type_is('rpt_cat_result', 'parent_id', 'varchar(16)', 'Column parent_id should be varchar(16)');
+SELECT col_type_is('rpt_cat_result', 'parent_id', 'varchar(50)', 'Column parent_id should be varchar(50)');
 SELECT col_type_is('rpt_cat_result', 'isvalidated', 'bool', 'Column isvalidated should be bool');
 -- Finish
 SELECT * FROM finish();

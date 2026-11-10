@@ -220,7 +220,8 @@ class GwSelector:
             if 'typeaheadFilter' in form_tab:
                 label = QLabel()
                 label.setObjectName('lbl_filter')
-                label.setText(tools_qt.tr('lbl_filter', 'selector', default='Filter:'))
+                msg = "Filter:"
+                label.setText(tools_qt.tr(msg))
                 if tools_qt.get_widget(dialog, 'txt_filter_' + str(tab_name)) is None:
                     widget = QLineEdit()
                     widget.setObjectName('txt_filter_' + str(tab_name))
@@ -245,9 +246,10 @@ class GwSelector:
                     if tools_qt.get_widget(dialog, chk_filter_name) is None:
                         chk_filter = QCheckBox()
                         chk_filter.setObjectName(chk_filter_name)
-                        chk_filter.setText(tools_qt.tr('chk_filter', 'selector', default='Custom order by'))
                     else:
                         chk_filter = tools_qt.get_widget(dialog, chk_filter_name)
+                    msg = "Custom order by"
+                    chk_filter.setText(tools_qt.tr(msg))
                     sql = ("SELECT COALESCE((value::jsonb #>> ARRAY[%s,'is_checked'])::boolean, false) "
                            "FROM config_param_user "
                            "WHERE parameter = 'custom_order_by' "

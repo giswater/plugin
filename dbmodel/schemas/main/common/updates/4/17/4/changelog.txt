@@ -1,0 +1,1 @@
+- Add `admin_skip_set_updated` so scada graph updates of `is_scadamap` do not stamp `updated_at`/`updated_by` (`gw_trg_set_updated`).

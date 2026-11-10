@@ -13,6 +13,8 @@ from pathlib import Path
 from .config import cache_dir, release_dbmodel_dir
 
 _VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+_GITHUB_REPO = "giswater/plugin"
+_DBMODEL_MARKER = "dbmodel/manifests/ws.yaml"
 
 
 def parse_version(version: str) -> tuple[int, int, int] | None:
@@ -30,6 +32,25 @@ def zip_url(base_url: str, version: tuple[int, int, int]) -> str:
     major, minor, patch = version
     base = base_url.rstrip("/")
     return f"{base}/{major}/{minor}/{patch}/giswater.zip"
+
+
+def github_release_zip_url(version: str) -> str:
+    return f"https://github.com/{_GITHUB_REPO}/releases/download/v{version}/giswater.zip"
+
+
+def github_tag_archive_url(version: str) -> str:
+    return f"https://github.com/{_GITHUB_REPO}/archive/refs/tags/v{version}.zip"
+
+
+def install_zip_urls(base_url: str, version: str) -> list[str]:
+    parsed = parse_version(version)
+    if parsed is None:
+        raise RuntimeError(f"Invalid version {version!r}; expected X.Y.Z")
+    return [
+        zip_url(base_url, parsed),
+        github_release_zip_url(version),
+        github_tag_archive_url(version),
+    ]
 
 
 def pointer_url(base_url: str, major: int) -> str:
@@ -89,8 +110,15 @@ def download_bytes(url: str, *, timeout: float = 300.0) -> bytes:
         return resp.read()
 
 
-def _dbmodel_prefixes() -> tuple[str, ...]:
-    return ("giswater/dbmodel/", "dbmodel/")
+def dbmodel_zip_prefix(names: list[str]) -> str:
+    """Return the zip folder that contains ``dbmodel/manifests/ws.yaml``."""
+    for name in names:
+        if name.endswith(_DBMODEL_MARKER) and not name.endswith("/"):
+            return name[: -len("manifests/ws.yaml")]
+    raise RuntimeError(
+        "ZIP does not contain dbmodel/manifests/ws.yaml "
+        "(tried plugin ZIP and GitHub tag archive layouts)"
+    )
 
 
 def extract_dbmodel_from_zip(zip_bytes: bytes, dest: Path) -> None:
@@ -100,17 +128,8 @@ def extract_dbmodel_from_zip(zip_bytes: bytes, dest: Path) -> None:
         tmp_path = tmp.name
     try:
         with zipfile.ZipFile(tmp_path) as zf:
-            names = zf.namelist()
-            prefix = None
-            for candidate in _dbmodel_prefixes():
-                if any(n.startswith(candidate) for n in names):
-                    prefix = candidate
-                    break
-            if prefix is None:
-                raise RuntimeError(
-                    "Plugin ZIP does not contain giswater/dbmodel/ or dbmodel/ entries"
-                )
-            for name in names:
+            prefix = dbmodel_zip_prefix(zf.namelist())
+            for name in zf.namelist():
                 if not name.startswith(prefix) or name.endswith("/"):
                     continue
                 rel = name[len(prefix):]
@@ -137,13 +156,19 @@ def install_release(
     if marker.is_file() and not force:
         return dest
 
-    url = zip_url(base_url, parsed)
-    try:
-        payload = download_bytes(url)
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"Could not download {url}: HTTP {e.code}") from e
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"Could not download {url}: {e.reason}") from e
+    errors: list[str] = []
+    payload: bytes | None = None
+    for url in install_zip_urls(base_url, version):
+        try:
+            payload = download_bytes(url)
+            break
+        except urllib.error.HTTPError as e:
+            errors.append(f"{url}: HTTP {e.code}")
+        except urllib.error.URLError as e:
+            errors.append(f"{url}: {e.reason}")
+    if payload is None:
+        detail = "; ".join(errors) if errors else "no URLs"
+        raise RuntimeError(f"Could not download dbmodel {version} ({detail})")
 
     if dest.exists() and force:
         import shutil

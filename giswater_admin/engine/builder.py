@@ -63,6 +63,77 @@ _INTEGRATE_PROFILES = frozenset({
     "activate",
 })
 
+# After RESET ROLE, addon update patches create objects as the installer login,
+# so default privileges set by role_system do not apply. Re-grant and reassign.
+_ADDON_PRIVILEGES_SQL = """
+DO $priv$
+DECLARE
+  r record;
+  sch text := 'SCHEMA_NAME';
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = sch) THEN
+    RETURN;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_basic') THEN
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO role_basic', sch);
+    EXECUTE format('GRANT SELECT ON ALL TABLES IN SCHEMA %I TO role_basic', sch);
+    EXECUTE format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA %I TO role_basic', sch);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_system') THEN
+    RETURN;
+  END IF;
+  -- Tables first so SERIAL/IDENTITY sequences follow the table owner.
+  -- PG16 rejects ALTER SEQUENCE OWNER on sequences linked to a table.
+  FOR r IN
+    SELECT c.relname, c.relkind
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_roles o ON o.oid = c.relowner
+    WHERE n.nspname = sch
+      AND c.relkind IN ('r', 'p', 'v', 'm')
+      AND o.rolname IS DISTINCT FROM 'role_system'
+    ORDER BY CASE c.relkind WHEN 'v' THEN 1 WHEN 'm' THEN 1 ELSE 0 END
+  LOOP
+    IF r.relkind = 'v' THEN
+      EXECUTE format('ALTER VIEW %I.%I OWNER TO role_system', sch, r.relname);
+    ELSIF r.relkind = 'm' THEN
+      EXECUTE format('ALTER MATERIALIZED VIEW %I.%I OWNER TO role_system', sch, r.relname);
+    ELSE
+      EXECUTE format('ALTER TABLE %I.%I OWNER TO role_system', sch, r.relname);
+    END IF;
+  END LOOP;
+  FOR r IN
+    SELECT c.relname
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_roles o ON o.oid = c.relowner
+    WHERE n.nspname = sch
+      AND c.relkind = 'S'
+      AND o.rolname IS DISTINCT FROM 'role_system'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM pg_depend d
+        WHERE d.classid = 'pg_class'::regclass
+          AND d.objid = c.oid
+          AND d.deptype IN ('a', 'i')
+      )
+  LOOP
+    EXECUTE format('ALTER SEQUENCE %I.%I OWNER TO role_system', sch, r.relname);
+  END LOOP;
+  FOR r IN
+    SELECT p.oid::regprocedure::text AS sig
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    JOIN pg_roles o ON o.oid = p.proowner
+    WHERE n.nspname = sch
+      AND o.rolname IS DISTINCT FROM 'role_system'
+  LOOP
+    EXECUTE format('ALTER FUNCTION %s OWNER TO role_system', r.sig);
+  END LOOP;
+END
+$priv$;
+"""
+
 
 @dataclass
 class BuildParams:
@@ -284,6 +355,20 @@ class SchemaBuilder:
 
             if self._is_cancelled() and not result.cancelled:
                 result.cancelled = True
+            if (
+                result.ok
+                and not result.cancelled
+                and self.manifest.kind not in ("ws", "ud")
+            ):
+                fx = sql_runner.execute_inline(
+                    self.conn,
+                    apply_subs(_ADDON_PRIVILEGES_SQL, self._subs),
+                    label="run:addon_privileges",
+                    commit=self.commit_each_file,
+                )
+                result.phases.append(
+                    PhaseResult(phase_id="addon_privileges", files=[fx])
+                )
             self.progress_cb(seen, total, "done", None)
             return result
         finally:
@@ -707,6 +792,239 @@ def _parse_version(s: str) -> tuple[int, int, int]:
     return nums[0], nums[1], nums[2]
 
 
+def _sql_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _drop_pre_sql(schema: str) -> str:
+    """Remember project_type and unlink cmms rows before the drop.
+
+    A ws/ud drop unlinks that parent. A cmms drop unlinks every parent listed
+    in cmms.sys_version, so parent views are gone before the schema goes.
+    The DO block swallows unlink errors so a missing function cannot abort
+    the drop transaction.
+    """
+    literal = _sql_literal(schema)
+    return f"""
+DO $gw_drop_pre$
+DECLARE
+  v_schema text := {literal};
+  v_kind text;
+  v_parent text;
+  v_parents jsonb;
+BEGIN
+  CREATE TEMP TABLE IF NOT EXISTS gw_drop_kind (kind text);
+  TRUNCATE gw_drop_kind;
+
+  IF to_regclass(format('%I.sys_version', v_schema)) IS NOT NULL THEN
+    EXECUTE format(
+      'SELECT lower(project_type) FROM %I.sys_version ORDER BY id DESC LIMIT 1',
+      v_schema
+    ) INTO v_kind;
+  END IF;
+  INSERT INTO gw_drop_kind VALUES (v_kind);
+
+  IF v_kind IN ('ws', 'ud')
+     AND to_regprocedure('cmms.gw_fct_cmms_unlink_parent(text)') IS NOT NULL THEN
+    BEGIN
+      PERFORM cmms.gw_fct_cmms_unlink_parent(v_schema);
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'cmms.gw_fct_cmms_unlink_parent(%) failed: %', v_schema, SQLERRM;
+    END;
+  ELSIF v_kind = 'cmms'
+     AND to_regprocedure('cmms.gw_fct_cmms_unlink_parent(text)') IS NOT NULL THEN
+    BEGIN
+      SELECT COALESCE(addparam -> 'parent_schemas', '[]'::jsonb)
+      INTO v_parents
+      FROM cmms.sys_version
+      ORDER BY id DESC
+      LIMIT 1;
+
+      FOR v_parent IN
+        SELECT jsonb_array_elements_text(COALESCE(v_parents, '[]'::jsonb))
+      LOOP
+        PERFORM cmms.gw_fct_cmms_unlink_parent(v_parent);
+      END LOOP;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'cmms.gw_fct_cmms_unlink_parent failed: %', SQLERRM;
+    END;
+  END IF;
+END
+$gw_drop_pre$;
+"""
+
+
+def _drop_post_sql() -> str:
+    """Strip satellites.<kind> from parents after a satellite schema is gone.
+
+    Calls the parent register function when it understands removeSatellite.
+    Older functions get one new sys_version row with the key removed.
+    """
+    return """
+DO $gw_drop_post$
+DECLARE
+  v_kind text;
+  v_parent text;
+  v_has boolean;
+  v_fn regprocedure;
+  v_supports boolean;
+BEGIN
+  IF to_regclass('pg_temp.gw_drop_kind') IS NULL THEN
+    RETURN;
+  END IF;
+  SELECT kind INTO v_kind FROM gw_drop_kind LIMIT 1;
+  IF v_kind IS NULL OR v_kind IN ('ws', 'ud') THEN
+    RETURN;
+  END IF;
+
+  FOR v_parent IN
+    SELECT n.nspname
+    FROM pg_namespace n
+    JOIN pg_class c ON c.relnamespace = n.oid
+    WHERE c.relname = 'sys_version'
+      AND c.relkind = 'r'
+      AND n.nspname <> 'information_schema'
+      AND n.nspname NOT LIKE 'pg_%'
+  LOOP
+    BEGIN
+      EXECUTE format(
+        'SELECT COALESCE((addparam -> ''satellites'') ? %L, false) '
+        'FROM %I.sys_version ORDER BY id DESC LIMIT 1',
+        v_kind, v_parent
+      ) INTO v_has;
+      IF NOT COALESCE(v_has, false) THEN
+        CONTINUE;
+      END IF;
+
+      v_fn := to_regprocedure(format('%I.gw_fct_admin_sys_version_register(json)', v_parent));
+      v_supports := false;
+      IF v_fn IS NOT NULL THEN
+        SELECT strpos(prosrc, 'removeSatellite') > 0 INTO v_supports
+        FROM pg_proc WHERE oid = v_fn;
+      END IF;
+
+      IF v_supports THEN
+        EXECUTE format(
+          'SELECT %I.gw_fct_admin_sys_version_register(%L::json)',
+          v_parent,
+          json_build_object('data', json_build_object('removeSatellite', v_kind))::text
+        );
+      ELSE
+        EXECUTE format(
+          'INSERT INTO %1$I.sys_version '
+          '(giswater, project_type, postgres, postgis, language, epsg, addparam) '
+          'SELECT giswater, project_type, version(), postgis_version(), language, epsg, '
+          'jsonb_set(COALESCE(addparam, ''{}''::jsonb), ''{satellites}'', '
+          'COALESCE(addparam -> ''satellites'', ''{}''::jsonb) - %2$L, true) '
+          'FROM %1$I.sys_version ORDER BY id DESC LIMIT 1',
+          v_parent, v_kind
+        );
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'satellite unlink on parent % failed: %', v_parent, SQLERRM;
+    END;
+  END LOOP;
+END
+$gw_drop_post$;
+"""
+
+
+def rename_parent_links_sql(old: str, new: str) -> str:
+    """Point every satellite link at a renamed ws/ud parent.
+
+    Rewrites parent_schemas and network_parents.ws/ud in the latest
+    sys_version row of each schema, and the legacy utils current-schema
+    parameters. Per-schema errors only warn, so the rename never aborts.
+    """
+    old_lit = _sql_literal(old)
+    new_lit = _sql_literal(new)
+    return f"""
+DO $gw_rename_links$
+DECLARE
+  v_schema text;
+  v_id integer;
+  v_addparam jsonb;
+  v_names jsonb;
+  v_kind text;
+  v_old text := {old_lit};
+  v_new text := {new_lit};
+BEGIN
+  FOR v_schema IN
+    SELECT n.nspname
+    FROM pg_namespace n
+    JOIN pg_class c ON c.relnamespace = n.oid
+    WHERE c.relname = 'sys_version'
+      AND c.relkind = 'r'
+      AND n.nspname <> 'information_schema'
+      AND n.nspname NOT LIKE 'pg_%'
+  LOOP
+    BEGIN
+      EXECUTE format(
+        'SELECT id, COALESCE(addparam, ''{{}}''::jsonb) '
+        'FROM %I.sys_version ORDER BY id DESC LIMIT 1',
+        v_schema
+      ) INTO v_id, v_addparam;
+
+      IF v_id IS NULL
+         OR NOT (v_addparam ? 'parent_schemas' OR v_addparam ? 'network_parents') THEN
+        CONTINUE;
+      END IF;
+
+      IF v_addparam ? 'parent_schemas' THEN
+        SELECT COALESCE(
+          jsonb_agg(DISTINCT CASE WHEN elem = v_old THEN v_new ELSE elem END),
+          '[]'::jsonb
+        )
+        INTO v_names
+        FROM jsonb_array_elements_text(
+          COALESCE(v_addparam -> 'parent_schemas', '[]'::jsonb)
+        ) AS elem;
+        v_addparam := jsonb_set(v_addparam, '{{parent_schemas}}', v_names, true);
+      END IF;
+
+      IF v_addparam ? 'network_parents' THEN
+        FOREACH v_kind IN ARRAY ARRAY['ws', 'ud']
+        LOOP
+          IF COALESCE(v_addparam -> 'network_parents', '{{}}'::jsonb) ? v_kind THEN
+            SELECT COALESCE(
+              jsonb_agg(DISTINCT CASE WHEN elem = v_old THEN v_new ELSE elem END),
+              '[]'::jsonb
+            )
+            INTO v_names
+            FROM jsonb_array_elements_text(
+              COALESCE(v_addparam -> 'network_parents' -> v_kind, '[]'::jsonb)
+            ) AS elem;
+            v_addparam := jsonb_set(
+              v_addparam, ARRAY['network_parents', v_kind], v_names, true
+            );
+          END IF;
+        END LOOP;
+      END IF;
+
+      EXECUTE format(
+        'UPDATE %I.sys_version SET addparam = $1 WHERE id = $2',
+        v_schema
+      ) USING v_addparam, v_id;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'parent link rename on % failed: %', v_schema, SQLERRM;
+    END;
+  END LOOP;
+
+  IF to_regclass('utils.config_param_system') IS NOT NULL THEN
+    BEGIN
+      UPDATE utils.config_param_system
+      SET value = v_new
+      WHERE parameter IN ('ws_current_schema', 'ud_current_schema')
+        AND value = v_old;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'utils current schema rename failed: %', SQLERRM;
+    END;
+  END IF;
+END
+$gw_rename_links$;
+"""
+
+
 def drop_schema(
     conn: sql_runner.ConnectionLike,
     schema: str,
@@ -714,15 +1032,52 @@ def drop_schema(
     cascade: bool = False,
     commit: bool = True,
 ) -> sql_runner.FileExec:
-    """Drop a schema. Used by both CLI ``drop`` and plugin delete handlers."""
-    safe = schema.replace('"', '').replace(';', '')
+    """Drop a schema. Used by both CLI ``drop`` and plugin delete handlers.
+
+    Best-effort link cleanup, never fails the drop:
+    - ws/ud: ``cmms.gw_fct_cmms_unlink_parent`` before the drop
+    - cmms: unlink every parent in ``parent_schemas`` before the drop
+    - any other project type: strip ``satellites.<kind>`` from parents after
+    """
+    safe = schema.replace('"', '').replace(';', '').replace("'", "")
+    notes: list[str] = []
     cascade_kw = "CASCADE" if cascade else "RESTRICT"
-    sql = f'DROP SCHEMA IF EXISTS "{safe}" {cascade_kw};'
-    sql_runner.execute_inline(
-        conn, _ENSURE_ROLE_SYSTEM_SQL, label=f"drop:{safe}:set_role_system", commit=False
-    )
+    drop_sql = f'DROP SCHEMA IF EXISTS "{safe}" {cascade_kw};'
+    pre_sql = _drop_pre_sql(safe)
+    post_sql = _drop_post_sql()
+
+    def _role() -> None:
+        sql_runner.execute_inline(
+            conn, _ENSURE_ROLE_SYSTEM_SQL, label=f"drop:{safe}:set_role_system", commit=False
+        )
+
+    def _run(sql: str, label: str) -> sql_runner.FileExec:
+        return sql_runner.execute_inline(conn, sql, label=label, commit=False)
+
+    _role()
     try:
-        return sql_runner.execute_inline(conn, sql, label=f"drop:{safe}", commit=commit)
+        pre = _run(pre_sql, f"drop:{safe}:pre")
+        if not pre.ok:
+            notes.append(pre.error or "pre-drop cleanup failed")
+            conn.rollback()
+            _role()
+        fx = _run(drop_sql, f"drop:{safe}")
+        if fx.ok:
+            post = _run(post_sql, f"drop:{safe}:post")
+            if not post.ok:
+                notes.append(post.error or "post-drop cleanup failed")
+                conn.rollback()
+                _role()
+                pre_retry = _run(pre_sql, f"drop:{safe}:pre")
+                if not pre_retry.ok:
+                    notes.append(pre_retry.error or "pre-drop cleanup failed")
+                    conn.rollback()
+                    _role()
+                fx = _run(drop_sql, f"drop:{safe}")
+        if fx.ok and commit:
+            conn.commit()
+        fx.notes = "\n".join(note for note in notes if note)
+        return fx
     finally:
         sql_runner.execute_inline(
             conn, _RESET_ROLE_SQL, label=f"drop:{safe}:reset_role", commit=False

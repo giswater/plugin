@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from giswater_admin.engine.network_update import has_patch_at_version, plan_lockstep
-from giswater_admin.engine.schema_catalog import NetworkGraph, NetworkNode, resolve_network_graph
+from giswater_admin.engine.manifest import Manifest, Profile
+from giswater_admin.engine.network_update import (
+    has_patch_at_version,
+    plan_lockstep,
+    resolve_lockstep_profile,
+)
+from giswater_admin.engine.schema_catalog import NetworkGraph, NetworkNode
 
 
 def _write_patch(path: Path) -> None:
@@ -54,3 +59,29 @@ def test_plan_lockstep_orders_kinds_and_versions(tmp_path: Path):
     assert [step.kind for step in steps] == ["utils", "cibs", "ws", "ud"]
     assert all(step.target_version == "4.16.0" for step in steps)
     assert all(step.action == "upgrade" for step in steps)
+
+
+def _manifest(profiles: dict[str, tuple[str, ...]]) -> Manifest:
+    return Manifest(
+        kind="am",
+        engine_version=1,
+        substitutions={},
+        phases=(),
+        profiles={name: Profile(name, phases) for name, phases in profiles.items()},
+    )
+
+
+def test_resolve_lockstep_profile_uses_dedicated_profiles():
+    manifest = _manifest({
+        "update": ("load_updates", "register_version"),
+        "update_step": ("load_updates", "register_version"),
+        "version_bump": ("register_version",),
+    })
+    assert resolve_lockstep_profile(manifest, "upgrade") == "update_step"
+    assert resolve_lockstep_profile(manifest, "bump") == "version_bump"
+
+
+def test_resolve_lockstep_profile_falls_back_to_update():
+    manifest = _manifest({"update": ("load_updates", "register_version")})
+    assert resolve_lockstep_profile(manifest, "upgrade") == "update"
+    assert resolve_lockstep_profile(manifest, "bump") == "update"

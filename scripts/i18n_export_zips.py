@@ -34,6 +34,9 @@ from i18n_api_client import TranslationsApiClient, resolve_setting
 
 DEFAULT_TS_NAME = "giswater"
 DEFAULT_STATS_PATH = "/api/stats"
+DEFAULT_README_TEMPLATE = Path(__file__).resolve().parent / "templates" / "translations_readme.md"
+STATS_PLACEHOLDER = "{{TRANSLATION_STATS}}"
+BAR_WIDTH = 20
 ZIP_MAGIC = b"PK"
 
 # Regional code in locale ≠ ISO2 flag PNG used by About (icons/flags).
@@ -144,6 +147,127 @@ def write_translations_json(path: Path, catalog: list[dict[str, Any]]) -> None:
     print(f"Wrote {path} ({len(catalog)} language(s))")
 
 
+def percent_rank(entry: dict[str, Any]) -> int:
+    """Match About: missing percent sorts last; otherwise round to int."""
+    value = entry.get("percent")
+    if value is None or value == "":
+        return -1
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return -1
+
+
+def sort_catalog_for_stats(catalog: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        catalog,
+        key=lambda entry: (-percent_rank(entry), (entry.get("name") or "").lower()),
+    )
+
+
+def coerce_percent(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return max(0.0, min(100.0, round(float(value), 2)))
+    except (TypeError, ValueError):
+        return None
+
+
+def coverage_bar(percent: float, width: int = BAR_WIDTH) -> str:
+    filled = int(round(percent / 100.0 * width))
+    filled = max(0, min(width, filled))
+    return ("█" * filled) + ("░" * (width - filled))
+
+
+def format_percent_label(percent: float) -> str:
+    return f"{percent:.2f}%"
+
+
+def format_percent_number(percent: float) -> str:
+    if percent == int(percent):
+        return str(int(percent))
+    return f"{percent:.2f}"
+
+
+def _escape_md_cell(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", " ").strip()
+
+
+def _mermaid_axis_label(locale: str) -> str:
+    cleaned = locale.replace('"', "").replace("`", "").replace("\n", " ").strip()
+    return f'"{cleaned}"'
+
+
+def render_coverage_table(catalog: list[dict[str, Any]]) -> str:
+    lines = [
+        "| Locale | Language | Coverage |",
+        "| --- | --- | --- |",
+    ]
+    for entry in catalog:
+        locale = _escape_md_cell(str(entry.get("locale") or ""))
+        name = _escape_md_cell(str(entry.get("name") or locale))
+        percent = coerce_percent(entry.get("percent"))
+        if percent is None:
+            coverage = "—"
+        else:
+            coverage = f"`{coverage_bar(percent)}` {format_percent_label(percent)}"
+        lines.append(f"| {locale} | {name} | {coverage} |")
+    return "\n".join(lines)
+
+
+def render_coverage_mermaid(catalog: list[dict[str, Any]]) -> str:
+    labels: list[str] = []
+    values: list[str] = []
+    for entry in catalog:
+        percent = coerce_percent(entry.get("percent"))
+        if percent is None:
+            continue
+        locale = str(entry.get("locale") or "").strip()
+        if not locale:
+            continue
+        labels.append(_mermaid_axis_label(locale))
+        values.append(format_percent_number(percent))
+    if not labels:
+        return ""
+    return "\n".join(
+        [
+            "```mermaid",
+            "xychart-beta",
+            '    title "Translation coverage (%)"',
+            f"    x-axis [{', '.join(labels)}]",
+            '    y-axis "%" 0 --> 100',
+            f"    bar [{', '.join(values)}]",
+            "```",
+        ]
+    )
+
+
+def render_coverage_markdown(catalog: list[dict[str, Any]]) -> str:
+    rows = sort_catalog_for_stats(catalog)
+    parts = [render_coverage_table(rows)]
+    chart = render_coverage_mermaid(rows)
+    if chart:
+        parts.extend(["", chart])
+    return "\n".join(parts) + "\n"
+
+
+def write_translations_readme(
+    path: Path,
+    catalog: list[dict[str, Any]],
+    template_path: Path,
+) -> None:
+    template = template_path.read_text(encoding="utf-8")
+    if STATS_PLACEHOLDER not in template:
+        raise ValueError(f"README template {template_path} is missing {STATS_PLACEHOLDER}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        template.replace(STATS_PLACEHOLDER, render_coverage_markdown(catalog).rstrip("\n")),
+        encoding="utf-8",
+    )
+    print(f"Wrote {path} ({len(catalog)} language(s))")
+
+
 def zip_filename(lang: str) -> str:
     return f"translations_{normalize_lang(lang)}.zip"
 
@@ -211,6 +335,17 @@ def parse_args() -> argparse.Namespace:
         help="Optional path to write About catalog translations.json from /api/stats",
     )
     parser.add_argument(
+        "--readme-out",
+        default=None,
+        help="Optional path to write translations README with coverage from /api/stats",
+    )
+    parser.add_argument(
+        "--readme-template",
+        default=None,
+        help="README template with {{TRANSLATION_STATS}} "
+        f"(default: {DEFAULT_README_TEMPLATE})",
+    )
+    parser.add_argument(
         "--stats-path",
         default=None,
         help=f"Stats API path (default: {DEFAULT_STATS_PATH})",
@@ -243,10 +378,11 @@ def main() -> int:
         with TranslationsApiClient(base_url, user, password) as api:
             languages = parse_languages(languages_raw)
             languages_dict: dict[str, str] | None = None
+            need_catalog = bool(args.translations_json_out or args.readme_out)
             need_languages = (
                 languages is None
                 or args.languages_json_out
-                or args.translations_json_out
+                or need_catalog
             )
             if need_languages:
                 print("Fetching language list from API...")
@@ -261,11 +397,19 @@ def main() -> int:
                 )
                 print(f"Wrote {languages_json_path} ({len(languages_dict)} language(s))")
 
-            if args.translations_json_out:
+            if need_catalog:
                 print(f"Fetching translation stats from {stats_path}...")
                 by_lang = fetch_stats_by_lang(api, stats_path)
                 catalog = build_translations_catalog(languages_dict or {}, by_lang)
-                write_translations_json(Path(args.translations_json_out), catalog)
+                if args.translations_json_out:
+                    write_translations_json(Path(args.translations_json_out), catalog)
+                if args.readme_out:
+                    template_path = (
+                        Path(args.readme_template)
+                        if args.readme_template
+                        else DEFAULT_README_TEMPLATE
+                    )
+                    write_translations_readme(Path(args.readme_out), catalog, template_path)
 
             if languages is None:
                 languages = sorted(languages_dict.keys())

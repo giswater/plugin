@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `cmms` satellite schema: `gw schema addon create|integrate|update|drop --type cmms`. Singleton, one schema per database, integrated with each ws/ud parent. Lockstep `network update` runs it after `am` and before `cm`. Drop unlinks every parent first (visit views, info tab, `satellites.cmms`) and keeps the cmms data. `gw db init` creates `role_cmms`.
+
+## [0.4.4] - 2026-10-06
+
+### Added
+
+- `gw schema addon create` and `gw schema addon integrate` accept `--srid`.
+  When omitted, integrate reads `sys_version.epsg` from `--parent`; create
+  uses the unique EPSG of existing ws/ud schemas (else `25831`).
+- `gw db init` also creates `fuzzystrmatch` and `intarray`.
+
+### Fixed
+
+- `gw dbmodel install X.Y.Z` falls back to the GitHub release ZIP, then the
+  `vX.Y.Z` source archive, when `download.giswater.org` 404s (tag exists
+  before the plugin ZIP is published).
+- Addon create/update/integrate re-grants `SELECT` to `role_basic` and
+  reassigns installer-owned relations to `role_system` after `RESET ROLE`,
+  so `utils.sys_version` is readable when schemas are built by a non-superuser.
+- Lockstep `network update` resolves `update_step` / `version_bump` through
+  `resolve_lockstep_profile`, matching QGIS, and falls back to `update` when
+  a kind has not declared those profiles.
+
 ## [0.4.3] - 2026-08-27
 
 ### Added
@@ -102,7 +127,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timing reports and structured log output for automation and CI.
 - Legacy command aliases (`create`, `update`, `drop`, `status`, `init-db`, `update-network`, `audit …`) with stderr deprecation warnings.
 
-[unreleased]: https://github.com/giswater/plugin/compare/cli-v0.4.3...main
+[unreleased]: https://github.com/giswater/plugin/compare/cli-v0.4.4...main
+[0.4.4]: https://github.com/giswater/plugin/compare/cli-v0.4.3...cli-v0.4.4
 [0.4.3]: https://github.com/giswater/plugin/compare/cli-v0.4.2...cli-v0.4.3
 [0.4.2]: https://github.com/giswater/plugin/compare/cli-v0.4.1...cli-v0.4.2
 [0.4.1]: https://github.com/giswater/plugin/compare/cli-v0.4.0...cli-v0.4.1

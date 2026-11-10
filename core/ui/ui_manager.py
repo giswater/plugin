@@ -1186,6 +1186,15 @@ class GwVisitDocumentUi(GwDialog, FORM_CLASS):
     UINAME = UINAME
 
 
+UINAME = "cmms_info"
+FORM_CLASS = _get_ui_class(f'{UINAME}.ui', f'{CONTEXT}')
+
+
+class GwCmmsInfoUi(GwDialog, FORM_CLASS):
+    CONTEXT = CONTEXT
+    UINAME = UINAME
+
+
 UINAME = "visit_event_rehab"
 FORM_CLASS = _get_ui_class(f'{UINAME}.ui', f'{CONTEXT}')
 

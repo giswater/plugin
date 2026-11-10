@@ -111,7 +111,6 @@ DECLARE
 	v_query_text text;
 	v_query_text_aux text;
 	v_data json;
-	rec_man record;
 
 	rec record;
 	-- result variables
@@ -1058,7 +1057,7 @@ BEGIN
 				) sub;
 
 				IF message IS NOT NULL THEN
-					EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4532", "function":"2706","parameters":{"node_list":"\n' || message || '"}, "tempTable":"t_", "criticity":"3", "fid": '||v_checks_fid||'}}$$);';
+					EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4532", "function":"2706","parameters":{"node_list":"\n' || message || '"}, "tempTable":"t_", "criticity":"2", "fid": '||v_checks_fid||'}}$$);';
 				ELSE
 					EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4534", "function":"2706","parameters":null, "tempTable":"t_", "criticity":"1", "fid": '||v_checks_fid||'}}$$);';
 				END IF;
@@ -1905,7 +1904,7 @@ BEGIN
 
 		IF v_project_type = 'WS' THEN
 			EXECUTE format($sql$
-				INSERT INTO temp_audit_check_data (fid, criticity, error_message)
+				INSERT INTO t_audit_check_data (fid, criticity, error_message)
 				SELECT %L, 0, concat(m.name,' with ', a.arcs,' Arcs, ', n.nodes,' Nodes and ', c.connecs,' Connecs')
 				FROM temp_pgr_mapzone m
 				LEFT JOIN LATERAL (
@@ -1927,7 +1926,7 @@ BEGIN
 			$sql$, v_fid);
 		ELSE
 			EXECUTE format($sql$
-				INSERT INTO temp_audit_check_data (fid, criticity, error_message)
+				INSERT INTO t_audit_check_data (fid, criticity, error_message)
 				SELECT %L, 0, concat(m.name,' with ',a.arcs,' Arcs, ',n.nodes,' Nodes, ',c.connecs,' Connecs and ',g.gully,' Gully')
 				FROM temp_pgr_mapzone m
 				LEFT JOIN LATERAL (
@@ -3291,6 +3290,36 @@ BEGIN
 			WHERE n.graph_delimiter = 'nodeParent'
 			AND a.mapzone_id > 0;
 
+			-- synoptic building section
+			INSERT INTO temp_pgr_mapzone_synoptic (node_1, node_2, node_type_1, node_type_2, orig_node_1, orig_node_2)
+			SELECT
+				CASE WHEN flow_sign = 1 THEN node_id ELSE mapzone_id END AS node_1,
+				CASE WHEN flow_sign = 1 THEN mapzone_id ELSE node_id END AS node_2,
+				CASE WHEN flow_sign = 1 THEN 'NODE' ELSE 'MAPZONE' END AS node_type_1,
+				CASE WHEN flow_sign = 1 THEN 'MAPZONE' ELSE 'NODE' END AS node_type_2,
+				CASE WHEN flow_sign = 1 THEN node_id ELSE mapzone_id END AS orig_node_1,
+				CASE WHEN flow_sign = 1 THEN mapzone_id ELSE node_id END AS orig_node_2
+			FROM temp_pgr_mapzone_graph;
+			
+			--update synoptic_id, level_id, position_id
+			v_data :=
+			jsonb_build_object(
+				'data',
+				jsonb_build_object(
+					'fct_type', 'MAPZONE'
+				)
+			);
+			
+			SELECT gw_fct_synoptic_core(v_data) INTO v_response;
+
+			IF v_response->>'status' IS DISTINCT FROM 'Accepted' THEN
+				EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+				"data":{"message":"4758", "function":"3508","parameters":{"error":"'||
+				replace(COALESCE(v_response->'message'->>'text', 'unknown'), '"', '')||
+				'"}, "is_process":true}}$$);' INTO v_audit_result;
+				RETURN COALESCE(v_audit_result::json, v_response);
+			END IF;
+
 			EXECUTE format($sql$
 				WITH affected_mapzone AS (
 					SELECT DISTINCT mapzone_id FROM temp_pgr_mapzone_graph
@@ -3312,11 +3341,20 @@ BEGIN
 				)
 				DELETE FROM %I mzg
 				WHERE EXISTS (
-					SELECT 1 
-					FROM affected_node an 
+					SELECT 1
+					FROM affected_node an
 					WHERE mzg.mapzone_type = %L
-					AND mzg.node_id = an.node_id);
-			$sql$, v_mapzone_graph_table, v_class);
+					AND mzg.node_id = an.node_id
+					%s
+				);
+			$sql$,
+				v_mapzone_graph_table,
+				v_class,
+				CASE WHEN v_netscenario IS NOT NULL
+					THEN format('AND mzg.netscenario_id = %L', v_netscenario)
+					ELSE ''
+				END
+			);
 
 			IF v_netscenario IS NOT NULL THEN
 				INSERT INTO plan_netscenario_mapzone_graph (node_id, netscenario_id, mapzone_id, mapzone_type, flow_sign)
@@ -3325,6 +3363,45 @@ BEGIN
 				INSERT INTO mapzone_graph (node_id, mapzone_id, mapzone_type, flow_sign)
 				SELECT node_id, mapzone_id, mapzone_type, flow_sign FROM temp_pgr_mapzone_graph;
 			END IF;
+
+			-- update synoptic_id and synoptic_geom in mapzone_graph
+			EXECUTE format($sql$
+				UPDATE %I m
+				SET synoptic_id   = t.synoptic_id,
+					synoptic_geom = ST_SetSRID(ST_GeomFromGeoJSON((t.attrib::json)->>'synopticGeometry'), 0)
+				FROM temp_pgr_mapzone_synoptic t
+				WHERE m.mapzone_type = %L
+				AND m.flow_sign    = 1
+				AND m.node_id      = t.node_1
+				AND m.mapzone_id   = t.node_2
+				%s;
+			$sql$,
+				v_mapzone_graph_table,
+				v_class,
+				CASE WHEN v_netscenario IS NOT NULL
+					THEN format('AND m.netscenario_id = %L', v_netscenario)
+					ELSE ''
+				END
+			);
+
+			EXECUTE format($sql$
+				UPDATE %I m
+				SET synoptic_id   = t.synoptic_id,
+					synoptic_geom = ST_Reverse(ST_SetSRID(ST_GeomFromGeoJSON((t.attrib::json)->>'synopticGeometry'), 0))
+				FROM temp_pgr_mapzone_synoptic t
+				WHERE m.mapzone_type = %L
+				AND m.flow_sign    = -1
+				AND m.node_id      = t.node_2
+				AND m.mapzone_id   = t.node_1
+				%s;
+			$sql$,
+				v_mapzone_graph_table,
+				v_class,
+				CASE WHEN v_netscenario IS NOT NULL
+					THEN format('AND m.netscenario_id = %L', v_netscenario)
+					ELSE ''
+				END
+			);
 
 			-- update macromapzones
 			IF v_class = 'DWFZONE' THEN
@@ -3391,7 +3468,8 @@ BEGIN
 	INSERT INTO temp_audit_check_data (fid,  criticity, error_message)
 	SELECT v_fid, criticity, error_message
 	FROM t_audit_check_data
-	where fid = v_fid or fid = v_checks_fid;
+	where fid = v_fid or fid = v_checks_fid
+	ORDER BY id;
 
 	-- insert spacer lines from sys_label separator
 	EXECUTE 'SELECT gw_fct_getmessage($${"data":{"function":"3508","parameters":null, "tempTable":"", "criticity":"3", "fid": '||v_fid||', "separator_id":"2000"}}$$);';

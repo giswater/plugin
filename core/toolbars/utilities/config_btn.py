@@ -211,6 +211,7 @@ class GwConfigButton(GwAction):
             self._show_missing_mandatory_warning()
             return False
 
+        self._commit_visible_checked_fields()
         my_json = json.dumps(self.list_update)
         extras = f'"fields":{my_json}'
         body = tools_gw.create_body(form='"formName":"config"', extras=extras)
@@ -320,6 +321,9 @@ class GwConfigButton(GwAction):
                             self.chk.setChecked(True)
                         elif field['checked'] in ('false', 'False', 'FALSE', False):
                             self.chk.setChecked(False)
+                        # Mandatory params always open checked. The value is not
+                        # in config_param_user until Accept; _commit_visible_checked_fields
+                        # writes the combo on screen so it does not stay a fake check.
                         if field.get('ismandatory') is True and field['widgettype'] not in ('check', 'checkbox'):
                             self.chk.setChecked(True)
                             self.chk.setEnabled(False)
@@ -407,6 +411,37 @@ class GwConfigButton(GwAction):
                 msg_params = (type(e).__name__, e, field['widgetname'], field['widgettype'],)
                 tools_qgis.show_message(msg, Qgis.MessageLevel.Critical, dialog=self.dlg_config, msg_params=msg_params)
 
+    def _commit_visible_checked_fields(self):
+        """Append checked user params that never emitted a change signal.
+
+        The dialog only records edits. A checkbox painted on at build time
+        never enters ``list_update``, so Accept posts ``fields: []`` and
+        ``gw_fct_setconfig`` leaves ``config_param_user`` untouched.
+        """
+
+        tabs = self.json_result.get('body', {}).get('form', {}).get('formTabs') or []
+        if not tabs:
+            return
+
+        sent = {elem.get('widget') for elem in self.list_update}
+        for field in tabs[0].get('fields') or []:
+            name = field.get('widgetname')
+            if not name or name in sent or field.get('widgettype') in ('check', 'checkbox'):
+                continue
+
+            chk = self.dlg_config.findChild(QCheckBox, f"chk_{name}")
+            widget = self.dlg_config.findChild(QWidget, name)
+            if chk is None or widget is None or not chk.isChecked():
+                continue
+            if isinstance(widget, QComboBox) and getattr(widget, '_gw_is_async_combo', False):
+                if not widget.property('rows_loaded'):
+                    continue
+
+            self._get_dialog_changed_values(widget, 'user', chk)
+            if self.list_update and self.list_update[-1].get('widget') == name:
+                if self.list_update[-1].get('value') in (None, '', -1, '-1'):
+                    self.list_update.pop()
+
     def populate_typeahead(self, completer, model, field, dialog, widget):
 
         if not widget:
@@ -468,6 +503,8 @@ class GwConfigButton(GwAction):
         if tab == 'user':
             elem['isChecked'] = str(tools_qt.is_checked(self.dlg_config, chk))
             elem['chk'] = str(chk.objectName())
+            if chk is not None and chk.isChecked():
+                chk.setStyleSheet(None)
         else:
             elem['isChecked'] = ''
             elem['chk'] = ''

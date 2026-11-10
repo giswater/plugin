@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- CMMS satellite integrated with each ws/ud parent. The feature info form gets `tab_cmms` (visits and attachments, linked by `sys_code`). Unlinking or dropping CMMS removes the tab and the views and keeps the cmms data.
+- Go2EPA stores the SHA-256 of the exported INP in `rpt_cat_result.addparam` (`inpSha256`), including recursive EPA runs. Existing `addparam` keys are kept.
+- EPA Result Manager warns before deleting a result that other results use as `parent_id`. Schema adds `rpt_cat_result.parent_id` → `result_id` (`ON DELETE SET NULL`); the plugin no longer clears `parent_id` itself.
+- Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` / `plan_netscenario_mapzone_graph` for mapzone synoptic layout (#965).
+- Synoptic layers `v_synoptic_line_<type>` and `v_synoptic_point_<type>` for scada, dma, sector, and the project-specific mapzones (ws: dqa, presszone, supplyzone; ud: dwfzone). SCADA geometry is the schematic `synoptic_geom` (SRID 0). Mapzone lines join the border node to the zone polygon; `flow_sign` keeps the direction (`1` node→zone, `-1` zone→node) (#977).
+
+### Removed
+
+- `gw_fct_scada_graph_export` and `om_scada_graph_json`. The check no longer reports a saved JSON (#977).
+
+### Changed
+
+- `om_scada_graph.group_id` renamed to `synoptic_id`. Schematic layout moves from `attrib.synopticGeometry` to `synoptic_geom geometry(LineString, 0)`. `v_om_scada_graph` is recreated. `temp_pgr_mapzone_synoptic.group_id` is also `synoptic_id`; `mapzone_graph` has no `group_id` (#977).
+
+### Fixed
+
+- go2epa Close button (`btn_close`) gets `widgetfunction` `closeDlg` for web / dynamic clients.
+- EPA Result Manager web list (`epa_results`): add `isvalidated` to the query and tableview, plus `btn_toggle_validated` (`toggleValidated`) in the top toolbar.
+- Expose `parent_id` on `v_ui_rpt_cat_result`.
+- Renaming a ws/ud schema updates the parent link stored by every satellite (utils, am, cm, cmms, cibs, publi, multilang), so utils updates and Manage Schemas keep pointing at the renamed parent.
+- End feature warns on the element or link tab when none of its layers are loaded, and disables the map and expression selection buttons on that tab.
+- Selecting or removing features that sit on more than one layer (element: `ve_man_genelem` and `ve_man_frelem`) refreshes every layer. Previously only the first layer's highlight updated until the map was moved.
+- Feature Replace no longer copies audit fields (`created_at`, `created_by`, `updated_at`, `updated_by`) to the new feature (#967).
+- Return messages from `gw_fct_synoptic_core` via `gw_fct_getmessage`; same on Failed in scada graph check and mapzones v1.
+- `gw_fct_graphanalytics_omunit`: re-point / zero `omunit.macroomunit_id` before deleting orphaned `macroomunit` rows so `omunit_macroomunit_id_fkey` is not violated (#968).
+- UD `ve_cat_feature_node` exposes `graph_delimiter` (view, form field, edit trigger); it was present on WS only (#966).
+- UD `cat_link` recreated like UD `cat_arc` (`shape`/`geom1`..`geom8` instead of WS `pnom`/`dnom`/`dint`/`dext`); data migrated from `_cat_link_` (#969).
+- UD go2epa FIXED outfalls export `inp_outfall.stage`. The previous export wrote the node inventory state (#959).
+
+## [4.17.5] - 2026-10-06
+
+### Fixed
+
+- UD `dma.the_geom` / `ve_dma.the_geom` follow the project SRID. The 4.7.0 patch recast them to EPSG:25831, so schemas created with `--srid` other than 25831 left DMA at 25831.
+- `gw_fct_setinitproject` interpolates `cur_user` / `addSchema` as `format()` arguments so a first project open with no exploitation selected returns Accepted and inserts `cat_users`.
+- `gw_fct_admin_role_upsertuser` grants the tier and upserts `cat_users` when the PostgreSQL role already exists (NOLOGIN); delete deactivates the catalog row instead of removing it.
+- Admin dialog does not `CREATE EXTENSION` unless the session is a superuser (`intarray` / `fuzzystrmatch` belong in `gw db init`).
+- Utils/cibs 4.17.5 patches grant `SELECT` to `role_basic` and reassign installer-owned relations to `role_system`.
+
+## [4.17.4] - 2026-10-05
+
+### Fixed
+
+- `gw_fct_pg2epa_fill_data`: always require `value_state_type.is_operative = TRUE` so FICTICIO / non-operative features are not exported (regression from the psector/`vf_*` path).
+- `gw_fct_pg2epa_fill_data` WS: filter connecs by `is_operative` and nest link insert under `networkmode = 4`; UD: drop redundant node `is_operative` filter (arcs already gate nodes).
+- `gw_fct_pg2epa_nod2arc`: keep VALVE/SHORTPIPE nodarcs on the psector/operative boundary. Endpoint cleanup now uses `t_numarcs` (`temp_t_arc`) instead of `ve_inp_pipe`, so the `_n2a` arc is no longer dropped while its junctions remain.
+
+## [4.17.3] - 2026-10-02
+
+### Added
+
+- Keep user settings in `init.config` when moving to a new Giswater minor version by copying them from the previous Roaming folder.
+
+### Fixed
+
+- UD Info Log warnings come from `rpt_warning_summary` as well as the classic `temp_csv` import. A warning does not fail the result.
+- `gw_fct_rpt2pg_log` DETAILED USER INPUT OPTIONS reads from `rpt_cat_result.inp_options` (fallback to `config_param_user`).
+
+## [4.17.2] - 2026-09-30
+
+### Fixed
+
+- Read form combo ids with `get_combo_value` instead of `currentData()` when enabling lot relations, saving lots and workorders, and checking UD pattern type. `currentData()` is the row `[id, idval]`, which produced SQL like `campaign_id = ['', '']`.
+- Stop treating an unchanged `epa_type` as a change on info-form Accept. The snapshot used the combo label (empty or "Loading..." while the async combo loads). Compare and restore the id via `GwAsyncComboBox.selected_id`.
+- Open Check Project (and other dynamic dialogs) when a `config_form_fields` row has `layoutorder` null. The widget is skipped with a warning instead of crashing on `int(None)`.
+- Lower `wntr` requirement to `>=1.2.0` so QPIP can resolve under QGIS NumPy 1.x constraints (`wntr>=1.4` needs NumPy 2.2+).
+- Fix mincut hydrometer list (`tbl_mincut_hydro`): `config_form_list` / `config_form_tableview` still used `hydrometer_customer_code` after the 4.12 rename to `hydro_customer_code`, so `gw_fct_getlist` failed with 42703.
+
+## [4.17.1] - 2026-09-24
+
+### Fixed
+
+- Fill the element catalog combo for types whose id contains an underscore (`EHYDRANT_PLATE`, `EPROTECT_BAND`, `EIOT_SENSOR`). The form query was truncated at the first underscore, so the dropdown was empty.
+- Place `dataquality` and `dataquality_obs` on GENELEM element forms when `layoutorder` was null, so the info dialog no longer warns that the widgets are not configured.
+- Link a new element created from a feature's Elements tab into `element_x_*` on save. The Insert click had no parent form left, so the relation was never written.
+- Fix schema rename crashing after the name change (`cmb_project_type`) and leaving the database connection in an aborted transaction. Create-on-existing-name waits for that rename before running `init.sql`.
+- Fix `gw_trg_plan_psector_link` comparing integer `connec_id`/`gully_id` to text variables. `gw_fct_setarcdivide` failed with `integer = text` when reconnecting links inside a psector.
+- Restore `comboIds`/`comboNames` on info forms for qwc2 (`device` 5) in `gw_fct_getformfields` and `gw_fct_getchilds`. Desktop (`device` 4) still loads combos from `queryText`.
+- Fix `featuretype_change_btn` to handle empty values for fluid, location, category and function type.
+- Network update (`update_step`) reloads `base/fct` and `base/ftrg` before applying version patches, so new trigger functions such as `gw_trg_set_updated` exist. Workaround until function bodies ship inside patches.
+- Network update no longer crashes on `am`/`cm`/`audit` lockstep bumps: those manifests declare `update_step` and `version_bump`, and QGIS uses the same profile fallback as the CLI.
+- Fix curve plot area calculation for NumPy 2.4+ (`np.trapezoid`, with `np.trapz` fallback for 1.x).
+
 ## [4.17.0] - 2026-09-17
 
 ### Added
@@ -650,7 +735,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.17.0...main
+[unreleased]: https://github.com/giswater/plugin/compare/v4.17.5...main
+[4.17.5]: https://github.com/giswater/plugin/compare/v4.17.4...v4.17.5
+[4.17.4]: https://github.com/giswater/plugin/compare/v4.17.3...v4.17.4
+[4.17.3]: https://github.com/giswater/plugin/compare/v4.17.2...v4.17.3
+[4.17.2]: https://github.com/giswater/plugin/compare/v4.17.1...v4.17.2
+[4.17.1]: https://github.com/giswater/plugin/compare/v4.17.0...v4.17.1
 [4.17.0]: https://github.com/giswater/plugin/compare/v4.16.1...v4.17.0
 [4.16.1]: https://github.com/giswater/plugin/compare/v4.16.0...v4.16.1
 [4.16.0]: https://github.com/giswater/plugin/compare/v4.15.4...v4.16.0

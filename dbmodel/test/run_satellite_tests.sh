@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Host orchestrator for satellite pgTAP (standalone or integrated network).
-# Usage: ./test/run_satellite_tests.sh utils|cibs|network_ws|network_ud
+# Usage: ./test/run_satellite_tests.sh utils|cibs|cmms|network_ws|network_ud
 set -euo pipefail
 
-PROJECT="${1:?Usage: $0 utils|cibs|network_ws|network_ud}"
+PROJECT="${1:?Usage: $0 utils|cibs|cmms|network_ws|network_ud}"
 PG_MAJOR="${PG_MAJOR:-18}"
 TEST_GROUPS="${TEST_GROUPS:-schema}"
 
@@ -39,7 +39,7 @@ compose up -d postgres --wait 2>/dev/null || compose up -d postgres
 
 EXIT_CODE=0
 case "${PROJECT}" in
-  utils|cibs)
+  utils|cibs|cmms)
     compose run --rm -T runner bash /workspace/dbmodel/test/e2e_inner.sh pgtap_addon "${PROJECT}" || EXIT_CODE=$?
     ;;
   network_ws|network_ud)

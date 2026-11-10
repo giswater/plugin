@@ -59,15 +59,18 @@ BEGIN
     v_feature_class  = (SELECT lower(feature_class) FROM cat_feature where id=v_cat_feature);
     v_formname := 've_'||lower(v_feature_type);
 
-	-- Register layer in sys_table only; role grants run once after MULTI-CREATE
-	-- (gw_fct_admin_manage_child_views) or via gw_trg_cat_feature on single edits.
+	-- Register the layer. Grants stay on this view: a later full
+	-- gw_fct_admin_role_permissions() does not see views recreated after it.
 	IF v_view_name NOT IN (SELECT tableinfo_id FROM config_info_layer_x_type) THEN
         INSERT INTO sys_table(id, context, descript, sys_role)
         VALUES (v_view_name, (SELECT context FROM sys_table WHERE id = concat('ve_', v_feature_type)),
 		concat('Custom editable view for ',v_cat_feature), 'role_edit') ON CONFLICT (id) DO NOTHING;
 	END IF;
 
-	EXECUTE 'GRANT ALL ON TABLE '||v_view_name||' TO role_edit';
+	EXECUTE format('REVOKE ALL ON TABLE %I FROM role_edit', v_view_name);
+	EXECUTE format('REVOKE ALL ON TABLE %I FROM role_basic', v_view_name);
+	EXECUTE format('GRANT SELECT ON TABLE %I TO role_basic', v_view_name);
+	EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE %I TO role_edit', v_view_name);
 
 	--manage tab hydrometer on netwjoin
 	IF v_view_name IS NOT NULL AND v_project_type = 'WS' and v_feature_class = 'netwjoin' THEN

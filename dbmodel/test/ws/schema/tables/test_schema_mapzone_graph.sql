@@ -21,7 +21,7 @@ SELECT has_table('mapzone_graph'::name, 'Table mapzone_graph should exist');
 SELECT columns_are(
     'mapzone_graph',
     ARRAY[
-        'node_id', 'mapzone_id', 'mapzone_type', 'flow_sign'
+        'node_id', 'mapzone_id', 'mapzone_type', 'flow_sign', 'synoptic_id', 'synoptic_geom'
     ],
     'Table mapzone_graph should have the correct columns'
 );
@@ -31,6 +31,8 @@ SELECT col_type_is('mapzone_graph', 'node_id', 'int4', 'Column node_id should be
 SELECT col_type_is('mapzone_graph', 'mapzone_id', 'int4', 'Column mapzone_id should be int4');
 SELECT col_type_is('mapzone_graph', 'mapzone_type', 'text', 'Column mapzone_type should be text');
 SELECT col_type_is('mapzone_graph', 'flow_sign', 'int2', 'Column flow_sign should be int2');
+SELECT col_type_is('mapzone_graph', 'synoptic_id', 'int4', 'Column synoptic_id should be int4');
+SELECT col_type_is('mapzone_graph', 'synoptic_geom', 'geometry(LineString)', 'Column synoptic_geom should be geometry(LineString)');
 
 -- Finish
 SELECT * FROM finish();

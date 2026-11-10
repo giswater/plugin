@@ -27,6 +27,7 @@ from .... import global_vars
 from ....libs import lib_vars, tools_qgis, tools_qt, tools_db
 from ..dialog import GwAction
 from .epa_tools.go2iber import Go2Iber
+from .go2epa_manager_btn import confirm_overwrite_parent_unlink
 
 
 class GwGo2EpaButton(GwAction):
@@ -323,6 +324,8 @@ class GwGo2EpaButton(GwAction):
                 answer = tools_qt.show_question(msg, title)
                 if not answer:
                     return False
+                if not confirm_overwrite_parent_unlink(result_name):
+                    return False
 
         return True
 
@@ -466,6 +469,7 @@ class GwGo2EpaButton(GwAction):
         self._save_user_values()
 
         self.dlg_go2epa.tab_log_txt_infolog.clear()
+        self.dlg_go2epa.tab_log_txt_infolog.setToolTip("")
         self.dlg_go2epa.txt_file_rpt.setStyleSheet(None)
         status = self._check_fields()
         if status is False:

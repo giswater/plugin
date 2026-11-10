@@ -115,6 +115,8 @@ jobs:
             --password "$TRANSLATIONS_API_PASSWORD" \
             --languages-json-out ../artifacts/languages.json \
             --translations-json-out config/translations.json \
+            --readme-out ../artifacts/README.md \
+            --readme-template scripts/templates/translations_readme.md \
             --output-dir ../artifacts/i18n
 
       - name: Checkout translations repository
@@ -150,6 +152,8 @@ jobs:
           set -euo pipefail
           SOURCE_DIR="artifacts/i18n"
           LANGUAGES_JSON="artifacts/languages.json"
+          TRANSLATIONS_JSON="plugin/config/translations.json"
+          README_MD="artifacts/README.md"
           TARGET_REPO="translations"
 
           if [ ! -d "$SOURCE_DIR" ] || [ -z "$(find "$SOURCE_DIR" -maxdepth 1 -name '*.zip' -print -quit)" ]; then
@@ -158,6 +162,14 @@ jobs:
           fi
           if [ ! -f "$LANGUAGES_JSON" ]; then
             echo "::error::languages.json was not generated in $LANGUAGES_JSON"
+            exit 1
+          fi
+          if [ ! -f "$TRANSLATIONS_JSON" ]; then
+            echo "::error::translations.json was not generated in $TRANSLATIONS_JSON"
+            exit 1
+          fi
+          if [ ! -f "$README_MD" ]; then
+            echo "::error::README.md was not generated in $README_MD"
             exit 1
           fi
 
@@ -169,8 +181,10 @@ jobs:
           mkdir -p "$TARGET_REPO/latest"
           cp "$SOURCE_DIR"/*.zip "$TARGET_REPO/latest/"
           cp "$LANGUAGES_JSON" "$TARGET_REPO/latest/languages.json"
-          GIT_PATHS=(latest)
-          COMMIT_MSG="chore(i18n): update latest translation ZIPs"
+          cp "$TRANSLATIONS_JSON" "$TARGET_REPO/latest/translations.json"
+          cp "$README_MD" "$TARGET_REPO/README.md"
+          GIT_PATHS=(latest README.md)
+          COMMIT_MSG="chore(i18n): update latest translation packs and coverage"
 
           if [ "$PUBLISH_RELEASE" = "true" ]; then
             VERSION="$VERSION_INPUT"
@@ -213,9 +227,10 @@ jobs:
             mkdir -p "$TARGET_REPO/$VERSION_PATH"
             cp "$SOURCE_DIR"/*.zip "$TARGET_REPO/$VERSION_PATH/"
             cp "$LANGUAGES_JSON" "$TARGET_REPO/$VERSION_PATH/languages.json"
+            cp "$TRANSLATIONS_JSON" "$TARGET_REPO/$VERSION_PATH/translations.json"
             cp artifacts/versions.json "$TARGET_REPO/versions.json"
-            GIT_PATHS=(versions.json "$VERSION_PATH" latest)
-            COMMIT_MSG="chore(i18n): update translation ZIPs for v${VERSION}"
+            GIT_PATHS=(versions.json "$VERSION_PATH" latest README.md)
+            COMMIT_MSG="chore(i18n): update translation packs and coverage for v${VERSION}"
           else
             echo "${SOURCE_EVENT} trigger (publish_mode=${PUBLISH_MODE}): updating latest/ only."
           fi

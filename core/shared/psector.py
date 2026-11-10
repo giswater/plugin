@@ -238,12 +238,8 @@ class GwPsector:
             # Load existing psector data and populate form
             self.load_psector(self.dlg_plan_psector, psector_id, list_coord=None, form_opened=True)
 
-        # Exclude the layer ve_element for adding relations
-        self.excluded_layers = ['ve_element']
-
         # Set signals
-        self.excluded_layers_tab_feature = ["ve_arc", "ve_node", "ve_connec", "ve_element", "ve_gully",
-                           "ve_element"]
+        self.excluded_layers_tab_feature = ["ve_arc", "ve_node", "ve_connec", "ve_gully"]
         layers_visibility = tools_gw.get_parent_layers_visibility()
         self.dlg_plan_psector.rejected.connect(partial(tools_gw.restore_parent_layers_visibility, layers_visibility))
         kwargs = {"class": self}
@@ -405,7 +401,8 @@ class GwPsector:
         self._manage_psector_editability(psector_id)
 
         # Open dialog
-        tools_gw.open_dialog(self.dlg_plan_psector, dlg_name='plan_psector')
+        # Context is the ui stem (psector.ui -> "psector"), not the dialog object name
+        tools_gw.open_dialog(self.dlg_plan_psector, dlg_name='psector')
 
     def load_psector(self, dialog, psector_id, list_coord=None, form_opened=False):
         """
@@ -1117,8 +1114,13 @@ class GwPsector:
         errors = []
         scale = tools_qt.get_text(self.dlg_plan_psector, "tab_general_scale", return_string_null=False)
         atlas_id = tools_qt.get_text(self.dlg_plan_psector, "tab_general_atlas_id", return_string_null=False)
-        parent_id = tools_qt.get_text(self.dlg_plan_psector, "tab_general_parent_id", return_string_null=False)
         rotation = tools_qt.get_text(self.dlg_plan_psector, "tab_general_rotation", return_string_null=False)
+        parent_id = tools_qt.get_widget_value(self.dlg_plan_psector, "tab_general_parent_id")
+        # Combo with no selection returns -1; a line edit returns the typed text.
+        if parent_id in (None, "", -1, "-1"):
+            parent_id = ""
+        else:
+            parent_id = str(parent_id)
 
         if rotation != "":
             try:
@@ -1141,16 +1143,14 @@ class GwPsector:
                 msg = "Atlas ID must be an integer."
                 errors.append(tools_qt.tr(msg))
 
-        if parent_id != "":
+        if parent_id is not None and parent_id != "":
             try:
                 int(parent_id)
+                if not self._validate_parent_id(parent_id):
+                    msg = "Parent ID does not exist."
+                    errors.append(tools_qt.tr(msg))
             except ValueError:
                 msg = "Parent ID must be an integer."
-                errors.append(tools_qt.tr(msg))
-
-        if parent_id is not None and parent_id != "":
-            if not self._validate_parent_id(parent_id):
-                msg = "Parent ID does not exist."
                 errors.append(tools_qt.tr(msg))
 
         if errors:
@@ -2821,18 +2821,13 @@ class GwPsector:
     def _manage_btn_toggle(self, dialog):
         """ Fill btn_toggle QMenu """
 
-        # Functions
-        values = [[0, "Toggle doable"]]
-
-        # Create and populate QMenu
         toggle_menu = QMenu()
-        for value in values:
-            idx = value[0]
-            label = value[1]
-            action = toggle_menu.addAction(f"{label}")
-            action.triggered.connect(partial(self._toggle_feature_psector, dialog, idx))
-
+        title = "Toggle doable"
+        label = tools_qt.tr(title)
+        action = toggle_menu.addAction(label)
+        action.triggered.connect(partial(self._toggle_feature_psector, dialog, 0))
         dialog.btn_toggle.setMenu(toggle_menu)
+        dialog.btn_toggle.setToolTip(label)
 
     def _toggle_feature_psector(self, dialog, idx):
         """ Delete features_id to table plan_@feature_type_x_psector"""

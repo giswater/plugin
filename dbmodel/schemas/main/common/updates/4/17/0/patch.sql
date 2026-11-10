@@ -1553,8 +1553,12 @@ FOR EACH ROW EXECUTE FUNCTION gw_trg_scada_graph_builder();
 
 ALTER TABLE arc ALTER COLUMN is_scadamap SET DEFAULT false;
 ALTER TABLE node ALTER COLUMN is_scadamap SET DEFAULT false;
+ALTER TABLE arc DISABLE TRIGGER gw_trg_set_updated;
+ALTER TABLE node DISABLE TRIGGER gw_trg_set_updated;
 UPDATE arc SET is_scadamap = false WHERE is_scadamap IS NULL;
 UPDATE node SET is_scadamap = false WHERE is_scadamap IS NULL;
+ALTER TABLE arc ENABLE TRIGGER gw_trg_set_updated;
+ALTER TABLE node ENABLE TRIGGER gw_trg_set_updated;
 
 UPDATE sys_message
 	SET error_message='Inserting values on ext_hydrometer_period table -> Done'

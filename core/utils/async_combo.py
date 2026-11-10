@@ -181,6 +181,12 @@ MAX_POPUP_VISIBLE_ROWS = 200
 # be reached by scrolling, anything past it by typing in the search box.
 MAX_POPUP_VISIBLE_HEIGHT_ITEMS = 15
 
+# Fewest rows kept on screen while the popup is still forced inside the
+# parent window. Below this the list is a hairline: a dialog shorter than
+# the list (Change Team) has no room above or below the combo, and the
+# popup is allowed to leave the window and use the screen.
+MIN_POPUP_VISIBLE_HEIGHT_ITEMS = 4
+
 # Closed-combo width is based on this many 'X' glyphs, not the longest item.
 # AdjustToContents makes catalog values (and long translations) freeze the
 # parent layout — info form two-column tab, Spanish lyt_bot_1, etc.
@@ -562,7 +568,6 @@ class _ComboPopupSearchController(QObject):
         self._search_edit: Optional[QLineEdit] = None
         self._search_bar: Optional[_ComboSearchBar] = None
         self._search_active: bool = False
-        self._qt_list_height: int = 0
         self._hidden_rows: set = set()
         self._orig_show_popup = None
         self._orig_hide_popup = None
@@ -637,12 +642,6 @@ class _ComboPopupSearchController(QObject):
 
         extra = bar.sizeHint().height()
         bar.setFixedHeight(extra)
-        # Snapshot Qt's full-list height only when nothing is filtered.
-        # Reopening after a filter used to capture the 2-row height and
-        # then treat that as "full size" forever.
-        if not self._hidden_rows and view.height() > 0:
-            if view.height() >= self._qt_list_height:
-                self._qt_list_height = view.height()
 
         self._insert_search_bar(container, bar, view)
         self._suppress_popup_scrollers(container, view)
@@ -814,12 +813,15 @@ class _ComboPopupSearchController(QObject):
         except RuntimeError:
             return None
 
-    def _popup_clip_rect(self):
+    def _popup_clip_rect(self, min_height: int = 0):
         """Stay inside the combo's window and the screen work area.
 
         Pinning always-below used to clip the list at the bottom of Info
         forms. Intersect both rects so a field at the bottom of a dialog
         flips up even when there is canvas below the form.
+
+        A window that cannot hold ``min_height`` on either side is ignored.
+        The popup then uses the screen, the same as a stock ``QComboBox``.
         """
         screen = self._screen_available_geometry()
         try:
@@ -835,9 +837,20 @@ class _ComboPopupSearchController(QObject):
         if form is None:
             return screen
         if screen is None:
-            return form
-        clipped = form.intersected(screen)
-        return clipped if clipped.isValid() else form
+            clipped = form
+        else:
+            clipped = form.intersected(screen)
+            if not clipped.isValid():
+                clipped = form
+        if self._clip_cannot_hold(clipped, min_height) and screen is not None:
+            return screen
+        return clipped
+
+    def _clip_cannot_hold(self, clip, min_height: int) -> bool:
+        if min_height <= 0 or clip is None:
+            return False
+        space_below, space_above = self._popup_free_space(clip)
+        return space_below < min_height and space_above < min_height
 
     def _popup_free_space(self, clip):
         rect = self._combo.rect()
@@ -847,10 +860,10 @@ class _ComboPopupSearchController(QObject):
         space_above = max(0, above - clip.top())
         return space_below, space_above
 
-    def _popup_opens_upward(self, height: int) -> bool:
+    def _popup_opens_upward(self, height: int, floor: int = 0) -> bool:
         if getattr(self._combo, 'popup_opens_upward', False):
             return True
-        clip = self._popup_clip_rect()
+        clip = self._popup_clip_rect(floor)
         if clip is None:
             return False
         space_below, space_above = self._popup_free_space(clip)
@@ -858,8 +871,8 @@ class _ComboPopupSearchController(QObject):
             return False
         return space_above >= space_below
 
-    def _fit_popup_height(self, height: int, upward: bool) -> int:
-        clip = self._popup_clip_rect()
+    def _fit_popup_height(self, height: int, upward: bool, floor: int = 0) -> int:
+        clip = self._popup_clip_rect(floor)
         if clip is None:
             return height
         space_below, space_above = self._popup_free_space(clip)
@@ -868,6 +881,18 @@ class _ComboPopupSearchController(QObject):
         if room <= 0:
             return height
         return min(height, room)
+
+    def _popup_floor_height(self, view, container, display_rows: int) -> int:
+        """Smallest popup that still shows a usable list, search bar included."""
+        if display_rows <= 0:
+            rows = 1
+        else:
+            rows = min(display_rows, MIN_POPUP_VISIBLE_HEIGHT_ITEMS)
+        return (
+            self._search_bar_height()
+            + self._popup_list_height(view, rows)
+            + self._popup_frame_pad(container)
+        )
 
     def _popup_anchor(self, width: int, height: int, upward: Optional[bool] = None):
         rect = self._combo.rect()
@@ -987,9 +1012,10 @@ class _ComboPopupSearchController(QObject):
         QTimer.singleShot(0, partial(self._layout_popup, shown, 0))
 
     def _popup_row_height(self, view) -> int:
-        cap = max(1, MAX_POPUP_VISIBLE_HEIGHT_ITEMS)
-        if self._qt_list_height >= cap * 12:
-            return max(12, self._qt_list_height // cap)
+        # Always the delegate size hint. Dividing the open popup's height by
+        # maxVisibleItems (15) truncates: that viewport is only an even
+        # multiple of the row on short lists. Catalog-sized combos hit the
+        # cap, so a 1-row filter was a few pixels short and the text clipped.
         try:
             model = view.model()
             if model is not None and model.rowCount() > 0:
@@ -1003,7 +1029,9 @@ class _ComboPopupSearchController(QObject):
     def _popup_list_height(self, view, display_rows: int) -> int:
         if display_rows <= 0:
             return max(12, view.fontMetrics().height() // 2)
-        return self._popup_row_height(view) * display_rows
+        # The viewport sits inside the popup frame. An exact multiple of the
+        # row height clips the last row against that border.
+        return self._popup_row_height(view) * display_rows + 2
 
     def _popup_frame_pad(self, container) -> int:
         if container is None:
@@ -1051,17 +1079,13 @@ class _ComboPopupSearchController(QObject):
 
         unhidden = max(0, self._row_count() - len(self._hidden_rows))
         cap = MAX_POPUP_VISIBLE_HEIGHT_ITEMS
-        full_list_h = self._qt_list_height or self._popup_list_height(view, cap)
 
         if display_rows <= 0:
             list_h = max(12, view.fontMetrics().height() // 2)
             shown_cap = 1
-        elif unhidden > cap or display_rows >= cap:
-            list_h = full_list_h
-            shown_cap = cap
         else:
-            list_h = self._popup_list_height(view, display_rows)
-            shown_cap = max(1, display_rows)
+            shown_cap = cap if (unhidden > cap or display_rows >= cap) else max(1, display_rows)
+            list_h = self._popup_list_height(view, shown_cap)
 
         if list_h <= 0 and attempt < _POPUP_LAYOUT_MAX_ATTEMPTS:
             QTimer.singleShot(
@@ -1082,12 +1106,22 @@ class _ComboPopupSearchController(QObject):
         width = self._combo.width() or (container.width() if container is not None else 0)
         width = max(width, self._popup_content_width(view))
         height = self._search_bar_height() + list_h + self._popup_frame_pad(container)
-        upward = self._popup_opens_upward(height)
-        fitted = self._fit_popup_height(height, upward)
+        floor = self._popup_floor_height(view, container, shown_cap if display_rows > 0 else 0)
+        upward = self._popup_opens_upward(height, floor)
+        fitted = self._fit_popup_height(height, upward, floor)
         if fitted < height:
             search_h = self._search_bar_height()
             frame = self._popup_frame_pad(container)
-            list_h = max(12, fitted - search_h - frame)
+            usable = max(12, fitted - search_h - frame)
+            row_h = self._popup_row_height(view)
+            # Snap down to whole rows. A leftover partial row is the sliced one.
+            if row_h > 0:
+                shown_cap = max(1, min(shown_cap, usable // row_h))
+                list_h = shown_cap * row_h
+                if list_h + 2 <= usable:
+                    list_h += 2
+            else:
+                list_h = usable
             try:
                 view.setMinimumHeight(0)
                 view.setMaximumHeight(_QWIDGETSIZE_MAX)
@@ -1095,10 +1129,7 @@ class _ComboPopupSearchController(QObject):
                 view.setMaximumHeight(list_h)
             except RuntimeError:
                 return
-            height = fitted
-            row_h = self._popup_row_height(view)
-            if row_h > 0:
-                shown_cap = max(1, min(shown_cap, list_h // row_h))
+            height = search_h + list_h + frame
         self._set_popup_height(width, height, upward)
         self._sync_popup_scrollbar(view, shown_cap if display_rows else 0)
         self._pin_popup(width, height, upward)
@@ -1236,6 +1267,8 @@ class GwAsyncComboBox(QComboBox):
         self._task: Optional[GwComboLoaderTask] = None
         self._pending_selected_id: Optional[str] = None
         self._pending_select_index: int = 0
+        self._gw_combo_query: Optional[str] = None
+        self._open_when_token: Optional[int] = None
         self._is_null_value: bool = False
         self._loading: bool = False
 
@@ -1411,6 +1444,19 @@ class GwAsyncComboBox(QComboBox):
         """Toggle whether an empty placeholder row is prepended to the data."""
         self._is_null_value = bool(is_null)
 
+    def set_reload_query(self, query: str) -> None:
+        """SQL the popup refetches. Toolbox children replace the unfiltered dvQueryText."""
+        self._gw_combo_query = query or None
+
+    def selected_id(self):
+        """Row id. While the list is still loading, the selection queued by the form."""
+        if not self.property('rows_loaded'):
+            return self._pending_selected_id
+        data = self.itemData(self.currentIndex())
+        if isinstance(data, (list, tuple)):
+            return data[0] if data else None
+        return data
+
     def set_pending_selection(self, value, index: int = 0, apply_if_loaded: bool = True) -> None:
         """Defer selection until the items finish loading.
 
@@ -1428,13 +1474,14 @@ class GwAsyncComboBox(QComboBox):
     def has_loaded_rows(self) -> bool:
         return bool(self.property('rows_loaded'))
 
-    def start_loading(self, query: str, use_cache: bool = True) -> None:
+    def start_loading(self, query: str, use_cache: bool = True, keep_rows: bool = False) -> None:
         """Begin (or restart) loading the combo's items in the background.
 
-        ``use_cache=False`` forces a DB round-trip. Needed when the source
-        table can change in-session (status-bar psector combo after create).
-        Fresh rows are still written into the cache.
+        ``use_cache=False`` forces a DB round-trip. Popup open always does that;
+        the cache is only for the initial form fill. ``keep_rows`` leaves the
+        current list up until that round-trip finishes.
         """
+        self._gw_combo_query = query or None
         if not query:
             # Child combo waiting for a parent value, or an intentional no-op.
             # Keep the placeholder; do not mark rows as loaded with an empty model
@@ -1457,8 +1504,9 @@ class GwAsyncComboBox(QComboBox):
                 return
 
         self._loading = True
-        self.setProperty('rows_loaded', False)
-        self._show_placeholder(self.tr('Loading...'))
+        if not keep_rows:
+            self.setProperty('rows_loaded', False)
+            self._show_placeholder(self.tr('Loading...'))
 
         # Try to cancel the previous task if it is still running.
         if self._task is not None:
@@ -1474,7 +1522,7 @@ class GwAsyncComboBox(QComboBox):
         self._task = task
         QgsApplication.taskManager().addTask(task)
 
-    def apply_rows(self, rows: Sequence) -> None:
+    def apply_rows(self, rows: Sequence, notify: bool = True) -> None:
         """Replace the combo contents with `rows` and restore selection.
 
         Implementation note: we never iterate `addItem` for thousands of rows.
@@ -1488,12 +1536,21 @@ class GwAsyncComboBox(QComboBox):
         self._loading = False
 
         items: List[_ComboRow] = []
+        seen_blank = False
         if self._is_null_value:
             items.append(('', ''))
+            seen_blank = True
         for row in rows or []:
             row_id = '' if row[0] is None else str(row[0])
             idval = row[1] if len(row) > 1 and row[1] is not None else row_id
-            items.append((row_id, str(idval)))
+            idval = str(idval)
+            # SQL `select null, ''` plus isNullValue, or the same null loaded
+            # by dvQueryText and again by filterquery, must stay one row.
+            if row_id == '' and idval == '':
+                if seen_blank:
+                    continue
+                seen_blank = True
+            items.append((row_id, idval))
 
         # New row set invalidates any hidden-rows bookkeeping from a
         # previous model state.
@@ -1508,12 +1565,15 @@ class GwAsyncComboBox(QComboBox):
             self._apply_pending_selection()
             # Plain QComboBox selects index 0 after addItem(); model reset leaves
             # currentIndex at -1 unless we restore it explicitly.
+            # Skip id -1 (sector/dma/presszone/dqa "Conflict"). That row sorts
+            # first and an implicit selection is stored as-is, so the feature
+            # never matches selector_* and disappears from ve_*.
             if (
                 self.currentIndex() < 0
                 and self.count() > 0
                 and self._pending_selected_id is None
             ):
-                self.setCurrentIndex(0)
+                self.setCurrentIndex(self._default_index())
         finally:
             self.blockSignals(False)
 
@@ -1521,7 +1581,10 @@ class GwAsyncComboBox(QComboBox):
         self._loading = False
 
         # Single coalesced signal so child combo loaders / `get_values` /
-        # widgetfunctions can react to the final state.
+        # widgetfunctions can react to the final state. A popup refetch keeps
+        # the same id, so it must not emit or every child combo reloads.
+        if not notify:
+            return
         try:
             self.currentIndexChanged.emit(self.currentIndex())
         except Exception:
@@ -1530,6 +1593,35 @@ class GwAsyncComboBox(QComboBox):
 
     # region Popup with type-to-filter
     def showPopup(self):  # noqa: N802 - Qt API
+        # The session cache is for filling the form. The list the user opens
+        # always comes from Postgres, including rows inserted outside QGIS.
+        if self._open_when_token is not None:
+            return
+        if self._loading and self._task is not None:
+            self._open_when_token = self._token
+            return
+        if self._gw_combo_query:
+            self._keep_current_selection()
+            self.start_loading(self._gw_combo_query, use_cache=False, keep_rows=True)
+            if self._task is not None:
+                self._open_when_token = self._token
+                return
+        self._open_popup()
+
+    def _keep_current_selection(self) -> None:
+        idx = self.currentIndex()
+        if idx < 0:
+            return
+        data = self.itemData(idx)
+        if isinstance(data, (list, tuple)) and data:
+            value = data[0]
+        else:
+            value = data
+        if value in (None, ''):
+            return
+        self.set_pending_selection(value, 0, apply_if_loaded=False)
+
+    def _open_popup(self) -> None:
         self._popup_search._restore_hidden_rows()
         super().showPopup()
         self._popup_search.install_overlay()
@@ -1550,8 +1642,14 @@ class GwAsyncComboBox(QComboBox):
         if token != self._token:
             # Stale task result - ignore.
             return
+        open_after = self._open_when_token == token
         self._task = None
         if error:
+            self._open_when_token = None
+            if open_after:
+                # Refresh failed: keep the rows already on screen.
+                self._loading = False
+                return
             # Show a single, clearly disabled-looking row. We don't disable
             # the widget so the user can still type/retry via parent combo.
             self.blockSignals(True)
@@ -1566,7 +1664,22 @@ class GwAsyncComboBox(QComboBox):
             except Exception:
                 pass
             return
-        self.apply_rows(rows)
+        self.apply_rows(rows, notify=not open_after)
+        if open_after:
+            self._open_when_token = None
+            QTimer.singleShot(0, self._open_popup)
+
+    def _default_index(self) -> int:
+        """First row that is not the Conflict id -1. -1 if every row is."""
+        rows = self._list_model.get_rows()
+        for i, item in enumerate(rows):
+            try:
+                row_id = item[0]
+            except (IndexError, TypeError):
+                continue
+            if str(row_id) != '-1':
+                return i
+        return -1
 
     def _apply_pending_selection(self) -> None:
         if self._pending_selected_id is None:

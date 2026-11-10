@@ -436,9 +436,6 @@ BEGIN
 
 							raise notice 'first segment geometry: %', v_line1;
 
-							EXECUTE v_querytext USING v_line1;
-							RAISE NOTICE 'INSERT cm.PARENT_SCHEMA_% arc_id: % (first segment, orphan)', v_arc_type, v_new_arc_id1;
-
 							-- Insert into cm.om_campaign_x_arc (arc_id, campaign_id, node_1, node_2, the_geom)
 							INSERT INTO cm.om_campaign_x_arc (arc_id, campaign_id, node_1, node_2, the_geom, arccat_id, arc_type, status)
 							VALUES (v_new_arc_id1, v_campaign_id, rec_arc.node_1, v_node_id, v_line1, rec_arc_child.arccat_id, v_arc_type, rec_arc.status);
@@ -450,6 +447,9 @@ BEGIN
 							SELECT v_new_arc_id1, lot_id, rec_arc.node_1, v_node_id, status, 1
 							FROM cm.om_campaign_lot_x_arc WHERE arc_id = v_arc_id;
 							RAISE NOTICE 'INSERT cm.om_campaign_lot_x_arc arc_id: % (first segment), node_1: %, node_2: %', v_new_arc_id1, rec_arc.node_1, v_node_id;
+
+							EXECUTE v_querytext USING v_line1;
+							RAISE NOTICE 'INSERT cm.PARENT_SCHEMA_% arc_id: % (first segment, orphan)', v_arc_type, v_new_arc_id1;
 							
 							raise notice 'INSERTING INTO DOC_X_ARC: %', (select concat(string_agg(doc_id::text, ','), rec_arc_child.uuid) from cm.doc_x_arc WHERE arc_uuid = rec_arc_child.uuid);
 
@@ -489,9 +489,6 @@ BEGIN
 
 							raise notice 'second segment geometry: %', v_line2;
 
-							EXECUTE v_querytext USING v_line2;
-							RAISE NOTICE 'INSERT cm.PARENT_SCHEMA_% arc_id: % (second segment, orphan)', v_arc_type, v_new_arc_id2;
-
 							-- Insert into cm.om_campaign_x_arc (arc_id, campaign_id, node_1, node_2, the_geom)
 							INSERT INTO cm.om_campaign_x_arc (arc_id, campaign_id, node_1, node_2, the_geom, arccat_id, arc_type, status)
 							VALUES (v_new_arc_id2, v_campaign_id, v_node_id, rec_arc.node_2, v_line2, rec_arc_child.arccat_id, v_arc_type, rec_arc.status);
@@ -503,6 +500,9 @@ BEGIN
 							SELECT v_new_arc_id2, lot_id, v_node_id, rec_arc.node_2, status, 1
 							FROM cm.om_campaign_lot_x_arc WHERE arc_id = v_arc_id;
 							RAISE NOTICE 'INSERT cm.om_campaign_lot_x_arc arc_id: % (second segment), node_1: %, node_2: %', v_new_arc_id2, v_node_id, rec_arc.node_2;
+
+							EXECUTE v_querytext USING v_line2;
+							RAISE NOTICE 'INSERT cm.PARENT_SCHEMA_% arc_id: % (second segment, orphan)', v_arc_type, v_new_arc_id2;
 							
 							-- INSERT doc relation into new arc
 							INSERT INTO cm.doc_x_arc (doc_id, arc_id, arc_uuid, featurecat_id)
@@ -709,8 +709,6 @@ BEGIN
 
 							v_querytext := 'INSERT INTO cm.' || v_arc_child_table || ' (' || v_arc_insert_cols || ') SELECT ' || v_arc_select_cols ||
 								' FROM cm.' || v_arc_child_table || ' s WHERE s.arc_id = ' || v_arc_id;
-							EXECUTE v_querytext USING v_line1;
-							RAISE NOTICE 'INSERT cm.PARENT_SCHEMA_% arc_id: % (first segment, tcandidate)', v_arc_type, v_new_arc_id1;
 
 							-- Insert into cm.om_campaign_x_arc (arc_id, campaign_id, node_1, node_2, the_geom)
 							INSERT INTO cm.om_campaign_x_arc (arc_id, campaign_id, node_1, node_2, the_geom, arccat_id, arc_type, status)
@@ -723,6 +721,9 @@ BEGIN
 							SELECT v_new_arc_id1, lot_id, rec_arc.node_1, v_node_id, status, 1
 							FROM cm.om_campaign_lot_x_arc WHERE arc_id = v_arc_id;
 							RAISE NOTICE 'INSERT cm.om_campaign_lot_x_arc arc_id: % (first segment, tcandidate)', v_new_arc_id1;
+
+							EXECUTE v_querytext USING v_line1;
+							RAISE NOTICE 'INSERT cm.PARENT_SCHEMA_% arc_id: % (first segment, tcandidate)', v_arc_type, v_new_arc_id1;
 
 							-- INSERT doc relation into new arc
 							INSERT INTO cm.doc_x_arc (doc_id, arc_id, arc_uuid, featurecat_id)
@@ -754,8 +755,6 @@ BEGIN
 
 							v_querytext := 'INSERT INTO cm.' || v_arc_child_table || ' (' || v_arc_insert_cols || ') SELECT ' || v_arc_select_cols ||
 								' FROM cm.' || v_arc_child_table || ' s WHERE s.arc_id = ' || v_arc_id;
-							EXECUTE v_querytext USING v_line2;
-							RAISE NOTICE 'INSERT cm.PARENT_SCHEMA_% arc_id: % (second segment, tcandidate)', v_arc_type, v_new_arc_id2;
 
 							-- Insert into cm.om_campaign_x_arc (arc_id, campaign_id, node_1, node_2, the_geom)
 							INSERT INTO cm.om_campaign_x_arc (arc_id, campaign_id, node_1, node_2, the_geom, arccat_id, arc_type, status)
@@ -768,6 +767,9 @@ BEGIN
 							SELECT v_new_arc_id2, lot_id, v_node_id, rec_arc.node_2, status, 1
 							FROM cm.om_campaign_lot_x_arc WHERE arc_id = v_arc_id;
 							RAISE NOTICE 'INSERT cm.om_campaign_lot_x_arc arc_id: % (second segment, tcandidate)', v_new_arc_id2;
+
+							EXECUTE v_querytext USING v_line2;
+							RAISE NOTICE 'INSERT cm.PARENT_SCHEMA_% arc_id: % (second segment, tcandidate)', v_arc_type, v_new_arc_id2;
 
 							-- INSERT doc relation into new arc
 							INSERT INTO cm.doc_x_arc (doc_id, arc_id, arc_uuid, featurecat_id)

@@ -5,6 +5,7 @@ General Public License as published by the Free Software Foundation, either vers
 or (at your option) any later version.
 """
 # -*- coding: utf-8 -*-
+import hashlib
 import os
 import re
 import subprocess
@@ -403,11 +404,22 @@ class GwEpaFileManager(GwTask):
 
         self._close_file(file_inp)
 
-        # Save INP file into database
+        # Save INP file and its SHA-256 into the result catalog.
+        # inpSha256 matches Artifact API contentSha256 so a later cleanup can
+        # tell a classic overwrite apart from the stored Plus INP.
         with open(folder_path, "rb") as file_inp:
             file_binary = file_inp.read()
 
-        sql = f"UPDATE rpt_cat_result SET inp_file = {psycopg2.Binary(file_binary)} WHERE result_id = '{self.result_name}';"
+        inp_sha256 = hashlib.sha256(file_binary).hexdigest()
+        sql = (
+            "UPDATE rpt_cat_result SET "
+            f"inp_file = {psycopg2.Binary(file_binary)}, "
+            "addparam = (jsonb_set("
+            "COALESCE(addparam::jsonb, '{}'::jsonb), "
+            "'{inpSha256}', "
+            f"to_jsonb('{inp_sha256}'::text), true))::json "
+            f"WHERE result_id = '{self.result_name}';"
+        )
         tools_db.execute_sql(sql, log_sql=True, is_thread=True)
 
         networkmode = self.network_mode

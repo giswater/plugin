@@ -23,7 +23,7 @@ SELECT columns_are(
     ARRAY[
         'id', 'system_id', 'epa_default', 'isarcdivide', 'isprofilesurface', 'code_autofill',
         'choose_hemisphere', 'double_geom', 'num_arcs', 'isexitupperintro', 'shortcut_key', 'link_path',
-        'descript', 'active', 'abbreviation', 'custom_code_autofill'
+        'descript', 'active', 'abbreviation', 'custom_code_autofill', 'graph_delimiter'
     ],
     'View ve_cat_feature_node should have the correct columns'
 );
@@ -45,6 +45,7 @@ SELECT col_type_is('ve_cat_feature_node', 'descript', 'text', 'Column descript s
 SELECT col_type_is('ve_cat_feature_node', 'active', 'bool', 'Column active should be bool');
 SELECT col_type_is('ve_cat_feature_node', 'abbreviation', 'varchar(30)', 'Column abbreviation should be varchar(30)');
 SELECT col_type_is('ve_cat_feature_node', 'custom_code_autofill', 'bool', 'Column custom_code_autofill should be bool');
+SELECT col_type_is('ve_cat_feature_node', 'graph_delimiter', 'text[]', 'Column graph_delimiter should be text[]');
 
 SELECT * FROM finish();
 

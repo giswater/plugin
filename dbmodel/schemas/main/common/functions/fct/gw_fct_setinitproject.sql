@@ -144,17 +144,16 @@ BEGIN
 		IF (SELECT count(*) FROM selector_expl WHERE cur_user=current_user) < 1 THEN
 			IF EXISTS (SELECT 1 FROM exploitation WHERE active IS NOT FALSE AND expl_id > 0) THEN
 				EXECUTE format(
-					$$SELECT gw_fct_setselectors('{
-						"client":{
-							"cur_user":"', v_user, '"
-						},
-						"data":{
-							"selectorType":"selector_basic",
-							"tabName":"tab_exploitation",
-							"checkAll":"True",
-							"addSchema":"', v_add_schema, '"
-						}
-					}')$$
+					$sql$SELECT gw_fct_setselectors(%L)$sql$,
+					json_build_object(
+						'client', json_build_object('cur_user', v_user),
+						'data', json_build_object(
+							'selectorType', 'selector_basic',
+							'tabName', 'tab_exploitation',
+							'checkAll', 'True',
+							'addSchema', v_add_schema
+						)
+					)::text
 				);
 			END IF;
 			IF EXISTS (SELECT 1 FROM selector_expl WHERE cur_user=current_user) THEN

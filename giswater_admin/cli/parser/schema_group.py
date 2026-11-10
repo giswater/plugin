@@ -63,7 +63,7 @@ def register(sub: argparse._SubParsersAction, parent: argparse.ArgumentParser) -
         "--type",
         required=True,
         metavar="KIND",
-        help="Addon kind (any manifest under dbmodel/manifests/, e.g. utils, publi).",
+        help="Addon kind (any manifest under dbmodel/manifests/, e.g. utils, publi, cmms).",
     )
     sp_ac.add_argument("--name", default=None)
     sp_ac.add_argument(
@@ -71,6 +71,11 @@ def register(sub: argparse._SubParsersAction, parent: argparse.ArgumentParser) -
         default="empty",
         choices=["empty", "sample", "inventory"],
         help="empty|sample for am; ignored for most other addons.",
+    )
+    sp_ac.add_argument(
+        "--srid",
+        default=None,
+        help="EPSG for geometry columns. Default: unique ws/ud sys_version.epsg, else 25831.",
     )
     _add_schema_common(sp_ac)
     set_command_spec(sp_ac, _spec(schema_cmd.run_addon_create))
@@ -93,6 +98,11 @@ def register(sub: argparse._SubParsersAction, parent: argparse.ArgumentParser) -
         default="empty",
         choices=["empty", "sample", "inventory"],
         help="empty|sample for am integrate (sample seeds parent catalogs).",
+    )
+    sp_ai.add_argument(
+        "--srid",
+        default=None,
+        help="EPSG for geometry columns. Default: parent sys_version.epsg, else 25831.",
     )
     _add_schema_common(sp_ai)
     set_command_spec(sp_ai, _spec(schema_cmd.run_addon_integrate))

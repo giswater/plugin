@@ -46,7 +46,11 @@ BEGIN
 		SELECT replace(v_definition, 'JOIN '||v_oldschemaname||'.', 'JOIN '||v_newschemaname||'.') INTO v_definition;
 		
 		-- execute new definition
-		EXECUTE 'CREATE OR REPLACE VIEW '||v_newschemaname||'.'||v_viewname||' AS '||v_definition;
+		BEGIN
+			EXECUTE 'CREATE OR REPLACE VIEW '||v_newschemaname||'.'||v_viewname||' AS '||v_definition;
+		EXCEPTION WHEN insufficient_privilege THEN
+			RAISE NOTICE 'View %.% not replaced: %', v_newschemaname, v_viewname, SQLERRM;
+		END;
 
 	END LOOP;
 	

@@ -5,6 +5,7 @@ General Public License as published by the Free Software Foundation, either vers
 or (at your option) any later version.
 """
 # -*- coding: utf-8 -*-
+import hashlib
 import os
 import re
 import subprocess
@@ -265,6 +266,7 @@ class GwRecursiveEpa(GwTask):
             return False
 
         # Export inp
+        self.result_name = resultname
         status = self._export_inp(inpfilename, rptfilename)
 
         return status
@@ -358,6 +360,19 @@ class GwRecursiveEpa(GwTask):
                 file_inp.write(line)
 
         self._close_file(file_inp)
+
+        # Recursive runs do not store inp_file. Record the SHA-256 of the
+        # written INP so it can be compared with a Plus artifact later.
+        with open(folder_path, "rb") as written_inp:
+            inp_sha256 = hashlib.sha256(written_inp.read()).hexdigest()
+        sql = (
+            "UPDATE rpt_cat_result SET addparam = (jsonb_set("
+            "COALESCE(addparam::jsonb, '{}'::jsonb), "
+            "'{inpSha256}', "
+            f"to_jsonb('{inp_sha256}'::text), true))::json "
+            f"WHERE result_id = '{self.result_name}';"
+        )
+        tools_db.execute_sql(sql, log_sql=True, is_thread=True)
 
         networkmode = tools_gw.get_config_value('inp_options_networkmode')
         if global_vars.project_type == 'ud' and networkmode and networkmode[0] == "2":

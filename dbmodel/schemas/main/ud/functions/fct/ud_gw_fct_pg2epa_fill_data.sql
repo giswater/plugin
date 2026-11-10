@@ -28,7 +28,6 @@ select * from temp_t_arc
 DECLARE
 
 v_rainfall text;
-v_statetype text;
 v_networkmode integer;
 v_timeseries record;
 v_query_arc text;
@@ -62,7 +61,7 @@ BEGIN
 		a.state_type,
 		a.annotation,
 		COALESCE(a.custom_length, st_length2d(a.the_geom)) AS length,
-		COALESCE(ic.custom_n, cm.n) AS n,
+		COALESCE(ic.custom_n, cma.n, cm.n) AS n,
 		a.expl_id,
 		a.the_geom,
 		ic.q0,
@@ -83,9 +82,13 @@ BEGIN
 		LEFT JOIN node n1 ON n1.node_id = a.node_1
 		LEFT JOIN node n2 ON n2.node_id = a.node_2
 		JOIN vf_arc vf ON vf.arc_id = a.arc_id
-		LEFT JOIN value_state_type vst ON vst.id = a.state_type
-		LEFT JOIN cat_material cm ON a.matcat_id = cm.id
-		LEFT JOIN inp_conduit ic ON a.arc_id = ic.arc_id;
+		JOIN cat_arc ca ON a.arccat_id = ca.id
+		JOIN value_state_type vst ON vst.id = a.state_type
+		LEFT JOIN cat_material cm ON ca.matcat_id = cm.id
+		LEFT JOIN cat_material cma ON a.matcat_id = cma.id
+		LEFT JOIN inp_conduit ic ON a.arc_id = ic.arc_id
+	WHERE vst.is_operative = TRUE
+	AND a.epa_type <> 'UNDEFINED';
 
 	-- Insert on node temp_t_node table
 	-- the strategy of selector_sector is not used for nodes. The reason is to enable the posibility to export the sector=-1. In addition using this it's impossible to export orphan nodes
@@ -143,7 +146,7 @@ BEGIN
 	FROM inp_storage WHERE temp_t_node.node_id=inp_storage.node_id::text;
 
 	-- update child param for outfall
-	UPDATE temp_t_node SET addparam=concat('{"outfall_type":"',outfall_type,'", "state":"',state,'", "curve_id":"',curve_id,'", "timser_id":"',timser_id,'", "gate":"',gate,'"}')
+	UPDATE temp_t_node SET addparam=concat('{"outfall_type":"',outfall_type,'", "stage":"',stage,'", "curve_id":"',curve_id,'", "timser_id":"',timser_id,'", "gate":"',gate,'"}')
 	FROM inp_outfall WHERE temp_t_node.node_id=inp_outfall.node_id::text;
 
 	-- update child param for outfall from node sink

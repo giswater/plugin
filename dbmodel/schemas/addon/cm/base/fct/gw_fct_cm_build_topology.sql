@@ -135,22 +135,29 @@ BEGIN
 
 
 
-	if v_exists then -- Start process
+	IF v_exists THEN -- Start process
 			
-		
-		FOREACH rec_table IN ARRAY ARRAY['cm.om_campaign_lot_x_arc', 'cm.PARENT_SCHEMA_pipe', 'cm.om_campaign_x_arc']
+		FOREACH rec_table IN ARRAY ARRAY['cm.om_campaign_lot_x_arc', 'cm.PARENT_SCHEMA_pipe']
 		LOOP
-		
-		raise notice '%', rec_table;
+			RAISE NOTICE '%', rec_table;
 
-		execute '
-		update '||rec_table||' t
-		set node_1 = a.node_1, node_2 = a.node_2 from ('||v_sql_topology||')a
-		where t.arc_id = a.arc_id';
+			EXECUTE format('
+			UPDATE %s t
+			SET node_1 = a.node_1, node_2 = a.node_2 FROM (%s) a
+			WHERE t.arc_id = a.arc_id AND t.lot_id IN (%s)',
+			rec_table, v_sql_topology, array_to_string(v_lot_id_array, ','));
+		END LOOP;
 
-		end loop;
+		-- om_campaign_x_arc is keyed by campaign, not lot
+		EXECUTE format('
+		UPDATE cm.om_campaign_x_arc t
+		SET node_1 = a.node_1, node_2 = a.node_2 FROM (%s) a
+		WHERE t.arc_id = a.arc_id AND t.campaign_id IN (
+			SELECT campaign_id FROM cm.om_campaign_lot WHERE lot_id IN (%s)
+		)',
+		v_sql_topology, array_to_string(v_lot_id_array, ','));
 
-	end if;
+	END IF;
 
 
 	execute 'select count(*) from ('||v_sql_arcs||')' into v_count;

@@ -21,8 +21,8 @@ SELECT has_table('om_scada_graph'::name, 'Table om_scada_graph should exist');
 SELECT columns_are(
     'om_scada_graph',
     ARRAY[
-        'node_1', 'node_2', 'group_id', 'node_type_1', 'node_type_2',
-        'expl_id', 'attrib', 'active', 'the_geom'
+        'node_1', 'node_2', 'synoptic_id', 'node_type_1', 'node_type_2',
+        'expl_id', 'attrib', 'synoptic_geom', 'active', 'the_geom'
     ],
     'Table om_scada_graph should have the correct columns'
 );
@@ -34,17 +34,19 @@ SELECT col_is_pk('om_scada_graph', ARRAY['node_1', 'node_2'], 'Primary key shoul
 -- Check column types
 SELECT col_type_is('om_scada_graph', 'node_1', 'int4', 'Column node_1 should be int4');
 SELECT col_type_is('om_scada_graph', 'node_2', 'int4', 'Column node_2 should be int4');
-SELECT col_type_is('om_scada_graph', 'group_id', 'int4', 'Column group_id should be int4');
+SELECT col_type_is('om_scada_graph', 'synoptic_id', 'int4', 'Column synoptic_id should be int4');
 SELECT col_type_is('om_scada_graph', 'node_type_1', 'text', 'Column node_type_1 should be text');
 SELECT col_type_is('om_scada_graph', 'node_type_2', 'text', 'Column node_type_2 should be text');
 SELECT col_type_is('om_scada_graph', 'expl_id', 'int4[]', 'Column expl_id should be int4[]');
 SELECT col_type_is('om_scada_graph', 'attrib', 'text', 'Column attrib should be text');
+SELECT col_type_is('om_scada_graph', 'synoptic_geom', 'geometry(linestring, 0)', 'Column synoptic_geom should be geometry(linestring, 0)');
 SELECT col_type_is('om_scada_graph', 'active', 'bool', 'Column active should be bool');
 SELECT col_type_is('om_scada_graph', 'the_geom', 'geometry(multilinestring, SRID_VALUE)', 'Column the_geom should be geometry(multilinestring, SRID_VALUE)');
 
 -- Check indexes
 SELECT has_index('om_scada_graph', 'om_scada_graph_node_1_idx', ARRAY['node_1'], 'Index on node_1');
 SELECT has_index('om_scada_graph', 'om_scada_graph_node_2_idx', ARRAY['node_2'], 'Index on node_2');
+SELECT has_index('om_scada_graph', 'om_scada_graph_synoptic_id_idx', ARRAY['synoptic_id'], 'Index on synoptic_id');
 
 -- Check triggers
 SELECT has_trigger('om_scada_graph', 'gw_trg_scada_graph_builder_before', 'Trigger gw_trg_scada_graph_builder_before exists');

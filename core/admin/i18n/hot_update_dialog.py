@@ -400,14 +400,14 @@ class GwAdminI18NHotUpdate:
 
         # Display name for the schema's default language (locales.sqlite).
         default_language = self._select_language_from_table(schema_name)
-        status, cursor = tools_gw.create_sqlite_conn("locales")
-        if status and cursor is not None and default_language:
-            cursor.execute(
-                "SELECT name FROM locales WHERE locale = ?",
-                (default_language,),
-            )
-            row = cursor.fetchone()
-            default_language = str(row[0]) if row and row[0] else default_language
+        with tools_gw.sqlite_conn("locales") as (status, cursor):
+            if status and cursor is not None and default_language:
+                cursor.execute(
+                    "SELECT name FROM locales WHERE locale = ?",
+                    (default_language,),
+                )
+                row = cursor.fetchone()
+                default_language = str(row[0]) if row and row[0] else default_language
 
         schema_value = schema_name.replace("'", "''")
         pg_cursor = tools_db.dao.get_cursor()

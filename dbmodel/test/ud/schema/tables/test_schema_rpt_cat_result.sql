@@ -45,7 +45,7 @@ SELECT col_type_is('rpt_cat_result', 'descript', 'text', 'Column descript should
 SELECT col_type_is('rpt_cat_result', 'iscorporate', 'bool', 'Column iscorporate should be bool');
 SELECT col_type_is('rpt_cat_result', 'inp_file', 'bytea', 'Column inp_file should be bytea');
 SELECT col_type_is('rpt_cat_result', 'is_twin', 'bool', 'Column is_twin should be bool');
-SELECT col_type_is('rpt_cat_result', 'parent_id', 'varchar(16)', 'Column parent_id should be varchar(16)');
+SELECT col_type_is('rpt_cat_result', 'parent_id', 'varchar(50)', 'Column parent_id should be varchar(50)');
 SELECT col_type_is('rpt_cat_result', 'isvalidated', 'bool', 'Column isvalidated should be bool');
 -- Finish
 SELECT * FROM finish();
