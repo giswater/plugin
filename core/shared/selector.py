@@ -245,9 +245,10 @@ class GwSelector:
                     if tools_qt.get_widget(dialog, chk_filter_name) is None:
                         chk_filter = QCheckBox()
                         chk_filter.setObjectName(chk_filter_name)
-                        chk_filter.setText(tools_qt.tr('chk_filter', 'selector', default='Custom order by'))
                     else:
                         chk_filter = tools_qt.get_widget(dialog, chk_filter_name)
+                    msg = "Custom order by"
+                    chk_filter.setText(tools_qt.tr(msg))
                     sql = ("SELECT COALESCE((value::jsonb #>> ARRAY[%s,'is_checked'])::boolean, false) "
                            "FROM config_param_user "
                            "WHERE parameter = 'custom_order_by' "
