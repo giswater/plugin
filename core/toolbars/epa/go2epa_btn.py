@@ -335,6 +335,9 @@ class GwGo2EpaButton(GwAction):
         self.dlg_go2epa.txt_result_name.setMaxLength(50)
         self.result_name = tools_gw.get_config_parser('btn_go2epa', 'go2epa_RESULT_NAME', "user", "session")
         self.dlg_go2epa.txt_result_name.setText(self.result_name)
+        self.result_descript = tools_gw.get_config_parser('btn_go2epa', 'go2epa_DESCRIPT', "user", "session")
+        if self.result_descript:
+            self.dlg_go2epa.txt_descript.setText(self.result_descript)
         self.file_inp = tools_gw.get_config_parser('btn_go2epa', 'go2epa_FILE_INP', "user", "session")
         self.dlg_go2epa.txt_file_inp.setText(self.file_inp)
         self.file_rpt = tools_gw.get_config_parser('btn_go2epa', 'go2epa_FILE_RPT', "user", "session")
@@ -354,6 +357,8 @@ class GwGo2EpaButton(GwAction):
 
         txt_result_name = f"{tools_qt.get_text(self.dlg_go2epa, 'txt_result_name', return_string_null=False)}"
         tools_gw.set_config_parser('btn_go2epa', 'go2epa_RESULT_NAME', f"{txt_result_name}")
+        txt_descript = f"{tools_qt.get_text(self.dlg_go2epa, 'txt_descript', return_string_null=False)}"
+        tools_gw.set_config_parser('btn_go2epa', 'go2epa_DESCRIPT', f"{txt_descript}")
         txt_file_inp = f"{tools_qt.get_text(self.dlg_go2epa, 'txt_file_inp', return_string_null=False)}"
         tools_gw.set_config_parser('btn_go2epa', 'go2epa_FILE_INP', f"{txt_file_inp}")
         txt_file_rpt = f"{tools_qt.get_text(self.dlg_go2epa, 'txt_file_rpt', return_string_null=False)}"
@@ -477,6 +482,9 @@ class GwGo2EpaButton(GwAction):
 
         # Get widgets values
         self.result_name = tools_qt.get_text(self.dlg_go2epa, self.dlg_go2epa.txt_result_name, False, False)
+        self.result_descript = tools_qt.get_text(self.dlg_go2epa, self.dlg_go2epa.txt_descript, False, False)
+        if self.result_descript in (None, 'null'):
+            self.result_descript = ''
         self.export_inp = tools_qt.is_checked(self.dlg_go2epa, self.dlg_go2epa.chk_export)
         self.export_subcatch = tools_qt.is_checked(self.dlg_go2epa, self.dlg_go2epa.chk_export_subcatch)
         self.file_inp = tools_qt.get_text(self.dlg_go2epa, self.dlg_go2epa.txt_file_inp)

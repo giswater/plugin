@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Go2EPA dialog can set the result description (`rpt_cat_result.descript`) at creation time.
 - CMMS satellite integrated with each ws/ud parent. The feature info form gets `tab_cmms` (visits and attachments, linked by `sys_code`). Unlinking or dropping CMMS removes the tab and the views and keeps the cmms data.
 - Go2EPA stores the SHA-256 of the exported INP in `rpt_cat_result.addparam` (`inpSha256`), including recursive EPA runs. Existing `addparam` keys are kept.
 - EPA Result Manager warns before deleting a result that other results use as `parent_id`. Schema adds `rpt_cat_result.parent_id` → `result_id` (`ON DELETE SET NULL`); the plugin no longer clears `parent_id` itself.

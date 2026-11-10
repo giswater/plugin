@@ -63,6 +63,7 @@ class GwEpaFileManager(GwTask):
 
         self.dlg_go2epa = getattr(self.go2epa, 'dlg_go2epa', None)
         self.result_name = getattr(self.go2epa, 'result_name', None)
+        self.result_descript = getattr(self.go2epa, 'result_descript', None)
         self.file_inp = getattr(self.go2epa, 'file_inp', None)
         self.file_rpt = getattr(self.go2epa, 'file_rpt', None)
         self.go2epa_export_inp = getattr(self.go2epa, 'export_inp', None)
@@ -316,6 +317,8 @@ class GwEpaFileManager(GwTask):
         self._set_progress(self.PG2EPA_START, self.PG2EPA_END, 0)
 
         extras = f'"resultId":"{self.result_name}"'
+        if self.result_descript:
+            extras += f', "descript":{json.dumps(self.result_descript)}'
         if global_vars.project_type == 'ud':
             extras += f', "dumpSubcatch":"{self.export_subcatch}"'
 

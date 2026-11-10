@@ -15,7 +15,7 @@ RETURNS json AS
 $BODY$
 
 /*EXAMPLE
-SELECT SCHEMA_NAME.gw_fct_pg2epa_main($${"client":{"device":4, "infoType":1, "lang":"ES", "epsg":SRID_VALUE}, "data":{"resultId":"test1", "step":"1"}}$$); -- PRE-PROCESS
+SELECT SCHEMA_NAME.gw_fct_pg2epa_main($${"client":{"device":4, "infoType":1, "lang":"ES", "epsg":SRID_VALUE}, "data":{"resultId":"test1", "descript":"optional description", "step":"1"}}$$); -- PRE-PROCESS
 SELECT SCHEMA_NAME.gw_fct_pg2epa_main($${"client":{"device":4, "infoType":1, "lang":"ES", "epsg":SRID_VALUE}, "data":{"resultId":"test1", "step":"2"}}$$); -- AUTOREPAIR
 SELECT SCHEMA_NAME.gw_fct_pg2epa_main($${"client":{"device":4, "infoType":1, "lang":"ES", "epsg":SRID_VALUE}, "data":{"resultId":"test1", "step":"3"}}$$); -- CHECK DATA
 SELECT SCHEMA_NAME.gw_fct_pg2epa_main($${"client":{"device":4, "infoType":1, "lang":"ES", "epsg":SRID_VALUE}, "data":{"resultId":"test1", "step":"4"}}$$); -- STRUCTURE DATA
@@ -70,6 +70,7 @@ v_flow_units text;
 v_quality_units text;
 v_userscenario integer[];
 v_client_epsg integer;
+v_descript text;
 
 BEGIN
 
@@ -78,6 +79,7 @@ BEGIN
 
 	-- get input data
 	v_result = (p_data->>'data')::json->>'resultId';
+	v_descript = NULLIF((p_data->>'data')::json->>'descript', '');
 	v_step = (p_data->>'data')::json->>'step';  -- use network previously defined
 	v_input = concat('{"data":{"parameters":{"isEmbebed":true, "verifiedExceptions":true, "resultId":"',v_result,'", "fid":227}}}')::json;
 
@@ -156,8 +158,8 @@ BEGIN
 			JOIN sys_param_user a ON a.id=parameter	WHERE cur_user=current_user AND formname='epaoptions')t);
 
 		DELETE FROM rpt_cat_result WHERE result_id=v_result;
-		INSERT INTO rpt_cat_result (result_id, inp_options, status, expl_id, sector_id, network_type, dma_id, flow_units, quality_units)
-			VALUES (v_result, v_inpoptions, 1, v_expl_id, v_sector_id, v_network_type, v_dma_id, v_flow_units, v_quality_units);
+		INSERT INTO rpt_cat_result (result_id, descript, inp_options, status, expl_id, sector_id, network_type, dma_id, flow_units, quality_units)
+			VALUES (v_result, v_descript, v_inpoptions, 1, v_expl_id, v_sector_id, v_network_type, v_dma_id, v_flow_units, v_quality_units);
 		DELETE FROM rpt_inp_pattern_value WHERE result_id=v_result;
 		DELETE FROM selector_inp_result WHERE cur_user=current_user;
 		INSERT INTO selector_inp_result (result_id, cur_user) VALUES (v_result, current_user);
