@@ -332,7 +332,7 @@ class GwGo2EpaButton(GwAction):
     def _load_user_values(self):
         """ Load QGIS settings related with file_manager """
 
-        self.dlg_go2epa.txt_result_name.setMaxLength(16)
+        self.dlg_go2epa.txt_result_name.setMaxLength(50)
         self.result_name = tools_gw.get_config_parser('btn_go2epa', 'go2epa_RESULT_NAME', "user", "session")
         self.dlg_go2epa.txt_result_name.setText(self.result_name)
         self.file_inp = tools_gw.get_config_parser('btn_go2epa', 'go2epa_FILE_INP', "user", "session")
