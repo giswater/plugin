@@ -2775,6 +2775,10 @@ This operation cannot be undone.
 			<translation>Filter</translation>
 		</message>
 		<message>
+			<source>Filter:</source>
+			<translation>Filter:</translation>
+		</message>
+		<message>
 			<source>Filter by code</source>
 			<translation>Filter by code</translation>
 		</message>
