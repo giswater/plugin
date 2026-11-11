@@ -9,7 +9,7 @@ BEGIN;
 SET client_min_messages TO WARNING;
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(7);
+SELECT plan(8);
 
 SELECT has_function(
 	'gw_fct_set_expl_from_parent'::name,
