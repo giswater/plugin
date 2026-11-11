@@ -55,9 +55,9 @@ SELECT is(
 );
 
 -- DATE_INTERVAL must log the date range, not the PERIOD combo value (#989)
-SELECT like(
-    (SELECT log FROM cat_dscenario WHERE name = 'dscenario3'),
-    '%"Source CRM Date Interval":"01/01/2002-12/12/2025"%',
+SELECT ok(
+    (SELECT log FROM cat_dscenario WHERE name = 'dscenario3')
+        LIKE '%"Source CRM Date Interval":"01/01/2002-12/12/2025"%',
     'DATE_INTERVAL stores Source CRM Date Interval in cat_dscenario.log'
 );
 
