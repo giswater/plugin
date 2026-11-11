@@ -1,0 +1,1 @@
+- `gw_fct_getfeatures` applies `OFFSET (page - 1) * limit` from `pageInfo.page`. `lastPage` is `ceil(count / limit)`, the last 1-based page.
