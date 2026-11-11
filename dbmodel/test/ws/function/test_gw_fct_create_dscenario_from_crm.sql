@@ -67,7 +67,7 @@ SELECT ok(
         WHERE cur_user = current_user AND fid = 403
         AND error_message ILIKE '%Copy from CRM date interval: 01/01/2002-12/12/2025%'
     ),
-    'DATE_INTERVAL Info Log uses message 4754 with the selected dates'
+    'DATE_INTERVAL Info Log uses message 4760 with the selected dates'
 );
 
 -- Finish the test

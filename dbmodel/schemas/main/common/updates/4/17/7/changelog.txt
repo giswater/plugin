@@ -6,4 +6,4 @@
 - go2epa Close button (`btn_close`) gets `widgetfunction` `closeDlg` so web and other dynamic clients can close the dialog.
 - Hide `ve_element` from Add Layers and generated projects. `ve_man_genelem` and `ve_man_frelem` load in its place, unchecked, under INVENTORY / NETWORK / ELEMENT.
 - EPA Result Manager web list (`epa_results`, device 5): add `isvalidated` to `query_text`, register it in `config_form_tableview` (`epamanager_form`), and add `btn_toggle_validated` (`toggleValidated`) next to corporate in the top toolbar.
-- Add `sys_message` 4754 (`Copy from CRM date interval: %v_crm_name%`) for Demand Dscenario from CRM when time method is DATE_INTERVAL (#989).
+- Add `sys_message` 4760 (`Copy from CRM date interval: %v_crm_name%`) for Demand Dscenario from CRM when time method is DATE_INTERVAL (#989).
