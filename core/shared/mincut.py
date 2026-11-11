@@ -22,7 +22,7 @@ from qgis.gui import QgsMapToolEmitPoint
 
 from .mincut_tools import GwMincutTools
 from ..threads.auto_mincut_execute import GwAutoMincutTask
-from ..utils import tools_gw
+from ..utils import tools_audit, tools_gw
 from ..utils.snap_manager import GwSnapManager
 from ..utils.selection_mode import GwSelectionMode
 from ..ui.ui_manager import GwMincutComposerUi, GwMincutConnecUi, GwMincutEndUi, GwMincutHydrometerUi
@@ -344,6 +344,9 @@ class GwMincut:
 
     def init_mincut_form(self):
         """ Custom form initial configuration """
+
+        # One place for button 11 and for opening a mincut from the manager.
+        tools_audit.trace('mincut')
 
         # Drop temporary tables when form is initialized
         extras = '"action":"DROP", "fct_name":"MINCUT"'
@@ -1292,9 +1295,12 @@ class GwMincut:
                 msg = "Function error: gw_fct_setmincut"
                 tools_log.log_warning(msg)
                 tools_log.log_warning(sql)
+                tools_audit.after_call('gw_fct_setmincut', body, {'status': 'Failed'}, None, False)
                 return None
 
             json_result = row[0]
+            # Audit connection, not mincut_aux_conn. The except below falls back and records once.
+            tools_audit.after_call('gw_fct_setmincut', body, json_result, None, False)
 
             # Log SQL if enabled
             if tools_gw.get_config_parser('log', 'log_sql', "user", "init", False) == "True":

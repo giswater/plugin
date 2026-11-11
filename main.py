@@ -17,7 +17,7 @@ from qgis.PyQt.QtWidgets import QAction, QDockWidget, QToolBar, QToolButton, QAp
 from . import global_vars
 from .core.admin.admin_btn import GwAdminButton
 from .core.load_project import GwLoadProject
-from .core.utils import tools_gw
+from .core.utils import tools_audit, tools_gw
 from .core.utils.user_config_import import import_previous_init
 from .core.utils.signal_manager import GwSignalManager
 from .libs import lib_vars, tools_qgis, tools_os, tools_log, tools_db
@@ -58,6 +58,12 @@ class Giswater(QObject):
                                 is False when you want to show the admin button.
                                 is None when called from QGIS.
         """
+        try:
+            tools_audit.reset()
+        except Exception as e:
+            msg = "Exception in unload when reset activity trace"
+            tools_log.log_info(msg, parameter=str(e))
+
         try:
             # Reset values for lib_vars.project_vars
             lib_vars.project_vars['info_type'] = None

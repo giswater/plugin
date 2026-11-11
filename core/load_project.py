@@ -16,7 +16,7 @@ from qgis.PyQt.sip import isdeleted
 
 from .models.plugin_toolbar import GwPluginToolbar
 from .toolbars import buttons
-from .utils import tools_gw
+from .utils import tools_audit, tools_gw
 from .threads.project_layers_config import GwProjectLayersConfig
 from .threads.project_check import GwProjectCheckTask
 from .threads.combo_loader import clear_combo_query_cache, install_combo_cache_invalidation
@@ -73,6 +73,7 @@ class GwLoadProject(QObject):
         schema_name = layer_source['schema']
         if schema_name:
             lib_vars.schema_name = schema_name.replace('"', '')
+        tools_audit.reset()
 
         # Set PostgreSQL parameter 'search_path'
         tools_db.set_search_path(layer_source['schema'])
@@ -205,6 +206,7 @@ class GwLoadProject(QObject):
 
         # Apply campaign form configuration
         self._apply_campaign_form_config()
+        tools_audit.trace('project')
 
     # region private functions
 

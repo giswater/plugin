@@ -22,7 +22,7 @@ from qgis.gui import QgsMapToolEmitPoint
 from ..toolbox_btn import GwToolBoxButton
 from ....ui.ui_manager import GwMapzoneManagerUi, GwMapzoneConfigUi, GwInfoGenericUi
 from ....utils.snap_manager import GwSnapManager
-from ....utils import tools_gw
+from ....utils import tools_audit, tools_gw
 from ..... import global_vars
 from .....libs import lib_vars, tools_qgis, tools_qt, tools_db, tools_os
 
@@ -96,6 +96,7 @@ class GwMapzoneManager:
         self._manage_current_changed()
         self.mapzone_mng_dlg.main_tab.currentChanged.connect(partial(self._filter_active, self.mapzone_mng_dlg, None))
 
+        tools_audit.trace('mapzone')
         tools_gw.open_dialog(self.mapzone_mng_dlg, 'mapzone_manager')
 
     def _setup_dynamic_dialog(self):

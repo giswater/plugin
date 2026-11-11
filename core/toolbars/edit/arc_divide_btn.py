@@ -14,7 +14,7 @@ from qgis.gui import QgsVertexMarker
 
 from ..maptool import GwMaptool
 from ...ui.ui_manager import GwDialogShowInfoUi, GwPsectorUi
-from ...utils import tools_gw
+from ...utils import tools_audit, tools_gw
 from ....libs import lib_vars, tools_qt, tools_qgis, tools_db, tools_os
 
 
@@ -51,6 +51,7 @@ class GwArcDivideButton(GwMaptool):
     def activate(self):
         """ Called when set as currently active map tool """
 
+        tools_audit.trace('arc_divide')
         # Check action. It works if is selected from toolbar. Not working if is selected from menu or shortcut keys
         if hasattr(self.action, "setChecked"):
             self.action.setChecked(True)

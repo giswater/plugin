@@ -21,7 +21,7 @@ from ..dialog import GwAction
 from ..utilities.toolbox_btn import GwToolBoxButton
 from ...shared.nonvisual import GwNonVisual
 from ...ui.ui_manager import GwDscenarioManagerUi, GwDscenarioUi, GwInfoGenericUi
-from ...utils import tools_gw
+from ...utils import tools_audit, tools_gw
 from ...models.item_delegates import ReadOnlyDelegate, EditableDelegate
 from .... import global_vars
 from ....libs import lib_vars, tools_qgis, tools_qt, tools_db, tools_os
@@ -316,6 +316,7 @@ class GwDscenarioManagerButton(GwAction):
         self.dlg_dscenario_manager.finished.connect(partial(self.save_user_values))
 
         # Open dialog
+        tools_audit.trace('dscenario')
         tools_gw.open_dialog(self.dlg_dscenario_manager, 'dscenario_manager')
         self.dlg_dscenario_manager.setWindowTitle(tools_qt.tr('Dscenario manager'))
 

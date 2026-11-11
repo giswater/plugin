@@ -28,7 +28,7 @@ from .document import GwDocument, global_vars
 from ..toolbars.utilities.toolbox_btn import GwToolBoxButton
 from ..shared.psector_duplicate import GwPsectorDuplicate
 from ..ui.ui_manager import GwPsectorUi, GwPsectorRapportUi, GwPsectorManagerUi, GwPsectorRepairUi
-from ..utils import tools_gw
+from ..utils import tools_audit, tools_gw
 from ...libs import lib_vars, tools_db, tools_qgis, tools_qt, tools_log, tools_os
 from ...global_vars import GwFeatureTypes
 from ..utils.selection_mode import GwSelectionMode
@@ -402,6 +402,7 @@ class GwPsector:
 
         # Open dialog
         # Context is the ui stem (psector.ui -> "psector"), not the dialog object name
+        tools_audit.trace('psector')
         tools_gw.open_dialog(self.dlg_plan_psector, dlg_name='psector')
 
     def load_psector(self, dialog, psector_id, list_coord=None, form_opened=False):

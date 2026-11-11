@@ -50,6 +50,7 @@ from ..ui.dialog import GwDialog
 from ..ui.main_window import GwMainWindow
 from ..ui.docker import GwDocker
 from ..ui.ui_manager import GwSelectorUi, GwPsectorManagerUi
+from . import tools_audit
 from . import tools_backend_calls
 from .async_combo import GwAsyncComboBox, attach_combo_popup_search
 from ..threads.combo_loader import clear_combo_query_cache, procedure_changes_combo_sources
@@ -5122,6 +5123,9 @@ def execute_procedure(function_name, parameters=None, schema_name=None, commit=T
     :return: Response of the function executed (json)
     """
 
+    # Snapshot before create_body / epa2data rewrite the caller's dict.
+    activity_body = tools_audit.snapshot(function_name, parameters)
+
     if aux_conn is None and not is_thread:
         check_db_connection()
 
@@ -5156,11 +5160,14 @@ def execute_procedure(function_name, parameters=None, schema_name=None, commit=T
 
     # Execute database function
     row = tools_db.get_row(sql, commit=commit, log_sql=log_sql, aux_conn=aux_conn, is_thread=is_thread)
+    # dao.last_error, not session_vars: other threads overwrite that dict.
+    activity_db_error = tools_db.dao.last_error if tools_db.dao is not None else None
     if not row or not row[0]:
         msg = "Function error: {0}"
         msg_params = (function_name,)
         tools_log.log_warning(msg, msg_params=msg_params)
         tools_log.log_warning(sql)
+        tools_audit.after_call(function_name, activity_body, None, activity_db_error, is_thread)
         return None
 
     # Get json result
@@ -5171,11 +5178,13 @@ def execute_procedure(function_name, parameters=None, schema_name=None, commit=T
 
     # All functions called from python should return 'status', if not, something has probably failed in postrgres
     if 'status' not in json_result:
+        tools_audit.after_call(function_name, activity_body, json_result, activity_db_error, is_thread)
         manage_json_exception(json_result, sql, is_thread=is_thread)
         return False
 
     # If failed, manage exception
     if json_result.get('status') == 'Failed':
+        tools_audit.after_call(function_name, activity_body, json_result, activity_db_error, is_thread)
         if show_exception:
             manage_json_exception(json_result, sql, is_thread=is_thread)
         else:
@@ -5184,6 +5193,8 @@ def execute_procedure(function_name, parameters=None, schema_name=None, commit=T
                 failed_msg = failed_msg.get('text')
             tools_log.log_warning(failed_msg)
         return json_result
+
+    tools_audit.after_call(function_name, activity_body, json_result, None, is_thread)
 
     try:
         if json_result["body"]["feature"]["geometry"] and lib_vars.data_epsg != lib_vars.project_epsg:

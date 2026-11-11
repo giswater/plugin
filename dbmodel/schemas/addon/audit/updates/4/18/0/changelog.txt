@@ -1,0 +1,1 @@
+- Activity trace in the audit schema: `activity` (48 h), `error` (7 days) and a user-day rollup `activity_user` that is not purged (#987).

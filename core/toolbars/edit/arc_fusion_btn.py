@@ -12,7 +12,7 @@ from qgis.PyQt.QtCore import Qt, QDate
 
 from ..maptool import GwMaptool
 from ...ui.ui_manager import GwArcFusionUi, GwPsectorUi
-from ...utils import tools_gw
+from ...utils import tools_audit, tools_gw
 from ....libs import tools_qt, tools_db, tools_qgis, tools_os
 
 
@@ -29,6 +29,7 @@ class GwArcFusionButton(GwMaptool):
 
     def activate(self):
 
+        tools_audit.trace('arc_fusion')
         # Check button
         if hasattr(self.action, "setChecked"):
             self.action.setChecked(True)
