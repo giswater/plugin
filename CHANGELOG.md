@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.7] - 2026-11-11
+
 ### Added
 
 - Go2EPA stores the SHA-256 of the exported INP in `rpt_cat_result.addparam` (`inpSha256`), including recursive EPA runs. Existing `addparam` keys are kept.
@@ -732,7 +734,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.17.6...release/4.17
+[unreleased]: https://github.com/giswater/plugin/compare/v4.17.7...release/4.17
+[4.17.7]: https://github.com/giswater/plugin/compare/v4.17.6...v4.17.7
 [4.17.6]: https://github.com/giswater/plugin/compare/v4.17.5...v4.17.6
 [4.17.5]: https://github.com/giswater/plugin/compare/v4.17.4...v4.17.5
 [4.17.4]: https://github.com/giswater/plugin/compare/v4.17.3...v4.17.4
