@@ -1,3 +1,5 @@
+- `gw_fct_getfeatures` applies `OFFSET (page - 1) * limit` from `pageInfo.page`. `lastPage` is `ceil(count / limit)`, the last 1-based page.
+
 - Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` for mapzone synoptic layout (#965).
 - Add system parameter `edit_element_geom_from_feature` (default false). When true, the first link of an element with no geometry copies a point from the associated feature: the feature point for a node, connec or gully, and the midpoint of the line for an arc or link. Flow regulators (FRELEM) are excluded.
 - Translate the new-feature dialog header word via `sys_label` 4005. The default `admin_formheader_field` `newText` stays `NEW`; any other value still overrides the label.
