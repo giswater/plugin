@@ -11,7 +11,7 @@ from functools import partial
 
 from qgis.PyQt.QtWidgets import QLineEdit
 from qgis.PyQt.sip import isdeleted
-from qgis.core import QgsExpression, QgsFeatureRequest
+from qgis.core import QgsExpression, QgsFeatureRequest, QgsPointLocator, QgsProject, QgsTolerance
 from qgis.gui import QgsMapToolEmitPoint
 
 from ..ui.ui_manager import GwScadaGraphUi
@@ -41,6 +41,7 @@ class GwScadaGraph:
         self._pick_target = None
         self._node_widgets = {}
         self._graph_layer = None
+        self._node_locator = None
 
     def run(self):
         """ Open scada graph dialog """
@@ -244,15 +245,18 @@ class GwScadaGraph:
         tools_qgis.show_info(msg, parameter=f"{node_1}-{node_2}", dialog=dialog)
 
     def activate_snapping(self, target, dialog):
-        if self.layer_node is None:
+        self.layer_node = tools_qgis.get_layer_by_tablename('ve_node', show_warning_=False)
+        if self.layer_node is None or isdeleted(self.layer_node) or not self.layer_node.isValid():
             msg = "Node layer not found in the project."
             tools_qgis.show_warning(msg)
             return
         self._disconnect_snapping()
         self._pick_target = target
+        self._node_locator = None
         self.snapper_manager.set_vertex_marker(self.vertex_marker, icon_type=4)
         self.emit_point = QgsMapToolEmitPoint(self.canvas)
         self.canvas.setMapTool(self.emit_point)
+        tools_qgis.set_layer_visible(self.layer_node)
         self.iface.setActiveLayer(self.layer_node)
         tools_gw.connect_signal(self.canvas.xyCoordinates, self._mouse_move,
                                 _SIGNAL_GROUP, 'xyCoordinates_mouse_move')
@@ -260,30 +264,61 @@ class GwScadaGraph:
                                 _SIGNAL_GROUP, 'canvasClicked_snapping_node')
         self.emit_point.canvasReleaseEvent = lambda e: self.iface.actionPan().trigger()
 
+    def _node_snap_tolerance(self):
+        """Project snap tolerance in map units. 15 px when snapping is off or zero."""
+
+        cfg = QgsProject.instance().snappingConfig()
+        tolerance = cfg.tolerance()
+        units = cfg.units()
+        if tolerance <= 0:
+            tolerance = 15.0
+            units = QgsTolerance.UnitType.Pixels
+        tol = QgsTolerance.toleranceInProjectUnits(
+            tolerance, self.layer_node, self.canvas.mapSettings(), units)
+        if tol <= 0:
+            tol = QgsTolerance.vertexSearchRadius(self.canvas.mapSettings())
+        return tol
+
+    def _snap_node(self, point):
+        """Snap to ve_node. The attribute table leaves v_om_scada_graph as the current snap layer."""
+
+        layer = self.layer_node
+        if point is None or layer is None or isdeleted(layer) or not layer.isValid():
+            return None
+        locator = self._node_locator
+        if locator is None or locator.layer() != layer:
+            locator = QgsPointLocator(layer, self.canvas.mapSettings().destinationCrs())
+            self._node_locator = locator
+        match = locator.nearestVertex(point, self._node_snap_tolerance())
+        if match is None or not match.isValid() or match.layer() != layer:
+            return None
+        return match
+
     def _mouse_move(self, point):
-        event_point = self.snapper_manager.get_event_point(point=point)
-        result = self.snapper_manager.snap_to_current_layer(event_point)
-        if result.isValid() and self.snapper_manager.get_snapped_layer(result) == self.layer_node:
-            self.snapper_manager.add_marker(result, self.vertex_marker)
+        result = self._snap_node(point)
+        if result is None:
+            if self.vertex_marker is not None:
+                self.vertex_marker.hide()
             return
-        self.vertex_marker.hide()
+        self.snapper_manager.add_marker(result, self.vertex_marker)
 
     def _snapping_node(self, point, button=None):
         if button is not None and button != 1:
             return
-        event_point = self.snapper_manager.get_event_point(point=point)
-        result = self.snapper_manager.snap_to_current_layer(event_point)
-        if not result.isValid() or self.snapper_manager.get_snapped_layer(result) != self.layer_node:
+        result = self._snap_node(point)
+        if result is None or not self._pick_target:
             return
-        if not self._pick_target:
+        feature = self.snapper_manager.get_snapped_feature(result)
+        if feature is None:
             return
-        node_id = self.snapper_manager.get_snapped_feature(result).attribute('node_id')
+        node_id = feature.attribute('node_id')
         self._set_picked_node(self._pick_target, node_id)
         msg = "Node selected"
         tools_qgis.show_info(msg, parameter=str(node_id))
         self._disconnect_snapping()
 
     def _disconnect_snapping(self):
+        self._node_locator = None
         if self.emit_point is not None:
             tools_qgis.disconnect_snapping(False, self.emit_point, self.vertex_marker)
         tools_gw.disconnect_signal(_SIGNAL_GROUP)
