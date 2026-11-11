@@ -378,11 +378,7 @@ VALUES (
 	'Remap child exploitation to parent_id into expl_id/expl_visibility and refuse save if current user has no permission via vf_exploitation',
 	'role_edit', NULL, 'core', NULL
 )
-ON CONFLICT (id) DO UPDATE SET
-	function_name = EXCLUDED.function_name,
-	descript = EXCLUDED.descript,
-	input_params = EXCLUDED.input_params,
-	return_type = EXCLUDED.return_type;
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO sys_message (
 	id, error_message, hint_message, log_level, show_user, project_type, "source", message_type
@@ -393,9 +389,7 @@ VALUES (
 	'Use an exploitation (or expl_visibility value) present in vf_exploitation for this user',
 	2, true, 'utils', 'core', 'UI'
 )
-ON CONFLICT (id) DO UPDATE SET
-	error_message = EXCLUDED.error_message,
-	hint_message = EXCLUDED.hint_message;
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO config_form_fields (
 	formname, formtype, tabname, columnname, layoutname, layoutorder,
