@@ -12,4 +12,4 @@ SET search_path = SCHEMA_NAME, public, pg_catalog;
 UPDATE config_form_fields SET hidden = false where formname like '%_arc%' and columnname in ('flow_max', 'flow_min', 'flow_avg', 'vel_max','vel_min','vel_avg');
 UPDATE config_form_fields SET hidden = false where formname like '%_node%' and columnname 
 in ('demand_max', 'demand_min', 'demand_avg', 'press_max','press_min','press_avg', 'head_max', 'head_min', 'head_avg', 'quality_max','quality_min','quality_avg');
-UPDATE config_form_fields SET hidden = false where formname like '%_connec%' and columnname in ('press_max','press_min','press_avg');
+UPDATE config_form_fields SET hidden = false where formname like '%_connec%' and columnname in ('demand_max','demand_min','demand_avg','press_max','press_min','press_avg');

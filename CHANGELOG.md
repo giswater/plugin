@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - EPA Result Manager web list (`epa_results`): add `isvalidated` to the query and tableview, plus `btn_toggle_validated` (`toggleValidated`) in the top toolbar.
 - Expose `parent_id` on `v_ui_rpt_cat_result`.
 - UD go2epa FIXED outfalls export `inp_outfall.stage`. The previous export wrote the node inventory state (#959).
+- `gw_fct_epa2data` fills `connec_add.demand_max/min/avg` (and matches `VN{link_id}` results); connec forms expose those fields (#990).
 
 ## [4.17.6] - 2026-10-07
 

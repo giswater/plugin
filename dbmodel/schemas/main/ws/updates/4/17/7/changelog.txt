@@ -1,2 +1,4 @@
 - Recreate `v_ui_rpt_cat_result` including `parent_id` (hidden in the EPA result manager).
 - Fix Demand Dscenario from CRM Info Log / `cat_dscenario.log`: with DATE_INTERVAL show the date range (message 4760, key `Source CRM Date Interval`) instead of the PERIOD combo value (#989).
+- `gw_fct_epa2data` fills `connec_add.demand_max/min/avg` from `v_rpt_node_stats` (connec_id or `VN{link_id}`) when marking a result corporate (#990).
+- Add `demand_max`, `demand_min`, `demand_avg` form fields on connec feature forms (#990).

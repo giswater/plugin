@@ -144,12 +144,28 @@ BEGIN
 		vel_max = EXCLUDED.vel_max, vel_min = EXCLUDED.vel_min, vel_avg = EXCLUDED.vel_avg,
 		tot_headloss_max = EXCLUDED.tot_headloss_max, tot_headloss_min = EXCLUDED.tot_headloss_min, result_id=EXCLUDED.result_id;
 
-		INSERT INTO connec_add (connec_id, press_max, press_min, press_avg, quality_max, quality_min, quality_avg, result_id)
-		SELECT node_id::integer, press_max::numeric(12,2), press_min::numeric(12,2), press_avg::numeric(12,2),
-		quality_max::numeric(12,4), quality_min::numeric(12,4), quality_avg::numeric(12,4), result_id
-		FROM v_rpt_node_stats a
-		JOIN connec ON node_id = connec_id::text
+		-- Connec results land in rpt_node as connec_id or VN{link_id} depending on network mode
+		INSERT INTO connec_add (connec_id, demand_max, demand_min, demand_avg, press_max, press_min, press_avg, quality_max, quality_min, quality_avg, result_id)
+		SELECT DISTINCT ON (c.connec_id)
+			c.connec_id,
+			COALESCE(n1.demand_max, n2.demand_max)::numeric(12,2),
+			COALESCE(n1.demand_min, n2.demand_min)::numeric(12,2),
+			COALESCE(n1.demand_avg, n2.demand_avg)::numeric(12,2),
+			COALESCE(n1.press_max, n2.press_max)::numeric(12,2),
+			COALESCE(n1.press_min, n2.press_min)::numeric(12,2),
+			COALESCE(n1.press_avg, n2.press_avg)::numeric(12,2),
+			COALESCE(n1.quality_max, n2.quality_max)::numeric(12,4),
+			COALESCE(n1.quality_min, n2.quality_min)::numeric(12,4),
+			COALESCE(n1.quality_avg, n2.quality_avg)::numeric(12,4),
+			COALESCE(n1.result_id, n2.result_id)
+		FROM connec c
+		LEFT JOIN v_rpt_node_stats n1 ON c.connec_id::text = n1.node_id::text AND n1.result_id = v_result_id
+		LEFT JOIN link l ON l.feature_id = c.connec_id
+		LEFT JOIN v_rpt_node_stats n2 ON n2.node_id::text = concat('VN', l.link_id) AND n2.result_id = v_result_id
+		WHERE COALESCE(n1.node_id, n2.node_id) IS NOT NULL
+		ORDER BY c.connec_id, n1.node_id NULLS LAST
 		ON CONFLICT (connec_id) DO UPDATE SET
+		demand_max = EXCLUDED.demand_max, demand_min = EXCLUDED.demand_min, demand_avg = EXCLUDED.demand_avg,
 		press_max = EXCLUDED.press_max, press_min = EXCLUDED.press_min, press_avg = EXCLUDED.press_avg,
 		quality_max = EXCLUDED.quality_max, quality_min = EXCLUDED.quality_min, quality_avg=EXCLUDED.quality_avg, result_id=EXCLUDED.result_id;
 
