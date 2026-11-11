@@ -146,6 +146,9 @@ BEGIN
 			END IF;
 		END IF;
 
+		-- Child exploitation → parent + visibility check
+		SELECT o_expl_id, o_expl_visibility INTO NEW.expl_id, NEW.expl_visibility
+		FROM gw_fct_set_expl_from_parent(NEW.expl_id, NEW.expl_visibility);
 
 		-- Sector ID
 		IF (NEW.sector_id IS NULL) THEN
@@ -549,6 +552,10 @@ BEGIN
         RETURN NEW;
 
     ELSIF TG_OP = 'UPDATE' THEN
+
+		-- Child exploitation → parent + visibility check
+		SELECT o_expl_id, o_expl_visibility INTO NEW.expl_id, NEW.expl_visibility
+		FROM gw_fct_set_expl_from_parent(NEW.expl_id, NEW.expl_visibility);
 
     		-- this overwrites triger topocontrol arc values (triggered before insertion) just in that moment: In order to make more profilactic this issue only will be overwrited in case of NEW.node_* not nulls
 		IF ve_enable_arc_nodes_update IS TRUE THEN
