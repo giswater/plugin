@@ -30,6 +30,7 @@ v_name text;
 v_descript text;
 v_period text;
 v_crm_name text;
+v_crm_source_key text;
 v_error_context text;
 v_count integer;
 v_total_vol integer;
@@ -173,7 +174,6 @@ BEGIN
 		END
 		WHERE id = 3110;
 
-
 		v_proposed_enddate = quote_literal(v_proposed_enddate)::date - INTERVAL '1 day';
 		v_proposed_enddate = v_proposed_enddate::date;
 
@@ -201,16 +201,18 @@ BEGIN
 		v_waterbal = 'TRUE, FALSE, NULL';
 	END IF;
 	
-	v_crm_name := (SELECT code FROM v_cat_period WHERE id  = v_period);
-	
-	IF v_tmethod = '1' then
+	IF v_tmethod = '1' THEN -- use period_id
 
-		v_periodseconds := (SELECT period_seconds FROM v_cat_period WHERE id  = v_period);
-	
-	ELSIF v_tmethod = '2' THEN --use date INTERVAL
-	
+		v_crm_name := (SELECT code FROM v_cat_period WHERE id = v_period);
+		v_crm_source_key := 'Source CRM Period';
+		v_periodseconds := (SELECT period_seconds FROM v_cat_period WHERE id = v_period);
+
+	ELSIF v_tmethod = '2' THEN -- use date INTERVAL
+
+		v_crm_name := to_char(v_startdate::date, 'DD/MM/YYYY') || '-' || to_char(v_enddate::date, 'DD/MM/YYYY');
+		v_crm_source_key := 'Source CRM Date Interval';
 		EXECUTE 'SELECT ('||quote_literal(v_enddate)||'::date - '||quote_literal(v_startdate)||'::date) * 24 * 3600' INTO v_periodseconds; -- FROM days to seconds
-	
+
 	END IF;
 
 	
@@ -237,7 +239,7 @@ BEGIN
 	INSERT INTO cat_dscenario (name, descript, dscenario_type, expl_id, log)
 	SELECT v_name, v_descript, 'DEMAND',
 	CASE WHEN v_expl ILIKE '%,%' THEN NULL ELSE v_expl::integer END,
-	concat('Insert by ',current_user,' on ', substring(now()::text,0,20),'. Input params:{"Target feature":"", "Exploitation":"'||v_expl||'", "Source CRM Period":"',v_crm_name,'", "Source Pattern":"',v_pattern,'", "Demand Units":"',v_demandunits,'"}')
+	concat('Insert by ',current_user,' on ', substring(now()::text,0,20),'. Input params:{"Target feature":"", "Exploitation":"'||v_expl||'", "',v_crm_source_key,'":"',v_crm_name,'", "Source Pattern":"',v_pattern,'", "Demand Units":"',v_demandunits,'"}')
 	ON CONFLICT (name) DO NOTHING RETURNING dscenario_id INTO v_scenarioid;
 
 
@@ -388,7 +390,11 @@ BEGIN
 	ELSE
 
 		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4644", "function":"'||v_function_id||'", "parameters":{"v_name":"'||v_name||'", "v_scenarioid":"'||v_scenarioid||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
-		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4646", "function":"'||v_function_id||'", "parameters":{"v_crm_name":"'||v_crm_name||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
+		IF v_tmethod = '2' THEN
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4754", "function":"'||v_function_id||'", "parameters":{"v_crm_name":"'||v_crm_name||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
+		ELSE
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4646", "function":"'||v_function_id||'", "parameters":{"v_crm_name":"'||v_crm_name||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
+		END IF;
 		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4648", "function":"'||v_function_id||'", "parameters":{"v_pattern":"'||v_pattern||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
 		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4650", "function":"'||v_function_id||'", "parameters":{"v_demandunits":"'||v_demandunits||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
 		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4652", "function":"'||v_function_id||'", "parameters":{"v_periodseconds":"'||abs(v_periodseconds)||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';

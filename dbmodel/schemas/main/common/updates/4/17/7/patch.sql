@@ -200,3 +200,8 @@ WHERE cfl.listname = 'epa_results'
 	COALESCE(cfl.addparam::jsonb->'renderTopToolbarCustomActions', '[]'::jsonb)
 	@> '[{"name": "btn_toggle_validated"}]'::jsonb
   );
+
+-- Create Demand Dscenario from CRM: DATE_INTERVAL log message (#989)
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
+VALUES (4754, 'Copy from CRM date interval: %v_crm_name%', NULL, 1, true, 'utils', 'core', 'AUDIT')
+ON CONFLICT (id) DO NOTHING;
