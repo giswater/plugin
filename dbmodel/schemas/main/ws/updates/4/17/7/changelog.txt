@@ -1,1 +1,2 @@
 - Recreate `v_ui_rpt_cat_result` including `parent_id` (hidden in the EPA result manager).
+- Fix Demand Dscenario from CRM Info Log / `cat_dscenario.log`: with DATE_INTERVAL show the date range (message 4754, key `Source CRM Date Interval`) instead of the PERIOD combo value (#989).

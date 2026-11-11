@@ -11,7 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(3);
+SELECT plan(5);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -52,6 +52,22 @@ SELECT is(
     "period":"5", "pattern":"1", "demandUnits":"LPS", "patternOrDate":"2", "initDate":"2002-01-01", "endDate":"2025-12-12"}, "aux_params":null}}$$)::JSON)->>'status',
     'Accepted',
     'Check if gw_fct_create_dscenario_from_crm with exploitation 2 returns status "Accepted"'
+);
+
+-- DATE_INTERVAL must log the date range, not the PERIOD combo value (#989)
+SELECT like(
+    (SELECT log FROM cat_dscenario WHERE name = 'dscenario3'),
+    '%"Source CRM Date Interval":"01/01/2002-12/12/2025"%',
+    'DATE_INTERVAL stores Source CRM Date Interval in cat_dscenario.log'
+);
+
+SELECT ok(
+    EXISTS (
+        SELECT 1 FROM audit_check_data
+        WHERE cur_user = current_user AND fid = 403
+        AND error_message ILIKE '%Copy from CRM date interval: 01/01/2002-12/12/2025%'
+    ),
+    'DATE_INTERVAL Info Log uses message 4754 with the selected dates'
 );
 
 -- Finish the test

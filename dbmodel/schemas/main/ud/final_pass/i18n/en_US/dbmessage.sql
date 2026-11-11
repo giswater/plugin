@@ -801,6 +801,7 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4752, 'The new psector name already exists(can be inactive)', 'Try using a different name'),
     (4754, 'Unknown synoptic fct_type: %fct_type%. Use SCADA or MAPZONE.', 'Set data.fct_type to SCADA or MAPZONE.'),
     (4756, 'Synoptic layout generated', NULL),
-    (4758, 'Failed to generate synoptic layout: %error%', 'Review the SCADA graph or mapzone synoptic input.')
+    (4758, 'Failed to generate synoptic layout: %error%', 'Review the SCADA graph or mapzone synoptic input.'),
+    (4760, 'Copy from CRM date interval: %v_crm_name%', NULL)
 ) AS v(id, error_message, hint_message)
 WHERE t.id = v.id;
