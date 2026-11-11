@@ -321,3 +321,96 @@ SET descript = 'Creates a scada graph edge (insert + trigger fill).'
 WHERE id = 3560;
 
 DELETE FROM sys_message WHERE id IN (4708, 4732, 4734, 4736);
+
+-- exploitation.parent_id: child exploitations remap to parent on feature edit (#991)
+SELECT gw_fct_admin_manage_fields($${"data":{"action":"ADD","table":"exploitation",
+  "column":"parent_id", "dataType":"integer"}}$$);
+
+DO $expl_parent_fk$
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1
+		FROM pg_constraint c
+		JOIN pg_class t ON t.oid = c.conrelid
+		JOIN pg_namespace n ON n.oid = t.relnamespace
+		WHERE n.nspname = current_schema()
+			AND t.relname = 'exploitation'
+			AND c.conname = 'exploitation_parent_id_fkey'
+	) THEN
+		ALTER TABLE exploitation
+			ADD CONSTRAINT exploitation_parent_id_fkey
+			FOREIGN KEY (parent_id) REFERENCES exploitation(expl_id)
+			ON UPDATE CASCADE ON DELETE RESTRICT;
+	END IF;
+END
+$expl_parent_fk$;
+
+CREATE OR REPLACE VIEW ve_exploitation AS
+SELECT
+	expl_id,
+	code,
+	name,
+	macroexpl_id,
+	owner_vdefault,
+	descript,
+	lock_level,
+	active,
+	the_geom,
+	created_at,
+	created_by,
+	updated_at,
+	updated_by,
+	parent_id
+FROM exploitation e
+WHERE EXISTS (
+	SELECT 1
+	FROM vf_exploitation ve
+	WHERE ve.expl_id = e.expl_id
+);
+
+INSERT INTO sys_function (
+	id, function_name, project_type, function_type, input_params, return_type,
+	descript, sys_role, sample_query, "source", function_alias
+)
+VALUES (
+	3576, 'gw_fct_set_expl_from_parent', 'utils', 'function',
+	'integer, integer[]', 'record',
+	'Remap child exploitation to parent_id into expl_id/expl_visibility and refuse save if current user has no permission via vf_exploitation',
+	'role_edit', NULL, 'core', NULL
+)
+ON CONFLICT (id) DO UPDATE SET
+	function_name = EXCLUDED.function_name,
+	descript = EXCLUDED.descript,
+	input_params = EXCLUDED.input_params,
+	return_type = EXCLUDED.return_type;
+
+INSERT INTO sys_message (
+	id, error_message, hint_message, log_level, show_user, project_type, "source", message_type
+)
+VALUES (
+	4762,
+	'Cannot save feature: exploitation %expl_id% (and expl_visibility) are not allowed for the current user',
+	'Use an exploitation (or expl_visibility value) present in vf_exploitation for this user',
+	2, true, 'utils', 'core', 'UI'
+)
+ON CONFLICT (id) DO UPDATE SET
+	error_message = EXCLUDED.error_message,
+	hint_message = EXCLUDED.hint_message;
+
+INSERT INTO config_form_fields (
+	formname, formtype, tabname, columnname, layoutname, layoutorder,
+	"datatype", widgettype, "label", tooltip, placeholder,
+	ismandatory, isparent, iseditable, isautoupdate, isfilter,
+	dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc,
+	stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder
+)
+VALUES (
+	've_exploitation', 'form_feature', 'tab_none', 'parent_id', 'lyt_data_1', 20,
+	'integer', 'combo', 'Parent id:', 'Parent exploitation. Child exploitations remap feature expl_id to this value on save',
+	NULL, false, false, true, false, NULL,
+	'SELECT expl_id AS id, name AS idval FROM exploitation WHERE expl_id > 0 AND parent_id IS NULL',
+	true, true, NULL, NULL, NULL,
+	'{"setMultiline": false, "valueRelation": {"layer": "ve_exploitation", "activated": true, "keyColumn": "expl_id", "nullValue": true, "valueColumn": "name", "filterExpression": null}}'::json,
+	NULL, NULL, false, NULL
+)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;

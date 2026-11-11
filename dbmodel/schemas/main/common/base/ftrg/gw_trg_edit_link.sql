@@ -714,10 +714,19 @@ BEGIN
 		END IF;
 	END IF;
 
+	-- Child exploitation → parent + visibility check (v_expl feeds link.expl_id)
+	IF TG_OP IN ('INSERT', 'UPDATE') THEN
+		IF v_expl IS NULL THEN
+			v_expl := NEW.expl_id;
+		END IF;
+		SELECT o_expl_id, o_expl_visibility INTO v_expl, NEW.expl_visibility
+		FROM gw_fct_set_expl_from_parent(v_expl, NEW.expl_visibility);
+	END IF;
+
 	-- upsert process
 	IF TG_OP ='INSERT' THEN
 
-		-- profilactic control in order to do not crash the mandatory column of expl_id
+		-- profilactic control in order to do not break the mandatory column of expl_id
 		IF v_expl is null then v_expl = NEW.expl_id; END IF;
 		IF NEW.state IS NULL THEN NEW.state =  1; END IF;
 

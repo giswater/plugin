@@ -193,6 +193,10 @@ BEGIN
 			END IF;
 		END IF;
 
+		-- Child exploitation → parent + visibility check
+		SELECT o_expl_id, o_expl_visibility INTO NEW.expl_id, NEW.expl_visibility
+		FROM gw_fct_set_expl_from_parent(NEW.expl_id, NEW.expl_visibility);
+
 		-- Blank is not a cat_owner id; '' violates element_ownercat_id_fkey (views have no FK for setfields to null)
 		IF btrim(coalesce(NEW.ownercat_id, '')) = '' THEN
 			NEW.ownercat_id := NULL;
@@ -443,6 +447,11 @@ BEGIN
 
 	-- UPDATE
 	ELSIF TG_OP = 'UPDATE' THEN
+
+		-- Child exploitation → parent + visibility check
+		SELECT o_expl_id, o_expl_visibility INTO NEW.expl_id, NEW.expl_visibility
+		FROM gw_fct_set_expl_from_parent(NEW.expl_id, NEW.expl_visibility);
+
 		IF btrim(coalesce(NEW.code, '')) = '' THEN
 			NEW.code := NULL;
 		END IF;
