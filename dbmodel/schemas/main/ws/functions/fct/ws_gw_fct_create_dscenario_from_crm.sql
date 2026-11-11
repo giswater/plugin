@@ -391,7 +391,7 @@ BEGIN
 
 		EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4644", "function":"'||v_function_id||'", "parameters":{"v_name":"'||v_name||'", "v_scenarioid":"'||v_scenarioid||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
 		IF v_tmethod = '2' THEN
-			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4754", "function":"'||v_function_id||'", "parameters":{"v_crm_name":"'||v_crm_name||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
+			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4760", "function":"'||v_function_id||'", "parameters":{"v_crm_name":"'||v_crm_name||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
 		ELSE
 			EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"4646", "function":"'||v_function_id||'", "parameters":{"v_crm_name":"'||v_crm_name||'"}, "fid":"'||v_fid||'", "criticity":"4", "is_process":true}}$$)';
 		END IF;
