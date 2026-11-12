@@ -289,7 +289,7 @@ BEGIN
 
 	FOR i IN 1..v_iterations LOOP
 
-		-- barycenter starts from the current rank (kept for nodes without neighbours on the adjacent level)
+		-- barycenter (position_aux) starts from position_id
 		UPDATE temp_vertice SET position_aux = position_id;
 
 		IF i % 2 = 1 THEN
@@ -303,7 +303,7 @@ BEGIN
 				UPDATE temp_vertice n
 				SET position_aux = bc.avg_pos
 				FROM (
-					SELECT g.node_2 AS node_id, avg(v1.position_id) AS avg_pos
+					SELECT g.node_2 AS node_id, avg(v1.position_aux) AS avg_pos
 					FROM %I g
 					JOIN temp_vertice v1 ON v1.node_id = g.node_1
 					JOIN temp_vertice v2 ON v2.node_id = g.node_2
@@ -320,7 +320,7 @@ BEGIN
 				UPDATE temp_vertice n
 				SET position_aux = bc.avg_pos
 				FROM (
-					SELECT g.node_1 AS node_id, avg(v2.position_id) AS avg_pos
+					SELECT g.node_1 AS node_id, avg(v2.position_aux) AS avg_pos
 					FROM %I g
 					JOIN temp_vertice v1 ON v1.node_id = g.node_1
 					JOIN temp_vertice v2 ON v2.node_id = g.node_2
