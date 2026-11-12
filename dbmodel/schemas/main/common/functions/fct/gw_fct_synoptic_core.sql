@@ -277,12 +277,12 @@ BEGIN
 	) g
 	WHERE n.node_id = g.node_id;
 
-	-- 2. normalize position_aux to consecutive positions within each level
+	-- 2. normalize pgr_depthFirstSearch order to consecutive positions within each level
 	UPDATE temp_vertice n
-	SET position_aux = g.position_aux, position_id = g.position_aux
+	SET position_id = g.position_id
 	FROM (
 		SELECT node_id,
-			row_number() OVER (PARTITION BY synoptic_id, level_id ORDER BY position_aux) AS position_aux
+			row_number() OVER (PARTITION BY synoptic_id, level_id ORDER BY position_aux) AS position_id
 		FROM temp_vertice
 	) g
 	WHERE n.node_id = g.node_id;
@@ -291,6 +291,9 @@ BEGIN
 	v_iterations := 20;
 
 	FOR i IN 1..v_iterations LOOP
+
+		-- barycenter starts from the current rank (kept for nodes without neighbours on the adjacent level)
+		UPDATE temp_vertice SET position_aux = position_id;
 
 		IF i % 2 = 1 THEN
 			-- downward pass: update position_aux of node_2 based on its predecessor node_1
@@ -340,9 +343,10 @@ BEGIN
 		UPDATE temp_vertice t
 		SET position_id = g.position_id
 		FROM (
-			SELECT node_id,
-				row_number() OVER (PARTITION BY synoptic_id, level_id ORDER BY position_aux, position_id, node_id) AS position_id
-			FROM temp_vertice
+			SELECT v.node_id,
+				row_number() OVER (PARTITION BY v.synoptic_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_id
+			FROM temp_vertice v
+			LEFT JOIN node n ON n.node_id = v.node_id
 		) g
 		WHERE t.node_id = g.node_id
 		AND t.position_id IS DISTINCT FROM g.position_id;
@@ -356,17 +360,6 @@ BEGIN
 		EXIT WHEN i % 2 = 0 AND v_changes = 0;
 
 	END LOOP;
-
-	-- 4. final position_id: position after all barycenter iterations
-	UPDATE temp_vertice t
-	SET position_id = g.position_id
-	FROM (
-		SELECT v.node_id,
-			row_number() OVER (PARTITION BY v.synoptic_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_id
-		FROM temp_vertice v
-		LEFT JOIN node n ON n.node_id = v.node_id
-	) g
-	WHERE t.node_id = g.node_id;
 
 	-- 5. persist the schematic line (position_id, level_id).
 	EXECUTE format('
