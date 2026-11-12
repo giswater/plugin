@@ -1,6 +1,6 @@
 --FUNCTION CODE: 3574
 
-DROP FUNCTION IF EXISTS "SCHEMA_NAME".gw_fct_synoptic_core();
+DROP FUNCTION IF EXISTS "SCHEMA_NAME".gw_fct_synoptic_core(json);
 
 CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_synoptic_core(p_data json)
  RETURNS json
@@ -11,6 +11,7 @@ DECLARE
 
 -- Input vars
 v_fct_type text;
+v_project_type text;
 
 -- Vars
 v_pgr_distance INTEGER;
@@ -20,6 +21,7 @@ v_updated_rows INTEGER;
 v_query_text TEXT;
 v_graph_table text;
 v_changes INTEGER;
+v_max_level INTEGER;
 
 v_data json;
 v_error_context TEXT;
@@ -37,6 +39,7 @@ BEGIN
 	SELECT giswater INTO v_version FROM sys_version ORDER BY id DESC LIMIT 1;
 
 	-- Get variables from input JSON
+	v_project_type = (SELECT (p_data::json->>'data')::json->>'project_type');
 	v_fct_type = (SELECT (p_data::json->>'data')::json->>'fct_type');
 
     IF v_fct_type = 'SCADA' THEN
@@ -134,8 +137,7 @@ BEGIN
 		FROM temp_vertice v1, temp_vertice v2
 		WHERE v1.node_id = g.node_1
 		AND v2.node_id = g.node_2
-		AND g.active = TRUE
-		AND g.error_message IS NULL
+		AND g.synoptic_id IS NOT NULL
 		AND v2.level_id > v1.level_id + 1
 	', v_graph_table);
 
@@ -239,13 +241,11 @@ BEGIN
 			SELECT DISTINCT g.node_1 AS node_id, st_x(n.the_geom) AS x, st_y(n.the_geom) AS y
 			FROM %I g
 			JOIN node n ON n.node_id = g.node_1
-			WHERE g.active = TRUE
-			AND g.error_message IS NULL
+			WHERE g.synoptic_id IS NOT NULL
 			AND g.is_multilevel = FALSE
 			AND NOT EXISTS (
 				SELECT 1 FROM %I g2
-				WHERE g2.active = TRUE
-				AND g2.error_message IS NULL
+				WHERE g2.synoptic_id IS NOT NULL
 				AND g2.is_multilevel = FALSE
 				AND g2.node_2 = g.node_1
 			)
@@ -303,17 +303,15 @@ BEGIN
 				UPDATE temp_vertice n
 				SET position_aux = bc.avg_pos
 				FROM (
-					SELECT g.node_2 AS node_id, avg(v1.position_aux) AS avg_pos
+					SELECT g.node_2 AS node_id, avg(v1.position_id) AS avg_pos
 					FROM %I g
 					JOIN temp_vertice v1 ON v1.node_id = g.node_1
 					JOIN temp_vertice v2 ON v2.node_id = g.node_2
-					WHERE g.active = TRUE
-					AND g.error_message IS NULL
+					WHERE g.synoptic_id IS NOT NULL
 					AND v2.level_id = v1.level_id + 1
 					GROUP BY g.node_2
 				) bc
 				WHERE n.node_id = bc.node_id
-				AND n.position_aux IS DISTINCT FROM bc.avg_pos
 			', v_graph_table);
 		ELSE
 			-- upward pass: update position_aux of node_1 based on its successor node_2
@@ -322,17 +320,15 @@ BEGIN
 				UPDATE temp_vertice n
 				SET position_aux = bc.avg_pos
 				FROM (
-					SELECT g.node_1 AS node_id, avg(v2.position_aux) AS avg_pos
+					SELECT g.node_1 AS node_id, avg(v2.position_id) AS avg_pos
 					FROM %I g
 					JOIN temp_vertice v1 ON v1.node_id = g.node_1
 					JOIN temp_vertice v2 ON v2.node_id = g.node_2
-					WHERE g.active = TRUE
-					AND g.error_message IS NULL
+					WHERE g.synoptic_id IS NOT NULL
 					AND v2.level_id = v1.level_id + 1
 					GROUP BY g.node_1
 				) bc
 				WHERE n.node_id = bc.node_id
-				AND n.position_aux IS DISTINCT FROM bc.avg_pos
 			', v_graph_table);
 		END IF;
 
@@ -357,6 +353,96 @@ BEGIN
 		EXIT WHEN i % 2 = 0 AND v_changes = 0;
 
 	END LOOP;
+
+	-- 4. final coordinates: keep the order from step 3 and centre each node on its neighbours
+	-- WS (diverging): centred over successors
+	-- UD (converging): centred under predecessors
+	-- sweep: position = max(desired, previous + 1), computed as rn + running max(desired - rn)
+
+	-- keep the rank from step 3 in position_aux; position_id will hold the final column
+	UPDATE temp_vertice SET position_aux = position_id;
+
+	SELECT COALESCE(max(level_id), 0) INTO v_max_level FROM temp_vertice;
+
+	IF v_project_type = 'UD' THEN
+
+		-- each node wants floor(avg of its predecessors' column)
+		FOR l IN 1..v_max_level LOOP
+			EXECUTE format('
+				UPDATE temp_vertice t
+				SET position_id = s.new_position_id
+				FROM (
+					SELECT
+						d.node_id,
+						d.rn + max(d.desired - d.rn) OVER (
+							PARTITION BY d.synoptic_id
+							ORDER BY d.rn
+							ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+						) AS new_position_id
+					FROM (
+						SELECT
+							v.node_id,
+							v.synoptic_id,
+							v.position_aux::int AS rn,
+							COALESCE(floor(p.bary)::int, v.position_aux::int) AS desired
+						FROM temp_vertice v
+						LEFT JOIN (
+							SELECT g.node_2 AS node_id, avg(v1.position_id) AS bary
+							FROM %I g
+							JOIN temp_vertice v1 ON v1.node_id = g.node_1
+							WHERE g.synoptic_id IS NOT NULL
+							AND v1.level_id = $1 - 1
+							GROUP BY g.node_2
+						) p ON p.node_id = v.node_id
+						WHERE v.level_id = $1
+					) d
+				) s
+				WHERE t.node_id = s.node_id
+				AND t.position_id IS DISTINCT FROM s.new_position_id
+			', v_graph_table)
+			USING l;
+		END LOOP;
+
+	ELSE
+
+		-- each node wants floor(avg of its successors' column)
+		FOR l IN REVERSE v_max_level..1 LOOP
+			EXECUTE format('
+				UPDATE temp_vertice t
+				SET position_id = s.new_position_id
+				FROM (
+					SELECT
+						d.node_id,
+						d.rn + max(d.desired - d.rn) OVER (
+							PARTITION BY d.synoptic_id
+							ORDER BY d.rn
+							ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+						) AS new_position_id
+					FROM (
+						SELECT
+							v.node_id,
+							v.synoptic_id,
+							v.position_aux::int AS rn,
+							COALESCE(floor(c.bary)::int, v.position_aux::int) AS desired
+						FROM temp_vertice v
+						LEFT JOIN (
+							SELECT g.node_1 AS node_id, avg(v2.position_id) AS bary
+							FROM %I g
+							JOIN temp_vertice v2 ON v2.node_id = g.node_2
+							WHERE g.synoptic_id IS NOT NULL
+							AND v2.level_id = $1 + 1
+							GROUP BY g.node_1
+						) c ON c.node_id = v.node_id
+						WHERE v.level_id = $1
+					) d
+				) s
+				WHERE t.node_id = s.node_id
+				AND t.position_id IS DISTINCT FROM s.new_position_id
+			', v_graph_table)
+			USING l;
+		END LOOP;
+
+	END IF;
 
 	-- 5. persist the schematic line (position_id, level_id).
 	EXECUTE format('
