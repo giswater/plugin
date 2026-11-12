@@ -44,7 +44,9 @@ v_raw text;
 v_field jsonb;
 v_by_col jsonb := '{}'::jsonb;
 v_col text;
-v_chg record;
+v_current text;
+v_proposed text;
+v_applied text;
 v_selected text;
 v_fields jsonb := '[]'::jsonb;
 v_device integer;
@@ -144,10 +146,13 @@ BEGIN
 		END LOOP;
 	END IF;
 
-	FOR v_chg IN
-		SELECT * FROM gw_fct_core_feature_edit_request_get_changes(v_id)
+	FOR v_col IN
+		SELECT e.key
+		FROM jsonb_object_keys(COALESCE((v_review::jsonb) -> 'field_changes', '{}'::jsonb)) AS e(key)
 	LOOP
-		v_col := v_chg.column_name;
+		v_proposed := (v_review::jsonb) -> 'field_changes' ->> v_col;
+		v_current := (v_review::jsonb) -> 'current_values' ->> v_col;
+		v_applied := (v_review::jsonb) -> 'review_changes' ->> v_col;
 		v_field := v_by_col -> v_col;
 		IF v_field IS NULL OR jsonb_typeof(v_field) = 'null' THEN
 			v_field := jsonb_build_object(
@@ -171,14 +176,14 @@ BEGIN
 
 		-- Accepted reviews show the applied value in the right-hand column. The rest show the proposal.
 		IF v_status = 1 THEN
-			v_selected := COALESCE(v_chg.applied_value, '');
+			v_selected := COALESCE(v_applied, '');
 		ELSE
-			v_selected := COALESCE(v_chg.proposed_value, '');
+			v_selected := COALESCE(v_proposed, '');
 		END IF;
 
-		v_field := gw_fct_json_object_set_key(v_field::json, 'value', COALESCE(v_chg.proposed_value, ''))::jsonb;
-		v_field := gw_fct_json_object_set_key(v_field::json, 'currentValue', COALESCE(v_chg.current_value, ''))::jsonb;
-		v_field := gw_fct_json_object_set_key(v_field::json, 'appliedValue', COALESCE(v_chg.applied_value, ''))::jsonb;
+		v_field := gw_fct_json_object_set_key(v_field::json, 'value', COALESCE(v_proposed, ''))::jsonb;
+		v_field := gw_fct_json_object_set_key(v_field::json, 'currentValue', COALESCE(v_current, ''))::jsonb;
+		v_field := gw_fct_json_object_set_key(v_field::json, 'appliedValue', COALESCE(v_applied, ''))::jsonb;
 		IF v_field ->> 'widgettype' = 'combo' THEN
 			v_field := gw_fct_json_object_set_key(v_field::json, 'selectedId', v_selected)::jsonb;
 		END IF;

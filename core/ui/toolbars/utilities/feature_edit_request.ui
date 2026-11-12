@@ -98,22 +98,22 @@
     <widget class="QTextEdit" name="txt_review_annotation"/>
    </item>
    <item row="4" column="0">
-    <layout class="QHBoxLayout" name="lyt_review_buttons">
-     <item>
+    <layout class="QGridLayout" name="lyt_buttons">
+     <item row="0" column="0">
       <widget class="QPushButton" name="btn_accept">
        <property name="text">
         <string>Accept</string>
        </property>
       </widget>
      </item>
-     <item>
+     <item row="0" column="1">
       <widget class="QPushButton" name="btn_reject">
        <property name="text">
         <string>Reject</string>
        </property>
       </widget>
      </item>
-     <item>
+     <item row="0" column="2">
       <spacer name="spacer_review_buttons">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
@@ -126,7 +126,7 @@
        </property>
       </spacer>
      </item>
-     <item>
+     <item row="0" column="3">
       <widget class="QPushButton" name="btn_close">
        <property name="text">
         <string>Close</string>

@@ -10,7 +10,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(23);
+SELECT plan(24);
 
 CREATE TEMP TABLE _rev (node_id integer, accept_id bigint, reject_id bigint, blank_id bigint, wrapper_id bigint);
 CREATE TEMP TABLE _call (j json);
@@ -52,14 +52,20 @@ SELECT is(
 	'empty string is stored as null');
 
 SELECT is(
-	(SELECT current_value FROM gw_fct_core_feature_edit_request_get_changes((SELECT accept_id FROM _rev)) WHERE column_name = 'observ'),
+	(SELECT current_values ->> 'observ' FROM gw_fct_core_feature_edit_request_get((SELECT accept_id FROM _rev))),
 	'review-current',
-	'get changes returns the current observ');
+	'get returns the current observ');
 
 SELECT is(
-	(SELECT proposed_value FROM gw_fct_core_feature_edit_request_get_changes((SELECT accept_id FROM _rev)) WHERE column_name = 'observ'),
+	(SELECT field_changes ->> 'observ' FROM gw_fct_core_feature_edit_request_get((SELECT accept_id FROM _rev))),
 	'review-proposed',
-	'get changes returns the proposed observ');
+	'get returns the proposed observ');
+
+SELECT ok(
+	EXISTS (
+		SELECT 1 FROM gw_fct_core_feature_edit_request_get_list()
+		WHERE id = (SELECT accept_id FROM _rev)),
+	'get_list returns the request');
 
 UPDATE _rev SET reject_id = gw_fct_core_feature_edit_request_create(
 	'node', (SELECT node_id FROM _rev), '{"observ": "review-rejected"}'::jsonb, NULL);
