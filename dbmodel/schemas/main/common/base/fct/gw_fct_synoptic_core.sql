@@ -19,7 +19,6 @@ v_iterations INTEGER;
 v_updated_rows INTEGER;
 v_query_text TEXT;
 v_graph_table text;
-v_id_column text;
 v_changes INTEGER;
 
 v_data json;
@@ -43,10 +42,8 @@ BEGIN
     IF v_fct_type = 'SCADA' THEN
 		v_graph_table := 'temp_om_scada_graph';
 		-- om_scada_graph.synoptic_id (temp table is LIKE om_scada_graph)
-		v_id_column := 'synoptic_id';
 	ELSIF v_fct_type = 'MAPZONE' THEN
 		v_graph_table := 'temp_pgr_mapzone_synoptic';
-		v_id_column := 'synoptic_id';
 	ELSE
 		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
 		"data":{"message":"4754", "function":"3574","parameters":{"fct_type":"'||COALESCE(replace(v_fct_type, '"', ''), '')||'"}, "is_process":true}}$$);'
@@ -113,12 +110,12 @@ BEGIN
 
 	EXECUTE format('
 		UPDATE %I g
-		SET %I = n.synoptic_id
+		SET synoptic_id = n.synoptic_id
 		FROM temp_vertice n
 		WHERE g.active = TRUE
 		AND g.error_message IS NULL
 		AND n.node_id = g.node_1
-	', v_graph_table, v_id_column);
+	', v_graph_table);
 
 	-- level_id
 	UPDATE temp_vertice n
@@ -148,7 +145,7 @@ BEGIN
 				SELECT
 					g.node_1,
 					g.node_2,
-					g.%I AS synoptic_id,
+					g.synoptic_id,
 					v1.level_id AS level_1,
 					v2.level_id AS level_2
 				FROM %I g
@@ -173,7 +170,7 @@ BEGIN
 		INSERT INTO temp_vertice (node_id, synoptic_id, level_id, is_real, orig_node_1, orig_node_2)
 		SELECT -(row_number() OVER ()) AS node_id, synoptic_id, level_id, FALSE AS is_real, node_1, node_2
 		FROM vertices_levels
-	', v_id_column, v_graph_table);
+	', v_graph_table);
 
 	EXECUTE format('
 		WITH
@@ -212,13 +209,13 @@ BEGIN
 					lead(vl.node_id) OVER (PARTITION BY vl.orig_node_1, vl.orig_node_2 ORDER BY vl.level_id) AS vertice_2
 				FROM vertices_levels vl
 			)
-		INSERT INTO %I (node_1, node_2, orig_node_1, orig_node_2, %I, node_type_1, node_type_2, is_real, is_multilevel)
+		INSERT INTO %I (node_1, node_2, orig_node_1, orig_node_2, synoptic_id, node_type_1, node_type_2, is_real, is_multilevel)
 		SELECT
 			e.vertice_1,
 			e.vertice_2,
 			e.orig_node_1,
 			e.orig_node_2,
-			g.%I,
+			g.synoptic_id,
 			CASE WHEN e.vertice_1 = e.orig_node_1 THEN g.node_type_1
 				WHEN e.vertice_1 = e.orig_node_2 THEN g.node_type_2
 				ELSE ''VIRTUAL VERTICE''
@@ -232,7 +229,7 @@ BEGIN
 		FROM new_edges e
 		JOIN %I g ON g.node_1 = e.orig_node_1 AND g.node_2 = e.orig_node_2
 		WHERE e.vertice_2 IS NOT NULL
-	', v_graph_table, v_graph_table, v_graph_table, v_id_column, v_id_column, v_graph_table);
+	', v_graph_table, v_graph_table, v_graph_table, v_graph_table);
 
 	-- position_id 
 	-- order root nodes by their coordinates x and y coordinates so their position_id is assigned from left to right
@@ -263,9 +260,9 @@ BEGIN
 			g.node_2 AS target,
 			1::float AS cost
 		FROM %I g
-		WHERE g.%I IS NOT NULL
+		WHERE g.synoptic_id IS NOT NULL
 		AND g.is_multilevel = FALSE
-	', v_graph_table, v_id_column);
+	', v_graph_table);
 
 	-- 1. initial raw value for position_aux from DFS traversal order (pgr_depthFirstSearch)
 	UPDATE temp_vertice n
@@ -367,12 +364,12 @@ BEGIN
 			all_nodes AS (
 				SELECT t.orig_node_1, t.orig_node_2, t.node_1 AS node_id
 				FROM %I t
-				WHERE t.%I IS NOT NULL
+				WHERE t.synoptic_id IS NOT NULL
 				AND t.is_multilevel = FALSE
 				UNION
 				SELECT t.orig_node_1, t.orig_node_2, t.node_2 AS node_id
 				FROM %I t
-				WHERE t.%I IS NOT NULL
+				WHERE t.synoptic_id IS NOT NULL
 				AND t.is_multilevel = FALSE
 				AND t.node_2 = t.orig_node_2
 			),
@@ -398,7 +395,7 @@ BEGIN
 		FROM synoptic s
 		WHERE g.node_1 = s.orig_node_1
 		AND g.node_2 = s.orig_node_2
-	', v_graph_table, v_id_column, v_graph_table, v_id_column, v_graph_table);
+	', v_graph_table, v_graph_table, v_graph_table);
 
 	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
 	"data":{"message":"4756", "function":"3574","parameters":null, "is_process":true}}$$);'
