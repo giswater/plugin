@@ -7,9 +7,9 @@ or (at your option) any later version.
 
 --FUNCTION CODE: 3584
 
-DROP FUNCTION IF EXISTS SCHEMA_NAME.gw_fct_core_review_feature_accept(bigint, text, jsonb);
+DROP FUNCTION IF EXISTS SCHEMA_NAME.gw_fct_core_feature_edit_request_accept(bigint, text, jsonb);
 
-CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_core_review_feature_accept(
+CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_core_feature_edit_request_accept(
 	p_id bigint,
 	p_annotation text DEFAULT NULL,
 	p_changes jsonb DEFAULT NULL)
@@ -19,7 +19,7 @@ AS $function$
 
 /*EXAMPLE:
 
-SELECT SCHEMA_NAME.gw_fct_core_review_feature_accept(1, 'ok', '{"observ": "edited"}'::jsonb);
+SELECT SCHEMA_NAME.gw_fct_core_feature_edit_request_accept(1, 'ok', '{"observ": "edited"}'::jsonb);
 
 */
 
@@ -47,7 +47,7 @@ BEGIN
 		RAISE EXCEPTION 'Review message % was not raised', v_message_id;
 	END IF;
 
-	SELECT * INTO v_rec FROM review_feature WHERE id = p_id FOR UPDATE;
+	SELECT * INTO v_rec FROM feature_edit_request WHERE id = p_id FOR UPDATE;
 
 	IF NOT FOUND THEN
 		v_message_id := '4760';
@@ -188,7 +188,7 @@ BEGIN
 		RAISE EXCEPTION 'Review message % was not raised', v_message_id;
 	END IF;
 
-	UPDATE review_feature
+	UPDATE feature_edit_request
 	SET status = 1,
 		review_user = current_user,
 		review_date = now(),

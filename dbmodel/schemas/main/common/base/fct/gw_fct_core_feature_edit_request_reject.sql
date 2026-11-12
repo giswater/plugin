@@ -7,9 +7,9 @@ or (at your option) any later version.
 
 --FUNCTION CODE: 3586
 
-DROP FUNCTION IF EXISTS SCHEMA_NAME.gw_fct_core_review_feature_reject(bigint, text);
+DROP FUNCTION IF EXISTS SCHEMA_NAME.gw_fct_core_feature_edit_request_reject(bigint, text);
 
-CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_core_review_feature_reject(
+CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_core_feature_edit_request_reject(
 	p_id bigint,
 	p_annotation text DEFAULT NULL)
  RETURNS boolean
@@ -18,7 +18,7 @@ AS $function$
 
 /*EXAMPLE:
 
-SELECT SCHEMA_NAME.gw_fct_core_review_feature_reject(1, 'no');
+SELECT SCHEMA_NAME.gw_fct_core_feature_edit_request_reject(1, 'no');
 
 */
 
@@ -40,7 +40,7 @@ BEGIN
 		RAISE EXCEPTION 'Review message % was not raised', v_message_id;
 	END IF;
 
-	SELECT status INTO v_status FROM review_feature WHERE id = p_id FOR UPDATE;
+	SELECT status INTO v_status FROM feature_edit_request WHERE id = p_id FOR UPDATE;
 
 	IF NOT FOUND THEN
 		v_message_id := '4760';
@@ -60,7 +60,7 @@ BEGIN
 		RAISE EXCEPTION 'Review message % was not raised', v_message_id;
 	END IF;
 
-	UPDATE review_feature
+	UPDATE feature_edit_request
 	SET status = 2,
 		review_user = current_user,
 		review_date = now(),

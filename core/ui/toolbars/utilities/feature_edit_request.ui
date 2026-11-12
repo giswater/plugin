@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>dlg_review_feature</class>
- <widget class="QDialog" name="dlg_review_feature">
+ <class>dlg_feature_edit_request</class>
+ <widget class="QDialog" name="dlg_feature_edit_request">
   <property name="geometry">
    <rect>
     <x>0</x>

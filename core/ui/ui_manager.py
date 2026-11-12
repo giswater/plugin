@@ -765,20 +765,20 @@ class GwScadaGraphUi(GwDialog, FORM_CLASS):
     UINAME = UINAME
 
 
-UINAME = "review_manager"
+UINAME = "feature_edit_request_manager"
 FORM_CLASS = _get_ui_class(f'{UINAME}.ui', f'{CONTEXT}')
 
 
-class GwReviewManagerUi(GwDialog, FORM_CLASS):
+class GwFeatureEditRequestManagerUi(GwDialog, FORM_CLASS):
     CONTEXT = CONTEXT
     UINAME = UINAME
 
 
-UINAME = "review_feature"
+UINAME = "feature_edit_request"
 FORM_CLASS = _get_ui_class(f'{UINAME}.ui', f'{CONTEXT}')
 
 
-class GwReviewFeatureUi(GwDialog, FORM_CLASS):
+class GwFeatureEditRequestUi(GwDialog, FORM_CLASS):
     CONTEXT = CONTEXT
     UINAME = UINAME
 

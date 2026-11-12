@@ -7,9 +7,9 @@ or (at your option) any later version.
 
 --FUNCTION CODE: 3580
 
-DROP FUNCTION IF EXISTS SCHEMA_NAME.gw_fct_core_review_feature_get(bigint);
+DROP FUNCTION IF EXISTS SCHEMA_NAME.gw_fct_core_feature_edit_request_get(bigint);
 
-CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_core_review_feature_get(p_id bigint)
+CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_core_feature_edit_request_get(p_id bigint)
  RETURNS TABLE(
 	id bigint,
 	table_name text,
@@ -31,7 +31,7 @@ AS $function$
 
 /*EXAMPLE:
 
-SELECT * FROM SCHEMA_NAME.gw_fct_core_review_feature_get(1);
+SELECT * FROM SCHEMA_NAME.gw_fct_core_feature_edit_request_get(1);
 
 */
 
@@ -43,7 +43,7 @@ BEGIN
 
 	SET search_path = "SCHEMA_NAME", public;
 
-	IF NOT EXISTS (SELECT 1 FROM review_feature r WHERE r.id = p_id) THEN
+	IF NOT EXISTS (SELECT 1 FROM feature_edit_request r WHERE r.id = p_id) THEN
 		v_message_id := '4760';
 		PERFORM gw_fct_getmessage(json_build_object(
 			'client', json_build_object('device', 4, 'lang', 'en_US'),
@@ -58,7 +58,7 @@ BEGIN
 		r.status, r.status_name::text,
 		r.field_user, r.field_date, r.field_annotation,
 		r.review_user, r.review_date, r.review_annotation
-	FROM v_ui_review_feature r
+	FROM v_ui_feature_edit_request r
 	JOIN cat_feature f ON f.id = r.feature_type AND f.child_layer IS NOT NULL
 	WHERE r.id = p_id;
 

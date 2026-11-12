@@ -9,11 +9,11 @@ or (at your option) any later version.
 from qgis.PyQt.QtWidgets import QGridLayout, QLabel, QLineEdit, QTextEdit, QWidget
 
 from .....libs import tools_qt, tools_qgis
-from ....ui.ui_manager import GwReviewFeatureUi, GwReviewManagerUi
+from ....ui.ui_manager import GwFeatureEditRequestUi, GwFeatureEditRequestManagerUi
 from ....utils import tools_gw
 
 
-class GwReviewManager:
+class GwFeatureEditRequestManager:
 
     def manage_review(self):
         """Open the review list. The dialog comes from config_form_fields via gw_fct_get_dialog."""
@@ -26,19 +26,19 @@ class GwReviewManager:
             return
 
         self.complet_result = json_result
-        self.dlg = GwReviewManagerUi(self)
+        self.dlg = GwFeatureEditRequestManagerUi(self)
         tools_gw.load_settings(self.dlg)
         tools_gw.manage_dlg_widgets(self, self.dlg, json_result)
         tools_gw.load_tableviews(self.dlg, json_result)
         # set_filter_listeners forces date filters to today. Reviews are not limited to today.
         self._clear_date_filters()
-        tools_gw.open_dialog(self.dlg, dlg_name='review_manager')
+        tools_gw.open_dialog(self.dlg, dlg_name='feature_edit_request_manager')
 
     def _open_review(self, review_id):
         """Open one review: current value, proposed widget, annotation."""
 
         body = tools_gw.create_body(body={"data": {"action": "GET", "id": int(review_id)}})
-        result = tools_gw.execute_procedure('gw_fct_manage_review_feature', body)
+        result = tools_gw.execute_procedure('gw_fct_manage_feature_edit_request', body)
         if not result or result.get('status') != 'Accepted':
             msg = "Failed to open the review"
             tools_qgis.show_warning(msg, parameter=_result_detail(result), dialog=self.dlg)
@@ -51,7 +51,7 @@ class GwReviewManager:
 
         self.review_id = int(review_id)
         self._proposed = []
-        self.dlg_feature = GwReviewFeatureUi(self)
+        self.dlg_feature = GwFeatureEditRequestUi(self)
         tools_gw.load_settings(self.dlg_feature)
         self._fill_header(review)
         self._fill_fields(result, fields, status)
@@ -66,7 +66,7 @@ class GwReviewManager:
         self.dlg_feature.btn_accept.clicked.connect(lambda: self._apply('ACCEPT'))
         self.dlg_feature.btn_reject.clicked.connect(lambda: self._apply('REJECT'))
         self.dlg_feature.btn_close.clicked.connect(lambda: tools_gw.close_dialog(self.dlg_feature))
-        tools_gw.open_dialog(self.dlg_feature, dlg_name='review_feature')
+        tools_gw.open_dialog(self.dlg_feature, dlg_name='feature_edit_request')
 
     def _fill_header(self, review):
         parts = [str(review.get('table_name') or ''), str(review.get('table_id') or '')]
@@ -137,7 +137,7 @@ class GwReviewManager:
                 "fields": fields,
             }
         })
-        result = tools_gw.execute_procedure('gw_fct_manage_review_feature', body)
+        result = tools_gw.execute_procedure('gw_fct_manage_feature_edit_request', body)
         if not result or result.get('status') != 'Accepted':
             msg = "Failed to save the review"
             tools_qgis.show_warning(msg, parameter=_result_detail(result), dialog=self.dlg_feature)

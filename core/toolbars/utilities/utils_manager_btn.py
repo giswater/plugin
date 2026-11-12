@@ -12,7 +12,7 @@ from qgis.PyQt.QtCore import QPoint
 from qgis.PyQt.QtWidgets import QAction, QMenu, QWidget
 
 from .utilities_manager.style_manager import GwStyleManager
-from .utilities_manager.review_manager import GwReviewManager
+from .utilities_manager.feature_edit_request_manager import GwFeatureEditRequestManager
 from .... import global_vars
 from ..dialog import GwAction
 from .utilities_manager.mapzone_manager import GwMapzoneManager
@@ -123,7 +123,7 @@ class GwUtilsManagerButton(GwAction):
     # region review manager functions
 
     def _review_manager(self):
-        self.review = GwReviewManager()
+        self.review = GwFeatureEditRequestManager()
         self.review.manage_review()
 
     # endregion

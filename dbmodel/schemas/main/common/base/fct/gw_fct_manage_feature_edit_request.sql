@@ -7,25 +7,25 @@ or (at your option) any later version.
 
 --FUNCTION CODE: 3576
 
-DROP FUNCTION IF EXISTS SCHEMA_NAME.gw_fct_manage_review_feature(json);
+DROP FUNCTION IF EXISTS SCHEMA_NAME.gw_fct_manage_feature_edit_request(json);
 
-CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_manage_review_feature(p_data json)
+CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_manage_feature_edit_request(p_data json)
  RETURNS json
  LANGUAGE plpgsql
 AS $function$
 
 /*EXAMPLE:
 
-SELECT SCHEMA_NAME.gw_fct_manage_review_feature($${"client":{"device":4, "lang":"en_US"},
+SELECT SCHEMA_NAME.gw_fct_manage_feature_edit_request($${"client":{"device":4, "lang":"en_US"},
 "data":{"action":"CREATE", "tableName":"node", "tableId":1, "annotation":"from the field", "fields":{"observ":"new"}}}$$);
 
-SELECT SCHEMA_NAME.gw_fct_manage_review_feature($${"client":{"device":4, "lang":"en_US"},
+SELECT SCHEMA_NAME.gw_fct_manage_feature_edit_request($${"client":{"device":4, "lang":"en_US"},
 "data":{"action":"GET", "id":1}}$$);
 
-SELECT SCHEMA_NAME.gw_fct_manage_review_feature($${"client":{"device":4, "lang":"en_US"},
+SELECT SCHEMA_NAME.gw_fct_manage_feature_edit_request($${"client":{"device":4, "lang":"en_US"},
 "data":{"action":"ACCEPT", "id":1, "annotation":"ok", "fields":{"observ":"new"}}}$$);
 
-SELECT SCHEMA_NAME.gw_fct_manage_review_feature($${"client":{"device":4, "lang":"en_US"},
+SELECT SCHEMA_NAME.gw_fct_manage_feature_edit_request($${"client":{"device":4, "lang":"en_US"},
 "data":{"action":"REJECT", "id":1, "annotation":"no"}}$$);
 
 */
@@ -61,7 +61,7 @@ BEGIN
 	v_device := COALESCE((p_data -> 'client' ->> 'device')::integer, 4);
 
 	IF v_action = 'CREATE' THEN
-		v_id := gw_fct_core_review_feature_create(
+		v_id := gw_fct_core_feature_edit_request_create(
 			p_data -> 'data' ->> 'tableName',
 			(p_data -> 'data' ->> 'tableId')::integer,
 			(p_data -> 'data' -> 'fields')::jsonb,
@@ -81,7 +81,7 @@ BEGIN
 	v_id := (p_data -> 'data' ->> 'id')::bigint;
 
 	IF v_action = 'ACCEPT' THEN
-		PERFORM gw_fct_core_review_feature_accept(v_id, v_annotation, (p_data -> 'data' -> 'fields')::jsonb);
+		PERFORM gw_fct_core_feature_edit_request_accept(v_id, v_annotation, (p_data -> 'data' -> 'fields')::jsonb);
 
 		RETURN gw_fct_json_create_return(json_build_object(
 			'status', 'Accepted',
@@ -95,7 +95,7 @@ BEGIN
 	END IF;
 
 	IF v_action = 'REJECT' THEN
-		PERFORM gw_fct_core_review_feature_reject(v_id, v_annotation);
+		PERFORM gw_fct_core_feature_edit_request_reject(v_id, v_annotation);
 
 		RETURN gw_fct_json_create_return(json_build_object(
 			'status', 'Accepted',
@@ -113,7 +113,7 @@ BEGIN
 	END IF;
 
 	SELECT row_to_json(a) INTO v_review
-	FROM gw_fct_core_review_feature_get(v_id) a;
+	FROM gw_fct_core_feature_edit_request_get(v_id) a;
 
 	v_child := v_review ->> 'child_layer';
 	v_status := (v_review ->> 'status')::integer;
@@ -145,7 +145,7 @@ BEGIN
 	END IF;
 
 	FOR v_chg IN
-		SELECT * FROM gw_fct_core_review_feature_get_changes(v_id)
+		SELECT * FROM gw_fct_core_feature_edit_request_get_changes(v_id)
 	LOOP
 		v_col := v_chg.column_name;
 		v_field := v_by_col -> v_col;

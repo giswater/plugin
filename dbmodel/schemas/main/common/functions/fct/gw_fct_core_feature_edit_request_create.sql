@@ -7,9 +7,9 @@ or (at your option) any later version.
 
 --FUNCTION CODE: 3578
 
-DROP FUNCTION IF EXISTS SCHEMA_NAME.gw_fct_core_review_feature_create(text, integer, jsonb, text);
+DROP FUNCTION IF EXISTS SCHEMA_NAME.gw_fct_core_feature_edit_request_create(text, integer, jsonb, text);
 
-CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_core_review_feature_create(
+CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_core_feature_edit_request_create(
 	p_table_name text,
 	p_table_id integer,
 	p_changes jsonb,
@@ -20,7 +20,7 @@ AS $function$
 
 /*EXAMPLE:
 
-SELECT SCHEMA_NAME.gw_fct_core_review_feature_create('node', 1, '{"observ": "new"}'::jsonb, 'from the field');
+SELECT SCHEMA_NAME.gw_fct_core_feature_edit_request_create('node', 1, '{"observ": "new"}'::jsonb, 'from the field');
 
 */
 
@@ -120,9 +120,9 @@ BEGIN
 		RAISE EXCEPTION 'Review message % was not raised', v_message_id;
 	END IF;
 
-	INSERT INTO review_feature (table_name, table_id, field_annotation, field_changes)
+	INSERT INTO feature_edit_request (table_name, table_id, field_annotation, field_changes)
 	VALUES (p_table_name, p_table_id, p_annotation, v_changes)
-	RETURNING review_feature.id INTO v_id;
+	RETURNING feature_edit_request.id INTO v_id;
 
 	RETURN v_id;
 

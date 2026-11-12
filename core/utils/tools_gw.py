@@ -68,7 +68,7 @@ from ..toolbars.edit import featuretype_change_btn  # noqa: F401
 from ..toolbars.epa import go2epa_selector_btn  # noqa: F401
 from ..shared import psector  # noqa: F401
 from ..shared import audit  # noqa: F401
-from ..toolbars.utilities.utilities_manager import review_manager  # noqa: F401
+from ..toolbars.utilities.utilities_manager import feature_edit_request_manager  # noqa: F401
 from ..toolbars.utilities import snapshot_view  # noqa: F401
 from ..shared import profile as profile_interpolation, scada_graph  # noqa: F401
 from ..toolbars.edit import connect_link_btn  # noqa: F401

@@ -7,16 +7,16 @@ or (at your option) any later version.
 
 --FUNCTION CODE: 3582
 
-DROP FUNCTION IF EXISTS SCHEMA_NAME.gw_fct_core_review_feature_get_changes(bigint);
+DROP FUNCTION IF EXISTS SCHEMA_NAME.gw_fct_core_feature_edit_request_get_changes(bigint);
 
-CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_core_review_feature_get_changes(p_id bigint)
+CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_core_feature_edit_request_get_changes(p_id bigint)
  RETURNS TABLE(column_name text, current_value text, proposed_value text, applied_value text)
  LANGUAGE plpgsql
 AS $function$
 
 /*EXAMPLE:
 
-SELECT * FROM SCHEMA_NAME.gw_fct_core_review_feature_get_changes(1);
+SELECT * FROM SCHEMA_NAME.gw_fct_core_feature_edit_request_get_changes(1);
 
 */
 
@@ -31,7 +31,7 @@ BEGIN
 
 	SET search_path = "SCHEMA_NAME", public;
 
-	SELECT * INTO v_rec FROM review_feature WHERE id = p_id;
+	SELECT * INTO v_rec FROM feature_edit_request WHERE id = p_id;
 
 	IF NOT FOUND THEN
 		v_message_id := '4760';
