@@ -20,6 +20,7 @@ v_updated_rows INTEGER;
 v_query_text TEXT;
 v_graph_table text;
 v_id_column text;
+v_changes INTEGER;
 
 v_data json;
 v_error_context TEXT;
@@ -278,7 +279,7 @@ BEGIN
 
 	-- 2. normalize position_aux to consecutive positions within each level
 	UPDATE temp_vertice n
-	SET position_aux = g.position_aux
+	SET position_aux = g.position_aux, position_id = g.position_aux
 	FROM (
 		SELECT node_id,
 			row_number() OVER (PARTITION BY synoptic_id, level_id ORDER BY position_aux) AS position_aux
@@ -294,6 +295,10 @@ BEGIN
 		IF i % 2 = 1 THEN
 			-- downward pass: update position_aux of node_2 based on its predecessor node_1
       		-- (only consider arcs connecting consecutive levels)
+
+			-- start of a new downward + upward pair
+			v_changes := 0;
+
 			EXECUTE format('
 				UPDATE temp_vertice n
 				SET position_aux = bc.avg_pos
@@ -333,20 +338,22 @@ BEGIN
 
 		-- re-rank nodes within each level based on the updated barycenter position
 		UPDATE temp_vertice t
-		SET position_aux = g.position_aux
+		SET position_id = g.position_id
 		FROM (
-			SELECT v.node_id,
-				row_number() OVER (PARTITION BY v.synoptic_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_aux
-			FROM temp_vertice v
-			LEFT JOIN node n ON n.node_id = v.node_id
+			SELECT node_id,
+				row_number() OVER (PARTITION BY synoptic_id, level_id ORDER BY position_aux, position_id, node_id) AS position_id
+			FROM temp_vertice
 		) g
 		WHERE t.node_id = g.node_id
-		AND t.position_aux IS DISTINCT FROM g.position_aux;
+		AND t.position_id IS DISTINCT FROM g.position_id;
 
 		-- stop early if the ranking has already converged (no changes this iteration)
 		GET DIAGNOSTICS v_updated_rows = ROW_COUNT;
+		v_changes := v_changes + v_updated_rows;
 		RAISE NOTICE 'Iteration %: % rows updated', i, v_updated_rows;
-		EXIT WHEN v_updated_rows = 0;
+		
+		-- stop only when a full pair (downward + upward) has not changed any ranking
+		EXIT WHEN i % 2 = 0 AND v_changes = 0;
 
 	END LOOP;
 
