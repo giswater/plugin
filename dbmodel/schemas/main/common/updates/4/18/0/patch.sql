@@ -408,3 +408,18 @@ VALUES (
 	NULL, NULL, false, NULL
 )
 ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+-- User toggle for the selector envelope returned by gw_fct_getselectors.
+-- Default false keeps the current zoom. True disables the zoom.
+INSERT INTO sys_param_user (
+    id, formname, descript, sys_role, "label", isenabled, layoutorder,
+    project_type, isparent, isautoupdate, "datatype", widgettype, ismandatory,
+    vdefault, layoutname, iseditable, "source"
+)
+VALUES (
+    'disable_qgis_selector_zoom', 'config',
+    'If true, changing exploitation, municipality or sector does not move the map to the selected extent',
+    'role_basic', 'Disable zoom to selector:', true, 20, 'utils', false, false, 'boolean', 'check', false,
+    'false', 'lyt_basic', true, 'core'
+)
+ON CONFLICT (id) DO NOTHING;

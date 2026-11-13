@@ -54,6 +54,7 @@ v_selector_id text;
 v_filter_from_config text;
 v_typeahead text;
 v_expl_x_user boolean;
+v_disable_qgis_selector_zoom boolean;
 v_typeahead_forced boolean=false;
 v_error_context text;
 v_tab record;
@@ -150,6 +151,10 @@ BEGIN
 	v_expl_x_user = (SELECT value FROM config_param_system WHERE parameter = 'admin_exploitation_x_user');
 
 	v_stylesheet = (SELECT value FROM config_param_system WHERE parameter = 'qgis_form_selector_stylesheet');
+
+	SELECT COALESCE(
+		(SELECT value FROM config_param_user WHERE parameter = 'disable_qgis_selector_zoom' AND cur_user = current_user), 'false'
+	)::boolean INTO v_disable_qgis_selector_zoom;
 
 	-- when typeahead only one tab is executed
 	IF v_filter_from_input IS NULL OR v_filter_from_input = '' OR lower(v_filter_from_input) ='None' or lower(v_filter_from_input) = 'null' THEN
@@ -552,6 +557,11 @@ BEGIN
 
 		v_mincut_arc = v_result;
 		end if;
+	END IF;
+
+	-- If disable_qgis_selector_zoom is true, set the geometry to NULL
+	IF v_disable_qgis_selector_zoom IS TRUE THEN
+		v_geometry := NULL;
 	END IF;
 
 	-- Finish the construction of the tabs array
