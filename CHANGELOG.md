@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UD `ve_cat_feature_node` exposes `graph_delimiter` (view, form field, edit trigger); it was present on WS only (#966).
 - UD `cat_link` recreated like UD `cat_arc` (`shape`/`geom1`..`geom8` instead of WS `pnom`/`dnom`/`dint`/`dext`); data migrated from `_cat_link_` (#969).
 - UD go2epa FIXED outfalls export `inp_outfall.stage`. The previous export wrote the node inventory state (#959).
+- Go2EPA manager: corporate toggle now works in UD projects (no `gw_fct_epa2data` there).
 
 ## [4.17.5] - 2026-10-06
 
