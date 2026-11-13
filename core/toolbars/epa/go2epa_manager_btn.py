@@ -16,6 +16,7 @@ from qgis.PyQt.QtGui import QRegularExpressionValidator, QStandardItemModel, QCu
 from ..dialog import GwAction
 from ...ui.ui_manager import GwEpaManagerUi
 from ...utils import tools_gw
+from .... import global_vars
 from ....libs import tools_qt, tools_db, tools_qgis, tools_os, lib_vars
 from ....libs.tools_qt import GwEditDialog
 
@@ -544,13 +545,6 @@ class GwGo2EpaManagerButton(GwAction):
             tools_qgis.show_warning(msg, dialog=self.dlg_manager)
             return
 
-        msg = ("You are going to make this result corporate. From now on the result values will appear on feature form. "
-                "Do you want to continue?")
-
-        answer = tools_qt.show_question(msg)
-        if not answer:
-            return
-
         result_id = ""
         set_corporate = True
         for i in range(0, len(selected_list)):
@@ -560,6 +554,18 @@ class GwGo2EpaManagerButton(GwAction):
             col = tools_qt.get_col_index_by_col_name(widget, "iscorporate")
             set_corporate = widget.model().index(row, col).data()
         set_corporate = not tools_os.set_boolean(set_corporate, False)
+
+        if global_vars.project_type == 'ud':
+            self._set_corporate_ud(result_id, set_corporate)
+            return
+
+        msg = ("You are going to make this result corporate. From now on the result values will appear on feature form. "
+                "Do you want to continue?")
+
+        answer = tools_qt.show_question(msg)
+        if not answer:
+            return
+
         parameter = {"data": {"resultId": result_id, "isCorporate": str(set_corporate).lower()}}
         result = tools_gw.execute_procedure('gw_fct_epa2data', parameter)
 
@@ -575,6 +581,14 @@ class GwGo2EpaManagerButton(GwAction):
 
         # Refresh table
         self._fill_manager_table()
+
+    def _set_corporate_ud(self, result_id, is_corporate):
+        """ UD has no gw_fct_epa2data: corporate is only the iscorporate flag of the result """
+
+        sql = (f"UPDATE rpt_cat_result SET iscorporate = {str(is_corporate).lower()} "
+               f"WHERE result_id = {_sql_literal(result_id)};")
+        if tools_db.execute_sql(sql, log_sql=True):
+            self._fill_manager_table()
 
     def _manage_edit_row(self, dialog, widget):
 
