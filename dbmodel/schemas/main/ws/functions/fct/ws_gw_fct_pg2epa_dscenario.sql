@@ -321,7 +321,8 @@ BEGIN
 		-- updating values for reservoir
 		UPDATE temp_t_node t SET pattern_id = d.pattern_id FROM inp_dscenario_reservoir d
 		WHERE t.node_id = d.node_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.pattern_id IS NOT NULL;
-		UPDATE temp_t_node t SET addparam = gw_fct_json_object_set_key(addparam::json, 'head',d.head) FROM inp_dscenario_reservoir d
+		UPDATE temp_t_node t SET elev = d.head, top_elev = d.head,
+		addparam = gw_fct_json_object_set_key(addparam::json, 'head',d.head) FROM inp_dscenario_reservoir d
 		WHERE t.node_id = d.node_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.head IS NOT NULL;
 
 		-- updating values for tanks
@@ -359,7 +360,8 @@ BEGIN
 		-- updating values for inlet (as reservoir)
 		UPDATE temp_t_node t SET pattern_id = d.pattern_id FROM inp_dscenario_inlet d
 		WHERE t.node_id = d.node_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.pattern_id IS NOT NULL AND t.epa_type = 'RESERVOIR';
-		UPDATE temp_t_node t SET addparam = gw_fct_json_object_set_key(addparam::json, 'head',d.head) FROM inp_dscenario_inlet d
+		UPDATE temp_t_node t SET elev = d.head, top_elev = d.head,
+		addparam = gw_fct_json_object_set_key(addparam::json, 'head',d.head) FROM inp_dscenario_inlet d
 		WHERE t.node_id = d.node_id::text AND dscenario_id IN (SELECT unnest(v_userscenario)) AND d.head IS NOT NULL AND t.epa_type = 'RESERVOIR';
 
 		-- updating values for inlet (as junction)
