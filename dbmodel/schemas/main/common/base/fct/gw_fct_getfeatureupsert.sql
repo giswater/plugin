@@ -1107,6 +1107,14 @@ BEGIN
 				IF v_project_type = 'UD' THEN
 
 					CASE (aux_json->>'columnname')
+					WHEN 'node_top_elev_1' THEN
+						field_value = v_noderecord1.top_elev;
+					WHEN 'node_custom_top_elev_1' THEN
+						field_value = v_noderecord1.custom_top_elev;
+					WHEN 'node_top_elev_2' THEN
+						field_value = v_noderecord2.top_elev;
+					WHEN 'node_custom_top_elev_2' THEN
+						field_value = v_noderecord2.custom_top_elev;
 					WHEN 'sys_y1' THEN
 						field_value =v_noderecord1.sys_ymax;
 					WHEN 'sys_elev1' THEN
@@ -1115,6 +1123,19 @@ BEGIN
 						field_value =v_noderecord2.sys_ymax;
 					WHEN 'sys_elev2' THEN
 						field_value =v_noderecord2.sys_elev;
+					-- on insert sys_elevN = node sys_elev, so zN = 0 and rN = sys_top_elev - sys_elev - geom1 (same as ve_arc)
+					WHEN 'z1' THEN
+						IF v_noderecord1.sys_elev IS NOT NULL THEN
+							field_value = 0;
+						END IF;
+					WHEN 'z2' THEN
+						IF v_noderecord2.sys_elev IS NOT NULL THEN
+							field_value = 0;
+						END IF;
+					WHEN 'r1' THEN
+						field_value = ((v_noderecord1.sys_top_elev - v_noderecord1.sys_elev) - v_geom1::numeric)::numeric(12,3);
+					WHEN 'r2' THEN
+						field_value = ((v_noderecord2.sys_top_elev - v_noderecord2.sys_elev) - v_geom1::numeric)::numeric(12,3);
 					WHEN 'gullycat_id' THEN
 						SELECT (a->>'vdef') INTO field_value FROM json_array_elements(v_values_array) AS a
 						WHERE a->>'parameter' = concat('feat_', lower(v_catfeature.id), '_vdefault');
