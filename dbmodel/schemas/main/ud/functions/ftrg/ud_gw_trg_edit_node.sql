@@ -403,6 +403,11 @@ BEGIN
 					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
 				END IF;
 			END IF;
+
+			-- control when no value
+			IF NEW.muni_id IS NULL THEN
+				NEW.muni_id := 0;
+			END IF;
 		END IF;
 
 
