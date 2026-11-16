@@ -57,7 +57,10 @@ BEGIN
 			NEW.active = TRUE;
 		END IF;
 
-		SELECT max(macrodma_id::integer)+1 INTO v_macrodma_id FROM macrodma WHERE macrodma_id::text ~ '^[0-9]+$';
+		-- Next id: max positive id + 1 (1 when the table holds no positive id yet)
+		SELECT coalesce(max(macrodma_id::integer), 0)+1 INTO v_macrodma_id FROM macrodma WHERE macrodma_id::text ~ '^[0-9]+$';
+		NEW.macrodma_id := v_macrodma_id;
+
 		IF btrim(coalesce(NEW.code, '')) = '' THEN
 			NEW.code := NULL;
 		END IF;
@@ -77,7 +80,7 @@ BEGIN
 		END IF;
 
 	   INSERT INTO macrodma (macrodma_id, code, name, descript, active, expl_id, sector_id, muni_id, stylesheet, link, lock_level, addparam, created_at, created_by, updated_at, updated_by)
-	   VALUES (v_macrodma_id, NEW.code, NEW.name, NEW.descript, NEW.active, NEW.expl_id, NEW.sector_id, NEW.muni_id, 
+	   VALUES (NEW.macrodma_id, NEW.code, NEW.name, NEW.descript, NEW.active, NEW.expl_id, NEW.sector_id, NEW.muni_id, 
 	   NEW.stylesheet::json, NEW.link, NEW.lock_level, NEW.addparam::json, now(), current_user, now(), current_user);
 
     	IF v_view_name = 'EDIT' THEN
