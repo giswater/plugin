@@ -5160,7 +5160,7 @@ def execute_procedure(function_name, parameters=None, schema_name=None, commit=T
 
     # Execute database function
     row = tools_db.get_row(sql, commit=commit, log_sql=log_sql, aux_conn=aux_conn, is_thread=is_thread)
-    # dao.last_error, not session_vars: other threads overwrite that dict.
+    # Best effort: dao.last_error is shared with other threads.
     activity_db_error = tools_db.dao.last_error if tools_db.dao is not None else None
     if not row or not row[0]:
         msg = "Function error: {0}"

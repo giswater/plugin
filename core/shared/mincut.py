@@ -345,7 +345,6 @@ class GwMincut:
     def init_mincut_form(self):
         """ Custom form initial configuration """
 
-        # One place for button 11 and for opening a mincut from the manager.
         tools_audit.trace('mincut')
 
         # Drop temporary tables when form is initialized
@@ -1295,7 +1294,7 @@ class GwMincut:
                 msg = "Function error: gw_fct_setmincut"
                 tools_log.log_warning(msg)
                 tools_log.log_warning(sql)
-                tools_audit.after_call('gw_fct_setmincut', body, {'status': 'Failed'}, None, False)
+                tools_audit.after_call('gw_fct_setmincut', body, None, None, False)
                 return None
 
             json_result = row[0]

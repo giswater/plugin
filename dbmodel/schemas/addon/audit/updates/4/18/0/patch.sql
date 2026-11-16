@@ -55,23 +55,18 @@ CREATE INDEX IF NOT EXISTS activity_user_day_idx
 CREATE INDEX IF NOT EXISTS activity_user_insert_by_day_idx
     ON audit.activity_user (insert_by, day DESC);
 
+ALTER TABLE audit.activity DROP CONSTRAINT IF EXISTS activity_kind_check CASCADE;
+ALTER TABLE audit.activity ADD CONSTRAINT activity_kind_check CHECK (kind IN ('place', 'call'));
+ALTER TABLE audit.error DROP CONSTRAINT IF EXISTS error_origin_check CASCADE;
+ALTER TABLE audit.error ADD CONSTRAINT error_origin_check CHECK (origin IN ('call'));
+
 -- Column INSERT only. insert_by and tstamp stay on DEFAULT (session_user, now()).
--- The schema is owned by role_system. Updates run as the installer, so a
--- non-superuser cannot REVOKE. The purge's search_path is the real guard.
-DO $revoke_create$
-BEGIN
-    REVOKE CREATE ON SCHEMA audit FROM role_basic;
-EXCEPTION
-    WHEN insufficient_privilege THEN
-        NULL;
-END
-$revoke_create$;
+-- role_basic keeps CREATE on the schema: gw_fct_setsnapshot/getsnapshot create tables in audit.
 GRANT SELECT ON audit.activity, audit.error, audit.activity_user TO role_basic;
 GRANT INSERT (schema_name, kind, name, status, body) ON audit.activity TO role_basic;
 GRANT INSERT (schema_name, function_name, status, message, sqlstate, origin)
     ON audit.error TO role_basic;
 GRANT USAGE, SELECT ON SEQUENCE audit.activity_id_seq, audit.error_id_seq TO role_basic;
-GRANT DELETE ON audit.activity, audit.error TO role_system;
 
 CREATE OR REPLACE FUNCTION audit.gw_fct_activity_purge()
 RETURNS void
@@ -133,4 +128,31 @@ $$;
 
 ALTER FUNCTION audit.gw_fct_activity_user_bump(text, text, text) OWNER TO role_system;
 REVOKE ALL ON FUNCTION audit.gw_fct_activity_user_bump(text, text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION audit.gw_fct_activity_user_bump(text, text, text) TO role_basic;
+
+-- The rollup follows every insert, so clients need neither a second round trip nor EXECUTE on the bump.
+CREATE OR REPLACE FUNCTION audit.gw_trg_activity_user_bump()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+    IF TG_TABLE_NAME = 'error' THEN
+        PERFORM audit.gw_fct_activity_user_bump(NEW.schema_name, 'error', NEW.function_name);
+    ELSE
+        PERFORM audit.gw_fct_activity_user_bump(NEW.schema_name, NEW.kind, NEW.name);
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+ALTER FUNCTION audit.gw_trg_activity_user_bump() OWNER TO role_system;
+REVOKE ALL ON FUNCTION audit.gw_trg_activity_user_bump() FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS gw_trg_activity_user_bump ON audit.activity CASCADE;
+CREATE TRIGGER gw_trg_activity_user_bump AFTER INSERT ON audit.activity
+    FOR EACH ROW EXECUTE FUNCTION audit.gw_trg_activity_user_bump();
+
+DROP TRIGGER IF EXISTS gw_trg_activity_user_bump ON audit.error CASCADE;
+CREATE TRIGGER gw_trg_activity_user_bump AFTER INSERT ON audit.error
+    FOR EACH ROW EXECUTE FUNCTION audit.gw_trg_activity_user_bump();

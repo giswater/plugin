@@ -38,7 +38,6 @@ _INSERT_ERROR = (
     "INSERT INTO audit.error (schema_name, function_name, status, message, sqlstate, origin) "
     "VALUES (%s, %s, %s, %s, %s, 'call')"
 )
-_BUMP = "SELECT audit.gw_fct_activity_user_bump(%s, %s, %s)"
 _PURGE = "SELECT audit.gw_fct_activity_purge()"
 # has_table_privilege is false for a column-only INSERT grant.
 _PROBE = """
@@ -47,15 +46,6 @@ SELECT CASE
     WHEN to_regclass('audit.error') IS NULL THEN false
     WHEN has_any_column_privilege('audit.activity', 'INSERT') IS NOT TRUE THEN false
     WHEN has_any_column_privilege('audit.error', 'INSERT') IS NOT TRUE THEN false
-    ELSE true
-END
-"""
-_PROBE_BUMP = """
-SELECT CASE
-    WHEN to_regclass('audit.activity_user') IS NULL THEN false
-    WHEN to_regprocedure('audit.gw_fct_activity_user_bump(text,text,text)') IS NULL THEN false
-    WHEN has_function_privilege(
-        'audit.gw_fct_activity_user_bump(text,text,text)', 'EXECUTE') IS NOT TRUE THEN false
     ELSE true
 END
 """
@@ -68,15 +58,12 @@ class _State(object):
         self.conn = None
         self.off = False
         self.probed = False
-        self.enabled = False
-        self.bump = False
         self.last_purge = 0.0
 
 
 def trace(event):
     """Record that the user entered a flow. No-op when the audit addon is absent."""
-    name = '' if event is None else str(event)
-    _write('place', name, '', {}, False, force_purge=(event == 'project'))
+    _write('place', event, '', {}, False, force_purge=(event == 'project'))
 
 
 def reset():
@@ -101,11 +88,9 @@ def after_call(function_name, body, json_result, last_error, is_thread):
     """One row after a gw_fct_* call. The mincut cursor uses this too; its except does not."""
     try:
         name = _bare_name(function_name)
-        if _is_failure(json_result, last_error):
+        if _is_failure(json_result):
             status, message, sqlstate = _error_bits(json_result, last_error)
             _write('error', name, status, None, is_thread, message, sqlstate)
-            return
-        if not isinstance(json_result, dict):
             return
         if json_result.get('status') == 'Accepted' and name in _ACTIVITY_FUNCTIONS:
             if not isinstance(body, dict):
@@ -209,13 +194,8 @@ def _exec(conn, sql, params):
 def _probe_conn(conn):
     ok, row = _exec(conn, _PROBE, None)
     if not ok:
-        return False, False, row
-    if not (row and row[0]):
-        return False, False, None
-    ok_bump, row_bump = _exec(conn, _PROBE_BUMP, None)
-    if not ok_bump:
-        return True, False, None
-    return True, bool(row_bump and row_bump[0]), None
+        return False, row
+    return bool(row and row[0]), None
 
 
 def _close_cached(st):
@@ -223,141 +203,70 @@ def _close_cached(st):
     st.conn = None
 
 
-def _ui_reopen(st):
-    _close_cached(st)
-    conn = _open()
-    if conn is None:
-        st.off = True
-        return None
-    st.conn = conn
-    return conn
-
-
-def _ui_conn(st):
-    conn = st.conn
-    if conn is not None and _closed(conn):
-        _close_cached(st)
-        conn = None
-    if conn is None:
-        conn = _open()
-        if conn is None:
-            st.off = True
-            return None
-        st.conn = conn
-    return conn
-
-
-def _ensure_probed(st):
-    if st.probed:
-        return st.enabled
-    enabled, bump, err = _probe_conn(st.conn)
-    if err is not None and _closed(st.conn):
-        if _ui_reopen(st) is None:
-            return False
-        enabled, bump, err = _probe_conn(st.conn)
-        if err is not None and _closed(st.conn):
-            st.off = True
-            _log(err)
-            return False
-    if err is not None:
-        _log(err)
-        st.probed = True
-        st.enabled = False
-        st.bump = False
-        _close_cached(st)
-        return False
-    st.probed = True
-    st.enabled = enabled
-    st.bump = bump
-    if not enabled:
-        _close_cached(st)
-    return enabled
-
-
 def _maybe_purge(st, force):
     now = time.monotonic()
     if not force and (now - st.last_purge) < _PURGE_S:
         return
     st.last_purge = now
-    if st.conn is None:
-        return
     ok, err = _exec(st.conn, _PURGE, None)
-    if ok:
-        return
-    _log(err)
-    if _closed(st.conn):
-        _ui_reopen(st)
-
-
-def _reopen(st, is_thread, conn):
-    if is_thread:
-        _drop(conn)
-        return _open()
-    return _ui_reopen(st)
-
-
-def _insert(conn, sql, params, kind, name, bump, st, is_thread):
-    ok, err = _exec(conn, sql, params)
-    if not ok and _closed(conn):
-        conn = _reopen(st, is_thread, conn)
-        if conn is None:
-            return None
-        ok, err = _exec(conn, sql, params)
-        if not ok and _closed(conn) and st is not None and not is_thread:
-            st.off = True
     if not ok:
         _log(err)
-        return conn
-    if not bump:
-        return conn
-    ok_bump, err_bump = _exec(conn, _BUMP, (_schema(), kind, name))
-    if not ok_bump:
-        _log(err_bump)
-    return conn
 
 
-def _run_worker(sql, params, kind, name):
+def _insert(conn, sql, params):
+    """One attempt. A dropped connection loses this row; the next event reconnects."""
+    ok, err = _exec(conn, sql, params)
+    if not ok:
+        _log(err)
+
+
+def _run_worker(sql, params):
     conn = _open()
     if conn is None:
         return
-    live = conn
     try:
-        enabled, bump, err = _probe_conn(conn)
-        if not enabled:
-            # A failed worker connect must not turn the UI writer off.
-            if err is not None and not _closed(conn):
-                _log(err)
-            return
-        live = _insert(conn, sql, params, kind, name, bump, None, True) or conn
+        enabled, err = _probe_conn(conn)
+        if enabled:
+            _insert(conn, sql, params)
+        else:
+            _log(err)
     finally:
-        _drop(live)
-        if live is not conn:
-            _drop(conn)
+        _drop(conn)
 
 
-def _run_ui(sql, params, kind, name, force_purge):
+def _run_ui(sql, params, force_purge):
     st = _state()
-    if st.off or (st.probed and not st.enabled):
+    if st.off:
         return
-    if _ui_conn(st) is None:
-        return
-    if not _ensure_probed(st):
-        return
+    if _closed(st.conn):
+        _close_cached(st)
+        st.conn = _open()
+        if st.conn is None:
+            st.off = True
+            return
+    if not st.probed:
+        enabled, err = _probe_conn(st.conn)
+        if err is not None and _closed(st.conn):
+            _close_cached(st)
+            return
+        st.probed = True
+        if not enabled:
+            _log(err)
+            st.off = True
+            _close_cached(st)
+            return
     _maybe_purge(st, force_purge)
-    if st.conn is None:
-        return
-    live = _insert(st.conn, sql, params, kind, name, st.bump, st, False)
-    if live is not None:
-        st.conn = live
+    _insert(st.conn, sql, params)
 
 
-def _run(is_thread, sql, params, kind, name, force_purge):
+def _run(is_thread, sql, params, force_purge):
     if tools_db.dao is None:
         return
-    if is_thread:
-        _run_worker(sql, params, kind, name)
+    # Callers do not always flag worker threads; a UI connection cached per worker thread would leak.
+    if is_thread or threading.current_thread() is not threading.main_thread():
+        _run_worker(sql, params)
         return
-    _run_ui(sql, params, kind, name, force_purge)
+    _run_ui(sql, params, force_purge)
 
 
 def _message(json_result):
@@ -388,22 +297,16 @@ def _error_bits(json_result, last_error):
         pgcode = getattr(last_error, 'pgcode', None)
         if pgcode and not sqlstate:
             sqlstate = str(pgcode)
-        if not status:
-            status = 'Error'
+    if not status:
+        status = 'Error'
     return status, cap_utf8(message), cap_utf8(sqlstate, 64)
 
 
-def _is_failure(json_result, last_error):
+def _is_failure(json_result):
+    """after_call only runs once the call returned, so anything but a dict is a failure."""
     if isinstance(json_result, dict):
-        status = json_result.get('status')
-        if status in ('Failed', 'Error'):
-            return True
-        if 'status' not in json_result:
-            return True
-        return False
-    if json_result is False:
-        return True
-    return last_error is not None
+        return json_result.get('status', 'Failed') in ('Failed', 'Error')
+    return True
 
 
 def _write(kind, name, status, body, is_thread, message='', sqlstate='', force_purge=False):
@@ -419,6 +322,6 @@ def _write(kind, name, status, body, is_thread, message='', sqlstate='', force_p
                 schema, kind, name or '', status or '',
                 json.dumps(payload, ensure_ascii=False, default=str),
             )
-        _run(is_thread, sql, params, kind, name or '', force_purge)
+        _run(is_thread, sql, params, force_purge)
     except Exception as exc:
         _log(exc)
