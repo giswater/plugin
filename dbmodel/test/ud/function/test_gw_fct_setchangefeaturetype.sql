@@ -40,7 +40,7 @@ UPDATE node SET code = 'KEEPME' WHERE node_id = '236';
 SELECT is (
     (gw_fct_setchangefeaturetype($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{},
     "feature":{"type":"node"}, "data":{"filterFields":{}, "pageInfo":{}, "feature_id":"236", "feature_type_new":"JUMP",
-    "featurecat_id":"CHAMBER-01"}}$$)::JSON)->>'status',
+    "featurecat_id":"JUMP-01"}}$$)::JSON)->>'status',
     'Accepted',
     'Check if gw_fct_setchangefeaturetype returns status "Accepted"'
 );

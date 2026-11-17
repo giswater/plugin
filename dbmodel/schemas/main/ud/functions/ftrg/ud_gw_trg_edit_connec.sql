@@ -606,6 +606,14 @@ BEGIN
 
     ELSIF TG_OP = 'UPDATE' THEN
 
+		IF btrim(coalesce(NEW.code, '')) = '' THEN
+			NEW.code := NULL;
+		END IF;
+
+		IF NEW.code IS NULL AND NEW.the_geom IS NOT NULL THEN
+			NEW.code := gw_fct_generate_code('feature', NEW.connec_type, json_strip_nulls(row_to_json(NEW)::json));
+		END IF;
+
 		-- Child exploitation → parent + visibility check
 		SELECT o_expl_id, o_expl_visibility INTO NEW.expl_id, NEW.expl_visibility
 		FROM gw_fct_set_expl_from_parent(NEW.expl_id, NEW.expl_visibility);
