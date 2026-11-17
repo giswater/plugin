@@ -517,6 +517,7 @@ UPDATE sys_fprocess AS t SET except_msg = v.except_msg, info_msg = v.info_msg, f
     (718, 'arcs that are configured as toArc for dma but is not operative on arc table.', 'All arcs defined as toArc on dma exists on DB.', 'Check if defined toArc is operative for dma'),
     (720, 'nodes that are configured as nodeParent for dma but is not operative on node table.', 'All nodes defined as nodeParent on dma exists on DB.', 'Check if defined nodeParent is operative for dma'),
     (730, 'arcs that are configured as toArc for dwfzone but is not operative on arc table.', 'All arcs defined as toArc on dwfzone exists on DB.', 'Check if defined toArc is operative for dwfzone'),
-    (732, 'nodes that are configured as nodeParent for dwfzone but is not operative on node table.', 'All nodes defined as nodeParent on dwfzone exists on DB.', 'Check if defined nodeParent is operative for dwfzone')
+    (732, 'nodes that are configured as nodeParent for dwfzone but is not operative on node table.', 'All nodes defined as nodeParent on dwfzone exists on DB.', 'Check if defined nodeParent is operative for dwfzone'),
+    (734, 'conduits with null Manning roughness (n). Fill cat_material.n or inp_conduit.custom_n.', 'Manning roughness (n) is filled for every conduit from the arc material, custom_n or the catalog material.', 'Check conduits with null Manning n')
 ) AS v(fid, except_msg, info_msg, fprocess_name)
 WHERE t.fid = v.fid;

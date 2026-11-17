@@ -776,7 +776,6 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4702, 'Valid geometry: %v_count%', NULL),
     (4704, 'Inconsistencies: %v_count%', NULL),
     (4706, 'No inconsistencies found.', NULL),
-    (4708, 'JSON saved to table om_scada_graph_json', NULL),
     (4710, 'Data quality analysis done successfully', NULL),
     (4712, '1. node_1 and node_2 are missing', NULL),
     (4714, '1. node_1 is missing', NULL),
@@ -788,9 +787,6 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4726, '3. node_1 is orphan', NULL),
     (4728, '3. node_2 is orphan', NULL),
     (4730, '4. node_1 and node_2 without a valid connection', NULL),
-    (4732, 'temp_om_scada_graph not found; call gw_fct_scada_graph_export from gw_fct_scada_graph_check', NULL),
-    (4734, 'Network Graph generated from scada graph check', NULL),
-    (4736, 'Network JSON graph successfully created', NULL),
     (4738, 'node_1 and node_2 are required', NULL),
     (4740, 'node_1 and node_2 must be different', NULL),
     (4742, 'Scada graph edge already exists', NULL),
@@ -799,14 +795,10 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4748, 'No network path between node_1=%node_1% and node_2=%node_2%', NULL),
     (4750, 'It is not possible to have two operative links leaving from the same %feature_type% with id %feature_id%. Existing operative link: %link_id%', 'Set the existing operative link to planned or obsolete, or edit that link instead of creating a new one.'),
     (4752, 'The new psector name already exists(can be inactive)', 'Try using a different name'),
-    (4764, 'Arc (%v_id%) have been downgraded, new planned arc have been created (%v_arc%)', NULL),
-    (4766, '%v_count% connec(s) have been reconnected.', NULL),
-    (4768, '%v_count% gully(s) have been reconnected.', NULL),
-    (4770, 'Using current (%v_psector%) psector, %v_count% succesfully replacements have been executed', NULL),
-    (4772, 'Arc catalog used for new arc(s): %v_catalog%', NULL),
-    (4774, 'Copied columns from old arc(s): Mapzones, *_type, soil, address and label values', NULL),
-    (4776, 'NOT copied columns from old arc(s): Free text and addfield values', NULL),
-    (4778, 'Replacement on planned mode is only available for arcs', NULL),
-    (4780, 'Arc replacement done succesfully', NULL)
+    (4754, 'Unknown synoptic fct_type: %fct_type%. Use SCADA or MAPZONE.', 'Set data.fct_type to SCADA or MAPZONE.'),
+    (4756, 'Synoptic layout generated', NULL),
+    (4758, 'Failed to generate synoptic layout: %error%', 'Review the SCADA graph or mapzone synoptic input.'),
+    (4760, 'Copy from CRM date interval: %v_crm_name%', NULL),
+    (4762, 'Cannot save feature: exploitation %expl_id% (and expl_visibility) are not allowed for the current user', 'Use an exploitation (or expl_visibility value) present in vf_exploitation for this user')
 ) AS v(id, error_message, hint_message)
 WHERE t.id = v.id;

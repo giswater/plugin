@@ -368,12 +368,13 @@ UPDATE sys_function AS t SET descript = v.descript FROM (
     (3540, 'Trigger function that update automatically the mapzones columns from feature'),
     (3542, 'Generate autofill code for features or mapzones using configurable SQL templates'),
     (3544, 'Builds a scada graph using node_1 and node_2 as input values.'),
-    (3546, 'Exports the scada graph created into a JSON by using graph builder.'),
-    (3548, 'Checks or fixes om_scada_graph against the network; on commit also writes om_scada_graph_json (toolbox: Scada graph analysis).'),
-    (3560, 'Creates a scada graph edge (insert + trigger fill). JSON export is done by gw_fct_scada_graph_check on commit.'),
+    (3548, 'Checks or fixes om_scada_graph against the network (toolbox: Scada graph analysis).'),
+    (3560, 'Creates a scada graph edge (insert + trigger fill).'),
     (3566, 'Build SQL AND clauses from filterFields json for list and feature queries'),
     (3568, 'Resolve config_form_list query_text and metadata for a listname'),
     (3570, 'Build SQL canvas extend filter for a geometry expression'),
-    (3572, 'BEFORE UPDATE trigger: always set updated_at and updated_by from clock_timestamp() and current_user')
+    (3572, 'BEFORE UPDATE trigger: set updated_at/updated_by from clock_timestamp() and current_user unless admin_skip_set_updated is true'),
+    (3574, 'Builds synoptic layout (level_id, position_id). Both graphs store synoptic_id. SCADA also stores synoptic_geom; MAPZONE keeps the layout line in attrib.synopticGeometry.'),
+    (3576, 'Remap child exploitation to parent_id into expl_id/expl_visibility and refuse save if current user has no permission via vf_exploitation')
 ) AS v(id, descript)
 WHERE t.id = v.id;
