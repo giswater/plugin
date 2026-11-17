@@ -822,6 +822,15 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4746, 'Scada graph edge already exists for node_1=%node_1% and node_2=%node_2%', NULL),
     (4748, 'No network path between node_1=%node_1% and node_2=%node_2%', NULL),
     (4750, 'It is not possible to have two operative links leaving from the same %feature_type% with id %feature_id%. Existing operative link: %link_id%', 'Set the existing operative link to planned or obsolete, or edit that link instead of creating a new one.'),
-    (4752, 'The new psector name already exists(can be inactive)', 'Try using a different name')
+    (4752, 'The new psector name already exists(can be inactive)', 'Try using a different name'),
+    (4764, 'Arc (%v_id%) have been downgraded, new planned arc have been created (%v_arc%)', NULL),
+    (4766, '%v_count% connec(s) have been reconnected.', NULL),
+    (4768, '%v_count% gully(s) have been reconnected.', NULL),
+    (4770, 'Using current (%v_psector%) psector, %v_count% succesfully replacements have been executed', NULL),
+    (4772, 'Arc catalog used for new arc(s): %v_catalog%', NULL),
+    (4774, 'Copied columns from old arc(s): Mapzones, *_type, soil, address and label values', NULL),
+    (4776, 'NOT copied columns from old arc(s): Free text and addfield values', NULL),
+    (4778, 'Replacement on planned mode is only available for arcs', NULL),
+    (4780, 'Arc replacement done succesfully', NULL)
 ) AS v(id, error_message, hint_message)
 WHERE t.id = v.id;
