@@ -835,16 +835,18 @@ BEGIN
 			config_param_user.parameter NOT IN (''edit_workcat_end_vdefault'', ''edit_enddate_vdefault''))a'
 			INTO v_values_array;
 
-		-- getting propierties from feature catalog value
-		SELECT (a->>'vdef'), (a->>'param') INTO v_catalog, v_catalogtype FROM json_array_elements(v_values_array) AS a
-			WHERE (a->>'param') = 'arccat_id' OR (a->>'param') = 'nodecat_id' OR (a->>'param') = 'conneccat_id' OR (a->>'param') = 'gullycat_id';
+		-- Catalog dimensions follow the catalog the form will select (feat_<id>_vdefault).
+		-- Any other arccat/nodecat vdefault must not fill cat_geom* while the combo stays empty.
+		SELECT (a->>'vdef') INTO v_catalog FROM json_array_elements(v_values_array) AS a
+			WHERE a->>'parameter' = concat('feat_', lower(v_catfeature.id), '_vdefault')
+			LIMIT 1;
 
-		IF v_project_type ='WS' AND v_catfeature.feature_type IS NOT NULL AND v_catfeature.feature_type NOT IN ('LINK', 'ELEMENT') THEN
+		IF v_catalog IS NOT NULL AND v_project_type ='WS' AND v_catfeature.feature_type IS NOT NULL AND v_catfeature.feature_type NOT IN ('LINK', 'ELEMENT') THEN
 			v_querystring = concat('SELECT pnom::integer, dnom::integer, matcat_id FROM cat_',lower(v_catfeature.feature_type),' WHERE id=',quote_nullable(v_catalog));
 
 			EXECUTE v_querystring INTO v_pnom, v_dnom, v_matcat_id;
 
-		ELSIF v_project_type ='UD' AND v_catfeature.feature_type IS NOT NULL AND v_catfeature.feature_type NOT IN ('LINK', 'ELEMENT') THEN
+		ELSIF v_catalog IS NOT NULL AND v_project_type ='UD' AND v_catfeature.feature_type IS NOT NULL AND v_catfeature.feature_type NOT IN ('LINK', 'ELEMENT') THEN
 			IF (v_catfeature.feature_type) ='GULLY' THEN
 				v_querystring = concat('SELECT matcat_id FROM cat_gully WHERE id=',quote_nullable(v_catalog));
 
@@ -1123,19 +1125,12 @@ BEGIN
 						field_value =v_noderecord2.sys_ymax;
 					WHEN 'sys_elev2' THEN
 						field_value =v_noderecord2.sys_elev;
-					-- on insert sys_elevN = node sys_elev, so zN = 0 and rN = sys_top_elev - sys_elev - geom1 (same as ve_arc)
+					-- z = sys_elevN - node sys_elev (same as ve_arc). On insert sys_elevN comes from the node, so this is 0.
+					-- r depends on cat_arc.geom1, which does not exist yet at insert time, so r1/r2 stay empty.
 					WHEN 'z1' THEN
-						IF v_noderecord1.sys_elev IS NOT NULL THEN
-							field_value = 0;
-						END IF;
+						field_value = (v_noderecord1.sys_elev - v_noderecord1.sys_elev)::numeric(12,3);
 					WHEN 'z2' THEN
-						IF v_noderecord2.sys_elev IS NOT NULL THEN
-							field_value = 0;
-						END IF;
-					WHEN 'r1' THEN
-						field_value = ((v_noderecord1.sys_top_elev - v_noderecord1.sys_elev) - v_geom1::numeric)::numeric(12,3);
-					WHEN 'r2' THEN
-						field_value = ((v_noderecord2.sys_top_elev - v_noderecord2.sys_elev) - v_geom1::numeric)::numeric(12,3);
+						field_value = (v_noderecord2.sys_elev - v_noderecord2.sys_elev)::numeric(12,3);
 					WHEN 'gullycat_id' THEN
 						SELECT (a->>'vdef') INTO field_value FROM json_array_elements(v_values_array) AS a
 						WHERE a->>'parameter' = concat('feat_', lower(v_catfeature.id), '_vdefault');
