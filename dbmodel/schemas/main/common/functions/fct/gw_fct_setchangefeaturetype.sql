@@ -49,6 +49,8 @@ v_level integer;
 v_status text;
 v_message text;
 v_sql text;
+v_custom_code_autofill boolean;
+v_code_autofill boolean;
 
 BEGIN
 
@@ -112,9 +114,24 @@ BEGIN
 	END IF;
 
 
-	EXECUTE 'UPDATE '||v_feature_layer||' SET '||v_feature_type||'_type='||quote_literal(v_feature_type_new)||',
-	'||v_cat_column||'='||quote_literal(v_featurecat_id_new)||'
-	WHERE '||v_id_column||'='''||v_feature_id||''';';
+	SELECT custom_code_autofill, code_autofill
+	INTO v_custom_code_autofill, v_code_autofill
+	FROM cat_feature
+	WHERE id = v_feature_type_new;
+
+	-- custom_code_autofill: null code so the edit trigger regenerates it.
+	-- code_autofill only: copy the feature id. Both false: leave code as it is.
+	v_sql := 'UPDATE '||v_feature_layer||' SET '||v_feature_type||'_type='||quote_literal(v_feature_type_new)||', '
+		||v_cat_column||'='||quote_literal(v_featurecat_id_new);
+
+	IF v_custom_code_autofill IS TRUE THEN
+		v_sql := v_sql||', code=NULL';
+	ELSIF v_code_autofill IS TRUE THEN
+		v_sql := v_sql||', code='||quote_literal(v_feature_id);
+	END IF;
+
+	v_sql := v_sql||' WHERE '||v_id_column||'='||quote_literal(v_feature_id);
+	EXECUTE v_sql;
 
 	IF EXISTS (
         SELECT 1
