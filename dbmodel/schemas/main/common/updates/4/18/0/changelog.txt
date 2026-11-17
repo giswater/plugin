@@ -1,5 +1,6 @@
 - `gw_fct_getfeatures` applies `OFFSET (page - 1) * limit` from `pageInfo.page`. `lastPage` is `ceil(count / limit)`, the last 1-based page.
 - Change feature type rewrites `code` from the target `cat_feature`: `custom_code_autofill` clears it so the edit trigger regenerates it, `code_autofill` alone copies the feature id, and both false leaves the current code.
+- Arc fusion and arc divide give each new arc its own `code`. An explicit `data.code` wins on fusion; otherwise `custom_code_autofill` generates it and `code_autofill` copies the new `arc_id`. Both false leaves `code` null. On divide, `edit_arc_divide.setOldCode` still copies the parent `code` when `custom_code_autofill` is false.
 
 - Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` for mapzone synoptic layout (#965).
 - Add system parameter `edit_element_geom_from_feature` (default false). When true, the first link of an element with no geometry copies a point from the associated feature: the feature point for a node, connec or gully, and the midpoint of the line for an arc or link. Flow regulators (FRELEM) are excluded.

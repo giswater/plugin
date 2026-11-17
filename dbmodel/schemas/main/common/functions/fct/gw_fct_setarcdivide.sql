@@ -95,6 +95,8 @@ v_node_id integer;
 v_arc_closest integer;
 v_set_arc_obsolete boolean;
 v_set_old_code boolean;
+v_custom_code_autofill boolean;
+v_code_autofill boolean;
 v_obsoletetype integer;
 v_node1_graph text;
 v_node2_graph text;
@@ -203,6 +205,11 @@ BEGIN
 				EXECUTE v_sql
 				INTO v_arc_type;
 
+				SELECT custom_code_autofill, code_autofill
+				INTO v_custom_code_autofill, v_code_autofill
+				FROM cat_feature
+				WHERE id = v_arc_type;
+
 				--  Locate position of the nearest point
 				v_intersect_loc := ST_LineLocatePoint(v_arc_geom, v_node_geom);
 
@@ -245,33 +252,40 @@ BEGIN
 					-- Update values of new arc_id (1)
 					rec_aux1.arc_id := nextval('SCHEMA_NAME.urn_id_seq');
 
-					--code
-					rec_aux1.code := gw_fct_generate_code('feature', v_arc_type, json_strip_nulls(to_json(rec_aux1)::json));
-					IF rec_aux1.code IS NULL AND v_set_old_code IS TRUE THEN
-						rec_aux1.code := v_code;
-					ELSIF rec_aux1.code IS NULL THEN
-						rec_aux1.code := rec_aux1.arc_id;
-					END IF;
-
 					-- node and geom
 					rec_aux1.node_2 := v_node_id ;-- rec_aux1.node_1 take values from original arc
 					rec_aux1.the_geom := v_line1;
+
+					-- code: custom_code_autofill, else setOldCode (legacy), else code_autofill.
+					IF v_custom_code_autofill IS TRUE THEN
+						rec_aux1.code := gw_fct_generate_code('feature', v_arc_type,
+							json_strip_nulls((to_json(rec_aux1)::jsonb || jsonb_build_object('arc_type', v_arc_type))::json));
+					ELSIF v_set_old_code IS TRUE THEN
+						rec_aux1.code := v_code;
+					ELSIF v_code_autofill IS TRUE THEN
+						rec_aux1.code := rec_aux1.arc_id;
+					ELSE
+						rec_aux1.code := NULL;
+					END IF;
 
 					-- Update values of new arc_id (2)
 					rec_aux2.arc_id := nextval('SCHEMA_NAME.urn_id_seq');
 					rec_aux2.uuid := gen_random_uuid();
 
-					-- code
-					rec_aux2.code := gw_fct_generate_code('feature', v_arc_type, json_strip_nulls(to_json(rec_aux2)::json));
-					IF rec_aux2.code IS NULL AND v_set_old_code IS TRUE THEN
-						rec_aux2.code := v_code;
-					ELSIF rec_aux2.code IS NULL THEN
-						rec_aux2.code := rec_aux2.arc_id;
-					END IF;
-
 					-- node and geom
 					rec_aux2.node_1 := v_node_id; -- rec_aux2.node_2 take values from original arc
 					rec_aux2.the_geom := v_line2;
+
+					IF v_custom_code_autofill IS TRUE THEN
+						rec_aux2.code := gw_fct_generate_code('feature', v_arc_type,
+							json_strip_nulls((to_json(rec_aux2)::jsonb || jsonb_build_object('arc_type', v_arc_type))::json));
+					ELSIF v_set_old_code IS TRUE THEN
+						rec_aux2.code := v_code;
+					ELSIF v_code_autofill IS TRUE THEN
+						rec_aux2.code := rec_aux2.arc_id;
+					ELSE
+						rec_aux2.code := NULL;
+					END IF;
 
 					-- getting table child information (man_table)
 					v_mantable = (SELECT man_table FROM cat_feature_arc c JOIN cat_feature cf ON c.id = cf.id JOIN sys_feature_class s ON cf.feature_class = s.id JOIN ve_arc ON c.id=arc_type WHERE arc_id=v_arc_id);

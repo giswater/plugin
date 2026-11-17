@@ -79,6 +79,9 @@ v_state_type integer;
 v_action_mode integer;
 v_plan_mode boolean;
 v_asset_id text;
+v_user_code text;
+v_custom_code_autofill boolean;
+v_code_autofill boolean;
 
 rec_addfields record;
 v_sql text;
@@ -117,6 +120,10 @@ BEGIN
 	v_arc_type = ((p_data ->>'data')::json->>'arc_type')::text;
 	v_plan_mode = ((p_data ->>'data')::json->>'plan_mode')::boolean;
 	v_asset_id = ((p_data ->>'data')::json->>'asset_id')::text;
+	v_user_code := nullif(btrim((p_data -> 'data' ->> 'code')), '');
+	IF v_user_code IN ('null', 'NULL', '-1', 'None') THEN
+		v_user_code := NULL;
+	END IF;
 
 	-- Get state_type from default value if this isn't on input json
 	IF v_state_type IS NULL THEN
@@ -258,6 +265,25 @@ BEGIN
 				v_new_record.arc_id := (SELECT nextval('urn_id_seq'));
 				v_new_record.asset_id = v_asset_id;
 				v_new_record.uuid := gen_random_uuid();
+
+				-- code: explicit input, else custom_code_autofill, else code_autofill. Never keep a parent code.
+				SELECT arc_type INTO v_arc_type FROM cat_arc WHERE id = v_new_record.arccat_id;
+
+				SELECT custom_code_autofill, code_autofill
+				INTO v_custom_code_autofill, v_code_autofill
+				FROM cat_feature
+				WHERE id = v_arc_type;
+
+				IF v_user_code IS NOT NULL THEN
+					v_new_record.code := v_user_code;
+				ELSIF v_custom_code_autofill IS TRUE THEN
+					v_new_record.code := gw_fct_generate_code('feature', v_arc_type,
+						json_strip_nulls((to_json(v_new_record)::jsonb || jsonb_build_object('arc_type', v_arc_type))::json));
+				ELSIF v_code_autofill IS TRUE THEN
+					v_new_record.code := v_new_record.arc_id;
+				ELSE
+					v_new_record.code := NULL;
+				END IF;
 
 				EXECUTE 'SELECT gw_fct_getmessage($${"data":{"message":"3376", "function":"2112", "parameters":{"arc_id":"'||v_new_record.arc_id||'"}, "fid":"214", "criticity":"1", "is_process":true}}$$)';
 
