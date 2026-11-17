@@ -1703,6 +1703,11 @@ class GwInfo(QObject):
                 tools_gw.enable_all(dialog, self.complet_result['body']['data'], from_apply=True)
                 if self.epa_complet_result:
                     tools_gw.enable_all(dialog, self.epa_complet_result['body']['data'], from_apply=True)
+                # Apply keeps the dialog open. Accept closes it, so the stale widgets
+                # were never visible there. Re-read the row so computed columns
+                # (sys_y, sys_elev, z, ...) show what the database stored.
+                if save and accepted:
+                    self.refresh_from_db()
         else:
             tools_qt.set_action_checked(action_edit, True)
             tools_gw.enable_all(dialog, self.complet_result['body']['data'])
