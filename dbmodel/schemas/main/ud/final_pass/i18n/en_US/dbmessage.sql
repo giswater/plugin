@@ -799,6 +799,15 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4756, 'Synoptic layout generated', NULL),
     (4758, 'Failed to generate synoptic layout: %error%', 'Review the SCADA graph or mapzone synoptic input.'),
     (4760, 'Copy from CRM date interval: %v_crm_name%', NULL),
-    (4762, 'Cannot save feature: exploitation %expl_id% (and expl_visibility) are not allowed for the current user', 'Use an exploitation (or expl_visibility value) present in vf_exploitation for this user')
+    (4762, 'Cannot save feature: exploitation %expl_id% (and expl_visibility) are not allowed for the current user', 'Use an exploitation (or expl_visibility value) present in vf_exploitation for this user'),
+    (4764, 'Arc (%v_id%) have been downgraded, new planned arc have been created (%v_arc%)', NULL),
+    (4766, '%v_count% connec(s) have been reconnected.', NULL),
+    (4768, '%v_count% gully(s) have been reconnected.', NULL),
+    (4770, 'Using current (%v_psector%) psector, %v_count% succesfully replacements have been executed', NULL),
+    (4772, 'Arc catalog used for new arc(s): %v_catalog%', NULL),
+    (4774, 'Copied columns from old arc(s): Mapzones, *_type, soil, address and label values', NULL),
+    (4776, 'NOT copied columns from old arc(s): Free text and addfield values', NULL),
+    (4778, 'Replacement on planned mode is only available for arcs', NULL),
+    (4780, 'Arc replacement done succesfully', NULL)
 ) AS v(id, error_message, hint_message)
 WHERE t.id = v.id;
