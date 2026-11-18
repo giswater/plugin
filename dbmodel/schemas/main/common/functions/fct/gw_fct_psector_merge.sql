@@ -199,7 +199,7 @@ BEGIN
 			IF v_list_features_obsolete IS NOT NULL THEN
 				PERFORM setval('SCHEMA_NAME.plan_psector_x_gully_id_seq', (select max(id) from plan_psector_x_gully) , true);
 				INSERT INTO plan_psector_x_gully(gully_id, psector_id, state, doable, descript, arc_id, link_id)
-				SELECT DISTINCT ON (connec_id) gully_id, v_new_psector_id, state, doable, descript, arc_id, link_id FROM plan_psector_x_gully
+				SELECT DISTINCT ON (gully_id) gully_id, v_new_psector_id, state, doable, descript, arc_id, link_id FROM plan_psector_x_gully
 				WHERE psector_id=ANY(v_psector_ids) AND state=0 ON CONFLICT (psector_id, gully_id, state) DO NOTHING;
 
 				EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
@@ -224,8 +224,15 @@ BEGIN
 		--copy features inside plan_psector tables
 		SELECT string_agg(price_id,',') INTO v_list_features_obsolete FROM plan_psector_x_other WHERE psector_id=ANY(v_psector_ids);
 		IF v_list_features_obsolete IS NOT NULL THEN
-			INSERT INTO plan_psector_x_other(price_id, measurement, psector_id, descript)
-			SELECT DISTINCT ON (price_id) price_id, measurement, psector_id, descript FROM plan_psector_x_other WHERE psector_id=ANY(v_psector_ids);
+			PERFORM setval('SCHEMA_NAME.plan_psector_x_other_id_seq', (SELECT max(id) FROM plan_psector_x_other), true);
+			-- same price_id on several source psectors becomes one row; measurements add up
+			INSERT INTO plan_psector_x_other(price_id, measurement, psector_id, observ, the_geom)
+			SELECT price_id, sum(measurement), v_new_psector_id,
+				(array_agg(observ ORDER BY id) FILTER (WHERE observ IS NOT NULL))[1],
+				(array_agg(the_geom ORDER BY id) FILTER (WHERE the_geom IS NOT NULL))[1]
+			FROM plan_psector_x_other
+			WHERE psector_id = ANY(v_psector_ids)
+			GROUP BY price_id;
 
 			EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
                        "data":{"message":"3796", "function":"3284", "fid":"518", "result_id":"'||v_result_id||'", "parameters":{"v_list_features_obsolete":"'||v_list_features_obsolete||'"}, "is_process":true}}$$)';
