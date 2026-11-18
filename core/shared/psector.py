@@ -1523,11 +1523,13 @@ class GwPsector:
             self.header_exist = True
             pos = 1
             self.count = self.count + 1
+            aliases = self._tableview_aliases('prices_psector_results')
             for key in complet_result['fields'][0].keys():
                 if key != 'id':
                     lbl = QLabel()
                     lbl.setObjectName(f"lbl_{key}_{self.count}")
-                    lbl.setText(f"  {key}  ")
+                    alias_key = 'total_budget' if key == 'total' else key
+                    lbl.setText(f"  {aliases.get(alias_key) or key}  ")
 
                     layout = dialog.findChild(QGridLayout, 'lyt_price')
                     layout.addWidget(lbl, self.count, pos)
@@ -2760,10 +2762,24 @@ class GwPsector:
 
     # region private functions
 
+    def _tableview_aliases(self, objectname):
+        """ Translated column aliases from v_config_form_tableview, keyed by columnname. """
+
+        schema = lib_vars.schema_name
+        rel = "config_form_tableview"
+        if tools_db.check_view("v_config_form_tableview", schema):
+            rel = "v_config_form_tableview"
+        sql = (f"SELECT columnname, alias FROM {schema}.{rel} "
+               "WHERE objectname = %s AND alias IS NOT NULL")
+        rows = tools_db.get_rows(sql, params=[objectname], log_info=False)
+        if not rows:
+            return {}
+        return {row['columnname']: row['alias'] for row in rows}
+
     def _fill_txt_infolog(self, selected):
         """
          Fill txt_infolog from epa_result_manager form with current data selected for columns:
-             'name', 'priority', 'status', 'exploitation', 'type', 'descript', 'text1', 'text2', 'observ'
+             'name', 'priority', 'status', 'expl_id', 'descript', 'text1', 'text2', 'observ'
          """
 
         # Get id of selected row
@@ -2772,14 +2788,14 @@ class GwPsector:
             return
 
         msg = ""
-
-        cols = ['Name', 'Priority', 'Status', 'expl_id', 'Descript', 'text1', 'text2', 'Observ']
+        model = self.qtbl_psm.model()
+        cols = ['name', 'priority', 'status', 'expl_id', 'descript', 'text1', 'text2', 'observ']
 
         for col in cols:
-            # Get column index for column
-            col_ind = tools_qt.get_col_index_by_col_name(self.qtbl_psm, f"{col.lower()}")
+            col_ind = tools_qt.get_col_index_by_col_name(self.qtbl_psm, col)
             text = f'{row[col_ind].data()}'
-            msg += f"<b>{col}: </b><br>{text}<br><br>"
+            label = model.headerData(col_ind, Qt.Orientation.Horizontal) if model is not None else None
+            msg += f"<b>{label or col}: </b><br>{text}<br><br>"
 
         # Set message text into widget
         tools_qt.set_widget_text(self.dlg_psector_mng, 'tab_log_txt_infolog', msg)
