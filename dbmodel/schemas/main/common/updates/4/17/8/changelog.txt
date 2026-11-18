@@ -1,1 +1,2 @@
 - Fid 166-> error
+- `gw_fct_psector_merge` and `gw_fct_psector_duplicate` copy `plan_psector_x_other` onto the new psector (`observ`, `the_geom`, new `psector_id`). A shared `price_id` is one row and the measurements are summed. UD state-0 gully copy uses `gully_id` (#994).
