@@ -17,8 +17,10 @@ SELECT publi.gw_fct_publi_sync($${"data":{}}$$);
 SELECT publi.gw_fct_publi_sync($${"data":{"sourceSchema":"ws", "targets":["ws_arc","ws_node"],
   "frequency":"daily", "resetSelectors":true, "states":[1], "psectors":[], "dscenarios":[]}}$$);
 
-Run it as the dedicated sync role: ve_ views filter by the selectors of current_user, and this function is
-SECURITY INVOKER on purpose.
+SECURITY DEFINER, owned by role_system. ve_ views filter by the selectors of current_user, so the
+snapshot is role_system's selectors, not the QGIS login that called this. role_system owns the source
+schemas and is never a QGIS login: a caller with a partial selector set, or a cat_manager exploitation
+list, cannot shrink the publication. Do not open a project as role_system.
 
 Per table: build staging -> apply structure (create / alter / swap) -> apply data -> apply security ->
 set metadata -> sync_log. Each table runs in its own sub-transaction: a failure is logged and the rest go on.
@@ -187,5 +189,19 @@ EXCEPTION WHEN OTHERS THEN
 	RETURN json_build_object('status', 'Failed', 'NOSQLERR', SQLERRM, 'SQLSTATE', SQLSTATE);
 END;
 $BODY$
-LANGUAGE plpgsql VOLATILE
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = publi, public
 SET client_min_messages = warning;
+
+-- owner is the identity the views see; CREATE OR REPLACE keeps the previous owner, so set it
+ALTER FUNCTION publi.gw_fct_publi_sync(json) OWNER TO role_system;
+
+REVOKE ALL ON FUNCTION publi.gw_fct_publi_sync(json) FROM PUBLIC;
+DO $grant$
+BEGIN
+	IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_admin') THEN
+		GRANT EXECUTE ON FUNCTION publi.gw_fct_publi_sync(json) TO role_admin;
+	END IF;
+	GRANT EXECUTE ON FUNCTION publi.gw_fct_publi_sync(json) TO role_system;
+END
+$grant$;

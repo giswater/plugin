@@ -12,9 +12,10 @@ $BODY$
 /*example
 SELECT publi.gw_fct_publi_user_ids('ws', 'expl_id', current_user);
 
-Ids (expl_id or sector_id) visible to p_user in <p_schema>, with the same rules as <p_schema>.vf_exploitation:
-  - admin_exploitation_x_user false or missing: every exploitation
-  - otherwise exploitations of the cat_manager rows whose rolename holds a role p_user is member of
+Ids (expl_id or sector_id) visible to p_user in <p_schema>. Always the cat_manager of that schema:
+exploitations of the active rows whose rolename holds a role p_user is a member of. Empty when the user
+matches none. admin_exploitation_x_user is not consulted: that flag restricts the parent schema in QGIS,
+and publi must not turn it on to filter its own readers.
 sector_id: sectors whose expl_id (integer[] since 4.0) overlaps those exploitations; cat_manager has no sector_id.
 Used by the publi_rls policies. SECURITY DEFINER because readers of publi have no access to the source
 schema; the caller is passed explicitly since current_user inside a definer function is the owner.
@@ -22,7 +23,6 @@ schema; the caller is passed explicitly since current_user inside a definer func
 
 DECLARE
 	v_rolecol text;
-	v_filtered boolean;
 	v_expl integer[];
 	v_ids integer[];
 BEGIN
@@ -30,23 +30,19 @@ BEGIN
 		RAISE EXCEPTION 'invalid column %', p_column;
 	END IF;
 
-	IF to_regclass(format('%I.config_param_system', p_schema)) IS NOT NULL THEN
-		EXECUTE format('SELECT value::boolean FROM %I.config_param_system WHERE parameter = %L',
-			p_schema, 'admin_exploitation_x_user')
-		INTO v_filtered;
+	IF to_regclass(format('%I.cat_manager', p_schema)) IS NULL THEN
+		RETURN '{}';
 	END IF;
 
-	IF COALESCE(v_filtered, false) IS FALSE THEN
-		EXECUTE format('SELECT array_agg(expl_id) FROM %I.exploitation', p_schema) INTO v_expl;
-	ELSE
-		-- rolename since 3.6.11, username before
-		SELECT attname INTO v_rolecol
-		FROM pg_attribute
-		WHERE attrelid = format('%I.cat_manager', p_schema)::regclass AND attname IN ('rolename', 'username')
-		AND NOT attisdropped
-		ORDER BY attname = 'rolename' DESC
-		LIMIT 1;
+	-- rolename since 3.6.11, username before
+	SELECT attname INTO v_rolecol
+	FROM pg_attribute
+	WHERE attrelid = format('%I.cat_manager', p_schema)::regclass AND attname IN ('rolename', 'username')
+	AND NOT attisdropped
+	ORDER BY attname = 'rolename' DESC
+	LIMIT 1;
 
+	IF v_rolecol IS NOT NULL THEN
 		EXECUTE format(
 			$q$SELECT array_agg(DISTINCT x)
 			FROM %I.cat_manager m, unnest(m.expl_id) x

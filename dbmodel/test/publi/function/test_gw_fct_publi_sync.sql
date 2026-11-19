@@ -17,6 +17,8 @@ SELECT * FROM no_plan();
 -- PREPARE DATA: minimal source schema
 -- ===========================
 CREATE SCHEMA publi_tsrc;
+ALTER DEFAULT PRIVILEGES IN SCHEMA publi_tsrc GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO role_system;
+GRANT USAGE ON SCHEMA publi_tsrc TO role_system;
 CREATE TABLE publi_tsrc.exploitation (expl_id integer PRIMARY KEY, name text);
 CREATE TABLE publi_tsrc.sector (sector_id integer PRIMARY KEY, expl_id integer[]);
 CREATE TABLE publi_tsrc.value_state (id integer PRIMARY KEY, name text);
@@ -85,6 +87,25 @@ SELECT set_eq(
     $$SELECT policyname::text FROM pg_policies WHERE schemaname = 'publi' AND tablename = 'tst_pipe'$$,
     ARRAY['publi_rls', 'publi_owner'], 'security: publi_rls and publi_owner policies');
 
+-- sync runs as role_system, so the caller's selector rows stay and the views see every exploitation
+SELECT is(
+    (SELECT r.rolname FROM pg_proc p JOIN pg_roles r ON r.oid = p.proowner
+     WHERE p.oid = 'publi.gw_fct_publi_sync(json)'::regprocedure),
+    'role_system', 'identity: sync is owned by role_system');
+SELECT is(
+    (SELECT prosecdef FROM pg_proc WHERE oid = 'publi.gw_fct_publi_sync(json)'::regprocedure),
+    true, 'identity: sync is security definer');
+CREATE TABLE publi_tsrc.selector_expl (expl_id integer, cur_user text);
+INSERT INTO publi_tsrc.selector_expl VALUES (1, session_user);
+INSERT INTO tst_res SELECT 'ident', publi.gw_fct_publi_sync('{"data":{"targets":["tst_pipe"],"resetSelectors":true}}');
+SELECT is(
+    (SELECT count(*)::int FROM publi_tsrc.selector_expl WHERE cur_user = session_user),
+    CASE WHEN session_user = 'role_system' THEN 2 ELSE 1 END,
+    'identity: caller selectors are kept when the caller is not role_system');
+SELECT set_eq(
+    $$SELECT expl_id FROM publi_tsrc.selector_expl WHERE cur_user = 'role_system' ORDER BY 1$$,
+    ARRAY[1, 2], 'identity: role_system selectors hold every exploitation');
+
 -- ===========================
 -- IDEMPOTENT
 -- ===========================
@@ -147,8 +168,7 @@ RESET ROLE;
 
 SELECT is(publi.gw_fct_publi_user_ids('publi_tsrc', 'sector_id', 'publi_tst_user'), '{20}'::integer[], 'rls: sectors derived from the user exploitations');
 
-UPDATE publi_tsrc.config_param_system SET value = 'false' WHERE parameter = 'admin_exploitation_x_user';
-SELECT is(publi.gw_fct_publi_user_ids('publi_tsrc', 'expl_id', 'publi_tst_user'), '{1,2}'::integer[], 'rls: admin_exploitation_x_user false opens every exploitation');
+SELECT is(publi.gw_fct_publi_user_ids('publi_tsrc', 'expl_id', 'publi_tst_user'), '{2}'::integer[], 'rls: parent flag is ignored, cat_manager still applies');
 
 -- ===========================
 -- FAILURE ISOLATION

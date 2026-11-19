@@ -30,7 +30,6 @@ DECLARE
 	v_rlscol text;
 	v_mgrcol text;
 	v_isarray boolean;
-	v_filtered boolean;
 	v_created jsonb := '[]';
 	v_warnings jsonb := '[]';
 BEGIN
@@ -109,14 +108,6 @@ BEGIN
 					THEN '%I::integer[] && (SELECT publi.gw_fct_publi_user_ids(%L, %L, current_user))'
 					ELSE '%I = ANY ((SELECT publi.gw_fct_publi_user_ids(%L, %L, current_user))::integer[])' END,
 					v_rlscol, v_cfg.source_schema, v_mgrcol));
-
-			EXECUTE format('SELECT value::boolean FROM %I.config_param_system WHERE parameter = %L',
-				v_cfg.source_schema, 'admin_exploitation_x_user')
-			INTO v_filtered;
-			IF COALESCE(v_filtered, false) IS FALSE THEN
-				v_warnings := v_warnings || to_jsonb(format(
-					'%s admin_exploitation_x_user is not true: every user sees every exploitation', v_cfg.source_schema));
-			END IF;
 		END IF;
 	END IF;
 

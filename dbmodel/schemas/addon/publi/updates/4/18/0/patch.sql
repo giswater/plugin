@@ -81,6 +81,20 @@ $role$;
 COMMENT ON TABLE config_materialized_views IS 'DEPRECATED: replaced by config_publi_table';
 COMMENT ON FUNCTION gw_fct_refresh_materialized_views() IS 'DEPRECATED: replaced by gw_fct_publi_sync';
 
+-- views read current_user(); the publication must not inherit the QGIS login's selectors
+ALTER FUNCTION gw_fct_publi_sync(json) OWNER TO role_system;
+ALTER FUNCTION gw_fct_publi_sync(json) SECURITY DEFINER;
+ALTER FUNCTION gw_fct_publi_sync(json) SET search_path = publi, public;
+REVOKE ALL ON FUNCTION gw_fct_publi_sync(json) FROM PUBLIC;
+DO $grant$
+BEGIN
+	IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_admin') THEN
+		GRANT EXECUTE ON FUNCTION gw_fct_publi_sync(json) TO role_admin;
+	END IF;
+	GRANT EXECUTE ON FUNCTION gw_fct_publi_sync(json) TO role_system;
+END
+$grant$;
+
 INSERT INTO config_process (function_name, description, selector_config, active)
 VALUES ('gw_fct_publi_sync', 'Synchronize publi tables from their Giswater sources', NULL, true)
 ON CONFLICT (function_name) DO NOTHING;
