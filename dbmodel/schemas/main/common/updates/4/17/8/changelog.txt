@@ -1,2 +1,3 @@
 - Fid 166-> error
 - `gw_fct_psector_merge` and `gw_fct_psector_duplicate` copy `plan_psector_x_other` onto the new psector (`observ`, `the_geom`, new `psector_id`). A shared `price_id` is one row and the measurements are summed. UD state-0 gully copy uses `gully_id` (#994).
+- Show `observ` on the EPA-tab dscenario edit dialog. 4.17.0 registered the field only on `inp_dscenario_*` forms; that tab edits `ve_inp_dscenario_*` (#995).
