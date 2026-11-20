@@ -643,6 +643,10 @@ class GwInfo(QObject):
 
         btn_cancel = self.dlg_cf.findChild(QPushButton, 'btn_cancel')
         btn_accept = self.dlg_cf.findChild(QPushButton, 'btn_accept')
+        # One Apply slot. A second _manage_edition (empty my_json) was leaving edit mode.
+        self.dlg_cf.btn_apply.clicked.connect(partial(
+            self._apply_from_btn, dlg_cf, self.action_edit, feature_id, new_feature,
+            False, from_apply=True, linked_feature=linked_feature))
         try:
             title = f"{complet_result['body']['form']['headerText']}"
         except KeyError:
@@ -690,8 +694,6 @@ class GwInfo(QObject):
             dlg_cf.dlg_closed.connect(self._manage_prev_action)
             dlg_cf.key_escape.connect(partial(tools_gw.close_dialog, dlg_cf))
             btn_cancel.clicked.connect(partial(self._manage_info_close, dlg_cf))
-            self.dlg_cf.btn_apply.clicked.connect(partial(self._apply_from_btn, dlg_cf, self.action_edit, feature_id, new_feature,
-                                                          False, from_apply=True, linked_feature=linked_feature))
             btn_accept.clicked.connect(
             partial(self._accept_from_btn, dlg_cf, self.action_edit, new_feature, self.my_json, complet_result, False, linked_feature=linked_feature))
             dlg_cf.key_enter.connect(
@@ -937,7 +939,6 @@ class GwInfo(QObject):
 
         # Actions signals
         self.action_edit.triggered.connect(partial(self._manage_edition, dlg_cf, self.action_edit, fid, new_feature, generic=False))
-        self.dlg_cf.btn_apply.clicked.connect(partial(self._manage_edition, dlg_cf, self.action_edit, fid, new_feature, False, from_apply=True))
         self.action_catalog.triggered.connect(partial(self._open_catalog, tab_type, self.feature_type, child_type))
         self.action_workcat.triggered.connect(partial(GwWorkcat(self.iface, self.canvas).create_workcat))
         self.action_mapzone.triggered.connect(
@@ -1678,6 +1679,9 @@ class GwInfo(QObject):
             self._get_last_value(dialog, generic)
             geom_pending = self.point_xy.get('x') is not None
             if str(self.my_json) == '{}' and str(self.my_json_epa) == '{}' and not geom_pending:
+                # Apply with nothing pending stays in edit mode. Leaving edit (pencil) still locks the form.
+                if from_apply:
+                    return False
                 tools_qt.set_action_checked(action_edit, False)
                 tools_gw.enable_widgets(dialog, self.complet_result['body']['data'], False)
                 if self.epa_complet_result:
@@ -1686,7 +1690,8 @@ class GwInfo(QObject):
                 return False
             save = self._ask_for_save(action_edit, fid)
             if save:
-                accepted = self._manage_accept(dialog, action_edit, new_feature, self.my_json, False, generic)
+                accepted = self._manage_accept(
+                    dialog, action_edit, new_feature, self.my_json, False, generic, keep_editing=from_apply)
             elif self.new_feature_id is not None:
                 if lib_vars.session_vars['dialog_docker'] and lib_vars.session_vars['info_docker']:
                     self._manage_docker_close()
@@ -1699,10 +1704,14 @@ class GwInfo(QObject):
                 self._reload_epa_tab(dialog)
                 self._reset_my_json()
             if from_apply:
-                action_edit.setChecked(True)
-                tools_gw.enable_all(dialog, self.complet_result['body']['data'], from_apply=True)
-                if self.epa_complet_result:
-                    tools_gw.enable_all(dialog, self.epa_complet_result['body']['data'], from_apply=True)
+                # Save used to uncheck the pencil and gray the fields. Apply leaves that state alone.
+                # enable_all(from_apply=True) did not clear those styles, so the form looked locked.
+                if not action_edit.isChecked():
+                    action_edit.setChecked(True)
+                    tools_gw.enable_all(dialog, self.complet_result['body']['data'])
+                    if self.epa_complet_result:
+                        tools_gw.enable_all(dialog, self.epa_complet_result['body']['data'])
+                    self._enable_actions(dialog, True)
                 # Apply keeps the dialog open. Accept closes it, so the stale widgets
                 # were never visible there. Re-read the row so computed columns
                 # (sys_y, sys_elev, z, ...) show what the database stored.
@@ -1727,13 +1736,15 @@ class GwInfo(QObject):
             if linked_feature:
                 self._manage_linked_feature(linked_feature)
 
-    def _manage_accept(self, dialog, action_edit, new_feature, my_json, close_dlg, generic=False):
+    def _manage_accept(self, dialog, action_edit, new_feature, my_json, close_dlg, generic=False, keep_editing=False):
 
         self._get_last_value(dialog, generic)
         if not self._merge_epa_type_on_accept(dialog, my_json, new_feature):
             return False
         status = self._accept(dialog, self.complet_result, my_json, close_dlg=close_dlg, new_feature=new_feature, generic=generic)
-        if status:  # Commit succesfull and dialog keep opened
+        # Apply (keep_editing) leaves the pencil on. Accept closes the dialog.
+        # Anything else that stays open drops back to read-only.
+        if status and not keep_editing:
             tools_qt.set_action_checked(action_edit, False)
             tools_gw.enable_widgets(dialog, self.complet_result['body']['data'], False)
             if self.epa_complet_result:
