@@ -439,7 +439,7 @@ BEGIN
 		END IF;
 
 		--Fluid type
-		IF v_autoupdate_fluid IS TRUE AND  NEW.arc_id IS NOT NULL THEN
+		IF v_autoupdate_fluid IS TRUE AND NEW.arc_id IS NOT NULL THEN
 			NEW.fluid_type = (SELECT fluid_type FROM arc WHERE arc_id = NEW.arc_id);
 		END IF;
 
@@ -805,7 +805,7 @@ BEGIN
 			NEW.link = replace(NEW.link, v_link_path,'');
 		END IF;
 
-		--fluid_type
+		-- fluid_type follows the arc when edit_connect_autoupdate_fluid is true
 		IF v_autoupdate_fluid IS TRUE AND NEW.arc_id IS NOT NULL THEN
 			NEW.fluid_type = (SELECT fluid_type FROM arc WHERE arc_id = NEW.arc_id);
 		END IF;
