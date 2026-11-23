@@ -71,3 +71,55 @@ ON CONFLICT (id) DO UPDATE SET
 	sys_role = EXCLUDED.sys_role,
 	alias = EXCLUDED.alias,
 	addparam = EXCLUDED.addparam;
+
+-- Same condition scale as ws: 1 = excellent, 5 = critical.
+INSERT INTO edit_typevalue (typevalue, id, idval, descript, addparam) VALUES
+	('om_state', '1', 'Excellent',
+	 'The asset fully meets its operational requirements, with high reliability, adequate capacity and no relevant performance constraints.', NULL),
+	('om_state', '2', 'Good',
+	 'The asset performs its intended function reliably and meets the required level of service. Minor deficiencies may exist but have no significant operational impact.', NULL),
+	('om_state', '3', 'Fair',
+	 'The asset performs its required function but with moderate operational limitations, reduced efficiency or reliability. Increased monitoring and planned maintenance are recommended.', NULL),
+	('om_state', '4', 'Poor',
+	 'The asset operates with major limitations, reduced reliability or insufficient capacity. There is a significant risk of service disruption and corrective action is required in the short term.', NULL),
+	('om_state', '5', 'Critical',
+	 'The asset is non-operational or unable to deliver its required function. Service continuity is compromised and immediate corrective action or replacement is required.', NULL),
+	('conserv_state', '1', 'Excellent',
+	 'The asset is in very good or near-new condition, with no significant deterioration and full physical integrity. Only routine maintenance is required.', NULL),
+	('conserv_state', '2', 'Good',
+	 'The asset is in good physical condition with only minor deterioration or defects. Preventive or routine maintenance is sufficient.', NULL),
+	('conserv_state', '3', 'Fair',
+	 'Moderate deterioration and localized defects are present. The asset remains serviceable but planned maintenance or rehabilitation is required to prevent further degradation.', NULL),
+	('conserv_state', '4', 'Poor',
+	 'Significant deterioration or defects are present. Asset condition is approaching unacceptable limits and major maintenance or rehabilitation is required in the short term.', NULL),
+	('conserv_state', '5', 'Critical',
+	 'Severe deterioration, structural damage or loss of integrity is present. The probability of physical failure is high and immediate rehabilitation or replacement is required.', NULL)
+ON CONFLICT (typevalue, id) DO UPDATE SET
+	idval = EXCLUDED.idval,
+	descript = EXCLUDED.descript;
+
+INSERT INTO sys_foreignkey (typevalue_table, typevalue_name, target_table, target_field, parameter_id, active) VALUES
+	('edit_typevalue', 'om_state', 'node', 'om_state', NULL, true),
+	('edit_typevalue', 'om_state', 'arc', 'om_state', NULL, true),
+	('edit_typevalue', 'om_state', 'connec', 'om_state', NULL, true),
+	('edit_typevalue', 'om_state', 'gully', 'om_state', NULL, true),
+	('edit_typevalue', 'conserv_state', 'node', 'conserv_state', NULL, true),
+	('edit_typevalue', 'conserv_state', 'arc', 'conserv_state', NULL, true),
+	('edit_typevalue', 'conserv_state', 'connec', 'conserv_state', NULL, true)
+ON CONFLICT (typevalue_table, typevalue_name, target_table, target_field) DO NOTHING;
+
+UPDATE config_form_fields
+SET widgettype = 'combo',
+	dv_querytext = 'SELECT id, idval FROM edit_typevalue WHERE typevalue=''om_state'' ORDER BY id::integer',
+	dv_orderby_id = true,
+	dv_isnullvalue = true
+WHERE columnname = 'om_state'
+  AND formname ILIKE ANY (ARRAY['ve_node%', 've_arc%', 've_connec%', 've_gully%']);
+
+UPDATE config_form_fields
+SET widgettype = 'combo',
+	dv_querytext = 'SELECT id, idval FROM edit_typevalue WHERE typevalue=''conserv_state'' ORDER BY id::integer',
+	dv_orderby_id = true,
+	dv_isnullvalue = true
+WHERE columnname = 'conserv_state'
+  AND formname ILIKE ANY (ARRAY['ve_node%', 've_arc%', 've_connec%', 've_gully%']);
