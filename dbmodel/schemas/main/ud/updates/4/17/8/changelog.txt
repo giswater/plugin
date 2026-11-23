@@ -1,0 +1,1 @@
+- `edit_slope_direction` reverses a new arc using the node invert when the arc has no y/elev. `sys_slope` stays NULL in that case so the view keeps following the node (#996).

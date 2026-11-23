@@ -30,6 +30,8 @@ v_message text;
 v_user_disable_statetopocontrol boolean;
 v_user_disable_arctopocontrol boolean;
 v_node_topelev_autoupdate integer := 0;
+v_slope_elev1 numeric;
+v_slope_elev2 numeric;
 
 BEGIN
 
@@ -280,11 +282,15 @@ BEGIN
 
                 END IF;
 
+                -- sys_elev the form shows: arc custom/elev, otherwise the node invert
+                v_slope_elev1 := COALESCE(NEW.custom_elev1, NEW.elev1, nodeRecord1.custom_elev, nodeRecord1.elev);
+                v_slope_elev2 := COALESCE(NEW.custom_elev2, NEW.elev2, nodeRecord2.custom_elev, nodeRecord2.elev);
+
                 -- update values when geometry is forced to reverse by geom_slp_direction_bool variable on true
                 IF geom_slp_direction_bool IS TRUE THEN
 
-                    IF ((COALESCE(NEW.custom_elev1, NEW.elev1) < COALESCE(NEW.custom_elev2, NEW.elev2)) AND (NEW.inverted_slope IS NOT TRUE))
-                    OR ((COALESCE(NEW.custom_elev1, NEW.elev1) > COALESCE(NEW.custom_elev2, NEW.elev2)) AND (NEW.inverted_slope IS TRUE)) THEN
+                    IF ((v_slope_elev1 < v_slope_elev2) AND (NEW.inverted_slope IS NOT TRUE))
+                    OR ((v_slope_elev1 > v_slope_elev2) AND (NEW.inverted_slope IS TRUE)) THEN
 
                         -- Update conduit direction
                         -- Geometry
@@ -311,8 +317,8 @@ BEGIN
 
                 END IF;
 
-                -- slope
-                NEW.sys_slope:= (NEW.elev1-NEW.elev2)/sys_length_aux;
+                -- slope from the arc's own elev. NULL keeps the view live on the node invert
+                NEW.sys_slope:= (COALESCE(NEW.custom_elev1, NEW.elev1)-COALESCE(NEW.custom_elev2, NEW.elev2))/sys_length_aux;
 
 			END IF;
 
