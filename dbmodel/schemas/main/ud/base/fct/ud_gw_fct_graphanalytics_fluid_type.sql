@@ -85,9 +85,6 @@ DECLARE
 	v_project_type TEXT;
 	v_fid integer = 637;
 
-
-	v_islastupdate BOOLEAN;
-
 	-- dialog variables
 	v_process_name text;
 	v_expl_id text;
@@ -116,6 +113,7 @@ DECLARE
 	v_response JSON;
 
 	v_count integer;
+	v_updated_rows integer;
 
 BEGIN
 
@@ -270,10 +268,8 @@ BEGIN
 
 	-- calculate fluid_type for nodes/arcs
 
-	v_count := 1;
-
-	WHILE v_count > 0 LOOP
-
+	LOOP
+		v_count := 0;
 		WITH feature AS (
 			SELECT
 				a.pgr_arc_id,
@@ -285,17 +281,12 @@ BEGIN
 			FROM temp_pgr_arc a 
 			JOIN  temp_pgr_node n ON n.pgr_node_id = a.pgr_node_1
 			UNION ALL
-			SELECT
-				c.pgr_arc_id,
-				max(c.mapzone_id) AS mapzone_id
+			SELECT DISTINCT c.pgr_arc_id, c.mapzone_id
 			FROM temp_pgr_connec c
-			GROUP BY c.pgr_arc_id
 			UNION ALL
 			SELECT
-				g.pgr_arc_id,
-				max(g.mapzone_id) AS mapzone_id
+				g.pgr_arc_id, g.mapzone_id
 			FROM temp_pgr_gully g
-			GROUP BY g.pgr_arc_id
 		),
 		arc_mapzone AS (
 			SELECT
@@ -319,7 +310,10 @@ BEGIN
 		SET mapzone_id = a.mapzone_id
 		FROM arc_modif a
 		WHERE a.pgr_arc_id = t.pgr_arc_id
-		AND a.mapzone_id <> t.mapzone_id;
+		AND a.mapzone_id IS DISTINCT FROM t.mapzone_id;
+
+		GET DIAGNOSTICS v_updated_rows = ROW_COUNT;
+		v_count := v_count + v_updated_rows;
 
 		WITH node_mapzone AS (
 			SELECT
@@ -343,9 +337,12 @@ BEGIN
 		SET mapzone_id = n.mapzone_id
 		FROM node_modif n
 		WHERE n.pgr_node_id = t.pgr_node_id
-		AND n.mapzone_id <> t.mapzone_id;
+		AND n.mapzone_id IS DISTINCT FROM t.mapzone_id;
 
-		GET DIAGNOSTICS v_count = ROW_COUNT;
+		GET DIAGNOSTICS v_updated_rows = ROW_COUNT;
+		v_count := v_count + v_updated_rows;
+
+		EXIT WHEN v_count = 0;
 
   	END LOOP;
 
