@@ -755,8 +755,10 @@ BEGIN
 			SELECT json_array_elements_text ((value::json->>'catfeatureId')::json) id , (value::json->>'vdefault') vdef FROM config_param_system WHERE parameter like 'epa_valve_vdefault_%'
 			)a WHERE id = v_customfeature;
 
+			-- Keys are inp_valve columns. status is not written: ve_inp_valve derives it.
 			INSERT INTO inp_valve (node_id, valve_type, custom_dint, setting, minorloss)
-			VALUES (NEW.node_id, v_epavdef ->>'valve_type', (v_epavdef ->>'coef_loss')::numeric, (v_epavdef ->>'pressure')::numeric,(v_epavdef ->>'minorloss')::numeric);
+			VALUES (NEW.node_id, v_epavdef ->>'valve_type', (v_epavdef ->>'custom_dint')::numeric,
+				(v_epavdef ->>'setting')::numeric, (v_epavdef ->>'minorloss')::numeric);
 
 		ELSIF (NEW.epa_type = 'SHORTPIPE') THEN
 
@@ -877,7 +879,17 @@ BEGIN
 		    ELSIF (NEW.epa_type = 'INLET') THEN
 			v_inp_table:= 'inp_inlet';
 		    END IF;
-		    IF v_inp_table IS NOT NULL THEN
+		    IF NEW.epa_type = 'VALVE' THEN
+			v_customfeature := (SELECT node_type FROM cat_node WHERE id = NEW.nodecat_id);
+			SELECT vdef INTO v_epavdef FROM (
+			SELECT json_array_elements_text ((value::json->>'catfeatureId')::json) id , (value::json->>'vdefault') vdef FROM config_param_system WHERE parameter like 'epa_valve_vdefault_%'
+			)a WHERE id = v_customfeature;
+
+			INSERT INTO inp_valve (node_id, valve_type, custom_dint, setting, minorloss)
+			VALUES (NEW.node_id, v_epavdef ->>'valve_type', (v_epavdef ->>'custom_dint')::numeric,
+				(v_epavdef ->>'setting')::numeric, (v_epavdef ->>'minorloss')::numeric)
+			ON CONFLICT (node_id) DO NOTHING;
+		    ELSIF v_inp_table IS NOT NULL THEN
 			v_sql:= 'INSERT INTO '||v_inp_table||' (node_id) VALUES ('||quote_literal(NEW.node_id)||') ON CONFLICT (node_id) DO NOTHING';
 			EXECUTE v_sql;
 		    END IF;
