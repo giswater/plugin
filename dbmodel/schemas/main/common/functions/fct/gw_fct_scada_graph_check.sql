@@ -165,7 +165,7 @@ BEGIN
 
 	CREATE TEMP TABLE IF NOT EXISTS temp_vertice (
 		node_id integer,
-		group_id integer,
+		synoptic_id integer,
 		level_id integer,
 		position_id integer,
 		position_aux double precision,
@@ -421,6 +421,7 @@ BEGIN
     jsonb_build_object(
         'data',
         jsonb_build_object(
+			'project_type', v_project_type,
             'fct_type', 'SCADA'
         )
     );

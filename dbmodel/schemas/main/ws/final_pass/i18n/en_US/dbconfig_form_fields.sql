@@ -1763,6 +1763,7 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip, placeho
     ('expl_id', 've_exploitation', 'form_feature', 'tab_none', 'Expl id:', 'Expl id', NULL),
     ('macroexpl_id', 've_exploitation', 'form_feature', 'tab_none', 'Macroexpl id:', 'Macroexpl id', NULL),
     ('name', 've_exploitation', 'form_feature', 'tab_none', 'Name:', 'Name', NULL),
+    ('parent_id', 've_exploitation', 'form_feature', 'tab_none', 'Parent id:', 'Parent exploitation. Child exploitations remap feature expl_id to this value on save', NULL),
     ('tstamp', 've_exploitation', 'form_feature', 'tab_none', 'Tstamp:', 'Tstamp', NULL),
     ('annotation', 've_inp_connec', 'form_feature', 'tab_none', 'Annotation:', 'Annotation', NULL),
     ('arc_id', 've_inp_connec', 'form_feature', 'tab_none', 'Arc id:', 'Arc id', NULL),

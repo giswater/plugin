@@ -209,6 +209,10 @@ BEGIN
 			END IF;
 		END IF;
 
+		-- Child exploitation → parent + visibility check
+		SELECT o_expl_id, o_expl_visibility INTO NEW.expl_id, NEW.expl_visibility
+		FROM gw_fct_set_expl_from_parent(NEW.expl_id, NEW.expl_visibility);
+
 		-- Sector
 		IF (NEW.sector_id IS NULL) THEN
 
@@ -344,6 +348,11 @@ BEGIN
 					NEW.muni_id =(SELECT muni_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
 					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
 				END IF;
+			END IF;
+
+			-- control when no value
+			IF NEW.muni_id IS NULL THEN
+				NEW.muni_id := 0;
 			END IF;
 		END IF;
 
@@ -750,8 +759,10 @@ BEGIN
 			SELECT json_array_elements_text ((value::json->>'catfeatureId')::json) id , (value::json->>'vdefault') vdef FROM config_param_system WHERE parameter like 'epa_valve_vdefault_%'
 			)a WHERE id = v_customfeature;
 
+			-- Keys are inp_valve columns. status is not written: ve_inp_valve derives it.
 			INSERT INTO inp_valve (node_id, valve_type, custom_dint, setting, minorloss)
-			VALUES (NEW.node_id, v_epavdef ->>'valve_type', (v_epavdef ->>'coef_loss')::numeric, (v_epavdef ->>'pressure')::numeric,(v_epavdef ->>'minorloss')::numeric);
+			VALUES (NEW.node_id, v_epavdef ->>'valve_type', (v_epavdef ->>'custom_dint')::numeric,
+				(v_epavdef ->>'setting')::numeric, (v_epavdef ->>'minorloss')::numeric);
 
 		ELSIF (NEW.epa_type = 'SHORTPIPE') THEN
 
@@ -780,6 +791,10 @@ BEGIN
 
     -- UPDATE
 	ELSIF TG_OP = 'UPDATE' THEN
+
+		-- Child exploitation → parent + visibility check
+		SELECT o_expl_id, o_expl_visibility INTO NEW.expl_id, NEW.expl_visibility
+		FROM gw_fct_set_expl_from_parent(NEW.expl_id, NEW.expl_visibility);
 
 		IF btrim(coalesce(NEW.code, '')) = '' THEN
 			NEW.code := NULL;
@@ -872,7 +887,17 @@ BEGIN
 		    ELSIF (NEW.epa_type = 'INLET') THEN
 			v_inp_table:= 'inp_inlet';
 		    END IF;
-		    IF v_inp_table IS NOT NULL THEN
+		    IF NEW.epa_type = 'VALVE' THEN
+			v_customfeature := (SELECT node_type FROM cat_node WHERE id = NEW.nodecat_id);
+			SELECT vdef INTO v_epavdef FROM (
+			SELECT json_array_elements_text ((value::json->>'catfeatureId')::json) id , (value::json->>'vdefault') vdef FROM config_param_system WHERE parameter like 'epa_valve_vdefault_%'
+			)a WHERE id = v_customfeature;
+
+			INSERT INTO inp_valve (node_id, valve_type, custom_dint, setting, minorloss)
+			VALUES (NEW.node_id, v_epavdef ->>'valve_type', (v_epavdef ->>'custom_dint')::numeric,
+				(v_epavdef ->>'setting')::numeric, (v_epavdef ->>'minorloss')::numeric)
+			ON CONFLICT (node_id) DO NOTHING;
+		    ELSIF v_inp_table IS NOT NULL THEN
 			v_sql:= 'INSERT INTO '||v_inp_table||' (node_id) VALUES ('||quote_literal(NEW.node_id)||') ON CONFLICT (node_id) DO NOTHING';
 			EXECUTE v_sql;
 		    END IF;

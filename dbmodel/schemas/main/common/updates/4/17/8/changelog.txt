@@ -1,0 +1,5 @@
+- Fid 166-> error
+- `gw_fct_psector_merge` and `gw_fct_psector_duplicate` copy `plan_psector_x_other` onto the new psector (`observ`, `the_geom`, new `psector_id`). A shared `price_id` is one row and the measurements are summed. UD state-0 gully copy uses `gully_id` (#994).
+- Show `observ` on the EPA-tab dscenario edit dialog. 4.17.0 registered the field only on `inp_dscenario_*` forms; that tab edits `ve_inp_dscenario_*` (#995).
+- Create Demand Dscenario from CRM (`config_toolbox` 3110) shows "Demand as DMA weight factor" again. 4.12.0 rewrote `inputparams` without `export_weight`. When checked, `gw_fct_create_dscenario_from_crm` stores each feature demand as its share of DMA billed volume.
+- A link takes `fluid_type` from its connec or gully. Moving or reconnecting a feature no longer copies `fluid_type` onto the connecs and gullies that drain into it (#997).

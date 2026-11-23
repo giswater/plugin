@@ -237,7 +237,7 @@ BEGIN
             v_page := 1;
         END IF;
         IF v_limit IS NOT NULL THEN
-            EXECUTE 'SELECT count(*)/'||v_limit||' FROM (' || v_sql || ') a'
+            EXECUTE 'SELECT ceil(count(*)::numeric / '||v_limit||') FROM (' || v_sql || ') a'
                 INTO v_lastpage;
         ELSE
             v_lastpage := 0;
@@ -246,7 +246,8 @@ BEGIN
     END IF;
 
     IF v_device IS DISTINCT FROM 4 AND v_limit IS NOT NULL AND v_limit != -1 THEN
-        v_order_clause := v_order_clause || ' LIMIT '|| v_limit;
+        v_order_clause := v_order_clause || ' LIMIT '|| v_limit
+            || ' OFFSET ' || (GREATEST(COALESCE(v_page, 1), 1) - 1) * v_limit;
     END IF;
 
     v_legacy_list := v_output_format = 'list'

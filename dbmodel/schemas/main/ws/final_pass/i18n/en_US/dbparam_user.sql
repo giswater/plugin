@@ -10,6 +10,7 @@ UPDATE sys_param_user AS t SET label = v.label, descript = v.descript FROM (
 	('basic_search_exploitation_vdefault', 'Search exploitation:', 'Selected exploitation will be the one in which the features will be searched'),
     ('basic_search_municipality_vdefault', 'Search municipality:', 'Selected municipality will be the one in which the streetaxis will be searched'),
     ('custom_order_by', 'Configuration to order result of getselectors by columname:', 'Configuration to order result of getselectors by columname'),
+    ('disable_qgis_selector_zoom', 'Disable zoom to selector:', 'If true, changing exploitation, municipality or sector does not move the map to the selected extent'),
     ('edit_addfield_p10_vdefault', 'greenvalve_param_1:', 'Default value of addfield greenvalve_param_1 for GREEN_VALVE'),
     ('edit_addfield_p12_vdefault', 'greenvalve_param_2:', 'Default value of addfield greenvalve_param_2 for GREEN_VALVE'),
     ('edit_addfield_p14_vdefault', 'airvalve_param_1:', 'Default value of addfield airvalve_param_1 for AIR_VALVE'),

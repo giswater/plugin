@@ -39,3 +39,48 @@ FROM rpt_cat_result
 	) e ON true
 WHERE t1.typevalue = 'inp_result_status'
 AND t2.typevalue = 'inp_options_networkmode';
+
+-- #990: show demand_* corporate EPA stats on connec forms (gw_fct_epa2data fills them)
+
+-- Shift press_* so demand_* can sit before them (same order as ve_node)
+UPDATE config_form_fields
+SET layoutorder = CASE columnname
+	WHEN 'press_max' THEN 29
+	WHEN 'press_min' THEN 31
+	WHEN 'press_avg' THEN 32
+END
+WHERE formname IN (
+	've_connec', 've_connec_fountain', 've_connec_greentap',
+	've_connec_tap', 've_connec_vconnec', 've_connec_wjoin'
+)
+AND formtype = 'form_feature'
+AND tabname = 'tab_data'
+AND columnname IN ('press_max', 'press_min', 'press_avg');
+
+INSERT INTO config_form_fields (
+	formname, formtype, tabname, columnname, layoutname, layoutorder,
+	"datatype", widgettype, "label", tooltip, placeholder,
+	ismandatory, isparent, iseditable, isautoupdate, isfilter,
+	dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc,
+	stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder
+)
+VALUES
+	('ve_connec', 'form_feature', 'tab_data', 'demand_max', 'lyt_data_2', 26, 'numeric', 'text', 'Demand max:', 'Demand_max', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 85),
+	('ve_connec', 'form_feature', 'tab_data', 'demand_min', 'lyt_data_2', 27, 'numeric', 'text', 'Demand min:', 'Demand_min', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 86),
+	('ve_connec', 'form_feature', 'tab_data', 'demand_avg', 'lyt_data_2', 28, 'numeric', 'text', 'Demand avg:', 'Demand_avg', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 87),
+	('ve_connec_fountain', 'form_feature', 'tab_data', 'demand_max', 'lyt_data_2', 26, 'numeric', 'text', 'Demand max:', 'Demand_max', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 91),
+	('ve_connec_fountain', 'form_feature', 'tab_data', 'demand_min', 'lyt_data_2', 27, 'numeric', 'text', 'Demand min:', 'Demand_min', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 92),
+	('ve_connec_fountain', 'form_feature', 'tab_data', 'demand_avg', 'lyt_data_2', 28, 'numeric', 'text', 'Demand avg:', 'Demand_avg', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 93),
+	('ve_connec_greentap', 'form_feature', 'tab_data', 'demand_max', 'lyt_data_2', 26, 'numeric', 'text', 'Demand max:', 'Demand_max', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 85),
+	('ve_connec_greentap', 'form_feature', 'tab_data', 'demand_min', 'lyt_data_2', 27, 'numeric', 'text', 'Demand min:', 'Demand_min', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 86),
+	('ve_connec_greentap', 'form_feature', 'tab_data', 'demand_avg', 'lyt_data_2', 28, 'numeric', 'text', 'Demand avg:', 'Demand_avg', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 87),
+	('ve_connec_tap', 'form_feature', 'tab_data', 'demand_max', 'lyt_data_2', 26, 'numeric', 'text', 'Demand max:', 'Demand_max', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 88),
+	('ve_connec_tap', 'form_feature', 'tab_data', 'demand_min', 'lyt_data_2', 27, 'numeric', 'text', 'Demand min:', 'Demand_min', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 89),
+	('ve_connec_tap', 'form_feature', 'tab_data', 'demand_avg', 'lyt_data_2', 28, 'numeric', 'text', 'Demand avg:', 'Demand_avg', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 90),
+	('ve_connec_vconnec', 'form_feature', 'tab_data', 'demand_max', 'lyt_data_2', 26, 'numeric', 'text', 'Demand max:', 'Demand_max', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 85),
+	('ve_connec_vconnec', 'form_feature', 'tab_data', 'demand_min', 'lyt_data_2', 27, 'numeric', 'text', 'Demand min:', 'Demand_min', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 86),
+	('ve_connec_vconnec', 'form_feature', 'tab_data', 'demand_avg', 'lyt_data_2', 28, 'numeric', 'text', 'Demand avg:', 'Demand_avg', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 87),
+	('ve_connec_wjoin', 'form_feature', 'tab_data', 'demand_max', 'lyt_data_2', 26, 'numeric', 'text', 'Demand max:', 'Demand_max', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 85),
+	('ve_connec_wjoin', 'form_feature', 'tab_data', 'demand_min', 'lyt_data_2', 27, 'numeric', 'text', 'Demand min:', 'Demand_min', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 86),
+	('ve_connec_wjoin', 'form_feature', 'tab_data', 'demand_avg', 'lyt_data_2', 28, 'numeric', 'text', 'Demand avg:', 'Demand_avg', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, 87)
+ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;

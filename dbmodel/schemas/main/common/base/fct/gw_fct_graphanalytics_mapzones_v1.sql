@@ -3306,6 +3306,7 @@ BEGIN
 			jsonb_build_object(
 				'data',
 				jsonb_build_object(
+					'project_type', v_project_type,
 					'fct_type', 'MAPZONE'
 				)
 			);
@@ -3368,7 +3369,7 @@ BEGIN
 			EXECUTE format($sql$
 				UPDATE %I m
 				SET synoptic_id   = t.synoptic_id,
-					synoptic_geom = ST_SetSRID(ST_GeomFromGeoJSON((t.attrib::json)->>'synopticGeometry'), 0)
+					synoptic_geom = t.synoptic_geom
 				FROM temp_pgr_mapzone_synoptic t
 				WHERE m.mapzone_type = %L
 				AND m.flow_sign    = 1
@@ -3387,7 +3388,7 @@ BEGIN
 			EXECUTE format($sql$
 				UPDATE %I m
 				SET synoptic_id   = t.synoptic_id,
-					synoptic_geom = ST_Reverse(ST_SetSRID(ST_GeomFromGeoJSON((t.attrib::json)->>'synopticGeometry'), 0))
+					synoptic_geom = ST_Reverse(t.synoptic_geom)
 				FROM temp_pgr_mapzone_synoptic t
 				WHERE m.mapzone_type = %L
 				AND m.flow_sign    = -1
@@ -3451,8 +3452,27 @@ BEGIN
 				JOIN sector s USING(drainzone_id)
 				WHERE d.drainzone_id = g.drainzone_id;
 			ELSE
-				IF v_recalculate_macromapzones THEN
-					-- TODO: recalculate macromapzones
+				IF v_recalculate_macromapzones AND v_netscenario IS NULL AND v_class IN ('SECTOR', 'DMA', 'DQA') THEN
+					v_data :=
+					jsonb_build_object(
+						'data',
+						jsonb_build_object(
+							'parameters',
+							jsonb_build_object(
+								'graphClass', 'MACRO' || v_class,
+								'exploitation', v_expl_id,
+								'updateMapZone', COALESCE(v_update_map_zone, 0),
+								'geomParamUpdate', v_geom_param_update,
+								'commitChanges', true
+							)
+						)
+					);
+
+					SELECT gw_fct_graphanalytics_macromapzones(v_data) INTO v_response;
+
+					IF v_response->>'status' IS DISTINCT FROM 'Accepted' THEN
+						RETURN v_response;
+					END IF;
 				END IF;
 			END IF;
 

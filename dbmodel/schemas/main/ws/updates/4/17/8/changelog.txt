@@ -1,0 +1,1 @@
+- On valve insert and when `epa_type` changes to `VALVE`, `epa_valve_vdefault_*` is copied onto `inp_valve` using the column names `valve_type`, `custom_dint`, `setting` and `minorloss`. `status` stays computed on `ve_inp_valve` (#998).

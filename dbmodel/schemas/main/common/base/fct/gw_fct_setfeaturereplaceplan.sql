@@ -75,10 +75,9 @@ BEGIN
 	END IF;
 
 
-	-- manage log (fid: 143)
+	-- manage log (fid: 143). Header label 4006 is translated via v_sys_label.
 	DELETE FROM audit_check_data WHERE fid = v_fid AND cur_user=current_user;
-	INSERT INTO audit_check_data (fid, error_message) VALUES (v_fid, concat('REPLACE FEATURE ON PSECTOR'));
-	INSERT INTO audit_check_data (fid, error_message) VALUES (v_fid, concat('--------------------------------------'));
+	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{}, "data":{"function":"3072", "fid":"'||v_fid||'", "criticity":"0", "is_process":true, "is_header":"true", "label_id":"4006"}}$$)';
 
 	-- get values from feature array
 	IF v_feature_text ILIKE '[%]' THEN
@@ -253,18 +252,15 @@ BEGIN
 
 				SELECT count(*) INTO v_count FROM connec WHERE arc_id = v_id AND state=1;
 
-				INSERT INTO audit_check_data (fid, error_message)
-				VALUES (v_fid, concat('Arc (',v_id,') have been downgraded, new planned arc have been created (',v_arc,')'));
+				EXECUTE format('SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{}, "data":{"message":"4764", "function":"3072", "parameters":{"v_id":%s, "v_arc":%s}, "fid":"%s", "is_process":true}}$$)', to_json(v_id::text), to_json(COALESCE(v_arc::text, '')), v_fid);
 
-				INSERT INTO audit_check_data (fid, error_message)
-				VALUES (v_fid, concat(v_count,' connec(s) have been reconnected.'));
+				EXECUTE format('SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{}, "data":{"message":"4766", "function":"3072", "parameters":{"v_count":%s}, "fid":"%s", "is_process":true}}$$)', to_json(COALESCE(v_count, 0)::text), v_fid);
 
 				IF v_project_type ='UD' THEN
 
 					SELECT count(*) INTO v_count FROM gully WHERE arc_id = v_id AND state=1;
 
-					INSERT INTO audit_check_data (fid, error_message)
-					VALUES (v_fid, concat(v_count,' gully(s) have been reconnected.'));
+					EXECUTE format('SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{}, "data":{"message":"4768", "function":"3072", "parameters":{"v_count":%s}, "fid":"%s", "is_process":true}}$$)', to_json(COALESCE(v_count, 0)::text), v_fid);
 				END IF;
 
 				UPDATE arc SET streetaxis_id = rec.streetaxis_id WHERE arc_id = v_arc;
@@ -272,15 +268,15 @@ BEGIN
 			END IF;
 		END LOOP;
 
-		INSERT INTO audit_check_data (fid, error_message) VALUES (v_fid, concat('Using current (',v_currentpsector,') psector, ',i,' succesfully replacements have been executed'));
-		INSERT INTO audit_check_data (fid, error_message) VALUES (v_fid, concat('Arc catalog used for new arc(s): ',v_catalog));
-		INSERT INTO audit_check_data (fid, error_message) VALUES (v_fid, concat('Copied columns from old arc(s): Mapzones, *_type, soil, address and label values'));
-		INSERT INTO audit_check_data (fid, error_message) VALUES (v_fid, concat('NOT copied columns from old arc(s): Free text and addfield values'));
-		v_message = 'Arc replacement done succesfully';
+		EXECUTE format('SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{}, "data":{"message":"4770", "function":"3072", "parameters":{"v_psector":%s, "v_count":%s}, "fid":"%s", "is_process":true}}$$)', to_json(COALESCE(v_currentpsector::text, '')), to_json(i::text), v_fid);
+		EXECUTE format('SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{}, "data":{"message":"4772", "function":"3072", "parameters":{"v_catalog":%s}, "fid":"%s", "is_process":true}}$$)', to_json(COALESCE(v_catalog, '')), v_fid);
+		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{}, "data":{"message":"4774", "function":"3072", "fid":"'||v_fid||'", "is_process":true}}$$)';
+		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{}, "data":{"message":"4776", "function":"3072", "fid":"'||v_fid||'", "is_process":true}}$$)';
+		SELECT error_message INTO v_message FROM v_sys_message WHERE id = 4780;
 
 	ELSE
-		INSERT INTO audit_check_data (fid, error_message) VALUES (v_fid, concat('Replacement on planned mode is only available for arcs'));
-		v_message = 'Replacement on planned mode is only available for arcs';
+		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{}, "data":{"message":"4778", "function":"3072", "fid":"'||v_fid||'", "is_process":true}}$$)';
+		SELECT error_message INTO v_message FROM v_sys_message WHERE id = 4778;
 	END IF;
 
 	-- get info
@@ -296,7 +292,7 @@ BEGIN
 	v_status = 'Accepted';
 
 	--  Return
-	RETURN ('{"status":"'||v_status||'", "message":{"level":'||v_level||', "text":"'||v_message||'"}, "version":"'||v_version||'"'||
+	RETURN ('{"status":"'||v_status||'", "message":{"level":'||v_level||', "text":"'||COALESCE(v_message, '')||'"}, "version":"'||v_version||'"'||
              ',"body":{"form":{}'||
              ',"data":{ "info":'||v_result_info||''||
 			'}}'||

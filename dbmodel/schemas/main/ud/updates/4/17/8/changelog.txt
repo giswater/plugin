@@ -1,0 +1,2 @@
+- `edit_slope_direction` reverses a new arc using the node invert when the arc has no y/elev. `sys_slope` stays NULL in that case so the view keeps following the node (#996).
+- With `edit_connect_autoupdate_fluid`, editing a connec or gully takes `fluid_type` from its arc, and changing the arc pushes `fluid_type` to the connecs, gullies and links on that arc. Upstream features keep their own value (#997).

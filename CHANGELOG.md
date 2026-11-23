@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Go2EPA dialog can set the result description (`rpt_cat_result.descript`) at creation time.
 - CMMS satellite integrated with each ws/ud parent. The feature info form gets `tab_cmms` (visits and attachments, linked by `sys_code`). Unlinking or dropping CMMS removes the tab and the views and keeps the cmms data.
 - Go2EPA stores the SHA-256 of the exported INP in `rpt_cat_result.addparam` (`inpSha256`), including recursive EPA runs. Existing `addparam` keys are kept.
 - EPA Result Manager warns before deleting a result that other results use as `parent_id`. Schema adds `rpt_cat_result.parent_id` → `result_id` (`ON DELETE SET NULL`); the plugin no longer clears `parent_id` itself.
@@ -25,9 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Go2EPA result name field allows up to 50 characters to match `rpt_cat_result.result_id`.
 - go2epa Close button (`btn_close`) gets `widgetfunction` `closeDlg` for web / dynamic clients.
 - EPA Result Manager web list (`epa_results`): add `isvalidated` to the query and tableview, plus `btn_toggle_validated` (`toggleValidated`) in the top toolbar.
 - Expose `parent_id` on `v_ui_rpt_cat_result`.
+- `gw_fct_epa2data` fills `connec_add.demand_max/min/avg` (and matches `VN{link_id}` results); connec forms expose those fields (#990).
 - Renaming a ws/ud schema updates the parent link stored by every satellite (utils, am, cm, cmms, cibs, publi, multilang), so utils updates and Manage Schemas keep pointing at the renamed parent.
 - End feature warns on the element or link tab when none of its layers are loaded, and disables the map and expression selection buttons on that tab.
 - Selecting or removing features that sit on more than one layer (element: `ve_man_genelem` and `ve_man_frelem`) refreshes every layer. Previously only the first layer's highlight updated until the map was moved.
@@ -37,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UD `ve_cat_feature_node` exposes `graph_delimiter` (view, form field, edit trigger); it was present on WS only (#966).
 - UD `cat_link` recreated like UD `cat_arc` (`shape`/`geom1`..`geom8` instead of WS `pnom`/`dnom`/`dint`/`dext`); data migrated from `_cat_link_` (#969).
 - UD go2epa FIXED outfalls export `inp_outfall.stage`. The previous export wrote the node inventory state (#959).
+- Go2EPA manager: corporate toggle now works in UD projects (no `gw_fct_epa2data` there).
 
 ## [4.17.5] - 2026-10-06
 
