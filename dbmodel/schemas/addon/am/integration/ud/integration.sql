@@ -69,14 +69,14 @@ ALTER TABLE am.config_nodecatalog_def DROP CONSTRAINT IF EXISTS config_nodecatal
 INSERT INTO am.config_catalog_def (
 	arccat_id, project_type, dnom, cost_constr, cost_repmain, cost_rehab, compliance
 )
-SELECT id, 'UD', geom1, 0, 0, 0, 10
+SELECT id, 'UD', geom1, 0, 0, 0, 1
 FROM PARENT_SCHEMA.cat_arc
 ON CONFLICT (arccat_id, project_type) DO NOTHING;
 
 INSERT INTO am.config_nodecatalog_def (
 	nodecat_id, project_type, dnom, cost_constr, cost_repmain, cost_rehab, compliance
 )
-SELECT id, 'UD', geom1, 0, 0, 0, 10
+SELECT id, 'UD', geom1, 0, 0, 0, 1
 FROM PARENT_SCHEMA.cat_node
 WHERE active IS DISTINCT FROM FALSE
 ON CONFLICT (nodecat_id, project_type) DO NOTHING;
@@ -84,7 +84,7 @@ ON CONFLICT (nodecat_id, project_type) DO NOTHING;
 INSERT INTO am.config_material_def (
 	material, project_type, pleak, age_max, age_med, age_min, builtdate_vdef, compliance
 )
-SELECT id, 'UD', 0.16, 58, 50, 42, 1964, 10
+SELECT id, 'UD', 0.16, 58, 50, 42, 1964, 1
 FROM PARENT_SCHEMA.cat_material
 WHERE active IS TRUE
 ON CONFLICT (material, project_type) DO NOTHING;
@@ -419,13 +419,14 @@ SELECT
 		END DESC
 		LIMIT 1
 	) AS recommended_action_src,
+	-- Inventory grade matches AWARE: 1 = best, 5 = worst. Higher raw = higher priority.
 	COALESCE(
 		ps.max_structural_score,
-		CASE WHEN a.conserv_state::text ~ '^[1-5]$' THEN (6 - a.conserv_state::integer)::numeric ELSE NULL END
+		CASE WHEN a.conserv_state::text ~ '^[1-5]$' THEN a.conserv_state::integer::numeric ELSE NULL END
 	) AS structural_raw_src,
 	COALESCE(
 		ps.max_operational_score,
-		CASE WHEN a.om_state::text ~ '^[1-5]$' THEN (6 - a.om_state::integer)::numeric ELSE NULL END
+		CASE WHEN a.om_state::text ~ '^[1-5]$' THEN a.om_state::integer::numeric ELSE NULL END
 	) AS operational_raw_src,
 	(
 		(SELECT count(*)::numeric FROM PARENT_SCHEMA.om_visit_x_arc v WHERE v.arc_id = a.arc_id)
@@ -477,13 +478,14 @@ SELECT
 		END DESC
 		LIMIT 1
 	) AS recommended_action_src,
+	-- Inventory grade matches AWARE: 1 = best, 5 = worst. Higher raw = higher priority.
 	COALESCE(
 		ps.max_structural_score,
-		CASE WHEN n.conserv_state::text ~ '^[1-5]$' THEN (6 - n.conserv_state::integer)::numeric ELSE NULL END
+		CASE WHEN n.conserv_state::text ~ '^[1-5]$' THEN n.conserv_state::integer::numeric ELSE NULL END
 	) AS structural_raw_src,
 	COALESCE(
 		ps.max_operational_score,
-		CASE WHEN n.om_state::text ~ '^[1-5]$' THEN (6 - n.om_state::integer)::numeric ELSE NULL END
+		CASE WHEN n.om_state::text ~ '^[1-5]$' THEN n.om_state::integer::numeric ELSE NULL END
 	) AS operational_raw_src,
 	(
 		(SELECT count(*)::numeric FROM PARENT_SCHEMA.om_visit_x_node v WHERE v.node_id = n.node_id)
@@ -646,7 +648,7 @@ VALUES
 ('v_ud_node_pathology_map', 'UD node pathology on the node', 'role_om', NULL, '36', 11, 'UD node pathology map', NULL, NULL, NULL, 'am', '{"refreshSymbology": true, "allOthers": false, "symbolField": "severity", "pkey": "rid"}')
 ON CONFLICT (id) DO UPDATE SET context = EXCLUDED.context, orderby = EXCLUDED.orderby, alias = EXCLUDED.alias, addparam = EXCLUDED.addparam, "source" = EXCLUDED.source;
 
--- Write BA/BB scores back to parent conserv_state / om_state (1=Critical … 5=Excellent).
+-- Write BA/BB scores back to parent conserv_state / om_state (1=best … 5=worst).
 CREATE OR REPLACE FUNCTION PARENT_SCHEMA.gw_trg_am_ud_arc_pathology()
 RETURNS trigger AS
 $BODY$
@@ -679,8 +681,8 @@ BEGIN
 	ORDER BY inspection_date DESC NULLS LAST, rid DESC LIMIT 1;
 
 	UPDATE PARENT_SCHEMA.arc SET
-		conserv_state = GREATEST(1, LEAST(5, ROUND(6 - COALESCE(v_cond, 1)))),
-		om_state = GREATEST(1, LEAST(5, ROUND(6 - COALESCE(v_om, 1))))
+		conserv_state = GREATEST(1, LEAST(5, ROUND(COALESCE(v_cond, 1)))),
+		om_state = GREATEST(1, LEAST(5, ROUND(COALESCE(v_om, 1))))
 	WHERE arc_id::text = v_arc_id;
 
 	INSERT INTO am.ud_arc_input (
@@ -735,8 +737,8 @@ BEGIN
 	ORDER BY inspection_date DESC NULLS LAST, rid DESC LIMIT 1;
 
 	UPDATE PARENT_SCHEMA.node SET
-		conserv_state = GREATEST(1, LEAST(5, ROUND(6 - COALESCE(v_cond, 1)))),
-		om_state = GREATEST(1, LEAST(5, ROUND(6 - COALESCE(v_om, 1))))
+		conserv_state = GREATEST(1, LEAST(5, ROUND(COALESCE(v_cond, 1)))),
+		om_state = GREATEST(1, LEAST(5, ROUND(COALESCE(v_om, 1))))
 	WHERE node_id::text = v_node_id;
 
 	INSERT INTO am.ud_node_input (node_id, structural_raw, operational_raw, estimated_cost, inspection_id, inspection_date)

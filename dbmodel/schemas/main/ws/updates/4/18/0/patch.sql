@@ -193,3 +193,29 @@ ON CONFLICT (id) DO UPDATE SET
 	sys_role = EXCLUDED.sys_role,
 	alias = EXCLUDED.alias,
 	addparam = EXCLUDED.addparam;
+
+-- Condition grades: 1 = excellent, 5 = critical. 4.17 stored the opposite labels.
+INSERT INTO edit_typevalue (typevalue, id, idval, descript, addparam) VALUES
+	('om_state', '1', 'Excellent',
+	 'The asset fully meets its operational requirements, with high reliability, adequate capacity and no relevant performance constraints.', NULL),
+	('om_state', '2', 'Good',
+	 'The asset performs its intended function reliably and meets the required level of service. Minor deficiencies may exist but have no significant operational impact.', NULL),
+	('om_state', '3', 'Fair',
+	 'The asset performs its required function but with moderate operational limitations, reduced efficiency or reliability. Increased monitoring and planned maintenance are recommended.', NULL),
+	('om_state', '4', 'Poor',
+	 'The asset operates with major limitations, reduced reliability or insufficient capacity. There is a significant risk of service disruption and corrective action is required in the short term.', NULL),
+	('om_state', '5', 'Critical',
+	 'The asset is non-operational or unable to deliver its required function. Service continuity is compromised and immediate corrective action or replacement is required.', NULL),
+	('conserv_state', '1', 'Excellent',
+	 'The asset is in very good or near-new condition, with no significant deterioration and full physical integrity. Only routine maintenance is required.', NULL),
+	('conserv_state', '2', 'Good',
+	 'The asset is in good physical condition with only minor deterioration or defects. Preventive or routine maintenance is sufficient.', NULL),
+	('conserv_state', '3', 'Fair',
+	 'Moderate deterioration and localized defects are present. The asset remains serviceable but planned maintenance or rehabilitation is required to prevent further degradation.', NULL),
+	('conserv_state', '4', 'Poor',
+	 'Significant deterioration or defects are present. Asset condition is approaching unacceptable limits and major maintenance or rehabilitation is required in the short term.', NULL),
+	('conserv_state', '5', 'Critical',
+	 'Severe deterioration, structural damage or loss of integrity is present. The probability of physical failure is high and immediate rehabilitation or replacement is required.', NULL)
+ON CONFLICT (typevalue, id) DO UPDATE SET
+	idval = EXCLUDED.idval,
+	descript = EXCLUDED.descript;

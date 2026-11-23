@@ -86,3 +86,121 @@ BEGIN
 	END LOOP;
 END
 $rename$;
+
+-- Inventory and AWARE grades are 1 = best, 5 = worst. Higher raw = higher priority.
+-- Views and write-back triggers built before this stored (6 - grade). Drop that flip
+-- in place so an upgrade does not have to rebuild the parent overlays.
+DO $polarity$
+DECLARE
+	v_name text;
+	v_def text;
+	v_hits int;
+	v_oid oid;
+	v_func text;
+BEGIN
+	FOREACH v_name IN ARRAY ARRAY[
+		'v_ext_ud_arc_asset', 'ext_ud_arc_asset',
+		'v_ext_ud_node_asset', 'ext_ud_node_asset',
+		'v_ext_ws_node_asset', 'ext_ws_node_asset'
+	]
+	LOOP
+		v_oid := to_regclass('am.' || v_name);
+		IF v_oid IS NULL THEN
+			CONTINUE;
+		END IF;
+		v_def := pg_get_viewdef(v_oid, true);
+		SELECT count(*) INTO v_hits
+		FROM regexp_matches(v_def, '6[[:space:]]*-[[:space:]]*', 'g');
+		IF v_hits = 0 THEN
+			CONTINUE;
+		END IF;
+		IF v_hits <> 2 OR v_def !~ 'conserv_state' OR v_def !~ 'om_state' THEN
+			RAISE EXCEPTION 'am.% grade polarity is not the expected (6 - grade) pair', v_name;
+		END IF;
+		v_def := regexp_replace(v_def, '6[[:space:]]*-[[:space:]]*', '', 'g');
+		v_def := regexp_replace(v_def, '[[:space:]]*;[[:space:]]*$', '');
+		EXECUTE 'CREATE OR REPLACE VIEW am.' || quote_ident(v_name) || ' AS ' || v_def;
+	END LOOP;
+
+	FOR v_oid, v_func IN
+		SELECT p.oid, n.nspname || '.' || p.proname
+		FROM pg_proc p
+		JOIN pg_namespace n ON n.oid = p.pronamespace
+		WHERE p.proname IN ('gw_trg_am_ud_arc_pathology', 'gw_trg_am_ud_node_pathology')
+	LOOP
+		v_def := pg_get_functiondef(v_oid);
+		SELECT count(*) INTO v_hits
+		FROM regexp_matches(v_def, '6[[:space:]]*-[[:space:]]*', 'g');
+		IF v_hits = 0 THEN
+			CONTINUE;
+		END IF;
+		IF v_hits <> 2 OR v_def !~ 'conserv_state' OR v_def !~ 'om_state' THEN
+			RAISE EXCEPTION '% grade write-back is not the expected (6 - score) pair', v_func;
+		END IF;
+		v_def := regexp_replace(v_def, '6[[:space:]]*-[[:space:]]*', '', 'g');
+		EXECUTE v_def;
+	END LOOP;
+END
+$polarity$;
+
+-- Compliance grade is 1 = best, 10 = worst. Rows stored before this used 10 as best.
+DO $compliance$
+DECLARE
+	v_table text;
+	v_parent text;
+BEGIN
+	FOREACH v_table IN ARRAY ARRAY[
+		'config_material_def', 'config_material',
+		'config_catalog_def', 'config_catalog',
+		'config_nodecatalog_def', 'config_nodecatalog',
+		'config_linkcatalog_def', 'config_linkcatalog',
+		'ws_arc_input', 'ws_arc_output'
+	]
+	LOOP
+		IF to_regclass('am.' || v_table) IS NULL THEN
+			CONTINUE;
+		END IF;
+		IF NOT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'am' AND table_name = v_table
+				AND column_name = 'compliance' AND data_type = 'integer'
+		) THEN
+			CONTINUE;
+		END IF;
+		EXECUTE format(
+			'UPDATE am.%I SET compliance = 11 - compliance WHERE compliance BETWEEN 1 AND 10',
+			v_table
+		);
+	END LOOP;
+
+	-- New materials must default to 1 (best), not 10.
+	FOR v_parent IN
+		SELECT DISTINCT NULLIF(btrim(addparam->>'parentSchema'), '')
+		FROM am.sys_version
+	LOOP
+		IF v_parent IS NULL OR to_regproc(format('%I.gw_trg_asset_cat_material', v_parent)) IS NULL THEN
+			CONTINUE;
+		END IF;
+		EXECUTE format($fn$
+			CREATE OR REPLACE FUNCTION %1$I.gw_trg_asset_cat_material() RETURNS trigger AS
+			$BODY$
+			DECLARE
+				v_project_type varchar(2);
+			BEGIN
+				EXECUTE 'SET search_path TO '||quote_literal(TG_TABLE_SCHEMA)||', public';
+				SELECT upper(project_type) INTO v_project_type FROM sys_version ORDER BY id DESC LIMIT 1;
+				IF TG_OP = 'INSERT' THEN
+					INSERT INTO am.config_material_def (
+						material, project_type, pleak, age_max, age_med, age_min, builtdate_vdef, compliance
+					)
+					VALUES (NEW.id, v_project_type, 0.16, 58, 50, 42, 1964, 1)
+					ON CONFLICT (material, project_type) DO NOTHING;
+					RETURN NEW;
+				END IF;
+			END;
+			$BODY$
+			LANGUAGE plpgsql VOLATILE COST 100;
+		$fn$, v_parent);
+	END LOOP;
+END
+$compliance$;

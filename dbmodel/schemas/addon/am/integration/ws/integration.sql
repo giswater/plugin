@@ -75,7 +75,7 @@ SELECT id, 'WS', dnom::numeric,
     round(dnom::numeric * 3 / 5 + 70),
     round(dnom::numeric * 9 / 5 + 310),
     NULL,
-    10
+    1
 FROM PARENT_SCHEMA.cat_arc
 WHERE dnom IS NOT NULL
 ON CONFLICT (arccat_id, project_type) DO NOTHING;
@@ -85,7 +85,7 @@ INSERT INTO am.config_nodecatalog_def (
 )
 SELECT id, 'WS',
     NULLIF(regexp_replace(COALESCE(dnom, ''), '[^0-9\.]', '', 'g'), '')::numeric,
-    100, 0, NULL, 10
+    100, 0, NULL, 1
 FROM PARENT_SCHEMA.cat_node
 WHERE active IS DISTINCT FROM FALSE
 ON CONFLICT (nodecat_id, project_type) DO NOTHING;
@@ -93,7 +93,7 @@ ON CONFLICT (nodecat_id, project_type) DO NOTHING;
 INSERT INTO am.config_material_def (
     material, project_type, pleak, age_max, age_med, age_min, builtdate_vdef, compliance
 )
-SELECT id, 'WS', 0.16, 58, 50, 42, 1964, 10
+SELECT id, 'WS', 0.16, 58, 50, 42, 1964, 1
 FROM PARENT_SCHEMA.cat_material
 WHERE active IS TRUE
 ON CONFLICT (material, project_type) DO NOTHING;
@@ -155,7 +155,7 @@ SELECT id,
 	NULLIF(regexp_replace(COALESCE(dnom, ''), '[^0-9\.]', '', 'g'), '')::NUMERIC,
 	0,
 	0,
-	10
+	1
 FROM PARENT_SCHEMA.cat_link
 WHERE active IS DISTINCT FROM FALSE
 ON CONFLICT (linkcat_id) DO NOTHING;
@@ -15378,13 +15378,13 @@ AS SELECT n.node_id,
         ELSE EXTRACT(YEAR FROM age(CURRENT_DATE, n.builtdate))::numeric
     END AS age,
     0::numeric AS estimated_cost,
-    -- AM polarity: higher raw = higher priority; grade 1=Critical → invert as (6 - grade)
+    -- Inventory grade is 1 = best, 5 = worst. Higher raw = higher priority.
     CASE
-        WHEN n.conserv_state ~ '^[1-5]$' THEN (6 - n.conserv_state::integer)::numeric
+        WHEN n.conserv_state ~ '^[1-5]$' THEN n.conserv_state::integer::numeric
         ELSE NULL
     END AS structural_raw_src,
     CASE
-        WHEN n.om_state ~ '^[1-5]$' THEN (6 - n.om_state::integer)::numeric
+        WHEN n.om_state ~ '^[1-5]$' THEN n.om_state::integer::numeric
         ELSE NULL
     END AS operational_raw_src,
     n.the_geom
