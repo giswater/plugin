@@ -42,6 +42,7 @@ DECLARE
 v_table_id text;
 v_id text;
 v_reduced_geometry geometry;
+v_anchor geometry;
 v_device integer;
 v_info_type integer;
 v_tg_op text;
@@ -546,9 +547,14 @@ BEGIN
 		-- get flreg vdefaults (Node ID & to_arc)
 		IF upper(v_catfeature.feature_class) = 'FRELEM' THEN
 			
-			-- get node_id
-			SELECT node_id INTO v_node_id FROM ve_node WHERE ST_DWithin(ST_startpoint(v_reduced_geometry), ve_node.the_geom, v_arc_searchnodes)
-			ORDER BY ST_Distance(ve_node.the_geom, ST_startpoint(v_reduced_geometry)) LIMIT 1;
+			-- Point from the element button or from a node info form. A line still uses its start.
+			-- ST_StartPoint(point) is null, which is message 3694 with the node sitting under the click.
+			v_anchor := CASE
+				WHEN ST_GeometryType(v_reduced_geometry) = 'ST_LineString' THEN ST_StartPoint(v_reduced_geometry)
+				ELSE v_reduced_geometry
+			END;
+			SELECT node_id INTO v_node_id FROM ve_node WHERE ST_DWithin(v_anchor, ve_node.the_geom, v_arc_searchnodes)
+			ORDER BY ST_Distance(ve_node.the_geom, v_anchor) LIMIT 1;
 			if v_node_id is NULL THEN
 				SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
 				"data":{"message":"3694", "function":"2560","parameters":null, "is_process":true}}$$);

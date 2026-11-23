@@ -3469,6 +3469,32 @@ class GwInfo(QObject):
             self.iface.actionRollbackEdits().trigger()
             is_inserting = False
 
+    def _coordinates_from_geometry(self, geom):
+        """x1,y1[,x2,y2] from the geometry itself.
+
+        The layer type is not the geometry type. A node point copied onto ve_man_frelem is still a point.
+        """
+
+        if geom is None or geom.isEmpty():
+            return None
+        if geom.type() == Qgis.GeometryType.Point:
+            point = geom.asPoint()
+            return f'"x1":{point.x()}, "y1":{point.y()}'
+        if geom.type() != Qgis.GeometryType.Line:
+            return None
+        points = geom.asPolyline()
+        if len(points) < 2 and geom.isMultipart():
+            parts = geom.asMultiPolyline()
+            points = parts[0] if parts else points
+        if not points:
+            return None
+        start = points[0]
+        text = f'"x1":{start.x()}, "y1":{start.y()}'
+        if len(points) > 1:
+            end = points[-1]
+            text += f', "x2":{end.x()}, "y2":{end.y()}'
+        return text
+
     def _open_new_feature(self, feature_id, connect_signal=None, linked_feature=None):
         """
         :param feature_id: Parameter sent by the featureAdded method itself
@@ -3479,25 +3505,21 @@ class GwInfo(QObject):
         feature = tools_qt.get_feature_by_id(self.info_layer, feature_id)
         if (linked_feature and linked_feature.get('geometry')):
             geom = QgsGeometry.fromWkt(linked_feature.get('geometry', {}).get("st_astext"))
-            if geom:
+            if geom and not geom.isEmpty():
                 feature.setGeometry(geom)
-        geom = feature.geometry()
         list_points = None
         try:
-            if self.info_layer.geometryType() == 0:
-                points = geom.asPoint()
-                list_points = f'"x1":{points.x()}, "y1":{points.y()}'
-            elif self.info_layer.geometryType() in (1, 2):
-                points = geom.asPolyline()
-                init_point = points[0]
-                last_point = points[-1]
-                list_points = f'"x1":{init_point.x()}, "y1":{init_point.y()}'
-                list_points += f', "x2":{last_point.x()}, "y2":{last_point.y()}'
-            else:
-                msg = "NO FEATURE TYPE DEFINED"
-                tools_log.log_info(msg)
+            list_points = self._coordinates_from_geometry(feature.geometry())
         except Exception:
             pass
+        # ve_man_frelem is a line. The parent node is a point, so asPolyline() throws and
+        # the insert used to go out with no coordinates (reduced_geometry null, message 3694).
+        if list_points is None and linked_feature:
+            geometry = linked_feature.get('geometry') or {}
+            x = geometry.get('x')
+            y = geometry.get('y')
+            if x is not None and y is not None:
+                list_points = f'"x1":{x}, "y1":{y}'
 
         tools_gw.init_docker()
         global is_inserting  # noqa: F824
