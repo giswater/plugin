@@ -5,8 +5,7 @@ General Public License as published by the Free Software Foundation, either vers
 or (at your option) any later version.
 */
 
-
-CREATE OR REPLACE FUNCTION gw_fct_cso_calculation(p_data json)
+CREATE OR REPLACE FUNCTION ud.gw_fct_cso_calculation(p_data json)
  RETURNS json
  LANGUAGE plpgsql
 AS $function$
@@ -97,6 +96,7 @@ v_calib_imperv_area NUMERIC = 0;
 v_mode TEXT;
 v_filtercal TEXT;
 v_residual_pattern NUMERIC = 0;
+v_querytext TEXT;
 
 v_i integer;
 
@@ -108,6 +108,7 @@ v_pd80 NUMERIC;
 v_update_inventory boolean = FALSE;
 v_hydrograph TEXT; -- inp_timeseries id: flow hydrograph (m3/s) added to vol_runoff at each time step
 v_hydro_rainfall TEXT; -- rf_name of the rainfall the hydrograph is added to (NULL = all rainfalls)
+v_hydro_subcwwf_id int4; -- subcatchment that will be replaced by the hydrograph
 v_hydro_q NUMERIC; -- hydrograph flow (m3/s) of the current time step
 
 
@@ -127,8 +128,9 @@ BEGIN
        p_data->'data'->'parameters'->>'hydrographTimeseries')), '');
    	v_hydro_rainfall := NULLIF(TRIM(COALESCE(p_data->'data'->'parameters'->'calculation'->>'hydrographRainfall',
 		p_data->'data'->'parameters'->>'hydrographRainfall')), '');
-
-	
+   	v_hydro_subcwwf_id := NULLIF(TRIM(COALESCE(p_data->'data'->'parameters'->'calculation'->>'subcWwfId',
+		p_data->'data'->'parameters'->>'subcWwfId')), '');
+		
 	v_step_dscenario := (p_data -> 'data' -> 'parameters' -> 'dscenario' ->> 'active')::boolean;
 	v_inflows_dscenario := (p_data ->'data'-> 'parameters' -> 'dscenario' ->> 'inflowsDscenarioRootName')::text;
 
@@ -289,6 +291,9 @@ BEGIN
 			)a where t.node_id = a.node_id 
 			';
 			
+			-- set cero value for those subcatchemts that have some hydrograph
+			UPDATE cso_subc_wwf_all SET c_value = 0 WHERE id = v_hydro_subcwwf_id;
+		
 			-- imperv area 
 			execute '
 			update cso_inp_system_subc t set imperv_area = a.imperv, thyssen_plv_area = a.area_thy, mean_coef_runoff = a.c_val from (
@@ -442,9 +447,19 @@ BEGIN
 			v_calib_imperv_area = (SELECT calib_imperv_area FROM cso_calibration WHERE drainzone_id = rec_drainzone.drainzone_id);
 			
 			RAISE NOTICE 'rec_drainzone.kb % rec_drainzone.thyssen_plv_area %', rec_drainzone.kb ,  rec_drainzone.thyssen_plv_area;
+		
+			IF v_hydro_rainfall IS NOT NULL THEN 
+		
+				v_querytext = 'select *, (LEFT(rf_tstep,2)::integer +1)::INTEGER AS hourly from temp_cso_inp_rainfall WHERE rf_name = '''||v_hydro_rainfall||
+				''' order by rf_name, rf_tstep';
+			
+			ELSE 
+				v_querytext = 'select *, (LEFT(rf_tstep,2)::integer +1)::INTEGER AS hourly from temp_cso_inp_rainfall order by rf_name, rf_tstep';
+			
+			END IF;
 			
 			-- for each rainfall that have volume:
-			FOR rec_rainfall in EXECUTE 'select *, (LEFT(rf_tstep,2)::integer +1)::INTEGER AS hourly from temp_cso_inp_rainfall order by rf_name, rf_tstep'
+			FOR rec_rainfall in EXECUTE v_querytext
 			LOOP
 				
 				i = i+1;
@@ -453,7 +468,7 @@ BEGIN
 									
 				EXECUTE 'SELECT factor_'||rec_rainfall.hourly||' FROM inp_pattern_value JOIN inp_pattern USING (pattern_id) WHERE expl_id = '||v_expl_id
 				INTO v_residual_pattern;
-			
+						
 				-- hydrograph flow at this time step, only for the selected rainfall (0 otherwise)
 				IF v_hydrograph IS NOT NULL AND rec_rainfall.rf_name = v_hydro_rainfall THEN
 					v_hydro_q = COALESCE((SELECT value FROM inp_timeseries_value WHERE timser_id = v_hydrograph AND "time" = rec_rainfall.rf_tstep LIMIT 1), 0);
