@@ -355,6 +355,14 @@ BEGIN
 			INSERT INTO man_frelem (element_id, node_id, to_arc, flwreg_length)
 			VALUES(NEW.element_id, NEW.node_id, NEW.to_arc, NEW.flwreg_length);
 			UPDATE "element" SET epa_type = NEW.epa_type WHERE element_id = NEW.element_id;
+
+			-- informed node_id is the link; skip the geometry snap below
+			IF NEW.node_id IS NOT NULL THEN
+				INSERT INTO element_x_node (element_id, node_id)
+				VALUES (NEW.element_id, NEW.node_id)
+				ON CONFLICT (element_id, node_id) DO NOTHING;
+				v_tablefeature := NULL;
+			END IF;
 		ELSIF v_man_table='man_genelem' THEN
 			INSERT INTO man_genelem (element_id) VALUES (NEW.element_id);
 			UPDATE "element" SET epa_type = 'UNDEFINED' WHERE element_id = NEW.element_id;
