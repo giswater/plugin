@@ -3413,8 +3413,27 @@ BEGIN
 				JOIN sector s USING(drainzone_id)
 				WHERE d.drainzone_id = g.drainzone_id;
 			ELSE
-				IF v_recalculate_macromapzones THEN
-					-- TODO: recalculate macromapzones
+				IF v_recalculate_macromapzones AND v_netscenario IS NULL AND v_class IN ('SECTOR', 'DMA', 'DQA') THEN
+					v_data :=
+					jsonb_build_object(
+						'data',
+						jsonb_build_object(
+							'parameters',
+							jsonb_build_object(
+								'graphClass', 'MACRO' || v_class,
+								'exploitation', v_expl_id,
+								'updateMapZone', COALESCE(v_update_map_zone, 0),
+								'geomParamUpdate', v_geom_param_update,
+								'commitChanges', true
+							)
+						)
+					);
+
+					SELECT gw_fct_graphanalytics_macromapzones(v_data) INTO v_response;
+
+					IF v_response->>'status' IS DISTINCT FROM 'Accepted' THEN
+						RETURN v_response;
+					END IF;
 				END IF;
 			END IF;
 
