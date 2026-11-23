@@ -223,3 +223,43 @@ UPDATE config_toolbox SET inputparams='[
   }
 ]'::json
 WHERE id=3110;
+
+UPDATE sys_message
+SET error_message = 'The following mapzones have no nodeParent or toArc: %feature_list%'
+WHERE id = 4634;
+
+UPDATE sys_message
+SET error_message = 'There are no mapzones with no nodeParent or toArc'
+WHERE id = 4636;
+
+UPDATE sys_message
+SET error_message = 'The following pump/meter/valve nodeParents don''t have the same to_arc on their graphconfig and man_table: %node_list%'
+WHERE id = 4500;
+
+UPDATE sys_message
+SET error_message = 'There are no pump/meter/valve nodeParents with different to_arc on their graphconfig and man_table'
+WHERE id = 4502;
+
+UPDATE sys_message
+SET error_message = 'The following tank/source/waterwell/wtp nodeParents toArc is inlet_arc in its man_table: %node_list%'
+WHERE id = 4504;
+
+UPDATE sys_message
+SET error_message = 'There are no arcs connected to a tank/source/waterwell/wtp that aren''t set as toArc or inlet_arc'
+WHERE id = 4534;
+
+UPDATE sys_message
+SET error_message = 'The following arcs are set more than once in graphconfig: %arc_list%'
+WHERE id = 4492;
+
+UPDATE sys_message
+SET error_message = 'There are no arcs set more than once in graphconfig'
+WHERE id = 4494;
+
+UPDATE sys_message
+SET error_message = 'The following forceClosed/forceOpen are set more than once in graphconfig: %arc_list%'
+WHERE id = 4524;
+
+UPDATE sys_message
+SET error_message = 'There are no forceClosed/forceOpen set more than once in graphconfig'
+WHERE id = 4526;
