@@ -266,8 +266,112 @@ BEGIN
 	WHERE a.initoverflowpath = TRUE 
 	AND t.pgr_arc_id = a.arc_id;
 
-	-- calculate fluid_type for nodes/arcs
+	-- calculate fluid_type for connec/gully
+	LOOP
+		v_count := 0;
 
+		-- calculate fluid_type for connec
+		WITH feature AS (
+			SELECT lc.exit_id as pgr_connec_id, c.mapzone_id
+			FROM v_temp_link_connec lc
+			JOIN temp_pgr_connec c ON c.pgr_connec_id = lc.feature_id
+			WHERE LC.EXIT_TYPE = 'CONNEC'
+			UNION ALL
+			SELECT lg.exit_id as pgr_connec_id, g.mapzone_id
+			FROM v_temp_link_gully lg
+			JOIN temp_pgr_gully g ON g.pgr_gully_id = lg.feature_id
+			WHERE LG.EXIT_TYPE = 'CONNEC'
+			UNION ALL
+			SELECT lc.exit_id AS pgr_connec_id, c.mapzone_id
+			FROM v_temp_link_connec lc
+			JOIN temp_pgr_connec c ON c.pgr_connec_id = lc.exit_id
+			WHERE lc.exit_type = 'CONNEC'
+			UNION ALL
+			SELECT lg.exit_id AS pgr_connec_id, c.mapzone_id
+			FROM v_temp_link_gully lg
+			JOIN temp_pgr_connec c ON c.pgr_connec_id = lg.exit_id
+			WHERE lg.exit_type = 'CONNEC'
+		),
+		connec_mapzone AS (
+			SELECT
+				pgr_connec_id,
+				max(mapzone_id) AS mapzone_id,
+				count(DISTINCT mapzone_id) FILTER (WHERE mapzone_id > 0) AS nr
+			FROM feature
+			GROUP BY pgr_connec_id
+		),
+		connec_modif AS (
+			SELECT
+				pgr_connec_id,
+				CASE
+					WHEN nr <= 1 THEN mapzone_id
+					WHEN mapzone_id IN (3, 4) THEN 4
+					ELSE mapzone_id
+				END AS mapzone_id
+			FROM connec_mapzone
+		)
+		UPDATE temp_pgr_connec t
+		SET mapzone_id = c.mapzone_id
+		FROM connec_modif c
+		WHERE c.pgr_connec_id = t.pgr_connec_id
+		AND c.mapzone_id IS DISTINCT FROM t.mapzone_id;
+
+		GET DIAGNOSTICS v_updated_rows = ROW_COUNT;
+		v_count := v_count + v_updated_rows;
+
+		WITH feature AS (
+			SELECT lc.exit_id AS pgr_gully_id, c.mapzone_id
+			FROM v_temp_link_connec lc
+			JOIN temp_pgr_connec c ON c.pgr_connec_id = lc.feature_id
+			WHERE lc.exit_type = 'GULLY'
+			UNION ALL
+			SELECT lg.exit_id AS pgr_gully_id, g.mapzone_id
+			FROM v_temp_link_gully lg
+			JOIN temp_pgr_gully g ON g.pgr_gully_id = lg.feature_id
+			WHERE lg.exit_type = 'GULLY'
+			UNION ALL
+			SELECT lc.exit_id AS pgr_gully_id, g.mapzone_id
+			FROM v_temp_link_connec lc
+			JOIN temp_pgr_gully g ON g.pgr_gully_id = lc.exit_id
+			WHERE lc.exit_type = 'GULLY'
+			UNION ALL
+			SELECT lg.exit_id AS pgr_gully_id, g.mapzone_id
+			FROM v_temp_link_gully lg
+			JOIN temp_pgr_gully g ON g.pgr_gully_id = lg.exit_id
+			WHERE lg.exit_type = 'GULLY'
+		),
+		gully_mapzone AS (
+			SELECT
+				pgr_gully_id,
+				max(mapzone_id) AS mapzone_id,
+				count(DISTINCT mapzone_id) FILTER (WHERE mapzone_id > 0) AS nr
+			FROM feature
+			GROUP BY pgr_gully_id
+		),
+		gully_modif AS (
+			SELECT
+				pgr_gully_id,
+				CASE
+					WHEN nr <= 1 THEN mapzone_id
+					WHEN mapzone_id IN (3, 4) THEN 4
+					ELSE mapzone_id
+				END AS mapzone_id
+			FROM gully_mapzone
+		)
+		UPDATE temp_pgr_gully t
+		SET mapzone_id = g.mapzone_id
+		FROM gully_modif g
+		WHERE g.pgr_gully_id = t.pgr_gully_id
+		AND g.mapzone_id IS DISTINCT FROM t.mapzone_id;
+
+		GET DIAGNOSTICS v_updated_rows = ROW_COUNT;
+		v_count := v_count + v_updated_rows;
+
+		EXIT WHEN v_count = 0;
+
+  	END LOOP;
+
+	-- calculate fluid_type for nodes/arcs
 	LOOP
 		v_count := 0;
 		WITH feature AS (
@@ -281,11 +385,10 @@ BEGIN
 			FROM temp_pgr_arc a 
 			JOIN  temp_pgr_node n ON n.pgr_node_id = a.pgr_node_1
 			UNION ALL
-			SELECT DISTINCT c.pgr_arc_id, c.mapzone_id
+			SELECT c.pgr_arc_id, c.mapzone_id
 			FROM temp_pgr_connec c
 			UNION ALL
-			SELECT
-				g.pgr_arc_id, g.mapzone_id
+			SELECT g.pgr_arc_id, g.mapzone_id
 			FROM temp_pgr_gully g
 		),
 		arc_mapzone AS (
@@ -360,6 +463,18 @@ BEGIN
 		FROM temp_pgr_arc t
 		WHERE t.pgr_arc_id = a.arc_id
 		AND t.mapzone_id IS DISTINCT FROM a.fluid_type;
+
+		UPDATE connec c
+		SET fluid_type = t.mapzone_id
+		FROM temp_pgr_connec t
+		WHERE t.pgr_connec_id = c.connec_id
+		AND t.mapzone_id IS DISTINCT FROM c.fluid_type;
+
+		UPDATE gully g
+		SET fluid_type = t.mapzone_id
+		FROM temp_pgr_gully t
+		WHERE t.pgr_gully_id = g.gully_id
+		AND t.mapzone_id IS DISTINCT FROM g.fluid_type;
 
 		-- the fluid_type for links is the fluid_type of the connec/gully
 		UPDATE link l
