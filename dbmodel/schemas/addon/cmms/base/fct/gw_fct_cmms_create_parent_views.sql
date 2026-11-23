@@ -11,6 +11,10 @@ or (at your option) any later version.
 -- oids, so a schema rename keeps resolving them.
 -- v_cmms_visit and v_cmms_attachment are one row per visit or attachment.
 -- Their joins run at read time, so a feature inserted later is included.
+-- A feature also shows visits and attachments of elements linked through
+-- element_x_<table>. Those rows carry element_id. The feature's own sys_code
+-- wins, so a row already reached that way is not repeated for an element.
+-- element itself has no element_x_element branch.
 CREATE OR REPLACE FUNCTION cmms.gw_fct_cmms_create_parent_views(p_schema text)
 RETURNS void
 LANGUAGE plpgsql
@@ -20,10 +24,12 @@ DECLARE
     v_table text;
     v_id_column text;
     v_feature_type text;
+    v_bridge text;
     v_visit_parts text[] := ARRAY[]::text[];
     v_attachment_parts text[] := ARRAY[]::text[];
     v_visit_exists text[] := ARRAY[]::text[];
     v_attachment_exists text[] := ARRAY[]::text[];
+    v_has_bridge boolean;
 BEGIN
     IF p_schema IS NULL OR btrim(p_schema) = '' THEN
         RAISE EXCEPTION 'cmms parent schema is required';
@@ -36,10 +42,15 @@ BEGIN
         END IF;
         v_id_column := v_table || '_id';
         v_feature_type := upper(v_table);
+        v_bridge := 'element_x_' || v_table;
+        v_has_bridge := v_table <> 'element'
+            AND to_regclass(format('%I.%I', p_schema, v_bridge)) IS NOT NULL
+            AND to_regclass(format('%I.element', p_schema)) IS NOT NULL;
 
         v_visit_parts := v_visit_parts || format(
-            'SELECT f.%1$I::text AS feature_id, '
+            'SELECT DISTINCT f.%1$I::text AS feature_id, '
             '%2$L::varchar(30) AS feature_type, '
+            'NULL::text AS element_id, '
             'v.id AS visit_id, v.ext_visit_id, v.type, v.status, v.title, v.description, '
             'v.start_date, v.end_date, '
             'EXISTS (SELECT 1 FROM cmms.attachment_x_visit AS ax WHERE ax.visit_id = v.id) AS has_attachment '
@@ -50,8 +61,9 @@ BEGIN
         );
 
         v_attachment_parts := v_attachment_parts || format(
-            'SELECT f.%1$I::text AS feature_id, '
+            'SELECT DISTINCT f.%1$I::text AS feature_id, '
             '%2$L::varchar(30) AS feature_type, '
+            'NULL::text AS element_id, '
             'NULL::uuid AS visit_id, '
             'a.id AS attachment_id, a.name, a.attachment_type, a.content_type, a.description, '
             'a.uploaded_at, a.uploaded_by, a.path, a.thumbnail_path '
@@ -61,8 +73,9 @@ BEGIN
             v_id_column, v_feature_type, p_schema, v_table
         );
         v_attachment_parts := v_attachment_parts || format(
-            'SELECT f.%1$I::text AS feature_id, '
+            'SELECT DISTINCT f.%1$I::text AS feature_id, '
             '%2$L::varchar(30) AS feature_type, '
+            'NULL::text AS element_id, '
             'vx.visit_id, '
             'a.id AS attachment_id, a.name, a.attachment_type, a.content_type, a.description, '
             'a.uploaded_at, a.uploaded_by, a.path, a.thumbnail_path '
@@ -72,6 +85,62 @@ BEGIN
             'JOIN cmms.attachment AS a ON a.id = axv.attachment_id',
             v_id_column, v_feature_type, p_schema, v_table
         );
+
+        IF v_has_bridge THEN
+            v_visit_parts := v_visit_parts || format(
+                'SELECT DISTINCT f.%1$I::text AS feature_id, '
+                '%2$L::varchar(30) AS feature_type, '
+                'e.element_id::text AS element_id, '
+                'v.id AS visit_id, v.ext_visit_id, v.type, v.status, v.title, v.description, '
+                'v.start_date, v.end_date, '
+                'EXISTS (SELECT 1 FROM cmms.attachment_x_visit AS ax WHERE ax.visit_id = v.id) AS has_attachment '
+                'FROM %3$I.%4$I AS f '
+                'JOIN %3$I.%5$I AS ex ON ex.%1$I = f.%1$I '
+                'JOIN %3$I.element AS e ON e.element_id = ex.element_id '
+                'JOIN cmms.visit_x_feature AS vx ON vx.sys_code = e.sys_code '
+                'JOIN cmms.visit AS v ON v.id = vx.visit_id '
+                'WHERE NOT EXISTS ('
+                'SELECT 1 FROM cmms.visit_x_feature AS own '
+                'WHERE own.visit_id = v.id AND own.sys_code = f.sys_code)',
+                v_id_column, v_feature_type, p_schema, v_table, v_bridge
+            );
+
+            v_attachment_parts := v_attachment_parts || format(
+                'SELECT DISTINCT f.%1$I::text AS feature_id, '
+                '%2$L::varchar(30) AS feature_type, '
+                'e.element_id::text AS element_id, '
+                'NULL::uuid AS visit_id, '
+                'a.id AS attachment_id, a.name, a.attachment_type, a.content_type, a.description, '
+                'a.uploaded_at, a.uploaded_by, a.path, a.thumbnail_path '
+                'FROM %3$I.%4$I AS f '
+                'JOIN %3$I.%5$I AS ex ON ex.%1$I = f.%1$I '
+                'JOIN %3$I.element AS e ON e.element_id = ex.element_id '
+                'JOIN cmms.attachment_x_feature AS axf ON axf.sys_code = e.sys_code '
+                'JOIN cmms.attachment AS a ON a.id = axf.attachment_id '
+                'WHERE NOT EXISTS ('
+                'SELECT 1 FROM cmms.attachment_x_feature AS own '
+                'WHERE own.attachment_id = a.id AND own.sys_code = f.sys_code)',
+                v_id_column, v_feature_type, p_schema, v_table, v_bridge
+            );
+            v_attachment_parts := v_attachment_parts || format(
+                'SELECT DISTINCT f.%1$I::text AS feature_id, '
+                '%2$L::varchar(30) AS feature_type, '
+                'e.element_id::text AS element_id, '
+                'vx.visit_id, '
+                'a.id AS attachment_id, a.name, a.attachment_type, a.content_type, a.description, '
+                'a.uploaded_at, a.uploaded_by, a.path, a.thumbnail_path '
+                'FROM %3$I.%4$I AS f '
+                'JOIN %3$I.%5$I AS ex ON ex.%1$I = f.%1$I '
+                'JOIN %3$I.element AS e ON e.element_id = ex.element_id '
+                'JOIN cmms.visit_x_feature AS vx ON vx.sys_code = e.sys_code '
+                'JOIN cmms.attachment_x_visit AS axv ON axv.visit_id = vx.visit_id '
+                'JOIN cmms.attachment AS a ON a.id = axv.attachment_id '
+                'WHERE NOT EXISTS ('
+                'SELECT 1 FROM cmms.visit_x_feature AS own '
+                'WHERE own.visit_id = vx.visit_id AND own.sys_code = f.sys_code)',
+                v_id_column, v_feature_type, p_schema, v_table, v_bridge
+            );
+        END IF;
 
         v_visit_exists := v_visit_exists || format(
             'EXISTS ('

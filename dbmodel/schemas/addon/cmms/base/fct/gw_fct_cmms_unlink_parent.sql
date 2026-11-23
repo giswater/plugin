@@ -39,7 +39,8 @@ BEGIN
 		IF to_regclass(format('%I.sys_table', p_parent)) IS NOT NULL THEN
 			EXECUTE format(
 				'DELETE FROM %I.sys_table WHERE id IN (%L, %L, %L, %L)',
-				p_parent, 'v_ui_cmms_visit', 'v_ui_cmms_attachment', 'v_cmms_visit', 'v_cmms_attachment'
+				p_parent, 'v_ui_cmms_visit', 'v_ui_cmms_attachment',
+				'v_cmms_visit', 'v_cmms_attachment'
 			);
 		END IF;
 	END IF;

@@ -54,7 +54,7 @@ INSERT INTO config_form_fields (
 SELECT f.formname, 'form_feature', 'tab_cmms', 'tbl_visit', 'lyt_cmms_v_3', 1, 'tableview',
 	false, false, false, false, false, '{"saveValue": false}'::json,
 	'{"functionName": "open_cmms_visit"}'::json, 'v_ui_cmms_visit', false
-FROM unnest(ARRAY['node', 'arc', 'connec', 'link', 'gully']) AS f(formname)
+FROM unnest(ARRAY['node', 'arc', 'connec', 'link', 'gully', 'element']) AS f(formname)
 WHERE f.formname <> 'gully' OR to_regclass('gully') IS NOT NULL;
 
 INSERT INTO config_form_fields (
@@ -64,7 +64,7 @@ INSERT INTO config_form_fields (
 SELECT f.formname, 'form_feature', 'tab_cmms', 'tbl_attachment', 'lyt_cmms_a_3', 1, 'tableview',
 	false, false, false, false, false, '{"saveValue": false}'::json,
 	'{"functionName": "open_cmms_attachment"}'::json, 'v_ui_cmms_attachment', false
-FROM unnest(ARRAY['node', 'arc', 'connec', 'link', 'gully']) AS f(formname)
+FROM unnest(ARRAY['node', 'arc', 'connec', 'link', 'gully', 'element']) AS f(formname)
 WHERE f.formname <> 'gully' OR to_regclass('gully') IS NOT NULL;
 
 DELETE FROM config_form_fields WHERE formtype IN ('cmms_visit', 'cmms_attachment');
@@ -110,7 +110,7 @@ VALUES
 		'Description', 'Description', false, false, false, false, false, NULL, NULL, NULL, false),
 	('generic', 'cmms_attachment', 'tab_none', 'btn_open', 'lyt_cmms_main', 8, NULL, 'button',
 		NULL, 'Open', false, false, true, false, false, '{"text": "Open"}'::json,
-		'{"functionName": "open_cmms_attachment_file"}'::json, NULL, false),
+		'{"functionName": "open_cmms_link", "parameters": {"columnname": "path"}}'::json, NULL, false),
 	('generic', 'cmms_attachment', 'tab_none', 'thumbnail_path', 'lyt_cmms_main', 9, 'string', 'text',
 		'Thumbnail path', 'Thumbnail path', false, false, false, false, false, NULL, NULL, NULL, true);
 
@@ -121,32 +121,34 @@ INSERT INTO config_form_tableview (location_type, project_type, objectname, colu
 VALUES
 	('info form', 'utils', 'v_ui_cmms_visit', 'feature_id', 0, false, 'Feature id'),
 	('info form', 'utils', 'v_ui_cmms_visit', 'feature_type', 1, false, 'Feature type'),
-	('info form', 'utils', 'v_ui_cmms_visit', 'visit_id', 2, true, 'Visit id'),
-	('info form', 'utils', 'v_ui_cmms_visit', 'ext_visit_id', 3, false, 'External id'),
-	('info form', 'utils', 'v_ui_cmms_visit', 'type', 4, true, 'Type'),
-	('info form', 'utils', 'v_ui_cmms_visit', 'status', 5, true, 'Status'),
-	('info form', 'utils', 'v_ui_cmms_visit', 'title', 6, true, 'Title'),
-	('info form', 'utils', 'v_ui_cmms_visit', 'description', 7, true, 'Description'),
-	('info form', 'utils', 'v_ui_cmms_visit', 'start_date', 8, true, 'Start date'),
-	('info form', 'utils', 'v_ui_cmms_visit', 'end_date', 9, true, 'End date'),
-	('info form', 'utils', 'v_ui_cmms_visit', 'has_attachment', 10, true, 'Has attachment'),
+	('info form', 'utils', 'v_ui_cmms_visit', 'element_id', 2, true, 'Element id'),
+	('info form', 'utils', 'v_ui_cmms_visit', 'visit_id', 3, true, 'Visit id'),
+	('info form', 'utils', 'v_ui_cmms_visit', 'ext_visit_id', 4, false, 'External id'),
+	('info form', 'utils', 'v_ui_cmms_visit', 'type', 5, true, 'Type'),
+	('info form', 'utils', 'v_ui_cmms_visit', 'status', 6, true, 'Status'),
+	('info form', 'utils', 'v_ui_cmms_visit', 'title', 7, true, 'Title'),
+	('info form', 'utils', 'v_ui_cmms_visit', 'description', 8, true, 'Description'),
+	('info form', 'utils', 'v_ui_cmms_visit', 'start_date', 9, true, 'Start date'),
+	('info form', 'utils', 'v_ui_cmms_visit', 'end_date', 10, true, 'End date'),
+	('info form', 'utils', 'v_ui_cmms_visit', 'has_attachment', 11, true, 'Has attachment'),
 	('info form', 'utils', 'v_ui_cmms_attachment', 'feature_id', 0, false, 'Feature id'),
 	('info form', 'utils', 'v_ui_cmms_attachment', 'feature_type', 1, false, 'Feature type'),
-	('info form', 'utils', 'v_ui_cmms_attachment', 'visit_id', 2, true, 'Visit id'),
-	('info form', 'utils', 'v_ui_cmms_attachment', 'attachment_id', 3, false, 'Attachment id'),
-	('info form', 'utils', 'v_ui_cmms_attachment', 'name', 4, true, 'Name'),
-	('info form', 'utils', 'v_ui_cmms_attachment', 'attachment_type', 5, true, 'Type'),
-	('info form', 'utils', 'v_ui_cmms_attachment', 'content_type', 6, true, 'Content type'),
-	('info form', 'utils', 'v_ui_cmms_attachment', 'description', 7, true, 'Description'),
-	('info form', 'utils', 'v_ui_cmms_attachment', 'uploaded_at', 8, true, 'Uploaded at'),
-	('info form', 'utils', 'v_ui_cmms_attachment', 'uploaded_by', 9, true, 'Uploaded by'),
-	('info form', 'utils', 'v_ui_cmms_attachment', 'path', 10, true, 'Path'),
-	('info form', 'utils', 'v_ui_cmms_attachment', 'thumbnail_path', 11, false, 'Thumbnail path');
+	('info form', 'utils', 'v_ui_cmms_attachment', 'element_id', 2, true, 'Element id'),
+	('info form', 'utils', 'v_ui_cmms_attachment', 'visit_id', 3, true, 'Visit id'),
+	('info form', 'utils', 'v_ui_cmms_attachment', 'attachment_id', 4, false, 'Attachment id'),
+	('info form', 'utils', 'v_ui_cmms_attachment', 'name', 5, true, 'Name'),
+	('info form', 'utils', 'v_ui_cmms_attachment', 'attachment_type', 6, true, 'Type'),
+	('info form', 'utils', 'v_ui_cmms_attachment', 'content_type', 7, true, 'Content type'),
+	('info form', 'utils', 'v_ui_cmms_attachment', 'description', 8, true, 'Description'),
+	('info form', 'utils', 'v_ui_cmms_attachment', 'uploaded_at', 9, true, 'Uploaded at'),
+	('info form', 'utils', 'v_ui_cmms_attachment', 'uploaded_by', 10, true, 'Uploaded by'),
+	('info form', 'utils', 'v_ui_cmms_attachment', 'path', 11, true, 'Path'),
+	('info form', 'utils', 'v_ui_cmms_attachment', 'thumbnail_path', 12, false, 'Thumbnail path');
 
 INSERT INTO config_form_tabs (formname, tabname, label, tooltip, sys_role, tabactions, device, orderby)
-SELECT f.formname, 'tab_cmms', 'Visits', 'CMMS visits and attachments', 'role_basic',
+SELECT f.formname, 'tab_cmms', 'CMMS', 'CMMS visits and attachments', 'role_basic',
 	e.tabactions, COALESCE(e.device, '{4,5}'::integer[]), COALESCE(e.orderby, 6)
-FROM unnest(ARRAY['ve_node', 've_arc', 've_connec', 've_link', 've_gully']) AS f(formname)
+FROM unnest(ARRAY['ve_node', 've_arc', 've_connec', 've_link', 've_gully', 've_element']) AS f(formname)
 LEFT JOIN LATERAL (
 	SELECT tabactions, device, orderby
 	FROM config_form_tabs
@@ -155,3 +157,7 @@ LEFT JOIN LATERAL (
 ) e ON true
 WHERE to_regclass(f.formname) IS NOT NULL
 ON CONFLICT DO NOTHING;
+
+UPDATE config_form_tabs
+SET label = 'CMMS', tooltip = 'CMMS visits and attachments'
+WHERE tabname = 'tab_cmms';

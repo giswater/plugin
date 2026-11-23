@@ -59,9 +59,11 @@ CREATE TABLE ws_old.config_form_tableview (objectname text);
 CREATE TABLE ws_old.sys_table (id text);
 INSERT INTO ws_old.config_form_tabs VALUES ('ve_node', 'tab_cmms'), ('ve_arc', 'tab_event');
 INSERT INTO ws_old.config_form_fields VALUES ('node', 'tab_cmms'), ('node', 'tab_data');
-INSERT INTO ws_old.config_form_tableview VALUES ('v_ui_cmms_visit'), ('v_ui_cmms_attachment'), ('keep_me');
+INSERT INTO ws_old.config_form_tableview VALUES
+    ('v_ui_cmms_visit'), ('v_ui_cmms_attachment'), ('keep_me');
 INSERT INTO ws_old.sys_table VALUES
-    ('v_ui_cmms_visit'), ('v_ui_cmms_attachment'), ('v_cmms_visit'), ('v_cmms_attachment'), ('node');
+    ('v_ui_cmms_visit'), ('v_ui_cmms_attachment'),
+    ('v_cmms_visit'), ('v_cmms_attachment'), ('node');
 RESET ROLE;
 
 SELECT lives_ok(
@@ -113,7 +115,9 @@ SELECT is(
 );
 SELECT is(
     (SELECT count(*)::int FROM ws_old.sys_table
-     WHERE id IN ('v_ui_cmms_visit', 'v_ui_cmms_attachment', 'v_cmms_visit', 'v_cmms_attachment')),
+     WHERE id IN (
+         'v_ui_cmms_visit', 'v_ui_cmms_attachment', 'v_cmms_visit', 'v_cmms_attachment'
+     )),
     0,
     'unlink removes the cmms sys_table rows'
 );

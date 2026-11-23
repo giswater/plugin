@@ -77,7 +77,7 @@ CREATE INDEX IF NOT EXISTS attachment_the_geom_gist ON cmms.attachment USING GIS
 
 -- =================================================================================
 -- TAULA attachment_x_feature
--- sys_code is the asset id shared with ws/ud (and any other system). It is not
+-- sys_code is the id shared with ws/ud (and any other system). It is not
 -- a foreign key: the parent may not exist yet, and deleting a feature leaves
 -- the link in place. A parent view joins its features on sys_code.
 -- =================================================================================

@@ -251,11 +251,12 @@ def open_cmms_attachment(**kwargs):
     cmms.open_attachment(kwargs['qtable'])
 
 
-def open_cmms_attachment_file(**kwargs):
-    """ Open the path shown in the CMMS attachment dialog with the OS default program. """
+def open_cmms_link(**kwargs):
+    """ Open the path or url shown in the CMMS dialog with the OS default program. """
 
     dialog = kwargs['dialog']
-    path = tools_qt.get_text(dialog, 'tab_none_path', return_string_null=False)
+    column = (kwargs.get('func_params') or {}).get('columnname', 'path')
+    path = tools_qt.get_text(dialog, f'tab_none_{column}', return_string_null=False)
     status, message = tools_os.open_file(path)
     if status is False and message is not None:
         tools_qgis.show_warning(message, parameter=path, dialog=dialog)

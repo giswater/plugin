@@ -54,6 +54,11 @@ SELECT is(
     'the feature with that sys_code has one cmms visit'
 );
 
+SELECT ok(
+    (SELECT bool_and(element_id IS NULL) FROM ws_fake.v_ui_cmms_visit WHERE feature_id = '1'),
+    'a visit on the feature sys_code has no element_id'
+);
+
 SELECT is(
     (SELECT count(*)::int FROM ws_fake.v_ui_cmms_visit WHERE feature_id = '2'),
     1,
@@ -188,6 +193,120 @@ SELECT is(
     (SELECT count(*)::int FROM attachment_x_feature WHERE sys_code = 'SC-1'),
     2,
     'deleting the features keeps the attachment links'
+);
+
+SET ROLE role_system;
+CREATE TABLE ws_fake.element (
+    element_id character varying(16) PRIMARY KEY,
+    sys_code text
+);
+CREATE TABLE ws_fake.element_x_node (
+    element_id character varying(16),
+    node_id character varying(16)
+);
+INSERT INTO ws_fake.element (element_id, sys_code) VALUES
+    ('E1', 'EL-1'),
+    ('E2', 'EL-SHARED'),
+    ('E3', 'EL-SHARED'),
+    ('E4', 'EL-BOTH'),
+    ('E5', 'EL-ORPHAN');
+INSERT INTO ws_fake.element_x_node (element_id, node_id) VALUES
+    ('E1', '3'),
+    ('E2', '3'),
+    ('E3', '3'),
+    ('E4', '3'),
+    ('E1', '3');
+RESET ROLE;
+
+SELECT lives_ok(
+    $$SELECT gw_fct_cmms_create_parent_views('ws_fake')$$,
+    'parent views pick up element_x_node'
+);
+
+INSERT INTO visit (id, type, status) VALUES
+    ('00000000-0000-0000-0000-000000000041', 'inspection', 'open'),
+    ('00000000-0000-0000-0000-000000000042', 'inspection', 'open'),
+    ('00000000-0000-0000-0000-000000000043', 'inspection', 'open'),
+    ('00000000-0000-0000-0000-000000000044', 'inspection', 'open');
+
+INSERT INTO visit_x_feature (visit_id, sys_code) VALUES
+    ('00000000-0000-0000-0000-000000000041', 'EL-1'),
+    ('00000000-0000-0000-0000-000000000042', 'EL-SHARED'),
+    ('00000000-0000-0000-0000-000000000043', 'EL-BOTH'),
+    ('00000000-0000-0000-0000-000000000043', 'SC-3'),
+    ('00000000-0000-0000-0000-000000000044', 'EL-ORPHAN');
+
+INSERT INTO attachment (id, name) VALUES
+    ('00000000-0000-0000-0000-000000000051', 'element-direct'),
+    ('00000000-0000-0000-0000-000000000052', 'element-via-visit');
+
+INSERT INTO attachment_x_feature (attachment_id, sys_code)
+VALUES ('00000000-0000-0000-0000-000000000051', 'EL-1');
+
+INSERT INTO attachment_x_visit (attachment_id, visit_id)
+VALUES ('00000000-0000-0000-0000-000000000052', '00000000-0000-0000-0000-000000000041');
+
+SELECT is(
+    (SELECT element_id FROM ws_fake.v_ui_cmms_visit
+     WHERE feature_id = '3' AND visit_id = '00000000-0000-0000-0000-000000000041'),
+    'E1',
+    'a linked element visit shows on the node with that element_id'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_ui_cmms_visit
+     WHERE feature_id = '3' AND visit_id = '00000000-0000-0000-0000-000000000041'),
+    1,
+    'a duplicate element_x_node row does not repeat the visit'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_ui_cmms_visit
+     WHERE feature_id = '3' AND visit_id = '00000000-0000-0000-0000-000000000042'),
+    2,
+    'two elements sharing a sys_code are two rows'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_ui_cmms_visit
+     WHERE feature_id = '3' AND visit_id = '00000000-0000-0000-0000-000000000043'),
+    1,
+    'a visit on the feature and an element is one row'
+);
+
+SELECT ok(
+    (SELECT element_id IS NULL FROM ws_fake.v_ui_cmms_visit
+     WHERE feature_id = '3' AND visit_id = '00000000-0000-0000-0000-000000000043'),
+    'the feature sys_code wins, so element_id stays null'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_ui_cmms_visit
+     WHERE feature_id = '3' AND visit_id = '00000000-0000-0000-0000-000000000044'),
+    0,
+    'an unlinked element visit is absent from the node'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_ui_cmms_visit
+     WHERE feature_id = 'E1' AND feature_type = 'ELEMENT'
+       AND visit_id = '00000000-0000-0000-0000-000000000041' AND element_id IS NULL),
+    1,
+    'the element form shows its own visit with no element_id'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_ui_cmms_attachment
+     WHERE feature_id = '3' AND element_id = 'E1'),
+    2,
+    'direct and via-visit attachments of the element both show'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM ws_fake.v_ui_cmms_attachment
+     WHERE feature_id = '3' AND element_id = 'E1' AND visit_id IS NULL),
+    1,
+    'the direct element attachment has no visit_id'
 );
 
 SELECT * FROM finish();

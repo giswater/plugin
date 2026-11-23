@@ -9,7 +9,7 @@ from functools import partial
 
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QPixmap
-from qgis.PyQt.QtWidgets import QLabel, QTableView
+from qgis.PyQt.QtWidgets import QLabel, QPushButton, QTableView
 
 from ..ui.ui_manager import GwCmmsInfoUi
 from ..utils import tools_gw
@@ -20,12 +20,15 @@ def open_visit(qtable, feature_id):
     """ Open the read-only dialog of the visit selected in @qtable. """
 
     visit_id = _selected_value(qtable, 'visit_id')
+    element_id = _selected_value(qtable, 'element_id')
     dlg, _ = _build_dialog('cmms_visit', 'v_ui_cmms_visit', 'visit_id, feature_id', f'{visit_id}, {feature_id}')
     if dlg is None:
         return
 
     filter_fields = (f'"visit_id":{{"value":"{visit_id}","filterSign":"="}}, '
                      f'"feature_id":{{"value":"{feature_id}","filterSign":"="}}')
+    if element_id is not None:
+        filter_fields += f', "element_id":{{"value":"{element_id}","filterSign":"="}}'
     tools_gw.fill_tbl(dlg.complet_result, dlg, 'tbl_attachment', 'v_ui_cmms_attachment', filter_fields)
     tbl = dlg.findChild(QTableView, 'tab_none_tbl_attachment')
     if tbl is not None:
@@ -52,6 +55,9 @@ def open_attachment(qtable):
         lbl_preview.setPixmap(pixmap.scaled(
             400, 400, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         dlg.lyt_cmms_main.addWidget(lbl_preview, dlg.lyt_cmms_main.rowCount(), 0, 1, -1)
+    btn_open = dlg.findChild(QPushButton, 'tab_none_btn_open')
+    if btn_open is not None:
+        btn_open.setEnabled(bool(values.get('path')))
     tools_gw.open_dialog(dlg, dlg_name='cmms_info', title='Attachment')
 
 

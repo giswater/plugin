@@ -20,6 +20,8 @@ SELECT hasnt_table('asset_feature_map'::name, 'Table asset_feature_map should no
 SELECT has_table('attachment_x_feature'::name, 'Table attachment_x_feature should exist');
 SELECT has_table('attachment_x_visit'::name, 'Table attachment_x_visit should exist');
 SELECT has_table('visit_x_feature'::name, 'Table visit_x_feature should exist');
+SELECT hasnt_table('asset'::name, 'Table asset should not exist');
+SELECT hasnt_table('asset_x_feature'::name, 'Table asset_x_feature should not exist');
 
 SELECT has_pk('visit', 'Table visit should have a primary key');
 

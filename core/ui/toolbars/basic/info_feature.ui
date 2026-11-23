@@ -507,7 +507,7 @@
       </widget>
       <widget class="QWidget" name="tab_cmms">
        <attribute name="title">
-        <string>CMMS visits</string>
+        <string>CMMS</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_cmms">
         <item row="0" column="0">

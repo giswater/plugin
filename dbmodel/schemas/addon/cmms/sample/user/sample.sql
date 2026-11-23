@@ -16,8 +16,10 @@ or (at your option) any later version.
 -- The transaction rolls back if a v_ui_cmms_* check fails.
 -- Parents are the latest cmms.sys_version.addparam.parent_schemas.
 -- Re-running deletes rows tagged properties.sample = 'cmms_combo' first.
--- ELEMENT is inserted, but tab_cmms is not registered on ve_element.
 -- GULLY is skipped when the parent has no gully table (ws).
+-- One element already linked through element_x_* gets sys_code
+-- sample:cmms:element:<id>. A visit and a direct attachment on that code
+-- show on the element and on the feature it is linked to.
 --
 -- Per feature type, on distinct features when the parent has enough rows:
 --   visit         1 visit, no attachment
@@ -180,6 +182,10 @@ DECLARE
 	v_visit2 uuid;
 	v_att uuid;
 	v_primary uuid;
+	v_elem_id text;
+	v_feat_id text;
+	v_feat_type text;
+	v_bridge text;
 	v_exp_visits int;
 	v_exp_atts int;
 	v_exp_direct int;
@@ -225,6 +231,7 @@ BEGIN
 		feature_type text,
 		slot text,
 		feature_id text,
+		element_id text,
 		sys_code text,
 		primary_visit uuid,
 		ref_att uuid,
@@ -260,6 +267,7 @@ BEGIN
 							FROM %2$I.%3$I AS t
 							WHERE t.sys_code IS NOT NULL
 								AND btrim(t.sys_code) <> ''
+								AND t.sys_code NOT LIKE 'sample:cmms:element:%%'
 								AND NOT EXISTS (
 									SELECT 1 FROM cmms.visit_x_feature AS vx
 									WHERE vx.sys_code = t.sys_code
@@ -293,6 +301,7 @@ BEGIN
 							FROM %2$I.%3$I AS t
 							WHERE t.sys_code IS NOT NULL
 								AND btrim(t.sys_code) <> ''
+								AND t.sys_code NOT LIKE 'sample:cmms:element:%%'
 								AND NOT EXISTS (
 									SELECT 1 FROM cmms.visit_x_feature AS vx
 									WHERE vx.sys_code = t.sys_code
@@ -646,6 +655,62 @@ BEGIN
 			END LOOP;
 			RAISE NOTICE '% cross-type bare visit and direct attachment on % multi B features', v_parent, v_n;
 		END IF;
+
+		-- One already-linked element. Its visits show on that feature and on the element.
+		v_elem_id := NULL;
+		v_feat_id := NULL;
+		v_feat_type := NULL;
+		IF to_regclass(format('%I.element', v_parent)) IS NOT NULL THEN
+			FOREACH v_bridge IN ARRAY '{node,arc,connec,gully,link}'::text[] LOOP
+				IF to_regclass(format('%I.%I', v_parent, 'element_x_' || v_bridge)) IS NULL THEN
+					CONTINUE;
+				END IF;
+				EXECUTE format(
+					'SELECT e.element_id::text, ex.%1$I::text '
+					'FROM %2$I.element AS e '
+					'JOIN %2$I.%3$I AS ex ON ex.element_id = e.element_id '
+					'WHERE e.sys_code IS NULL OR e.sys_code LIKE ''sample:cmms:element:%%'' '
+					'ORDER BY (e.sys_code LIKE ''sample:cmms:element:%%'') DESC, e.element_id '
+					'LIMIT 1',
+					v_bridge || '_id', v_parent, 'element_x_' || v_bridge
+				) INTO v_elem_id, v_feat_id;
+				IF v_elem_id IS NOT NULL THEN
+					v_feat_type := upper(v_bridge);
+					EXIT;
+				END IF;
+			END LOOP;
+		END IF;
+		IF v_elem_id IS NULL THEN
+			RAISE NOTICE '%: no linked element for the rollup slot', v_parent;
+		ELSE
+			v_sys_code := 'sample:cmms:element:' || v_elem_id;
+			EXECUTE format('UPDATE %I.element SET sys_code = $1 WHERE element_id::text = $2', v_parent)
+				USING v_sys_code, v_elem_id;
+			v_primary := pg_temp.cmms_ins_visit(
+				format('sample:%s:rollup', v_parent),
+				'inspection', 'open',
+				format('%s element %s — visit on the element', v_parent, v_elem_id),
+				'Stored against the element sys_code. Shows on the element and on the feature it is linked to.',
+				now() - interval '1 day', NULL, NULL, 'rollup'
+			);
+			PERFORM pg_temp.cmms_link_visit(v_primary, v_sys_code);
+			PERFORM pg_temp.cmms_link_att_visit(pg_temp.cmms_ins_attachment(
+				format('%s element %s visit photo', v_parent, v_elem_id),
+				format('%s-rollup-visit', v_parent)
+			), v_primary);
+			PERFORM pg_temp.cmms_link_att_feature(pg_temp.cmms_ins_attachment(
+				format('%s element %s direct', v_parent, v_elem_id),
+				format('%s-rollup-direct', v_parent),
+				'document', 'application/pdf',
+				format('/tmp/cmms-sample/%s-rollup-direct.pdf', v_parent)
+			), v_sys_code);
+			INSERT INTO cmms_sample_slot (
+				schema_name, feature_type, slot, feature_id, element_id, sys_code, primary_visit
+			) VALUES (
+				v_parent, v_feat_type, 'rollup', v_feat_id, v_elem_id, v_sys_code, v_primary
+			);
+			RAISE NOTICE '% rollup element % on % %', v_parent, v_elem_id, v_feat_type, v_feat_id;
+		END IF;
 	END LOOP;
 
 	SELECT count(DISTINCT schema_name) INTO v_n
@@ -819,13 +884,13 @@ BEGIN
 			EXECUTE format(
 				'SELECT count(*)::int, count(*) FILTER (WHERE has_attachment)::int
 				 FROM %I.v_ui_cmms_visit
-				 WHERE feature_id = $1 AND feature_type = $2',
+				 WHERE feature_id = $1 AND feature_type = $2 AND element_id IS NULL',
 				rec.schema_name
 			) INTO v_got_visits, v_got_has USING rec.feature_id, rec.feature_type;
 			EXECUTE format(
 				'SELECT count(*)::int, count(*) FILTER (WHERE visit_id IS NULL)::int
 				 FROM %I.v_ui_cmms_attachment
-				 WHERE feature_id = $1 AND feature_type = $2',
+				 WHERE feature_id = $1 AND feature_type = $2 AND element_id IS NULL',
 				rec.schema_name
 			) INTO v_got_atts, v_got_direct USING rec.feature_id, rec.feature_type;
 
@@ -846,7 +911,7 @@ BEGIN
 					'SELECT count(*)::int FROM (
 						SELECT attachment_id
 						FROM %I.v_ui_cmms_attachment
-						WHERE feature_id = $1 AND feature_type = $2
+						WHERE feature_id = $1 AND feature_type = $2 AND element_id IS NULL
 						GROUP BY attachment_id
 						HAVING count(*) > 1
 					) AS d',
@@ -880,6 +945,40 @@ BEGIN
 			v_failed := v_failed + 1;
 			RAISE WARNING 'view check failed for % % %: %',
 				rec.schema_name, rec.feature_type, rec.slot, SQLERRM;
+		END;
+	END LOOP;
+
+	FOR rec IN
+		SELECT * FROM cmms_sample_slot WHERE slot = 'rollup' AND schema_name IS NOT NULL
+	LOOP
+		IF to_regclass(format('%I.v_ui_cmms_visit', rec.schema_name)) IS NULL THEN
+			CONTINUE;
+		END IF;
+		BEGIN
+			EXECUTE format(
+				'SELECT count(*)::int FROM %I.v_ui_cmms_visit
+				 WHERE feature_id = $1 AND feature_type = $2 AND visit_id = $3 AND element_id = $4',
+				rec.schema_name
+			) INTO v_got_visits
+			USING rec.feature_id, rec.feature_type, rec.primary_visit, rec.element_id;
+			IF v_got_visits <> 1 THEN
+				v_failed := v_failed + 1;
+				RAISE WARNING '% % % rollup visit not shown with element % (% rows)',
+					rec.schema_name, rec.feature_type, rec.feature_id, rec.element_id, v_got_visits;
+			END IF;
+			EXECUTE format(
+				'SELECT count(*)::int FROM %I.v_ui_cmms_visit
+				 WHERE feature_id = $1 AND feature_type = ''ELEMENT'' AND visit_id = $2 AND element_id IS NULL',
+				rec.schema_name
+			) INTO v_got_visits USING rec.element_id, rec.primary_visit;
+			IF v_got_visits <> 1 THEN
+				v_failed := v_failed + 1;
+				RAISE WARNING '% element % rollup visit not shown on the element (% rows)',
+					rec.schema_name, rec.element_id, v_got_visits;
+			END IF;
+		EXCEPTION WHEN OTHERS THEN
+			v_failed := v_failed + 1;
+			RAISE WARNING 'rollup check failed for % %: %', rec.schema_name, rec.element_id, SQLERRM;
 		END;
 	END LOOP;
 
