@@ -104,8 +104,7 @@ INSERT INTO sys_foreignkey (typevalue_table, typevalue_name, target_table, targe
 	('edit_typevalue', 'om_state', 'connec', 'om_state', NULL, true),
 	('edit_typevalue', 'om_state', 'gully', 'om_state', NULL, true),
 	('edit_typevalue', 'conserv_state', 'node', 'conserv_state', NULL, true),
-	('edit_typevalue', 'conserv_state', 'arc', 'conserv_state', NULL, true),
-	('edit_typevalue', 'conserv_state', 'connec', 'conserv_state', NULL, true)
+	('edit_typevalue', 'conserv_state', 'arc', 'conserv_state', NULL, true)
 ON CONFLICT (typevalue_table, typevalue_name, target_table, target_field) DO NOTHING;
 
 UPDATE config_form_fields
@@ -122,4 +121,4 @@ SET widgettype = 'combo',
 	dv_orderby_id = true,
 	dv_isnullvalue = true
 WHERE columnname = 'conserv_state'
-  AND formname ILIKE ANY (ARRAY['ve_node%', 've_arc%', 've_connec%', 've_gully%']);
+  AND formname ILIKE ANY (ARRAY['ve_node%', 've_arc%']);
