@@ -72,3 +72,154 @@ WHERE src.formname LIKE 'inp_dscenario_%'
         AND c.column_name = 'observ'
   )
 ON CONFLICT (formname, formtype, columnname, tabname) DO NOTHING;
+
+UPDATE config_toolbox SET inputparams='[
+  {
+    "datatype": "text",
+    "label": "Scenario name:",
+    "layoutname": "grl_option_parameters",
+    "layoutorder": 1,
+    "value": "",
+    "widgetname": "name",
+    "widgettype": "text"
+  },
+  {
+    "datatype": "text",
+    "label": "Scenario descript:",
+    "layoutname": "grl_option_parameters",
+    "layoutorder": 2,
+    "value": "",
+    "widgetname": "descript",
+    "widgettype": "text"
+  },
+  {
+    "datatype": "text",
+    "dvQueryText": "SELECT expl_id as id, name as idval FROM exploitation where expl_id>0 UNION select 99999 as id, ''ALL'' as idval order by id desc",
+    "label": "Exploitation:",
+    "layoutname": "grl_option_parameters",
+    "layoutorder": 4,
+    "selectedId": "0",
+    "widgetname": "exploitation",
+    "widgettype": "combo"
+  },
+  {
+    "comboIds": [
+      1,
+      2
+    ],
+    "comboNames": [
+      "PERIOD ID",
+      "DATE INTERVAL"
+    ],
+    "datatype": "text",
+    "isMandatory": true,
+    "label": "Choose time method:",
+    "layoutname": "grl_option_parameters",
+    "layoutorder": 5,
+    "widgetname": "patternOrDate",
+    "widgettype": "combo"
+  },
+  {
+    "datatype": "text",
+    "dvQueryText": "SELECT id, code as idval FROM ext_cat_period",
+    "label": "if PERIOD_ID - Period:",
+    "layoutname": "grl_option_parameters",
+    "layoutorder": 6,
+    "selectedId": "1",
+    "widgetname": "period",
+    "widgettype": "combo"
+  },
+  {
+    "datatype": "text",
+    "label": "[if DATE INTERVAL] Source CRM init date:",
+    "layoutname": "grl_option_parameters",
+    "layoutorder": 7,
+    "value": null,
+    "widgetname": "initDate",
+    "widgettype": "datetime"
+  },
+  {
+    "datatype": "text",
+    "label": "[if DATE INTERVAL] Source CRM end date:",
+    "layoutname": "grl_option_parameters",
+    "layoutorder": 8,
+    "value": "2015-07-30 00:00:00",
+    "widgetname": "endDate",
+    "widgettype": "datetime"
+  },
+  {
+    "datatype": "boolean",
+    "label": "Only hydrometers with waterbal true:",
+    "layoutname": "grl_option_parameters",
+    "layoutorder": 9,
+    "value": null,
+    "widgetname": "onlyIsWaterBal",
+    "widgettype": "check"
+  },
+  {
+    "comboIds": [
+      1,
+      2,
+      3,
+      6,
+      7
+    ],
+    "comboNames": [
+      "NONE",
+      "SECTOR-DEFAULT",
+      "DMA-DEFAULT",
+      "HYDROMETER-CATEGORY",
+      "FEATURE-PATTERN"
+    ],
+    "datatype": "text",
+    "label": "Feature pattern:",
+    "layoutname": "grl_option_parameters",
+    "layoutorder": 10,
+    "selectedId": "",
+    "tooltip": "This value will be stored on pattern_id of inp_dscenario_demand table in order to be used on the inp file exportation ONLY with the pattern method FEATURE PATTERN.",
+    "widgetname": "pattern",
+    "widgettype": "combo"
+  },
+  {
+    "comboIds": [
+      "LPS",
+      "LPM",
+      "MLD",
+      "CMH",
+      "CMD",
+      "CFS",
+      "GPM",
+      "MGD",
+      "AFD"
+    ],
+    "comboNames": [
+      "LPS",
+      "LPM",
+      "MLD",
+      "CMH",
+      "CMD",
+      "CFS",
+      "GPM",
+      "MGD",
+      "AFD"
+    ],
+    "datatype": "text",
+    "label": "Demand units:",
+    "layoutname": "grl_option_parameters",
+    "layoutorder": 11,
+    "selectedId": "",
+    "tooltip": "Choose units to insert volume data on demand column. This value need to be the same that flow units used on EPANET. On the other hand, it is assumed that volume from hydrometer data table is expresed on m3/period and column period_seconds is filled.",
+    "widgetname": "demandUnits",
+    "widgettype": "combo"
+  },
+  {
+    "label": "Demand as DMA weight factor:",
+    "tooltip": "",
+    "datatype": "boolean",
+    "layoutname": "grl_option_parameters",
+    "widgetname": "export_weight",
+    "widgettype": "check",
+    "layoutorder": 12
+  }
+]'::json
+WHERE id=3110;
