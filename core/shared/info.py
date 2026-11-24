@@ -1689,7 +1689,9 @@ class GwInfo(QObject):
                     tools_gw.enable_widgets(dialog, self.epa_complet_result['body']['data'], False)
                 self._enable_actions(dialog, False)
                 return False
-            save = self._ask_for_save(action_edit, fid)
+            # Accept saves without asking. Apply does the same. The question only
+            # remains when leaving edit mode with the pencil, where Cancel means discard.
+            save = True if from_apply else self._ask_for_save(action_edit, fid)
             if save:
                 accepted = self._manage_accept(
                     dialog, action_edit, new_feature, self.my_json, False, generic, keep_editing=from_apply)
@@ -2007,6 +2009,11 @@ class GwInfo(QObject):
                 msg_level = Qgis.MessageLevel(msg_level)
                 tools_qgis.show_message(msg, message_level=msg_level, dialog=dialog)
                 self._reload_fields(dialog, json_result, p_widget)
+                # Focus-loss save does not ask "Are you sure?". setfields only returns
+                # autoupdateReloadFields (sys_*), so elev/ymax stay stale until Apply+OK,
+                # which is the path that calls refresh_from_db. Do that re-read here too.
+                if p_widget and not close_dlg:
+                    self.refresh_from_db()
                 if epa_type_changed:
                     self.epa_type = str(new_epa_type_value)
                     self._reload_epa_tab(dialog)
