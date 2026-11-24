@@ -1,0 +1,1 @@
+- Info on a generic element follows the GenElement layer (`ve_man_genelem`). `config_info_layer` only had `ve_element` (hidden since 4.17.7) and `ve_man_frelem`, so a click on GenElement returned "No feature found".
