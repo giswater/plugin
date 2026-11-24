@@ -63,7 +63,7 @@ INSERT INTO config_form_fields (
 )
 SELECT f.formname, 'form_feature', 'tab_cmms', 'tbl_attachment', 'lyt_cmms_a_3', 1, 'tableview',
 	false, false, false, false, false, '{"saveValue": false}'::json,
-	'{"functionName": "open_cmms_attachment"}'::json, 'v_ui_cmms_attachment', false
+	'{"functionName": "open_cmms_attachment"}'::json, 'tbl_cmms_attachments', false
 FROM unnest(ARRAY['node', 'arc', 'connec', 'link', 'gully', 'element']) AS f(formname)
 WHERE f.formname <> 'gully' OR to_regclass('gully') IS NOT NULL;
 
@@ -114,8 +114,17 @@ VALUES
 	('generic', 'cmms_attachment', 'tab_none', 'thumbnail_path', 'lyt_cmms_main', 9, 'string', 'text',
 		'Thumbnail path', 'Thumbnail path', false, false, false, false, false, NULL, NULL, NULL, true);
 
+DELETE FROM config_form_list WHERE listname = 'tbl_cmms_attachments';
+
+INSERT INTO config_form_list (listname, query_text, device, listtype, listclass)
+VALUES (
+	'tbl_cmms_attachments',
+	'SELECT * FROM v_ui_cmms_attachment WHERE visit_id IS NULL',
+	4, 'tab', 'list'
+);
+
 DELETE FROM config_form_tableview
-WHERE objectname IN ('v_ui_cmms_visit', 'v_ui_cmms_attachment');
+WHERE objectname IN ('v_ui_cmms_visit', 'v_ui_cmms_attachment', 'tbl_cmms_attachments');
 
 INSERT INTO config_form_tableview (location_type, project_type, objectname, columnname, columnindex, visible, alias)
 VALUES
@@ -143,7 +152,20 @@ VALUES
 	('info form', 'utils', 'v_ui_cmms_attachment', 'uploaded_at', 9, true, 'Uploaded at'),
 	('info form', 'utils', 'v_ui_cmms_attachment', 'uploaded_by', 10, true, 'Uploaded by'),
 	('info form', 'utils', 'v_ui_cmms_attachment', 'path', 11, true, 'Path'),
-	('info form', 'utils', 'v_ui_cmms_attachment', 'thumbnail_path', 12, false, 'Thumbnail path');
+	('info form', 'utils', 'v_ui_cmms_attachment', 'thumbnail_path', 12, false, 'Thumbnail path'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'feature_id', 0, false, 'Feature id'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'feature_type', 1, false, 'Feature type'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'element_id', 2, true, 'Element id'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'visit_id', 3, false, 'Visit id'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'attachment_id', 4, false, 'Attachment id'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'name', 5, true, 'Name'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'attachment_type', 6, true, 'Type'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'content_type', 7, true, 'Content type'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'description', 8, true, 'Description'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'uploaded_at', 9, true, 'Uploaded at'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'uploaded_by', 10, true, 'Uploaded by'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'path', 11, true, 'Path'),
+	('info form', 'utils', 'tbl_cmms_attachments', 'thumbnail_path', 12, false, 'Thumbnail path');
 
 INSERT INTO config_form_tabs (formname, tabname, label, tooltip, sys_role, tabactions, device, orderby)
 SELECT f.formname, 'tab_cmms', 'CMMS', 'CMMS visits and attachments', 'role_basic',

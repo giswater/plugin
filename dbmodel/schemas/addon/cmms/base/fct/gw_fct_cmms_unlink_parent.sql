@@ -32,8 +32,14 @@ BEGIN
 		END IF;
 		IF to_regclass(format('%I.config_form_tableview', p_parent)) IS NOT NULL THEN
 			EXECUTE format(
-				'DELETE FROM %I.config_form_tableview WHERE objectname IN (%L, %L)',
-				p_parent, 'v_ui_cmms_visit', 'v_ui_cmms_attachment'
+				'DELETE FROM %I.config_form_tableview WHERE objectname IN (%L, %L, %L)',
+				p_parent, 'v_ui_cmms_visit', 'v_ui_cmms_attachment', 'tbl_cmms_attachments'
+			);
+		END IF;
+		IF to_regclass(format('%I.config_form_list', p_parent)) IS NOT NULL THEN
+			EXECUTE format(
+				'DELETE FROM %I.config_form_list WHERE listname = %L',
+				p_parent, 'tbl_cmms_attachments'
 			);
 		END IF;
 		IF to_regclass(format('%I.sys_table', p_parent)) IS NOT NULL THEN
