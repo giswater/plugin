@@ -123,10 +123,7 @@ AS WITH typevalue AS (
     a.fluid_type,
     a.custom_length,
     st_length(a.the_geom)::numeric(12,2) AS gis_length,
-        CASE
-            WHEN a.sys_slope IS NULL THEN ((COALESCE(a.custom_elev1, a.elev1, n1.custom_elev, n1.elev) - COALESCE(a.custom_elev2, a.elev2, n2.custom_elev, n2.elev))::double precision / st_length(a.the_geom))::numeric(12,4)
-            ELSE a.sys_slope
-        END AS slope,
+    (COALESCE(a.custom_elev1, a.elev1, n1.custom_elev, n1.elev) - COALESCE(a.custom_elev2, a.elev2, n2.custom_elev, n2.elev))::double precision / st_length(a.the_geom)::numeric(12,4) AS slope,
     a.descript,
     a.annotation,
     a.observ,
