@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Arc insert form prefills node top elevations and `z1`/`z2` from the snapped nodes. `r1`/`r2` stay empty until the catalog section exists.
+
+### Changed
+
+- Check fid 166 is an error instead of a warning.
+- Toolbox `Fluid type analysis` (`config_toolbox` 3424) is active. `3492` stays inactive (#1000).
+- Sample projects set `edit_connect_autoupdate_fluid` to FALSE. Empty schemas keep TRUE (#1000).
+- `fluid_type` on link forms is not mandatory (#1000).
+- `cat_arc` form field `bulk` points at `thickness` (label `Thickness:`), so the arc-catalog column header follows the project language.
+
+### Fixed
+
+- UD `ve_arc` slope, `sys_y` and `z` use the same elevation as `sys_elev` (`custom_elev` / `elev`, then the node). The 4.17.0 fallback preferred the node invert, so a one-sided `y2` or `custom_elev2` moved `sys_elev2` and left slope unchanged. Slope is `numeric(12,4)` (#996).
+- Clearing `y1` or `y2` on an arc drops the matching arc invert, so `sys_*` falls back to the node. `edit_slope_direction` reverses a new arc from the node invert when the arc has no y/elev, and leaves `sys_slope` NULL so the view keeps following the node (#996).
+- UD fluid-type analysis follows interconnected connecs and gullies and updates when either the arc or the node changes. With `edit_connect_autoupdate_fluid`, editing a connec or gully takes `fluid_type` from its arc, and changing the arc pushes `fluid_type` to the connecs, gullies and links on that arc. Upstream features keep their own value (#997).
+- A link takes `fluid_type` from its connec or gully. Moving or reconnecting a feature no longer copies `fluid_type` onto the connecs and gullies that drain into it (#997).
+- `gw_fct_psector_merge` and `gw_fct_psector_duplicate` copy `plan_psector_x_other` onto the new psector (`observ`, `the_geom`, new `psector_id`). A shared `price_id` is one row and the measurements are summed. UD state-0 gully copy uses `gully_id` (#994).
+- Show `observ` on the EPA-tab dscenario edit dialog. 4.17.0 registered the field only on `inp_dscenario_*` forms; that tab edits `ve_inp_dscenario_*` (#995).
+- Create Demand Dscenario from CRM (`config_toolbox` 3110) shows "Demand as DMA weight factor" again. When checked, each feature demand is its share of DMA billed volume.
+- On valve insert and when `epa_type` changes to `VALVE`, `epa_valve_vdefault_*` is copied onto `inp_valve` (`valve_type`, `custom_dint`, `setting`, `minorloss`). `status` stays computed on `ve_inp_valve` (#998).
+- WS Go2EPA demand patterns compare `connec_id` as text, so a junction fed by a connec no longer fails with `integer = text`.
+- WS Go2EPA keeps an inlet `head` on the inlet `addparam`. An inlet with `head` is exported as a reservoir and that head fills `elev` / `top_elev`. Reservoirs with `head` still do the same.
+- New-link form fills `feature_type` and `exit_type` from the drawn endpoints. An empty combo no longer falls through to `ARC`.
+- Feature relations list links that exit on the node (`exit_type = NODE`).
+- Inserting a flow regulator (FRELEM) from a feature's info form passes the parent node. `gw_trg_edit_element` writes `element_x_node` and skips the geometry snap when `node_id` is set.
+- Info Apply stays in edit mode and does not ask to confirm. It re-reads the row, including autoupdate siblings (`sys_elev`, `z`, `y`), and skips widgets that come back without `value` so the refresh does not abort.
+- Arc insert catalog dimensions follow `feat_<id>_vdefault` only. Another `arccat_id` / `nodecat_id` default no longer fills `cat_geom*` while the catalog combo is empty. Apply re-reads the stored row.
+- New macrodma id is `max(positive id) + 1` (or 1 when none exist). The create dialog leaves the id read-only.
+- Feature insert stores a NULL `muni_id` as 0.
+- Mapzone graphconfig check messages match what the check counts.
+- `gw_fct_setfeaturereplaceplan` and `gw_fct_psector_merge` log lines go through `gw_fct_getmessage` (`sys_message` 4764-4788) so they follow the project language.
+- Plan-tab pjoint rows use `sys_message` 4790 (connec) and 4792 (gully) instead of a hardcoded English description.
+- SCADA graph node pick snaps to `ve_node`. The attribute table was leaving `v_om_scada_graph` as the current snap layer.
+- `gw_fct_getfeatures` paginates non-desktop devices with `OFFSET (page - 1) * limit`. `lastPage` is `ceil(count / limit)`.
+
 ## [4.17.7] - 2026-11-11
 
 ### Added
