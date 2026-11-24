@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Fixed
+
+- Info on a generic element follows the GenElement layer (`ve_man_genelem`). `config_info_layer` only had `ve_element` (hidden since 4.17.7) and `ve_man_frelem`, so a click on GenElement returned "No feature found".
+
 ## [4.17.8] - 2026-11-24
 
 ### Added
