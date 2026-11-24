@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.8] - 2026-11-24
+
 ### Added
 
 - Arc insert form prefills node top elevations and `z1`/`z2` from the snapped nodes. `r1`/`r2` stay empty until the catalog section exists.
@@ -773,7 +775,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.17.7...release/4.17
+[unreleased]: https://github.com/giswater/plugin/compare/v4.17.8...release/4.17
+[4.17.8]: https://github.com/giswater/plugin/compare/v4.17.7...v4.17.8
 [4.17.7]: https://github.com/giswater/plugin/compare/v4.17.6...v4.17.7
 [4.17.6]: https://github.com/giswater/plugin/compare/v4.17.5...v4.17.6
 [4.17.5]: https://github.com/giswater/plugin/compare/v4.17.4...v4.17.5
