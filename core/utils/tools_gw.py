@@ -2351,6 +2351,39 @@ def load_missing_layers(filter, group="GW Layers", sub_group=None):
                 add_layer_database(tablename, the_geom=the_geom, alias=alias, group=group, sub_group=sub_group)
 
 
+def load_missing_layers_by_context(level_1, level_2, is_thread=False, aux_conn=None, force_create_group=False):
+    """Add TOC layers from gw_fct_getaddlayervalues that match context level_1/level_2."""
+    body = create_body()
+    json_result = execute_procedure(
+        'gw_fct_getaddlayervalues', body, is_thread=is_thread, aux_conn=aux_conn)
+    if not json_result or json_result.get('status') == 'Failed':
+        return False
+
+    fields = json_result.get('body', {}).get('data', {}).get('fields') or []
+    for field in fields:
+        if field.get('context') is None:
+            continue
+        field_level_1, field_level_2, _level_3 = get_context_menu_levels(field['context'])
+        if field_level_1 != level_1 or field_level_2 != level_2:
+            continue
+
+        tablename = field['tableName']
+        if tools_qgis.get_layer_by_tablename(tablename):
+            continue
+
+        the_geom = field['geomField'] if field.get('geomField') not in (None, "None") else None
+        field_id = (field.get('tableId') or "id").replace(" ", "")
+        alias = field['layerName'] if field.get('layerName') is not None else tablename
+        add_layer_database(
+            tablename, the_geom=the_geom, field_id=field_id,
+            group=field_level_1, sub_group=field_level_2, alias=alias,
+            force_create_group=force_create_group,
+            aux_conn=aux_conn, is_thread=is_thread,
+        )
+
+    return True
+
+
 def _table_geometry_column(schema, table, aux_conn=None, is_thread=False):
     """Return geometry column name for schema.table, or None."""
     if not schema or not table:

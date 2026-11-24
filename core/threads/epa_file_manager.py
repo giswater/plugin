@@ -639,52 +639,10 @@ class GwEpaFileManager(GwTask):
         return runner
 
     def _load_epa_layers(self):
-        """ Load EPA layers if they are not already loaded """
+        """Load EPA RESULTS layers if they are not already loaded."""
 
-        # Get EPA layers from database
-        body = tools_gw.create_body()
-        json_result = tools_gw.execute_procedure('gw_fct_getaddlayervalues', body, is_thread=True)
-        if not json_result or json_result['status'] == 'Failed':
-            return False
-
-        # Get current loaded layers
-        layer_list = []
-        for layer in QgsProject.instance().mapLayers().values():
-            layer_list.append(tools_qgis.get_layer_source_table_name(layer))
-
-        # Load EPA layers that are not already loaded
-        for field in json_result['body']['data']['fields']:
-            if field['context'] is not None:
-                context = json.loads(field['context'])
-                levels = context.get(tools_qt.tr('levels')) or context.get('levels')
-
-                # Check if this is an EPA RESULTS layer
-
-                context = tools_db.get_row("SELECT idval FROM config_typevalue WHERE id = (SELECT context FROM sys_table WHERE id ilike 'v_rpt_arc%' AND context IS NOT NULL LIMIT 1);", is_thread=True)
-                if not context or not context[0]:
-                    msg = "Could not load EPA Results layers"
-                    tools_qgis.show_message(msg)
-                    return False
-                context = json.loads(context[0])
-                if len(levels) > 1 and levels[0] == context[0] and levels[1] == context[1]:
-                    tablename = field['tableName']
-
-                    # Check if layer is not already loaded
-                    if tablename not in layer_list:
-                        layer_name = tablename
-                        the_geom = field['geomField'] if field['geomField'] != "None" else None
-                        geom_field = field['tableId']
-
-                        if geom_field:
-                            geom_field = geom_field.replace(" ", "")
-                            group = levels[0]
-                            sub_group = levels[1]
-                            alias = field['layerName'] if field['layerName'] is not None else field['tableName']
-
-                            tools_gw.add_layer_database(layer_name, the_geom, geom_field, group, sub_group,
-                                                      alias=alias, force_create_group=True)
-
-        return True
+        return tools_gw.load_missing_layers_by_context(
+            "EPA", "RESULTS", is_thread=True, force_create_group=True)
 
     def _import_rpt(self):
         """ Import result file """

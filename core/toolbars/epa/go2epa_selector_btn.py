@@ -125,55 +125,20 @@ def _get_form_with_combos(dialog):
 
 
 def _load_result_layers():
-    """ Adds any missing Compare layers to TOC """
+    """Adds any missing EPA Results layers to TOC."""
 
-    # Manage user variable
     if not tools_os.set_boolean(tools_gw.get_config_parser('btn_go2epa_selector', 'load_result_layers', "user", "init"), default=False):
         return
 
-    filtre = "(id LIKE 'v_rpt_arc%' OR id LIKE 'v_rpt_node%')"
-    if global_vars.project_type == 'ud':
-        filtre = "id LIKE 'v_rpt_%_sum'"
-    sql = f"SELECT id, alias FROM sys_table WHERE {filtre} AND alias IS NOT NULL"
-    rows = tools_db.get_rows(sql)
-    if rows:
-        body = tools_gw.create_body()
-        json_result = tools_gw.execute_procedure('gw_fct_getaddlayervalues', body)
-        for tablename, alias in rows:
-            lyr = tools_qgis.get_layer_by_tablename(tablename)
-            if not lyr:
-                pk = "id"
-                for field in json_result['body']['data']['fields']:
-                    if field['tableName'] == tablename:
-                        pk = field['tableId']
-                        break
-                tools_gw.add_layer_database(tablename, alias=alias, group="EPA", sub_group="Results", field_id=pk)
+    tools_gw.load_missing_layers_by_context("EPA", "RESULTS")
 
 
 def _load_compare_layers():
-    """ Adds any missing Compare layers to TOC """
-    """ This function is no longer used after reversing the change to load compare layers. """
+    """Adds any missing EPA Compare layers to TOC."""
 
-    # Manage user variable
     if not tools_os.set_boolean(tools_gw.get_config_parser('btn_go2epa_selector', 'load_compare_layers', "user", "init"), default=False):
         return
 
-    filtre = 'v_rpt_comp_%'
-    if global_vars.project_type == 'ud':
-        filtre = 'v_rpt_comp_%_sum'
-    sql = f"SELECT id, alias FROM sys_table WHERE id LIKE '{filtre}' AND alias IS NOT NULL"
-    rows = tools_db.get_rows(sql)
-    if rows:
-        body = tools_gw.create_body()
-        json_result = tools_gw.execute_procedure('gw_fct_getaddlayervalues', body)
-        for tablename, alias in rows:
-            lyr = tools_qgis.get_layer_by_tablename(tablename)
-            if not lyr:
-                pk = "id"
-                for field in json_result['body']['data']['fields']:
-                    if field['tableName'] == tablename:
-                        pk = field['tableId']
-                        break
-                tools_gw.add_layer_database(tablename, alias=alias, group="EPA", sub_group="Compare", field_id=pk)
+    tools_gw.load_missing_layers_by_context("EPA", "COMPARE")
 
 # end region
