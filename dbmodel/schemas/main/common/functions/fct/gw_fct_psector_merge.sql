@@ -27,6 +27,7 @@ v_version text;
 v_arc_id TEXT;
 v_project_type text;
 v_result_id text= 'merge psectors';
+v_result_name text;
 v_result_info text;
 v_result text;
 v_connec_id text;
@@ -72,8 +73,14 @@ BEGIN
 
 	-- manage log (fid: 518)
 	DELETE FROM audit_check_data WHERE fid=518 AND cur_user=current_user;
+	-- 4786 is the process name getmessage splices into the error prefix (AUDIT + prefix_id).
+	SELECT replace(error_message, '"', '') INTO v_result_name FROM v_sys_message WHERE id = 4786;
+	v_result_name := COALESCE(v_result_name, v_result_id);
+
 	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
-                       "data":{"function":"3284", "fid":"518", "result_id":"'||v_result_id||'", "is_process":true, "is_header":"true"}}$$)';
+                       "data":{"message":"4784", "function":"3284", "fid":"518", "result_id":"'||v_result_id||'", "is_process":true}}$$)';
+	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+                       "data":{"function":"3284", "fid":"518", "result_id":"'||v_result_id||'", "separator_id":"2030", "is_process":true}}$$)';
 
 	-- disable arc divide temporary
 	UPDATE config_param_user SET value = 'TRUE'  WHERE "parameter"='edit_disable_arc_divide' AND cur_user=current_user;
@@ -108,7 +115,7 @@ BEGIN
 		INSERT INTO audit_check_data (fid, result_id, error_message)
 		VALUES (518, v_result_id, '');
 		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
-                       "data":{"message":"3780", "function":"3284", "fid":"518", "result_id":"'||v_result_id||'", "prefix_id":"1003", "is_process":true}}$$)';
+                       "data":{"message":"3780", "function":"3284", "fid":"518", "result_id":"'||v_result_name||'", "prefix_id":"1003", "is_process":true}}$$)';
 
 		INSERT INTO audit_check_data (fid, result_id, error_message)
 		VALUES (518, v_result_id, '');
@@ -352,7 +359,8 @@ BEGIN
 	UPDATE config_param_system SET value = v_gully_proximity WHERE parameter='edit_gully_proximity';
 	UPDATE config_param_system SET value ='FALSE' WHERE parameter='edit_topocontrol_disable_error';
 
-	INSERT INTO audit_check_data (fid, result_id, error_message) VALUES (518, v_result_id, concat('Activate topology control.'));
+	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+                       "data":{"message":"4782", "function":"3284", "fid":"518", "result_id":"'||v_result_id||'", "is_process":true}}$$)';
 
 	SELECT array_to_json(array_agg(row_to_json(row))) INTO v_result
 	FROM (SELECT id, error_message AS message FROM audit_check_data WHERE cur_user="current_user"() AND fid=518) row;
