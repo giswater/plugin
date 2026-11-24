@@ -156,7 +156,8 @@ INSERT INTO config_param_user VALUES ('feat_owerflow_storage_vdefault', NULL, cu
 INSERT INTO config_param_user VALUES ('feat_pump_station_vdefault', NULL, current_user);
 INSERT INTO config_param_user VALUES ('edit_insert_elevation_from_dem', 'true', current_user);
 INSERT INTO config_param_user VALUES ('edit_update_elevation_from_dem', 'true', current_user);
-INSERT INTO config_param_user VALUES ('edit_insert_show_elevation_from_dem', 'TRUE', current_user);
+INSERT INTO config_param_user (parameter, value, cur_user) VALUES ('edit_insert_show_elevation_from_dem', 'TRUE', current_user)
+ON CONFLICT (parameter, cur_user) DO NOTHING;
 INSERT INTO config_param_user VALUES ('qgis_form_docker', 'TRUE', current_user);
 INSERT INTO config_param_user VALUES ('edit_elementcat_vdefault', NULL, current_user);
 INSERT INTO config_param_user VALUES ('om_visit_status_vdefault', '4', current_user);
