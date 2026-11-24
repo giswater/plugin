@@ -36,8 +36,18 @@ BEGIN
 		OR NEW.y1 IS DISTINCT FROM OLD.y1
 		OR NEW.elev1 IS DISTINCT FROM OLD.elev1
 	) THEN
+		-- Mode 0: y1 drives. Clearing it drops the arc invert so sys_* inherits the node.
+		-- Mode 1 keeps elev1 and refills y1 from it.
 		IF v_node_topelev_autoupdate = 0 THEN
-			IF NEW.y1 IS NOT NULL THEN
+			IF TG_OP = 'UPDATE'
+				AND NEW.y1 IS DISTINCT FROM OLD.y1
+				AND NEW.y1 IS NULL
+				AND NEW.elev1 IS NOT DISTINCT FROM OLD.elev1
+				AND NEW.custom_elev1 IS NOT DISTINCT FROM OLD.custom_elev1
+			THEN
+				NEW.elev1 := NULL;
+				NEW.custom_elev1 := NULL;
+			ELSIF NEW.y1 IS NOT NULL THEN
 				NEW.elev1 := v_node_top_elev_1 - NEW.y1;
 			ELSIF NEW.elev1 IS NOT NULL THEN
 				NEW.y1 := v_node_top_elev_1 - NEW.elev1;
@@ -59,7 +69,15 @@ BEGIN
 		OR NEW.elev2 IS DISTINCT FROM OLD.elev2
 	) THEN
 		IF v_node_topelev_autoupdate = 0 THEN
-			IF NEW.y2 IS NOT NULL THEN
+			IF TG_OP = 'UPDATE'
+				AND NEW.y2 IS DISTINCT FROM OLD.y2
+				AND NEW.y2 IS NULL
+				AND NEW.elev2 IS NOT DISTINCT FROM OLD.elev2
+				AND NEW.custom_elev2 IS NOT DISTINCT FROM OLD.custom_elev2
+			THEN
+				NEW.elev2 := NULL;
+				NEW.custom_elev2 := NULL;
+			ELSIF NEW.y2 IS NOT NULL THEN
 				NEW.elev2 := v_node_top_elev_2 - NEW.y2;
 			ELSIF NEW.elev2 IS NOT NULL THEN
 				NEW.y2 := v_node_top_elev_2 - NEW.elev2;
