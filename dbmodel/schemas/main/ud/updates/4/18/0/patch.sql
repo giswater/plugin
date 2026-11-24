@@ -122,3 +122,9 @@ SET widgettype = 'combo',
 	dv_isnullvalue = true
 WHERE columnname = 'conserv_state'
   AND formname ILIKE ANY (ARRAY['ve_node%', 've_arc%']);
+
+-- 4.9 dropped this row on ud. The form reads it on insert to fill top_elev from the DEM.
+INSERT INTO config_param_user (parameter, value, cur_user)
+SELECT 'edit_insert_show_elevation_from_dem', 'TRUE', users.cur_user
+FROM (SELECT DISTINCT cur_user FROM config_param_user) AS users
+ON CONFLICT (parameter, cur_user) DO NOTHING;
