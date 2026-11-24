@@ -65,6 +65,7 @@ WHERE parameter = 'epa_automatic_man2inp_values';
 
 
 UPDATE config_param_system SET value = '{"setArcObsolete":"true","setOldCode":"false"}' WHERE parameter = 'edit_arc_divide';
+UPDATE config_param_system SET value = 'FALSE' WHERE parameter = 'edit_connect_autoupdate_fluid';
 
 SELECT gw_fct_setchangefeaturetype($${"client":{"device":4, "lang":"es_ES", "infoType":1, "epsg":25831}, "form":{}, "feature":{"type":"node"}, "data":{"filterFields":{}, "pageInfo":{}, "feature_id":"1082", "feature_type_new":"SHUTOFF_VALVE", "featurecat_id":"SHTFF-VALVE110-PN16"}}$$);
 
