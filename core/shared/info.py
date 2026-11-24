@@ -1825,6 +1825,28 @@ class GwInfo(QObject):
             return False
         return True
 
+    def _drop_insert_buffer(self):
+        """ Remove the digitized feature once setfields has stored it.
+
+        Accept gets this for free: closing the dialog rolls the layer back.
+        Apply keeps the dialog open, so the buffer geometry and the database
+        geometry (reversed when the slope demands it) were both on the map.
+        """
+
+        layer = self.layer_new_feature or self.layer
+        if layer is None:
+            return
+        try:
+            if layer.isEditable():
+                layer.rollBack()
+            layer.dataProvider().reloadData()
+            # The form stays in edit mode. A fresh session has no buffered geometry.
+            if not layer.isEditable():
+                layer.startEditing()
+            layer.triggerRepaint()
+        except (AttributeError, RuntimeError):
+            pass
+
     def _roll_back(self):
         """ Discard changes in current layer """
         self._disconnect_signals()
@@ -1904,6 +1926,11 @@ class GwInfo(QObject):
             return False
 
         after_insert = False
+        # New feature: setfields writes the row, including a geometry the trigger may reverse.
+        # The digitized copy stays in the edit buffer until the dialog closes and rolls back,
+        # so Apply was drawing both directions. Drop that copy here, while the form stays open.
+        inserted_new = False
+        drop_insert_buffer = False
 
         # Tab data
         p_table_id = complet_result['body']['feature']['tableName']
@@ -1927,6 +1954,7 @@ class GwInfo(QObject):
 
             # If we create a new feature
             if self.new_feature_id is not None:
+                inserted_new = not close_dlg
                 if new_feature is False:
                     new_feature = tools_qt.get_feature_by_id(self.layer, self.new_feature_id)
                 new_feature.setAttribute(id_name, newfeature_id)
@@ -2008,6 +2036,8 @@ class GwInfo(QObject):
                     msg_level = 1
                 msg_level = Qgis.MessageLevel(msg_level)
                 tools_qgis.show_message(msg, message_level=msg_level, dialog=dialog)
+                if inserted_new:
+                    drop_insert_buffer = True
                 self._reload_fields(dialog, json_result, p_widget)
                 # Focus-loss save does not ask "Are you sure?". setfields only returns
                 # autoupdateReloadFields (sys_*), so elev/ymax stay stale until Apply+OK,
@@ -2058,6 +2088,9 @@ class GwInfo(QObject):
         # Update geometry even when no other fields changed (Set Geom on GENELEM)
         if self.point_xy.get('x') is not None:
             self._update_geom(p_table_id, id_name, newfeature_id)
+
+        if drop_insert_buffer:
+            self._drop_insert_buffer()
 
         # Force a map refresh
         tools_qgis.refresh_map_canvas()  # First refresh all the layers
