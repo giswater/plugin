@@ -1347,8 +1347,8 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 			<translation>Completed with no exception and no result</translation>
 		</message>
 		<message>
-			<source>Compliance Grade</source>
-			<translation>Compliance Grade</translation>
+			<source>Compliance (1 best, 10 worst)</source>
+			<translation>Compliance (1 best, 10 worst)</translation>
 		</message>
 		<message>
 			<source>Composer disabled: atlas coverage layer must be &apos;v_plan_psector&apos;.</source>
