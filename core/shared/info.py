@@ -2399,6 +2399,10 @@ class GwInfo(QObject):
             if widget is None:
                 widget = dialog.findChild(QPushButton, f'{field["widgetname"]}')
             if widget:
+                # Buttons other than arc node_1/node_2 come back without "value".
+                # KeyError here aborts the rest of the refresh, so later columns stay stale.
+                if 'value' not in field:
+                    continue
                 cur_value = tools_qt.get_text(dialog, widget, return_string_null=False)
                 value = field["value"]
                 if value is None:
