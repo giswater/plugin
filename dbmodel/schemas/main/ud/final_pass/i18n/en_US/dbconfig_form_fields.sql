@@ -69,6 +69,7 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip, placeho
     ('model_id', 'cat_arc', 'form_feature', 'tab_none', 'Model:', 'model', NULL),
     ('shape', 'cat_arc', 'form_feature', 'tab_none', 'Shape:', 'Shape', NULL),
     ('svg', 'cat_arc', 'form_feature', 'tab_none', 'Svg:', 'Svg', NULL),
+    ('thickness', 'cat_arc', 'form_feature', 'tab_none', 'Thickness:', 'Thickness', NULL),
     ('tsect_id', 'cat_arc', 'form_feature', 'tab_none', 'Tsect id:', 'Tsect id', NULL),
     ('width', 'cat_arc', 'form_feature', 'tab_none', 'Width:', 'Width', NULL),
     ('z1', 'cat_arc', 'form_feature', 'tab_none', 'Z1:', 'Z1', NULL),

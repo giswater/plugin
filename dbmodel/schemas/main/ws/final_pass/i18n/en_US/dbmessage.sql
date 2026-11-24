@@ -832,6 +832,12 @@ UPDATE sys_message AS t SET error_message = v.error_message, hint_message = v.hi
     (4774, 'Copied columns from old arc(s): Mapzones, *_type, soil, address and label values', NULL),
     (4776, 'NOT copied columns from old arc(s): Free text and addfield values', NULL),
     (4778, 'Replacement on planned mode is only available for arcs', NULL),
-    (4780, 'Arc replacement done succesfully', NULL)
+    (4780, 'Arc replacement done succesfully', NULL),
+    (4782, 'Activate topology control.', NULL),
+    (4784, 'MERGE PSECTOR', NULL),
+    (4786, 'merge psectors', NULL),
+    (4788, 'REPLACE FEATURE ON PSECTOR', NULL),
+    (4790, 'Proportional cost of connec connections (pjoint cost)', NULL),
+    (4792, 'Proportional cost of gully connections (pjoint cost)', NULL)
 ) AS v(id, error_message, hint_message)
 WHERE t.id = v.id;
