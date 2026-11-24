@@ -1,2 +1,6 @@
 - `edit_slope_direction` reverses a new arc using the node invert when the arc has no y/elev. `sys_slope` stays NULL in that case so the view keeps following the node (#996).
 - With `edit_connect_autoupdate_fluid`, editing a connec or gully takes `fluid_type` from its arc, and changing the arc pushes `fluid_type` to the connecs, gullies and links on that arc. Upstream features keep their own value (#997).
+- `v_ui_plan_arc_cost` connec and gully pjoint descriptions are `sys_message` 4790 and 4792.
+- Sample ws/ud sets `edit_connect_autoupdate_fluid` to FALSE. Empty schemas keep TRUE (#1000).
+- `fluid_type` on link forms is not mandatory (#1000).
+- Toolbox `Fluid type analysis` (`config_toolbox` 3424) is active. `3492` stays inactive (#1000).

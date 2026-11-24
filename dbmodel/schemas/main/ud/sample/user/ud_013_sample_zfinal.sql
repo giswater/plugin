@@ -36,6 +36,7 @@ UPDATE link SET builtdate = g.builtdate FROM gully g WHERE feature_id = gully_id
 UPDATE element SET builtdate = now() -  random() * (now() - timestamp '1990-01-01 00:00:00');
 
 UPDATE config_param_system SET value = '{"setArcObsolete":"true","setOldCode":"false"}' WHERE parameter = 'edit_arc_divide';
+UPDATE config_param_system SET value = 'FALSE' WHERE parameter = 'edit_connect_autoupdate_fluid';
 
 UPDATE cat_arc SET geom2 = null WHERE id = 'EG150';
 

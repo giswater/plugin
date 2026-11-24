@@ -8,6 +8,15 @@ or (at your option) any later version.
 
 SET search_path = SCHEMA_NAME, public, pg_catalog;
 
+UPDATE config_form_fields
+SET ismandatory = false
+WHERE columnname = 'fluid_type'
+  AND formtype = 'form_feature'
+  AND tabname = 'tab_data'
+  AND formname ILIKE 've_link%';
+
+UPDATE config_toolbox SET active = true WHERE id = 3424;
+
 -- Live slope must use the same elevation as sys_elev. The 4.17.0 fallback
 -- preferred the node invert over arc elev/custom_elev, so a one-sided y2
 -- or custom_elev2 moved sys_elev2 and left slope unchanged (#996).
