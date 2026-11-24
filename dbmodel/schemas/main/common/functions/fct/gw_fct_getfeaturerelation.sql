@@ -148,6 +148,15 @@ BEGIN
                        "data":{"message":"3686", "function":"2725", "parameters":{"v_connect_arc":"'||v_connect_arc||'"}, "fid":"151", "result_id":"'||quote_nullable(v_result_id)||'", "is_process":true}}$$)';
 		END IF;
 
+		--check links exiting on the node
+		SELECT string_agg(link_id::text, ',') INTO v_connect_connec FROM link
+		WHERE exit_type = 'NODE' AND exit_id::text = v_feature_id::text;
+
+		IF v_connect_connec IS NOT NULL THEN
+			EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+                       "data":{"message":"3690", "function":"2725", "parameters":{"v_connect_connec":"'||v_connect_connec||'"}, "fid":"151", "result_id":"'||quote_nullable(v_result_id)||'", "is_process":true}}$$)';
+		END IF;
+
 		--check related polygon
 		EXECUTE 'SELECT pol_id FROM polygon where feature_id= '||v_feature_id||';'
 		INTO v_connect_pol;
