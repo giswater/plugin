@@ -2334,25 +2334,48 @@ def hook_mapzone_array_fk_paste():
         )
 
 
-def load_missing_layers(filter, group="GW Layers", sub_group=None):
-    """ Adds any missing Mincut layers to TOC """
+def load_missing_layers(filter, group="GW Layers", sub_group=None,
+                        is_thread=False, aux_conn=None, force_create_group=False):
+    """Load missing layers whose sys_table.id matches filter (no context in add-layer catalog)."""
 
     sql = f"SELECT id, alias, addparam FROM sys_table " \
           f"WHERE id LIKE '{filter}' AND alias IS NOT NULL " \
           f"ORDER BY orderby DESC"
-    rows = tools_db.get_rows(sql)
-    if rows:
-        for tablename, alias, addparam in rows:
-            lyr = tools_qgis.get_layer_by_tablename(tablename)
-            if not lyr:
-                the_geom = 'the_geom'
-                if addparam and addparam.get('geom'):
-                    the_geom = addparam.get('geom')
-                add_layer_database(tablename, the_geom=the_geom, alias=alias, group=group, sub_group=sub_group)
+    rows = tools_db.get_rows(sql, is_thread=is_thread, aux_conn=aux_conn)
+    if not rows:
+        return True
+
+    for tablename, alias, addparam in rows:
+        if tools_qgis.get_layer_by_tablename(tablename):
+            continue
+
+        if isinstance(addparam, str):
+            try:
+                addparam = json.loads(addparam)
+            except (TypeError, ValueError):
+                addparam = None
+
+        the_geom = 'the_geom'
+        if addparam and addparam.get('geom'):
+            the_geom = addparam.get('geom')
+
+        field_id = "id"
+        if addparam and addparam.get('pkey'):
+            field_id = str(addparam.get('pkey')).replace(" ", "")
+
+        add_layer_database(
+            tablename, the_geom=the_geom, field_id=field_id, alias=alias,
+            group=group, sub_group=sub_group,
+            force_create_group=force_create_group,
+            aux_conn=aux_conn, is_thread=is_thread,
+        )
+
+    return True
 
 
-def load_missing_layers_by_context(level_1, level_2, is_thread=False, aux_conn=None, force_create_group=False):
-    """Add TOC layers from gw_fct_getaddlayervalues that match context level_1/level_2."""
+def load_missing_layers_by_context(level_1, level_2=None, level_3=None,
+                                   is_thread=False, aux_conn=None, force_create_group=False):
+    """Add TOC layers from gw_fct_getaddlayervalues that match context levels (prefix filter)."""
     body = create_body()
     json_result = execute_procedure(
         'gw_fct_getaddlayervalues', body, is_thread=is_thread, aux_conn=aux_conn)
@@ -2363,8 +2386,15 @@ def load_missing_layers_by_context(level_1, level_2, is_thread=False, aux_conn=N
     for field in fields:
         if field.get('context') is None:
             continue
-        field_level_1, field_level_2, _level_3 = get_context_menu_levels(field['context'])
-        if field_level_1 != level_1 or field_level_2 != level_2:
+
+        field_level_1, field_level_2, field_level_3 = get_context_menu_levels(field['context'])
+        if not field_level_1 or not field_level_2:
+            continue
+        if field_level_1 != level_1:
+            continue
+        if level_2 is not None and field_level_2 != level_2:
+            continue
+        if level_3 is not None and field_level_3 != level_3:
             continue
 
         tablename = field['tableName']
@@ -2376,8 +2406,8 @@ def load_missing_layers_by_context(level_1, level_2, is_thread=False, aux_conn=N
         alias = field['layerName'] if field.get('layerName') is not None else tablename
         add_layer_database(
             tablename, the_geom=the_geom, field_id=field_id,
-            group=field_level_1, sub_group=field_level_2, alias=alias,
-            force_create_group=force_create_group,
+            group=field_level_1, sub_group=field_level_2, sub_sub_group=field_level_3,
+            alias=alias, force_create_group=force_create_group,
             aux_conn=aux_conn, is_thread=is_thread,
         )
 
