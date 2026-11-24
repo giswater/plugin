@@ -263,3 +263,37 @@ WHERE id = 4524;
 UPDATE sys_message
 SET error_message = 'There are no forceClosed/forceOpen set more than once in graphconfig'
 WHERE id = 4526;
+
+DELETE FROM sys_label WHERE id = 4006;
+
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
+VALUES
+	(4764, 'Arc (%v_id%) have been downgraded, new planned arc have been created (%v_arc%)', NULL, 0, true, 'utils', 'core', 'AUDIT'),
+	(4766, '%v_count% connec(s) have been reconnected.', NULL, 0, true, 'utils', 'core', 'AUDIT'),
+	(4768, '%v_count% gully(s) have been reconnected.', NULL, 0, true, 'utils', 'core', 'AUDIT'),
+	(4770, 'Using current (%v_psector%) psector, %v_count% succesfully replacements have been executed', NULL, 0, true, 'utils', 'core', 'AUDIT'),
+	(4772, 'Arc catalog used for new arc(s): %v_catalog%', NULL, 0, true, 'utils', 'core', 'AUDIT'),
+	(4774, 'Copied columns from old arc(s): Mapzones, *_type, soil, address and label values', NULL, 0, true, 'utils', 'core', 'AUDIT'),
+	(4776, 'NOT copied columns from old arc(s): Free text and addfield values', NULL, 0, true, 'utils', 'core', 'AUDIT'),
+	(4778, 'Replacement on planned mode is only available for arcs', NULL, 0, true, 'utils', 'core', 'AUDIT'),
+	(4780, 'Arc replacement done succesfully', NULL, 0, true, 'utils', 'core', 'UI'),
+	(4788, 'REPLACE FEATURE ON PSECTOR', NULL, 0, true, 'utils', 'core', 'AUDIT')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO sys_message (id, error_message, hint_message, log_level, show_user, project_type, "source", message_type)
+VALUES
+	(4782, 'Activate topology control.', NULL, 0, true, 'utils', 'core', 'AUDIT'),
+	(4784, 'MERGE PSECTOR', NULL, 0, true, 'utils', 'core', 'AUDIT'),
+	(4786, 'merge psectors', NULL, 0, true, 'utils', 'core', 'AUDIT'),
+	(4790, 'Proportional cost of connec connections (pjoint cost)', NULL, 0, true, 'utils', 'core', 'AUDIT'),
+	(4792, 'Proportional cost of gully connections (pjoint cost)', NULL, 0, true, 'utils', 'core', 'AUDIT')
+ON CONFLICT (id) DO NOTHING;
+
+-- cat_arc.bulk was renamed to thickness in 4.0.0. The form field still pointed at bulk,
+-- so the attribute table aliased the column from its name ("Thickness") and skipped i18n.
+UPDATE config_form_fields
+SET columnname = 'thickness', label = 'Thickness:', tooltip = 'Thickness'
+WHERE formname = 'cat_arc'
+	AND formtype = 'form_feature'
+	AND tabname = 'tab_none'
+	AND columnname = 'bulk';

@@ -75,9 +75,10 @@ BEGIN
 	END IF;
 
 
-	-- manage log (fid: 143). Header label 4006 is translated via v_sys_label.
+	-- manage log (fid: 143). Header is sys_message 4788.
 	DELETE FROM audit_check_data WHERE fid = v_fid AND cur_user=current_user;
-	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{}, "data":{"function":"3072", "fid":"'||v_fid||'", "criticity":"0", "is_process":true, "is_header":"true", "label_id":"4006"}}$$)';
+	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{}, "data":{"message":"4788", "function":"3072", "fid":"'||v_fid||'", "criticity":"0", "is_process":true}}$$)';
+	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{}, "data":{"function":"3072", "fid":"'||v_fid||'", "criticity":"0", "separator_id":"2030", "is_process":true}}$$)';
 
 	-- get values from feature array
 	IF v_feature_text ILIKE '[%]' THEN
