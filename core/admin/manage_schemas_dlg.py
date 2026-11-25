@@ -30,7 +30,7 @@ _COL_UPDATED = 6
 _MAX_VISIBLE_NETWORK_ROWS = 4
 _FIXED_WIDTH = 1120
 _SATELLITE_GROUPS = (
-    "grb_utils", "grb_cibs", "grb_am", "grb_cm", "grb_cmms", "grb_i18n", "grb_audit",
+    "grb_utils", "grb_cibs", "grb_am", "grb_cm", "grb_cmms", "grb_publi", "grb_i18n", "grb_audit",
 )
 _SATELLITE_INFO_LABELS = (
     "lbl_utils_info",
@@ -38,6 +38,7 @@ _SATELLITE_INFO_LABELS = (
     "lbl_am_info",
     "lbl_cm_info",
     "lbl_cmms_info",
+    "lbl_publi_info",
     "lbl_audit_info",
     "lbl_i18n_info",
 )
@@ -346,6 +347,10 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self.btn_cmms_integrate.clicked.connect(partial(self._integrate_cmms))
         self.btn_cmms_update.clicked.connect(partial(self._update_cmms))
         self.btn_cmms_delete.clicked.connect(partial(self._delete_cmms))
+        self.btn_publi_create.clicked.connect(partial(self._create_publi))
+        self.btn_publi_update.clicked.connect(partial(self._update_publi))
+        self.btn_publi_integrate.clicked.connect(partial(self._integrate_publi))
+        self.btn_publi_delete.clicked.connect(partial(self._delete_publi))
         self.btn_i18n_create.clicked.connect(partial(self.admin._create_i18n))
         self.btn_i18n_update.clicked.connect(partial(self.admin._update_i18n))
         self.btn_i18n_delete.clicked.connect(partial(self._delete_other_schema, 'multilang'))
@@ -404,7 +409,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
     def _network_rows(self) -> list[dict]:
         return [
             row for row in self._inventory_rows
-            if str(row.get("kind") or "").upper() in ("WS", "UD")
+            if str(row.get("kind") or "").upper() not in ("", "PUBLI")
         ]
 
     def _refresh_inventory(self) -> None:
@@ -562,6 +567,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         am_row = self._satellite_row(kind="AM") or self._satellite_row(schema="am")
         cm_row = self._satellite_row(kind="CM")
         cmms_row = self._satellite_row(kind="CMMS") or self._satellite_row(schema="cmms")
+        publi_row = self._satellite_row(kind="PUBLI") or self._satellite_row(schema="publi")
         audit_row = self._satellite_row(kind="AUDIT") or self._satellite_row(schema="audit")
         i18n_row = self._satellite_row(kind="MULTILANG") or self._satellite_row(schema="multilang")
 
@@ -570,6 +576,9 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         self._update_satellite_panel("grb_am", "lbl_am_info", "AM", am_row, "am")
         self._update_satellite_panel("grb_cm", "lbl_cm_info", "CM", cm_row, "cm")
         self._update_satellite_panel("grb_cmms", "lbl_cmms_info", "CMMS", cmms_row, "cmms")
+        self._update_satellite_panel("grb_publi", "lbl_publi_info", "Publi", publi_row, "publi")
+        if publi_row:
+            self._set_info_label("lbl_publi_info", self._format_publi_info(publi_row))
         self._update_satellite_panel("grb_i18n", "lbl_i18n_info", "Multilang", i18n_row, "multilang")
         self._update_satellite_panel("grb_audit", "lbl_audit_info", "Audit", audit_row, "audit")
         self._update_network_label()
@@ -623,6 +632,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         am_row = self._satellite_row(kind="AM") or self._satellite_row(schema="am")
         cm_row = self._satellite_row(kind="CM")
         cmms_row = self._satellite_row(kind="CMMS") or self._satellite_row(schema="cmms")
+        publi_row = self._satellite_row(kind="PUBLI") or self._satellite_row(schema="publi")
         audit_row = self._satellite_row(kind="AUDIT") or self._satellite_row(schema="audit")
         i18n_row = self._satellite_row(kind="MULTILANG") or self._satellite_row(schema="multilang")
 
@@ -631,6 +641,7 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
         am_exists = am_row is not None
         cm_exists = cm_row is not None
         cmms_exists = cmms_row is not None
+        publi_exists = publi_row is not None
         audit_namespace = audit_row is not None
         audit_full = admin_catalog.is_audit_fully_installed()
         i18n_exists = i18n_row is not None
@@ -717,6 +728,26 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
             )
         )
         self.btn_cmms_delete.setEnabled(cmms_exists)
+
+        self.btn_publi_create.setEnabled(not publi_exists)
+        self.btn_publi_update.setEnabled(
+            publi_exists and self._needs_update(str((publi_row or {}).get("version") or ""))
+        )
+        self.btn_publi_integrate.setEnabled(
+            publi_exists
+            and bool(parent)
+            and bool(parent_kind)
+            and parent_kind != "PUBLI"
+            and not admin_catalog.parent_satellite_linked(
+                self._inventory_rows, parent, "publi"
+            )
+        )
+        self.btn_publi_delete.setEnabled(publi_exists)
+        if getattr(self, "_publi_busy", False):
+            self.btn_publi_create.setEnabled(False)
+            self.btn_publi_update.setEnabled(False)
+            self.btn_publi_integrate.setEnabled(False)
+            self.btn_publi_delete.setEnabled(False)
 
         self.btn_i18n_create.setEnabled(not i18n_exists)
         self.btn_i18n_delete.setEnabled(i18n_exists)
@@ -900,6 +931,62 @@ class GwManageSchemasDialog(GwAdminManageSchemasUi):
 
     def _delete_cmms(self) -> None:
         self._delete_other_schema("cmms")
+
+    def _format_publi_info(self, row: dict) -> str:
+        text = self._format_satellite_dates(row)
+        linked = [
+            str(item.get("schema") or "")
+            for item in self._inventory_rows
+            if str(item.get("kind") or "").upper() not in ("", "PUBLI")
+            and admin_catalog.parent_satellite_linked(
+                self._inventory_rows, str(item.get("schema") or ""), "publi"
+            )
+        ]
+        if not linked:
+            return text
+        msg = "Linked"
+        return f"{text} · {tools_qt.tr(msg)}: {', '.join(linked)}"
+
+    def _create_publi(self) -> None:
+        parent = self._selected_network_parent or None
+        self.admin._create_publi_schema(parent_schema=parent)
+
+    def _integrate_publi(self) -> None:
+        parent, parent_type = self._parent_context()
+        if not parent or not parent_type or parent_type == "PUBLI":
+            msg = "Select a schema in the table."
+            tools_qt.show_info_box(msg)
+            return
+        self.admin._integrate_publi_schema(parent, parent_type.lower())
+
+    def _set_publi_busy(self, busy: bool) -> None:
+        """Indeterminate bar until the task reports a percentage."""
+        self._publi_busy = busy
+        if busy:
+            for name in ("btn_publi_create", "btn_publi_update", "btn_publi_integrate", "btn_publi_delete"):
+                btn = getattr(self, name, None)
+                if btn is not None:
+                    btn.setEnabled(False)
+        bar = getattr(self, "pbar_publi", None)
+        if bar is not None:
+            bar.setVisible(busy)
+            if busy:
+                bar.setRange(0, 0)
+        if not busy:
+            self._update_action_state()
+
+    def _on_publi_progress(self, value) -> None:
+        bar = getattr(self, "pbar_publi", None)
+        if bar is None:
+            return
+        bar.setRange(0, 100)
+        bar.setValue(max(0, min(100, int(value))))
+
+    def _update_publi(self) -> None:
+        self.admin._update_publi()
+
+    def _delete_publi(self) -> None:
+        self._delete_other_schema("publi")
 
     def _activate_audit(self) -> None:
         parent, parent_type = self._parent_context()
