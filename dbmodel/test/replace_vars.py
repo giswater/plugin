@@ -14,6 +14,7 @@ PROJECT_SCHEMA = {
     "utils": "utils",
     "cibs": "cibs",
     "cmms": "cmms",
+    "publi": "publi",
     "network_ws": "ws_40",
     "network_ud": "ud_40",
 }
@@ -67,6 +68,6 @@ def main(project_type: str) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python replace_vars.py <ws|ud|utils|cibs|network_ws|network_ud>")
+        print("Usage: python replace_vars.py <ws|ud|utils|cibs|cmms|publi|network_ws|network_ud>")
         sys.exit(1)
     main(sys.argv[1])
