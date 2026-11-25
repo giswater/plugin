@@ -44,7 +44,6 @@ UPDATE config_form_fields AS t SET label = v.label, tooltip = v.tooltip, placeho
     ('arc_type', 'cat_arc', 'form_feature', 'tab_none', 'Arc type:', 'Arc type', NULL),
     ('area', 'cat_arc', 'form_feature', 'tab_none', 'Area:', 'Area', NULL),
     ('brand_id', 'cat_arc', 'form_feature', 'tab_none', 'Brand:', 'brand', NULL),
-    ('bulk', 'cat_arc', 'form_feature', 'tab_none', 'Bulk:', 'Bulk', NULL),
     ('code', 'cat_arc', 'form_feature', 'tab_none', 'Code:', 'Code', NULL),
     ('cost', 'cat_arc', 'form_feature', 'tab_none', 'Cost:', 'Cost', NULL),
     ('cost_unit', 'cat_arc', 'form_feature', 'tab_none', 'Cost unit:', 'Cost unit', NULL),
