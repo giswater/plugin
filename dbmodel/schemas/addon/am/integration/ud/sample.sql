@@ -8,7 +8,7 @@ or (at your option) any later version.
 SET search_path = am, public;
 
 INSERT INTO config_material_def (material, project_type, pleak, age_max, age_med, age_min, builtdate_vdef, compliance)
-SELECT id, 'UD', 0.16, 58, 50, 42, 1964, 10
+SELECT id, 'UD', 0.16, 58, 50, 42, 1964, 1
 FROM PARENT_SCHEMA.cat_material
 WHERE active = true
 ON CONFLICT (material, project_type) DO NOTHING;
@@ -20,7 +20,7 @@ SELECT id AS arccat_id,
 	round(COALESCE(geom1, 0)::numeric * 3 / 5 + 70) AS cost_constr,
 	round(COALESCE(geom1, 0)::numeric * 9 / 5 + 310) AS cost_repmain,
 	round(COALESCE(geom1, 0)::numeric * 2 / 5 + 40) AS cost_rehab,
-	10 AS compliance
+	1 AS compliance
 FROM PARENT_SCHEMA.cat_arc
 ON CONFLICT (arccat_id, project_type) DO UPDATE SET
 	dnom = EXCLUDED.dnom,
@@ -36,7 +36,7 @@ SELECT id AS nodecat_id,
 	round(COALESCE(geom1, 0)::numeric * 3 / 5 + 70) AS cost_constr,
 	round(COALESCE(geom1, 0)::numeric * 9 / 5 + 310) AS cost_repmain,
 	round(COALESCE(geom1, 0)::numeric * 2 / 5 + 40) AS cost_rehab,
-	10 AS compliance
+	1 AS compliance
 FROM PARENT_SCHEMA.cat_node
 WHERE active IS DISTINCT FROM FALSE
 ON CONFLICT (nodecat_id, project_type) DO UPDATE SET

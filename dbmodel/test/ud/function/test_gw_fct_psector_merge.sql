@@ -11,7 +11,7 @@ SET client_min_messages TO WARNING;
 
 SET search_path = "SCHEMA_NAME", public, pg_catalog;
 
-SELECT plan(1);
+SELECT plan(5);
 
 -- Create roles for testing
 CREATE USER plan_user;
@@ -36,6 +36,62 @@ SELECT is(
     "new_psector_name":"test"}, "aux_params":null}}$$)::JSON)->>'status',
     'Accepted',
     'Check if gw_fct_psector_merge returns status "Accepted"'
+);
+
+-- Two compatible psectors, each with an other-price. The old SQL inserted `descript`
+-- (column is `observ`) and kept the source psector_id, so the merge died or left
+-- the prices on the old psectors.
+SELECT lives_ok(
+    $$INSERT INTO plan_psector (name, psector_type, expl_id, priority, status)
+      SELECT 'gw_merge_a', psector_type, expl_id, priority, status FROM plan_psector WHERE psector_id = 1;
+      INSERT INTO plan_psector (name, psector_type, expl_id, priority, status)
+      SELECT 'gw_merge_b', psector_type, expl_id, priority, status FROM plan_psector WHERE psector_id = 1;
+      INSERT INTO plan_psector_x_other (price_id, measurement, psector_id, observ)
+      SELECT 'PROTECT_SERVICES', 10.00, psector_id, 'from a' FROM plan_psector WHERE name = 'gw_merge_a';
+      INSERT INTO plan_psector_x_other (price_id, measurement, psector_id, observ)
+      SELECT 'PROTECT_SERVICES', 5.50, psector_id, 'from b' FROM plan_psector WHERE name = 'gw_merge_b';
+      INSERT INTO plan_psector_x_other (price_id, measurement, psector_id, observ)
+      SELECT 'SECURITY_HEALTH', 2.00, psector_id, NULL FROM plan_psector WHERE name = 'gw_merge_b';$$,
+    'fixture: two psectors with plan_psector_x_other'
+);
+
+SELECT is(
+    (gw_fct_psector_merge(
+        json_build_object(
+            'client', json_build_object('device', 4, 'lang', 'nl_NL', 'infoType', 1, 'epsg', 25831),
+            'form', '{}'::json,
+            'feature', '{}'::json,
+            'data', json_build_object(
+                'filterFields', '{}'::json,
+                'pageInfo', '{}'::json,
+                'parameters', json_build_object(
+                    'psector_ids', (
+                        SELECT string_agg(psector_id::text, ',' ORDER BY name)
+                        FROM plan_psector WHERE name IN ('gw_merge_a', 'gw_merge_b')
+                    ),
+                    'new_psector_name', 'gw_merged'
+                )
+            )
+        )
+    ))->>'status',
+    'Accepted',
+    'merge of psectors that have other prices returns Accepted'
+);
+
+SELECT is(
+    (SELECT measurement FROM plan_psector_x_other o
+     JOIN plan_psector p ON p.psector_id = o.psector_id
+     WHERE p.name = 'gw_merged' AND o.price_id = 'PROTECT_SERVICES'),
+    15.50::numeric(12,2),
+    'shared other price is summed onto the new psector'
+);
+
+SELECT is(
+    (SELECT count(*)::int FROM plan_psector_x_other o
+     JOIN plan_psector p ON p.psector_id = o.psector_id
+     WHERE p.name = 'gw_merged'),
+    2,
+    'both other prices land on the new psector'
 );
 
 -- Finish the test

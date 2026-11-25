@@ -124,7 +124,7 @@ BEGIN
 
 			-- pattern on connecs with associated link
 			UPDATE temp_t_node SET pattern_id=sector.pattern_id
-			FROM ve_inp_connec JOIN sector USING (sector_id) WHERE connec_id = node_id  AND temp_t_node.pattern_id IS NULL AND temp_t_node.epa_type ='JUNCTION';
+			FROM ve_inp_connec JOIN sector USING (sector_id) WHERE connec_id::text = node_id  AND temp_t_node.pattern_id IS NULL AND temp_t_node.epa_type ='JUNCTION';
 
 			-- pattern on connecs over arc
 			UPDATE temp_t_node SET pattern_id=sector.pattern_id
@@ -134,7 +134,7 @@ BEGIN
 
 			-- pattern on connecs with associated link
 			UPDATE temp_t_node SET pattern_id=dma.pattern_id
-			FROM ve_inp_connec JOIN dma USING (dma_id) WHERE connec_id = node_id  AND temp_t_node.pattern_id IS NULL AND temp_t_node.epa_type ='JUNCTION';
+			FROM ve_inp_connec JOIN dma USING (dma_id) WHERE connec_id::text = node_id  AND temp_t_node.pattern_id IS NULL AND temp_t_node.epa_type ='JUNCTION';
 
 			-- pattern on connecs over arc
 			UPDATE temp_t_node SET pattern_id=dma.pattern_id

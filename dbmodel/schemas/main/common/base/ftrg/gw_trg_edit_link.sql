@@ -75,7 +75,6 @@ v_currentpsector integer;
 v_state_vdefault integer;
 v_feature record;
 v_linkexists integer;
-v_fluidtype_autoupdate boolean;
 v_dma_autoupdate boolean;
 v_check_arcdnom_status boolean;
 v_check_arcdnom integer;
@@ -92,7 +91,6 @@ BEGIN
 
 	-- getting system values
 	SELECT value::boolean INTO v_dma_autoupdate FROM config_param_system WHERE parameter='edit_connect_autoupdate_dma';
-    SELECT value::boolean INTO v_fluidtype_autoupdate FROM config_param_system WHERE parameter = 'edit_connect_autoupdate_fluid';
 	SELECT value::boolean INTO v_dsbl_error FROM config_param_system WHERE parameter='edit_topocontrol_disable_error' ;
 	SELECT project_type INTO v_projectype FROM sys_version LIMIT 1;
 	v_ispresszone:= (SELECT value::json->>'PRESSZONE' FROM config_param_system WHERE parameter = 'utils_graphanalytics_status');
@@ -279,26 +277,10 @@ BEGIN
 			v_sector = v_arc.sector_id;
 			v_omzone = v_arc.omzone_id;
 
-			-- control of dma and fluidtype automatic values
+			-- control of dma automatic values
 			IF v_projectype = 'WS' THEN
 				IF v_dma_autoupdate IS TRUE OR v_dma_autoupdate IS NULL THEN v_dma = v_arc.dma_id; ELSE v_dma = NEW.dma_id; END IF;
 			END IF;
-
-			IF v_fluidtype_autoupdate IS TRUE OR v_fluidtype_autoupdate IS NULL THEN
-				v_fluidtype = v_arc.fluid_type;
-			ELSE
-				-- if no automatic values, take the value from the feature_id or the NEW.fluid_type
-				IF NEW.fluid_type IS NULL THEN
-					IF NEW.feature_type='GULLY' THEN
-						v_fluidtype = (SELECT fluid_type FROM gully WHERE gully_id=NEW.feature_id);
-					ELSIF NEW.feature_type='CONNEC' THEN
-						v_fluidtype = (SELECT fluid_type FROM connec WHERE connec_id=NEW.feature_id);
-					END IF;
-				ELSE
-					v_fluidtype = NEW.fluid_type;
-				END IF;
-			END IF;
-
 
 			IF v_projectype='WS' THEN
 				v_presszone = v_arc.presszone_id;
@@ -330,24 +312,9 @@ BEGIN
 			v_sector = v_node.sector_id;
 			v_omzone = v_node.omzone_id;
 
-			-- control of dma and fluidtype automatic values
+			-- control of dma automatic values
 			IF v_projectype = 'WS' THEN
 				IF v_dma_autoupdate IS TRUE OR v_dma_autoupdate IS NULL THEN v_dma = v_node.dma_id; ELSE v_dma = NEW.dma_id; END IF;
-			END IF;
-
-			IF v_fluidtype_autoupdate is true or v_fluidtype_autoupdate is null
-				THEN v_fluidtype = v_node.fluid_type;
-			ELSE
-				-- if no automatic values, take the value from the feature_id or the NEW.fluid_type
-				IF NEW.fluid_type is NULL then
-					IF NEW.feature_type='GULLY' THEN
-						v_fluidtype = (SELECT fluid_type FROM gully WHERE gully_id=NEW.feature_id);
-					ELSIF NEW.feature_type='CONNEC' THEN
-						v_fluidtype = (SELECT fluid_type FROM connec WHERE connec_id=NEW.feature_id);
-					END IF;
-				ELSE
-					v_fluidtype = NEW.fluid_type;
-				END IF;
 			END IF;
 
 			IF v_projectype='WS' THEN
@@ -384,24 +351,9 @@ BEGIN
 			v_sector = v_connec2.sector_id;
 			v_omzone = v_connec2.omzone_id;
 
-            -- control of dma and fluidtype automatic values
+            -- control of dma automatic values
 			IF v_projectype = 'WS' THEN
 				IF v_dma_autoupdate IS TRUE OR v_dma_autoupdate IS NULL THEN v_dma = v_connec2.dma_id; ELSE v_dma = NEW.dma_id; END IF;
-			END IF;
-
-			IF v_fluidtype_autoupdate is true or v_fluidtype_autoupdate is null THEN
-				v_fluidtype = v_connec2.fluid_type;
-			ELSE
-				-- if no automatic values, take the value from the feature_id or the NEW.fluid_type
-				IF NEW.fluid_type is NULL then
-					IF NEW.feature_type='GULLY' THEN
-						v_fluidtype = (SELECT fluid_type FROM gully WHERE gully_id=NEW.feature_id);
-					ELSIF NEW.feature_type='CONNEC' THEN
-						v_fluidtype = (SELECT fluid_type FROM connec WHERE connec_id=NEW.feature_id);
-					END IF;
-				ELSE
-					v_fluidtype = NEW.fluid_type;
-				END IF;
 			END IF;
 
 			IF v_projectype='WS' THEN
@@ -431,29 +383,21 @@ BEGIN
 				v_sector = v_gully2.sector_id;
 				v_omzone = v_gully2.omzone_id;
 
-                -- control of dma and fluidtype automatic values
+                -- control of dma automatic values
 				IF v_projectype = 'WS' THEN
 					IF v_dma_autoupdate IS TRUE OR v_dma_autoupdate IS NULL THEN v_dma = v_gully2.dma_id; ELSE v_dma = NEW.dma_id; END IF;
-				END IF;
-
-				IF v_fluidtype_autoupdate IS TRUE OR v_fluidtype_autoupdate IS NULL THEN
-					v_fluidtype = v_gully2.fluid_type;
-				ELSE
-					-- if no automatic values, take the value from the feature_id or the NEW.fluid_type
-					IF NEW.fluid_type is NULL then
-						IF NEW.feature_type='GULLY' THEN
-							v_fluidtype = (SELECT fluid_type FROM gully WHERE gully_id=NEW.feature_id);
-						ELSIF NEW.feature_type='CONNEC' THEN
-							v_fluidtype = (SELECT fluid_type FROM connec WHERE connec_id=NEW.feature_id);
-						END IF;
-					ELSE
-						v_fluidtype = NEW.fluid_type;
-					END IF;
 				END IF;
 
 				-- others
 				v_end_state= v_gully2.state;
 			END IF;
+		END IF;
+
+		-- link fluid follows the connec/gully, never the exit
+		IF NEW.feature_type = 'GULLY' THEN
+			v_fluidtype = (SELECT fluid_type FROM gully WHERE gully_id = NEW.feature_id);
+		ELSIF NEW.feature_type = 'CONNEC' THEN
+			v_fluidtype = (SELECT fluid_type FROM connec WHERE connec_id = NEW.feature_id);
 		END IF;
 
 		-- skip inheriting dynamic mapzones (computed later by graphanalytics);
@@ -854,17 +798,12 @@ BEGIN
 			ELSE
 				-- update connect
 				IF NEW.feature_type='CONNEC' AND v_pjoint_id IS NOT NULL THEN
-					IF v_projectype = 'WS' THEN
-						UPDATE connec SET fluid_type=v_fluidtype WHERE connec_id = NEW.feature_id;
-					ELSIF v_projectype = 'UD' THEN
-						UPDATE connec SET fluid_type=v_fluidtype::integer WHERE connec_id = NEW.feature_id;
-					END IF;
 					UPDATE connec SET arc_id = v_arc_id, dma_id = v_dma,pjoint_id = v_pjoint_id, pjoint_type = v_pjoint_type, sector_id = v_sector,
 					omzone_id = v_omzone WHERE connec_id = NEW.feature_id;
 
 				ELSIF NEW.feature_type='GULLY' AND v_pjoint_id IS NOT NULL  THEN
 					UPDATE gully SET arc_id = v_arc_id, pjoint_id = v_pjoint_id, pjoint_type = v_pjoint_type, sector_id = v_sector,
-					omzone_id = v_omzone, fluid_type=v_fluidtype::integer WHERE gully_id = NEW.feature_id;
+					omzone_id = v_omzone WHERE gully_id = NEW.feature_id;
 				END IF;
 
 				-- update specific colums for ws-link
@@ -947,18 +886,12 @@ BEGIN
 
 			-- force reconnection on connecs
 			IF NEW.feature_type = 'CONNEC' THEN
-				IF v_projectype = 'WS' THEN
-					UPDATE connec SET fluid_type=v_fluidtype WHERE connec_id = NEW.feature_id;
-				ELSIF v_projectype = 'UD' THEN
-					UPDATE connec SET fluid_type=v_fluidtype::integer WHERE connec_id = NEW.feature_id;
-				END IF;
-
 				UPDATE connec SET arc_id = v_arc_id, dma_id = v_dma, pjoint_type = NEW.exit_type, pjoint_id = NEW.exit_id,
 				omzone_id = v_omzone WHERE connec_id = NEW.feature_id;
 
 			ELSIF NEW.feature_type = 'GULLY' THEN
 				UPDATE gully SET arc_id = v_arc_id, pjoint_type = NEW.exit_type, pjoint_id = NEW.exit_id,
-				omzone_id = v_omzone, fluid_type=v_fluidtype::integer WHERE  gully_id = NEW.feature_id;
+				omzone_id = v_omzone WHERE gully_id = NEW.feature_id;
 			END IF;
 
 			-- update specific colums for ws-link

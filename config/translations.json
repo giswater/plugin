@@ -3,19 +3,19 @@
     "locale": "bg_BG",
     "flag": "BG",
     "name": "Búlgaro (Bulgaria)",
-    "percent": 16.34
+    "percent": 16.3
   },
   {
     "locale": "ca_ES",
     "flag": "CAT",
     "name": "Català (Espanya)",
-    "percent": 75.97
+    "percent": 75.79
   },
   {
     "locale": "de_GE",
     "flag": "DE",
     "name": "German (Germany)",
-    "percent": 68.0
+    "percent": 67.84
   },
   {
     "locale": "en_US",
@@ -27,13 +27,13 @@
     "locale": "es_CR",
     "flag": "CR",
     "name": "Español (Costa Rica)",
-    "percent": 72.47
+    "percent": 72.3
   },
   {
     "locale": "es_ES",
     "flag": "ES",
     "name": "Español (España)",
-    "percent": 99.08
+    "percent": 98.93
   },
   {
     "locale": "fr_FR",
@@ -45,13 +45,13 @@
     "locale": "ja_JA",
     "flag": "JP",
     "name": "Japanese (Japan)",
-    "percent": 16.36
+    "percent": 16.33
   },
   {
     "locale": "pl_PL",
     "flag": "PL",
     "name": "Polish (Poland)",
-    "percent": 67.83
+    "percent": 67.67
   },
   {
     "locale": "pt_BR",
@@ -69,7 +69,7 @@
     "locale": "ro_RO",
     "flag": "RO",
     "name": "Romanian (Romania)",
-    "percent": 69.44
+    "percent": 69.28
   },
   {
     "locale": "ru_RU",
@@ -81,6 +81,6 @@
     "locale": "uk_UA",
     "flag": "UA",
     "name": "Ukrainian (Ukraine)",
-    "percent": 77.6
+    "percent": 77.42
   }
 ]

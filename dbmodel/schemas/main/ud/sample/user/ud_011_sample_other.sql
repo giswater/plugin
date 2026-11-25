@@ -641,6 +641,9 @@ ON CONFLICT (parameter, cur_user) DO NOTHING;
 INSERT INTO config_param_user (parameter, value, cur_user) VALUES ('edit_update_elevation_from_dem', 'true', current_user)
 ON CONFLICT (parameter, cur_user) DO NOTHING;
 
+INSERT INTO config_param_user (parameter, value, cur_user) VALUES ('edit_insert_show_elevation_from_dem', 'TRUE', current_user)
+ON CONFLICT (parameter, cur_user) DO NOTHING;
+
 UPDATE config_param_user SET value = 'TRUE' WHERE parameter = 'qgis_form_docker' AND cur_user = current_user;
 
 UPDATE sys_param_user SET dv_querytext = replace (dv_querytext, ' arc_type', ' cat_feature_arc') WHERE dv_querytext like'% arc_type%';

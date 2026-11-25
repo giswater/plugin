@@ -1,1 +1,2 @@
 - Synoptic views `v_synoptic_line_dwfzone` and `v_synoptic_point_dwfzone`. Lines are the border node joined to the zone polygon; the Sugiyama layout is not stored (#977).
+- `om_state` and `conserv_state` dropdown is 1 = Excellent through 5 = Critical (#am).

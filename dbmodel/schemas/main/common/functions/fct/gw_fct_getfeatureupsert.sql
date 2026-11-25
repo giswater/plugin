@@ -42,6 +42,7 @@ DECLARE
 v_table_id text;
 v_id text;
 v_reduced_geometry geometry;
+v_anchor geometry;
 v_device integer;
 v_info_type integer;
 v_tg_op text;
@@ -176,6 +177,22 @@ v_tablefeature text;
 v_toarc	integer;
 
 v_arc_count integer;
+
+-- Link insert preview. Same 0.01 m buffer and precedence as gw_trg_edit_link,
+-- so the form does not fall through to the first combo row (ARC).
+v_link_geom public.geometry;
+v_link_try integer;
+v_link_searchbuffer double precision := 0.01;
+v_link_feature_type text;
+v_link_feature_id text;
+v_link_exit_type text;
+v_link_exit_id text;
+v_link_connec_id text;
+v_link_gully_id text;
+v_link_arc_id text;
+v_link_node_id text;
+v_link_end_connec text;
+v_link_end_gully text;
 
 
 BEGIN
@@ -530,9 +547,14 @@ BEGIN
 		-- get flreg vdefaults (Node ID & to_arc)
 		IF upper(v_catfeature.feature_class) = 'FRELEM' THEN
 			
-			-- get node_id
-			SELECT node_id INTO v_node_id FROM ve_node WHERE ST_DWithin(ST_startpoint(v_reduced_geometry), ve_node.the_geom, v_arc_searchnodes)
-			ORDER BY ST_Distance(ve_node.the_geom, ST_startpoint(v_reduced_geometry)) LIMIT 1;
+			-- Point from the element button or from a node info form. A line still uses its start.
+			-- ST_StartPoint(point) is null, which is message 3694 with the node sitting under the click.
+			v_anchor := CASE
+				WHEN ST_GeometryType(v_reduced_geometry) = 'ST_LineString' THEN ST_StartPoint(v_reduced_geometry)
+				ELSE v_reduced_geometry
+			END;
+			SELECT node_id INTO v_node_id FROM ve_node WHERE ST_DWithin(v_anchor, ve_node.the_geom, v_arc_searchnodes)
+			ORDER BY ST_Distance(ve_node.the_geom, v_anchor) LIMIT 1;
 			if v_node_id is NULL THEN
 				SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
 				"data":{"message":"3694", "function":"2560","parameters":null, "is_process":true}}$$);
@@ -857,6 +879,114 @@ BEGIN
 				EXECUTE v_querystring INTO v_shape, v_geom1, v_geom2, v_matcat_id;
 			END IF;
 		END IF;
+
+		-- Orient the link the way gw_trg_edit_link will: connec/gully at the start, exit at the end.
+		IF v_reduced_geometry IS NOT NULL
+		   AND upper(v_catfeature.feature_type) = 'LINK'
+		   AND ST_GeometryType(v_reduced_geometry) = 'ST_LineString' THEN
+
+			v_link_geom := v_reduced_geometry;
+
+			FOR v_link_try IN 1..2 LOOP
+				v_link_connec_id := NULL;
+				v_link_gully_id := NULL;
+
+				SELECT connec_id::text INTO v_link_connec_id FROM connec
+				WHERE ST_DWithin(ST_StartPoint(v_link_geom), connec.the_geom, v_link_searchbuffer)
+				ORDER BY CASE WHEN state = 1 THEN 1 WHEN state = 2 THEN 2 WHEN state = 0 THEN 3 END,
+					ST_Distance(ST_StartPoint(v_link_geom), connec.the_geom)
+				LIMIT 1;
+
+				IF v_project_type = 'UD' AND v_link_connec_id IS NULL THEN
+					SELECT gully_id::text INTO v_link_gully_id FROM gully
+					WHERE ST_DWithin(ST_StartPoint(v_link_geom), gully.the_geom, v_link_searchbuffer)
+					ORDER BY CASE WHEN state = 1 THEN 1 WHEN state = 2 THEN 2 WHEN state = 0 THEN 3 END,
+						ST_Distance(ST_StartPoint(v_link_geom), gully.the_geom)
+					LIMIT 1;
+				END IF;
+
+				EXIT WHEN v_link_connec_id IS NOT NULL OR v_link_gully_id IS NOT NULL OR v_link_try = 2;
+				v_link_geom := ST_Reverse(v_link_geom);
+			END LOOP;
+
+			IF v_project_type = 'UD' THEN
+				SELECT gully_id::text INTO v_link_feature_id FROM ve_gully
+				WHERE ST_DWithin(ST_StartPoint(v_link_geom), ve_gully.the_geom, v_link_searchbuffer) AND state > 0
+				ORDER BY ST_Distance(ST_StartPoint(v_link_geom), ve_gully.the_geom)
+				LIMIT 1;
+				IF v_link_feature_id IS NOT NULL THEN
+					v_link_feature_type := 'GULLY';
+				END IF;
+			END IF;
+
+			SELECT connec_id::text INTO v_link_connec_id FROM ve_connec
+			WHERE ST_DWithin(ST_StartPoint(v_link_geom), ve_connec.the_geom, v_link_searchbuffer) AND state > 0
+			ORDER BY ST_Distance(ST_StartPoint(v_link_geom), ve_connec.the_geom)
+			LIMIT 1;
+			IF v_link_connec_id IS NOT NULL THEN
+				v_link_feature_id := v_link_connec_id;
+				v_link_feature_type := 'CONNEC';
+			END IF;
+
+			-- Obsolete origin, without touching selector_state (the trigger does that on save).
+			IF v_link_feature_type IS NULL THEN
+				IF v_project_type = 'UD' THEN
+					SELECT gully_id::text INTO v_link_feature_id FROM gully
+					WHERE ST_DWithin(ST_StartPoint(v_link_geom), gully.the_geom, v_link_searchbuffer) AND state = 0
+					ORDER BY ST_Distance(ST_StartPoint(v_link_geom), gully.the_geom)
+					LIMIT 1;
+					IF v_link_feature_id IS NOT NULL THEN
+						v_link_feature_type := 'GULLY';
+					END IF;
+				END IF;
+
+				SELECT connec_id::text INTO v_link_connec_id FROM connec
+				WHERE ST_DWithin(ST_StartPoint(v_link_geom), connec.the_geom, v_link_searchbuffer) AND state = 0
+				ORDER BY ST_Distance(ST_StartPoint(v_link_geom), connec.the_geom)
+				LIMIT 1;
+				IF v_link_connec_id IS NOT NULL THEN
+					v_link_feature_id := v_link_connec_id;
+					v_link_feature_type := 'CONNEC';
+				END IF;
+			END IF;
+
+			SELECT arc_id::text INTO v_link_arc_id FROM ve_arc
+			WHERE ST_DWithin(ST_EndPoint(v_link_geom), ve_arc.the_geom, v_link_searchbuffer) AND state > 0
+			ORDER BY ST_Distance(ST_EndPoint(v_link_geom), ve_arc.the_geom)
+			LIMIT 1;
+
+			SELECT node_id::text INTO v_link_node_id FROM ve_node
+			WHERE ST_DWithin(ST_EndPoint(v_link_geom), ve_node.the_geom, v_link_searchbuffer) AND state > 0
+			ORDER BY ST_Distance(ST_EndPoint(v_link_geom), ve_node.the_geom)
+			LIMIT 1;
+
+			SELECT connec_id::text INTO v_link_end_connec FROM ve_connec
+			WHERE ST_DWithin(ST_EndPoint(v_link_geom), ve_connec.the_geom, v_link_searchbuffer) AND state > 0
+			ORDER BY ST_Distance(ST_EndPoint(v_link_geom), ve_connec.the_geom)
+			LIMIT 1;
+
+			IF v_link_arc_id IS NOT NULL AND v_link_node_id IS NULL THEN
+				v_link_exit_id := v_link_arc_id;
+				v_link_exit_type := 'ARC';
+			ELSIF v_link_node_id IS NOT NULL THEN
+				v_link_exit_id := v_link_node_id;
+				v_link_exit_type := 'NODE';
+			ELSIF v_link_end_connec IS NOT NULL THEN
+				v_link_exit_id := v_link_end_connec;
+				v_link_exit_type := 'CONNEC';
+			END IF;
+
+			IF v_project_type = 'UD' THEN
+				SELECT gully_id::text INTO v_link_end_gully FROM ve_gully
+				WHERE ST_DWithin(ST_EndPoint(v_link_geom), ve_gully.the_geom, v_link_searchbuffer) AND state > 0
+				ORDER BY ST_Distance(ST_EndPoint(v_link_geom), ve_gully.the_geom)
+				LIMIT 1;
+				IF v_link_end_gully IS NOT NULL THEN
+					v_link_exit_id := v_link_end_gully;
+					v_link_exit_type := 'GULLY';
+				END IF;
+			END IF;
+		END IF;
 	END IF;
 
 	-- gettingf minvalue & maxvalues for widgetcontrols
@@ -1100,6 +1230,22 @@ BEGIN
 						IF v_node_id IS NOT NULL THEN
 							field_value = v_node_id;
 						END IF;
+					END IF;
+				WHEN 'feature_type' THEN
+					IF upper(v_catfeature.feature_type) = 'LINK' THEN
+						field_value = v_link_feature_type;
+					END IF;
+				WHEN 'feature_id' THEN
+					IF upper(v_catfeature.feature_type) = 'LINK' THEN
+						field_value = v_link_feature_id;
+					END IF;
+				WHEN 'exit_type' THEN
+					IF upper(v_catfeature.feature_type) = 'LINK' THEN
+						field_value = v_link_exit_type;
+					END IF;
+				WHEN 'exit_id' THEN
+					IF upper(v_catfeature.feature_type) = 'LINK' THEN
+						field_value = v_link_exit_id;
 					END IF;
 				-- rest (including addfields)
 				ELSE SELECT (a->>'vdef') INTO field_value FROM json_array_elements(v_values_array) AS a WHERE (a->>'param') = (aux_json->>'columnname');
