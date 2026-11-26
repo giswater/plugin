@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - EPA Result Manager warns before deleting a result that other results use as `parent_id`. Schema adds `rpt_cat_result.parent_id` → `result_id` (`ON DELETE SET NULL`); the plugin no longer clears `parent_id` itself.
 - Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` / `plan_netscenario_mapzone_graph` for mapzone synoptic layout (#965).
 - Synoptic layers `v_synoptic_line_<type>` and `v_synoptic_point_<type>` for scada, dma, sector, and the project-specific mapzones (ws: dqa, presszone, supplyzone; ud: dwfzone). SCADA geometry is the schematic `synoptic_geom` (SRID 0). Mapzone lines join the border node to the zone polygon; `flow_sign` keeps the direction (`1` node→zone, `-1` zone→node) (#977).
+- `gw_fct_getfeatures` applies `OFFSET (page - 1) * limit` from `pageInfo.page`. `lastPage` is `ceil(count / limit)`, the last 1-based page.
+- Change feature type rewrites `code` from the target `cat_feature`: `custom_code_autofill` clears it so the edit trigger regenerates it, `code_autofill` alone copies the feature id, and both false leaves the current code.
+- Arc fusion and arc divide give each new arc its own `code`. An explicit `data.code` wins on fusion; otherwise `custom_code_autofill` generates it and `code_autofill` copies the new `arc_id`. Both false leaves `code` null. On divide, `edit_arc_divide.setOldCode` still copies the parent `code` when `custom_code_autofill` is false.
+- System parameter `edit_element_geom_from_feature` (default false). When true, the first relation of an element with no geometry copies a point from the associated feature: the feature point for a node, connec or gully, and the midpoint of the line for an arc or link. Flow regulators (FRELEM) are excluded.
+- `exploitation.parent_id` (self-FK, #991). A child exploitation remaps feature `expl_id` to the parent and keeps the child in `expl_visibility`. Save is refused when the user has no permission on the parent via `vf_exploitation`.
+- User parameter `disable_qgis_selector_zoom` (default false). When true, `gw_fct_getselectors` returns an empty geometry, so the canvas does not move when the selector changes.
+- Publication (`publi`) syncs configured source tables through `config_publi_table` and `gw_fct_publi_sync` (`SECURITY DEFINER`, owned by `role_system`). New tables: `sys_metadata`, `sys_domain`, `sync_log`. `role_publi_read` can read the schema. Manage Schemas can link a ws/ud parent. `config_materialized_views` and `gw_fct_refresh_materialized_views` are deprecated (#1003).
 
 ### Removed
 
@@ -23,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `om_scada_graph.group_id` renamed to `synoptic_id`. Schematic layout moves from `attrib.synopticGeometry` to `synoptic_geom geometry(LineString, 0)`. `v_om_scada_graph` is recreated. `temp_pgr_mapzone_synoptic.group_id` is also `synoptic_id`; `mapzone_graph` has no `group_id` (#977).
+- `om_state` and `conserv_state` are 1 = Excellent through 5 = Critical. 4.17 stored the opposite labels, so existing grades change meaning. UD node, arc, connec and gully forms use the `om_state` combo; node and arc forms use the `conserv_state` combo.
+- AM reads and writes `conserv_state` / `om_state` as 1 = best, 5 = worst, and stops inverting those grades with `(6 - grade)`. Compliance is 1 = best, 10 = worst; stored values are rewritten with `11 - compliance`.
+- AM inventory views are renamed `ext_*_asset` to `v_ext_*_asset` (read-only) and input views `v_asset_*_input` to `ve_asset_*_input` (editable). `am.leaks` gains `feature_id` and `feature_type`.
 
 ### Fixed
 
@@ -42,6 +52,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UD `cat_link` recreated like UD `cat_arc` (`shape`/`geom1`..`geom8` instead of WS `pnom`/`dnom`/`dint`/`dext`); data migrated from `_cat_link_` (#969).
 - UD go2epa FIXED outfalls export `inp_outfall.stage`. The previous export wrote the node inventory state (#959).
 - Go2EPA manager: corporate toggle now works in UD projects (no `gw_fct_epa2data` there).
+- Hide `ve_element` from Add Layers and generated projects. `ve_man_genelem` and `ve_man_frelem` load in its place, unchecked, under INVENTORY / NETWORK / ELEMENT. Info on a generic element follows `ve_man_genelem`.
+- `gw_fct_workspacemanager` drops sector 0 (Undefined) from `selector_sector` before the snapshot and does not restore it. Saved `cat_workspace` sector arrays lose that 0 (#974).
+- Fid 377 D-W roughness range is 0.001 to 0.9 (#975). Fid 166 is an error.
+- `gw_fct_psector_merge` and `gw_fct_psector_duplicate` copy `plan_psector_x_other` onto the new psector. A shared `price_id` is one row and the measurements are summed (#994).
+- Show `observ` on the EPA-tab dscenario edit dialog (`ve_inp_dscenario_*`). 4.17.0 registered the field only on `inp_dscenario_*` (#995).
+- Create Demand Dscenario from CRM shows "Demand as DMA weight factor" again. When checked, each feature demand is its share of DMA billed volume. DATE_INTERVAL logs the date range (`sys_message` 4760) instead of the PERIOD combo value (#989).
+- A link takes `fluid_type` from its connec or gully. Moving or reconnecting a feature no longer copies `fluid_type` onto the connecs and gullies that drain into it (#997).
+- With `edit_connect_autoupdate_fluid`, editing a connec or gully takes `fluid_type` from its arc, and changing the arc pushes `fluid_type` to the connecs, gullies and links on that arc. Sample ws/ud sets the parameter to FALSE. `fluid_type` on link forms is not mandatory. Toolbox `Fluid type analysis` (`config_toolbox` 3424) is active (#1000).
+- On valve insert, and when `epa_type` changes to `VALVE`, `epa_valve_vdefault_*` is copied onto `inp_valve` as `valve_type`, `custom_dint`, `setting` and `minorloss`. `status` stays computed on `ve_inp_valve` (#998).
+- `edit_slope_direction` reverses a new arc from the node invert when the arc has no y/elev. `sys_slope` stays NULL in that case so the view keeps following the node (#996).
+- Seed `edit_insert_show_elevation_from_dem` on existing UD users. 4.9 removed it, so a new node form never filled `top_elev` from the DEM.
 
 ## [4.17.5] - 2026-10-06
 

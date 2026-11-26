@@ -1,0 +1,4 @@
+- Read and write conserv_state / om_state as 1 = best, 5 = worst. The same polarity as AWARE severity. Stop inverting those grades with (6 - grade). (#am)
+- Score compliance as 1 = best, 10 = worst. Sample defaults and the material trigger now insert 1, and stored grades are flipped from the old 10 = best scale. (#am)
+- `am.leaks` gains `feature_id` and `feature_type`. Assignation reads them; sample leaks leave them null and match spatially. (#am)
+- Rename inventory views `ext_*_asset` to `v_ext_*_asset` and input views `v_asset_*_input` to `ve_asset_*_input`. Parent `sys_table` and `sys_style` rows follow the new names. (#am)
