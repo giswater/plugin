@@ -292,7 +292,7 @@ BEGIN
 		-- LINK
 		--google maps style
 		IF (SELECT (value::json->>'google_maps')::boolean FROM config_param_system WHERE parameter='edit_custom_link') IS TRUE THEN
-			v_link=CONCAT ('https://www.google.com/maps/place/',(ST_Y(ST_transform(NEW.the_geom,4326))),'N+',(ST_X(ST_transform(NEW.the_geom,4326))),'E');
+			v_link=CONCAT ('https://www.google.com/maps/place/',(ST_Y(ST_transform(v_the_geom,4326))),'N+',(ST_X(ST_transform(v_the_geom,4326))),'E');
 		--fid style
 		ELSIF (SELECT (value::json->>'fid')::boolean FROM config_param_system WHERE parameter='edit_custom_link') IS TRUE THEN
 			v_link=v_id;
