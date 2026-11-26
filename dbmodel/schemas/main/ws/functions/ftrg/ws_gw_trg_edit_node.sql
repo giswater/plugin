@@ -896,7 +896,12 @@ BEGIN
 			INSERT INTO inp_valve (node_id, valve_type, custom_dint, setting, minorloss)
 			VALUES (NEW.node_id, v_epavdef ->>'valve_type', (v_epavdef ->>'custom_dint')::numeric,
 				(v_epavdef ->>'setting')::numeric, (v_epavdef ->>'minorloss')::numeric)
-			ON CONFLICT (node_id) DO NOTHING;
+			ON CONFLICT (node_id) DO UPDATE SET
+				valve_type = CASE WHEN inp_valve.valve_type IS NULL THEN EXCLUDED.valve_type ELSE inp_valve.valve_type END,
+				custom_dint = CASE WHEN inp_valve.custom_dint IS NULL THEN EXCLUDED.custom_dint ELSE inp_valve.custom_dint END,
+				setting = CASE WHEN inp_valve.setting IS NULL THEN EXCLUDED.setting ELSE inp_valve.setting END,
+				minorloss = CASE WHEN inp_valve.minorloss IS NULL THEN EXCLUDED.minorloss ELSE inp_valve.minorloss END
+				WHERE inp_valve.node_id = NEW.node_id;
 		    ELSIF v_inp_table IS NOT NULL THEN
 			v_sql:= 'INSERT INTO '||v_inp_table||' (node_id) VALUES ('||quote_literal(NEW.node_id)||') ON CONFLICT (node_id) DO NOTHING';
 			EXECUTE v_sql;
