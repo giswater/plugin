@@ -14,10 +14,32 @@ SET client_min_messages = warning;
 
 RESET ROLE;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_cibs') THEN
+    IF EXISTS (
+      SELECT 1 FROM pg_roles
+      WHERE rolname = current_user AND (rolsuper OR rolcreaterole)
+    ) THEN
+      CREATE ROLE role_cibs NOSUPERUSER INHERIT NOCREATEDB NOCREATEROLE NOREPLICATION;
+    ELSE
+      RAISE EXCEPTION
+        'role_cibs does not exist and % cannot CREATE ROLE. Run "gw db init" as a superuser first.',
+        current_user;
+    END IF;
+  END IF;
+
+  IF NOT pg_has_role('role_system', 'role_cibs', 'member') THEN
+    GRANT role_cibs TO role_system;
+  END IF;
+END
+$$;
+
 CREATE SCHEMA IF NOT EXISTS cibs AUTHORIZATION role_system;
 
 SET ROLE role_system;
 
 GRANT ALL ON SCHEMA cibs TO role_system;
 GRANT ALL ON SCHEMA cibs TO role_basic;
+GRANT ALL ON SCHEMA cibs TO role_cibs;
 ALTER DEFAULT PRIVILEGES IN SCHEMA cibs GRANT SELECT ON TABLES TO role_basic;
