@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.18.0] - 2026-11-26
+
 ### Added
 
 - Go2EPA dialog can set the result description (`rpt_cat_result.descript`) at creation time.
@@ -809,7 +811,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.17.8...main
+[unreleased]: https://github.com/giswater/plugin/compare/v4.18.0...main
+[4.18.0]: https://github.com/giswater/plugin/compare/v4.17.8...v4.18.0
 [4.17.8]: https://github.com/giswater/plugin/compare/v4.17.7...v4.17.8
 [4.17.7]: https://github.com/giswater/plugin/compare/v4.17.6...v4.17.7
 [4.17.6]: https://github.com/giswater/plugin/compare/v4.17.5...v4.17.6
