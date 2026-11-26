@@ -11,8 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Go2EPA dialog can set the result description (`rpt_cat_result.descript`) at creation time.
 - CMMS satellite integrated with each ws/ud parent. The feature info form gets `tab_cmms` (visits and attachments, linked by `sys_code`). Unlinking or dropping CMMS removes the tab and the views and keeps the cmms data.
-- Go2EPA stores the SHA-256 of the exported INP in `rpt_cat_result.addparam` (`inpSha256`), including recursive EPA runs. Existing `addparam` keys are kept.
-- EPA Result Manager warns before deleting a result that other results use as `parent_id`. Schema adds `rpt_cat_result.parent_id` → `result_id` (`ON DELETE SET NULL`); the plugin no longer clears `parent_id` itself.
 - Add `synoptic_id` and `synoptic_geom` to `mapzone_graph` / `plan_netscenario_mapzone_graph` for mapzone synoptic layout (#965).
 - Synoptic layers `v_synoptic_line_<type>` and `v_synoptic_point_<type>` for scada, dma, sector, and the project-specific mapzones (ws: dqa, presszone, supplyzone; ud: dwfzone). SCADA geometry is the schematic `synoptic_geom` (SRID 0). Mapzone lines join the border node to the zone polygon; `flow_sign` keeps the direction (`1` node→zone, `-1` zone→node) (#977).
 - `gw_fct_getfeatures` applies `OFFSET (page - 1) * limit` from `pageInfo.page`. `lastPage` is `ceil(count / limit)`, the last 1-based page.
@@ -36,12 +34,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Hide `ve_element` from Add Layers and generated projects. `ve_man_genelem` and `ve_man_frelem` load in its place, unchecked, under INVENTORY / NETWORK / ELEMENT. Info on a generic element follows `ve_man_genelem`.
+- `gw_fct_workspacemanager` drops sector 0 (Undefined) from `selector_sector` before the snapshot and does not restore it. Saved `cat_workspace` sector arrays lose that 0 (#974).
+- Fid 377 D-W roughness range is 0.001 to 0.9 (#975). Fid 166 is an error.
+- Create Demand Dscenario from CRM shows "Demand as DMA weight factor" again. When checked, each feature demand is its share of DMA billed volume. DATE_INTERVAL logs the date range (`sys_message` 4760) instead of the PERIOD combo value (#989).
+- On valve insert, and when `epa_type` changes to `VALVE`, `epa_valve_vdefault_*` is copied onto `inp_valve` as `valve_type`, `custom_dint`, `setting` and `minorloss`. `status` stays computed on `ve_inp_valve` (#998).
+- Seed `edit_insert_show_elevation_from_dem` on existing UD users. 4.9 removed it, so a new node form never filled `top_elev` from the DEM.
+- Info on a generic element follows the GenElement layer (`ve_man_genelem`). `config_info_layer` only had `ve_element` (hidden since 4.17.7) and `ve_man_frelem`, so a click on GenElement returned "No feature found".
+
+## [4.17.8] - 2026-11-24
+
+### Added
+
+- Arc insert form prefills node top elevations and `z1`/`z2` from the snapped nodes. `r1`/`r2` stay empty until the catalog section exists.
+
+### Changed
+
+- Check fid 166 is an error instead of a warning.
+- Toolbox `Fluid type analysis` (`config_toolbox` 3424) is active. `3492` stays inactive (#1000).
+- Sample projects set `edit_connect_autoupdate_fluid` to FALSE. Empty schemas keep TRUE (#1000).
+- `fluid_type` on link forms is not mandatory (#1000).
+- `cat_arc` form field `bulk` points at `thickness` (label `Thickness:`), so the arc-catalog column header follows the project language.
+
+### Fixed
+
+- UD `ve_arc` slope, `sys_y` and `z` use the same elevation as `sys_elev` (`custom_elev` / `elev`, then the node). The 4.17.0 fallback preferred the node invert, so a one-sided `y2` or `custom_elev2` moved `sys_elev2` and left slope unchanged. Slope is `numeric(12,4)` (#996).
+- Clearing `y1` or `y2` on an arc drops the matching arc invert, so `sys_*` falls back to the node. `edit_slope_direction` reverses a new arc from the node invert when the arc has no y/elev, and leaves `sys_slope` NULL so the view keeps following the node (#996).
+- UD fluid-type analysis follows interconnected connecs and gullies and updates when either the arc or the node changes. With `edit_connect_autoupdate_fluid`, editing a connec or gully takes `fluid_type` from its arc, and changing the arc pushes `fluid_type` to the connecs, gullies and links on that arc. Upstream features keep their own value (#997).
+- A link takes `fluid_type` from its connec or gully. Moving or reconnecting a feature no longer copies `fluid_type` onto the connecs and gullies that drain into it (#997).
+- `gw_fct_psector_merge` and `gw_fct_psector_duplicate` copy `plan_psector_x_other` onto the new psector (`observ`, `the_geom`, new `psector_id`). A shared `price_id` is one row and the measurements are summed. UD state-0 gully copy uses `gully_id` (#994).
+- Show `observ` on the EPA-tab dscenario edit dialog. 4.17.0 registered the field only on `inp_dscenario_*` forms; that tab edits `ve_inp_dscenario_*` (#995).
+- Create Demand Dscenario from CRM (`config_toolbox` 3110) shows "Demand as DMA weight factor" again. When checked, each feature demand is its share of DMA billed volume.
+- On valve insert and when `epa_type` changes to `VALVE`, `epa_valve_vdefault_*` is copied onto `inp_valve` (`valve_type`, `custom_dint`, `setting`, `minorloss`). `status` stays computed on `ve_inp_valve` (#998).
+- WS Go2EPA demand patterns compare `connec_id` as text, so a junction fed by a connec no longer fails with `integer = text`.
+- WS Go2EPA keeps an inlet `head` on the inlet `addparam`. An inlet with `head` is exported as a reservoir and that head fills `elev` / `top_elev`. Reservoirs with `head` still do the same.
+- New-link form fills `feature_type` and `exit_type` from the drawn endpoints. An empty combo no longer falls through to `ARC`.
+- Feature relations list links that exit on the node (`exit_type = NODE`).
+- Inserting a flow regulator (FRELEM) from a feature's info form passes the parent node. `gw_trg_edit_element` writes `element_x_node` and skips the geometry snap when `node_id` is set.
+- Info Apply stays in edit mode and does not ask to confirm. It re-reads the row, including autoupdate siblings (`sys_elev`, `z`, `y`), and skips widgets that come back without `value` so the refresh does not abort.
+- Arc insert catalog dimensions follow `feat_<id>_vdefault` only. Another `arccat_id` / `nodecat_id` default no longer fills `cat_geom*` while the catalog combo is empty. Apply re-reads the stored row.
+- New macrodma id is `max(positive id) + 1` (or 1 when none exist). The create dialog leaves the id read-only.
+- Feature insert stores a NULL `muni_id` as 0.
+- Mapzone graphconfig check messages match what the check counts.
+- `gw_fct_setfeaturereplaceplan` and `gw_fct_psector_merge` log lines go through `gw_fct_getmessage` (`sys_message` 4764-4788) so they follow the project language.
+- Plan-tab pjoint rows use `sys_message` 4790 (connec) and 4792 (gully) instead of a hardcoded English description.
+- SCADA graph node pick snaps to `ve_node`. The attribute table was leaving `v_om_scada_graph` as the current snap layer.
+- `gw_fct_getfeatures` paginates non-desktop devices with `OFFSET (page - 1) * limit`. `lastPage` is `ceil(count / limit)`.
+
+## [4.17.7] - 2026-11-11
+
+### Added
+
+- Go2EPA stores the SHA-256 of the exported INP in `rpt_cat_result.addparam` (`inpSha256`), including recursive EPA runs. Existing `addparam` keys are kept.
+- EPA Result Manager warns before deleting a result that other results use as `parent_id`. Schema adds `rpt_cat_result.parent_id` → `result_id` (`ON DELETE SET NULL`); the plugin no longer clears `parent_id` itself.
+
+### Fixed
+
 - Mincut postnumber autocomplete no longer fails when the street name contains an apostrophe.
 - Go2EPA result name field allows up to 50 characters to match `rpt_cat_result.result_id`.
 - go2epa Close button (`btn_close`) gets `widgetfunction` `closeDlg` for web / dynamic clients.
 - EPA Result Manager web list (`epa_results`): add `isvalidated` to the query and tableview, plus `btn_toggle_validated` (`toggleValidated`) in the top toolbar.
 - Expose `parent_id` on `v_ui_rpt_cat_result`.
 - `gw_fct_epa2data` fills `connec_add.demand_max/min/avg` (and matches `VN{link_id}` results); connec forms expose those fields (#990).
+
+## [4.17.6] - 2026-10-07
+
+### Fixed
+
 - Renaming a ws/ud schema updates the parent link stored by every satellite (utils, am, cm, cmms, cibs, publi, multilang), so utils updates and Manage Schemas keep pointing at the renamed parent.
 - End feature warns on the element or link tab when none of its layers are loaded, and disables the map and expression selection buttons on that tab.
 - Selecting or removing features that sit on more than one layer (element: `ve_man_genelem` and `ve_man_frelem`) refreshes every layer. Previously only the first layer's highlight updated until the map was moved.
@@ -52,17 +111,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UD `cat_link` recreated like UD `cat_arc` (`shape`/`geom1`..`geom8` instead of WS `pnom`/`dnom`/`dint`/`dext`); data migrated from `_cat_link_` (#969).
 - UD go2epa FIXED outfalls export `inp_outfall.stage`. The previous export wrote the node inventory state (#959).
 - Go2EPA manager: corporate toggle now works in UD projects (no `gw_fct_epa2data` there).
-- Hide `ve_element` from Add Layers and generated projects. `ve_man_genelem` and `ve_man_frelem` load in its place, unchecked, under INVENTORY / NETWORK / ELEMENT. Info on a generic element follows `ve_man_genelem`.
-- `gw_fct_workspacemanager` drops sector 0 (Undefined) from `selector_sector` before the snapshot and does not restore it. Saved `cat_workspace` sector arrays lose that 0 (#974).
-- Fid 377 D-W roughness range is 0.001 to 0.9 (#975). Fid 166 is an error.
-- `gw_fct_psector_merge` and `gw_fct_psector_duplicate` copy `plan_psector_x_other` onto the new psector. A shared `price_id` is one row and the measurements are summed (#994).
-- Show `observ` on the EPA-tab dscenario edit dialog (`ve_inp_dscenario_*`). 4.17.0 registered the field only on `inp_dscenario_*` (#995).
-- Create Demand Dscenario from CRM shows "Demand as DMA weight factor" again. When checked, each feature demand is its share of DMA billed volume. DATE_INTERVAL logs the date range (`sys_message` 4760) instead of the PERIOD combo value (#989).
-- A link takes `fluid_type` from its connec or gully. Moving or reconnecting a feature no longer copies `fluid_type` onto the connecs and gullies that drain into it (#997).
-- With `edit_connect_autoupdate_fluid`, editing a connec or gully takes `fluid_type` from its arc, and changing the arc pushes `fluid_type` to the connecs, gullies and links on that arc. Sample ws/ud sets the parameter to FALSE. `fluid_type` on link forms is not mandatory. Toolbox `Fluid type analysis` (`config_toolbox` 3424) is active (#1000).
-- On valve insert, and when `epa_type` changes to `VALVE`, `epa_valve_vdefault_*` is copied onto `inp_valve` as `valve_type`, `custom_dint`, `setting` and `minorloss`. `status` stays computed on `ve_inp_valve` (#998).
-- `edit_slope_direction` reverses a new arc from the node invert when the arc has no y/elev. `sys_slope` stays NULL in that case so the view keeps following the node (#996).
-- Seed `edit_insert_show_elevation_from_dem` on existing UD users. 4.9 removed it, so a new node form never filled `top_elev` from the DEM.
 
 ## [4.17.5] - 2026-10-06
 
@@ -761,7 +809,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Form change detection and caching improvements.
 - Large-scale flake8 and typing standardization.
 
-[unreleased]: https://github.com/giswater/plugin/compare/v4.17.5...main
+[unreleased]: https://github.com/giswater/plugin/compare/v4.17.8...main
+[4.17.8]: https://github.com/giswater/plugin/compare/v4.17.7...v4.17.8
+[4.17.7]: https://github.com/giswater/plugin/compare/v4.17.6...v4.17.7
+[4.17.6]: https://github.com/giswater/plugin/compare/v4.17.5...v4.17.6
 [4.17.5]: https://github.com/giswater/plugin/compare/v4.17.4...v4.17.5
 [4.17.4]: https://github.com/giswater/plugin/compare/v4.17.3...v4.17.4
 [4.17.3]: https://github.com/giswater/plugin/compare/v4.17.2...v4.17.3
