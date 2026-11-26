@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - System parameter `edit_element_geom_from_feature` (default false). When true, the first relation of an element with no geometry copies a point from the associated feature: the feature point for a node, connec or gully, and the midpoint of the line for an arc or link. Flow regulators (FRELEM) are excluded.
 - `exploitation.parent_id` (self-FK, #991). A child exploitation remaps feature `expl_id` to the parent and keeps the child in `expl_visibility`. Save is refused when the user has no permission on the parent via `vf_exploitation`.
 - User parameter `disable_qgis_selector_zoom` (default false). When true, `gw_fct_getselectors` returns an empty geometry, so the canvas does not move when the selector changes.
-- Publication (`publi`) syncs configured source tables through `config_publi_table` and `gw_fct_publi_sync` (`SECURITY DEFINER`, owned by `role_system`). New tables: `sys_metadata`, `sys_domain`, `sync_log`. `role_publi_read` can read the schema. Manage Schemas can link a ws/ud parent. `config_materialized_views` and `gw_fct_refresh_materialized_views` are deprecated (#1003).
+- Publication (`publi`) syncs configured source tables through `config_publi_table` and `gw_fct_publi_sync` (`SECURITY DEFINER`, owned by `role_system`). New tables: `sys_metadata`, `sys_domain`, `sync_log`. `role_addon_publi_read` can read the schema. Manage Schemas can link a ws/ud parent. `config_materialized_views` and `gw_fct_refresh_materialized_views` are deprecated (#1003).
 
 ### Removed
 

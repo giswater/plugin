@@ -25,7 +25,7 @@ DECLARE
     v_source_columns TEXT;
     v_dest_columns TEXT;
     v_user_role_name TEXT;
-    v_field_role_name TEXT := 'role_cm_field';
+    v_field_role_name TEXT := 'role_addon_cm_field';
     v_prev_search_path text;
 	v_isqfield BOOLEAN;
 	v_campaign_id TEXT;
@@ -45,9 +45,9 @@ BEGIN
             SELECT rolname INTO v_user_role_name 
             FROM pg_user u JOIN pg_auth_members m ON (m.member = u.usesysid) 
             JOIN pg_roles r ON (r.oid = m.roleid)
-            WHERE u.usename = current_user and rolname = 'role_cm_field';
+            WHERE u.usename = current_user and rolname = 'role_addon_cm_field';
 
-            -- Only proceed if the user's role is 'role_cm_field'
+            -- Only proceed if the user's role is 'role_addon_cm_field'
             --IF v_user_role_name = v_field_role_name THEN
 				EXECUTE format('SELECT ($1).%I < 0', v_feature_id_column)
 			        INTO v_isqfield

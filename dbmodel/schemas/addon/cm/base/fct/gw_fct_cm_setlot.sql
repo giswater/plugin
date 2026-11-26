@@ -52,8 +52,8 @@ BEGIN
 	    v_sql = 'INSERT INTO selector_lot (lot_id, cur_user)
 	    select coalesce('|| v_existing_id ||','|| v_record.lot_id ||'), username from cat_user
 	    join cat_team using (team_id) 
-		where (role_id=''role_cm_manager'' and organization_id = '|| v_organization||')
-		OR (role_id=''role_cm_admin'') or (role_id=''role_cm_field'' and organization_id = '|| v_organization||'
+		where (role_id=''role_addon_cm_manager'' and organization_id = '|| v_organization||')
+		OR (role_id=''role_addon_cm_admin'') or (role_id=''role_addon_cm_field'' and organization_id = '|| v_organization||'
 		and team_id = '||v_team||')
 	    ON CONFLICT DO NOTHING;';
 

@@ -52,7 +52,7 @@ BEGIN
 	    )
 	    INTO v_result
 	    FROM cm.cat_team AS ct
-	    WHERE ct.role_id <> 'role_cm_admin'; -- ASSUMED
+	    WHERE ct.role_id <> 'role_addon_cm_admin'; -- ASSUMED
 	ELSE
 		-- Return teams that match the criteria
 	    SELECT json_build_object(
@@ -68,7 +68,7 @@ BEGIN
 	    FROM cm.cat_team AS ct
 	    JOIN cm.om_campaign AS oc ON ct.organization_id = oc.organization_id
 	    WHERE oc.campaign_id = v_campaign_id
-	   	AND ct.role_id = 'role_cm_field'; -- ASSUMED
+	   	AND ct.role_id = 'role_addon_cm_field'; -- ASSUMED
      END IF;
 
      RAISE NOTICE 'v_result->: %', v_result->'body'->'data';

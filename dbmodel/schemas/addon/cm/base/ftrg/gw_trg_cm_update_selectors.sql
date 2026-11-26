@@ -30,7 +30,7 @@ BEGIN
 				FROM om_campaign oc
 				JOIN cat_team ct ON ct.organization_id = oc.organization_id
 				JOIN cat_user cu USING(team_id)
-				WHERE ct.role_id IN ('role_cm_admin', 'role_cm_manager')
+				WHERE ct.role_id IN ('role_addon_cm_admin', 'role_addon_cm_manager')
 				AND oc.campaign_id = NEW.campaign_id
 		    LOOP
 		        INSERT INTO selector_campaign (campaign_id, cur_user)
@@ -53,7 +53,7 @@ BEGIN
 					FROM om_campaign oc
 					JOIN cat_team ct ON ct.organization_id = oc.organization_id
 					JOIN cat_user cu USING(team_id)
-					WHERE ct.role_id IN ('role_cm_admin', 'role_cm_manager')
+					WHERE ct.role_id IN ('role_addon_cm_admin', 'role_addon_cm_manager')
 					AND oc.campaign_id = NEW.campaign_id
 			    LOOP
 			        INSERT INTO selector_campaign (campaign_id, cur_user)
@@ -83,9 +83,9 @@ BEGIN
 				FROM om_campaign oc
 				JOIN cat_team ct ON ct.organization_id = oc.organization_id
 				JOIN cat_user cu USING(team_id)
-				WHERE ct.role_id = 'role_cm_admin'
-				   OR (ct.role_id = 'role_cm_manager')
-				   OR (ct.role_id = 'role_cm_field' AND ct.team_id = NEW.team_id)
+				WHERE ct.role_id = 'role_addon_cm_admin'
+				   OR (ct.role_id = 'role_addon_cm_manager')
+				   OR (ct.role_id = 'role_addon_cm_field' AND ct.team_id = NEW.team_id)
 				AND oc.campaign_id = NEW.campaign_id
 		    LOOP
 		        INSERT INTO selector_lot (lot_id, cur_user)
@@ -108,9 +108,9 @@ BEGIN
 					FROM om_campaign oc
 					JOIN cat_team ct ON ct.organization_id = oc.organization_id
 					JOIN cat_user cu USING(team_id)
-					WHERE ct.role_id = 'role_cm_admin'
-					   OR (ct.role_id = 'role_cm_manager')
-					   OR (ct.role_id = 'role_cm_field' AND ct.team_id = NEW.team_id)
+					WHERE ct.role_id = 'role_addon_cm_admin'
+					   OR (ct.role_id = 'role_addon_cm_manager')
+					   OR (ct.role_id = 'role_addon_cm_field' AND ct.team_id = NEW.team_id)
 					AND oc.campaign_id = NEW.campaign_id
 			    LOOP
 			        INSERT INTO selector_lot (lot_id, cur_user)

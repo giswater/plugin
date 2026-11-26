@@ -784,7 +784,7 @@ BEGIN
 	WHERE u.rolname = current_user AND r.rolname ILIKE '%cm%';
 
 	-- Proceed only if a lot is selected and the user has the correct role
-	IF v_lot_id IS NOT NULL AND v_current_role IN ('role_cm_org', 'role_cm_admin') THEN
+	IF v_lot_id IS NOT NULL AND v_current_role IN ('role_cm_org', 'role_addon_cm_admin') THEN
 
 		-- Determine which qindex column to update
 		IF v_current_role = 'role_cm_org' THEN
@@ -945,7 +945,7 @@ BEGIN
 	-- ENDSECTION
 
 	-- SECTION[epic=qindex_campaign]: Calculate and update qindex values for campaign based on combo fields with value 0
-	IF v_campaign_id IS NOT NULL AND v_current_role IN ('role_cm_org', 'role_cm_admin') THEN
+	IF v_campaign_id IS NOT NULL AND v_current_role IN ('role_cm_org', 'role_addon_cm_admin') THEN
 
 		-- Determine which qindex column to update
 		IF v_current_role = 'role_cm_org' THEN
@@ -1223,7 +1223,7 @@ BEGIN
             v_avg_q2_text := CASE WHEN v_avg_q2_val IS NOT NULL THEN round(v_avg_q2_val, 2)::text ELSE 'NULL' END;
 
             -- If current user is admin, set campaign rating from qindex2 using config_qindex_rating
-            IF v_current_role = 'role_cm_admin' AND v_avg_q2_val IS NOT NULL THEN
+            IF v_current_role = 'role_addon_cm_admin' AND v_avg_q2_val IS NOT NULL THEN
                 SELECT id INTO v_rating_id
                 FROM cm.config_qindex_rating
                 WHERE (minval IS NULL OR v_avg_q2_val >= minval)

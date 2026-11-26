@@ -183,7 +183,7 @@ class GwSelector:
             if filter and tab_name != str(current_tab):
                 continue
 
-            # Hide tab_lot for role_cm_edit
+            # Hide tab_lot for role_addon_cm_edit
             if selector_type == 'selector_campaign' and tab_name == 'tab_lot' and not show_lot_tab:
                 continue
 

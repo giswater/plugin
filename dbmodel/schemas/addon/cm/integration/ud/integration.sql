@@ -23,8 +23,8 @@ SELECT
 FROM cm.doc_x_gully
 JOIN cm.doc ON doc.id::text = doc_x_gully.doc_id::text;
 
-GRANT ALL ON TABLE v_ui_doc_x_gully TO role_cm_manager;
-GRANT ALL ON TABLE v_ui_doc_x_gully TO role_cm_field;
+GRANT ALL ON TABLE v_ui_doc_x_gully TO role_addon_cm_manager;
+GRANT ALL ON TABLE v_ui_doc_x_gully TO role_addon_cm_field;
 
 
 

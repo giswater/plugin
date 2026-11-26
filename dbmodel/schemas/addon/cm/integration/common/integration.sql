@@ -49,7 +49,7 @@ BEGIN
         tbl_name || '_lot_id_fkey'
       );
 
-      EXECUTE format('GRANT ALL ON TABLE %s TO role_cm_field', tbl_name);
+      EXECUTE format('GRANT ALL ON TABLE %s TO role_addon_cm_field', tbl_name);
 
     END LOOP;
 
@@ -96,8 +96,8 @@ BEGIN
       lower(rec.feature_type)
       );
 
-      EXECUTE format('GRANT ALL ON TABLE %s TO role_cm_field', view_name);
-      EXECUTE format('GRANT ALL ON TABLE %s TO role_cm_manager', view_name);
+      EXECUTE format('GRANT ALL ON TABLE %s TO role_addon_cm_field', view_name);
+      EXECUTE format('GRANT ALL ON TABLE %s TO role_addon_cm_manager', view_name);
 
     END LOOP;
 
@@ -331,8 +331,8 @@ BEGIN
     END IF;
     
     -- Grant permissions
-    EXECUTE format('GRANT ALL ON TABLE cm.%I TO role_cm_manager', view_name);
-    EXECUTE format('GRANT ALL ON TABLE cm.%I TO role_cm_field', view_name);
+    EXECUTE format('GRANT ALL ON TABLE cm.%I TO role_addon_cm_manager', view_name);
+    EXECUTE format('GRANT ALL ON TABLE cm.%I TO role_addon_cm_field', view_name);
     
     -- Create trigger (passes feature_type and featurecat_id as TG_ARGV[0] and TG_ARGV[1])
     trigger_name := format('gw_trg_ui_doc_x_%s', lower(rec.id));

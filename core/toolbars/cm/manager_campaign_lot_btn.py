@@ -28,10 +28,10 @@ class GwManageCampaignLotButton(GwAction):
 
         # Conditionally remove menu options based on user role
         cm_roles = tools_gw.get_cm_user_role()
-        is_cm_admin = tools_db.check_role_user('role_cm_admin')
+        is_cm_admin = tools_db.check_role_user('role_addon_cm_admin')
         if cm_roles:
             cm_role_list = list(cm_roles)
-            if 'role_cm_edit' in cm_role_list:
+            if 'role_addon_cm_edit' in cm_role_list:
                 self.actions.remove(tools_qt.tr('Manage Lot'))
         if not is_cm_admin:
             self.actions.remove(tools_qt.tr('Manage Campaign'))

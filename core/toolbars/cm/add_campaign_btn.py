@@ -24,10 +24,10 @@ class GwAddCampaignButton(GwAction):
 
         # Check user role
         roles = tools_gw.get_cm_user_role()
-        is_cm_edit_role = roles and 'role_cm_edit' in list(roles)
+        is_cm_edit_role = roles and 'role_addon_cm_edit' in list(roles)
 
         if is_cm_edit_role:
-            # For 'role_cm_edit', the button directly creates an 'inventory' campaign
+            # For 'role_addon_cm_edit', the button directly creates an 'inventory' campaign
             self.action.triggered.connect(lambda: self.clicked_event(tools_qt.tr("Inventory")))
             if toolbar is not None:
                 toolbar.addAction(self.action)

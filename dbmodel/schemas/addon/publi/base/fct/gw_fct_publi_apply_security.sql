@@ -15,7 +15,7 @@ SELECT publi.gw_fct_publi_apply_security($${"data":{"configId":1}}$$);
 Internal step of gw_fct_publi_sync: raises on error. Idempotent: only creates what is missing.
   - primary key from config_publi_table.pk_columns
   - one GIST index per geometry / geography column
-  - SELECT for role_publi_read
+  - SELECT for role_addon_publi_read
   - RLS (ENABLE + FORCE) with policy publi_rls on expl_id / sector_id (scalar: = ANY, array as in mapzones: &&)
     through <source_schema>.cat_manager
     (via gw_fct_publi_user_ids), and policy publi_owner so the table owner (the sync role) can still write
@@ -67,10 +67,10 @@ BEGIN
 	END LOOP;
 
 	-- read role
-	IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_publi_read') THEN
-		EXECUTE format('GRANT SELECT ON publi.%I TO role_publi_read', v_cfg.target_name);
+	IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_addon_publi_read') THEN
+		EXECUTE format('GRANT SELECT ON publi.%I TO role_addon_publi_read', v_cfg.target_name);
 	ELSE
-		v_warnings := v_warnings || to_jsonb('role_publi_read does not exist, no grant'::text);
+		v_warnings := v_warnings || to_jsonb('role_addon_publi_read does not exist, no grant'::text);
 	END IF;
 
 	-- row level security

@@ -69,12 +69,12 @@ CREATE INDEX IF NOT EXISTS sync_log_target_tstamp_idx ON sync_log (target_name, 
 
 DO $role$
 BEGIN
-	IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_publi_read') THEN
-		CREATE ROLE role_publi_read NOLOGIN;
+	IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_addon_publi_read') THEN
+		CREATE ROLE role_addon_publi_read NOLOGIN;
 	END IF;
-	EXECUTE 'GRANT USAGE ON SCHEMA publi TO role_publi_read';
+	EXECUTE 'GRANT USAGE ON SCHEMA publi TO role_addon_publi_read';
 EXCEPTION WHEN insufficient_privilege THEN
-	RAISE WARNING 'role_publi_read not created (insufficient privilege); create it manually and grant USAGE on schema publi';
+	RAISE WARNING 'role_addon_publi_read not created (insufficient privilege); create it manually and grant USAGE on schema publi';
 END
 $role$;
 
