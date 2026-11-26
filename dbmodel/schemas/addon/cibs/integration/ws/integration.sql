@@ -15,6 +15,8 @@ ALTER TABLE IF EXISTS ext_cat_hydrometer_category RENAME TO ext_cat_hydrometer_c
 ALTER TABLE IF EXISTS ext_cat_hydrometer_state RENAME TO ext_cat_hydrometer_state_old;
 ALTER TABLE IF EXISTS ext_hydrometer RENAME TO ext_hydrometer_old;
 ALTER TABLE IF EXISTS ext_hydrometer_period RENAME TO ext_hydrometer_period_old;
+ALTER TABLE IF EXISTS ext_cat_period_type RENAME TO ext_cat_period_type_old;
+ALTER TABLE IF EXISTS ext_cat_period RENAME TO ext_cat_period_old;
 
 ALTER TABLE om_mincut_hydrometer DROP CONSTRAINT IF EXISTS om_mincut_hydrometer_hydrometer_id_fkey;
 ALTER TABLE om_mincut_hydrometer ADD CONSTRAINT om_mincut_hydrometer_hydrometer_id_fkey
