@@ -98,6 +98,22 @@ Compatible with Windows, Mac, and Linux OS.
   role_crm   (standalone)
   ```
 
+  **Role prefixes** (`role_zone_`, `role_addon_`, `role_kit_`) are part of the same standard, next to the roles above and the per-schema roles (`role_ws`, `role_ud`, …). The prefix says what the role is for and what it may contain.
+
+  | Prefix | Level | Purpose | Example |
+  |--------|-------|---------|---------|
+  | `role_zone_<name>` | 25 | **Visibility.** Which zone of the network a person sees. | `role_zone_requena` ⊂ `role_zone_levante` ⊂ `role_zone_general` |
+  | `role_addon_<name>` | 26 | **Addon permissions.** One role per addon, or per profile inside an addon. | `role_addon_cm_field` ⊂ `role_addon_cm_manager` |
+  | `role_kit_<name>` | 31 | **Role package.** Bundles roles of any level so they can be granted together. | `role_kit_ops` ⊂ `role_kit_ops_lead` |
+
+  - Creating the role and its memberships does not insert `cat_manager` rows and does not `GRANT` on tables. That stays with the DBA. A `role_zone_*` or `role_addon_*` is born empty.
+  - Each level inherits only inside itself (the wider role includes the narrower one). Only kits cross levels.
+  - A person can hold loose roles and kits at the same time.
+  - `role_zone_*` exists so Giswater can filter by zone. The role alone grants no visibility; the DBA maintains the `cat_manager` rows that bind it to a zone.
+  - `role_addon_*` carries no table privileges. The addon or the DBA defines the `GRANT`s.
+  - A kit may contain basic, zone and addon roles, and other kits (for example `role_kit_ops_lead` = `role_edit` + a zone + an addon). A kit **never** includes `role_system`.
+  - `role_system` owns the project: it inherits `role_admin` and the schema roles. It may be granted to one or two people at most (whoever administers the project). It is not renamed, and it cannot be a member of a kit.
+
   **Installer requirements:** `gw db init` must run as a PostgreSQL superuser (extensions, roles, `GRANT CREATE ON DATABASE … TO role_system`). After that, schema create/update/drop can run as that superuser **or** as a login granted `role_system`. `init.sql` creates the schema `AUTHORIZATION role_system` and `SET ROLE role_system` for base DDL; later phases (updates, sample) run as the installer login. Drop/rename still `SET ROLE role_system` because the schema is owned by that role. Restrictive object grants are applied by [`gw_fct_admin_role_permissions`](dbmodel/schemas/main/common/base/fct/gw_fct_admin_role_permissions.sql).
 
   **Manual bootstrap** (only if you must prepare roles before the first schema build, e.g. restricted DBA workflow):
