@@ -98,7 +98,7 @@ BEGIN
 		n2.link_id AS l2, 
 		n2.vnode_id AS v2 
 	FROM temp_link n1
-	JOIN temp_link n2 ON st_dwithin(n1.the_geom_endpoint, n2.the_geom_endpoint, 0.02)
+	JOIN temp_link n2 ON st_dwithin(n1.the_geom_endpoint, n2.the_geom_endpoint, v_tolerance)
 	WHERE n1.link_id < n2.link_id AND n1.exit_id = n2.exit_id
 	ORDER BY 1;
 
@@ -128,14 +128,14 @@ BEGIN
 			n2.node_id::integer,
 			n2.node_id::integer
 		FROM temp_link n1
-		JOIN %I n2 ON ST_DWithin(n1.the_geom_endpoint, n2.the_geom, 0.01)
+		JOIN %I n2 ON ST_DWithin(n1.the_geom_endpoint, n2.the_geom, $1)
 		JOIN arc a ON n2.node_id::integer = a.node_1::integer
 		WHERE a.arc_id = n1.exit_id::integer
 		AND n1.exit_type = 'ARC'
 		ORDER BY 3;
 	$sql$, v_temp_node_table); 
 
-	EXECUTE v_query_text;
+	EXECUTE v_query_text USING v_tolerance;
 
 	v_query_text := format($sql$
 		INSERT INTO temp_vnode (l1, v1, l2, v2)
@@ -145,14 +145,14 @@ BEGIN
 			n2.node_id::integer,
 			n2.node_id::integer
 		FROM temp_link n1
-		JOIN %I n2 ON ST_DWithin(n1.the_geom_endpoint, n2.the_geom, 0.01)
+		JOIN %I n2 ON ST_DWithin(n1.the_geom_endpoint, n2.the_geom, $1)
 		JOIN arc a ON n2.node_id::integer = a.node_2::integer
 		WHERE a.arc_id = n1.exit_id::integer
 		AND n1.exit_type = 'ARC'
 		ORDER BY 3;
 	$sql$, v_temp_node_table); 
 
-	EXECUTE v_query_text;
+	EXECUTE v_query_text USING v_tolerance;
 
 	-- harmonize those links with same endpoint whith node
 	UPDATE temp_link a 
