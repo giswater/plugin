@@ -59,7 +59,6 @@ DECLARE
 	v_mid text;
 	v_end text;
 	v_nodes integer[];
-	v_i json;
 	v_hs float;
 	v_vs float;
 	v_arc json;
@@ -114,14 +113,16 @@ DECLARE
 	v_slope text;
 	v_elev1 text;
 	v_elev2 text;
+	v_node_top_elev1 text;
+	v_node_top_elev2 text;
 	v_z1 text;
 	v_z2 text;
 	v_y1 text;
 	v_y2 text;
+	v_omunit_id text;
 	--temp_anl_node
-	v_fymax text;
-	v_fsysymax text;
-	v_fsyselev text;
+	v_ymax text;
+	v_node_elev text;
 
 	v_querytext text;
 	v_papersize integer;
@@ -234,24 +235,58 @@ BEGIN
 	CREATE INDEX IF NOT EXISTS temp_pgr_dijkstra_node_idx ON temp_pgr_dijkstra USING btree (node);
 	CREATE INDEX IF NOT EXISTS temp_pgr_dijkstra_edge_idx ON temp_pgr_dijkstra USING btree (edge);
 
-	CREATE TEMP TABLE temp_anl_arc(LIKE SCHEMA_NAME.anl_arc INCLUDING ALL);
-	ALTER TABLE temp_anl_arc
-	ALTER COLUMN arc_id TYPE int4
-	USING arc_id::int4;
-	ALTER TABLE temp_anl_arc
-	ALTER COLUMN node_1 TYPE int4
-	USING node_1::int4;
-	ALTER TABLE temp_anl_arc
-	ALTER COLUMN node_2 TYPE int4
-	USING node_2::int4;
+	CREATE TEMP TABLE temp_anl_arc (
+		id serial PRIMARY KEY,
+		arc_id integer,
+		code text,
+		reversed boolean,
+		node_1 integer,
+		node_2 integer,
+		sys_type text,
+		arccat_id text,
+		cat_geom1 numeric(12,4),
+		length numeric(12,3),
+		total_length numeric(12,3),
+		slope numeric(12,4),
+		z1 numeric(12,3),
+		z2 numeric(12,3),
+		y1 numeric(12,3),
+		y2 numeric(12,3),
+		elev1 numeric(12,3),
+		elev2 numeric(12,3),
+		top_elev1 numeric(12,3),
+		top_elev2 numeric(12,3),
+		expl_id integer,
+		omunit_id integer,
+		the_geom geometry(LineString, SRID_VALUE),
+		descript text
+	);
+	CREATE INDEX IF NOT EXISTS temp_anl_arc_arc_id ON temp_anl_arc USING btree (arc_id);
+	CREATE INDEX IF NOT EXISTS temp_anl_arc_node_1 ON temp_anl_arc USING btree (node_1);
+	CREATE INDEX IF NOT EXISTS temp_anl_arc_node_2 ON temp_anl_arc USING btree (node_2);
 
-	CREATE TEMP TABLE temp_anl_node(LIKE SCHEMA_NAME.anl_node INCLUDING ALL);
-	ALTER TABLE temp_anl_node
-	ALTER COLUMN node_id TYPE int4
-	USING node_id::int4;
-	ALTER TABLE temp_anl_node
-	ALTER COLUMN arc_id TYPE int4
-	USING arc_id::int4;
+	CREATE TEMP TABLE temp_anl_node (
+		id serial PRIMARY KEY,
+		node_id integer,
+		code text,
+		sys_type text,
+		nodecat_id text,
+		top_elev numeric(12,3),
+		ymax numeric(12,3),
+		elev numeric(12,3),
+		cat_geom1 numeric(12,4),
+		arc_id integer,
+		arc_distance numeric(12,3),
+		total_distance numeric(12,3),
+		expl_id integer,
+		the_geom geometry(Point, SRID_VALUE),
+		descript text,
+		result_id text
+	);
+	CREATE INDEX IF NOT EXISTS temp_anl_node_arc_id ON temp_anl_node USING btree (arc_id);
+	CREATE INDEX IF NOT EXISTS temp_anl_node_index ON temp_anl_node USING gist (the_geom);
+	CREATE INDEX IF NOT EXISTS temp_anl_node_node_id_index ON temp_anl_node USING btree (node_id);
+
 
 	-- set value to v_linksdistance if null
 	IF v_linksdistance IS NULL OR v_linksdistance < 0 THEN
@@ -334,197 +369,136 @@ BEGIN
 		-- filter edge = -1 marks intermediate nodes in dijkstra table
 		IF v_project_type = 'UD' THEN
 			v_cat_geom1 := 'a.cat_geom1';
-			v_slope := 'CASE WHEN d.pred = a.node_1 THEN a.slope ELSE -a.slope END';
-			v_z1 := 'CASE WHEN d.pred = a.node_1 THEN a.z1  ELSE a.z2 END';
-			v_z2 := 'CASE WHEN d.pred = a.node_1 THEN a.z2  ELSE a.z1 END';
-			v_y1 := 'CASE WHEN d.pred = a.node_1 THEN a.sys_y1  ELSE a.sys_y2 END';
-			v_y2 := 'CASE WHEN d.pred = a.node_1 THEN a.sys_y2  ELSE a.sys_y1 END';
-			v_elev1 := 'CASE WHEN d.pred = a.node_1 THEN a.sys_elev1  ELSE a.sys_elev2 END';
-			v_elev2 := 'CASE WHEN d.pred = a.node_1 THEN a.sys_elev2  ELSE a.sys_elev1 END';
+			v_slope := 'a.slope';
+			v_z1 := 'a.z1';
+			v_z2 := 'a.z2';
+			v_y1 := 'a.sys_y1';
+			v_y2 := 'a.sys_y2';
+			v_elev1 := 'a.sys_elev1';
+			v_elev2 := 'a.sys_elev2';
+			v_node_top_elev1 := 'a.node_sys_top_elev_1';
+			v_node_top_elev2 := 'a.node_sys_top_elev_2';
+			v_omunit_id := 'a.omunit_id';
 
 		ELSIF v_project_type = 'WS' THEN
 			v_cat_geom1 := 'a.cat_dnom::float * 0.001';
-			v_slope := '
-				CASE 
-				WHEN d.pred = a.node_1 THEN 100*(a.elevation2 - a.depth2 - a.elevation1 + a.depth1)/a.gis_length 
-				ELSE 100*(a.elevation1 - a.depth1 - a.elevation2 + a.depth2)/a.gis_length
-				END';
-			v_z1 := '0::integer';
-			v_z2 := '0::integer';
-			v_y1 := 'CASE WHEN d.pred = a.node_1 THEN a.depth1  ELSE a.depth2 END';
-			v_y2 := 'CASE WHEN d.pred = a.node_1 THEN a.depth2  ELSE a.depth1 END';
-			v_elev1 := 'CASE WHEN d.pred = a.node_1 THEN a.elevation1 - a.depth1 ELSE a.elevation2 - a.depth2 END';
-			v_elev2 := 'CASE WHEN d.pred = a.node_1 THEN a.elevation2 - a.depth2 ELSE a.elevation1 - a.depth1 END';
+			v_slope := '((a.elevation1 - a.depth1) - (a.elevation2 - a.depth2))/a.gis_length';
+			v_z1 := '0';
+			v_z2 := '0';
+			v_y1 := 'a.depth1';
+			v_y2 := 'a.depth2';
+			v_elev1 := 'a.elevation1 - a.depth1';
+			v_elev2 := 'a.elevation2 - a.depth2';
+			v_node_top_elev1 := 'a.elevation1';
+			v_node_top_elev2 := 'a.elevation2';
+			v_omunit_id := 'NULL';
 
 		END IF;
 
-		IF v_project_type = 'UD' THEN
-			EXECUTE format($sql$
-				WITH dijkstra AS (
-					SELECT 
-						seq,
-						node,
-						LAG(node) OVER (ORDER BY seq) AS pred,
-						cost,
-						route_agg_cost
-					FROM temp_pgr_dijkstra
-					WHERE edge <> -1
-				)
-				INSERT INTO temp_anl_arc (
-					fid,
-					arc_id,
-					code,
-					node_1,
-					node_2,
-					sys_type,
-					arccat_id,
-					cat_geom1,
-					length,
-					slope,
-					z1,
-					z2,
-					y1,
-					y2,
-					elev1,
-					elev2,
-					expl_id,
-					omunit_id,
-					the_geom,
-					total_length
-				)
-				SELECT 
-					222 AS fid,
-					a.arc_id,
-					COALESCE(a.code, a.arc_id::varchar),
-					d.pred AS node_1,
-					CASE 
-						WHEN d.pred = a.node_1 
-						THEN a.node_2 
-						ELSE a.node_1 
-					END AS node_2,
-					a.sys_type,
-					a.arccat_id,
-					%s AS cat_geom1,
-					a.gis_length AS length,
-					%s AS slope,
-					%s AS z1,
-					%s AS z2,
-					%s AS y1,
-					%s AS y2,
-					%s AS elev1,
-					%s AS elev2,
-					a.expl_id,
-					a.omunit_id,
-					a.the_geom,
-					d.cost + d.route_agg_cost AS total_length
-				FROM dijkstra d
-				JOIN ve_arc a ON d.node = a.arc_id
-				ORDER BY d.seq;
-			$sql$,
-				v_cat_geom1,
-				v_slope,
-				v_z1,
-				v_z2,
-				v_y1,
-				v_y2,
-				v_elev1,
-				v_elev2
-			);
-		ELSIF v_project_type = 'WS' THEN
-			EXECUTE format($sql$
-				WITH dijkstra AS (
-					SELECT 
-						seq,
-						node,
-						LAG(node) OVER (ORDER BY seq) AS pred,
-						cost,
-						route_agg_cost
-					FROM temp_pgr_dijkstra
-					WHERE edge <> -1
-				)
-				INSERT INTO temp_anl_arc (
-					fid,
-					arc_id,
-					code,
-					node_1,
-					node_2,
-					sys_type,
-					arccat_id,
-					cat_geom1,
-					length,
-					slope,
-					z1,
-					z2,
-					y1,
-					y2,
-					elev1,
-					elev2,
-					expl_id,
-					the_geom,
-					total_length
-				)
-				SELECT 
-					222 AS fid,
-					a.arc_id,
-					COALESCE(a.code, a.arc_id::varchar),
-					d.pred AS node_1,
-					CASE 
-						WHEN d.pred = a.node_1 
-						THEN a.node_2 
-						ELSE a.node_1 
-					END AS node_2,
-					a.sys_type,
-					a.arccat_id,
-					%s AS cat_geom1,
-					a.gis_length AS length,
-					%s AS slope,
-					%s AS z1,
-					%s AS z2,
-					%s AS y1,
-					%s AS y2,
-					%s AS elev1,
-					%s AS elev2,
-					a.expl_id,
-					a.the_geom,
-					d.cost + d.route_agg_cost AS total_length
-				FROM dijkstra d
-				JOIN ve_arc a ON d.node = a.arc_id
-				ORDER BY d.seq;
-			$sql$,
-				v_cat_geom1,
-				v_slope,
-				v_z1,
-				v_z2,
-				v_y1,
-				v_y2,
-				v_elev1,
-				v_elev2
-			);
-		END IF;
+		EXECUTE format($sql$
+			WITH dijkstra AS (
+				SELECT
+					seq,
+					node,
+					LAG(node) OVER (ORDER BY seq) AS pred,
+					cost,
+					route_agg_cost
+				FROM temp_pgr_dijkstra
+				WHERE edge <> -1
+			)
+			INSERT INTO temp_anl_arc (
+				reversed,
+				arc_id,
+				code,
+				node_1,
+				node_2,
+				sys_type,
+				arccat_id,
+				length,
+				expl_id,
+				the_geom,
+				total_length,
+				cat_geom1,
+				slope,
+				z1,
+				z2,
+				y1,
+				y2,
+				elev1,
+				elev2,
+				top_elev1,
+				top_elev2,
+				omunit_id
+			)
+			SELECT
+				CASE WHEN d.pred = a.node_1 THEN false ELSE true END AS reversed,
+				a.arc_id,
+				COALESCE(a.code, a.arc_id::text) AS code,
+				a.node_1,
+				a.node_2,
+				a.sys_type,
+				a.arccat_id,
+				a.gis_length AS length,
+				a.expl_id,
+				a.the_geom,
+				d.cost + d.route_agg_cost AS total_length,
+				%s AS cat_geom1,
+				%s AS slope,
+				%s AS z1,
+				%s AS z2,
+				%s AS y1,
+				%s AS y2,
+				%s AS elev1,
+				%s AS elev2,
+				%s AS top_elev1,
+				%s AS top_elev2,
+				%s AS omunit_id
+			FROM dijkstra d
+			JOIN ve_arc a ON d.node = a.arc_id;
+		$sql$,
+			v_cat_geom1,
+			v_slope,
+			v_z1,
+			v_z2,
+			v_y1,
+			v_y2,
+			v_elev1,
+			v_elev2,
+			v_node_top_elev1,
+			v_node_top_elev2,
+			v_omunit_id
+		);
 
-		IF v_project_type = 'UD' THEN
-			v_fymax := 'ymax';
-			v_fsysymax := 'COALESCE(COALESCE(n.custom_top_elev, n.top_elev) - COALESCE(n.custom_elev, n.elev), n.ymax)';
-			v_fsyselev := 'COALESCE(n.custom_elev, n.elev) ';
-
-		ELSIF v_project_type = 'WS' THEN
-			v_fymax := 'depth';
-			v_fsysymax := 'n.depth';
-			v_fsyselev := 'COALESCE(n.custom_top_elev, n.top_elev) - n.depth';
-
-		END IF;
+		-- orient arcs according to the profile path direction
+		UPDATE temp_anl_arc SET
+			node_1 = node_2,       node_2 = node_1,
+			z1 = z2,               z2 = z1,
+			y1 = y2,               y2 = y1,
+			elev1 = elev2,         elev2 = elev1,
+			top_elev1 = top_elev2, top_elev2 = top_elev1,
+			slope = -slope
+		WHERE reversed;
 
 		-- insert nodes-node on temp_anl_node table
+		IF v_project_type = 'UD' THEN
+			v_ymax := 'COALESCE(n.custom_top_elev, n.top_elev) - COALESCE(n.custom_elev, n.elev)';
+			v_node_elev := 'COALESCE(n.custom_elev, n.elev) ';
+
+		ELSIF v_project_type = 'WS' THEN
+			v_ymax := 'n.depth';
+			v_node_elev := 'COALESCE(n.custom_top_elev, n.top_elev) - n.depth';
+
+		END IF;
+
 		-- filter edge = -1 marks intermediate nodes in dijkstra table
 		EXECUTE format($sql$
 			INSERT INTO temp_anl_node (
-				fid,
 				node_id,
 				code,
 				sys_type,
 				nodecat_id,
 				top_elev,
-				%I,
+				ymax,
 				elev,
 				arc_id,
 				arc_distance,
@@ -532,8 +506,7 @@ BEGIN
 				expl_id,
 				the_geom
 			)
-			SELECT 
-				222 AS fid,
+			SELECT
 				n.node_id,
 				COALESCE(n.code, n.node_id::varchar),
 				cat_feature.feature_class,
@@ -554,17 +527,12 @@ BEGIN
 			WHERE d.edge <> -1
 			ORDER BY d.seq;
 		$sql$,
-			v_fymax,
-			v_fsysymax,
-			v_fsyselev
+			v_ymax,
+			v_node_elev
 		);
 
 		-- looking for null values (in case of exists links graph will be disabled as below)
-		IF v_project_type = 'UD' THEN
-			SELECT count(*) INTO v_count FROM temp_anl_node WHERE (elev IS NULL or ymax is null OR top_elev is null);
-		ELSIF v_project_type = 'WS' THEN
-			SELECT count(*) INTO v_count FROM temp_anl_node WHERE (top_elev IS NULL or depth is null);
-		END IF;
+		SELECT count(*) INTO v_count FROM temp_anl_node WHERE top_elev IS NULL OR elev IS NULL;
 
 		IF v_linksdistance > 0 AND v_count = 0 and v_vnode_status IS NOT False THEN
 
@@ -572,63 +540,59 @@ BEGIN
 			PERFORM gw_fct_linkexitgenerator(2);
 
 			-- get vnode-connec/gully values
-			EXECUTE format($sql$
-				INSERT INTO temp_anl_node (
-					fid,
-					node_id,
-					sys_type,
-					top_elev,
-					%I,
-					elev,
-					arc_id,
-					arc_distance,
-					total_distance
+			INSERT INTO temp_anl_node (
+				node_id,
+				sys_type,
+				top_elev,
+				ymax,
+				elev,
+				arc_id,
+				arc_distance,
+				total_distance
+			)
+			SELECT
+				a.link_id,
+				'LINK' AS sys_type,
+				COALESCE(
+					a.exit_topelev,
+					(a.top_elev1 - a.locate * (a.top_elev1 - a.top_elev2))::numeric(12,3)
+				) AS top_elev,
+				COALESCE(
+					a.exit_topelev,
+					(a.top_elev1 - a.locate * (a.top_elev1 - a.top_elev2))::numeric(12,3)
 				)
-				SELECT 
-					222,
-					a.link_id,
-					'LINK' AS sys_type,
-					COALESCE(
-						a.exit_topelev,
-						(a.top_elev1 - a.locate * (a.top_elev1 - a.top_elev2))::numeric(12,3)
-					) AS top_elev,
-					COALESCE(
-						a.exit_ymax,
-						(a.y1 - a.locate * (a.y1 - a.y2))::numeric(12,3)
-					) AS ymax,
-					COALESCE(
-						a.exit_elev,
-						(a.elev1 - a.locate * (a.elev1 - a.elev2))::numeric(12,3)
-					) AS elev,
-					a.arc_id,
-					(a.length * a.locate)::numeric(12,3) AS arc_distance,
-					(a.total_length - a.length + a.length * a.locate)::numeric(12,3) AS total_distance
-				FROM (
-					SELECT
-						l.link_id,
-						l.exit_topelev,
-						l.exit_elev,
-						l.exit_topelev - l.exit_elev AS exit_ymax,
-						CASE
-							WHEN ta.node_1 = aa.node_1
-							THEN ST_LineLocatePoint(ta.the_geom, l.the_geom_endpoint)
-							ELSE 1 - ST_LineLocatePoint(ta.the_geom, l.the_geom_endpoint)
-						END::numeric(12,3) AS locate,
-						ta.total_length,
-						ta.length,
-						ta.elev1,
-						ta.elev2,
-						ta.y1,
-						ta.y2,
-						ta.elev1 + ta.y1 AS top_elev1,
-						ta.elev2 + ta.y2 AS top_elev2,
-						ta.arc_id
-					FROM temp_link l 
-					JOIN temp_anl_arc ta ON ta.arc_id = l.exit_id
-					JOIN arc aa ON aa.arc_id = l.exit_id 
-					WHERE l.link_id = l.vnode_id
-				) a;
-			$sql$, v_fymax);
+				- COALESCE(
+					a.exit_elev,
+					(a.elev1 - a.locate * (a.elev1 - a.elev2))::numeric(12,3)
+				) AS ymax,
+				COALESCE(
+					a.exit_elev,
+					(a.elev1 - a.locate * (a.elev1 - a.elev2))::numeric(12,3)
+				) AS elev,
+				a.arc_id,
+				(a.length * a.locate)::numeric(12,3) AS arc_distance,
+				(a.total_length - a.length + a.length * a.locate)::numeric(12,3) AS total_distance
+			FROM (
+				SELECT
+					l.link_id,
+					l.exit_topelev,
+					l.exit_elev,
+					CASE
+						WHEN ta.reversed = FALSE
+						THEN ST_LineLocatePoint(ta.the_geom, l.the_geom_endpoint)
+						ELSE 1 - ST_LineLocatePoint(ta.the_geom, l.the_geom_endpoint)
+					END::numeric(12,3) AS locate,
+					ta.total_length,
+					ta.length,
+					ta.elev1,
+					ta.elev2,
+					ta.top_elev1,
+					ta.top_elev2,
+					ta.arc_id
+				FROM temp_link l
+				JOIN temp_anl_arc ta ON ta.arc_id = l.exit_id
+				WHERE l.link_id = l.vnode_id
+			) a;
 
 			-- delete links overlaped with nodes using the user's parameter
 			-- initNode
@@ -683,29 +647,24 @@ BEGIN
 			v_textarc
 		);
 
-		EXECUTE format(
-			'
-			UPDATE temp_anl_node t
-			SET descript = a.descript
+		UPDATE temp_anl_node t
+		SET descript = a.descript
+		FROM (
+			SELECT
+				id,
+				row_to_json(r)::text AS descript
 			FROM (
 				SELECT
-					node_id,
-					row_to_json(r) AS descript
-				FROM (
-					SELECT
-						node_id,
-						top_elev AS top_elev,
-						%s AS ymax,
-						elev,
-						COALESCE(code, node_id::varchar) AS code,
-						total_distance
-					FROM temp_anl_node
-				) r
-			) a
-			WHERE a.node_id = t.node_id
-			',
-			v_fymax
-		);
+					id,
+					top_elev::float8 AS top_elev,
+					ymax::float8 AS ymax,
+					elev::float8 AS elev,
+					COALESCE(code, node_id::text) AS code,
+					total_distance
+				FROM temp_anl_node
+			) r
+		) a
+		WHERE a.id = t.id;
 
 		EXECUTE format(
 			'
@@ -723,8 +682,8 @@ BEGIN
 		);
 
 		-- delete not used keys
-		UPDATE temp_anl_arc SET descript = gw_fct_json_object_delete_keys(descript::json, 'arc_id')  ;
-		UPDATE temp_anl_node SET descript = gw_fct_json_object_delete_keys(descript::json, 'node_id')  ;
+		UPDATE temp_anl_arc SET descript = gw_fct_json_object_delete_keys(descript::json, 'arc_id');
+		UPDATE temp_anl_node SET descript = gw_fct_json_object_delete_keys(descript::json, 'id');
 
 		-- update node table setting default values
 		UPDATE temp_anl_arc SET cat_geom1 = v_arc_geom1 WHERE cat_geom1 IS NULL ;
@@ -802,8 +761,10 @@ BEGIN
 		END LOOP;
 
 		-- update node table those ymax nulls
-		EXECUTE 'UPDATE temp_anl_node SET descript = gw_fct_json_object_set_key(descript::json, ''ymax'', ''None''::text),  '||v_fymax||' = top_elev - elev 
-			WHERE '||v_fymax||' IS NULL';
+		UPDATE temp_anl_node SET
+			descript = gw_fct_json_object_set_key(descript::json, 'ymax', 'None'::text)::text,
+			ymax = top_elev - elev
+		WHERE ymax IS NULL;
 
 		-- update node catalog
 		UPDATE temp_anl_node SET nodecat_id = 'BOTTOM' FROM cat_feature_node n JOIN cat_feature cf ON cf.id = n.id WHERE cf.feature_class = sys_type
@@ -882,7 +843,7 @@ BEGIN
 		ELSE
 			-- calculate scale
 			v_vs = (1000*v_elevation)/(v_compheight - v_legendfactor*50 - 10);
-			v_hs = (1000*v_distance)(v_compwidth - v_legendfactor*20 - 10);
+			v_hs = (1000*v_distance)/(v_compwidth - v_legendfactor*20 - 10);
 
 			-- calculate the init point to start to draw profile
 			v_initv = v_legendfactor*50;
@@ -909,58 +870,57 @@ BEGIN
 			v_hs= 1;
 		END IF;
 
-		UPDATE temp_anl_arc SET cat_geom1 = cat_geom1*v_vs, length = length*v_hs ;
-		EXECUTE 'UPDATE temp_anl_node SET cat_geom1 = cat_geom1*'||v_vs||', top_elev = top_elev*'||v_vs||', elev = elev*'||v_vs||', '||
-		v_fymax||' = '||v_fymax||'*'||v_vs||' ';
-
-		-- vertical (v_vs): totes les cotes i profunditats; horitzontal (v_hs): totes les distàncies
+		-- vertical (v_vs): all elevations and depths; horizontal (v_hs): all distances
 		UPDATE temp_anl_arc SET
 			cat_geom1 = cat_geom1*v_vs,
 			elev1 = elev1*v_vs, elev2 = elev2*v_vs,
+			top_elev1 = top_elev1*v_vs, top_elev2 = top_elev2*v_vs,
 			y1 = y1*v_vs, y2 = y2*v_vs,
 			z1 = z1*v_vs, z2 = z2*v_vs,
 			length = length*v_hs,
 			total_length = total_length*v_hs;
 
-		EXECUTE 'UPDATE temp_anl_node SET
-			cat_geom1 = cat_geom1*'||v_vs||',
-			top_elev = top_elev*'||v_vs||',
-			elev = elev*'||v_vs||',
-			'||v_fymax||' = '||v_fymax||'*'||v_vs||',
-			total_distance = total_distance*'||v_hs',
-			arc_distance = arc_distance*'||v_hs;
+		UPDATE temp_anl_node SET
+			cat_geom1 = cat_geom1*v_vs,
+			top_elev = top_elev*v_vs,
+			elev = elev*v_vs,
+			ymax = ymax*v_vs,
+			total_distance = total_distance*v_hs,
+			arc_distance = arc_distance*v_hs;
 
-		-- recover values form temp table into response (filtering by spacing certain distance of length in order to not collapse profile)
+		-- recover values from temp table into response (filtering by spacing certain distance of length in order to not collapse profile)
 		IF v_project_type = 'UD' THEN
 			SELECT array_to_json(array_agg(row_to_json(row))) INTO v_arc
-			FROM (SELECT arc_id, descript, cat_geom1, length, z1, z2, y1, y2, elev1, elev2, node_1, node_2, omunit_id FROM temp_anl_arc ORDER BY total_length) row;
+			FROM (SELECT arc_id, reversed, descript, cat_geom1, length, z1, z2, y1, y2, elev1, elev2, top_elev1, top_elev2, node_1, node_2, omunit_id FROM temp_anl_arc ORDER BY total_length) row;
 		ELSE
 			SELECT array_to_json(array_agg(row_to_json(row))) INTO v_arc
-			FROM (SELECT arc_id, descript, cat_geom1, length, z1, z2, y1, y2, elev1, elev2, node_1, node_2 FROM temp_anl_arc ORDER BY total_length) row;
+			FROM (SELECT arc_id, reversed, descript, cat_geom1, length, z1, z2, y1, y2, elev1, elev2, top_elev1, top_elev2, node_1, node_2 FROM temp_anl_arc ORDER BY total_length) row;
 		END IF;
 
-		EXECUTE 'SELECT array_to_json(array_agg(row_to_json(row))) FROM (SELECT DISTINCT node_id, nodecat_id as surface_type, descript, sys_type as data_type, cat_geom1, top_elev, elev, '||v_fymax||' AS ymax, total_distance FROM temp_anl_node WHERE nodecat_id != ''VNODE'' ORDER BY total_distance) row'
-				INTO v_node;
-				/*
-				SELECT node_id, nodecat_id as surface_type, descript, sys_type, cat_geom1, top_elev, elev, ymax FROM temp_anl_node WHERE nodecat_id != 'VNODE' ORDER BY total_distance
-				select * from temp_anl_arc ORDER by total_length
-				select * from temp_anl_node ORDER BY total_distance
-				*/
+		SELECT array_to_json(array_agg(row_to_json(row))) INTO v_node
+		FROM (
+			SELECT DISTINCT node_id, nodecat_id AS surface_type, descript, sys_type AS data_type,
+				cat_geom1, top_elev, elev, ymax, total_distance
+			FROM temp_anl_node
+			WHERE nodecat_id != 'VNODE'
+			ORDER BY total_distance
+		) row;
 
-		EXECUTE 'SELECT array_to_json(array_agg(row_to_json(row))) FROM (
-				WITH querytext AS (SELECT row_number() over (order by total_distance) as rid, * FROM temp_anl_node ORDER by total_distance)
-				select row_number() over (order by a.total_distance) as rid, a.top_elev as top_n1, b.top_elev as top_n2, (b.top_elev-a.top_elev)::numeric(12,3) as delta_y, 
-				b.total_distance - a.total_distance as delta_x, a.total_distance as total_x, a.descript as label_n1, a.nodecat_id as surface_type from querytext a
-				left join querytext b ON a.rid = b.rid-1 
-				left join (select * from temp_anl_arc) c ON a.arc_id = c.arc_id) row'
-				INTO v_terrain;
-				/*
-				WITH querytext AS (SELECT row_number() over (order by total_distance) as rid, * FROM temp_anl_node ORDER by total_distance)
-				select row_number() over (order by a.total_distance) as rid, a.top_elev as top_n1, b.top_elev as top_n2, (b.top_elev-a.top_elev)::numeric(12,3) as delta_y,
-				b.total_distance - a.total_distance as delta_x, a.total_distance as total_x, a.descript as label_n1, a.nodecat_id as surface_type from querytext a
-				left join querytext b ON a.rid = b.rid-1
-				left join (select * from temp_anl_arc ) c ON a.arc_id = c.arc_id
-				*/
+		SELECT array_to_json(array_agg(row_to_json(row))) INTO v_terrain
+		FROM (
+			SELECT
+				row_number() OVER w AS rid,
+				top_elev AS top_n1,
+				LEAD(top_elev) OVER w AS top_n2,
+				(LEAD(top_elev) OVER w - top_elev)::numeric(12,3) AS delta_y,
+				LEAD(total_distance) OVER w - total_distance AS delta_x,
+				total_distance AS total_x,
+				descript AS label_n1,
+				nodecat_id AS surface_type
+			FROM temp_anl_node
+			WINDOW w AS (ORDER BY total_distance, id)
+			ORDER BY total_distance, id
+		) row;
 
 	END IF;
 
