@@ -1032,7 +1032,7 @@ BEGIN
 		END IF;
 
 		UPDATE node
-		SET code=NEW.code, sys_code=NEW.sys_code, top_elev=NEW.top_elev, custom_top_elev=NEW.custom_top_elev, datasource=NEW.datasource, "depth"=NEW."depth", nodecat_id=NEW.nodecat_id, epa_type=NEW.epa_type, sector_id=NEW.sector_id, arc_id=NEW.arc_id, parent_id=NEW.parent_id,
+		SET code=NEW.code, sys_code=NEW.sys_code, top_elev=NEW.top_elev, datasource=NEW.datasource, "depth"=NEW."depth", nodecat_id=NEW.nodecat_id, epa_type=NEW.epa_type, sector_id=NEW.sector_id, arc_id=NEW.arc_id, parent_id=NEW.parent_id,
 		state_type=NEW.state_type, annotation=NEW.annotation, "observ"=NEW."observ", "comment"=NEW."comment", dma_id=NEW.dma_id, dqa_id=NEW.dqa_id, presszone_id=NEW.presszone_id, soilcat_id=NEW.soilcat_id,
 		function_type=NEW.function_type, category_type=NEW.category_type, fluid_type=NEW.fluid_type, location_type=NEW.location_type, workcat_id=NEW.workcat_id, workcat_id_end=NEW.workcat_id_end,
 		workcat_id_plan=NEW.workcat_id_plan,builtdate=NEW.builtdate, enddate=NEW.enddate, ownercat_id=NEW.ownercat_id, muni_id=NEW.muni_id, streetaxis_id=NEW.streetaxis_id,
@@ -1044,6 +1044,10 @@ BEGIN
 		brand_id=NEW.brand_id, model_id=NEW.model_id, serial_number=NEW.serial_number, label_quadrant=NEW.label_quadrant, pavcat_id = NEW.pavcat_id, lock_level=NEW.lock_level, is_scadamap=NEW.is_scadamap,
 		dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
 		WHERE node_id = OLD.node_id;
+
+		IF NEW.custom_top_elev IS DISTINCT FROM OLD.custom_top_elev THEN
+			UPDATE node SET custom_top_elev = NEW.custom_top_elev WHERE node_id = OLD.node_id;
+		END IF;
 
 		-- Update node_add
 		UPDATE node_add SET node_id=NEW.node_id, demand_max = NEW.demand_max, demand_min = NEW.demand_min, demand_avg = NEW.demand_avg, press_max = NEW.press_max,press_min = NEW.press_min,
