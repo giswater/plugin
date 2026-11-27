@@ -90,9 +90,9 @@ DECLARE
 	v_arc_geom1 float;
 	v_node_geom1 float;
 	i integer = 0;
-	v_dist float[];
-	v_telev float[];
-	v_elev float[];
+	v_dist numeric[];
+	v_telev numeric[];
+	v_elev numeric[];
 	v_nid integer[];
 	v_elevation float;
 	v_distance float;
@@ -689,16 +689,14 @@ BEGIN
 		UPDATE temp_anl_arc SET cat_geom1 = v_arc_geom1 WHERE cat_geom1 IS NULL ;
 		UPDATE temp_anl_node SET cat_geom1 = v_node_geom1 WHERE cat_geom1 IS NULL AND sys_type !='LINK';
 
-		-- update arc table when node has not values and need to be interpolated
-		UPDATE temp_anl_arc SET z1 = 0, sys_type  = 'SLOPE-ESTIMATED' WHERE z1 is null ;
-		UPDATE temp_anl_arc SET z2 = 0, sys_type  = 'SLOPE-ESTIMATED' WHERE z2 is null ;
-		UPDATE temp_anl_arc SET sys_type = 'SLOPE-REAL' WHERE sys_type != 'SLOPE-ESTIMATED' ;
-
 		-- update node table when node has not values and need to be interpolated
-		v_dist = (SELECT array_agg(total_distance) FROM (SELECT total_distance FROM temp_anl_node order by total_distance, arc_id)a);
-		EXECUTE '(SELECT array_agg(top_elev) FROM (SELECT top_elev as top_elev FROM temp_anl_node order by total_distance, arc_id)a)' INTO v_telev;
-		v_elev = (SELECT array_agg(elev) FROM (SELECT elev FROM temp_anl_node order by total_distance, arc_id)a);
-		v_nid = (SELECT array_agg(node_id) FROM (SELECT node_id FROM temp_anl_node order by total_distance, arc_id)a);
+		SELECT
+			array_agg(total_distance ORDER BY total_distance, id),
+			array_agg(top_elev ORDER BY total_distance, id),
+			array_agg(elev ORDER BY total_distance, id),
+			array_agg(node_id ORDER BY total_distance, id)
+		INTO v_dist, v_telev, v_elev, v_nid
+		FROM temp_anl_node;
 
 		i = 0;
 		LOOP
@@ -707,26 +705,14 @@ BEGIN
 
 			--topelev values
 			IF v_telev[i] IS NULL THEN
-
 				IF v_telev[i+1] IS NOT NULL AND v_telev[i-1] IS NOT NULL THEN
-					v_querytext = 'UPDATE temp_anl_node SET top_elev = ('||v_telev[i-1]||'+ (('||v_dist[i]||'-'||v_dist[i-1]||')*('||v_telev[i+1]||'-'||v_telev[i-1]||')/('||v_dist[i+1]||'-'||v_dist[i-1]||')))::numeric(12,3) 
-						       WHERE node_id = '||v_nid[i];
-					EXECUTE v_querytext;
-
+					UPDATE temp_anl_node SET top_elev = (v_telev[i-1] + ((v_dist[i]-v_dist[i-1])*(v_telev[i+1]-v_telev[i-1])/(v_dist[i+1]-v_dist[i-1])))::numeric(12,3) WHERE node_id = v_nid[i];
 				ELSIF v_telev[i+1] IS NOT NULL AND v_telev[i-2] IS NOT NULL THEN
-					v_querytext = 'UPDATE temp_anl_node SET top_elev = ('||v_telev[i-2]||'+ (('||v_dist[i]||'-'||v_dist[i-2]||')*('||v_telev[i+1]||'-'||v_telev[i-2]||')/('||v_dist[i+1]||'-'||v_dist[i-2]||')))::numeric(12,3) 
-						       WHERE node_id = '||v_nid[i];
-					EXECUTE v_querytext;
-
+					UPDATE temp_anl_node SET top_elev = (v_telev[i-2] + ((v_dist[i]-v_dist[i-2])*(v_telev[i+1]-v_telev[i-2])/(v_dist[i+1]-v_dist[i-2])))::numeric(12,3) WHERE node_id = v_nid[i];
 				ELSIF v_telev[i+2] IS NOT NULL AND v_telev[i-1] IS NOT NULL THEN
-					v_querytext = 'UPDATE temp_anl_node SET top_elev = ('||v_telev[i-1]||'+ (('||v_dist[i]||'-'||v_dist[i-1]||')*('||v_telev[i+2]||'-'||v_telev[i-1]||')/('||v_dist[i+2]||'-'||v_dist[i-1]||')))::numeric(12,3) 
-						       WHERE node_id = '||v_nid[i];
-					EXECUTE v_querytext;
-
+					UPDATE temp_anl_node SET top_elev = (v_telev[i-1] + ((v_dist[i]-v_dist[i-1])*(v_telev[i+2]-v_telev[i-1])/(v_dist[i+2]-v_dist[i-1])))::numeric(12,3) WHERE node_id = v_nid[i];
 				ELSIF v_telev[i+2] IS NOT NULL AND v_telev[i-2] IS NOT NULL THEN
-					v_querytext = 'UPDATE temp_anl_node SET top_elev = ('||v_telev[i-2]||'+ (('||v_dist[i]||'-'||v_dist[i-2]||')*('||v_telev[i+2]||'-'||v_telev[i-2]||')/('||v_dist[i+2]||'-'||v_dist[i-2]||')))::numeric(12,3) 
-						       WHERE node_id = '||v_nid[i];
-					EXECUTE v_querytext;
+					UPDATE temp_anl_node SET top_elev = (v_telev[i-2] + ((v_dist[i]-v_dist[i-2])*(v_telev[i+2]-v_telev[i-2])/(v_dist[i+2]-v_dist[i-2])))::numeric(12,3) WHERE node_id = v_nid[i];
 				ELSE
 					v_level  = 2;
 					v_message = 'Interpolation tool it is designed to interpolate with data missed maximun at two consecutives nodes. Please check your data!';
@@ -773,9 +759,39 @@ BEGIN
 
 		-- update node type
 		UPDATE temp_anl_node SET sys_type = 'REAL' WHERE sys_type NOT IN ('LINK') ;
-		UPDATE temp_anl_node SET sys_type = 'INTERPOLATED' WHERE result_id = 'interpolated' ;
+		UPDATE temp_anl_node SET sys_type = 'INTERPOLATED' WHERE result_id = 'interpolated';
 
-		UPDATE temp_anl_node SET result_id = null where result_id is not null ;
+		-- update arc type
+		UPDATE temp_anl_arc SET sys_type = 'SLOPE-REAL'
+		WHERE slope IS NOT NULL;
+
+		UPDATE temp_anl_arc SET
+			z1 = COALESCE(z1, 0),
+			z2 = COALESCE(z2, 0),
+			sys_type = 'SLOPE-ESTIMATED'
+		WHERE slope IS NULL;
+
+		-- update arc table with estimated values of the interpolated nodes
+		UPDATE temp_anl_arc a SET
+			elev1 = COALESCE(a.elev1, n.elev + a.z1),
+			top_elev1 = COALESCE(a.top_elev1, n.top_elev)
+		FROM temp_anl_node n
+		WHERE n.node_id = a.node_1
+		AND a.sys_type = 'SLOPE-ESTIMATED';
+		
+		UPDATE temp_anl_arc a SET
+			elev2 = COALESCE(a.elev2, n.elev + a.z2),
+			top_elev2 = COALESCE(a.top_elev2, n.top_elev)
+		FROM temp_anl_node n
+		WHERE n.node_id = a.node_2
+		AND a.sys_type = 'SLOPE-ESTIMATED';
+
+		-- recalculate depths and slope on estimated arcs
+		UPDATE temp_anl_arc SET
+			y1 = top_elev1 - elev1,
+			y2 = top_elev2 - elev2,
+			slope = (elev1 - elev2)/length
+		WHERE sys_type = 'SLOPE-ESTIMATED';
 
 		-- get profile dimensions
 		EXECUTE 'SELECT max(top_elev)-min(elev) FROM temp_anl_node '
