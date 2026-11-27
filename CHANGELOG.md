@@ -92,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- EPA selector loads result layers by `sys_table` context, so UD compare layers are not added when compare is empty.
 - Mincut postnumber autocomplete no longer fails when the street name contains an apostrophe.
 - Go2EPA result name field allows up to 50 characters to match `rpt_cat_result.result_id`.
 - go2epa Close button (`btn_close`) gets `widgetfunction` `closeDlg` for web / dynamic clients.
