@@ -887,7 +887,8 @@ class GwCalculatePriority(GwTask):
             replacement_cost = self.config_catalog.get_cost_constr(arccat_id)
             cost_constr = replacement_cost * float(arc_length)
 
-            compliance = 10 - min(
+            # Grade is 1 = best, 10 = worst, so it is already the priority score.
+            compliance = min(
                 self.config_catalog.get_compliance(arccat_id),
                 self.config_material.get_compliance(arc_material),
             )
@@ -1077,7 +1078,7 @@ class GwCalculatePriority(GwTask):
                     mandatory,
                     i.strategic,
                     rleak,
-                    10 - sh.compliance
+                    sh.compliance
                 from am.ws_arc_engine_sh sh
                 left join am.ws_arc_input i using (arc_id)
                 left join am.{self.ext_ws_arc} a using (arc_id)
@@ -1737,7 +1738,8 @@ class GwCalculatePriority(GwTask):
                 else self._fit_to_scale(arc["nrw"], 2, 20)
             )
             arc["val_strategic"] = 10 if arc["strategic"] else 0
-            arc["val_compliance"] = 10 - arc["compliance"]
+            # Grade is 1 = best, 10 = worst.
+            arc["val_compliance"] = float(arc["compliance"])
 
             # Prefer DB precomputed criticity; recompute for the current selection if missing
             if arc["mincut_criticity"] is None and arc["mincut_customers"] is not None:
@@ -2422,8 +2424,8 @@ class GwCalculatePriority(GwTask):
             node["val_strategic"] = self._scale_or_zero(
                 self._normalize_binary(node.get("strategic"))
             )
-            # Same as ARC WM: lower compliance grade → higher priority score
-            node["val_compliance"] = float(10 - node["compliance_grade"])
+            # Grade is 1 = best, 10 = worst. Same number is the priority score.
+            node["val_compliance"] = float(node["compliance_grade"])
 
             for suffix in ("1", "2"):
                 node[f"w{suffix}_longevity"] = float(self.config_engine[f"longevity_{suffix}"])

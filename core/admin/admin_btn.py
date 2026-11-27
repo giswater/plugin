@@ -42,6 +42,7 @@ from .i18n.hot_update_dialog import GwAdminI18NHotUpdate
 from .import_osm import GwImportOsm
 from ...libs import lib_vars, tools_qt, tools_qgis, tools_log, tools_db, tools_os
 from ..ui.docker import GwDocker
+from ..threads.publi_link_task import GwPubliLinkTask
 from ..threads.schema_builder_task import GwSchemaBuilderTask, load_kind_manifest
 from ..threads.multilang_schema_task import GwMultilangSchemaTask
 from ..threads.project_schema_copy import GwCopySchemaTask
@@ -529,6 +530,84 @@ class GwAdminButton:
             description="Create cmms",
             on_done=self._on_builder_done_other,
         )
+
+    def _create_publi_schema(self, parent_schema=None) -> None:
+        """Create the publi schema: configuration tables and functions only."""
+        msg = "This process will take a few seconds. Are you sure to continue?"
+        title = "Create publi schema"
+        if not tools_qt.show_question(msg, title):
+            return
+        srid = self._parent_epsg(parent_schema) if parent_schema else "25831"
+        bp = BuildParams(
+            schema_name="publi",
+            srid=srid,
+            locale=self.locale,
+            plugin_version=str(self.plugin_version),
+            profile="empty",
+            register_is_new="true",
+            sql_root=self.sql_dir,
+        )
+        msg = "Create publi"
+        self._submit_builder(
+            "publi",
+            bp,
+            description=tools_qt.tr(msg),
+            on_done=self._on_builder_done_other,
+        )
+
+    def _integrate_publi_schema(self, parent_schema: str, parent_type: str) -> None:
+        """Publish one schema into publi. Tables are named <schema>_<table>, so any number of schemas can be linked."""
+        kind = (parent_type or "").upper()
+        msg = "Publish {0} ({1}) into publi?"
+        msg_params = (kind, parent_schema)
+        title = "Integrate publi"
+        if not tools_qt.show_question(msg, title, msg_params=msg_params):
+            return
+        prefix = self._publi_link_prefix(parent_schema)
+        if not prefix:
+            msg = "publi.config_publi_table is missing. Update the publi schema first."
+            tools_qt.show_info_box(msg)
+            return
+        description = "Link {0} to publi"
+        task = GwPubliLinkTask(tools_qt.tr(description, list_params=(parent_schema,)), parent_schema, prefix)
+        dlg = getattr(self, "_manage_schemas_dlg", None)
+        if dlg is not None:
+            dlg._set_publi_busy(True)
+            task.progressChanged.connect(dlg._on_publi_progress)
+        task.taskCompleted.connect(partial(self._on_publi_linked, task, parent_schema))
+        task.taskTerminated.connect(partial(self._on_publi_link_failed, task, parent_schema))
+        QgsApplication.taskManager().addTask(task)
+
+    def _publi_link_prefix(self, source_schema: str) -> str:
+        """Schema name. Published tables are <schema>_<table>, so two schemas of the same type do not collide."""
+        row = tools_db.get_row("SELECT to_regclass('publi.config_publi_table')")
+        if not row or not row[0]:
+            return ""
+        return source_schema
+
+    def _on_publi_linked(self, task, parent_schema) -> None:
+        self._publi_progress_done()
+        admin_catalog.register_parent_satellite_enabled(parent_schema, "publi")
+        if tools_db.dao:
+            tools_db.dao.commit()
+        data = ((task.sync_result or {}).get("body") or {}).get("data") or {}
+        msg = "Published {0} into publi ({1} ok, {2} failed)."
+        tools_qt.show_info_box(msg, msg_params=(parent_schema, data.get("ok", 0), data.get("failed", 0)))
+        refresh = getattr(self, "_manage_schemas_refresh", None)
+        if refresh:
+            refresh()
+
+    def _on_publi_link_failed(self, task, parent_schema) -> None:
+        self._publi_progress_done()
+        msg = "Could not publish {0} into publi: {1}"
+        detail = task.error or (str(task.exception) if task.exception else "")
+        tools_qt.show_info_box(msg, "Error", msg_params=(parent_schema, detail))
+
+    def _publi_progress_done(self) -> None:
+        dlg = getattr(self, "_manage_schemas_dlg", None)
+        if dlg is None:
+            return
+        dlg._set_publi_busy(False)
 
     def _integrate_cmms_schema(self, parent_schema=None, parent_type=None) -> None:
         """Register cmms on the selected WS/UD parent."""
@@ -1127,6 +1206,8 @@ class GwAdminButton:
                 parent_type=parent_type,
                 on_done=on_done,
             )
+        elif kind == "publi":
+            self._update_publi(on_done=on_done)
         elif kind == "audit":
             self._update_audit(on_done=on_done)
         elif kind == "multilang":
@@ -5117,6 +5198,32 @@ class GwAdminButton:
         msg = "Update cmms schema"
         self._submit_builder(
             "cmms",
+            bp,
+            description=tools_qt.tr(msg),
+            on_done=callback,
+        )
+
+    def _update_publi(self, on_done=None):
+        """Run the publi 'update' profile in place (semver upgrade)."""
+        row = tools_db.get_row(
+            "SELECT giswater, language, epsg FROM publi.sys_version "
+            "ORDER BY id DESC LIMIT 1"
+        )
+        current_version = row[0] if row and row[0] else "0.0.0"
+        bp = BuildParams(
+            schema_name="publi",
+            srid=str(row[2] if row and row[2] else "25831"),
+            locale=str(row[1] if row and row[1] else self.locale),
+            plugin_version=str(self.plugin_version),
+            project_version=str(current_version),
+            profile="update",
+            run_mode="upgrade",
+            sql_root=self.sql_dir,
+        )
+        callback = on_done if on_done is not None else self._on_builder_done_other
+        msg = "Update publi schema"
+        self._submit_builder(
+            "publi",
             bp,
             description=tools_qt.tr(msg),
             on_done=callback,

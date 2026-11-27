@@ -5,13 +5,13 @@ General Public License as published by the Free Software Foundation, either vers
 or (at your option) any later version.
 */
 
-
-CREATE OR REPLACE FUNCTION gw_fct_cso_calculation(p_data json)
+CREATE OR REPLACE FUNCTION ud.gw_fct_cso_calculation(p_data json)
  RETURNS json
  LANGUAGE plpgsql
 AS $function$
 
 /*
+
 --modo calculo
 SELECT ud.gw_fct_cso_calculation($${"client":{"device":4, "lang":"es_ES", "epsg":25830}, "form":{}, "feature":{}, 
 "data":{"filterFields":{}, "pageInfo":{}, "parameters":{"exploitation":"19","drainzoneId":null,
@@ -96,6 +96,7 @@ v_calib_imperv_area NUMERIC = 0;
 v_mode TEXT;
 v_filtercal TEXT;
 v_residual_pattern NUMERIC = 0;
+v_querytext TEXT;
 
 v_i integer;
 
@@ -105,6 +106,10 @@ v_step_dscenario boolean;
 v_macroexpl text;
 v_pd80 NUMERIC;
 v_update_inventory boolean = FALSE;
+v_hydrograph TEXT; -- inp_timeseries id: flow hydrograph (m3/s) added to vol_runoff at each time step
+v_hydro_rainfall TEXT; -- rf_name of the rainfall the hydrograph is added to (NULL = all rainfalls)
+v_hydro_subcwwf_id int4; -- subcatchment that will be replaced by the hydrograph
+v_hydro_q NUMERIC; -- hydrograph flow (m3/s) of the current time step
 
 
 BEGIN
@@ -119,8 +124,13 @@ BEGIN
 	v_mode:= (p_data ->'data'->'parameters'->'calculation'->>'mode')::text;
 	v_sourcetables:= (((p_data ->>'data')::json->>'parameters')::json->>'sourceTables')::text;
 	v_update_inventory:= (p_data ->'data'->'parameters'->'calculation'->>'updateInventory')::boolean;
-
-	
+	v_hydrograph := NULLIF(TRIM(COALESCE(p_data->'data'->'parameters'->'calculation'->>'hydrographTimeseries', 
+       p_data->'data'->'parameters'->>'hydrographTimeseries')), '');
+   	v_hydro_rainfall := NULLIF(TRIM(COALESCE(p_data->'data'->'parameters'->'calculation'->>'hydrographRainfall',
+		p_data->'data'->'parameters'->>'hydrographRainfall')), '');
+   	v_hydro_subcwwf_id := NULLIF(TRIM(COALESCE(p_data->'data'->'parameters'->'calculation'->>'subcWwfId',
+		p_data->'data'->'parameters'->>'subcWwfId')), '');
+		
 	v_step_dscenario := (p_data -> 'data' -> 'parameters' -> 'dscenario' ->> 'active')::boolean;
 	v_inflows_dscenario := (p_data ->'data'-> 'parameters' -> 'dscenario' ->> 'inflowsDscenarioRootName')::text;
 
@@ -177,17 +187,25 @@ BEGIN
 		COALESCE ((b.addparam->>'cFactor')::numeric,1) AS c_factor
 		from inp_timeseries_value a 
 		JOIN inp_timeseries b ON a.timser_id = b.id
-		WHERE timser_type = 'Rainfall' AND active AND (addparam IS NULL OR (b.addparam->>'cFactor')::float>0) AND expl_id = v_expl_id ORDER BY 1, 5;
+		WHERE timser_type = 'Rainfall' AND active AND (addparam IS NULL OR (b.addparam->>'cFactor')::float>0) AND expl_id = v_expl_id 
+			UNION ALL
+		select timser_id, 60*v_tstep, value, 0::numeric, "time", 1
+		from inp_timeseries_value WHERE timser_id = v_hydrograph
+		ORDER BY 1, 5;
 	
 		v_filtercal = ' AND c.addparam is null OR (c.addparam->>''cFactor'')::float >0';
 		
 	ELSIF v_mode = 'CALIBRATION' THEN
 	
 		create TEMP table temp_cso_inp_rainfall as
-		select timser_id as rf_name, 60*v_tstep as rf_length, value as rf_volume, (value*6)::numeric as rf_intensity, "time" as rf_tstep
+		select timser_id as rf_name, 60*v_tstep as rf_length, value as rf_volume, (value*6)::numeric as rf_intensity, "time" as rf_tstep, 1 as c_factor
 		from inp_timeseries_value a 
 		JOIN inp_timeseries b ON a.timser_id = b.id
-		WHERE timser_type = 'Rainfall' AND active AND addparam->>'mode'='CALIBRATION' AND expl_id = v_expl_id ORDER BY 1, 5;
+		WHERE timser_type = 'Rainfall' AND active AND addparam->>'mode'='CALIBRATION' AND expl_id = v_expl_id 
+					UNION ALL
+		select timser_id, 60*v_tstep, value, 0::numeric, "time", 1
+		from inp_timeseries_value WHERE timser_id = v_hydrograph
+		ORDER BY 1, 5;
 	
 		v_filtercal = ' AND c.addparam->>''mode''=''CALIBRATION''';
 	
@@ -273,6 +291,9 @@ BEGIN
 			)a where t.node_id = a.node_id 
 			';
 			
+			-- set cero value for those subcatchemts that have some hydrograph
+			UPDATE cso_subc_wwf_all SET c_value = 0 WHERE id = v_hydro_subcwwf_id;
+		
 			-- imperv area 
 			execute '
 			update cso_inp_system_subc t set imperv_area = a.imperv, thyssen_plv_area = a.area_thy, mean_coef_runoff = a.c_val from (
@@ -407,6 +428,15 @@ BEGIN
 	
 		EXECUTE v_sql;
 	
+		-- hydrograph
+		IF v_hydrograph IS NOT NULL THEN
+			EXECUTE 'INSERT INTO cso_out_vol (drainzone_id, node_id, rf_name, rf_tstep, rf_volume)
+			SELECT a.drainzone_id, a.graphconfig::json->''use''->0->>''nodeParent'', t.timser_id, t."time", t.value
+			FROM drainzone a CROSS JOIN inp_timeseries_value t
+			WHERE t.timser_id = '||quote_literal(v_hydrograph)||' AND a.drainzone_id IN ('||v_drainzone_array||')
+			ON CONFLICT (drainzone_id, rf_name, rf_tstep) DO NOTHING';
+		END IF;
+	
 		-- for each subcatchment
 		FOR rec_drainzone in execute 'select * from cso_inp_system_subc where drainzone_id in ('||v_drainzone_array||') 
 		and thyssen_plv_area is not null'
@@ -417,9 +447,19 @@ BEGIN
 			v_calib_imperv_area = (SELECT calib_imperv_area FROM cso_calibration WHERE drainzone_id = rec_drainzone.drainzone_id);
 			
 			RAISE NOTICE 'rec_drainzone.kb % rec_drainzone.thyssen_plv_area %', rec_drainzone.kb ,  rec_drainzone.thyssen_plv_area;
+		
+			IF v_hydro_rainfall IS NOT NULL THEN 
+		
+				v_querytext = 'select *, (LEFT(rf_tstep,2)::integer +1)::INTEGER AS hourly from temp_cso_inp_rainfall WHERE rf_name = '''||v_hydro_rainfall||
+				''' order by rf_name, rf_tstep';
+			
+			ELSE 
+				v_querytext = 'select *, (LEFT(rf_tstep,2)::integer +1)::INTEGER AS hourly from temp_cso_inp_rainfall order by rf_name, rf_tstep';
+			
+			END IF;
 			
 			-- for each rainfall that have volume:
-			FOR rec_rainfall in EXECUTE 'select *, (LEFT(rf_tstep,2)::integer +1)::INTEGER AS hourly from temp_cso_inp_rainfall order by rf_name, rf_tstep'
+			FOR rec_rainfall in EXECUTE v_querytext
 			LOOP
 				
 				i = i+1;
@@ -428,31 +468,42 @@ BEGIN
 									
 				EXECUTE 'SELECT factor_'||rec_rainfall.hourly||' FROM inp_pattern_value JOIN inp_pattern USING (pattern_id) WHERE expl_id = '||v_expl_id
 				INTO v_residual_pattern;
+						
+				-- hydrograph flow at this time step, only for the selected rainfall (0 otherwise)
+				IF v_hydrograph IS NOT NULL AND rec_rainfall.rf_name = v_hydro_rainfall THEN
+					v_hydro_q = COALESCE((SELECT value FROM inp_timeseries_value WHERE timser_id = v_hydrograph AND "time" = rec_rainfall.rf_tstep LIMIT 1), 0);
+				ELSE
+					v_hydro_q = 0;
+				END IF;
 				
-				-- fill table cso_out_vol
+				-- fill table cso_out_vol				
 				update cso_out_vol
-					set 
+					set
 					vol_residual = round((coalesce(rec_drainzone.demand,1) * 1 *  rec_rainfall.rf_length*v_residual_pattern / 1000)::NUMERIC,3),
 					vol_max_epi = round((rec_drainzone.q_max * rec_rainfall.rf_length / 1000)::NUMERIC,3),
-					vol_rainfall = round((1000 * rec_drainzone.kb * rec_rainfall.c_factor * rec_rainfall.rf_volume * rec_drainzone.thyssen_plv_area/(1000*1000))::NUMERIC,3)
-					where node_id = rec_drainzone.node_id and rf_name = rec_rainfall.rf_name and rf_tstep=rec_rainfall.rf_tstep;
-								
-				IF v_calib_imperv_area > 0 THEN				
+					vol_rainfall = CASE WHEN rec_rainfall.rf_name = v_hydrograph THEN 0
+						ELSE round((1000 * rec_drainzone.kb * rec_rainfall.c_factor * rec_rainfall.rf_volume * rec_drainzone.thyssen_plv_area/(1000*1000))::NUMERIC,3) END
+					where node_id = rec_drainzone.node_id and rf_name = rec_rainfall.rf_name and rf_tstep=rec_rainfall.rf_tstep;			
+			
+				IF v_calib_imperv_area > 0 THEN
 					update cso_out_vol
 					set vol_total = round((vol_residual + vol_rainfall)::NUMERIC, 3),
-					vol_runoff = round((vol_rainfall * v_calib_imperv_area / rec_drainzone.thyssen_plv_area)::NUMERIC, 3)
+					vol_runoff = round((vol_rainfall * v_calib_imperv_area / rec_drainzone.thyssen_plv_area
+						+ v_hydro_q * rec_rainfall.rf_length)::NUMERIC, 3)
 					where node_id = rec_drainzone.node_id and rf_name = rec_rainfall.rf_name and rf_tstep=rec_rainfall.rf_tstep;
-				ELSE 
+				ELSE
 					update cso_out_vol
 					set vol_total = round((vol_residual + vol_rainfall)::NUMERIC, 3),
-					vol_runoff = round((vol_rainfall * rec_drainzone.imperv_area / rec_drainzone.thyssen_plv_area)::NUMERIC, 3)
-					where node_id = rec_drainzone.node_id and rf_name = rec_rainfall.rf_name and rf_tstep=rec_rainfall.rf_tstep;		
-				END IF;
-						
+					vol_runoff = round((vol_rainfall * rec_drainzone.imperv_area / rec_drainzone.thyssen_plv_area
+						+ v_hydro_q * rec_rainfall.rf_length)::NUMERIC, 3)
+					where node_id = rec_drainzone.node_id and rf_name = rec_rainfall.rf_name and rf_tstep=rec_rainfall.rf_tstep;
+				END IF;		
+			
 				update cso_out_vol
-					set vol_infiltr = round((vol_rainfall - vol_runoff )::NUMERIC, 3),
+					set vol_infiltr = round((vol_rainfall - vol_runoff + v_hydro_q * rec_rainfall.rf_length)::NUMERIC, 3),
 					vol_circ = round((vol_runoff + vol_residual)::NUMERIC, 3)
-					where node_id = rec_drainzone.node_id and rf_name = rec_rainfall.rf_name and rf_tstep=rec_rainfall.rf_tstep; 
+					where node_id = rec_drainzone.node_id and rf_name = rec_rainfall.rf_name and rf_tstep=rec_rainfall.rf_tstep;
+		 
 												
 				-- take into account accumulated volume in dep							
 				SELECT vol_circ, vol_max_epi, (vol_circ - vol_max_epi) 

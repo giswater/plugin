@@ -1,16 +1,18 @@
 FROM python:3.11-slim-bookworm
 
 # Match postgresql-client major to the postgres service (pg_dump/pg_restore version check).
+# PGDG key is vendored (B97B 0AFC AA1A 47F0 44F2 44A0 7FCC 7D46 ACCC 4CF8).
+# www.postgresql.org truncates that download from GitHub runners (curl 18/56).
 ARG PG_MAJOR=16
+COPY docker/test-runner/pgdg-ACCC4CF8.asc /tmp/pgdg-ACCC4CF8.asc
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        ca-certificates \
-       curl \
        gnupg \
        lsb-release \
        libtap-parser-sourcehandler-pgtap-perl \
-    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-       | gpg --dearmor -o /usr/share/keyrings/postgresql-keyring.gpg \
+    && gpg --dearmor -o /usr/share/keyrings/postgresql-keyring.gpg /tmp/pgdg-ACCC4CF8.asc \
+    && rm -f /tmp/pgdg-ACCC4CF8.asc \
     && echo "deb [signed-by=/usr/share/keyrings/postgresql-keyring.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
        > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \

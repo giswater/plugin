@@ -193,6 +193,10 @@ BEGIN
 			END IF;
 		END IF;
 
+		-- Child exploitation → parent + visibility check
+		SELECT o_expl_id, o_expl_visibility INTO NEW.expl_id, NEW.expl_visibility
+		FROM gw_fct_set_expl_from_parent(NEW.expl_id, NEW.expl_visibility);
+
 		-- Blank is not a cat_owner id; '' violates element_ownercat_id_fkey (views have no FK for setfields to null)
 		IF btrim(coalesce(NEW.ownercat_id, '')) = '' THEN
 			NEW.ownercat_id := NULL;
@@ -355,6 +359,14 @@ BEGIN
 			INSERT INTO man_frelem (element_id, node_id, to_arc, flwreg_length)
 			VALUES(NEW.element_id, NEW.node_id, NEW.to_arc, NEW.flwreg_length);
 			UPDATE "element" SET epa_type = NEW.epa_type WHERE element_id = NEW.element_id;
+
+			-- informed node_id is the link; skip the geometry snap below
+			IF NEW.node_id IS NOT NULL THEN
+				INSERT INTO element_x_node (element_id, node_id)
+				VALUES (NEW.element_id, NEW.node_id)
+				ON CONFLICT (element_id, node_id) DO NOTHING;
+				v_tablefeature := NULL;
+			END IF;
 		ELSIF v_man_table='man_genelem' THEN
 			INSERT INTO man_genelem (element_id) VALUES (NEW.element_id);
 			UPDATE "element" SET epa_type = 'UNDEFINED' WHERE element_id = NEW.element_id;
@@ -443,6 +455,11 @@ BEGIN
 
 	-- UPDATE
 	ELSIF TG_OP = 'UPDATE' THEN
+
+		-- Child exploitation → parent + visibility check
+		SELECT o_expl_id, o_expl_visibility INTO NEW.expl_id, NEW.expl_visibility
+		FROM gw_fct_set_expl_from_parent(NEW.expl_id, NEW.expl_visibility);
+
 		IF btrim(coalesce(NEW.code, '')) = '' THEN
 			NEW.code := NULL;
 		END IF;

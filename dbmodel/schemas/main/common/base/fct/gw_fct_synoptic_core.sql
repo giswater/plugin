@@ -1,6 +1,6 @@
 --FUNCTION CODE: 3574
 
-DROP FUNCTION IF EXISTS "SCHEMA_NAME".gw_fct_synoptic_core();
+DROP FUNCTION IF EXISTS "SCHEMA_NAME".gw_fct_synoptic_core(json);
 
 CREATE OR REPLACE FUNCTION SCHEMA_NAME.gw_fct_synoptic_core(p_data json)
  RETURNS json
@@ -11,6 +11,7 @@ DECLARE
 
 -- Input vars
 v_fct_type text;
+v_project_type text;
 
 -- Vars
 v_pgr_distance INTEGER;
@@ -19,7 +20,8 @@ v_iterations INTEGER;
 v_updated_rows INTEGER;
 v_query_text TEXT;
 v_graph_table text;
-v_id_column text;
+v_changes INTEGER;
+v_max_level INTEGER;
 
 v_data json;
 v_error_context TEXT;
@@ -37,15 +39,14 @@ BEGIN
 	SELECT giswater INTO v_version FROM sys_version ORDER BY id DESC LIMIT 1;
 
 	-- Get variables from input JSON
+	v_project_type = (SELECT (p_data::json->>'data')::json->>'project_type');
 	v_fct_type = (SELECT (p_data::json->>'data')::json->>'fct_type');
 
     IF v_fct_type = 'SCADA' THEN
 		v_graph_table := 'temp_om_scada_graph';
 		-- om_scada_graph.synoptic_id (temp table is LIKE om_scada_graph)
-		v_id_column := 'synoptic_id';
 	ELSIF v_fct_type = 'MAPZONE' THEN
 		v_graph_table := 'temp_pgr_mapzone_synoptic';
-		v_id_column := 'synoptic_id';
 	ELSE
 		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
 		"data":{"message":"4754", "function":"3574","parameters":{"fct_type":"'||COALESCE(replace(v_fct_type, '"', ''), '')||'"}, "is_process":true}}$$);'
@@ -112,12 +113,12 @@ BEGIN
 
 	EXECUTE format('
 		UPDATE %I g
-		SET %I = n.synoptic_id
+		SET synoptic_id = n.synoptic_id
 		FROM temp_vertice n
 		WHERE g.active = TRUE
 		AND g.error_message IS NULL
 		AND n.node_id = g.node_1
-	', v_graph_table, v_id_column);
+	', v_graph_table);
 
 	-- level_id
 	UPDATE temp_vertice n
@@ -136,8 +137,7 @@ BEGIN
 		FROM temp_vertice v1, temp_vertice v2
 		WHERE v1.node_id = g.node_1
 		AND v2.node_id = g.node_2
-		AND g.active = TRUE
-		AND g.error_message IS NULL
+		AND g.synoptic_id IS NOT NULL
 		AND v2.level_id > v1.level_id + 1
 	', v_graph_table);
 
@@ -147,7 +147,7 @@ BEGIN
 				SELECT
 					g.node_1,
 					g.node_2,
-					g.%I AS synoptic_id,
+					g.synoptic_id,
 					v1.level_id AS level_1,
 					v2.level_id AS level_2
 				FROM %I g
@@ -172,7 +172,7 @@ BEGIN
 		INSERT INTO temp_vertice (node_id, synoptic_id, level_id, is_real, orig_node_1, orig_node_2)
 		SELECT -(row_number() OVER ()) AS node_id, synoptic_id, level_id, FALSE AS is_real, node_1, node_2
 		FROM vertices_levels
-	', v_id_column, v_graph_table);
+	', v_graph_table);
 
 	EXECUTE format('
 		WITH
@@ -211,13 +211,13 @@ BEGIN
 					lead(vl.node_id) OVER (PARTITION BY vl.orig_node_1, vl.orig_node_2 ORDER BY vl.level_id) AS vertice_2
 				FROM vertices_levels vl
 			)
-		INSERT INTO %I (node_1, node_2, orig_node_1, orig_node_2, %I, node_type_1, node_type_2, is_real, is_multilevel)
+		INSERT INTO %I (node_1, node_2, orig_node_1, orig_node_2, synoptic_id, node_type_1, node_type_2, is_real, is_multilevel)
 		SELECT
 			e.vertice_1,
 			e.vertice_2,
 			e.orig_node_1,
 			e.orig_node_2,
-			g.%I,
+			g.synoptic_id,
 			CASE WHEN e.vertice_1 = e.orig_node_1 THEN g.node_type_1
 				WHEN e.vertice_1 = e.orig_node_2 THEN g.node_type_2
 				ELSE ''VIRTUAL VERTICE''
@@ -231,7 +231,7 @@ BEGIN
 		FROM new_edges e
 		JOIN %I g ON g.node_1 = e.orig_node_1 AND g.node_2 = e.orig_node_2
 		WHERE e.vertice_2 IS NOT NULL
-	', v_graph_table, v_graph_table, v_graph_table, v_id_column, v_id_column, v_graph_table);
+	', v_graph_table, v_graph_table, v_graph_table, v_graph_table);
 
 	-- position_id 
 	-- order root nodes by their coordinates x and y coordinates so their position_id is assigned from left to right
@@ -241,13 +241,11 @@ BEGIN
 			SELECT DISTINCT g.node_1 AS node_id, st_x(n.the_geom) AS x, st_y(n.the_geom) AS y
 			FROM %I g
 			JOIN node n ON n.node_id = g.node_1
-			WHERE g.active = TRUE
-			AND g.error_message IS NULL
+			WHERE g.synoptic_id IS NOT NULL
 			AND g.is_multilevel = FALSE
 			AND NOT EXISTS (
 				SELECT 1 FROM %I g2
-				WHERE g2.active = TRUE
-				AND g2.error_message IS NULL
+				WHERE g2.synoptic_id IS NOT NULL
 				AND g2.is_multilevel = FALSE
 				AND g2.node_2 = g.node_1
 			)
@@ -262,9 +260,9 @@ BEGIN
 			g.node_2 AS target,
 			1::float AS cost
 		FROM %I g
-		WHERE g.%I IS NOT NULL
+		WHERE g.synoptic_id IS NOT NULL
 		AND g.is_multilevel = FALSE
-	', v_graph_table, v_id_column);
+	', v_graph_table);
 
 	-- 1. initial raw value for position_aux from DFS traversal order (pgr_depthFirstSearch)
 	UPDATE temp_vertice n
@@ -276,12 +274,12 @@ BEGIN
 	) g
 	WHERE n.node_id = g.node_id;
 
-	-- 2. normalize position_aux to consecutive positions within each level
+	-- 2. normalize pgr_depthFirstSearch order to consecutive positions within each level
 	UPDATE temp_vertice n
-	SET position_aux = g.position_aux
+	SET position_id = g.position_id
 	FROM (
 		SELECT node_id,
-			row_number() OVER (PARTITION BY synoptic_id, level_id ORDER BY position_aux) AS position_aux
+			row_number() OVER (PARTITION BY synoptic_id, level_id ORDER BY position_aux) AS position_id
 		FROM temp_vertice
 	) g
 	WHERE n.node_id = g.node_id;
@@ -291,9 +289,16 @@ BEGIN
 
 	FOR i IN 1..v_iterations LOOP
 
+		-- barycenter (position_aux) starts from position_id
+		UPDATE temp_vertice SET position_aux = position_id;
+
 		IF i % 2 = 1 THEN
 			-- downward pass: update position_aux of node_2 based on its predecessor node_1
       		-- (only consider arcs connecting consecutive levels)
+
+			-- start of a new downward + upward pair
+			v_changes := 0;
+
 			EXECUTE format('
 				UPDATE temp_vertice n
 				SET position_aux = bc.avg_pos
@@ -302,13 +307,11 @@ BEGIN
 					FROM %I g
 					JOIN temp_vertice v1 ON v1.node_id = g.node_1
 					JOIN temp_vertice v2 ON v2.node_id = g.node_2
-					WHERE g.active = TRUE
-					AND g.error_message IS NULL
+					WHERE g.synoptic_id IS NOT NULL
 					AND v2.level_id = v1.level_id + 1
 					GROUP BY g.node_2
 				) bc
 				WHERE n.node_id = bc.node_id
-				AND n.position_aux IS DISTINCT FROM bc.avg_pos
 			', v_graph_table);
 		ELSE
 			-- upward pass: update position_aux of node_1 based on its successor node_2
@@ -321,45 +324,125 @@ BEGIN
 					FROM %I g
 					JOIN temp_vertice v1 ON v1.node_id = g.node_1
 					JOIN temp_vertice v2 ON v2.node_id = g.node_2
-					WHERE g.active = TRUE
-					AND g.error_message IS NULL
+					WHERE g.synoptic_id IS NOT NULL
 					AND v2.level_id = v1.level_id + 1
 					GROUP BY g.node_1
 				) bc
 				WHERE n.node_id = bc.node_id
-				AND n.position_aux IS DISTINCT FROM bc.avg_pos
 			', v_graph_table);
 		END IF;
 
 		-- re-rank nodes within each level based on the updated barycenter position
 		UPDATE temp_vertice t
-		SET position_aux = g.position_aux
+		SET position_id = g.position_id
 		FROM (
 			SELECT v.node_id,
-				row_number() OVER (PARTITION BY v.synoptic_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_aux
+				row_number() OVER (PARTITION BY v.synoptic_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_id
 			FROM temp_vertice v
 			LEFT JOIN node n ON n.node_id = v.node_id
 		) g
 		WHERE t.node_id = g.node_id
-		AND t.position_aux IS DISTINCT FROM g.position_aux;
+		AND t.position_id IS DISTINCT FROM g.position_id;
 
 		-- stop early if the ranking has already converged (no changes this iteration)
 		GET DIAGNOSTICS v_updated_rows = ROW_COUNT;
+		v_changes := v_changes + v_updated_rows;
 		RAISE NOTICE 'Iteration %: % rows updated', i, v_updated_rows;
-		EXIT WHEN v_updated_rows = 0;
+		
+		-- stop only when a full pair (downward + upward) has not changed any ranking
+		EXIT WHEN i % 2 = 0 AND v_changes = 0;
 
 	END LOOP;
 
-	-- 4. final position_id: position after all barycenter iterations
-	UPDATE temp_vertice t
-	SET position_id = g.position_id
-	FROM (
-		SELECT v.node_id,
-			row_number() OVER (PARTITION BY v.synoptic_id, v.level_id ORDER BY v.position_aux, st_x(n.the_geom), st_y(n.the_geom), v.node_id) AS position_id
-		FROM temp_vertice v
-		LEFT JOIN node n ON n.node_id = v.node_id
-	) g
-	WHERE t.node_id = g.node_id;
+	-- 4. final coordinates: keep the order from step 3 and centre each node on its neighbours
+	-- WS (diverging): centred over successors
+	-- UD (converging): centred under predecessors
+	-- sweep: position = max(desired, previous + 1), computed as rn + running max(desired - rn)
+
+	-- keep the rank from step 3 in position_aux; position_id will hold the final column
+	UPDATE temp_vertice SET position_aux = position_id;
+
+	SELECT COALESCE(max(level_id), 0) INTO v_max_level FROM temp_vertice;
+
+	IF v_project_type = 'UD' THEN
+
+		-- each node wants floor(avg of its predecessors' column)
+		FOR l IN 1..v_max_level LOOP
+			EXECUTE format('
+				UPDATE temp_vertice t
+				SET position_id = s.new_position_id
+				FROM (
+					SELECT
+						d.node_id,
+						d.rn + max(d.desired - d.rn) OVER (
+							PARTITION BY d.synoptic_id
+							ORDER BY d.rn
+							ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+						) AS new_position_id
+					FROM (
+						SELECT
+							v.node_id,
+							v.synoptic_id,
+							v.position_aux::int AS rn,
+							COALESCE(floor(p.bary)::int, v.position_aux::int) AS desired
+						FROM temp_vertice v
+						LEFT JOIN (
+							SELECT g.node_2 AS node_id, avg(v1.position_id) AS bary
+							FROM %I g
+							JOIN temp_vertice v1 ON v1.node_id = g.node_1
+							WHERE g.synoptic_id IS NOT NULL
+							AND v1.level_id = $1 - 1
+							GROUP BY g.node_2
+						) p ON p.node_id = v.node_id
+						WHERE v.level_id = $1
+					) d
+				) s
+				WHERE t.node_id = s.node_id
+				AND t.position_id IS DISTINCT FROM s.new_position_id
+			', v_graph_table)
+			USING l;
+		END LOOP;
+
+	ELSE
+
+		-- each node wants floor(avg of its successors' column)
+		FOR l IN REVERSE v_max_level..1 LOOP
+			EXECUTE format('
+				UPDATE temp_vertice t
+				SET position_id = s.new_position_id
+				FROM (
+					SELECT
+						d.node_id,
+						d.rn + max(d.desired - d.rn) OVER (
+							PARTITION BY d.synoptic_id
+							ORDER BY d.rn
+							ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+						) AS new_position_id
+					FROM (
+						SELECT
+							v.node_id,
+							v.synoptic_id,
+							v.position_aux::int AS rn,
+							COALESCE(floor(c.bary)::int, v.position_aux::int) AS desired
+						FROM temp_vertice v
+						LEFT JOIN (
+							SELECT g.node_1 AS node_id, avg(v2.position_id) AS bary
+							FROM %I g
+							JOIN temp_vertice v2 ON v2.node_id = g.node_2
+							WHERE g.synoptic_id IS NOT NULL
+							AND v2.level_id = $1 + 1
+							GROUP BY g.node_1
+						) c ON c.node_id = v.node_id
+						WHERE v.level_id = $1
+					) d
+				) s
+				WHERE t.node_id = s.node_id
+				AND t.position_id IS DISTINCT FROM s.new_position_id
+			', v_graph_table)
+			USING l;
+		END LOOP;
+
+	END IF;
 
 	-- 5. persist the schematic line (position_id, level_id).
 	EXECUTE format('
@@ -367,12 +450,12 @@ BEGIN
 			all_nodes AS (
 				SELECT t.orig_node_1, t.orig_node_2, t.node_1 AS node_id
 				FROM %I t
-				WHERE t.%I IS NOT NULL
+				WHERE t.synoptic_id IS NOT NULL
 				AND t.is_multilevel = FALSE
 				UNION
 				SELECT t.orig_node_1, t.orig_node_2, t.node_2 AS node_id
 				FROM %I t
-				WHERE t.%I IS NOT NULL
+				WHERE t.synoptic_id IS NOT NULL
 				AND t.is_multilevel = FALSE
 				AND t.node_2 = t.orig_node_2
 			),
@@ -398,7 +481,7 @@ BEGIN
 		FROM synoptic s
 		WHERE g.node_1 = s.orig_node_1
 		AND g.node_2 = s.orig_node_2
-	', v_graph_table, v_id_column, v_graph_table, v_id_column, v_graph_table);
+	', v_graph_table, v_graph_table, v_graph_table);
 
 	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
 	"data":{"message":"4756", "function":"3574","parameters":null, "is_process":true}}$$);'

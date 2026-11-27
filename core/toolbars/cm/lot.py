@@ -892,7 +892,7 @@ class AddNewLot:
         if user_info:
             role = user_info[0]
             org_id = user_info[1]
-            if role not in ('role_cm_admin'):
+            if role not in ('role_addon_cm_admin'):
                 if org_id is not None:
                     where_clause = f" WHERE campaign_name IN (SELECT name FROM cm.om_campaign WHERE organization_id = {org_id})"
 
@@ -927,7 +927,7 @@ class AddNewLot:
         if user_info:
             role = user_info[0]
             org_id = user_info[1]
-            if role not in ('role_cm_admin'):
+            if role not in ('role_addon_cm_admin'):
                 if org_id is not None:
                     filters.append(f"campaign_name IN (SELECT name FROM cm.om_campaign WHERE organization_id = {org_id})")
 
@@ -1214,7 +1214,7 @@ class AddNewLot:
         sql = "SELECT team_id AS id, teamname AS idval FROM cm.cat_team"
 
         # Check if user is superadmin
-        if self.user_data["role"] == "role_cm_admin":
+        if self.user_data["role"] == "role_addon_cm_admin":
 
             # Create list of tables
             tables = ["cat_organization", "cat_team", "cat_user"]
@@ -1663,7 +1663,7 @@ class AddNewLot:
         # Build sql filtering by team name and organization
         if team_name and team_name.strip():
             # Filter by team name
-            if self.user_data["role"] != "role_cm_admin":
+            if self.user_data["role"] != "role_addon_cm_admin":
                 # For non-admin users, also filter by organization
                 sql_filter = f"WHERE ct.teamname ILIKE '%{team_name}%' AND co.organization_id = {self.user_data['org_id']}"
             else:
@@ -1671,7 +1671,7 @@ class AddNewLot:
                 sql_filter = f"WHERE ct.teamname ILIKE '%{team_name}%'"
         else:
             # No team name filter - show all teams for admin, or organization teams for non-admin
-            if self.user_data["role"] != "role_cm_admin":
+            if self.user_data["role"] != "role_addon_cm_admin":
                 sql_filter = f"WHERE co.organization_id = {self.user_data['org_id']}"
             else:
                 sql_filter = None  # Show all teams for admin
@@ -1692,7 +1692,7 @@ class AddNewLot:
             sql_filter = f"WHERE (ct.team_id = {team_id} OR cu.team_id IS NULL)"
         else:
             # Show all users (including those without teams) for the current organization
-            if self.user_data["role"] != "role_cm_admin":
+            if self.user_data["role"] != "role_addon_cm_admin":
                 # For non-admin users, show users from their organization's teams or users without teams
                 sql_filter = f"WHERE (ct.team_id = any(SELECT team_id FROM cm.cat_team WHERE organization_id = {self.user_data['org_id']}) OR cu.team_id IS NULL)"
             else:
@@ -1969,7 +1969,7 @@ class AddNewLot:
             return
 
         # Refresh table according to role and tablename
-        if self.user_data["role"] == "role_cm_admin":
+        if self.user_data["role"] == "role_addon_cm_admin":
             self._populate_resource_tableview(tablename)
         else:
             if tablename == "cat_team":
@@ -2024,7 +2024,7 @@ class AddNewLot:
                 tools_qgis.show_warning(msg, msg_params=msg_params)
 
             # Chek user role
-            if self.user_data["role"] == "role_cm_admin":
+            if self.user_data["role"] == "role_addon_cm_admin":
                 # Reload table without filtering
                 self._populate_resource_tableview(tablename)
             else:
@@ -2156,7 +2156,7 @@ def upsert_team(**kwargs: Any):
 
     # Set default values automatically
     org_id = this.user_data['org_id']  # Current user's organization
-    role_id = "role_cm_field"  # Default role
+    role_id = "role_addon_cm_field"  # Default role
 
     # Set default values if empty
     if not descript or not descript.strip():
@@ -2202,7 +2202,7 @@ def upsert_team(**kwargs: Any):
     tools_gw.close_dialog(dlg)
 
     # Chek user role
-    if this.user_data["role"] == "role_cm_admin":
+    if this.user_data["role"] == "role_addon_cm_admin":
         # Reload table without filtering
         this._populate_resource_tableview("cat_team")
     else:

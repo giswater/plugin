@@ -200,8 +200,9 @@ BEGIN
 	--copy features inside plan_psector tables
 	SELECT string_agg(price_id,',') INTO v_list_features_obsolete FROM plan_psector_x_other WHERE psector_id=v_old_psector_id;
 	IF v_list_features_obsolete IS NOT NULL THEN
-		INSERT INTO plan_psector_x_other(price_id, measurement, psector_id, descript)
-		SELECT  price_id, measurement, psector_id, descript FROM plan_psector_x_other WHERE psector_id=v_old_psector_id;
+		PERFORM setval('SCHEMA_NAME.plan_psector_x_other_id_seq', (SELECT max(id) FROM plan_psector_x_other), true);
+		INSERT INTO plan_psector_x_other(price_id, measurement, psector_id, observ, the_geom)
+		SELECT price_id, measurement, v_new_psector_id, observ, the_geom FROM plan_psector_x_other WHERE psector_id=v_old_psector_id;
 
 		INSERT INTO audit_check_data (fid, result_id, error_message) VALUES (153, v_result_id, concat('Copied other prices: ', v_list_features_obsolete ));
 	END IF;

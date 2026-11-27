@@ -11,9 +11,9 @@ SET search_path = cm, public, pg_catalog;
 DO $$
 BEGIN
    IF NOT EXISTS (
-      SELECT FROM pg_catalog.pg_roles WHERE rolname = 'role_cm_admin'
+      SELECT FROM pg_catalog.pg_roles WHERE rolname = 'role_addon_cm_admin'
    ) THEN
-      CREATE role role_cm_admin WITH NOSUPERUSER NOCREATEDB NOCREATEROLE inherit NOREPLICATION NOBYPASSRLS;
+      CREATE role role_addon_cm_admin WITH NOSUPERUSER NOCREATEDB NOCREATEROLE inherit NOREPLICATION NOBYPASSRLS;
    END IF;
 END
 $$;
@@ -21,9 +21,9 @@ $$;
 DO $$
 BEGIN
    IF NOT EXISTS (
-      SELECT FROM pg_catalog.pg_roles WHERE rolname = 'role_cm_manager'
+      SELECT FROM pg_catalog.pg_roles WHERE rolname = 'role_addon_cm_manager'
    ) THEN
-      CREATE role role_cm_manager WITH NOSUPERUSER NOCREATEDB NOCREATEROLE inherit NOREPLICATION NOBYPASSRLS;
+      CREATE role role_addon_cm_manager WITH NOSUPERUSER NOCREATEDB NOCREATEROLE inherit NOREPLICATION NOBYPASSRLS;
    END IF;
 END
 $$;
@@ -31,9 +31,9 @@ $$;
 DO $$
 BEGIN
    IF NOT EXISTS (
-      SELECT FROM pg_catalog.pg_roles WHERE rolname = 'role_cm_field'
+      SELECT FROM pg_catalog.pg_roles WHERE rolname = 'role_addon_cm_field'
    ) THEN
-      CREATE role role_cm_field WITH NOSUPERUSER NOCREATEDB NOCREATEROLE inherit NOREPLICATION NOBYPASSRLS;
+      CREATE role role_addon_cm_field WITH NOSUPERUSER NOCREATEDB NOCREATEROLE inherit NOREPLICATION NOBYPASSRLS;
    END IF;
 END
 $$;
@@ -41,9 +41,9 @@ $$;
 DO $$
 BEGIN
    IF NOT EXISTS (
-      SELECT FROM pg_catalog.pg_roles WHERE rolname = 'role_cm_edit'
+      SELECT FROM pg_catalog.pg_roles WHERE rolname = 'role_addon_cm_edit'
    ) THEN
-      CREATE role role_cm_edit WITH NOSUPERUSER NOCREATEDB NOCREATEROLE inherit NOREPLICATION NOBYPASSRLS;
+      CREATE role role_addon_cm_edit WITH NOSUPERUSER NOCREATEDB NOCREATEROLE inherit NOREPLICATION NOBYPASSRLS;
    END IF;
 END
 $$;
@@ -245,7 +245,7 @@ CREATE TABLE cat_team (
 	teamname text not NULL,
 	organization_id int4 NOT NULL,
 	descript text NULL,
-	role_id TEXT NULL DEFAULT 'role_cm_field',
+	role_id TEXT NULL DEFAULT 'role_addon_cm_field',
 	active bool NULL DEFAULT true,
 	CONSTRAINT cat_team_pkey PRIMARY KEY (team_id),
 	CONSTRAINT cat_team_unique UNIQUE (teamname, organization_id),
@@ -955,8 +955,8 @@ CREATE OR REPLACE VIEW v_filter_campaign AS
   WHERE sc.cur_user = "current_user"()::text;
 
 -- Permissions for v_selector_lot
-GRANT SELECT ON TABLE cm.v_selector_lot TO role_cm_field;
-GRANT SELECT ON TABLE cm.v_filter_lot TO role_cm_field;
+GRANT SELECT ON TABLE cm.v_selector_lot TO role_addon_cm_field;
+GRANT SELECT ON TABLE cm.v_filter_lot TO role_addon_cm_field;
 
 
 CREATE OR REPLACE VIEW cm.ve_config_qindex_suspicious
@@ -981,11 +981,11 @@ INSERT INTO config_qindex_rating(id, minval, maxval, rating) VALUES
   (5, 4.000, 999.000, 'INACEPTABLE')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO cat_role VALUES ('role_cm_admin');
+INSERT INTO cat_role VALUES ('role_addon_cm_admin');
 INSERT INTO cat_role VALUES ('role_cm_org');
-INSERT INTO cat_role VALUES ('role_cm_field');
-INSERT INTO cat_role VALUES ('role_cm_edit');
-INSERT INTO cat_role VALUES ('role_cm_manager');
+INSERT INTO cat_role VALUES ('role_addon_cm_field');
+INSERT INTO cat_role VALUES ('role_addon_cm_edit');
+INSERT INTO cat_role VALUES ('role_addon_cm_manager');
 
 -- Per-user switch to disable topocontrol in CM
 INSERT INTO sys_param_user (
@@ -995,7 +995,7 @@ INSERT INTO sys_param_user (
   "datatype", widgettype, ismandatory, widgetcontrols, vdefault, layoutname,
   iseditable, dv_orderby_id, dv_isnullvalue, stylesheet, placeholder, "source"
 ) VALUES (
-  'edit_disable_topocontrol', 'hidden', 'If true, CM topocontrol and feature proximity checks are disabled to allow data migration', 'role_cm_manager',
+  'edit_disable_topocontrol', 'hidden', 'If true, CM topocontrol and feature proximity checks are disabled to allow data migration', 'role_addon_cm_manager',
   NULL, NULL,
   NULL, NULL, TRUE, NULL, 'utils', NULL,
   NULL, NULL, NULL, FALSE,
@@ -1110,7 +1110,7 @@ INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutn
 INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder) VALUES('lot', 'form_feature', 'tab_data', 'real_startdate', 'lyt_data_2', 5, 'date', 'datetime', 'Real start:', 'Real start', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, NULL);
 INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder) VALUES('lot', 'form_feature', 'tab_data', 'real_enddate', 'lyt_data_2', 6, 'date', 'datetime', 'Real end:', 'Real end', NULL, false, false, false, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, NULL);
 INSERT INTO config_form_fields (formname, formtype, tabname, columnname, layoutname, layoutorder, "datatype", widgettype, "label", tooltip, placeholder, ismandatory, isparent, iseditable, isautoupdate, isfilter, dv_querytext, dv_orderby_id, dv_isnullvalue, dv_parent_id, dv_querytext_filterc, stylesheet, widgetcontrols, widgetfunction, linkedobject, hidden, web_layoutorder) VALUES('lot', 'form_feature', 'tab_data', 'campaign_id', 'lyt_data_2', 7, 'text', 'combo', 'Campaign id:', 'Campaign id', NULL, false, false, true, false, NULL, 'WITH isadmin AS (SELECT true AS val FROM pg_user u JOIN pg_auth_members m ON (m.member = u.usesysid) JOIN pg_roles r ON (r.oid = m.roleid)
-WHERE u.usename = current_user AND r.rolname=''role_cm_admin'')
+WHERE u.usename = current_user AND r.rolname=''role_addon_cm_admin'')
 SELECT DISTINCT c.campaign_id AS id, c.name AS idval FROM cm.om_campaign c WHERE EXISTS (SELECT 1 FROM isadmin) and c.status > 2
 union 
 SELECT distinct c.campaign_id AS id, c.name AS idval FROM cm.om_campaign c
@@ -1163,38 +1163,38 @@ INSERT INTO sys_table (id, descript, sys_role, project_template, context, orderb
 INSERT INTO sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('ve_PARENT_SCHEMA_lot_link', 've_PARENT_SCHEMA_lot_link', 'role_basic', '{"template": [1], "visibility": true, "levels_to_read": 2}'::jsonb, '1', NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO sys_table (id, descript, sys_role, project_template, context, orderby, alias, notify_action, isaudit, keepauditdays, "source", addparam) VALUES('ve_PARENT_SCHEMA_lot_node', 've_PARENT_SCHEMA_lot_node', 'role_basic', '{"template": [1], "visibility": true, "levels_to_read": 2}'::jsonb, '1', NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
-GRANT ALL PRIVILEGES ON DATABASE BD_NAME TO role_cm_field;
-GRANT ALL PRIVILEGES ON DATABASE BD_NAME TO role_cm_manager;
-GRANT ALL PRIVILEGES ON DATABASE BD_NAME TO role_cm_admin;
-GRANT ALL PRIVILEGES ON DATABASE BD_NAME TO role_cm_edit;
+GRANT ALL PRIVILEGES ON DATABASE BD_NAME TO role_addon_cm_field;
+GRANT ALL PRIVILEGES ON DATABASE BD_NAME TO role_addon_cm_manager;
+GRANT ALL PRIVILEGES ON DATABASE BD_NAME TO role_addon_cm_admin;
+GRANT ALL PRIVILEGES ON DATABASE BD_NAME TO role_addon_cm_edit;
 
 GRANT SELECT ON ALL TABLES IN SCHEMA cm TO role_basic;
 GRANT SELECT ON ALL SEQUENCES IN SCHEMA cm TO role_basic;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA cm TO role_basic;
 
-GRANT ALL ON SCHEMA cm TO role_cm_field;
-GRANT ALL ON SCHEMA PARENT_SCHEMA TO role_cm_field;
-GRANT ALL ON TABLE selector_lot TO role_cm_field;
-GRANT ALL ON TABLE audit.cm_log TO role_cm_field;
-GRANT ALL ON FUNCTION cm.gw_trg_ui_doc() TO role_cm_field;
+GRANT ALL ON SCHEMA cm TO role_addon_cm_field;
+GRANT ALL ON SCHEMA PARENT_SCHEMA TO role_addon_cm_field;
+GRANT ALL ON TABLE selector_lot TO role_addon_cm_field;
+GRANT ALL ON TABLE audit.cm_log TO role_addon_cm_field;
+GRANT ALL ON FUNCTION cm.gw_trg_ui_doc() TO role_addon_cm_field;
 
-GRANT ALL ON SCHEMA cm TO role_cm_manager;
-GRANT ALL ON SCHEMA PARENT_SCHEMA TO role_cm_manager;
-GRANT ALL ON SCHEMA cm TO role_cm_manager;
-GRANT ALL ON ALL TABLES IN SCHEMA cm TO role_cm_manager;
-GRANT ALL ON FUNCTION cm.gw_trg_ui_doc() TO role_cm_manager;
+GRANT ALL ON SCHEMA cm TO role_addon_cm_manager;
+GRANT ALL ON SCHEMA PARENT_SCHEMA TO role_addon_cm_manager;
+GRANT ALL ON SCHEMA cm TO role_addon_cm_manager;
+GRANT ALL ON ALL TABLES IN SCHEMA cm TO role_addon_cm_manager;
+GRANT ALL ON FUNCTION cm.gw_trg_ui_doc() TO role_addon_cm_manager;
 
-GRANT ALL ON SCHEMA cm TO role_cm_admin;
-GRANT ALL ON SCHEMA PARENT_SCHEMA TO role_cm_admin;
-GRANT ALL ON SCHEMA cm TO role_cm_admin;
-GRANT ALL ON ALL TABLES IN SCHEMA cm TO role_cm_admin;
+GRANT ALL ON SCHEMA cm TO role_addon_cm_admin;
+GRANT ALL ON SCHEMA PARENT_SCHEMA TO role_addon_cm_admin;
+GRANT ALL ON SCHEMA cm TO role_addon_cm_admin;
+GRANT ALL ON ALL TABLES IN SCHEMA cm TO role_addon_cm_admin;
 
-GRANT ALL ON SCHEMA cm TO role_cm_edit;
-GRANT ALL ON SCHEMA PARENT_SCHEMA TO role_cm_edit;
-GRANT ALL ON ALL TABLES IN SCHEMA cm TO role_cm_edit;
-GRANT ALL ON ALL FUNCTIONS IN SCHEMA cm TO role_cm_edit;
+GRANT ALL ON SCHEMA cm TO role_addon_cm_edit;
+GRANT ALL ON SCHEMA PARENT_SCHEMA TO role_addon_cm_edit;
+GRANT ALL ON ALL TABLES IN SCHEMA cm TO role_addon_cm_edit;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA cm TO role_addon_cm_edit;
 RESET ROLE;
-GRANT role_edit TO role_cm_edit;
+GRANT role_edit TO role_addon_cm_edit;
 SET ROLE role_system;
 
 UPDATE config_form_fields SET

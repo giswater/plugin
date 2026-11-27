@@ -10,6 +10,7 @@ UPDATE sys_param_user AS t SET label = v.label, descript = v.descript FROM (
 	('basic_search_exploitation_vdefault', 'Search exploitation:', 'Selected exploitation will be the one in which the features will be searched'),
     ('basic_search_municipality_vdefault', 'Search municipality:', 'Selected municipality will be the one in which the streetaxis will be searched'),
     ('custom_order_by', 'Configuration to order result of getselectors by columname:', 'Configuration to order result of getselectors by columname'),
+    ('disable_qgis_selector_zoom', 'Disable zoom to selector:', 'If true, changing exploitation, municipality or sector does not move the map to the selected extent'),
     ('edit_addfield_p10_vdefault', 'grate_param_1:', 'Default value of addfield grate_param_1 for PGULLY'),
     ('edit_addfield_p12_vdefault', 'grate_param_2:', 'Default value of addfield grate_param_2 for PGULLY'),
     ('edit_addfield_p14_vdefault', 'ovestorage_param_1:', 'Default value of addfield ovestorage_param_1 for OWERFLOW_STORAGE'),

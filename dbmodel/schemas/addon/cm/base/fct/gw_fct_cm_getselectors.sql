@@ -169,7 +169,7 @@ BEGIN
 
 
 	-- creation of the temporal tables in function of the role
-	if 'role_cm_admin' in (	SELECT r.rolname AS role_name FROM pg_roles r JOIN pg_auth_members m ON r.oid = m.roleid
+	if 'role_addon_cm_admin' in (	SELECT r.rolname AS role_name FROM pg_roles r JOIN pg_auth_members m ON r.oid = m.roleid
 						  	JOIN pg_roles u ON u.oid = m.member WHERE u.rolname = current_user) then
 
 		CREATE TEMP TABLE temp_om_campaign AS

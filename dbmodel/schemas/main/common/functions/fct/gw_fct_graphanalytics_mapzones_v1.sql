@@ -3306,6 +3306,7 @@ BEGIN
 			jsonb_build_object(
 				'data',
 				jsonb_build_object(
+					'project_type', v_project_type,
 					'fct_type', 'MAPZONE'
 				)
 			);

@@ -1,0 +1,3 @@
+- Replace the materialized-view publication with `config_publi_table` and `gw_fct_publi_sync`. The function is `SECURITY DEFINER`, owned by `role_system`, and `search_path` is `publi, public`. Execute is granted to `role_admin` and `role_system` (#1003).
+- Add `sys_metadata`, `sys_domain` and `sync_log`. Create `role_addon_publi_read` (NOLOGIN) and grant it `USAGE` on schema `publi` (#1003).
+- Mark `config_materialized_views` and `gw_fct_refresh_materialized_views` deprecated. Publication uses `config_publi_table` and `gw_fct_publi_sync` (#1003).

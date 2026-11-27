@@ -644,6 +644,10 @@ class GwInfo(QObject):
 
         btn_cancel = self.dlg_cf.findChild(QPushButton, 'btn_cancel')
         btn_accept = self.dlg_cf.findChild(QPushButton, 'btn_accept')
+        # One Apply slot. A second _manage_edition (empty my_json) was leaving edit mode.
+        self.dlg_cf.btn_apply.clicked.connect(partial(
+            self._apply_from_btn, dlg_cf, self.action_edit, feature_id, new_feature,
+            False, from_apply=True, linked_feature=linked_feature))
         try:
             title = f"{complet_result['body']['form']['headerText']}"
         except KeyError:
@@ -691,8 +695,6 @@ class GwInfo(QObject):
             dlg_cf.dlg_closed.connect(self._manage_prev_action)
             dlg_cf.key_escape.connect(partial(tools_gw.close_dialog, dlg_cf))
             btn_cancel.clicked.connect(partial(self._manage_info_close, dlg_cf))
-            self.dlg_cf.btn_apply.clicked.connect(partial(self._apply_from_btn, dlg_cf, self.action_edit, feature_id, new_feature,
-                                                          False, from_apply=True, linked_feature=linked_feature))
             btn_accept.clicked.connect(
             partial(self._accept_from_btn, dlg_cf, self.action_edit, new_feature, self.my_json, complet_result, False, linked_feature=linked_feature))
             dlg_cf.key_enter.connect(
@@ -938,7 +940,6 @@ class GwInfo(QObject):
 
         # Actions signals
         self.action_edit.triggered.connect(partial(self._manage_edition, dlg_cf, self.action_edit, fid, new_feature, generic=False))
-        self.dlg_cf.btn_apply.clicked.connect(partial(self._manage_edition, dlg_cf, self.action_edit, fid, new_feature, False, from_apply=True))
         self.action_catalog.triggered.connect(partial(self._open_catalog, tab_type, self.feature_type, child_type))
         self.action_workcat.triggered.connect(partial(GwWorkcat(self.iface, self.canvas).create_workcat))
         self.action_mapzone.triggered.connect(
@@ -1679,15 +1680,21 @@ class GwInfo(QObject):
             self._get_last_value(dialog, generic)
             geom_pending = self.point_xy.get('x') is not None
             if str(self.my_json) == '{}' and str(self.my_json_epa) == '{}' and not geom_pending:
+                # Apply with nothing pending stays in edit mode. Leaving edit (pencil) still locks the form.
+                if from_apply:
+                    return False
                 tools_qt.set_action_checked(action_edit, False)
                 tools_gw.enable_widgets(dialog, self.complet_result['body']['data'], False)
                 if self.epa_complet_result:
                     tools_gw.enable_widgets(dialog, self.epa_complet_result['body']['data'], False)
                 self._enable_actions(dialog, False)
                 return False
-            save = self._ask_for_save(action_edit, fid)
+            # Accept saves without asking. Apply does the same. The question only
+            # remains when leaving edit mode with the pencil, where Cancel means discard.
+            save = True if from_apply else self._ask_for_save(action_edit, fid)
             if save:
-                accepted = self._manage_accept(dialog, action_edit, new_feature, self.my_json, False, generic)
+                accepted = self._manage_accept(
+                    dialog, action_edit, new_feature, self.my_json, False, generic, keep_editing=from_apply)
             elif self.new_feature_id is not None:
                 if lib_vars.session_vars['dialog_docker'] and lib_vars.session_vars['info_docker']:
                     self._manage_docker_close()
@@ -1700,10 +1707,19 @@ class GwInfo(QObject):
                 self._reload_epa_tab(dialog)
                 self._reset_my_json()
             if from_apply:
-                action_edit.setChecked(True)
-                tools_gw.enable_all(dialog, self.complet_result['body']['data'], from_apply=True)
-                if self.epa_complet_result:
-                    tools_gw.enable_all(dialog, self.epa_complet_result['body']['data'], from_apply=True)
+                # Save used to uncheck the pencil and gray the fields. Apply leaves that state alone.
+                # enable_all(from_apply=True) did not clear those styles, so the form looked locked.
+                if not action_edit.isChecked():
+                    action_edit.setChecked(True)
+                    tools_gw.enable_all(dialog, self.complet_result['body']['data'])
+                    if self.epa_complet_result:
+                        tools_gw.enable_all(dialog, self.epa_complet_result['body']['data'])
+                    self._enable_actions(dialog, True)
+                # Apply keeps the dialog open. Accept closes it, so the stale widgets
+                # were never visible there. Re-read the row so computed columns
+                # (sys_y, sys_elev, z, ...) show what the database stored.
+                if save and accepted:
+                    self.refresh_from_db()
         else:
             tools_qt.set_action_checked(action_edit, True)
             tools_gw.enable_all(dialog, self.complet_result['body']['data'])
@@ -1723,13 +1739,15 @@ class GwInfo(QObject):
             if linked_feature:
                 self._manage_linked_feature(linked_feature)
 
-    def _manage_accept(self, dialog, action_edit, new_feature, my_json, close_dlg, generic=False):
+    def _manage_accept(self, dialog, action_edit, new_feature, my_json, close_dlg, generic=False, keep_editing=False):
 
         self._get_last_value(dialog, generic)
         if not self._merge_epa_type_on_accept(dialog, my_json, new_feature):
             return False
         status = self._accept(dialog, self.complet_result, my_json, close_dlg=close_dlg, new_feature=new_feature, generic=generic)
-        if status:  # Commit succesfull and dialog keep opened
+        # Apply (keep_editing) leaves the pencil on. Accept closes the dialog.
+        # Anything else that stays open drops back to read-only.
+        if status and not keep_editing:
             tools_qt.set_action_checked(action_edit, False)
             tools_gw.enable_widgets(dialog, self.complet_result['body']['data'], False)
             if self.epa_complet_result:
@@ -1806,6 +1824,28 @@ class GwInfo(QObject):
             tools_qt.set_action_checked(action_edit, True)
             return False
         return True
+
+    def _drop_insert_buffer(self):
+        """ Remove the digitized feature once setfields has stored it.
+
+        Accept gets this for free: closing the dialog rolls the layer back.
+        Apply keeps the dialog open, so the buffer geometry and the database
+        geometry (reversed when the slope demands it) were both on the map.
+        """
+
+        layer = self.layer_new_feature or self.layer
+        if layer is None:
+            return
+        try:
+            if layer.isEditable():
+                layer.rollBack()
+            layer.dataProvider().reloadData()
+            # The form stays in edit mode. A fresh session has no buffered geometry.
+            if not layer.isEditable():
+                layer.startEditing()
+            layer.triggerRepaint()
+        except (AttributeError, RuntimeError):
+            pass
 
     def _roll_back(self):
         """ Discard changes in current layer """
@@ -1886,6 +1926,11 @@ class GwInfo(QObject):
             return False
 
         after_insert = False
+        # New feature: setfields writes the row, including a geometry the trigger may reverse.
+        # The digitized copy stays in the edit buffer until the dialog closes and rolls back,
+        # so Apply was drawing both directions. Drop that copy here, while the form stays open.
+        inserted_new = False
+        drop_insert_buffer = False
 
         # Tab data
         p_table_id = complet_result['body']['feature']['tableName']
@@ -1909,6 +1954,7 @@ class GwInfo(QObject):
 
             # If we create a new feature
             if self.new_feature_id is not None:
+                inserted_new = not close_dlg
                 if new_feature is False:
                     new_feature = tools_qt.get_feature_by_id(self.layer, self.new_feature_id)
                 new_feature.setAttribute(id_name, newfeature_id)
@@ -1990,7 +2036,14 @@ class GwInfo(QObject):
                     msg_level = 1
                 msg_level = Qgis.MessageLevel(msg_level)
                 tools_qgis.show_message(msg, message_level=msg_level, dialog=dialog)
+                if inserted_new:
+                    drop_insert_buffer = True
                 self._reload_fields(dialog, json_result, p_widget)
+                # Focus-loss save does not ask "Are you sure?". setfields only returns
+                # autoupdateReloadFields (sys_*), so elev/ymax stay stale until Apply+OK,
+                # which is the path that calls refresh_from_db. Do that re-read here too.
+                if p_widget and not close_dlg:
+                    self.refresh_from_db()
                 if epa_type_changed:
                     self.epa_type = str(new_epa_type_value)
                     self._reload_epa_tab(dialog)
@@ -2035,6 +2088,9 @@ class GwInfo(QObject):
         # Update geometry even when no other fields changed (Set Geom on GENELEM)
         if self.point_xy.get('x') is not None:
             self._update_geom(p_table_id, id_name, newfeature_id)
+
+        if drop_insert_buffer:
+            self._drop_insert_buffer()
 
         # Force a map refresh
         tools_qgis.refresh_map_canvas()  # First refresh all the layers
@@ -2383,6 +2439,10 @@ class GwInfo(QObject):
             if widget is None:
                 widget = dialog.findChild(QPushButton, f'{field["widgetname"]}')
             if widget:
+                # Buttons other than arc node_1/node_2 come back without "value".
+                # KeyError here aborts the rest of the refresh, so later columns stay stale.
+                if 'value' not in field:
+                    continue
                 cur_value = tools_qt.get_text(dialog, widget, return_string_null=False)
                 value = field["value"]
                 if value is None:
@@ -3464,6 +3524,32 @@ class GwInfo(QObject):
             self.iface.actionRollbackEdits().trigger()
             is_inserting = False
 
+    def _coordinates_from_geometry(self, geom):
+        """x1,y1[,x2,y2] from the geometry itself.
+
+        The layer type is not the geometry type. A node point copied onto ve_man_frelem is still a point.
+        """
+
+        if geom is None or geom.isEmpty():
+            return None
+        if geom.type() == Qgis.GeometryType.Point:
+            point = geom.asPoint()
+            return f'"x1":{point.x()}, "y1":{point.y()}'
+        if geom.type() != Qgis.GeometryType.Line:
+            return None
+        points = geom.asPolyline()
+        if len(points) < 2 and geom.isMultipart():
+            parts = geom.asMultiPolyline()
+            points = parts[0] if parts else points
+        if not points:
+            return None
+        start = points[0]
+        text = f'"x1":{start.x()}, "y1":{start.y()}'
+        if len(points) > 1:
+            end = points[-1]
+            text += f', "x2":{end.x()}, "y2":{end.y()}'
+        return text
+
     def _open_new_feature(self, feature_id, connect_signal=None, linked_feature=None):
         """
         :param feature_id: Parameter sent by the featureAdded method itself
@@ -3474,25 +3560,21 @@ class GwInfo(QObject):
         feature = tools_qt.get_feature_by_id(self.info_layer, feature_id)
         if (linked_feature and linked_feature.get('geometry')):
             geom = QgsGeometry.fromWkt(linked_feature.get('geometry', {}).get("st_astext"))
-            if geom:
+            if geom and not geom.isEmpty():
                 feature.setGeometry(geom)
-        geom = feature.geometry()
         list_points = None
         try:
-            if self.info_layer.geometryType() == 0:
-                points = geom.asPoint()
-                list_points = f'"x1":{points.x()}, "y1":{points.y()}'
-            elif self.info_layer.geometryType() in (1, 2):
-                points = geom.asPolyline()
-                init_point = points[0]
-                last_point = points[-1]
-                list_points = f'"x1":{init_point.x()}, "y1":{init_point.y()}'
-                list_points += f', "x2":{last_point.x()}, "y2":{last_point.y()}'
-            else:
-                msg = "NO FEATURE TYPE DEFINED"
-                tools_log.log_info(msg)
+            list_points = self._coordinates_from_geometry(feature.geometry())
         except Exception:
             pass
+        # ve_man_frelem is a line. The parent node is a point, so asPolyline() throws and
+        # the insert used to go out with no coordinates (reduced_geometry null, message 3694).
+        if list_points is None and linked_feature:
+            geometry = linked_feature.get('geometry') or {}
+            x = geometry.get('x')
+            y = geometry.get('y')
+            if x is not None and y is not None:
+                list_points = f'"x1":{x}, "y1":{y}'
 
         tools_gw.init_docker()
         global is_inserting  # noqa: F824

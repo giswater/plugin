@@ -74,7 +74,7 @@ case "${MODE}" in
 
   pgtap-satellites)
     bash "${_TEST_ROOT}/bootstrap_parents_inner.sh"
-    for kind in utils cibs; do
+    for kind in utils cibs publi; do
       bash "${_TEST_ROOT}/bootstrap_addon_inner.sh" "${kind}"
       TEST_GROUPS=all bash "${_TEST_ROOT}/prove_inner.sh" "${kind}"
     done

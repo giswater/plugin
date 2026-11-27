@@ -279,23 +279,27 @@ class GwArcFusionButton(GwMaptool):
     def _build_catalog_asset_widgets(self):
         """ Build catalog and asset widgets """
 
-        # Get arc catalogs
-        sql = "SELECT id, id as idval FROM cat_arc"
+        # Same filter as the arc insert form: inactive catalogs are not assignable
+        sql = "SELECT id, id as idval FROM cat_arc WHERE id IS NOT NULL AND active IS TRUE"
         rows = tools_db.get_rows(sql)
         tools_qt.fill_combo_values(self.dlg_fusion.cmb_new_cat, rows)
         tools_qt.set_autocompleter(self.dlg_fusion.cmb_new_cat)
 
         sql = f"""
-            SELECT arccat_id::text 
-            FROM ve_arc 
+            SELECT arccat_id::text
+            FROM ve_arc
             WHERE node_1 = {self.node_id} OR node_2 = {self.node_id}
-            GROUP BY arccat_id 
+            GROUP BY arccat_id
             HAVING COUNT(*) = 2
             LIMIT 1
         """
         row = tools_db.get_row(sql)
-        if row:
+        if row and self.dlg_fusion.cmb_new_cat.findText(str(row[0])) != -1:
             tools_qt.set_selected_item(self.dlg_fusion, self.dlg_fusion.cmb_new_cat, row[0])
+        elif row:
+            # Shared catalog is inactive. set_selected_item would fall back to index 0
+            # and fuse onto a different catalog with no warning (both arcs share the same id).
+            self.dlg_fusion.cmb_new_cat.setCurrentIndex(-1)
 
         # Get linked arcs to the selected node
         sql = f"SELECT arc_id, arccat_id, asset_id FROM ve_arc WHERE node_1 = {self.node_id} OR node_2 = {self.node_id}"

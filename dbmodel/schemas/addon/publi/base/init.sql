@@ -14,10 +14,32 @@ SET client_min_messages = warning;
 
 RESET ROLE;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'role_publi') THEN
+    IF EXISTS (
+      SELECT 1 FROM pg_roles
+      WHERE rolname = current_user AND (rolsuper OR rolcreaterole)
+    ) THEN
+      CREATE ROLE role_publi NOSUPERUSER INHERIT NOCREATEDB NOCREATEROLE NOREPLICATION;
+    ELSE
+      RAISE EXCEPTION
+        'role_publi does not exist and % cannot CREATE ROLE. Run "gw db init" as a superuser first.',
+        current_user;
+    END IF;
+  END IF;
+
+  IF NOT pg_has_role('role_system', 'role_publi', 'member') THEN
+    GRANT role_publi TO role_system;
+  END IF;
+END
+$$;
+
 CREATE SCHEMA IF NOT EXISTS publi AUTHORIZATION role_system;
 
 SET ROLE role_system;
 
 GRANT ALL ON SCHEMA publi TO role_system;
 GRANT ALL ON SCHEMA publi TO role_basic;
+GRANT ALL ON SCHEMA publi TO role_publi;
 ALTER DEFAULT PRIVILEGES IN SCHEMA publi GRANT SELECT ON TABLES TO role_basic;

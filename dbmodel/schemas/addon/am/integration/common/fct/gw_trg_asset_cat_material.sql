@@ -27,7 +27,7 @@ BEGIN
 		INSERT INTO am.config_material_def (
 			material, project_type, pleak, age_max, age_med, age_min, builtdate_vdef, compliance
 		)
-		VALUES (NEW.id, v_project_type, 0.16, 58, 50, 42, 1964, 10)
+		VALUES (NEW.id, v_project_type, 0.16, 58, 50, 42, 1964, 1)
 		ON CONFLICT (material, project_type) DO NOTHING;
 
 		RETURN NEW;

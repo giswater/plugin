@@ -38,7 +38,7 @@ class GwLoadProject(QObject):
         self.plugin_toolbars = {}
         self.buttons_to_hide = []
         self.buttons = {}
-        self.is_role_cm_edit = False
+        self.is_role_addon_cm_edit = False
         self.manage_new_psector = None
         self.selected_psector_id: int | None = None
         self.gw_locator_filter = None
@@ -788,16 +788,16 @@ class GwLoadProject(QObject):
 
     def _check_user_roles(self):
         """ Check user roles and show/hide toolbars """
-        self.is_role_cm_edit = False
+        self.is_role_addon_cm_edit = False
 
         # Check cm role and adjust CM toolbar if necessary
         cm_role = tools_gw.get_cm_user_role()
-        is_cm_admin = tools_db.check_role_user('role_cm_admin')
+        is_cm_admin = tools_db.check_role_user('role_addon_cm_admin')
         if cm_role:
             cm_role_list = list(cm_role)
-            if 'role_cm_edit' in cm_role_list:
-                self.is_role_cm_edit = True
-                # Hide buttons not wanted for role_cm_edit
+            if 'role_addon_cm_edit' in cm_role_list:
+                self.is_role_addon_cm_edit = True
+                # Hide buttons not wanted for role_addon_cm_edit
                 self._hide_button('86', True)  # GwAddLotButton
                 self._hide_button('87', True)  # GwLotResourceManagementButton
 

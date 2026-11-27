@@ -89,10 +89,52 @@ BEGIN
 	END IF;
 END$$;
 
+-- One NOLOGIN role per project schema. role_system is a member, so the installer
+-- inherits it through the existing GRANT role_system TO current_user.
+DO $$
+DECLARE
+	v_role text := 'role_SCHEMA_NAME';
+BEGIN
+	IF v_role IN (
+		'role_basic', 'role_om', 'role_edit', 'role_epa',
+		'role_plan', 'role_admin', 'role_system', 'role_crm', 'role_cmms',
+		'role_am', 'role_audit', 'role_cibs', 'role_cm',
+		'role_multilang', 'role_publi', 'role_utils'
+	) THEN
+		RAISE EXCEPTION
+			'schema role % collides with a reserved Giswater role',
+			v_role;
+	END IF;
+
+	IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_role) THEN
+		IF EXISTS (
+			SELECT 1 FROM pg_roles
+			WHERE rolname = current_user AND (rolsuper OR rolcreaterole)
+		) THEN
+			EXECUTE format(
+				'CREATE ROLE %I NOSUPERUSER INHERIT NOCREATEDB NOCREATEROLE NOREPLICATION',
+				v_role
+			);
+		ELSE
+			RAISE EXCEPTION
+				'role % does not exist and % cannot CREATE ROLE. Run "gw db init" as a superuser first.',
+				v_role, current_user;
+		END IF;
+	END IF;
+
+	IF NOT pg_has_role('role_system', v_role, 'member') THEN
+		EXECUTE format('GRANT %I TO role_system', v_role);
+	END IF;
+END
+$$;
+
 -- Schema must be created by a role with CREATE ON DATABASE (installer or role_system).
 CREATE SCHEMA "SCHEMA_NAME" AUTHORIZATION role_system;
 
 
 SET ROLE role_system;
+
+GRANT ALL ON SCHEMA SCHEMA_NAME TO role_system;
+GRANT ALL ON SCHEMA SCHEMA_NAME TO role_SCHEMA_NAME;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA SCHEMA_NAME GRANT SELECT ON TABLES TO role_basic;

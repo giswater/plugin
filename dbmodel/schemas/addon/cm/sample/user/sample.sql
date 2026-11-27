@@ -8,20 +8,20 @@ or (at your option) any later version.
 
 SET search_path = cm, public, pg_catalog;
 
-grant role_cm_admin to current_user;
+grant role_addon_cm_admin to current_user;
 
 INSERT INTO cat_organization (organization_id, code, orgname, descript, active) VALUES(1, '123123', 'OWNER', 'OWNER ORGANIZATION', true);
 INSERT INTO cat_organization (organization_id, code, orgname, descript, active) VALUES(2, '123123', 'ORG1', 'EXTERNAL ORGANIZATION', true);
 INSERT INTO cat_organization (organization_id, code, orgname, descript, active) VALUES(3, '123123', 'ORG2', 'EXTERNAL ORGANIZATION', true);
 
-INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(1, '1234512345', 'ADMIN', 1, 'admin team', 'role_cm_admin', true);
-INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(2, '1234512345', 'o1_manager', 2, 'manager team of org 1', 'role_cm_manager', true);
-INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(3, '1234512345', 'o2_manager', 3, 'manager team of org 2', 'role_cm_manager', true);
-INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(4, '1234512345', 'o1_field1', 2, 'field team of org1', 'role_cm_field', true);
-INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(5, '1234512345', 'o1_field2', 2, 'field team of org1', 'role_cm_field', true);
-INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(6, '1234512345', 'o2_field1', 3, 'field team of org2', 'role_cm_field', true);
-INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(7, '1234512345', 'o2_field2', 3, 'field team of org2', 'role_cm_field', true);
-INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(8, '1234512345', 'team_edit', 1, 'team edit', 'role_cm_edit', true);
+INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(1, '1234512345', 'ADMIN', 1, 'admin team', 'role_addon_cm_admin', true);
+INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(2, '1234512345', 'o1_manager', 2, 'manager team of org 1', 'role_addon_cm_manager', true);
+INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(3, '1234512345', 'o2_manager', 3, 'manager team of org 2', 'role_addon_cm_manager', true);
+INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(4, '1234512345', 'o1_field1', 2, 'field team of org1', 'role_addon_cm_field', true);
+INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(5, '1234512345', 'o1_field2', 2, 'field team of org1', 'role_addon_cm_field', true);
+INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(6, '1234512345', 'o2_field1', 3, 'field team of org2', 'role_addon_cm_field', true);
+INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(7, '1234512345', 'o2_field2', 3, 'field team of org2', 'role_addon_cm_field', true);
+INSERT INTO cat_team (team_id, code, teamname, organization_id, descript, role_id, active) VALUES(8, '1234512345', 'team_edit', 1, 'team edit', 'role_addon_cm_edit', true);
 
 
 -- Team administrator

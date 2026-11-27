@@ -152,8 +152,8 @@ BEGIN
 	SELECT v_new_id, username
 	FROM cat_user
 	JOIN cat_team USING (team_id)
-	WHERE (role_id = 'role_cm_manager' AND organization_id = v_parent.organization_id)
-	   OR role_id = 'role_cm_admin'
+	WHERE (role_id = 'role_addon_cm_manager' AND organization_id = v_parent.organization_id)
+	   OR role_id = 'role_addon_cm_admin'
 	ON CONFLICT DO NOTHING;
 
 	-- Copy features from parent campaign_x_* tables

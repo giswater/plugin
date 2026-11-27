@@ -209,6 +209,10 @@ BEGIN
 			END IF;
 		END IF;
 
+		-- Child exploitation → parent + visibility check
+		SELECT o_expl_id, o_expl_visibility INTO NEW.expl_id, NEW.expl_visibility
+		FROM gw_fct_set_expl_from_parent(NEW.expl_id, NEW.expl_visibility);
+
 		-- Sector
 		IF (NEW.sector_id IS NULL) THEN
 
@@ -344,6 +348,11 @@ BEGIN
 					NEW.muni_id =(SELECT muni_id FROM ve_arc WHERE ST_DWithin(NEW.the_geom, ve_arc.the_geom, v_proximity_buffer)
 					order by ST_Distance (NEW.the_geom, ve_arc.the_geom) LIMIT 1);
 				END IF;
+			END IF;
+
+			-- control when no value
+			IF NEW.muni_id IS NULL THEN
+				NEW.muni_id := 0;
 			END IF;
 		END IF;
 
@@ -750,8 +759,10 @@ BEGIN
 			SELECT json_array_elements_text ((value::json->>'catfeatureId')::json) id , (value::json->>'vdefault') vdef FROM config_param_system WHERE parameter like 'epa_valve_vdefault_%'
 			)a WHERE id = v_customfeature;
 
+			-- Keys are inp_valve columns. status is not written: ve_inp_valve derives it.
 			INSERT INTO inp_valve (node_id, valve_type, custom_dint, setting, minorloss)
-			VALUES (NEW.node_id, v_epavdef ->>'valve_type', (v_epavdef ->>'coef_loss')::numeric, (v_epavdef ->>'pressure')::numeric,(v_epavdef ->>'minorloss')::numeric);
+			VALUES (NEW.node_id, v_epavdef ->>'valve_type', (v_epavdef ->>'custom_dint')::numeric,
+				(v_epavdef ->>'setting')::numeric, (v_epavdef ->>'minorloss')::numeric);
 
 		ELSIF (NEW.epa_type = 'SHORTPIPE') THEN
 
@@ -780,6 +791,10 @@ BEGIN
 
     -- UPDATE
 	ELSIF TG_OP = 'UPDATE' THEN
+
+		-- Child exploitation → parent + visibility check
+		SELECT o_expl_id, o_expl_visibility INTO NEW.expl_id, NEW.expl_visibility
+		FROM gw_fct_set_expl_from_parent(NEW.expl_id, NEW.expl_visibility);
 
 		IF btrim(coalesce(NEW.code, '')) = '' THEN
 			NEW.code := NULL;
@@ -872,7 +887,22 @@ BEGIN
 		    ELSIF (NEW.epa_type = 'INLET') THEN
 			v_inp_table:= 'inp_inlet';
 		    END IF;
-		    IF v_inp_table IS NOT NULL THEN
+		    IF NEW.epa_type = 'VALVE' THEN
+			v_customfeature := (SELECT node_type FROM cat_node WHERE id = NEW.nodecat_id);
+			SELECT vdef INTO v_epavdef FROM (
+			SELECT json_array_elements_text ((value::json->>'catfeatureId')::json) id , (value::json->>'vdefault') vdef FROM config_param_system WHERE parameter like 'epa_valve_vdefault_%'
+			)a WHERE id = v_customfeature;
+
+			INSERT INTO inp_valve (node_id, valve_type, custom_dint, setting, minorloss)
+			VALUES (NEW.node_id, v_epavdef ->>'valve_type', (v_epavdef ->>'custom_dint')::numeric,
+				(v_epavdef ->>'setting')::numeric, (v_epavdef ->>'minorloss')::numeric)
+			ON CONFLICT (node_id) DO UPDATE SET
+				valve_type = CASE WHEN inp_valve.valve_type IS NULL THEN EXCLUDED.valve_type ELSE inp_valve.valve_type END,
+				custom_dint = CASE WHEN inp_valve.custom_dint IS NULL THEN EXCLUDED.custom_dint ELSE inp_valve.custom_dint END,
+				setting = CASE WHEN inp_valve.setting IS NULL THEN EXCLUDED.setting ELSE inp_valve.setting END,
+				minorloss = CASE WHEN inp_valve.minorloss IS NULL THEN EXCLUDED.minorloss ELSE inp_valve.minorloss END
+				WHERE inp_valve.node_id = NEW.node_id;
+		    ELSIF v_inp_table IS NOT NULL THEN
 			v_sql:= 'INSERT INTO '||v_inp_table||' (node_id) VALUES ('||quote_literal(NEW.node_id)||') ON CONFLICT (node_id) DO NOTHING';
 			EXECUTE v_sql;
 		    END IF;
@@ -1002,7 +1032,7 @@ BEGIN
 		END IF;
 
 		UPDATE node
-		SET code=NEW.code, sys_code=NEW.sys_code, top_elev=NEW.top_elev, custom_top_elev=NEW.custom_top_elev, datasource=NEW.datasource, "depth"=NEW."depth", nodecat_id=NEW.nodecat_id, epa_type=NEW.epa_type, sector_id=NEW.sector_id, arc_id=NEW.arc_id, parent_id=NEW.parent_id,
+		SET code=NEW.code, sys_code=NEW.sys_code, top_elev=NEW.top_elev, datasource=NEW.datasource, "depth"=NEW."depth", nodecat_id=NEW.nodecat_id, epa_type=NEW.epa_type, sector_id=NEW.sector_id, arc_id=NEW.arc_id, parent_id=NEW.parent_id,
 		state_type=NEW.state_type, annotation=NEW.annotation, "observ"=NEW."observ", "comment"=NEW."comment", dma_id=NEW.dma_id, dqa_id=NEW.dqa_id, presszone_id=NEW.presszone_id, soilcat_id=NEW.soilcat_id,
 		function_type=NEW.function_type, category_type=NEW.category_type, fluid_type=NEW.fluid_type, location_type=NEW.location_type, workcat_id=NEW.workcat_id, workcat_id_end=NEW.workcat_id_end,
 		workcat_id_plan=NEW.workcat_id_plan,builtdate=NEW.builtdate, enddate=NEW.enddate, ownercat_id=NEW.ownercat_id, muni_id=NEW.muni_id, streetaxis_id=NEW.streetaxis_id,
@@ -1014,6 +1044,10 @@ BEGIN
 		brand_id=NEW.brand_id, model_id=NEW.model_id, serial_number=NEW.serial_number, label_quadrant=NEW.label_quadrant, pavcat_id = NEW.pavcat_id, lock_level=NEW.lock_level, is_scadamap=NEW.is_scadamap,
 		dataquality=NEW.dataquality, dataquality_obs=NEW.dataquality_obs
 		WHERE node_id = OLD.node_id;
+
+		IF NEW.custom_top_elev IS DISTINCT FROM OLD.custom_top_elev THEN
+			UPDATE node SET custom_top_elev = NEW.custom_top_elev WHERE node_id = OLD.node_id;
+		END IF;
 
 		-- Update node_add
 		UPDATE node_add SET node_id=NEW.node_id, demand_max = NEW.demand_max, demand_min = NEW.demand_min, demand_avg = NEW.demand_avg, press_max = NEW.press_max,press_min = NEW.press_min,

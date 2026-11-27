@@ -15,6 +15,16 @@ ALTER TABLE IF EXISTS ext_cat_hydrometer_category RENAME TO ext_cat_hydrometer_c
 ALTER TABLE IF EXISTS ext_cat_hydrometer_state RENAME TO ext_cat_hydrometer_state_old;
 ALTER TABLE IF EXISTS ext_hydrometer RENAME TO ext_hydrometer_old;
 ALTER TABLE IF EXISTS ext_hydrometer_period RENAME TO ext_hydrometer_period_old;
+ALTER TABLE IF EXISTS ext_cat_period_type RENAME TO ext_cat_period_type_old;
+ALTER TABLE IF EXISTS ext_cat_period RENAME TO ext_cat_period_old;
+
+ALTER TABLE om_mincut_hydrometer DROP CONSTRAINT IF EXISTS om_mincut_hydrometer_hydrometer_id_fkey;
+ALTER TABLE om_mincut_hydrometer ADD CONSTRAINT om_mincut_hydrometer_hydrometer_id_fkey
+    FOREIGN KEY (hydrometer_id) REFERENCES cibs.hydrometer(hydrometer_id) ON UPDATE CASCADE ON DELETE RESTRICT;
+
+ALTER TABLE selector_period DROP CONSTRAINT IF EXISTS selector_period_id_fkey;
+ALTER TABLE selector_period ADD CONSTRAINT selector_period_id_fkey
+    FOREIGN KEY (period_id) REFERENCES cibs.cat_period(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 DELETE FROM sys_table WHERE id = 'ext_cat_hydrometer';
 DELETE FROM sys_table WHERE id = 'ext_cat_hydrometer_priority';

@@ -184,7 +184,7 @@ def project_type_for_schema(
     return None
 
 
-_SATELLITE_SCHEMAS = frozenset({"multilang", "utils", "cibs", "am", "cm", "cmms", "audit"})
+_SATELLITE_SCHEMAS = frozenset({"multilang", "utils", "cibs", "am", "cm", "cmms", "audit", "publi"})
 
 _SYS_VERSION_COLUMNS = """
 SELECT n.nspname, a.attname

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Bootstrap addon schema for pgTAP (utils or cibs). Requires ws_40 + ud_40 parents
+# Bootstrap addon schema for pgTAP (utils, cibs, cmms or publi). Requires ws_40 + ud_40 parents
 # (run bootstrap_parents_inner.sh first).
 set -euo pipefail
 
 # shellcheck source=_env_inner.sh
 _TEST_ROOT="${GW_TEST_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-source "${_TEST_ROOT}/_env_inner.sh" "${1:?Usage: bootstrap_addon_inner.sh utils|cibs|cmms}"
+source "${_TEST_ROOT}/_env_inner.sh" "${1:?Usage: bootstrap_addon_inner.sh utils|cibs|cmms|publi}"
 
 export CONN="${GW_CONN}"
 

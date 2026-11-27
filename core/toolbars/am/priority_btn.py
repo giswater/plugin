@@ -97,7 +97,7 @@ class GwConfigCatalogButton:
             cost_headers = [renewal_cost, repair_cost]
         msg = "Diameter"
         diameter = tools_qt.tr(msg)
-        msg = "Compliance Grade"
+        msg = "Compliance (1 best, 10 worst)"
         compliance = tools_qt.tr(msg)
         msg = "Material"
         material = tools_qt.tr(msg)
@@ -247,7 +247,7 @@ class ConfigMaterial:
         min_longevity = tools_qt.tr(msg)
         msg = "Default Built Date"
         built_date = tools_qt.tr(msg)
-        msg = "Compliance Grade"
+        msg = "Compliance (1 best, 10 worst)"
         compliance = tools_qt.tr(msg)
         headers = [
             material, prob_failure, max_longevity, med_longevity, min_longevity, built_date, compliance,

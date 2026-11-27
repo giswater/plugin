@@ -27,6 +27,7 @@ v_version text;
 v_arc_id TEXT;
 v_project_type text;
 v_result_id text= 'merge psectors';
+v_result_name text;
 v_result_info text;
 v_result text;
 v_connec_id text;
@@ -72,8 +73,14 @@ BEGIN
 
 	-- manage log (fid: 518)
 	DELETE FROM audit_check_data WHERE fid=518 AND cur_user=current_user;
+	-- 4786 is the process name getmessage splices into the error prefix (AUDIT + prefix_id).
+	SELECT replace(error_message, '"', '') INTO v_result_name FROM v_sys_message WHERE id = 4786;
+	v_result_name := COALESCE(v_result_name, v_result_id);
+
 	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
-                       "data":{"function":"3284", "fid":"518", "result_id":"'||v_result_id||'", "is_process":true, "is_header":"true"}}$$)';
+                       "data":{"message":"4784", "function":"3284", "fid":"518", "result_id":"'||v_result_id||'", "is_process":true}}$$)';
+	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+                       "data":{"function":"3284", "fid":"518", "result_id":"'||v_result_id||'", "separator_id":"2030", "is_process":true}}$$)';
 
 	-- disable arc divide temporary
 	UPDATE config_param_user SET value = 'TRUE'  WHERE "parameter"='edit_disable_arc_divide' AND cur_user=current_user;
@@ -108,7 +115,7 @@ BEGIN
 		INSERT INTO audit_check_data (fid, result_id, error_message)
 		VALUES (518, v_result_id, '');
 		EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
-                       "data":{"message":"3780", "function":"3284", "fid":"518", "result_id":"'||v_result_id||'", "prefix_id":"1003", "is_process":true}}$$)';
+                       "data":{"message":"3780", "function":"3284", "fid":"518", "result_id":"'||v_result_name||'", "prefix_id":"1003", "is_process":true}}$$)';
 
 		INSERT INTO audit_check_data (fid, result_id, error_message)
 		VALUES (518, v_result_id, '');
@@ -199,7 +206,7 @@ BEGIN
 			IF v_list_features_obsolete IS NOT NULL THEN
 				PERFORM setval('SCHEMA_NAME.plan_psector_x_gully_id_seq', (select max(id) from plan_psector_x_gully) , true);
 				INSERT INTO plan_psector_x_gully(gully_id, psector_id, state, doable, descript, arc_id, link_id)
-				SELECT DISTINCT ON (connec_id) gully_id, v_new_psector_id, state, doable, descript, arc_id, link_id FROM plan_psector_x_gully
+				SELECT DISTINCT ON (gully_id) gully_id, v_new_psector_id, state, doable, descript, arc_id, link_id FROM plan_psector_x_gully
 				WHERE psector_id=ANY(v_psector_ids) AND state=0 ON CONFLICT (psector_id, gully_id, state) DO NOTHING;
 
 				EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
@@ -224,8 +231,15 @@ BEGIN
 		--copy features inside plan_psector tables
 		SELECT string_agg(price_id,',') INTO v_list_features_obsolete FROM plan_psector_x_other WHERE psector_id=ANY(v_psector_ids);
 		IF v_list_features_obsolete IS NOT NULL THEN
-			INSERT INTO plan_psector_x_other(price_id, measurement, psector_id, descript)
-			SELECT DISTINCT ON (price_id) price_id, measurement, psector_id, descript FROM plan_psector_x_other WHERE psector_id=ANY(v_psector_ids);
+			PERFORM setval('SCHEMA_NAME.plan_psector_x_other_id_seq', (SELECT max(id) FROM plan_psector_x_other), true);
+			-- same price_id on several source psectors becomes one row; measurements add up
+			INSERT INTO plan_psector_x_other(price_id, measurement, psector_id, observ, the_geom)
+			SELECT price_id, sum(measurement), v_new_psector_id,
+				(array_agg(observ ORDER BY id) FILTER (WHERE observ IS NOT NULL))[1],
+				(array_agg(the_geom ORDER BY id) FILTER (WHERE the_geom IS NOT NULL))[1]
+			FROM plan_psector_x_other
+			WHERE psector_id = ANY(v_psector_ids)
+			GROUP BY price_id;
 
 			EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
                        "data":{"message":"3796", "function":"3284", "fid":"518", "result_id":"'||v_result_id||'", "parameters":{"v_list_features_obsolete":"'||v_list_features_obsolete||'"}, "is_process":true}}$$)';
@@ -345,7 +359,8 @@ BEGIN
 	UPDATE config_param_system SET value = v_gully_proximity WHERE parameter='edit_gully_proximity';
 	UPDATE config_param_system SET value ='FALSE' WHERE parameter='edit_topocontrol_disable_error';
 
-	INSERT INTO audit_check_data (fid, result_id, error_message) VALUES (518, v_result_id, concat('Activate topology control.'));
+	EXECUTE 'SELECT gw_fct_getmessage($${"client":{"device":4, "infoType":1, "lang":"ES"},"feature":{},
+                       "data":{"message":"4782", "function":"3284", "fid":"518", "result_id":"'||v_result_id||'", "is_process":true}}$$)';
 
 	SELECT array_to_json(array_agg(row_to_json(row))) INTO v_result
 	FROM (SELECT id, error_message AS message FROM audit_check_data WHERE cur_user="current_user"() AND fid=518) row;

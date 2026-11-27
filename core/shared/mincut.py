@@ -667,12 +667,12 @@ class GwMincut:
             tools_qt.set_completer_rows(dialog.txt_postnumber, [])
             return
 
-        sql = (f"SELECT postnumber, ST_AsText(ST_Simplify(ST_Collect(the_geom), 0)) "
-               f"FROM ve_address "
-               f"WHERE name = '{self.street}' "
-               f"GROUP BY postnumber "
-               f"ORDER BY postnumber")
-        rows = tools_db.get_rows(sql)
+        sql = ("SELECT postnumber, ST_AsText(ST_Simplify(ST_Collect(the_geom), 0)) "
+               "FROM ve_address "
+               "WHERE name = %s "
+               "GROUP BY postnumber "
+               "ORDER BY postnumber")
+        rows = tools_db.get_rows(sql, params=(self.street,))
         tools_qt.set_completer_rows(dialog.txt_postnumber, rows)
         self.geom_by_source["postnumber"] = {row[0]: row[1] for row in rows or [] if row and row[0]}
         completer = dialog.txt_postnumber.completer()

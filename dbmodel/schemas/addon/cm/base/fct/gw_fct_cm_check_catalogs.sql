@@ -67,11 +67,11 @@ BEGIN
     END;
     
     -- Check if user has admin role ONLY when trying to create catalogs (fromProduction = true)
-    IF v_from_production AND v_current_role != 'role_cm_admin' THEN
+    IF v_from_production AND v_current_role != 'role_addon_cm_admin' THEN
         RETURN json_build_object(
             'status', 'Failed',
-            'message', 'Access denied. Only role_cm_admin can create catalog entries.',
-            'body', json_build_object('log', 'ERROR: Insufficient privileges. User must have role_cm_admin to create catalog entries.')
+            'message', 'Access denied. Only role_addon_cm_admin can create catalog entries.',
+            'body', json_build_object('log', 'ERROR: Insufficient privileges. User must have role_addon_cm_admin to create catalog entries.')
         );
     END IF;
     

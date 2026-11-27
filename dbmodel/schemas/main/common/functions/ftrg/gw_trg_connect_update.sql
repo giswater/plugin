@@ -31,9 +31,7 @@ v_link record;
 xvar float;
 yvar float;
 v_dma_autoupdate boolean;
-v_fluidtype_autoupdate boolean;
 v_pol_id text;
-v_fluidtype_value text;
 v_dma_value integer;
 v_arc record;
 v_trace_featuregeom boolean;
@@ -46,31 +44,16 @@ BEGIN
     v_projectype = (SELECT project_type FROM sys_version ORDER BY id DESC LIMIT 1);
 
     SELECT value INTO v_dma_autoupdate FROM config_param_system WHERE parameter = 'edit_connect_autoupdate_dma';
-	SELECT value INTO v_fluidtype_autoupdate FROM config_param_system WHERE parameter = 'edit_connect_autoupdate_fluid';
 
     -- get arc values
     SELECT * INTO v_arc FROM arc WHERE arc_id = NEW.arc_id;
 
-    -- control of dma and fluidtype automatic values
+    -- control of dma automatic values
 	IF v_projectype = 'WS' THEN
 	    IF v_dma_autoupdate IS TRUE OR v_dma_autoupdate IS NULL THEN v_dma_value = v_arc.dma_id; ELSE v_dma_value = NEW.dma_id; END IF;
 
 		IF v_dma_value IS NULL THEN v_dma_value = NEW.dma_id; END IF;
 	END IF;
-
-    IF v_projectype = 'WS' AND (v_fluidtype_autoupdate is true or v_fluidtype_autoupdate is null) THEN
-    	v_fluidtype_value = v_arc.fluid_type;
-    	IF v_fluidtype_value not in (SELECT fluid_type FROM man_type_fluid WHERE 'CONNEC' = ANY(feature_type)) AND v_fluidtype_value IS NOT NULL THEN
-			INSERT INTO man_type_fluid (fluid_type, feature_type) VALUES (v_fluidtype_value, ARRAY['CONNEC'])
-			ON CONFLICT (fluid_type) DO UPDATE SET feature_type = 
-				CASE 
-					WHEN NOT ('CONNEC' = ANY(man_type_fluid.feature_type)) 
-					THEN array_append(man_type_fluid.feature_type, 'CONNEC') 
-					ELSE man_type_fluid.feature_type 
-				END;
-		END IF;
-    ELSE v_fluidtype_value = NEW.fluid_type;
-    END IF;
 
 	IF v_featuretype='connec' THEN
 
@@ -100,17 +83,17 @@ BEGIN
 
 				IF v_projectype = 'WS' THEN
 					UPDATE connec SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, sector_id=NEW.sector_id, presszone_id = NEW.presszone_id, dqa_id = NEW.dqa_id, dma_id = NEW.dma_id,
-					omzone_id = NEW.omzone_id, minsector_id = NEW.minsector_id, fluid_type = NEW.fluid_type
+					omzone_id = NEW.omzone_id, minsector_id = NEW.minsector_id
 					WHERE connec_id=v_link.feature_id;
 
 				ELSIF v_projectype = 'UD' THEN
-					UPDATE connec SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, omzone_id = NEW.omzone_id, sector_id=NEW.sector_id, fluid_type = v_fluidtype_value::integer
+					UPDATE connec SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, omzone_id = NEW.omzone_id, sector_id=NEW.sector_id
 					WHERE connec_id=v_link.feature_id;
 				END IF;
 
 			ELSIF v_link.feature_type='GULLY' THEN
 
-				UPDATE gully SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, dma_id= v_dma_value, sector_id=NEW.sector_id, fluid_type = v_fluidtype_value::integer
+				UPDATE gully SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, dma_id= v_dma_value, sector_id=NEW.sector_id
 				WHERE gully_id=v_link.feature_id;
 			END IF;
 		END LOOP;
@@ -121,11 +104,10 @@ BEGIN
 		LOOP
 			IF v_projectype = 'WS' THEN
 				UPDATE link SET expl_id=NEW.expl_id, sector_id=NEW.sector_id, dma_id = NEW.dma_id, omzone_id = NEW.omzone_id,
-				presszone_id = NEW.presszone_id, dqa_id = NEW.dqa_id, minsector_id = NEW.minsector_id, fluid_type = NEW.fluid_type
+				presszone_id = NEW.presszone_id, dqa_id = NEW.dqa_id, minsector_id = NEW.minsector_id
 				WHERE link_id=v_link.link_id;
 			ELSE
-				UPDATE link SET expl_id=NEW.expl_id, sector_id=NEW.sector_id, omzone_id = NEW.omzone_id,
-				fluid_type = v_fluidtype_value::integer
+				UPDATE link SET expl_id=NEW.expl_id, sector_id=NEW.sector_id, omzone_id = NEW.omzone_id
 				WHERE link_id=v_link.link_id;
 
 				UPDATE plan_psector_x_gully SET arc_id = NEW.arc_id WHERE link_id = v_link.link_id;
@@ -186,20 +168,20 @@ BEGIN
 			IF v_link.feature_type='CONNEC' THEN
 
 				IF v_projectype = 'WS' THEN
-					UPDATE connec SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, dma_id= v_dma_value, omzone_id = NEW.omzone_id, sector_id=NEW.sector_id, fluid_type = v_fluidtype_value
+					UPDATE connec SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, dma_id= v_dma_value, omzone_id = NEW.omzone_id, sector_id=NEW.sector_id
 					WHERE connec_id=v_link.feature_id;
 				ELSE
-					UPDATE connec SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, omzone_id = NEW.omzone_id, sector_id=NEW.sector_id, fluid_type = v_fluidtype_value::integer
+					UPDATE connec SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, omzone_id = NEW.omzone_id, sector_id=NEW.sector_id
 					WHERE connec_id=v_link.feature_id;
 				END IF;
 
 			ELSIF v_link.feature_type='GULLY' THEN
 
 				IF v_projectype = 'WS' THEN
-					UPDATE gully SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, dma_id= v_dma_value, omzone_id = NEW.omzone_id, sector_id=NEW.sector_id, fluid_type = v_fluidtype_value
+					UPDATE gully SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, dma_id= v_dma_value, omzone_id = NEW.omzone_id, sector_id=NEW.sector_id
 					WHERE gully_id=v_link.feature_id;
 				ELSE
-					UPDATE gully SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, omzone_id = NEW.omzone_id, sector_id=NEW.sector_id, fluid_type = v_fluidtype_value::integer
+					UPDATE gully SET arc_id=NEW.arc_id, expl_id=NEW.expl_id, omzone_id = NEW.omzone_id, sector_id=NEW.sector_id
 					WHERE gully_id=v_link.feature_id;
 				END IF;
 			END IF;
@@ -209,10 +191,10 @@ BEGIN
 		FOR v_link IN SELECT * FROM ve_link WHERE (exit_type='GULLY' AND exit_id=OLD.gully_id) AND state = 2
 		LOOP
 			IF v_projectype = 'WS' THEN
-				UPDATE link SET expl_id=NEW.expl_id, sector_id=NEW.sector_id, dma_id = v_dma_value, omzone_id = NEW.omzone_id, fluid_type = v_fluidtype_value
+				UPDATE link SET expl_id=NEW.expl_id, sector_id=NEW.sector_id, dma_id = v_dma_value, omzone_id = NEW.omzone_id
 				WHERE link_id=v_link.link_id;
 			ELSE
-				UPDATE link SET expl_id=NEW.expl_id, sector_id=NEW.sector_id, omzone_id = NEW.omzone_id, fluid_type = v_fluidtype_value::integer
+				UPDATE link SET expl_id=NEW.expl_id, sector_id=NEW.sector_id, omzone_id = NEW.omzone_id
 				WHERE link_id=v_link.link_id;
 			END IF;
 

@@ -777,6 +777,10 @@
 			<translation>Active</translation>
 		</message>
 		<message>
+			<source>Active on map</source>
+			<translation>Active on map</translation>
+		</message>
+		<message>
 			<source>Adapt schema to cibs</source>
 			<translation>Adapt schema to cibs</translation>
 		</message>
@@ -831,6 +835,14 @@ ALL DONE! INP successfully imported.</source>
 			<translation>A material is considered invalid if it is not listed in the material configuration table.</translation>
 		</message>
 		<message>
+			<source>AM integration for {0} is not available yet.</source>
+			<translation>AM integration for {0} is not available yet.</translation>
+		</message>
+		<message>
+			<source>AM is already linked to a {0} schema.</source>
+			<translation>AM is already linked to a {0} schema.</translation>
+		</message>
+		<message>
 			<source>An arccat_id is considered invalid if it is not listed in the catalog configuration table. As a result, these pipes will NOT be assigned a priority value.</source>
 			<translation>An arccat_id is considered invalid if it is not listed in the catalog configuration table. As a result, these pipes will NOT be assigned a priority value.</translation>
 		</message>
@@ -881,6 +893,10 @@ You can change it and use &apos;Update Style&apos; to create a personalized vers
 		<message>
 			<source>Apply translation ({0}) to schema ({1}) using local SQL files?</source>
 			<translation>Apply translation ({0}) to schema ({1}) using local SQL files?</translation>
+		</message>
+		<message>
+			<source>ARC</source>
+			<translation>ARC</translation>
 		</message>
 		<message>
 			<source>Arc already selected</source>
@@ -1217,6 +1233,10 @@ You will need to restart QGIS or reload Giswater plugin to apply changes. Do you
 			<translation>Checking any item will uncheck all other items unless Shift is pressed.</translation>
 		</message>
 		<message>
+			<source>Check project did not return a result</source>
+			<translation>Check project did not return a result</translation>
+		</message>
+		<message>
 			<source>Check project failed: no response from database function &apos;{0}&apos;.</source>
 			<translation>Check project failed: no response from database function &apos;{0}&apos;.</translation>
 		</message>
@@ -1327,8 +1347,8 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 			<translation>Completed with no exception and no result</translation>
 		</message>
 		<message>
-			<source>Compliance Grade</source>
-			<translation>Compliance Grade</translation>
+			<source>Compliance (1 best, 10 worst)</source>
+			<translation>Compliance (1 best, 10 worst)</translation>
 		</message>
 		<message>
 			<source>Composer disabled: atlas coverage layer must be &apos;v_plan_psector&apos;.</source>
@@ -1545,6 +1565,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 			<translation>Could not reach the translations server. Showing downloaded languages only.</translation>
 		</message>
 		<message>
+			<source>Could not read the inspection file: {0}</source>
+			<translation>Could not read the inspection file: {0}</translation>
+		</message>
+		<message>
 			<source>could not remove: {0}</source>
 			<translation>could not remove: {0}</translation>
 		</message>
@@ -1607,6 +1631,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 		<message>
 			<source>Create catalogs</source>
 			<translation>Create catalogs</translation>
+		</message>
+		<message>
+			<source>Create cmms schema</source>
+			<translation>Create cmms schema</translation>
 		</message>
 		<message>
 			<source>Created</source>
@@ -1727,10 +1755,6 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 		<message>
 			<source>Current feature is planified. You should activate plan mode to work with it.</source>
 			<translation>Current feature is planified. You should activate plan mode to work with it.</translation>
-		</message>
-		<message>
-			<source>Current network cost (€):</source>
-			<translation>Current network cost (€):</translation>
 		</message>
 		<message>
 			<source>Current node is not located over an arc. Please, select option &apos;DRAG-DROP&apos;</source>
@@ -1915,6 +1939,10 @@ This behaviour can be configured in the table &apos;config_param_system&apos; (p
 		<message>
 			<source>Delete records</source>
 			<translation>Delete records</translation>
+		</message>
+		<message>
+			<source>Delete results</source>
+			<translation>Delete results</translation>
 		</message>
 		<message>
 			<source>Delete schema failed: {0}</source>
@@ -2463,6 +2491,10 @@ This operation cannot be undone.
 			<translation>Exception when replacing inp strings</translation>
 		</message>
 		<message>
+			<source>Exception while importing init.config from a previous version</source>
+			<translation>Exception while importing init.config from a previous version</translation>
+		</message>
+		<message>
 			<source>Exception while moving/deleting old user config files</source>
 			<translation>Exception while moving/deleting old user config files</translation>
 		</message>
@@ -2799,6 +2831,10 @@ This operation cannot be undone.
 			<translation>First node already selected with id: {0}. Select second one.</translation>
 		</message>
 		<message>
+			<source>Fixed cost (€/u)</source>
+			<translation>Fixed cost (€/u)</translation>
+		</message>
+		<message>
 			<source>Flood analysis will start from arc ID</source>
 			<translation>Flood analysis will start from arc ID</translation>
 		</message>
@@ -2825,10 +2861,6 @@ This operation cannot be undone.
 		<message>
 			<source>For mode &apos;{0}&apos;, an result_id must be informed.</source>
 			<translation>For mode &apos;{0}&apos;, an result_id must be informed.</translation>
-		</message>
-		<message>
-			<source>For select on canvas is mandatory to load v_asset_arc_input layer</source>
-			<translation>For select on canvas is mandatory to load v_asset_arc_input layer</translation>
 		</message>
 		<message>
 			<source>Function {0} error: {1} from last function is invalid</source>
@@ -3087,6 +3119,14 @@ This operation cannot be undone.
 			<translation>imported</translation>
 		</message>
 		<message>
+			<source>Imported {0} observations. Skipped {1}.</source>
+			<translation>Imported {0} observations. Skipped {1}.</translation>
+		</message>
+		<message>
+			<source>Imported init.config from previous version</source>
+			<translation>Imported init.config from previous version</translation>
+		</message>
+		<message>
 			<source>Importing conduits</source>
 			<translation>Importing conduits</translation>
 		</message>
@@ -3267,6 +3307,10 @@ This operation cannot be undone.
 			<translation>Import RPT file finished.</translation>
 		</message>
 		<message>
+			<source>Import SEWDEF</source>
+			<translation>Import SEWDEF</translation>
+		</message>
+		<message>
 			<source>Import simulation results........: {0}</source>
 			<translation>Import simulation results........: {0}</translation>
 		</message>
@@ -3277,6 +3321,14 @@ This operation cannot be undone.
 		<message>
 			<source>Import simulation results into database</source>
 			<translation>Import simulation results into database</translation>
+		</message>
+		<message>
+			<source>Import UNE CSV</source>
+			<translation>Import UNE CSV</translation>
+		</message>
+		<message>
+			<source>Import WinCan</source>
+			<translation>Import WinCan</translation>
 		</message>
 		<message>
 			<source>Incompatible version of PostgreSQL</source>
@@ -3333,8 +3385,16 @@ This operation cannot be undone.
 			<translation>In schema</translation>
 		</message>
 		<message>
+			<source>Inspection files (*.xml *.csv *.txt *.dat)</source>
+			<translation>Inspection files (*.xml *.csv *.txt *.dat)</translation>
+		</message>
+		<message>
 			<source>Integrate am</source>
 			<translation>Integrate am</translation>
+		</message>
+		<message>
+			<source>Integrate cmms</source>
+			<translation>Integrate cmms</translation>
 		</message>
 		<message>
 			<source>Integrate utils requires a WS or UD anchor.</source>
@@ -3419,10 +3479,6 @@ uri={1}</translation>
 			<translation>Invert the current selection in the table</translation>
 		</message>
 		<message>
-			<source>Investment (€/year):</source>
-			<translation>Investment (€/year):</translation>
-		</message>
-		<message>
 			<source>is not defined in table cat_feature</source>
 			<translation>is not defined in table cat_feature</translation>
 		</message>
@@ -3433,10 +3489,6 @@ uri={1}</translation>
 		<message>
 			<source>IVI</source>
 			<translation>IVI</translation>
-		</message>
-		<message>
-			<source>IVI (Horizon year):</source>
-			<translation>IVI (Horizon year):</translation>
 		</message>
 		<message>
 			<source>Junctions couldn&apos;t be inserted!</source>
@@ -3587,6 +3639,10 @@ uri={1}</translation>
 			<translation>Line number</translation>
 		</message>
 		<message>
+			<source>Link</source>
+			<translation>Link</translation>
+		</message>
+		<message>
 			<source>Linked</source>
 			<translation>Linked</translation>
 		</message>
@@ -3633,6 +3689,10 @@ uri={1}</translation>
 		<message>
 			<source>Map item &apos;Mapa&apos; not found in template. Template may be empty or use different item IDs.</source>
 			<translation>Map item &apos;Mapa&apos; not found in template. Template may be empty or use different item IDs.</translation>
+		</message>
+		<message>
+			<source>Map selection is disabled on this tab because these layers are not loaded in the project: {0}.</source>
+			<translation>Map selection is disabled on this tab because these layers are not loaded in the project: {0}.</translation>
 		</message>
 		<message>
 			<source>Mapzone config - {0}</source>
@@ -3939,6 +3999,10 @@ uri={1}</translation>
 			<translation>No database connection available for hydraulic engine export</translation>
 		</message>
 		<message>
+			<source>NODE</source>
+			<translation>NODE</translation>
+		</message>
+		<message>
 			<source>Node {0} duplicated in config file.</source>
 			<translation>Node {0} duplicated in config file.</translation>
 		</message>
@@ -3983,6 +4047,24 @@ uri={1}</translation>
 			<translation>Node set correctly</translation>
 		</message>
 		<message>
+			<source>Nodes with invalid materials: {0}.qtd</source>
+			<translation>Nodes with invalid materials: {0}.qtd</translation>
+		</message>
+		<message>
+			<source>Nodes with invalid nodecat_ids: {0}.
+Invalid nodecat_ids: {1}.
+
+A nodecat_id is considered invalid if it is not listed in the catalog configuration table. As a result, these nodes will NOT be assigned a priority value.
+
+Do you want to proceed?</source>
+			<translation>Nodes with invalid nodecat_ids: {0}.
+Invalid nodecat_ids: {1}.
+
+A nodecat_id is considered invalid if it is not listed in the catalog configuration table. As a result, these nodes will NOT be assigned a priority value.
+
+Do you want to proceed?</translation>
+		</message>
+		<message>
 			<source>No document selected.</source>
 			<translation>No document selected.</translation>
 		</message>
@@ -4009,6 +4091,10 @@ uri={1}</translation>
 		<message>
 			<source>No help file found</source>
 			<translation>No help file found</translation>
+		</message>
+		<message>
+			<source>No leak dates found. Fill the date of the leaks before running the assignation.</source>
+			<translation>No leak dates found. Fill the date of the leaks before running the assignation.</translation>
 		</message>
 		<message>
 			<source>No link in common between network and scenario {0}.</source>
@@ -4259,6 +4345,10 @@ uri={1}</translation>
 			<translation>Overwrite file</translation>
 		</message>
 		<message>
+			<source>Overwrite result</source>
+			<translation>Overwrite result</translation>
+		</message>
+		<message>
 			<source>Overwrite values</source>
 			<translation>Overwrite values</translation>
 		</message>
@@ -4307,6 +4397,10 @@ uri={1}</translation>
 			<translation>Parent ID must be an integer.</translation>
 		</message>
 		<message>
+			<source>parent link rename sync failed: {0}</source>
+			<translation>parent link rename sync failed: {0}</translation>
+		</message>
+		<message>
 			<source>Parse INP task</source>
 			<translation>Parse INP task</translation>
 		</message>
@@ -4329,6 +4423,10 @@ uri={1}</translation>
 		<message>
 			<source>PIPE</source>
 			<translation>PIPE</translation>
+		</message>
+		<message>
+			<source>Pipe cost (€/m)</source>
+			<translation>Pipe cost (€/m)</translation>
 		</message>
 		<message>
 			<source>Pipes couldn&apos;t be inserted!</source>
@@ -4377,6 +4475,10 @@ Do you want to proceed?</translation>
 		<message>
 			<source>Pipes with invalid materials: {2}.</source>
 			<translation>Pipes with invalid materials: {2}.</translation>
+		</message>
+		<message>
+			<source>Pipes with invalid pressures: {0}.</source>
+			<translation>Pipes with invalid pressures: {0}.</translation>
 		</message>
 		<message>
 			<source>Pipes with invalid pressures: {0}.
@@ -4545,6 +4647,10 @@ Do you want to proceed?</translation>
 			<translation>Please select a team to assign.</translation>
 		</message>
 		<message>
+			<source>Please select at least one node type in the Features tab.</source>
+			<translation>Please select at least one node type in the Features tab.</translation>
+		</message>
+		<message>
 			<source>Please select at least one user to assign a team.</source>
 			<translation>Please select at least one user to assign a team.</translation>
 		</message>
@@ -4575,10 +4681,6 @@ Do you want to proceed?</translation>
 		<message>
 			<source>Please select one or more styles to update.</source>
 			<translation>Please select one or more styles to update.</translation>
-		</message>
-		<message>
-			<source>Please select only one result before changing its status.</source>
-			<translation>Please select only one result before changing its status.</translation>
 		</message>
 		<message>
 			<source>Please select rows to remove from the table</source>
@@ -4929,6 +5031,10 @@ Statistics file created on:
 			<translation>Rename schema SQL failed</translation>
 		</message>
 		<message>
+			<source>Renewal cost</source>
+			<translation>Renewal cost</translation>
+		</message>
+		<message>
 			<source>Repair cost</source>
 			<translation>Repair cost</translation>
 		</message>
@@ -4939,14 +5045,6 @@ Statistics file created on:
 		<message>
 			<source>Replace feature done successfully</source>
 			<translation>Replace feature done successfully</translation>
-		</message>
-		<message>
-			<source>Replacement cost</source>
-			<translation>Replacement cost</translation>
-		</message>
-		<message>
-			<source>Replacement rate (%/year):</source>
-			<translation>Replacement rate (%/year):</translation>
 		</message>
 		<message>
 			<source>REPLACEMENTS PER YEAR</source>
@@ -4987,6 +5085,10 @@ Statistics file created on:
 		<message>
 			<source>Response from {0} is not a ZIP archive</source>
 			<translation>Response from {0} is not a ZIP archive</translation>
+		</message>
+		<message>
+			<source>Result &apos;{0}&apos; is the parent of other results. Overwriting it will remove that parent link. The child results will remain. Continue?</source>
+			<translation>Result &apos;{0}&apos; is the parent of other results. Overwriting it will remove that parent link. The child results will remain. Continue?</translation>
 		</message>
 		<message>
 			<source>Result name</source>
@@ -5187,10 +5289,6 @@ Do you want to apply the required values and continue?</translation>
 			<translation>Select a workorder to delete</translation>
 		</message>
 		<message>
-			<source>Select a WS anchor in the network table.</source>
-			<translation>Select a WS anchor in the network table.</translation>
-		</message>
-		<message>
 			<source>Select a WS or UD anchor in the network table.</source>
 			<translation>Select a WS or UD anchor in the network table.</translation>
 		</message>
@@ -5307,6 +5405,10 @@ Do you want to copy its values to the current node?
 		<message>
 			<source>Select INP file</source>
 			<translation>Select INP file</translation>
+		</message>
+		<message>
+			<source>Select inspection file</source>
+			<translation>Select inspection file</translation>
 		</message>
 		<message>
 			<source>Select just one document</source>
@@ -5485,8 +5587,8 @@ Do you want to copy its values to the current node?
 			<translation>SUCCESS IN DUPLICATING PSECTOR</translation>
 		</message>
 		<message>
-			<source>SUMMARY</source>
-			<translation>SUMMARY</translation>
+			<source>Surface</source>
+			<translation>Surface</translation>
 		</message>
 		<message>
 			<source>Table not found</source>
@@ -6036,8 +6138,20 @@ Current psector: {1}</translation>
 			<translation>These links could not be located within the network: </translation>
 		</message>
 		<message>
+			<source>These pipes received the maximum longevity value for their material. Run Go2Epa before this calculation so pipe pressures are available.</source>
+			<translation>These pipes received the maximum longevity value for their material. Run Go2Epa before this calculation so pipe pressures are available.</translation>
+		</message>
+		<message>
 			<source>These pipes will NOT be assigned a priority value as the configured unknown material, {1}, is not listed in the configuration tab for materials.</source>
 			<translation>These pipes will NOT be assigned a priority value as the configured unknown material, {1}, is not listed in the configuration tab for materials.</translation>
+		</message>
+		<message>
+			<source>These results are used as parent by other results. Deleting them will remove that parent link. The child results will remain. Continue?</source>
+			<translation>These results are used as parent by other results. Deleting them will remove that parent link. The child results will remain. Continue?</translation>
+		</message>
+		<message>
+			<source>The Shamir-Howard method is not available for NODE, LINK or UD assets.</source>
+			<translation>The Shamir-Howard method is not available for NODE, LINK or UD assets.</translation>
 		</message>
 		<message>
 			<source>The start date must be before the end date</source>
@@ -6092,8 +6206,8 @@ Current psector: {1}</translation>
 			<translation>The Workcat_id &quot;{0}&quot; is already in use. Please enter a different ID.</translation>
 		</message>
 		<message>
-			<source>This action cannot be undone. Do you want to proceed?</source>
-			<translation>This action cannot be undone. Do you want to proceed?</translation>
+			<source>The yearly budget must be greater than zero.</source>
+			<translation>The yearly budget must be greater than zero.</translation>
 		</message>
 		<message>
 			<source>This behaviour can be configured in the table &apos;config_param_system&apos; (parameter = &apos;basic_selector</source>
@@ -6222,10 +6336,6 @@ Do you want to proceed?</translation>
 		<message>
 			<source>Total</source>
 			<translation>Total</translation>
-		</message>
-		<message>
-			<source>Total replacement cost (€):</source>
-			<translation>Total replacement cost (€):</translation>
 		</message>
 		<message>
 			<source>translation canceled</source>
@@ -6366,6 +6476,10 @@ Do you want to proceed?</translation>
 		<message>
 			<source>Update cibs schema</source>
 			<translation>Update cibs schema</translation>
+		</message>
+		<message>
+			<source>Update cmms schema</source>
+			<translation>Update cmms schema</translation>
 		</message>
 		<message>
 			<source>Update cm schema</source>
@@ -6694,10 +6808,6 @@ Are you sure you want to delete these records?</translation>
 			<translation>Year</translation>
 		</message>
 		<message>
-			<source>Year:</source>
-			<translation>Year:</translation>
-		</message>
-		<message>
 			<source>You are about to adapt schema &apos;{0}&apos; to cibs.
 
 Are you sure you want to continue?</source>
@@ -6706,18 +6816,22 @@ Are you sure you want to continue?</source>
 Are you sure you want to continue?</translation>
 		</message>
 		<message>
-			<source>You are about to delete the result</source>
-			<translation>You are about to delete the result</translation>
-		</message>
-		<message>
 			<source>You are about to import the INP file in TESTING MODE. This will delete all the data in the database related to the network you are importing. Are you sure you want to proceed?</source>
 			<translation>You are about to import the INP file in TESTING MODE. This will delete all the data in the database related to the network you are importing. Are you sure you want to proceed?</translation>
 		</message>
 		<message>
-			<source>You are about to integrate AM with the following WS schema: {0}
+			<source>You are about to integrate AM with the following {0} schema: {1}
 
 Are you sure you want to continue?</source>
-			<translation>You are about to integrate AM with the following WS schema: {0}
+			<translation>You are about to integrate AM with the following {0} schema: {1}
+
+Are you sure you want to continue?</translation>
+		</message>
+		<message>
+			<source>You are about to integrate CMMS with the following schema: {0}
+
+Are you sure you want to continue?</source>
+			<translation>You are about to integrate CMMS with the following schema: {0}
 
 Are you sure you want to continue?</translation>
 		</message>
@@ -6760,10 +6874,6 @@ Are you sure you want to continue?</translation>
 		<message>
 			<source>You cannot insert more than one feature at the same time, finish editing the previous feature</source>
 			<translation>You cannot insert more than one feature at the same time, finish editing the previous feature</translation>
-		</message>
-		<message>
-			<source>You can only delete results with the status &apos;CANCELED&apos;.</source>
-			<translation>You can only delete results with the status &apos;CANCELED&apos;.</translation>
 		</message>
 		<message>
 			<source>You can save the current configuration to a file and load it later, or load the last saved configuration.</source>
@@ -9355,6 +9465,38 @@ or they were created by another user:</translation>
 			<translation>Link CM to the selected network schema</translation>
 		</message>
 		<message>
+			<source>btn_cmms_create</source>
+			<translation>Create</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_cmms_create</source>
+			<translation>btn_cmms_create</translation>
+		</message>
+		<message>
+			<source>btn_cmms_delete</source>
+			<translation>Delete</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_cmms_delete</source>
+			<translation>btn_cmms_delete</translation>
+		</message>
+		<message>
+			<source>btn_cmms_integrate</source>
+			<translation>Integrate</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_cmms_integrate</source>
+			<translation>Link CMMS to the selected network schema</translation>
+		</message>
+		<message>
+			<source>btn_cmms_update</source>
+			<translation>Update</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_cmms_update</source>
+			<translation>btn_cmms_update</translation>
+		</message>
+		<message>
 			<source>btn_cm_qgis</source>
 			<translation>btn_cm_qgis</translation>
 		</message>
@@ -9603,6 +9745,14 @@ or they were created by another user:</translation>
 			<translation>grb_cm</translation>
 		</message>
 		<message>
+			<source>grb_cmms</source>
+			<translation>CMMS</translation>
+		</message>
+		<message>
+			<source>tooltip_grb_cmms</source>
+			<translation>grb_cmms</translation>
+		</message>
+		<message>
 			<source>grb_connection</source>
 			<translation>Connection</translation>
 		</message>
@@ -9665,6 +9815,14 @@ or they were created by another user:</translation>
 		<message>
 			<source>tooltip_lbl_cm_info</source>
 			<translation>lbl_cm_info</translation>
+		</message>
+		<message>
+			<source>lbl_cmms_info</source>
+			<translation>Not installed</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_cmms_info</source>
+			<translation>lbl_cmms_info</translation>
 		</message>
 		<message>
 			<source>lbl_connection</source>
@@ -10946,6 +11104,29 @@ or they were created by another user:</translation>
 		<message>
 			<source>tooltip_tab_log</source>
 			<translation>tab_log</translation>
+		</message>
+	</context>
+	<context>
+		<name>cmms_info</name>
+		<message>
+			<source>title</source>
+			<translation>CMMS</translation>
+		</message>
+		<message>
+			<source>btn_close</source>
+			<translation>Close</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_close</source>
+			<translation>btn_close</translation>
+		</message>
+		<message>
+			<source>dlg_cmms_info</source>
+			<translation>CMMS</translation>
+		</message>
+		<message>
+			<source>tooltip_dlg_cmms_info</source>
+			<translation>dlg_cmms_info</translation>
 		</message>
 	</context>
 	<context>
@@ -13174,7 +13355,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>chk_export_subcatch</source>
-			<translation>Export UD  subcatchments</translation>
+			<translation>Export UD subcatchments</translation>
 		</message>
 		<message>
 			<source>tooltip_chk_export_subcatch</source>
@@ -13211,6 +13392,14 @@ or they were created by another user:</translation>
 		<message>
 			<source>tooltip_groupBox_2</source>
 			<translation>groupBox_2</translation>
+		</message>
+		<message>
+			<source>lbl_descript</source>
+			<translation>Description:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_descript</source>
+			<translation>lbl_descript</translation>
 		</message>
 		<message>
 			<source>lbl_inp_file</source>
@@ -13989,6 +14178,14 @@ or they were created by another user:</translation>
 			<translation>page_add</translation>
 		</message>
 		<message>
+			<source>page_attachments</source>
+			<translation>Attachments</translation>
+		</message>
+		<message>
+			<source>tooltip_page_attachments</source>
+			<translation>page_attachments</translation>
+		</message>
+		<message>
 			<source>page_dscenario</source>
 			<translation>Dscenario</translation>
 		</message>
@@ -14013,12 +14210,28 @@ or they were created by another user:</translation>
 			<translation>page_main</translation>
 		</message>
 		<message>
+			<source>page_visits</source>
+			<translation>Visits</translation>
+		</message>
+		<message>
+			<source>tooltip_page_visits</source>
+			<translation>page_visits</translation>
+		</message>
+		<message>
 			<source>tab_arc</source>
 			<translation>Arc</translation>
 		</message>
 		<message>
 			<source>tooltip_tab_arc</source>
 			<translation>tab_arc</translation>
+		</message>
+		<message>
+			<source>tab_cmms</source>
+			<translation>CMMS visits</translation>
+		</message>
+		<message>
+			<source>tooltip_tab_cmms</source>
+			<translation>tab_cmms</translation>
 		</message>
 		<message>
 			<source>tab_connec</source>
@@ -17339,6 +17552,22 @@ or they were created by another user:</translation>
 			<translation>btn_close</translation>
 		</message>
 		<message>
+			<source>btn_features_clear</source>
+			<translation>Clear</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_features_clear</source>
+			<translation>btn_features_clear</translation>
+		</message>
+		<message>
+			<source>btn_features_select_all</source>
+			<translation>Select all</translation>
+		</message>
+		<message>
+			<source>tooltip_btn_features_select_all</source>
+			<translation>btn_features_select_all</translation>
+		</message>
+		<message>
 			<source>btn_save2file</source>
 			<translation>Save results to an Excel file...</translation>
 		</message>
@@ -17395,6 +17624,22 @@ or they were created by another user:</translation>
 			<translation>grb_selection</translation>
 		</message>
 		<message>
+			<source>lbl_arc_result</source>
+			<translation>ARC result:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_arc_result</source>
+			<translation>lbl_arc_result</translation>
+		</message>
+		<message>
+			<source>lbl_asset_type</source>
+			<translation>Asset type:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_asset_type</source>
+			<translation>lbl_asset_type</translation>
+		</message>
+		<message>
 			<source>lbl_budget</source>
 			<translation>Yearly budget:</translation>
 		</message>
@@ -17427,12 +17672,28 @@ or they were created by another user:</translation>
 			<translation>lbl_expl_selection</translation>
 		</message>
 		<message>
+			<source>lbl_features_count</source>
+			<translation>0 / 0 selected</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_features_count</source>
+			<translation>lbl_features_count</translation>
+		</message>
+		<message>
 			<source>lbl_material</source>
 			<translation>Material:</translation>
 		</message>
 		<message>
 			<source>tooltip_lbl_material</source>
 			<translation>lbl_material</translation>
+		</message>
+		<message>
+			<source>lbl_node_types</source>
+			<translation>Features to calculate:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_node_types</source>
+			<translation>lbl_node_types</translation>
 		</message>
 		<message>
 			<source>lbl_presszone</source>
@@ -17467,6 +17728,14 @@ or they were created by another user:</translation>
 			<translation>lbl_year</translation>
 		</message>
 		<message>
+			<source>scroll_node_types</source>
+			<translation>scroll_node_types</translation>
+		</message>
+		<message>
+			<source>tooltip_scroll_node_types</source>
+			<translation>Check the node types to include in the calculation</translation>
+		</message>
+		<message>
 			<source>tab_calc</source>
 			<translation>Calculation</translation>
 		</message>
@@ -17491,6 +17760,14 @@ or they were created by another user:</translation>
 			<translation>tab_engine</translation>
 		</message>
 		<message>
+			<source>tab_features</source>
+			<translation>Features</translation>
+		</message>
+		<message>
+			<source>tooltip_tab_features</source>
+			<translation>tab_features</translation>
+		</message>
+		<message>
 			<source>tab_infolog</source>
 			<translation>Info Log</translation>
 		</message>
@@ -17511,7 +17788,7 @@ or they were created by another user:</translation>
 		<name>priority_manager</name>
 		<message>
 			<source>title</source>
-			<translation>Dialog</translation>
+			<translation>Results Manager</translation>
 		</message>
 		<message>
 			<source>btn_close</source>
@@ -17563,7 +17840,7 @@ or they were created by another user:</translation>
 		</message>
 		<message>
 			<source>dlg_priority_manager</source>
-			<translation>Dialog</translation>
+			<translation>Results Manager</translation>
 		</message>
 		<message>
 			<source>tooltip_dlg_priority_manager</source>
@@ -18664,6 +18941,14 @@ or they were created by another user:</translation>
 		<message>
 			<source>tooltip_dlg_result_selector</source>
 			<translation>dlg_result_selector</translation>
+		</message>
+		<message>
+			<source>lbl_asset_type</source>
+			<translation>Asset type:</translation>
+		</message>
+		<message>
+			<source>tooltip_lbl_asset_type</source>
+			<translation>lbl_asset_type</translation>
 		</message>
 		<message>
 			<source>lbl_descript</source>

@@ -118,7 +118,7 @@ class Campaign:
 
         # Check user role
         cm_roles = tools_gw.get_cm_user_role()
-        show_lot = not (cm_roles and 'role_cm_edit' in list(cm_roles))
+        show_lot = not (cm_roles and 'role_addon_cm_edit' in list(cm_roles))
 
         # Show form in docker
         tools_gw.init_docker('qgis_form_docker')
@@ -1111,7 +1111,7 @@ class Campaign:
         if user_info:
             role = user_info[0]
             org_id = user_info[1]
-            if role not in ('role_cm_admin'):
+            if role not in ('role_addon_cm_admin'):
                 if org_id is not None:
                     filters.append(f"organization_id = {org_id}")
 
@@ -1379,7 +1379,7 @@ def update_sector_combo(dialog: QDialog, saved_values: Optional[Dict] = None):
         WHERE u.username = '{username}'
     """
     user_info = tools_db.get_row(sql_user)
-    is_admin = user_info and user_info.get('role_id') == 'role_cm_admin'
+    is_admin = user_info and user_info.get('role_id') == 'role_addon_cm_admin'
 
     expl_widget = dialog.findChild(QComboBox, 'tab_data_expl_id')
     sector_widget = dialog.findChild(QComboBox, 'tab_data_sector_id')

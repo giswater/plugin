@@ -53,8 +53,8 @@ BEGIN
   -- Admins can read everything from base audit tables
   EXECUTE 'DROP POLICY IF EXISTS audit_admin_sel_log ON audit.cm_log';
   EXECUTE 'DROP POLICY IF EXISTS audit_admin_sel_err ON audit.cm_log_error';
-  EXECUTE 'CREATE POLICY audit_admin_sel_log ON audit.cm_log FOR SELECT TO role_cm_admin USING (true)';
-  EXECUTE 'CREATE POLICY audit_admin_sel_err ON audit.cm_log_error FOR SELECT TO role_cm_admin USING (true)';
+  EXECUTE 'CREATE POLICY audit_admin_sel_log ON audit.cm_log FOR SELECT TO role_addon_cm_admin USING (true)';
+  EXECUTE 'CREATE POLICY audit_admin_sel_err ON audit.cm_log_error FOR SELECT TO role_addon_cm_admin USING (true)';
 
   -- Grant SELECT on base log table to mapped roles; RLS will limit rows by org
   FOR r IN SELECT * FROM jsonb_array_elements(role_org_map) LOOP
