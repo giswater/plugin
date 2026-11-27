@@ -881,8 +881,8 @@ BEGIN
 			v_inith = (v_compwidth - v_profwidth)/2;
 		ELSE
 			-- calculate scale
-			v_vs = (v_compheight - v_legendfactor*50 - 10)/(1000*v_elevation);
-			v_hs = (v_compwidth - v_legendfactor*20 - 10)/(1000*v_distance);
+			v_vs = (1000*v_elevation)/(v_compheight - v_legendfactor*50 - 10);
+			v_hs = (1000*v_distance)(v_compwidth - v_legendfactor*20 - 10);
 
 			-- calculate the init point to start to draw profile
 			v_initv = v_legendfactor*50;
@@ -912,6 +912,23 @@ BEGIN
 		UPDATE temp_anl_arc SET cat_geom1 = cat_geom1*v_vs, length = length*v_hs ;
 		EXECUTE 'UPDATE temp_anl_node SET cat_geom1 = cat_geom1*'||v_vs||', top_elev = top_elev*'||v_vs||', elev = elev*'||v_vs||', '||
 		v_fymax||' = '||v_fymax||'*'||v_vs||' ';
+
+		-- vertical (v_vs): totes les cotes i profunditats; horitzontal (v_hs): totes les distàncies
+		UPDATE temp_anl_arc SET
+			cat_geom1 = cat_geom1*v_vs,
+			elev1 = elev1*v_vs, elev2 = elev2*v_vs,
+			y1 = y1*v_vs, y2 = y2*v_vs,
+			z1 = z1*v_vs, z2 = z2*v_vs,
+			length = length*v_hs,
+			total_length = total_length*v_hs;
+
+		EXECUTE 'UPDATE temp_anl_node SET
+			cat_geom1 = cat_geom1*'||v_vs||',
+			top_elev = top_elev*'||v_vs||',
+			elev = elev*'||v_vs||',
+			'||v_fymax||' = '||v_fymax||'*'||v_vs||',
+			total_distance = total_distance*'||v_hs',
+			arc_distance = arc_distance*'||v_hs;
 
 		-- recover values form temp table into response (filtering by spacing certain distance of length in order to not collapse profile)
 		IF v_project_type = 'UD' THEN
